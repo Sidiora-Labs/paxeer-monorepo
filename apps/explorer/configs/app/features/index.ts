@@ -6,6 +6,7 @@ export { default as address3rdPartyWidgets } from './address3rdPartyWidgets';
 export { default as adsBanner } from './adsBanner';
 export { default as adsText } from './adsText';
 export { default as apiDocs } from './apiDocs';
+export { default as assistant } from './assistant';
 export { default as beaconChain } from './beaconChain';
 export { default as bridgedTokens } from './bridgedTokens';
 export { default as blockchainInteraction } from './blockchainInteraction';

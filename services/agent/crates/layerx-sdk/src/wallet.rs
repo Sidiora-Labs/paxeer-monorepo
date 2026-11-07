@@ -191,6 +191,8 @@ impl<'Wallet> Wallet<'Wallet> {
     /// Returns pending or refuses any missing or invalid commitment evidence.
     /// Uses the RPC client's injected clock and bounded deadline for the entire wait;
     /// an unavailable or regressing clock is an error, including during polling.
+    /// Committed waits fetch the covering sequence batch at that receipt's block height
+    /// under the RPC client's independently pinned node commit authority.
     pub fn wait_for(
         &self,
         activity: [u8; 32],
@@ -199,6 +201,24 @@ impl<'Wallet> Wallet<'Wallet> {
     ) -> Result<VerifiedRpcReceipt, RpcError> {
         self.rpc
             .wait_for(activity, commitment, self.policy, timeout)
+    }
+
+    /// Waits for a signed transaction while retaining its exact canonical activity.
+    ///
+    /// # Errors
+    /// Refuses empty signed bytes and preserves RPC verification errors.
+    pub fn wait_for_signed(
+        &self,
+        raw: &[u8],
+        commitment: Commitment,
+        timeout: Duration,
+    ) -> Result<VerifiedRpcReceipt, RpcError> {
+        if raw.is_empty() {
+            return Err(RpcError::InvalidRequest);
+        }
+        let mut receipt = self.wait_for(transaction_hash(raw), commitment, timeout)?;
+        receipt.bind_canonical_activity(raw.to_vec());
+        Ok(receipt)
     }
 
     pub fn wait_for_with_commit(

@@ -7803,10 +7803,10 @@ Contract context <code>contract_context.1.result-registry-j21</code>:
 | <code>acceptance.1.5.2</code> | qualification | UNRUN |
 | <code>req.1005</code> | ac_2 | lxp_result_domain (src/protocol/lxp_result.c:14) places -737, -738 and -739 in LXP_RESULT_DOMAIN_MODULE and lxp_result_is_fatal returns false for each. |
 | <code>acceptance.1.6.1</code> | req | 1006.1 |
-| <code>acceptance.1.6.1</code> | scenario | Given the kernel library, when lxp_result_domain is called with -9, -740 and -999, then each returns LXP_RESULT_DOMAIN_UNKNOWN while -7 still returns LXP_RESULT_DOMAIN_CODEC |
+| <code>acceptance.1.6.1</code> | scenario | Given the kernel library, when lxp_result_domain is called with -9, -742 and -999, then each returns LXP_RESULT_DOMAIN_UNKNOWN while -7 still returns LXP_RESULT_DOMAIN_CODEC |
 | <code>acceptance.1.6.1</code> | test | tests/codec/lxp_test_result_domain.c::result_domain_unregistered_unknown (planned) |
 | <code>acceptance.1.6.1</code> | qualification | UNRUN |
-| <code>req.1006</code> | ac_1 | lxp_result_domain (src/protocol/lxp_result.c:14-53) returns LXP_RESULT_DOMAIN_UNKNOWN (include/layerx/lxp_result.h:22) for a negative value that is not a row of LXP_RESULT_CODE_LIST, such as -9, -740 and -999, where HEAD buckets every negative value by range. |
+| <code>req.1006</code> | ac_1 | lxp_result_domain (src/protocol/lxp_result.c:14-53) returns LXP_RESULT_DOMAIN_UNKNOWN (include/layerx/lxp_result.h:22) for a negative value that is not a row of LXP_RESULT_CODE_LIST, such as -9, -742 and -999, where HEAD buckets every negative value by range. |
 | <code>acceptance.1.6.2</code> | req | 1006.2 |
 | <code>acceptance.1.6.2</code> | scenario | Given the list rows, when lxp_result_is_registered is evaluated for every value from -1100 to 10, then it is true exactly for the list rows |
 | <code>acceptance.1.6.2</code> | test | tests/codec/lxp_test_result_domain.c::result_is_registered_matches_list (planned) |
@@ -8176,3 +8176,25 @@ No interface block names this anchor; the citing criteria and rules below define
 | <code>acceptance.1.967.1</code> | test | modules/lxphost/store_keys_vector_test.go::TestStoreKeysVectorV1 (planned) |
 | <code>acceptance.1.967.1</code> | qualification | UNRUN |
 | <code>req.1967</code> | ac_1 | store_keys_v1.json holds the moduleKVKey and accountKey outputs for the module 9 program, wind-down and sandbox keys. |
+
+## Native Programs CALL result distinctions (decision 2668)
+
+`LXP_RESULT_CODE_LIST` assigns LXP_ERR_REPLAY_BOUND = -740 and
+LXP_ERR_ENGINE_FAULT = -741 immediately after -739. Both are registered,
+nonfatal module results and resolve by their exact names through `lxp_result_name`.
+Their revert names are LXP_REPLAY_BOUND and LXP_ENGINE_FAULT; both are non-retryable.
+
+The native `from_captured` adapter in `src/native_result.rs` matches the complete capture producer refusal
+`ExecutionError::Fault(ExecutionFault::EngineFault { reason: "program replay record refused: Bounds" })`
+before the general Fault arm and answers -740. This is the Bounds error raised
+by `ProgramReplayRecord::from_captured` and propagated by
+`capture_program_record_from_store` in execute.rs. Every other
+`ExecutionError::Fault` answers -741, the executor engine fault of a CALL. All other execution error variants, and a
+missing replay record at publication, retain -3 (LXP_ERR_NON_CANONICAL).
+Successful unprofiled CALLs and retained typed guest terminal outcomes retain
+their existing records and metering. A guest start trap under a replay profile
+is a retained failure record with replay evidence, preserved by the adapter.
+
+The focused proof is `programs/crates/layerx-programs-runtime/tests/repair_22_31_566.rs`
+and `tests/codec/lxp_test_result_codes.c`; the repair record references the private
+bounded gate ledger and its exact verified revision.

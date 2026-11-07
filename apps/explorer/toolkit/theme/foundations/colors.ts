@@ -2,84 +2,9 @@ import { defaultsDeep } from 'es-toolkit/compat';
 
 import config from 'configs/app';
 
-// Decision 2587: the explorer palette, with compatibility names for existing consumers.
-const LIGHT_ROLES = {
-  canvas: '#FFFFFF',
-  surface: '#F7F8FA',
-  raised: '#FFFFFF',
-  hairline: 'rgba(16,18,24,0.08)',
-  borderStrong: 'rgba(16,18,24,0.16)',
-  textPrimary: '#0E1016',
-  textSecondary: '#4B5262',
-  textMuted: '#8A91A0',
-  accent: '#2B4FDA',
-  accentSoft: 'rgba(43,79,218,0.10)',
-  onAccent: '#FFFFFF',
-  positive: '#0E8F55',
-  positiveSoft: 'rgba(14,143,85,0.10)',
-  negative: '#D1343B',
-  negativeSoft: 'rgba(209,52,59,0.10)',
-  warning: '#B46A00',
-  warningSoft: 'rgba(180,106,0,0.10)',
-  headerBar: 'rgba(255,255,255,0.85)',
-  chartAreaStart: 'rgba(43,79,218,0.30)',
-  chartAreaStop: 'rgba(43,79,218,0)',
-};
+import { LIGHT, DARK } from './palette';
 
-const DARK_ROLES = {
-  canvas: '#0B0C10',
-  surface: '#111319',
-  raised: '#171A21',
-  hairline: 'rgba(255,255,255,0.08)',
-  borderStrong: 'rgba(255,255,255,0.16)',
-  textPrimary: '#F2F4F8',
-  textSecondary: '#A0A8B8',
-  textMuted: '#6B7385',
-  accent: '#4F7DFF',
-  accentSoft: 'rgba(79,125,255,0.14)',
-  onAccent: '#FFFFFF',
-  positive: '#2FD27D',
-  positiveSoft: 'rgba(47,210,125,0.14)',
-  negative: '#FF5C5C',
-  negativeSoft: 'rgba(255,92,92,0.14)',
-  warning: '#F5B544',
-  warningSoft: 'rgba(245,181,68,0.14)',
-  headerBar: 'rgba(11,12,16,0.85)',
-  chartAreaStart: 'rgba(79,125,255,0.30)',
-  chartAreaStop: 'rgba(79,125,255,0)',
-};
-
-function withLegacyRoles(roles: typeof LIGHT_ROLES) {
-  return {
-    ...roles,
-    surfaceContainer: roles.canvas,
-    surfaceContainerHigh: roles.raised,
-    onSurface: roles.textPrimary,
-    onSurfaceVariant: roles.textSecondary,
-    iconSecondary: roles.textMuted,
-    outline: roles.hairline,
-    dataTableBorder: roles.hairline,
-    primary: roles.accent,
-    onPrimary: roles.onAccent,
-    primaryHover: roles.accent,
-    tonal: roles.accentSoft,
-    accentStrong: roles.accent,
-    selectedOption: roles.accentSoft,
-    graphStart: roles.chartAreaStart,
-    graphStop: roles.chartAreaStop,
-    success: roles.positive,
-    successSoft: roles.positiveSoft,
-    destructive: roles.negative,
-    destructiveSoft: roles.negativeSoft,
-    focusRing: roles.accent,
-    sparklineUp: roles.positive,
-    sparklineDown: roles.negative,
-    chartGrid: roles.hairline,
-  };
-}
-
-export const LIGHT = withLegacyRoles(LIGHT_ROLES);
-export const DARK = withLegacyRoles(DARK_ROLES);
+export { LIGHT, DARK } from './palette';
 
 function paletteRole(role: keyof typeof LIGHT) {
   return { _light: { value: LIGHT[role] }, _dark: { value: DARK[role] } };

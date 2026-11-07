@@ -34,7 +34,30 @@ func recordedSandboxLeaseRequest(t *testing.T) []byte {
 	return request
 }
 
-func prepareSandboxExecute(t *testing.T, h *harness, callArgs []interface{}, callPayload []byte) ([]interface{}, func()) {
+func decodeSandboxLeaseRequest(t *testing.T, request []byte) lp.SandboxLeaseRequest {
+	t.Helper()
+	require.Len(t, request, 643)
+	require.Equal(t, sandboxLeaseStateDomain, string(request[:len(sandboxLeaseStateDomain)]))
+	terms := request[len(sandboxLeaseStateDomain):]
+	r := lp.SandboxLeaseRequest{
+		LeaseID: [32]byte(terms[:32]), Tenant: [32]byte(terms[32:64]),
+		Program: [32]byte(terms[64:96]), CodeHash: [32]byte(terms[96:128]),
+		Asset: [32]byte(terms[160:192]), Amount: new(big.Int).SetBytes(terms[256:272]),
+		OpenedAt: binary.BigEndian.Uint64(terms[336:344]), Expiry: binary.BigEndian.Uint64(terms[344:352]),
+		FeeVersion:    binary.BigEndian.Uint32(terms[416:420]),
+		ActivityID:    [32]byte(request[len(request)-107 : len(request)-75]),
+		ReceiptDigest: [32]byte(request[len(request)-43 : len(request)-11]),
+	}
+	for i := range r.Limits {
+		r.Limits[i] = binary.BigEndian.Uint64(terms[272+8*i : 280+8*i])
+	}
+	for i := range r.FeeRates {
+		r.FeeRates[i] = binary.BigEndian.Uint64(terms[420+8*i : 428+8*i])
+	}
+	return r
+}
+
+func prepareSandboxExecute(t *testing.T, h *harness, callArgs []interface{}, callPayload []byte, leaseID, activityID, receiptDigest [32]byte) ([]interface{}, []byte, func()) {
 	t.Helper()
 	ctx := h.stateDB.Ctx()
 	authority, did, err := lp.PrincipalOf(ctx, h.executor.TestEVMKeeper(), h.caller)
@@ -48,8 +71,7 @@ func prepareSandboxExecute(t *testing.T, h *harness, callArgs []interface{}, cal
 	asset := [32]byte(feeRecord[65:97])
 	_, tenantAccount, err := lxphost.AssetAccountID(h.publicKey, asset)
 	require.NoError(t, err)
-	recorded := recordedSandboxLeaseRequest(t)
-	program, leaseID := callArgs[0].([32]byte), [32]byte(recorded[len(sandboxLeaseStateDomain):len(sandboxLeaseStateDomain)+32])
+	program := callArgs[0].([32]byte)
 	record, err := h.host.ReadProgram(ctx, program)
 	require.NoError(t, err)
 	codeHash := record.CodeHash
@@ -112,11 +134,9 @@ func prepareSandboxExecute(t *testing.T, h *harness, callArgs []interface{}, cal
 		Amount:   big.NewInt(100000000),
 		Limits:   [8]uint64{budget[0], budget[1], budget[2], budget[3], budget[4], budget[5], budget[6], 1048576},
 		OpenedAt: 100, Expiry: 200, FeeVersion: 1, FeeRates: [7]uint64{1, 1, 1, 1, 1, 1, 1},
-		ActivityID:    [32]byte(recorded[len(recorded)-107 : len(recorded)-75]),
-		ReceiptDigest: [32]byte(recorded[len(recorded)-43 : len(recorded)-11]),
+		ActivityID: activityID, ReceiptDigest: receiptDigest,
 	})
 	require.NoError(t, err)
-	require.Equal(t, recorded, request, "the request codec must match the committed native submission byte for byte")
 	fund, err := lp.ProgramsABI.Pack("sandboxFund", leaseID, authority.Principal, program, escrow, asset,
 		big.NewInt(100000000), uint64(200), uint32(1), [7]uint64{1, 1, 1, 1, 1, 1, 1}, request, program,
 		[]lp.TransferLeg{{From: tenantAccount, Asset: asset, To: escrow, Amount: big.NewInt(100000000)}})
@@ -150,7 +170,7 @@ func prepareSandboxExecute(t *testing.T, h *harness, callArgs []interface{}, cal
 		[32]byte(storedTerms[192:224]), [32]byte(storedTerms[160:192]), [32]byte(storedTerms[224:256]),
 		binary.BigEndian.Uint32(storedSchedule[:4]), rates, callPayload, big.NewInt(0),
 	}
-	return args, func() {
+	return args, request, func() {
 		t.Helper()
 		main, err := h.host.ReadAccount(h.stateDB.Ctx(), mainName, mainID)
 		require.NoError(t, err)
@@ -190,7 +210,8 @@ func TestProgramsSandboxExecuteEmitsUsage(t *testing.T) {
 		6, 'm', 'e', 'm', 'o', 'r', 'y', 2, 0, 10, 11, 2, 4, 0, 65, 0, 11, 4, 0, 65, 0, 11,
 	}
 	recorded := recordedSandboxLeaseRequest(t)
-	program := [32]byte(recorded[len(sandboxLeaseStateDomain)+64 : len(sandboxLeaseStateDomain)+96])
+	recordedRequest := decodeSandboxLeaseRequest(t, recorded)
+	program := recordedRequest.Program
 	codeHash := sha256.Sum256(wasm)
 	iface := append([]byte("LayerX/program-interface/v3\x00"), codeHash[:]...)
 	iface = binary.BigEndian.AppendUint16(iface, 3)
@@ -232,7 +253,18 @@ func TestProgramsSandboxExecuteEmitsUsage(t *testing.T) {
 	require.Equal(t, uint64(1), binary.BigEndian.Uint64(payload[36:44]))
 	require.Equal(t, args[8], payload[236:])
 
-	args, fundFeeLimit := prepareSandboxExecute(t, h, callArgs, callPayload)
+	args, request, fundFeeLimit := prepareSandboxExecute(t, h, callArgs, callPayload,
+		recordedRequest.LeaseID, recordedRequest.ActivityID, recordedRequest.ReceiptDigest)
+	require.Equal(t, recorded, request, "the request codec must match the committed native submission byte for byte")
+	decodedRequest := decodeSandboxLeaseRequest(t, request)
+	require.Equal(t, program, decodedRequest.Program)
+	require.Equal(t, recordedRequest.Asset, decodedRequest.Asset)
+	require.Equal(t, recordedRequest.Limits, decodedRequest.Limits)
+	require.Equal(t, recordedRequest.ActivityID, decodedRequest.ActivityID)
+	require.Equal(t, recordedRequest.ReceiptDigest, decodedRequest.ReceiptDigest)
+	roundTrip, err := lp.EncodeSandboxLeaseRequest(decodedRequest)
+	require.NoError(t, err)
+	require.Equal(t, recorded, roundTrip, "the recording must round-trip through the request codec byte for byte")
 	if !t.Run("fee limit reaches submission", func(t *testing.T) {
 		for _, limit := range []*big.Int{
 			big.NewInt(9), new(big.Int).Lsh(big.NewInt(1), 64),

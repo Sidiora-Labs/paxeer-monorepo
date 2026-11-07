@@ -211,7 +211,7 @@ These names appear in
 
 Four more names are not in that file but are needed whenever the API and the
 frontend are not behind one proxy on the default port. They are part of the
-frontend's own catalogue, `apps/explorer/docs/ENVS.md`:
+frontend's own catalogue, `docs/explorer/ENVS.md`:
 `NEXT_PUBLIC_API_PORT`, `NEXT_PUBLIC_APP_PORT`, `NEXT_PUBLIC_AD_BANNER_PROVIDER`,
 `NEXT_PUBLIC_AD_TEXT_PROVIDER`.
 

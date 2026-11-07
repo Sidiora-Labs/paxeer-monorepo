@@ -22,23 +22,23 @@ Prepare the next release of the application.
 - **If the user specified major or patch:** Compute the next **major** (e.g. `v2.0.0`) or **patch** (e.g. `v1.2.4`) version accordingly.
 - Use this tag (e.g. `v1.3.0`) as the release tag for all following steps.
 
-### 2. Update `./docs/ENVS.md` and `./docs/DEPRECATED_ENVS.md`
+### 2. Update `../../docs/explorer/ENVS.md` and `../../docs/explorer/DEPRECATED_ENVS.md`
 
 - In both files, replace every placeholder that contains the text "upcoming" with the next release tag followed by a "+". Examples:
   - `"upcoming"` → `"v1.3.0+"`
   - `"<upcoming>"` → `"v1.3.0+"`
-- You can use search-and-replace in the editor or a script (e.g. `sed -i '' 's/upcoming/v1.3.0+/g' ./docs/ENVS.md` and similarly for `DEPRECATED_ENVS.md`; adjust for `<upcoming>` if present). Ensure all such placeholders are updated.
+- You can use search-and-replace in the editor or a script (e.g. `sed -i '' 's/upcoming/v1.3.0+/g' ../../docs/explorer/ENVS.md` and similarly for `DEPRECATED_ENVS.md`; adjust for `<upcoming>` if present). Ensure all such placeholders are updated.
 
 ### 3. Create release notes
 
 Perform the following sub-steps **in order**.
 
-- **Reference files:** Use `./RELEASE_NOTES.md` as the template and, for format inspiration, this [example release](https://github.com/blockscout/frontend/releases/tag/v2.3.0).
+- **Reference files:** Use `../../docs/explorer/RELEASE_NOTES.md` as the template and, for format inspiration, this [example release](https://github.com/blockscout/frontend/releases/tag/v2.3.0).
 - **Get release notes draft:** Use the GitHub API to generate draft release notes with main as the target (e.g. `gh api repos/OWNER/REPO/releases/generate-notes -f tag_name=<next-tag> -f target_commitish=main -f previous_tag_name=<latest-release-tag>`). Parse the response to get the list of pull request **numbers** and new contributors. Keep this list; every PR in it must appear in the final notes.
 - **Fetch and store PR data (labels and descriptions):** Before editing the release notes file, fetch labels and body for all PRs from the draft **once** and save them to a temporary file so later steps do not hit the GitHub API repeatedly. Use the script that rate-limits requests (authenticated API limit is 5000 requests/hour; the script adds a delay between calls).
   - From the **repository root**, run: `node .cursor/skills/prepare-release/fetch-release-prs.js <pr-number-1> <pr-number-2> ... --out release-prs-data.json` with every PR number from the release notes draft. Example: `node .cursor/skills/prepare-release/fetch-release-prs.js 2725 2726 2727 --out release-prs-data.json`.
   - The script writes JSON to `release-prs-data.json` in the repository root (format: `{ "prs": [ { "number", "title", "author", "url", "labels", "body" }, ... ] }`). Use this file as the **single source of truth** for labels and descriptions in the next two steps; do not call the GitHub API again when mapping sections or writing the ENV section.
-- **Copy and fill the notes file:** Copy `./RELEASE_NOTES.md` to a new file `./RELEASE_NOTES_<release-tag>.md` (e.g. `RELEASE_NOTES_v1.3.0.md`).
+- **Copy and fill the notes file:** Copy `../../docs/explorer/RELEASE_NOTES.md` to a new file `../../docs/explorer/RELEASE_NOTES_<release-tag>.md` (e.g. `../../docs/explorer/RELEASE_NOTES_v1.3.0.md`).
 - **Map PRs to sections:** For each section in the new file **except** "Changes in ENV variables", add the relevant pull requests. **Use only the data in `release-prs-data.json`** (labels, title, author, url) — do not call the GitHub API again. For each line use the format: `- <pull-request-title> by @<author> in <link-to-pull-request>`. Example: `- API documentation page by @tom2drum in https://github.com/blockscout/frontend/pull/2725`. Capitalize the first letter of the PR title if needed. Assign PRs to sections using each PR’s **labels** from the stored file and this mapping:
 
   | Section                   | Labels                                      |

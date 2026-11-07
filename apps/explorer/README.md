@@ -2,7 +2,7 @@
 
 This is the frontend of the Paxeer X Network block explorer: a fork of the
 Blockscout Next.js frontend, imported from `blockscout/frontend` at tag
-`v2.7.2` (see [`services/explorer/UPSTREAM.md`](../../services/explorer/UPSTREAM.md)). It reads the API of the
+`v2.7.2` (see [`docs/explorer/UPSTREAM.md`](../../docs/explorer/UPSTREAM.md)). It reads the API of the
 explorer backend in [`services/explorer/backend`](../../services/explorer/backend) and is served under the
 `/explorer` base path set in `next.config.js`.
 
@@ -13,7 +13,7 @@ The app is distributed as a Docker image built from
 `.github/workflows/explorer-images.yml` as
 `ghcr.io/sidiora-labs/paxeer-x-explorer-frontend`. It is configured through
 environment variables passed when the container starts; see the full list of
-ENVs and their description [here](./docs/ENVS.md).
+ENVs and their description [here](../../docs/explorer/ENVS.md).
 
 ```sh
 docker run -p 3000:3000 --env-file <path-to-your-env-file> ghcr.io/sidiora-labs/paxeer-x-explorer-frontend:latest
@@ -29,7 +29,7 @@ yarn build
 
 `yarn lint:eslint`, `yarn lint:tsc` and `yarn test:vitest` run the linters,
 the type check and the unit tests. Upstream's guide to building a custom image
-is kept in [`docs/CUSTOM_BUILD.md`](./docs/CUSTOM_BUILD.md).
+is kept in [`../../docs/explorer/CUSTOM_BUILD.md`](../../docs/explorer/CUSTOM_BUILD.md).
 
 ## Paxeer X
 
@@ -50,19 +50,19 @@ Validating a preset without a full build:
 ```sh
 cd deploy/tools/envs-validator
 yarn install --frozen-lockfile
-NEXT_PUBLIC_GIT_COMMIT_SHA=$(git rev-parse --short HEAD) NEXT_PUBLIC_GIT_TAG=$(git describe --tags --always --abbrev=0) ../../scripts/collect_envs.sh ../../../docs/ENVS.md
+NEXT_PUBLIC_GIT_COMMIT_SHA=$(git rev-parse --short HEAD) NEXT_PUBLIC_GIT_TAG=$(git describe --tags --always --abbrev=0) ../../scripts/collect_envs.sh ../../../../../docs/explorer/ENVS.md
 yarn build
 ./node_modules/.bin/dotenv -e ../../../configs/envs/paxeer-x.env yarn run validate
 ```
 
 ## Contributing
 
-Upstream's [contribution guide](./docs/CONTRIBUTING.md) and [code of conduct](./CODE_OF_CONDUCT.md) are kept with the imported tree.
+Upstream's [contribution guide](../../docs/explorer/CONTRIBUTING.md) and [code of conduct](../../docs/explorer/CODE_OF_CONDUCT.md) are kept in `docs/explorer/` at the monorepo root.
 
 ## Resources
-- [App ENVs list](./docs/ENVS.md)
-- [Contribution guide](./docs/CONTRIBUTING.md)
-- [Making a custom build](./docs/CUSTOM_BUILD.md)
+- [App ENVs list](../../docs/explorer/ENVS.md)
+- [Contribution guide](../../docs/explorer/CONTRIBUTING.md)
+- [Making a custom build](../../docs/explorer/CUSTOM_BUILD.md)
 
 ## License
 

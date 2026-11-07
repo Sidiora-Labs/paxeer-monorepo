@@ -258,6 +258,24 @@ impl SequencerEndpoint {
         Self::new_with_plaintext_policy(url, trust_anchors, false)
     }
 
+    /// Opens the node JSON-RPC at its root, without a hosted route suffix.
+    pub fn new_node(url: &str, trust_anchors: &[&[u8]]) -> Result<Self, SequencerError> {
+        let uri: ureq::http::Uri = url.parse().map_err(|_| SequencerError::Endpoint)?;
+        if uri.path() != "/"
+            || uri.query().is_some()
+            || uri
+                .authority()
+                .is_none_or(|authority| authority.as_str().contains('@'))
+            || url.contains('#')
+            || url
+                .bytes()
+                .any(|byte| byte.is_ascii_whitespace() || byte.is_ascii_control())
+        {
+            return Err(SequencerError::Endpoint);
+        }
+        Self::new(url, trust_anchors)
+    }
+
     pub fn new_with_railway_private_network(
         url: &str,
         trust_anchors: &[&[u8]],

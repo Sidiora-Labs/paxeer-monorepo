@@ -25,7 +25,7 @@ first-party fixtures under `services/interop/specs/conformance/transport-*`.
 Paxeer mainnet-beta is one BFT network, EVM chain ID 125 (`eip155:125` in x402).
 The kernel is part of the network and proposes blocks; block commit establishes
 finality. Receipt signing and block commit are stages of that network. See the
-[portable verification guide](../../PORTABILITY.md) and
+[portable verification guide](../../../../docs/interop/PORTABILITY.md) and
 [receipt format](../layerx-portable/FORMAT.md) for the limits of signature proofs.
 
 ## Facilitator conformance results

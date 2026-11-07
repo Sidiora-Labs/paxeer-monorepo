@@ -116,7 +116,7 @@ type Price struct {
 // the exact signed fraction per hour from the latest FundingSettled (null
 // before the first settlement); LastFundingRate is its nullable float copy.
 // Reference estimates and the frontend's volume_24h_usd/oi_usd aliases are
-// not fields of this wire record; see apps/perps/data_api.md, Symbol Service.
+// not fields of this wire record; see docs/perps/data-api.md, Symbol Service.
 type Stats struct {
 	Symbol                string   `json:"symbol"`
 	Volume24h             float64  `json:"volume_24h"`
