@@ -152182,7 +152182,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.37.29]
 title = "Align the two legacy plugin suites with the landed manager-decision behaviour"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 3
 requires = ["22.37.18"]
