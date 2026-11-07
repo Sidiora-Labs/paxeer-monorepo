@@ -1,6 +1,7 @@
 use super::trust::CommittedCheckpoint;
 use super::{by_activity, hex, json, protected, refusal, Config, Request, Response};
 use layerx_platform_authority::{authorized_batch_by_activity, receipt_locator, AuthorityFacts};
+use layerx_types::verify::VerificationLevel;
 use layerx_wire::receipt::{decode, decode_batch_header};
 use serde::{Deserialize, Serialize};
 use serde_json::{json as value, Value};
@@ -960,7 +961,7 @@ fn policy_route(
                 "authorities": authorities,
                 "canonical_core_bytes": hex::encode(&state),
                 "head_sequence": head, "revocation_sequence": revision,
-                "frozen": false, "verification_level": "checkpoint_finalised",
+                "frozen": false, "verification_level": VerificationLevel::COMMITTED.wire_label(),
                 "finality": native_checkpoint(item)?.finality.document()
             }),
         ));
@@ -1346,6 +1347,13 @@ impl Config {
 
 #[cfg(test)]
 impl Config {
+    pub(crate) fn fixture_subject_binding(&mut self, binding: layerx_identity_binding::Client) {
+        self.human
+            .as_mut()
+            .expect("fixture human authority")
+            .binding = Some(binding);
+    }
+
     pub(crate) fn fixture_human_policy(&mut self, policy: &Value, root: &std::path::Path) {
         let principal: PrincipalPolicy =
             serde_json::from_value(policy.clone()).expect("fixture principal");
