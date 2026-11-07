@@ -150108,7 +150108,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.609]
 title = "Remove the wiring requests from the perps client contract and the tests that pin them"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -150167,7 +150167,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.603]
 title = "Remove the unreachable origins from the wallet and perps apps and ship their assets locally"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -150198,7 +150198,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.591]
 title = "Route the px reads of the wallet SDK and the seller middleware to the node root"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -179116,7 +179116,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.592]
 title = "Move the agent SDK faucet call to the hosted px_requestFunds operation"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -206105,7 +206105,7 @@ do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete ap
 
 [task.22.31.602]
 title = "Delete the commented-out code blocks of the litt storage utilities"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -286215,7 +286215,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.598]
 title = "Build the native library and refresh the ABI copies in the wallet attestor check"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -286245,7 +286245,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.597]
 title = "Repair the accepter receipt tests of the sequencer that time out in the node-build check"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -286275,7 +286275,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.595]
 title = "Make execution and simulation agree on the kernel gas of a hosted program receipt"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -286305,7 +286305,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.589]
 title = "Refuse the anchor store delete plan unless the merge plan was applied at a lower height"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -329392,7 +329392,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.605]
 title = "Run the untested projects in the continuous checks"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
