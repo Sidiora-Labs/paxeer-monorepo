@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { createServer, type Server } from 'node:http';
 import { once } from 'node:events';
-import { locks } from 'node:worker_threads';
+import * as workerThreads from 'node:worker_threads';
 import { act, createElement, useLayoutEffect } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { ethers } from 'ethers';
@@ -17,6 +17,8 @@ import { usePnsSearch } from './usePnsSearch';
 import { usePnsRegistration } from './usePnsRegistration';
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+
+const locks: unknown = Reflect.get(workerThreads, 'locks');
 
 const fixtureWallet = new ethers.Wallet(`0x${'01'.padStart(64, '0')}`);
 const account = fixtureWallet.address;
@@ -222,7 +224,15 @@ async function rpc(method: string, params: unknown[]): Promise<unknown> {
 }
 
 beforeAll(async () => {
-  if (!locks) throw new Error('PNS recovery tests require Node Web Locks');
+  if (
+    typeof locks !== 'object' ||
+    locks === null ||
+    !('request' in locks) ||
+    typeof locks.request !== 'function' ||
+    !('query' in locks) ||
+    typeof locks.query !== 'function'
+  )
+    throw new Error('PNS recovery tests require Node Web Locks');
   Object.defineProperty(navigator, 'locks', { value: locks, configurable: true });
   expect(navigator.locks).toBe(locks);
   expect(typeof navigator.locks.request).toBe('function');
@@ -477,6 +487,15 @@ async function pns_registration_journal_recovers_original_secret_after_component
   expect(original.status).toBe('waiting');
   expect(original.countdown).toBe(60);
   expect(original.transactions[0].hash).toMatch(/^0x[0-9a-f]{64}$/);
+  const receipt = await provider.getTransactionReceipt(original.transactions[0].hash!);
+  expect(receipt).toMatchObject({
+    hash: original.transactions[0].hash,
+    blockHash,
+    blockNumber: 1,
+    status: 1,
+    from: account,
+    to: ethers.getAddress(deployment.controller),
+  });
   await stop();
   currentAccount = '0x0000000000000000000000000000000000000002';
   await mount();

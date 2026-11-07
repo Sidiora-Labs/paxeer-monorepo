@@ -106,6 +106,8 @@ async function rung_not_rendered_distinguishes_authenticated_committed_outcomes(
   expect(parseTransaction(chain.recording.rawTransaction).type).toBe('eip1559');
   expect(receipt.status).toBe('0x1');
   expect(receipt.blockHash).toBe(chain.recording.receiptJson.blockHash);
+  expect(receipt.blockNumber).toBe(chain.recording.receiptJson.blockNumber);
+  expect(BigInt(receipt.blockNumber)).toBeGreaterThanOrEqual(BigInt(receipt.height));
   const sent = surfaceReceipt(receipt, bridge(chain));
   const state = {
     sending: false,

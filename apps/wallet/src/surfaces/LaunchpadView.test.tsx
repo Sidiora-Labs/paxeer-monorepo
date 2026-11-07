@@ -30,11 +30,13 @@ import {
   type Mounted,
 } from './test/chain';
 
+import { RecordedSurfaceChain } from './test/recordedReceipts';
+
 let chain: SurfaceChain;
 let mounted: Mounted | null = null;
 
 beforeEach(() => {
-  chain = new SurfaceChain();
+  chain = new RecordedSurfaceChain();
 });
 
 afterEach(async () => {
@@ -119,7 +121,10 @@ describe('LaunchpadView', () => {
     }
   }
 
-  test(launchpad_view_refuses_a_deadline_that_is_not_a_positive_whole_number_of_minutes);
+  test(
+    launchpad_view_refuses_a_deadline_that_is_not_a_positive_whole_number_of_minutes.name,
+    launchpad_view_refuses_a_deadline_that_is_not_a_positive_whole_number_of_minutes
+  );
 
   async function launchpad_view_refuses_the_approve_under_the_sponsored_fee_and_sends_nothing() {
     const fixture = callFixtures().launchpad.buy as { pool: string; minOut: string };
@@ -157,22 +162,13 @@ describe('LaunchpadView', () => {
     expect(container.querySelector('[data-role="sent"]')).toBeNull();
   }
 
-  test(launchpad_view_refuses_the_approve_under_the_sponsored_fee_and_sends_nothing);
+  test(
+    launchpad_view_refuses_the_approve_under_the_sponsored_fee_and_sends_nothing.name,
+    launchpad_view_refuses_the_approve_under_the_sponsored_fee_and_sends_nothing
+  );
 
   async function launchpad_view_stops_the_write_when_the_approve_receipt_fails() {
-    class RevertedApprovalChain extends SurfaceChain {
-      override async request(args: Parameters<SurfaceChain['request']>[0]): Promise<unknown> {
-        const answer = await super.request(args);
-        if (args.method !== 'paxeer_sendTransactionReceipted') return answer;
-        const call = this.sent.at(-1);
-        expect(call?.to).toBe(this.launchpadUsdl);
-        expect(call?.data).toBe(launchpadApproveCall(this.launchpadUsdl, 1_000_000n).data);
-        if (typeof answer !== 'object' || answer === null) throw new Error('no approve receipt');
-        return { ...answer, status: '0x0' };
-      }
-    }
-
-    chain = new RevertedApprovalChain();
+    chain = new RecordedSurfaceChain({ recordingIds: ['launchpad-approve-reverted'] });
     const fixture = callFixtures().launchpad.buy as { pool: string; minOut: string };
     mounted = await mountSurface(chain, <LaunchpadView sidRate={null} />);
     const { container } = mounted;
@@ -206,7 +202,10 @@ describe('LaunchpadView', () => {
     );
   }
 
-  test(launchpad_view_stops_the_write_when_the_approve_receipt_fails);
+  test(
+    launchpad_view_stops_the_write_when_the_approve_receipt_fails.name,
+    launchpad_view_stops_the_write_when_the_approve_receipt_fails
+  );
 
   async function launchpad_view_buys_through_the_module_and_shows_the_decoded_swap() {
     const fixture = callFixtures().launchpad.buy as {
@@ -216,7 +215,10 @@ describe('LaunchpadView', () => {
     };
     const vector = eventVectors('launchpad').find((candidate) => candidate.event === 'Swap');
     if (!vector) throw new Error('no Swap vector');
-    chain.logsFor = () => [vectorLog(LAUNCHPAD_PRECOMPILE, LAUNCHPAD_EVENTS, vector)];
+    chain.logsFor = (call) =>
+      call.to === LAUNCHPAD_PRECOMPILE
+        ? [vectorLog(LAUNCHPAD_PRECOMPILE, LAUNCHPAD_EVENTS, vector)]
+        : [];
     const now = () => (Number(fixture.deadline) - 600) * 1000;
     mounted = await mountSurface(chain, <LaunchpadView sidRate={null} now={now} />);
     const { container } = mounted;
@@ -229,7 +231,12 @@ describe('LaunchpadView', () => {
     await typeInto(container, 'minOut', fixture.minOut);
     await until(() => send(container)?.disabled === false, 'send enabled');
     await click(send(container), 'send');
-    await until(() => text(container, '[data-role="status"]') === 'confirmed', 'receipt');
+    await until(
+      () => container.querySelector('[data-role="sent"], [data-role="send-error"]') !== null,
+      'receipt'
+    );
+    expect(text(container, '[data-role="send-error"]')).toBe('');
+    expect(text(container, '[data-role="status"]')).toBe('confirmed');
 
     const order = {
       pool: fixture.pool,
@@ -259,7 +266,10 @@ describe('LaunchpadView', () => {
     }
   }
 
-  test(launchpad_view_buys_through_the_module_and_shows_the_decoded_swap);
+  test(
+    launchpad_view_buys_through_the_module_and_shows_the_decoded_swap.name,
+    launchpad_view_buys_through_the_module_and_shows_the_decoded_swap
+  );
 
   async function launchpad_view_sells_with_a_usdl_minimum_at_six_decimals() {
     const fixture = callFixtures().launchpad.sell as {
@@ -280,7 +290,12 @@ describe('LaunchpadView', () => {
     await typeInto(container, 'minOut', '2.5');
     await until(() => send(container)?.disabled === false, 'sell send enabled');
     await click(send(container), 'send');
-    await until(() => text(container, '[data-role="status"]') === 'confirmed', 'receipt');
+    await until(
+      () => container.querySelector('[data-role="sent"], [data-role="send-error"]') !== null,
+      'receipt'
+    );
+    expect(text(container, '[data-role="send-error"]')).toBe('');
+    expect(text(container, '[data-role="status"]')).toBe('confirmed');
 
     const order = {
       pool: fixture.pool,
@@ -300,7 +315,10 @@ describe('LaunchpadView', () => {
     expect(chain.sent[1]?.data).toBe(launchpad(chain).sell(order).data);
   }
 
-  test(launchpad_view_sells_with_a_usdl_minimum_at_six_decimals);
+  test(
+    launchpad_view_sells_with_a_usdl_minimum_at_six_decimals.name,
+    launchpad_view_sells_with_a_usdl_minimum_at_six_decimals
+  );
 
   async function launchpad_view_shows_the_created_market_from_the_receipt_logs() {
     const fixture = callFixtures().launchpad.createMarket as {
@@ -313,7 +331,10 @@ describe('LaunchpadView', () => {
     );
     const spec = LAUNCHPAD_EVENTS.find((candidate) => candidate.name === 'MarketCreated');
     if (!vector || !spec) throw new Error('no MarketCreated fixture');
-    chain.logsFor = () => [vectorLog(LAUNCHPAD_PRECOMPILE, LAUNCHPAD_EVENTS, vector)];
+    chain.logsFor = (call) =>
+      call.to === LAUNCHPAD_PRECOMPILE
+        ? [vectorLog(LAUNCHPAD_PRECOMPILE, LAUNCHPAD_EVENTS, vector)]
+        : [];
     mounted = await mountSurface(chain, <LaunchpadView sidRate={null} />);
     const { container } = mounted;
 
@@ -346,7 +367,10 @@ describe('LaunchpadView', () => {
     ]);
   }
 
-  test(launchpad_view_shows_the_created_market_from_the_receipt_logs);
+  test(
+    launchpad_view_shows_the_created_market_from_the_receipt_logs.name,
+    launchpad_view_shows_the_created_market_from_the_receipt_logs
+  );
 
   it('launchpad_view_creates_a_market_through_the_module', async () => {
     const fixture = callFixtures().launchpad.createMarket as {
@@ -358,7 +382,10 @@ describe('LaunchpadView', () => {
       (candidate) => candidate.event === 'MarketCreated'
     );
     if (!vector) throw new Error('no MarketCreated vector');
-    chain.logsFor = () => [vectorLog(LAUNCHPAD_PRECOMPILE, LAUNCHPAD_EVENTS, vector)];
+    chain.logsFor = (call) =>
+      call.to === LAUNCHPAD_PRECOMPILE
+        ? [vectorLog(LAUNCHPAD_PRECOMPILE, LAUNCHPAD_EVENTS, vector)]
+        : [];
     chain.launchpadCreationFee = 5_000_000n;
     mounted = await mountSurface(chain, <LaunchpadView sidRate={null} />);
     const { container } = mounted;
@@ -369,7 +396,12 @@ describe('LaunchpadView', () => {
     await typeInto(container, 'feeStrategy', String(fixture.feeStrategy));
     await until(() => send(container)?.disabled === false, 'send enabled');
     await click(send(container), 'send');
-    await until(() => text(container, '[data-role="status"]') === 'confirmed', 'receipt');
+    await until(
+      () => container.querySelector('[data-role="sent"], [data-role="send-error"]') !== null,
+      'receipt'
+    );
+    expect(text(container, '[data-role="send-error"]')).toBe('');
+    expect(text(container, '[data-role="status"]')).toBe('confirmed');
 
     const expected = launchpadCreateMarketCall(fixture.name, fixture.symbol, fixture.feeStrategy);
     expect(chain.sent).toEqual([
