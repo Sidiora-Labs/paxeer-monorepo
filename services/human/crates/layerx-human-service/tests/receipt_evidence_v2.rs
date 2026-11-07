@@ -10,7 +10,7 @@ use serde_json::json;
 fn exercise_receipt_evidence(rung: Rung) -> Result<()> {
     let verification = match rung {
         Rung::Receipted => "receipt-verified",
-        Rung::Committed => "checkpoint-finalised",
+        Rung::Committed => "committed",
         Rung::Submitted => return Err("submitted has no verified receipt".into()),
     };
     let _guard = ENVIRONMENT

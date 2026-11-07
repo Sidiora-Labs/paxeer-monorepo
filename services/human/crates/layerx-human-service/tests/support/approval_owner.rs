@@ -384,7 +384,7 @@ impl LocalServer {
             "canonical_core_bytes":fixture.agent_did.strip_prefix("did:layerx:").unwrap(),
             "head_sequence":fixture.budget_state["observed_head_sequence"],
             "revocation_sequence":fixture.budget_state["revocation_sequence"],
-            "verification_level":"checkpoint_finalised", "frozen":false,
+            "verification_level":"committed", "frozen":false,
             "authorities":[{"kind":"primary_key","id":fixture.agent_did.strip_prefix("did:layerx:").unwrap()}]
         });
         let server = Self::spawn(listener, move |stream| {

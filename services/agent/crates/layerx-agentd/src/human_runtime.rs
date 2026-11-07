@@ -1807,6 +1807,9 @@ impl HumanAuthorityBoundary for RemoteHumanAuthority {
         .and_then(|value| Self::registry_from(&value))
         .map_err(|error| match error {
             HumanOperationError::Unavailable => CoreStateError::Unavailable,
+            HumanOperationError::Typed(crate::human::HumanRefusal::ManagedAgent(_)) => {
+                CoreStateError::Unverified
+            }
             HumanOperationError::Refused
             | HumanOperationError::CapabilityRefused(_)
             | HumanOperationError::Typed(_) => CoreStateError::Unverified,
@@ -11748,14 +11751,10 @@ fn rank(value: u8) -> Result<VerificationLevel, HumanOperationError> {
 }
 
 pub(crate) fn receipt_rung_code(level: VerificationLevel) -> Result<u8, HumanOperationError> {
-    if level == VerificationLevel::COMMITTED {
-        Ok(6)
-    } else {
-        level
-            .rung()
-            .map(layerx_types::rung::Rung::wire_rank)
-            .ok_or(HumanOperationError::Refused)
-    }
+    level
+        .rung()
+        .map(layerx_types::rung::Rung::wire_rank)
+        .ok_or(HumanOperationError::Refused)
 }
 
 impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {

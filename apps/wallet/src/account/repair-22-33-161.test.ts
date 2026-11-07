@@ -3,6 +3,7 @@ import { createServer } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { act, createElement, Fragment } from 'react';
 import { expect, test } from 'vitest';
+import { EndpointClient } from '@paxeer/wallet';
 import { AccountProvider } from './AccountProvider';
 import { AssetList } from './AssetList';
 import { ACCOUNT_ENV, readAccountConfig, resolveAccountConfig } from './config';
@@ -234,6 +235,16 @@ async function asset_rows_decode_numeric_heights_and_nullable_metadata() {
     for await (const chunk of req) text += chunk;
     const call = JSON.parse(text) as { id: number; method: string };
     seen.push(`${req.method} ${req.url} ${call.method}`);
+    if (call.method !== 'px_getBalances' && call.method !== 'px_listAssets') {
+      const answer = await fetch(node.base, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: text,
+      });
+      res.writeHead(answer.status, { 'content-type': 'application/json' });
+      res.end(await answer.text());
+      return;
+    }
     const result =
       call.method === 'px_getBalances'
         ? {
@@ -277,13 +288,14 @@ async function asset_rows_decode_numeric_heights_and_nullable_metadata() {
     node.state.receipt = committedAnswer;
     node.state.explorer = matchingExplorer;
     const env = {
-      [ACCOUNT_ENV.endpointUrl]: node.base,
-      [ACCOUNT_ENV.hostedUrl]: `${base}/`,
+      [ACCOUNT_ENV.endpointUrl]: `${base}/`,
+      [ACCOUNT_ENV.hostedUrl]: node.base,
       [ACCOUNT_ENV.humanUrl]: node.base,
       [ACCOUNT_ENV.explorerUrl]: node.base,
     };
     const config = readAccountConfig(env);
-    expect(config.hostedUrl).toBe(base);
+    expect(config.endpointUrl).toBe(base);
+    expect(config.hostedUrl).toBe(node.base);
     for (const hostedUrl of ['', 'invalid', 'ftp://hosted.test', 'https://user:pass@hosted.test']) {
       const refused = resolveAccountConfig({ ...env, [ACCOUNT_ENV.hostedUrl]: hostedUrl });
       expect(refused.ok).toBe(false);
@@ -313,7 +325,15 @@ async function asset_rows_decode_numeric_heights_and_nullable_metadata() {
     expect(mounted.text('[aria-label="uopaque balance"]')).toBe('9007199254740993uopaque');
     expect(mounted.query('[data-side]')).toBeNull();
     expect(mounted.query('[role="alert"]')).toBeNull();
-    expect(seen.sort()).toEqual(['POST / px_getBalances', 'POST / px_listAssets']);
+    expect(seen.sort()).toEqual(
+      [
+        'POST / px_getBalances',
+        'POST / px_listAssets',
+        'POST / pax_sequencerReceipt',
+        'POST / px_getReceiptKeys',
+        'POST / eth_getRawTransactionByHash',
+      ].sort()
+    );
     expect(node.seen.filter((entry) => entry.method !== 'GET')).toEqual([
       { method: 'pax_sequencerReceipt', params: [receiptHash], path: '/' },
       { method: 'px_getReceiptKeys', params: [], path: '/' },
@@ -329,24 +349,18 @@ async function asset_rows_decode_numeric_heights_and_nullable_metadata() {
   }
 }
 
-async function account_bank_reads_require_an_explicit_hosted_origin() {
+async function account_hosted_operations_require_an_explicit_hosted_origin() {
   const endpoint = await startReceiptEndpoint();
-  let view: Mounted | null = null;
   try {
-    view = await mount(
-      createElement(AccountProvider, {
-        config: endpoint.config,
-        children: createElement(AssetList, { account: OWNER }),
-      })
-    );
-    const mounted = view;
-    await mounted.until(() => mounted.query('[role="alert"]') !== null, 'missing hosted origin');
-    expect(mounted.text('[role="alert"]')).toContain('hostedUrl required for hosted px_ reads');
-    expect(mounted.query('[data-denom]')).toBeNull();
+    const client = new EndpointClient({ nodeUrl: endpoint.base });
+    for (const method of ['px_register', 'px_requestFunds']) {
+      await expect(client.batch([{ method, params: [OWNER] }])).rejects.toThrow(
+        'hostedUrl required for hosted px_ reads'
+      );
+    }
     expect(endpoint.seen).toEqual([]);
     expect(endpoint.unexpected).toEqual([]);
   } finally {
-    await view?.unmount();
     await endpoint.close();
   }
 }
@@ -373,6 +387,6 @@ test(
   asset_rows_decode_numeric_heights_and_nullable_metadata
 );
 test(
-  account_bank_reads_require_an_explicit_hosted_origin.name,
-  account_bank_reads_require_an_explicit_hosted_origin
+  account_hosted_operations_require_an_explicit_hosted_origin.name,
+  account_hosted_operations_require_an_explicit_hosted_origin
 );

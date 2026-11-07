@@ -30,6 +30,14 @@ function ids(mounted: Mounted): string[] {
   return mounted.all('[data-item]').map((item) => item.getAttribute('data-item') ?? '');
 }
 
+function explorerAlert(mounted: Mounted, id: string): Element | undefined {
+  return mounted
+    .all(`[data-item="${id}"] [role="alert"]`)
+    .find(
+      (alert) => alert.querySelector('h2')?.textContent === 'The explorer status could not be read'
+    );
+}
+
 describe('HistoryView', () => {
   it('pages the chain history by cursor until the end', async () => {
     const mounted = await mount(
@@ -113,10 +121,10 @@ describe('HistoryView', () => {
       await mounted.click(button);
       expect(mounted.query(button)?.getAttribute('aria-expanded')).toBe('true');
       await mounted.until(
-        () => mounted.query(`[data-item="${id}"] [role="alert"]`) !== null,
+        () => explorerAlert(mounted, id) !== undefined,
         `transaction ${id} status`
       );
-      expect(mounted.text(`[data-item="${id}"] [role="alert"]`)).toContain(
+      expect(explorerAlert(mounted, id)?.textContent).toContain(
         'explorer status answered HTTP 404'
       );
       await mounted.click(button);
@@ -127,11 +135,17 @@ describe('HistoryView', () => {
       endpoint.seen.filter((entry) => entry.scope === 'explorer').map((entry) => entry.path)
     ).toEqual(['05', '03', '01'].map((byte) => `/api/v2/transactions/0x${byte.repeat(32)}/status`));
     expect(endpoint.unmatched).toEqual(
-      ['05', '03', '01'].map((byte) => `explorer /api/v2/transactions/0x${byte.repeat(32)}/status`)
+      ['05', '03', '01'].flatMap((byte) => [
+        `available pax_sequencerReceipt ${JSON.stringify([`0x${byte.repeat(32)}`])}`,
+        `explorer /api/v2/transactions/0x${byte.repeat(32)}/status`,
+      ])
     );
   }
 
-  test(history_view_pages_the_chain_history_without_a_side_label);
+  test(
+    history_view_pages_the_chain_history_without_a_side_label.name,
+    history_view_pages_the_chain_history_without_a_side_label
+  );
 
   it('opens the status ladder of a Paxeer item from the explorer', async () => {
     const mounted = await mount(
@@ -143,14 +157,10 @@ describe('HistoryView', () => {
     await mounted.until(() => ids(mounted).length === 1, 'first page');
     await mounted.click('[data-item="5"] button');
     expect(mounted.query('[data-item="5"] button')?.getAttribute('aria-expanded')).toBe('true');
-    await mounted.until(
-      () => mounted.query('[data-item="5"] [role="alert"]') !== null,
-      'explorer answer'
-    );
-    expect(mounted.text('[data-item="5"] [role="alert"]')).toContain(
-      'explorer status answered HTTP 404'
-    );
+    await mounted.until(() => explorerAlert(mounted, '5') !== undefined, 'explorer answer');
+    expect(explorerAlert(mounted, '5')?.textContent).toContain('explorer status answered HTTP 404');
     expect(endpoint.unmatched).toEqual([
+      `available pax_sequencerReceipt ${JSON.stringify([`0x${'05'.repeat(32)}`])}`,
       `explorer /api/v2/transactions/0x${'05'.repeat(32)}/status`,
     ]);
   });

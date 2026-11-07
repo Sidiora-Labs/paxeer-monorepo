@@ -19,7 +19,7 @@ fn evidence_gate_defaults_tenant_to_committed_rung() {
     assert_eq!(gate.status(), &Status::NotReady);
     assert_eq!(
         config.verification_defaults,
-        BTreeMap::from([(tenant.clone(), VerificationLevel::CHECKPOINT_FINALISED)])
+        BTreeMap::from([(tenant.clone(), VerificationLevel::COMMITTED)])
     );
     assert_eq!(
         config.verification_defaults[&tenant].rung(),

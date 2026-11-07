@@ -93,7 +93,7 @@ fn repair_22_31_579_decodes_executed_and_committed_receipt_digests() {
         authorised_batch: AuthorizedBatch::new(
             [0x71; 32], [0x72; 32], [0x73; 32], [0x74; 32], [0x75; 32],
         ),
-        verification_level: VerificationLevel::CHECKPOINT_FINALISED,
+        verification_level: VerificationLevel::COMMITTED,
         tx_hash: ACTIVITY_ID,
         receipt_hash: digest,
         block_height: height,
