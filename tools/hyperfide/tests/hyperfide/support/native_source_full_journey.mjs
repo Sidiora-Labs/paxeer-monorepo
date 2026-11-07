@@ -5,7 +5,8 @@ import { promisify } from "node:util";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
-import { runSourceProductBrowser } from "./native_source_product_browser.mjs";
+import { createRequire } from "node:module";
+import { createServer } from "node:http";
 const execute = promisify(execFile);
 const sha = (bytes) => createHash("sha256").update(bytes).digest("hex");
 export async function runFullSourceJourney({
@@ -378,6 +379,8 @@ export async function runFullSourceJourney({
       ) &&
       !(await fs.readdir(root)).includes(".git"),
   );
+  const { runSourceProductBrowser } =
+    await import("./native_source_product_browser.mjs");
   const browser = await runSourceProductBrowser(
     f,
     { client: f.client },
@@ -531,4 +534,635 @@ export async function runFullSourceJourney({
     JSON.stringify(evidence, null, 2) + "\n",
   );
   return evidence;
+}
+
+// The release runner uses only the extracted runtime and an operator-pinned
+// deployment copy. The original full fleet/browser campaign above stays separate.
+async function releaseModules(runtime) {
+  const load = (name) =>
+    import(pathToFileURL(path.join(runtime, name + ".js")));
+  const [{ SourceControlClient }, ...host] = await Promise.all([
+    load("sdk/index"),
+    ...["client", "cache", "journal", "materializer", "checkpoint"].map(
+      (name) => load("host/" + name),
+    ),
+  ]);
+  const require = createRequire(path.join(runtime, "services/package.json"));
+  return {
+    SourceControlClient,
+    ...Object.assign({}, ...host),
+    Pool: require("pg").Pool,
+  };
+}
+
+function canonicalRelease(value) {
+  if (Array.isArray(value)) return value.map(canonicalRelease);
+  if (value && typeof value === "object")
+    return Object.fromEntries(
+      Object.keys(value)
+        .sort()
+        .map((key) => [key, canonicalRelease(value[key])]),
+    );
+  return value;
+}
+
+async function releaseToken(filename) {
+  assert(
+    path.isAbsolute(filename),
+    "Release token requires an absolute private path",
+  );
+  const stat = await fs.lstat(filename);
+  assert(
+    stat.isFile() &&
+      !stat.isSymbolicLink() &&
+      (stat.mode & 0o077) === 0 &&
+      stat.uid === process.getuid(),
+  );
+  const token = (await fs.readFile(filename, "utf8")).trim();
+  assert(token && !/[\r\n]/.test(token), "Current token required");
+  return token;
+}
+
+async function releaseDatabase(profile, Pool) {
+  assert.equal(profile.disposable_restore_drill, true);
+  assert(
+    /^hf_release_[a-z0-9_]+$/.test(profile.database_name),
+    "A dedicated hf_release_ database is required",
+  );
+  const pool = new Pool({
+    connectionString: process.env.DATABASE_URL,
+    max: 1,
+    statement_timeout: 15000,
+  });
+  try {
+    const identity = (
+      await pool.query(
+        "SELECT current_database() AS name,(pg_control_system()).system_identifier::text AS system_identifier,pg_is_in_recovery() AS recovery",
+      )
+    ).rows[0];
+    assert.equal(identity.name, profile.database_name);
+    assert.equal(identity.system_identifier, profile.system_identifier);
+    assert.equal(identity.recovery, false);
+    return pool;
+  } catch (error) {
+    await pool.end();
+    throw error;
+  }
+}
+
+async function currentReleaseCustody(pool, profile) {
+  const source = profile.source,
+    journey = profile.journey;
+  const scope = [
+    source.scope.organisation_id,
+    source.scope.repository_id,
+    source.scope.security_domain_id,
+  ];
+  const rows = (
+    await pool.query(
+      `SELECT s.authority,s.qualification_outcome,s.custody_id::text,
+    s.custody_generation::text,s.current_qualification_id,q.qualification_id,
+    q.custody_generation::text AS qualified_custody_generation,c.revoked_at,
+    c.revision_id,c.root_tree_id,c.authority_epoch::text,d.policy_version,
+    t.current_native_custody_id::text AS current_custody_id,
+    c.owner_principal_id,a.worker_principal_id,q.candidate_id,q.candidate_qualification_id,
+    q.receipt AS qualification_receipt,s.run_id,s.task_id,s.assignment_id,
+    c.custody_generation::text AS retained_custody_generation,
+    d.authority_epoch::text AS current_authority_epoch,r.authority_epoch::text AS repository_authority_epoch,
+    d.enabled
+    FROM hyperfide.source_fleet_submissions s
+    JOIN hyperfide.source_native_custodies c USING(organisation_id,repository_id,security_domain_id,custody_id)
+    JOIN hyperfide.source_fleet_qualifications q ON q.organisation_id=s.organisation_id
+      AND q.repository_id=s.repository_id AND q.security_domain_id=s.security_domain_id
+      AND q.custody_id=s.custody_id AND q.qualification_id=s.current_qualification_id
+    JOIN hyperfide.source_fleet_assignments a ON a.organisation_id=s.organisation_id
+      AND a.repository_id=s.repository_id AND a.security_domain_id=s.security_domain_id AND a.assignment_id=s.assignment_id
+    JOIN hyperfide.tasks t ON t.organisation_id=s.organisation_id AND t.run_id=s.run_id AND t.id=s.task_id
+    JOIN hyperfide.source_authority_domains d ON d.organisation_id=s.organisation_id
+      AND d.repository_id=s.repository_id AND d.security_domain_id=s.security_domain_id
+    JOIN hyperfide.source_repositories r ON r.organisation_id=s.organisation_id
+      AND r.repository_id=s.repository_id AND r.security_domain_id=s.security_domain_id
+    WHERE s.organisation_id=$1 AND s.repository_id=$2 AND s.security_domain_id=$3 AND s.custody_id=$4`,
+      [...scope, journey.custody_id],
+    )
+  ).rows;
+  assert.equal(rows.length, 1, "Current retained fleet custody must exist");
+  const row = rows[0];
+  assert.equal(row.authority, "ACTIVE");
+  assert.equal(row.revoked_at, null);
+  assert.equal(row.qualification_outcome, "PASS");
+  assert.equal(row.current_custody_id, row.custody_id);
+  assert.equal(row.current_qualification_id, row.qualification_id);
+  assert.equal(row.custody_generation, row.qualified_custody_generation);
+  assert.equal(row.custody_generation, row.retained_custody_generation);
+  assert.equal(row.enabled, true);
+  assert.equal(row.current_authority_epoch, source.authority_epoch);
+  assert.equal(row.repository_authority_epoch, source.authority_epoch);
+  assert.equal(row.qualification_receipt.state, "QUALIFIED");
+  assert.notEqual(
+    row.owner_principal_id,
+    row.worker_principal_id,
+    "Coordinator retains source independently of the worker",
+  );
+  for (const name of [
+    "revision_id",
+    "root_tree_id",
+    "authority_epoch",
+    "policy_version",
+  ])
+    assert.equal(row[name], source[name], "Stale release custody: " + name);
+  return { ...row, scope: source.scope };
+}
+
+async function acceptedReleaseRoots(pool, profile, client) {
+  // Explicit ordering avoids relying on operator JSON key order for SQL scope.
+  const args = [
+    profile.source.scope.organisation_id,
+    profile.source.scope.repository_id,
+    profile.source.scope.security_domain_id,
+  ];
+  const roots = (
+    await pool.query(
+      `SELECT acceptance_id,revision_id,root_tree_id,candidate_id,qualification_id
+    FROM hyperfide.source_native_acceptances WHERE organisation_id=$1 AND repository_id=$2 AND security_domain_id=$3
+    ORDER BY acceptance_id LIMIT 100001`,
+      args,
+    )
+  ).rows;
+  assert(
+    roots.length > 0 && roots.length <= 100000,
+    "Bounded accepted source inventory required",
+  );
+  assert(
+    roots.some(
+      (row) =>
+        row.revision_id === profile.source.revision_id &&
+        row.root_tree_id === profile.source.root_tree_id,
+    ),
+  );
+  for (const root of roots) {
+    const revision = await client.revision(root.revision_id);
+    assert.equal(revision.root_tree_id, root.root_tree_id);
+    const accepted = await client.acceptance(root.acceptance_id);
+    for (const key of [
+      "revision_id",
+      "root_tree_id",
+      "candidate_id",
+      "qualification_id",
+    ])
+      assert.equal(accepted[key], root[key]);
+  }
+  return roots;
+}
+
+export async function runReleasedSourceJourney({
+  runtime,
+  profile,
+  directory,
+  client,
+  pool,
+  modules,
+}) {
+  const custody = await currentReleaseCustody(pool, profile);
+  const roots = await acceptedReleaseRoots(pool, profile, client);
+  const initial = await client.fleetAssignment(
+    profile.journey.initial_assignment_id,
+  );
+  const replacement = await client.fleetAssignment(
+    profile.journey.replacement_assignment_id,
+  );
+  assert.notEqual(initial.assignment_id, replacement.assignment_id);
+  assert.equal(initial.task_id, replacement.task_id);
+  assert.notEqual(initial.attempt_id, replacement.attempt_id);
+  assert(
+    BigInt(replacement.attempt_generation) > BigInt(initial.attempt_generation),
+  );
+  assert.equal(custody.assignment_id, replacement.assignment_id);
+  const prior = await client.revision(
+    profile.journey.prior_checkpoint_revision_id,
+  );
+  assert(prior.revision_id.startsWith("sha256:"));
+  const submission = await client.fleetSubmission(custody.custody_id);
+  assert.equal(submission.revision_id, profile.source.revision_id);
+  assert.equal(submission.root_tree_id, profile.source.root_tree_id);
+  const accepted = await client.acceptance(profile.journey.acceptance_id);
+  assert.equal(accepted.candidate_id, custody.candidate_id);
+  assert.equal(accepted.qualification_id, custody.candidate_qualification_id);
+  assert.equal(accepted.revision_id, custody.revision_id);
+  assert.equal(accepted.root_tree_id, custody.root_tree_id);
+  const native = new modules.NativeWorkspaceClient(
+    client,
+    profile.source.scope,
+  );
+  const selected = profile.journey.edit_path;
+  assert(typeof selected === "string" && selected.length > 0);
+  const workspace = await native.open({
+    base_revision_id: accepted.revision_id,
+    mode: "SPARSE",
+    read_paths: [selected],
+    write_paths: [selected],
+  });
+  let current = workspace;
+  let checkpoint;
+  try {
+    const files = path.join(directory, "sparse"),
+      journal = new modules.SourceWorkspaceJournal(
+        path.join(directory, "journal"),
+      );
+    const cache = new modules.NativeObjectCache(path.join(directory, "cache"), {
+      max_bytes: workspace.budgets.cache_bytes,
+      max_entries: workspace.budgets.max_cache_entries,
+      max_object_bytes: workspace.budgets.max_file_bytes,
+    });
+    const materializer = new modules.SparseSourceMaterializer(
+      native,
+      cache,
+      journal,
+      files,
+    );
+    assert.equal(
+      (await materializer.materialize(workspace, [selected])).state,
+      "READY",
+    );
+    const filename = path.resolve(files, selected);
+    assert(filename.startsWith(files + path.sep));
+    const bytes = await fs.readFile(filename);
+    const edited = Buffer.concat([
+      bytes,
+      Buffer.from("\nrelease restore drill\n"),
+    ]);
+    await fs.writeFile(filename, edited);
+    await journal.mark(selected);
+    checkpoint = await new modules.NativeWorkspaceCheckpoint(
+      native,
+      journal,
+      files,
+      materializer,
+    ).checkpoint(workspace);
+    current = checkpoint.workspace;
+    const revision = await client.revision(checkpoint.revision_id);
+    assert(revision.parent_revision_ids.includes(accepted.revision_id));
+    assert.notEqual(revision.root_tree_id, accepted.root_tree_id);
+    const observed = await native.detail(current.workspace_id);
+    assert.equal(observed.checkpoint_revision_id, checkpoint.revision_id);
+    const entry = await native.lookup(revision.root_tree_id, selected);
+    assert.deepEqual(
+      await materializer.readEntry(current, selected, entry),
+      edited,
+    );
+    const diff = await client.call("source.queries.diff", {
+      before_revision_id: accepted.revision_id,
+      after_revision_id: checkpoint.revision_id,
+      limit: 2,
+    });
+    assert.equal(diff.coverage.state, "COMPLETE");
+    assert.equal(diff.next_cursor, null);
+    assert.deepEqual(
+      diff.entries.map((row) => [row.path, row.kind]),
+      [[selected, "MODIFIED"]],
+    );
+  } finally {
+    await native.close(current);
+  }
+  const recovery = JSON.parse(
+    await fs.readFile(profile.recovery_profile.path, "utf8"),
+  );
+  const backupId = randomUUID();
+  const backup = await client.call("source.backups.create", {
+    backup_id: backupId,
+    profile: recovery,
+    expires_at: new Date(
+      Date.now() + recovery.backup.maximum_age_seconds * 1000,
+    ).toISOString(),
+    max_revisions: 100000,
+    max_objects: 1000000,
+    max_bytes: 1073741824,
+  });
+  assert.equal(backup.backup_id, backupId);
+  let verified;
+  for (let batch = 0; batch < 1000000; batch++) {
+    verified = await client.call("source.backups.verify", {
+      backup_id: backupId,
+      limit: 256,
+    });
+    if (verified.state === "READY") break;
+    assert.equal(verified.state, "VERIFYING");
+  }
+  assert.equal(verified.state, "READY");
+  return {
+    schema_version: 1,
+    status: "PASS",
+    case_id: "SCM-023",
+    scope: "released source running journey revalidation",
+    runtime,
+    source: profile.source,
+    custody,
+    accepted_roots: {
+      count: roots.length,
+      sha256: sha(JSON.stringify(canonicalRelease(roots))),
+    },
+    checkpoint,
+    backup_id: backupId,
+    assignment_ids: [initial.assignment_id, replacement.assignment_id],
+  };
+}
+
+async function releaseSnapshot({ runtime, profile, pool, client }) {
+  const custody = await currentReleaseCustody(pool, profile);
+  const accepted_roots = await acceptedReleaseRoots(pool, profile, client);
+  const args = [
+    profile.source.scope.organisation_id,
+    profile.source.scope.repository_id,
+    profile.source.scope.security_domain_id,
+  ];
+  const objects = (
+    await pool.query(
+      `SELECT to_jsonb(o) AS object,to_jsonb(p) AS placement
+    FROM hyperfide.source_native_objects o JOIN hyperfide.source_object_placements p
+    ON p.organisation_id=o.organisation_id AND p.repository_id=o.repository_id AND p.security_domain_id=o.security_domain_id
+      AND p.object_id=o.object_id AND p.incarnation_id=o.current_incarnation
+    WHERE o.organisation_id=$1 AND o.repository_id=$2 AND o.security_domain_id=$3 AND o.state='VERIFIED'
+    ORDER BY o.object_id LIMIT 1000001`,
+      args,
+    )
+  ).rows;
+  assert(objects.length > 0 && objects.length <= 1000000);
+  const { S3SourceObjectBackend, sourceS3Configuration } = await import(
+    pathToFileURL(path.join(runtime, "services/dist/source_control/s3.js"))
+  );
+  const { decodeCanonicalEnvelope } = await import(
+    pathToFileURL(
+      path.join(runtime, "services/dist/source_control/contracts.js"),
+    )
+  );
+  const backend = new S3SourceObjectBackend(sourceS3Configuration(process.env));
+  for (const { object, placement } of objects) {
+    assert.equal(placement.state, "VERIFIED");
+    const read = await backend.read(
+      placement.storage_key,
+      Number(object.size_bytes),
+    );
+    assert.equal(read.state, "PRESENT");
+    assert.equal(read.bytes.length, Number(object.size_bytes));
+    assert.equal("sha256:" + sha(read.bytes), object.object_id);
+    assert.equal(
+      decodeCanonicalEnvelope(read.bytes, object.kind).kind,
+      object.kind,
+    );
+  }
+  const publication = await client.publication(
+    profile.publication.operation_id,
+  );
+  assert.equal(publication.status, "PUBLISHED");
+  const receiver = profile.publication.remote_git_directory,
+    ref = profile.publication.target_ref;
+  const git = async (...args) =>
+    (
+      await execute(
+        path.join(runtime, "bin/git"),
+        ["--git-dir=" + receiver, ...args],
+        { timeout: 30000, maxBuffer: 16 * 1024 * 1024 },
+      )
+    ).stdout.trim();
+  const remote_oid = await git("rev-parse", "--verify", ref),
+    remote_reflog = await git("reflog", "show", "--format=%H", ref);
+  assert.equal(publication.git_oid, "git:sha1:" + remote_oid);
+  return canonicalRelease({
+    schema_version: 1,
+    source: profile.source,
+    custody,
+    accepted_roots: {
+      count: accepted_roots.length,
+      sha256: sha(JSON.stringify(canonicalRelease(accepted_roots))),
+    },
+    objects: {
+      count: objects.length,
+      sha256: sha(JSON.stringify(canonicalRelease(objects))),
+    },
+    publication,
+    remote_oid,
+    remote_reflog,
+  });
+}
+
+export async function probeReleasedAmbiguousPublication({
+  runtime,
+  profile,
+  client,
+  modules,
+  endpoint,
+}) {
+  const config = profile.publication;
+  assert(
+    path.isAbsolute(config.remote_git_directory),
+    "Independent receiver Git readback is required",
+  );
+  const git = async (...args) =>
+    (
+      await execute(
+        path.join(runtime, "bin/git"),
+        ["--git-dir=" + config.remote_git_directory, ...args],
+        { timeout: 30000, maxBuffer: 16 * 1024 * 1024 },
+      )
+    ).stdout.trim();
+  assert(
+    ["true", "always"].includes(
+      await git("config", "--get", "core.logAllRefUpdates"),
+    ),
+    "Receiver reflog must already be enabled",
+  );
+  assert(/^refs\/heads\/[A-Za-z0-9][A-Za-z0-9/_.-]*$/.test(config.target_ref));
+  const ref = config.target_ref;
+  const oldRows = await git("for-each-ref", "--format=%(objectname)", ref);
+  const before = oldRows ? await git("reflog", "show", "--format=%H", ref) : "";
+  const expectedOld = oldRows ? "git:sha1:" + oldRows : null;
+  const publication = await client.createPublication(
+    {
+      acceptance_id: profile.journey.acceptance_id,
+      destination_id: config.destination_id,
+      target_ref: ref,
+      expected_old_oid: expectedOld,
+    },
+    { operation_id: config.operation_id, idempotency_key: config.operation_id },
+  );
+  assert.equal(publication.operation_id, config.operation_id);
+  assert.equal(publication.status, "QUEUED");
+  let drops = 0;
+  // Forward the real request to the packaged service, consume its actual response,
+  // then sever the client connection. No result or remote effect is fabricated.
+  const proxy = createServer(async (request, response) => {
+    try {
+      const parts = [];
+      let size = 0;
+      for await (const part of request) {
+        size += part.length;
+        assert(size <= 1048576);
+        parts.push(part);
+      }
+      const body = Buffer.concat(parts),
+        envelope = JSON.parse(body);
+      assert.equal(envelope.action, "source.publications.resume");
+      assert.equal(envelope.input.operation_id, config.operation_id);
+      const remote = await fetch(endpoint, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          authorization: request.headers.authorization,
+        },
+        body,
+        signal: AbortSignal.timeout(300000),
+      });
+      assert.equal(remote.status, 200);
+      const actual = JSON.parse(await remote.text());
+      assert.equal(actual.result.status, "PUBLISHED");
+      assert.equal(actual.result.operation_id, config.operation_id);
+      drops++;
+      response.destroy();
+    } catch (error) {
+      response.destroy(error);
+    }
+  });
+  await new Promise((resolve, reject) => {
+    proxy.once("error", reject);
+    proxy.listen(0, "127.0.0.1", resolve);
+  });
+  try {
+    const losing = new modules.SourceControlClient({
+      endpoint: "http://127.0.0.1:" + proxy.address().port,
+      scope: profile.source.scope,
+      token: () => releaseToken(profile.journey.token_file),
+      timeout_ms: 300000,
+    });
+    await assert.rejects(
+      losing.resumePublication(config.operation_id),
+      (error) => error.code === "OUTCOME_UNKNOWN",
+    );
+    assert.equal(
+      drops,
+      1,
+      "The actual publication response must have been dropped",
+    );
+  } finally {
+    await new Promise((resolve) => proxy.close(resolve));
+  }
+  const resumed = await client.resumePublication(config.operation_id);
+  const replay = await client.resumePublication(config.operation_id);
+  assert.deepEqual(replay, resumed);
+  assert.equal(resumed.status, "PUBLISHED");
+  assert.equal(
+    (await client.publication(config.operation_id)).git_oid,
+    resumed.git_oid,
+  );
+  const observed = await git("rev-parse", "--verify", ref);
+  assert.equal(resumed.git_oid, "git:sha1:" + observed);
+  assert.notEqual(observed, oldRows);
+  const after = await git("reflog", "show", "--format=%H", ref);
+  assert.deepEqual(
+    after.split("\n"),
+    [observed, ...(before ? before.split("\n") : [])],
+    "Independent receiver reflog must contain exactly one ref update",
+  );
+  await git("fsck", "--full", "--strict");
+  const gitTree = await git("show", "-s", "--format=%T", observed);
+  assert(/^[0-9a-f]{40}$/.test(gitTree));
+  const native = new modules.NativeWorkspaceClient(
+    client,
+    profile.source.scope,
+  );
+  const selected = profile.journey.edit_path;
+  const sourceFile = await native.lookup(profile.source.root_tree_id, selected);
+  assert(sourceFile && sourceFile.kind === "file");
+  const file = JSON.parse(
+    (await native.readObject(sourceFile.object_id)).payload.toString("utf8"),
+  );
+  const gitBytes = (
+    await execute(
+      path.join(runtime, "bin/git"),
+      [
+        "--git-dir=" + config.remote_git_directory,
+        "show",
+        observed + ":" + selected,
+      ],
+      { encoding: "buffer", timeout: 30000, maxBuffer: 64 * 1024 * 1024 },
+    )
+  ).stdout;
+  assert.equal(String(gitBytes.length), file[1]);
+  assert.equal("sha256:" + sha(gitBytes), file[2]);
+  return {
+    schema_version: 1,
+    status: "PASS",
+    operation_id: config.operation_id,
+    source: profile.source,
+    dropped_response: true,
+    resume_replayed: true,
+    remote_ref_updates: 1,
+    old_oid: oldRows || null,
+    oid: observed,
+    git_tree: gitTree,
+    reflog_before: before,
+    reflog_after: after,
+  };
+}
+
+async function releaseMain(mode, filename) {
+  const config = JSON.parse(await fs.readFile(filename, "utf8"));
+  const { runtime, profile, directory, endpoint } = config;
+  const modules = await releaseModules(runtime);
+  const pool = await releaseDatabase(profile, modules.Pool);
+  try {
+    if (mode === "current") {
+      await fs.writeFile(
+        path.join(directory, "current.json"),
+        JSON.stringify(await currentReleaseCustody(pool, profile)),
+        { mode: 0o600 },
+      );
+      return;
+    }
+    if (mode === "preflight") {
+      const others = (
+        await pool.query(
+          "SELECT count(*)::int AS n FROM pg_stat_activity WHERE datname=current_database() AND pid<>pg_backend_pid() AND backend_type='client backend'",
+        )
+      ).rows[0].n;
+      assert.equal(
+        others,
+        0,
+        "An isolated drill database without other clients is required",
+      );
+      await currentReleaseCustody(pool, profile);
+      return;
+    }
+    assert(["journey", "publication", "before", "after"].includes(mode));
+    const client = new modules.SourceControlClient({
+      endpoint,
+      scope: profile.source.scope,
+      token: () => releaseToken(profile.journey.token_file),
+      timeout_ms: 300000,
+    });
+    const args = { ...config, modules, pool, client };
+    const report =
+      mode === "journey"
+        ? await runReleasedSourceJourney(args)
+        : mode === "publication"
+          ? await probeReleasedAmbiguousPublication(args)
+          : await releaseSnapshot(args);
+    await fs.writeFile(
+      path.join(directory, mode + ".json"),
+      JSON.stringify(report, null, 2) + "\n",
+      { mode: 0o600 },
+    );
+  } finally {
+    await pool.end();
+  }
+}
+
+if (process.argv[2] === "--release") {
+  try {
+    await releaseMain(process.argv[3], process.argv[4]);
+  } catch (error) {
+    process.stderr.write(
+      JSON.stringify({ status: "BLOCKED", diagnostic: error.message }) + "\n",
+    );
+    process.exitCode = 2;
+  }
 }
