@@ -30,6 +30,12 @@ export interface WorkspaceBudgets {
   materialized_bytes: number;
   dirty_bytes: number;
 }
+export interface DependencyClosureManifest {
+  schema_version: 1;
+  state: "INCOMPLETE";
+  dependencies: string[];
+  reason: "DEPENDENCY_ANALYSIS_UNAVAILABLE";
+}
 export interface WorkspaceDescriptor {
   schema_version: 1;
   scope: SourceScope;
@@ -44,6 +50,7 @@ export interface WorkspaceDescriptor {
   read_paths: string[];
   write_paths: string[];
   budgets: WorkspaceBudgets;
+  dependency_closure_manifest: DependencyClosureManifest;
 }
 type Row = Record<string, any>;
 function invalid(message: string): never {
@@ -117,6 +124,7 @@ function descriptor(row: Row): WorkspaceDescriptor {
     read_paths: row.read_paths,
     write_paths: row.write_paths,
     budgets: row.budgets,
+    dependency_closure_manifest: row.dependency_closure_manifest,
   };
 }
 function derivedOperation(scope: SourceScope, operation: string): string {
