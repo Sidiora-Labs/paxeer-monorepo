@@ -3,7 +3,7 @@
 Version declarations come from
 [`schema/agent-api/v1.kvx`](../schema/agent-api/v1.kvx). Despite its filename,
 the current schema is contract **2.0**. The executable daemon matrix is
-documented in [`../COMPATIBILITY.md`](../COMPATIBILITY.md).
+documented in [`docs/agent/COMPATIBILITY.md`](../../../docs/agent/COMPATIBILITY.md).
 
 | SDK version | Contract version | Node interface version | Daemon version | Support |
 | --- | --- | --- | --- | --- |

@@ -1,4 +1,4 @@
-_[GitHub keywords to close any associated issues](https://docs.github.com/en/issues/tracking-your-work-with-issues/closing-issues-using-keywords)_
+_[GitHub keywords to close any associated issues](https://docs.github.com/en/issues/tracking-your-work-with-issues/using-issues/linking-a-pull-request-to-an-issue)_
 
 ## Motivation
 
@@ -30,7 +30,7 @@ _If you have any Incompatible Changes in the above Changelog, outline how users 
 - [ ] I updated documentation if needed:
   - [ ] General docs: submitted PR to [docs repository](https://github.com/blockscout/docs).
   - [ ] ENV vars: updated [env vars list](https://github.com/blockscout/docs/tree/main/setup/env-variables) and set version parameter to `master`.
-  - [ ] Deprecated vars: added to [deprecated env vars list](https://github.com/blockscout/docs/tree/main/setup/env-variables/deprecated-env-variables).
+  - [ ] Deprecated vars: added to [deprecated env vars list](https://docs.blockscout.com/setup/env-variables/deprecated-env-variables).
 - [ ] If I modified API endpoints, I updated the Swagger/OpenAPI schemas accordingly and checked that schemas are asserted in tests.
 - [ ] If I added new DB indices, I checked, that they are not redundant, with PGHero or other tools.
 - [ ] If I added/removed chain type, I modified the Github CI matrix and PR labels accordingly.

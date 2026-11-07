@@ -147,11 +147,6 @@ Successful catalog loads also register venue symbols. Default React Query
 staleness, mount/focus/reconnect and cache policies apply; this hook adds no
 polling interval.
 
-Task 22.33.711 wiring request: domain 3 owns
-`spec/layerx-merge/interfaces.kvx`; reconcile row
-`3.ts-perps-hooks-useperpsmarkets-j27` with the signature and behavior above.
-The registry path is outside this task's permitted scope.
-
 `loadPerpsMarkets()` returns `{ catalog, tradeable }` after decoding the gateway
 GraphQL `MARKETS_QUERY` through `decodeGatewayMarketsResult` and
 `catalogFromGateway`. A failed query
@@ -234,11 +229,6 @@ refresh every eight seconds; a same-token background refresh retains cached
 state until a failed read makes it unavailable. `SpotOrderForm` consumes
 `state` and `error`, blocks submission for unavailable state, and displays the
 error or “Checking token trading status…” while unavailable.
-
-Task 22.33.712 wiring request: domain 3 owns
-`spec/layerx-merge/interfaces.kvx`; reconcile row
-`3.ts-perps-hooks-usespottokenstate-j27` with the signature and behavior above.
-The registry path is outside this task's permitted scope.
 
 ## Routes
 

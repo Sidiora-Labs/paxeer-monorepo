@@ -21,7 +21,7 @@ In this repository the module is wired into the Paxeer X chain application in [`
 ## Contents
 
 1. **[Concepts](01_concepts.md)**
-   - [Gas & Fees](01_concepts.md#gas-&-fees)
+   - [Gas & Fees](01_concepts.md#gas--fees)
 2. **[State](02_state.md)**
    - [Accounts](02_state.md#accounts)
 3. **[AnteHandlers](03_antehandlers.md)**
@@ -32,7 +32,7 @@ In this repository the module is wired into the Paxeer X chain application in [`
    - [Intro and Requirements](05_vesting.md#intro-and-requirements)
    - [Vesting Account Types](05_vesting.md#vesting-account-types)
    - [Vesting Account Specification](05_vesting.md#vesting-account-specification)
-   - [Keepers & Handlers](05_vesting.md#keepers-&-handlers)
+   - [Keepers & Handlers](05_vesting.md#keepers--handlers)
    - [Genesis Initialization](05_vesting.md#genesis-initialization)
    - [Examples](05_vesting.md#examples)
    - [Glossary](05_vesting.md#glossary)

@@ -7,10 +7,10 @@ there is no later settlement on a separate execution network.
 Use JSON-RPC at the root of `https://api-mainnet-beta.paxeer.network` or the
 numbered hosts `https://api1.mainnet-beta.paxeer.network` through
 `https://api14.mainnet-beta.paxeer.network`. EVM chain ID is 125 (`0x7d`).
-The public node namespaces are `debug`, `echo`, `eth`, `net`, `pax`, `test`
-and `txpool`. Hosted gateway `px_` methods have their own declared contract in
-[`openrpc.json`](../../services/platform/hosted/gateway/openrpc.json);
-do not assume every node exposes every gateway method.
+The public node namespaces are `debug`, `echo`, `eth`, `net`, `pax`, `px`, `test`
+and `txpool`. The `px` namespace answers from node state; `px_register` and
+`px_requestFunds` are operations of the hosted identity and faucet
+services declared in [the gateway OpenRPC contract](../../services/platform/hosted/gateway/openrpc.json).
 
 The reference node receipt API is `pax_sequencerReceipt`. Its name refers to
 the node's execution/proposal role. The stored V1–V4 files under

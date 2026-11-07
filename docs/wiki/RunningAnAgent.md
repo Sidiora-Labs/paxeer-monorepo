@@ -30,9 +30,10 @@ First distinguish the transports involved:
 | MCP | Local stdio, or the protected Unix listener declared by the binding; the client forwards tool calls to the authenticated daemon transport |
 | Agent program reads | The binding's loopback `agent.endpoint` and protected bearer; this is not the public node URL |
 
-The node namespaces are `debug`, `echo`, `eth`, `net`, `pax`, `test`, and
-`txpool`. A hosted `px_` method is not automatically available on a public
-node. Obtain the hosted origin and its credentials from the deployment
+The node namespaces are `debug`, `echo`, `eth`, `net`, `pax`, `px`, `test`, and
+`txpool`. The `px` namespace answers from node state; `px_register` and
+`px_requestFunds` are operations of the hosted identity and faucet
+services declared in `services/platform/hosted/gateway/openrpc.json`. Obtain the hosted origin and its credentials from the deployment
 operator; a node hostname alone does not establish an agent gateway.
 
 The unified router and its `/rpc`, `/rpc/ws`, and `/rpc/schema` public routes are retired.
@@ -342,10 +343,10 @@ See [A2A transport](../../tools/platform/cli/src/a2a.rs) and
 
 The A2A submit adapter accepts only `raw_transaction`, validates the signed
 EIP-1559 transaction and chain ID, and checks the returned hash against the
-signed bytes. Its result is `{txHash, rung: "submitted"}`. The adapter still contains a pre-merge `/rpc` forwarding path, which is retired as a public node route.
-Do not assume that selecting a public node origin makes this hosted adapter
-usable; direct public submission uses the root-path example above. Hosted
-adapter deployment must match its actual gateway contract.
+signed bytes. Its result is `{txHash, rung: "submitted"}`. The toolset
+refuses a configured node RPC URL that does not name the root endpoint and
+posts node operations to `/`; `faucet.request` posts to the hosted faucet URL
+in `LAYERX_GATEWAY_RPC_URL`.
 
 ## Approve
 

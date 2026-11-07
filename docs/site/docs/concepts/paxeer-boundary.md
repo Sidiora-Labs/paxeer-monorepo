@@ -41,7 +41,7 @@ Keep multiple nodes configured, use bounded client deadlines and compare
 which network a node serves, not that the node is caught up or that a particular
 transaction committed.
 
-The public node namespaces are `debug`, `echo`, `eth`, `net`, `pax`, `test`
+The public node namespaces are `debug`, `echo`, `eth`, `net`, `pax`, `px`, `test`
 and `txpool`; method availability depends on the node configuration. The former
 unified `/rpc`, `/rpc/ws` and `/rpc/schema` public routes are retired.
 `node.hyperpaxeer.com` is only the hpx library mirror, never an RPC endpoint.
