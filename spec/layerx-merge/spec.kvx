@@ -151935,7 +151935,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.70]
 title = "Shrink the web assets that ship to every visitor"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.39.61", "22.39.69"]
