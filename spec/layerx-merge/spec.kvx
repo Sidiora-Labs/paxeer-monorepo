@@ -333780,7 +333780,7 @@ do_4 = "Attempt 2 (continue, gotcha 3498, decision 2835): the attempt-1 tree 404
 
 [task.22.39.63]
 title = "Declare the licence in every first-party manifest and make the declarations agree with the governing LICENSE"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
