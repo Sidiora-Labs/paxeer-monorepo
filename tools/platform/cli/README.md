@@ -51,11 +51,11 @@ The chain ID result is `0x7d`. Node namespaces are `debug`, `echo`, `eth`, `net`
 [`services/platform/hosted/gateway`](../../../services/platform/hosted/gateway/openrpc.json);
 they are not implied by a public node URL. `node.hyperpaxeer.com` is only the library mirror used by build scripts.
 
-The CLI currently targets a separately deployed hosted service. Its `--rpc`
-transport requires that service's `/rpc` route; this is a hosted API contract,
-not a suffix to append to a public node URL. The SDK connection also targets
-that hosted service. Direct public root-node URLs are rejected by the CLI RPC
-constructor. Bind and program commands additionally depend on their methods
+The global `--rpc` override and the environment endpoint must be an HTTP(S)
+origin at the root path (`/`); the CLI refuses any other path, including the
+retired `/rpc` route, which the hosted gateway answers with HTTP 404. Hosted
+`px_*` methods additionally require the operator's hosted service origin and a
+gateway credential. Bind and program commands additionally depend on their methods
 being admitted by the CLI allowlist; the examples here do not qualify those paths.
 
 An operator must supply the hosted service base URL, an independently trusted
@@ -65,7 +65,7 @@ provisioned separately; `auth set` does not create one. Configure the hosted
 profile explicitly:
 
 ```bash
-export CLI_RPC_URL="$HOSTED_SERVICE_URL/rpc"
+export CLI_RPC_URL="$HOSTED_SERVICE_URL/"
 layerx environment use beta --endpoint "$HOSTED_SERVICE_URL" --network-id 125 \
   --sequencer-trust-anchor-file "$RECEIPT_ANCHOR_FILE"
 layerx auth set --environment beta
@@ -129,7 +129,7 @@ caller's idempotency key. These are not Ethereum node JSON-RPC methods.
 
 ### Beta funds
 
-`layerx faucet [--key NAME]` requests the hosted `px_requestFunds` method with
+`layerx faucet --service-endpoint URL [--key NAME]` requests the hosted `px_requestFunds` method with
 the selected key's DID and Ed25519 public key. It requires a bearer identity
 session stored with `layerx auth set`, which reads the token from stdin. Missing
 sessions return `identity_session_required`. Global `--rpc` and
@@ -138,10 +138,11 @@ sessions return `identity_session_required`. Global `--rpc` and
 With the hosted profile selected, request funds using the identity session:
 
 ```bash
-layerx faucet --key payments
+layerx faucet --service-endpoint "$HOSTED_FAUCET_URL" --key payments
 ```
 
-This posts to the active environment's hosted `/rpc` route. It does not fund
+`--service-endpoint` is required: it is the hosted faucet JSON-RPC URL, separate
+from the node origin, and the CLI posts to exactly that URL. It does not fund
 through a public Ethereum node. Availability and eligibility are determined by
 the hosted service, not by the existence of the CLI command.
 The decoder requires `funded: true`, a nonempty hexadecimal `funding_id`, a

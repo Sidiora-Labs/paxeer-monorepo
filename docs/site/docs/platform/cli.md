@@ -19,14 +19,11 @@ WebSocket access. Hosted `px_` methods belong to the
 `services/platform/hosted/gateway/openrpc.json`; they are not promised by
 public nodes.
 
-**Transport limitation in this CLI:** the current implementation still uses
-retired `/rpc` routing in several clients; it cannot be used as a general root-path node client.
-`src/rpc.rs::RpcClient::new` rejects root URLs, and `src/main.rs` retains the
-same suffix check for program and chain overrides. `src/programs.rs::rpc_call`
-and `src/chains.rs` append that retired route even when the environment
-endpoint is a root URL. The wallet SDK connection also uses its gateway
-transport. These are implementation limitations, not public endpoint rules.
-Do not append a retired path to a public node URL to work around them.
+**Transport:** `src/rpc.rs::RpcClient::new` and `src/chains.rs::node_endpoint`
+accept only an HTTP(S) origin at the root path and refuse any other path,
+including the retired `/rpc` route. `src/programs.rs::rpc_call`, `src/chains.rs`
+and `src/a2a.rs` post JSON-RPC to `/`. Registration and faucet take an explicit
+hosted service URL and post to exactly that URL.
 
 Local key, derivation, scaffolding, build, and configuration operations remain
 useful independently of those transports. The command inventory below
@@ -44,11 +41,11 @@ Prefix the commands in the tables with `layerx`.
 | Option | Current behavior |
 | --- | --- |
 | `--json` | Emit the command result as JSON. |
-| `--rpc <url>` | Override the RPC target for `wallet`, `token`, `chains`, `program`, or `receipt get`. Subject to the transport limitation above. |
+| `--rpc <url>` | Override the RPC target for `wallet`, `token`, `chains`, `program`, or `receipt get`. Must be an origin at the root path. |
 | `--gateway-credential <alias>` | Load a stored gateway credential for those same command groups. The alias is not the credential itself. |
 
 The latter two options are rejected on other command groups, including
-`register` and `faucet`. Those commands use the active profile.
+`register` and `faucet`. Those commands take an explicit hosted service URL.
 
 `src/output.rs` emits successful command results on stdout as
 `{ok: true, kind, message, data}` and runtime errors on stderr as
@@ -155,14 +152,14 @@ artifact compatibility rather than accepting an arbitrary interface document.
 | `key default <name>`, `key delete <name>` | Select the default key or permanently remove its stored secret and metadata. |
 | `auth set`, `auth status`, `auth delete` | Optional `--environment`, otherwise active profile. Set reads a token from stdin; status reports presence without printing it. |
 | `register` | Optional `--key`, otherwise default. Sign the hosted `px_register` tenant binding, fixed to tenant `beta`, and validate the returned subject and signer. It does not create a native main account. |
-| `faucet` | Optional `--key`, otherwise default; requires a stored bearer identity session. Calls hosted `px_requestFunds`, validates the funded result, and preserves the funding transaction ID. |
+| `faucet` | Required `--service-endpoint`; optional `--key`, otherwise default; requires a stored bearer identity session. Calls hosted `px_requestFunds`, validates the funded result, and preserves the funding transaction ID. |
 | `account create` | Emulator uses a local key (`--key` or default) and optional `--initial-amount` (default `0`). Hosted creation requires `--email`, `--display-name`, `--idempotency-key`, and zero initial amount. |
 | `account get` | Emulator requires `--did`; hosted mode reads the active account profile. |
 | `payment test` | `--from`, `--to`, `--currency` (alias `--asset`), positive `--amount`, and `--idempotency-key`. Calls the active service's quote and commit routes. Its result is not independently verified receipt evidence. |
 | `receipt get <tx_hash>` | Fetch `pax_sequencerReceipt` through the program client; hash must be `0x` plus 64 hex digits. This is a fetch, not a proof-verification command. |
 | `receipt verify` | Local compatibility verifier; requires `--receipt`, `--batch-id`, `--asset`, `--previous-state-root`, `--resulting-state-root`, and `--sequencer-public-key`. Its scope is explained below. |
 
-The hosted registration and faucet implementations also retain the retired `/rpc` route; their presence does not make that route a public node API.
+Registration and faucet post to the hosted service URL given with `--gateway-endpoint` and `--service-endpoint`; that URL is not a public node API.
 Use a service deployment's declared contract and authentication requirements.
 Do not configure hosted account or payment REST operations against a public
 node and assume it supplies those routes.
