@@ -1,3 +1,6 @@
+# Deployment template: render with python3 services/interop/deploy/x-websearch/render_deploy_template.py <this-file>
+# to an operator-owned file, then deploy that file with --config and --image.
+# Every ${NAME} is required from the environment; no provider defaults.
 # The interop gateway at interchain.paxeer.network runs
 # services/interop/crates/layerx-interop-service on its plain listener behind the Fly
 # edge, on at least two machines in ams and fra. Durable operations live in the
@@ -37,10 +40,10 @@ kill_timeout = "30s"
   LAYERX_INTEROP_OUTBOUND_CA_DER = "/run/layerx/trust/ca.crt.der"
   LAYERX_INTEROP_CLIENT_IDENTITY_PKCS12 = "/run/layerx/client/client.p12"
   LAYERX_INTEROP_CLIENT_IDENTITY_PASSWORD_FILE = "/run/layerx/client/password"
-  LAYERX_INTEROP_SEQUENCER_URL = "https://paxeer-x-core.internal:8545"
+  LAYERX_INTEROP_SEQUENCER_URL = "${LAYERX_INTEROP_SEQUENCER_URL}"
   LAYERX_INTEROP_RECEIPT_KEYS_FILE = "/run/layerx/receipt-keys/receipt-keys.json"
   LAYERX_INTEROP_HOSTED_GATEWAY_URL = "https://api-mainnet-beta.paxeer.network"
-  LAYERX_INTEROP_REDIS_URL = "rediss://paxeer-shared-endpoint-redis.internal:6379"
+  LAYERX_INTEROP_REDIS_URL = "${LAYERX_INTEROP_REDIS_URL}"
   LAYERX_INTEROP_REDIS_USERNAME_FILE = "/run/layerx/redis/username"
   LAYERX_INTEROP_REDIS_PASSWORD_FILE = "/run/layerx/redis/password"
   LAYERX_INTEROP_WIRE_VERSION = "3"

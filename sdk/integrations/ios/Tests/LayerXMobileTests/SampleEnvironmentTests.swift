@@ -67,6 +67,23 @@ final class SampleEnvironmentTests: XCTestCase {
       }
     }
 
+    let receiptKey = try XCTUnwrap(object["receipt_key"] as? [String: Any])
+    for field in ["key_id", "public_key", "first_height", "last_height"] {
+      var incompleteKey = receiptKey
+      incompleteKey.removeValue(forKey: field)
+      var incomplete = object
+      incomplete["receipt_key"] = incompleteKey
+      let incompleteData = try JSONSerialization.data(withJSONObject: incomplete)
+      XCTAssertThrowsError(try decoder.decode(RelayReceiptPayload.self, from: incompleteData)) {
+        error in
+        guard case let DecodingError.keyNotFound(key, context) = error else {
+          return XCTFail("Expected a missing receipt key field for \(field), got \(error)")
+        }
+        XCTAssertEqual(key.stringValue, field)
+        XCTAssertEqual(context.codingPath.map(\.stringValue), ["receipt_key"])
+      }
+    }
+
     let legacyData = Data(
       #"{"canonical_receipt_base64":"AQID","authorized_batch":{}}"#.utf8)
     XCTAssertThrowsError(try decoder.decode(RelayReceiptPayload.self, from: legacyData)) {

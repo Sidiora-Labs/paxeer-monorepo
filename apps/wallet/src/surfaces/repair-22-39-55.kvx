@@ -1,0 +1,239 @@
+[meta]
+task = "22.39.55"
+status = "implemented"
+starting_revision = "a9167fbc68cb22ef78b223a753236832c99cda2f"
+baseline_source = "GOTCHA.kvx [gotcha.3433]; inherited 22.39.42 attempt 1 at e3a22cbc5a67"
+baseline_execution = "Inherited inventory reconstructed by suite/test; not a fresh starting-revision run. Preliminary tests conflict with the only-allowed hf-build/hf-done gates and implementation-first order."
+baseline_count = 27
+baseline_command = "cd apps/wallet && corepack enable && pnpm exec vitest run src/surfaces/BridgeView.test.tsx src/surfaces/ExchangeView.test.tsx src/surfaces/FeeChoice.test.tsx src/surfaces/LaunchpadView.test.tsx src/surfaces/WebDataView.test.tsx src/surfaces/test/chain.test.tsx src/surfaces/test/repair-22-33-206.test.ts"
+qualification_evidence = "Private runner ledger /out/run/gates.jsonl records the exact candidate revision, command, exit and log; no passing qualification is claimed here."
+receipt_rule = "sdk/wallet/src/types.ts#SequencerReceiptAnswer and sdk/wallet/src/receipt.ts#authenticateSequencerReceipt; use producer recordings unchanged, including signed execution fields and governed key pins."
+grant_rule = "apps/wallet/src/surfaces/useSurface.ts#readGrantCaps and sdk/wallet/src/modules/web-data.ts#paymentAvailability; payer grants retired, request-value payment availability observed at finalized block."
+receipt_source = "apps/wallet/src/surfaces/test/fixtures/surface-receipts-v1.json; missing calls recorded from spec/layerx-merge/contracts/sequencer.md#sequencer-receipt with the production SDK encoder and public conformance signing seed; model vectors, not application-execution evidence. Reproduce with fixtures/generate-surface-receipts.mjs."
+producer_context = "Direct verification supplies fixtures/ledger-proof-v1.json from the ledger-auth.md#layerxledger-0x101a node model: two signed payment logs, zero retired grant logs; the Go producer can still inject its own application logs. The proof assertions remain intact."
+
+[baseline.1]
+file = "apps/wallet/src/surfaces/WebDataView.test.tsx"
+test = "web_data_view_sends_a_search_carrying_the_precompile_fee_and_shows_the_decoded_event"
+failure = "condition not reached: receipt"
+status = "settled"
+settlement = "Replay exact xweb-search/xweb-refund recordings from fixtures/surface-receipts-v1.json, generated from the documented node receipt model; preserve native value, callback gas, full signed receipt authentication and decoded-event assertions."
+
+[baseline.2]
+file = "apps/wallet/src/surfaces/WebDataView.test.tsx"
+test = "web_data_view_requests_a_refund_through_the_module"
+failure = "condition not reached: receipt"
+status = "settled"
+settlement = "Replay exact xweb-search/xweb-refund recordings from fixtures/surface-receipts-v1.json, generated from the documented node receipt model; preserve native value, callback gas, full signed receipt authentication and decoded-event assertions."
+
+[baseline.3]
+file = "apps/wallet/src/surfaces/WebDataView.test.tsx"
+test = "web_data_view_reads_the_connected_account_caps_by_grant_id"
+failure = "retired grant assertion"
+status = "settled"
+settlement = "Payer grants are retired by readGrantCaps and webData.paymentAvailability; assert the exact request-value policy and finalized observation, no grant reads, holder queries, historical scans or rendered grants for the original scenario."
+
+[baseline.4]
+file = "apps/wallet/src/surfaces/WebDataView.test.tsx"
+test = "web_data_view_shows_caps_observed_at_the_committed_block"
+failure = "retired grant assertion"
+status = "settled"
+settlement = "Payer grants are retired by readGrantCaps and webData.paymentAvailability; assert the exact request-value policy and finalized observation, no grant reads, holder queries, historical scans or rendered grants for the original scenario."
+
+[baseline.5]
+file = "apps/wallet/src/surfaces/WebDataView.test.tsx"
+test = "web_data_view_shows_empty_caps_for_a_bound_account_with_no_grant"
+failure = "retired grant assertion"
+status = "settled"
+settlement = "Payer grants are retired by readGrantCaps and webData.paymentAvailability; assert the exact request-value policy and finalized observation, no grant reads, holder queries, historical scans or rendered grants for the original scenario."
+
+[baseline.6]
+file = "apps/wallet/src/surfaces/WebDataView.test.tsx"
+test = "web_data_view_refuses_caps_for_an_address_with_no_bound_did"
+failure = "retired grant assertion"
+status = "settled"
+settlement = "Assert the live refusal or consensus-unavailable status separately from the independent budget-discovery status; retain the exact refusal and no-log-query checks."
+
+[baseline.7]
+file = "apps/wallet/src/surfaces/WebDataView.test.tsx"
+test = "web_data_view_reports_caps_unavailable_without_a_finalised_checkpoint"
+failure = "retired grant assertion"
+status = "settled"
+settlement = "Assert the live refusal or consensus-unavailable status separately from the independent budget-discovery status; retain the exact refusal and no-log-query checks."
+
+[baseline.8]
+file = "apps/wallet/src/surfaces/WebDataView.test.tsx"
+test = "web_data_view_reads_grant_logs_back_from_the_finalised_head_in_bounded_windows"
+failure = "retired grant assertion"
+status = "settled"
+settlement = "Payer grants are retired by readGrantCaps and webData.paymentAvailability; assert the exact request-value policy and finalized observation, no grant reads, holder queries, historical scans or rendered grants for the original scenario."
+
+[baseline.9]
+file = "apps/wallet/src/surfaces/WebDataView.test.tsx"
+test = "web_data_view_keeps_every_grant_and_the_earliest_expiry_across_all_windows"
+failure = "retired grant assertion"
+status = "settled"
+settlement = "Payer grants are retired by readGrantCaps and webData.paymentAvailability; assert the exact request-value policy and finalized observation, no grant reads, holder queries, historical scans or rendered grants for the original scenario."
+
+[baseline.10]
+file = "apps/wallet/src/surfaces/WebDataView.test.tsx"
+test = "web_data_view_scans_every_window_down_to_the_ledger_floor_and_never_below_it"
+failure = "retired grant assertion"
+status = "settled"
+settlement = "Payer grants are retired by readGrantCaps and webData.paymentAvailability; assert the exact request-value policy and finalized observation, no grant reads, holder queries, historical scans or rendered grants for the original scenario."
+
+[baseline.11]
+file = "apps/wallet/src/surfaces/WebDataView.test.tsx"
+test = "web_data_view_reads_grant_windows_in_bounded_parallel_batches"
+failure = "retired grant assertion"
+status = "settled"
+settlement = "Payer grants are retired by readGrantCaps and webData.paymentAvailability; assert the exact request-value policy and finalized observation, no grant reads, holder queries, historical scans or rendered grants for the original scenario."
+
+[baseline.12]
+file = "apps/wallet/src/surfaces/WebDataView.test.tsx"
+test = "web_data_view_reports_caps_unavailable_when_any_grant_window_fails"
+failure = "retired grant assertion"
+status = "settled"
+settlement = "Payer grants are retired by readGrantCaps and webData.paymentAvailability; assert the exact request-value policy and finalized observation, no grant reads, holder queries, historical scans or rendered grants for the original scenario."
+
+[baseline.13]
+file = "apps/wallet/src/surfaces/WebDataView.test.tsx"
+test = "web_data_view_reads_a_sponsored_grant_sent_to_the_account_and_no_foreign_grant"
+failure = "retired grant assertion"
+status = "settled"
+settlement = "Payer grants are retired by readGrantCaps and webData.paymentAvailability; assert the exact request-value policy and finalized observation, no grant reads, holder queries, historical scans or rendered grants for the original scenario."
+
+[baseline.14]
+file = "apps/wallet/src/surfaces/WebDataView.test.tsx"
+test = "web_data_view_reports_caps_unavailable_past_the_window_ceiling_without_scanning"
+failure = "retired grant assertion"
+status = "settled"
+settlement = "Payer grants are retired by readGrantCaps and webData.paymentAvailability; assert the exact request-value policy and finalized observation, no grant reads, holder queries, historical scans or rendered grants for the original scenario."
+
+[baseline.15]
+file = "apps/wallet/src/surfaces/WebDataView.test.tsx"
+test = "web_data_view_reports_caps_unavailable_on_a_chain_without_a_configured_floor"
+failure = "retired grant assertion"
+status = "settled"
+settlement = "Payer grants are retired by readGrantCaps and webData.paymentAvailability; assert the exact request-value policy and finalized observation, no grant reads, holder queries, historical scans or rendered grants for the original scenario."
+
+[baseline.16]
+file = "apps/wallet/src/surfaces/WebDataView.test.tsx"
+test = "web_data_view_reads_grants_from_holder_records_when_the_endpoint_serves_them"
+failure = "retired grant assertion"
+status = "settled"
+settlement = "Payer grants are retired by readGrantCaps and webData.paymentAvailability; assert the exact request-value policy and finalized observation, no grant reads, holder queries, historical scans or rendered grants for the original scenario."
+
+[baseline.17]
+file = "apps/wallet/src/surfaces/WebDataView.test.tsx"
+test = "web_data_view_probes_holder_records_once_and_keeps_the_chain_scan_when_not_served"
+failure = "retired grant assertion"
+status = "settled"
+settlement = "Payer grants are retired by readGrantCaps and webData.paymentAvailability; assert the exact request-value policy and finalized observation, no grant reads, holder queries, historical scans or rendered grants for the original scenario."
+
+[baseline.18]
+file = "apps/wallet/src/surfaces/WebDataView.test.tsx"
+test = "web_data_view_reports_caps_unavailable_when_served_holder_records_fail_and_never_falls_back_to_the_scan"
+failure = "retired grant assertion"
+status = "settled"
+settlement = "Payer grants are retired by readGrantCaps and webData.paymentAvailability; assert the exact request-value policy and finalized observation, no grant reads, holder queries, historical scans or rendered grants for the original scenario."
+
+[baseline.19]
+file = "apps/wallet/src/surfaces/ExchangeView.test.tsx"
+test = "exchange_view_opens_a_perps_position_through_the_precompile_call_and_shows_the_decoded_event"
+failure = "condition not reached: long receipt"
+status = "settled"
+settlement = "Replay perps approval/open-long/open-short/cancel/deposit recordings from fixtures/surface-receipts-v1.json, generated from the documented node receipt model and SDK ABI event vectors; retain exact calldata, allowance changes, receipt-success and decoded-event assertions."
+
+[baseline.20]
+file = "apps/wallet/src/surfaces/ExchangeView.test.tsx"
+test = "exchange_view_opens_without_approval_when_allowance_covers_collateral"
+failure = "condition not reached: receipt"
+status = "settled"
+settlement = "Replay perps approval/open-long/open-short/cancel/deposit recordings from fixtures/surface-receipts-v1.json, generated from the documented node receipt model and SDK ABI event vectors; retain exact calldata, allowance changes, receipt-success and decoded-event assertions."
+
+[baseline.21]
+file = "apps/wallet/src/surfaces/ExchangeView.test.tsx"
+test = "exchange_view_cancels_an_order_through_the_precompile_call"
+failure = "condition not reached: receipt"
+status = "settled"
+settlement = "Replay perps approval/open-long/open-short/cancel/deposit recordings from fixtures/surface-receipts-v1.json, generated from the documented node receipt model and SDK ABI event vectors; retain exact calldata, allowance changes, receipt-success and decoded-event assertions."
+
+[baseline.22]
+file = "apps/wallet/src/surfaces/ExchangeView.test.tsx"
+test = "exchange_view_deposits_usdl_without_native_value"
+failure = "condition not reached: receipt"
+status = "settled"
+settlement = "Replay perps approval/open-long/open-short/cancel/deposit recordings from fixtures/surface-receipts-v1.json, generated from the documented node receipt model and SDK ABI event vectors; retain exact calldata, allowance changes, receipt-success and decoded-event assertions."
+
+[baseline.23]
+file = "apps/wallet/src/surfaces/BridgeView.test.tsx"
+test = "bridge_view_bridges_out_through_the_module_and_shows_the_decoded_event"
+failure = "condition not reached: receipt"
+status = "settled"
+settlement = "Use the real signed BridgeOut producer recording for call inputs and decoded fields; assert its exact hash, rung, authenticated key/raw-transaction reads and the rendered receipt."
+
+[baseline.24]
+file = "apps/wallet/src/surfaces/FeeChoice.test.tsx"
+test = "fee_choice_switches_the_fee_token_preference_through_the_precompile"
+failure = "condition not reached: fee denom set"
+status = "settled"
+settlement = "Replay fee-set/fee-clear recordings from fixtures/surface-receipts-v1.json, generated from the documented node receipt model; apply preference state only for a successful signed receipt and retain governed-key/raw-transaction authentication."
+
+[baseline.25]
+file = "apps/wallet/src/surfaces/LaunchpadView.test.tsx"
+test = "launchpad_view_creates_a_market_through_the_module"
+failure = "condition not reached: receipt"
+status = "settled"
+settlement = "Replay launchpad-create-approve/launchpad-create recordings from fixtures/surface-receipts-v1.json, generated from the documented node receipt model and SDK ABI event vectors; retain exact approval, call, receipt and created-market assertions."
+
+[baseline.26]
+file = "apps/wallet/src/surfaces/test/chain.test.tsx"
+test = "surface_chain_preserves_node_execution_fields_and_governed_signatures"
+failure = "receipt fixture contract"
+status = "settled"
+settlement = "Pin the complete live seven-entry producer inventory, including the insufficient-funds transfer; authenticate every entry and assert the exact execution fields and signature digest."
+
+[baseline.27]
+file = "apps/wallet/src/surfaces/test/repair-22-33-206.test.ts"
+test = "repair_22_33_206_unsigned_surface_fixture_replays_node_send_and_read"
+failure = "receipt event contract"
+status = "settled"
+settlement = "Use the live SDK BridgeOut precompile identity in the exact decoded-event object, preserving transport, receipt, signature, calldata and digest assertions."
+
+[qualification.build1]
+revision = "9857d8c9ad843ef38cb507e38f7777dbd6d59b87"
+command = "cd apps/wallet && corepack enable && pnpm install --frozen-lockfile && pnpm exec tsc --noEmit -p tsconfig.json"
+exit = 2
+log = "/out/logs/build-1.log"
+observed = "The pinned Node 22 declarations omit the real Node 24 worker_threads.locks export used by the PNS and swap recovery suites."
+settlement = "Read the runtime export as unknown and require both real Web Locks methods before installing it on navigator; retain all recovery assertions."
+
+[qualification.verify1]
+revision = "423e90783e78d1d3293dacd6241d89375a91c88d"
+command = "cg spec done 22.39.55 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Nine failed assertions: four perps sends, one fee preference, one launchpad creation, two XWeb sends and the missing Go-producer ledgerProof context; 97 passed and 20 registered as todo."
+settlement = "Preserve assertions on missing external producer evidence; replace one-argument test registrations with the actual Vitest name-plus-body form so the functions execute rather than register as todo."
+
+[gotcha.vitest_registration]
+symptom = "A single function passed to Vitest test is interpreted as a test title with no body and becomes todo."
+settlement = "Register the declared function with test(functionName.name, functionName); preserve its name and execute every assertion."
+
+[qualification.attempt2]
+build_reference = "/out/run/gates.jsonl: final successful kind=build entry; candidate revision, command, exit and private log are recorded by hf-build."
+verify_reference = "/out/run/gates.jsonl: final kind=verify entry from hf-done; qualification requires exit zero and the same candidate revision as the build entry."
+recorded_model_source = "spec/layerx-merge/contracts/sequencer.md#sequencer-receipt and spec/layerx-merge/contracts/ledger-auth.md#layerxledger-0x101a; generated fixture provenance names encoder, ABI/event inputs and public signing-seed source."
+
+[gotcha.model_abi]
+symptom = "The shared construct ABI writer supports strings and fixed words but not the ledger/XWeb dynamic bytes argument; the fixture recording command initially refused request argument 1."
+settlement = "Encode dynamic bytes with canonical Solidity length, offset and zero padding in the model recorder; keep the production writer for fixed ABI words and authenticate every emitted vector in the declared suite."
+
+[qualification.attempt2_repair1]
+revision = "7f67f82da16bb812436590d38362a7d6aeaf47ac"
+command = "cg spec done 22.39.55 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "123 tests passed; the retained sponsored resend test timed out at SID quote because its HTTP recorder still served /v1/wallet/sponsored/quote while gasStationQuoteUrl requests /gas-station/quote."
+settlement = "Derive the recorded quote route from the live SDK helper and assert the quoted phase and empty refusal/error state explicitly; retain two signed submissions, fresh quote nonces, distinct receipt hashes and recovery assertions."

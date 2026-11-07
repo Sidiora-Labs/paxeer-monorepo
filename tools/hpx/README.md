@@ -211,6 +211,12 @@ landing page at `/` and its declared logo and font assets.
 
 ## Fleet collection and funding recovery
 
+The [fleet key collector](fleet-keygen.sh) installs the local HPX CLI on selected
+hosts before collecting their public operator identities; set `HPX_PUSH=0` when
+the intended CLI is already installed. The [staking tool](stake-fleet.sh) funds
+operator wallets and prints or runs validator staking commands. Set `HPX_RPC`
+and `HPX_EVM_RPC` to the intended network before using the staking tool.
+
 Run `tools/hpx/fleet-keygen.sh` or `tools/hpx/stake-fleet.sh keygen` from the
 repository root. Both use the same durable state under `tools/hpx/.fleet`
 (`HPX_WORKDIR` overrides it). The first collection persists the intended host

@@ -56,9 +56,10 @@ The remaining wiring includes the token handler and registry route, allowance
 spender identity, registration of program-owned token recipients, and deployment
 binding of token ids and backing assets. The default token uses `REFERENCE_ASSET`
 (byte `0x44` repeated 32 times), which differs from both swap backing constants.
-See the [repair record](src/repair_22_31_264.kvx) for the outstanding work. Its
-request/codec/grant tests do not establish native liquidity, trading, rollback
-or persistent balance recovery; those paths remain unproven.
+The request, codec and grant tests check pull routing with the pool as spender,
+push routing with the pool as debit source, and refusal of noncanonical or
+non-settlement requests. They do not establish native liquidity, trading,
+rollback or persistent balance recovery; those paths remain unproven.
 
 ## Compatibility and proof status
 
@@ -70,10 +71,9 @@ not satisfy the immediate-pool spender contract. Program-owned pool recipients
 also need a token registration route; the token's direct `approve` registers
 only its invoking user, separately from native account registration.
 
-The [finding 036 repair record](src/repair_22_33_250.kvx) and
-[regression tests](tests/repair_22_33_250.rs) check this guide against the
-production `TokenCall` producer, SDK wire and grant encoders, and
-`NestedTokenCall` contract decoder. The token source and registry still expose
+The [wire, authority and token compatibility tests](tests/repair_22_33_250.rs)
+check this guide against the production `TokenCall` producer, SDK wire and grant
+encoders, and `NestedTokenCall` contract decoder. The token source and registry still expose
 the blockers above. These tests do not execute a native swap or prove rollback
 or restart recovery. The token's `native-token` fixtures cover direct token
 operations; they are not a swap-composition proof.

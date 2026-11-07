@@ -12,6 +12,7 @@ import {
 } from '@sidiora/layerx-sdk/browser';
 import { exchange } from '@paxeer/wallet';
 import { ethers } from 'ethers';
+import { RecordedSurfaceChain } from './test/recordedReceipts';
 import { FIXTURE_KEY } from '@/wallet/test/gateway';
 import { ExchangeView, USDL } from './ExchangeView';
 import { PerpsConfiguration } from './test/perpsConfiguration';
@@ -34,7 +35,7 @@ import {
   type Mounted,
 } from './test/chain';
 
-class ExchangeChain extends SurfaceChain {
+class ExchangeChain extends RecordedSurfaceChain {
   override readonly wallet = new ethers.Wallet(FIXTURE_KEY);
   override readonly address = this.wallet.address.toLowerCase();
 }
@@ -76,7 +77,8 @@ const allowance = (owner: string) =>
 async function exchange_view_opens_a_perps_position_through_the_precompile_call_and_shows_the_decoded_event() {
   const vector = eventVectors('exchange').find((candidate) => candidate.event === 'OrderPlaced');
   if (!vector) throw new Error('no OrderPlaced vector');
-  chain.logsFor = () => [vectorLog(PERPS_PRECOMPILE, PERPS_EVENTS, vector)];
+  chain.logsFor = (call) =>
+    call.to === PERPS_PRECOMPILE ? [vectorLog(PERPS_PRECOMPILE, PERPS_EVENTS, vector)] : [];
   mounted = await mountSurface(
     chain,
     <ExchangeView sidRate={null} collateralEndpoint={configuration.endpoint} />
@@ -98,7 +100,12 @@ async function exchange_view_opens_a_perps_position_through_the_precompile_call_
   chain.allowances.set(`${usdl.toLowerCase()}:${allowance(chain.address).slice(10)}`, 50_123_455n);
   const longExpected = perpsOpenPositionCall({ ...order, isLong: true });
   await click(sendButton(container), 'send long');
-  await until(() => text(container, '[data-role="status"]') === 'confirmed', 'long receipt');
+  await until(
+    () => container.querySelector('[data-role="sent"], [data-role="send-error"]') !== null,
+    'long receipt'
+  );
+  expect(text(container, '[data-role="send-error"]')).toBe('');
+  expect(text(container, '[data-role="status"]')).toBe('confirmed');
   expect(
     chain.calls.filter((call) => call.data.startsWith(abiSelector('allowance(address,address)')))
   ).toEqual([{ to: usdl.toLowerCase(), data: allowance(chain.address) }]);
@@ -131,7 +138,12 @@ async function exchange_view_opens_a_perps_position_through_the_precompile_call_
   expect(container.querySelector('input[name="accountId"]')).toBeNull();
 
   await click(sendButton(container), 'send');
-  await until(() => text(container, '[data-role="status"]') === 'confirmed', 'receipt');
+  await until(
+    () => container.querySelector('[data-role="sent"], [data-role="send-error"]') !== null,
+    'receipt'
+  );
+  expect(text(container, '[data-role="send-error"]')).toBe('');
+  expect(text(container, '[data-role="status"]')).toBe('confirmed');
 
   expect(chain.sent).toEqual([
     {
@@ -187,7 +199,12 @@ async function exchange_view_opens_without_approval_when_allowance_covers_collat
   await typeInto(container, 'leverage', '5');
   await until(() => !sendButton(container).disabled, 'send enabled');
   await click(sendButton(container), 'send');
-  await until(() => text(container, '[data-role="status"]') === 'confirmed', 'receipt');
+  await until(
+    () => container.querySelector('[data-role="sent"], [data-role="send-error"]') !== null,
+    'receipt'
+  );
+  expect(text(container, '[data-role="send-error"]')).toBe('');
+  expect(text(container, '[data-role="status"]')).toBe('confirmed');
 
   expect(
     chain.calls.filter((call) => call.data.startsWith(abiSelector('allowance(address,address)')))
@@ -307,7 +324,12 @@ describe('ExchangeView', () => {
     if (!cancelAbi) throw new Error('no cancelOrder ABI');
     expect(cancelAbi.format('sighash')).toBe('cancelOrder(uint256)');
     await click(sendButton(container), 'send');
-    await until(() => text(container, '[data-role="status"]') === 'confirmed', 'receipt');
+    await until(
+      () => container.querySelector('[data-role="sent"], [data-role="send-error"]') !== null,
+      'receipt'
+    );
+    expect(text(container, '[data-role="send-error"]')).toBe('');
+    expect(text(container, '[data-role="status"]')).toBe('confirmed');
 
     expect(chain.sent).toEqual([
       {
@@ -331,7 +353,12 @@ describe('ExchangeView', () => {
     await typeInto(container, 'amount', '1');
     await until(() => !sendButton(container).disabled, 'send enabled');
     await click(sendButton(container), 'send');
-    await until(() => text(container, '[data-role="status"]') === 'confirmed', 'receipt');
+    await until(
+      () => container.querySelector('[data-role="sent"], [data-role="send-error"]') !== null,
+      'receipt'
+    );
+    expect(text(container, '[data-role="send-error"]')).toBe('');
+    expect(text(container, '[data-role="status"]')).toBe('confirmed');
 
     expect(chain.sent).toEqual([
       { from: chain.address, to: usdl.toLowerCase(), data: approve(1_000_000n), value: '0x0' },
