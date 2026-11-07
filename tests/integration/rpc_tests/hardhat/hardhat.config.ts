@@ -5,13 +5,14 @@
  * deploy/test flows.
  *
  * Run with:
- *   npm run rpc:fork
+ *   ETH_MAINNET_UPSTREAM="https://your-ethereum-provider.example/" \
+ *   ETH_MAINNET_FORK_BLOCK=21000000 npm run rpc:fork
  * which expands to:
  *   hardhat --config hardhat/hardhat.config.ts node --port 9546
  *
- * Required env (or use defaults):
+ * Required env (no defaults):
  *   ETH_MAINNET_UPSTREAM  - HTTP RPC URL we are forking from (Alchemy / Infura / etc.)
- *   ETH_MAINNET_FORK_BLOCK - optional pinned block, recommended for determinism
+ *   ETH_MAINNET_FORK_BLOCK - positive pinned block number (safe integer)
  */
 import { HardhatUserConfig } from 'hardhat/config';
 import '@nomicfoundation/hardhat-toolbox';
@@ -21,14 +22,21 @@ if (!UPSTREAM) {
     throw new Error(
         'ETH_MAINNET_UPSTREAM is not set. The mainnet fork (npm run rpc:fork) needs an ' +
             'Ethereum mainnet RPC URL to fork from, e.g.\n' +
-            '  ETH_MAINNET_UPSTREAM="https://eth-mainnet.g.alchemy.com/v2/<YOUR_KEY>" npm run rpc:fork',
+            '  ETH_MAINNET_UPSTREAM="https://your-ethereum-provider.example/" ' +
+            'ETH_MAINNET_FORK_BLOCK=21000000 npm run rpc:fork',
     );
 }
 
-const FORK_BLOCK = process.env.ETH_MAINNET_FORK_BLOCK
-    ? Number(process.env.ETH_MAINNET_FORK_BLOCK)
-    : undefined;
-if (!Number.isSafeInteger(FORK_BLOCK) || (FORK_BLOCK ?? 0) <= 0) {
+const FORK_BLOCK_VALUE = process.env.ETH_MAINNET_FORK_BLOCK;
+if (!FORK_BLOCK_VALUE || FORK_BLOCK_VALUE.trim() === '') {
+    throw new Error(
+        'ETH_MAINNET_FORK_BLOCK is not set. The mainnet fork requires a positive pinned block number, e.g.\n' +
+            '  ETH_MAINNET_UPSTREAM="https://your-ethereum-provider.example/" ' +
+            'ETH_MAINNET_FORK_BLOCK=21000000 npm run rpc:fork',
+    );
+}
+const FORK_BLOCK = Number(FORK_BLOCK_VALUE);
+if (!Number.isSafeInteger(FORK_BLOCK) || FORK_BLOCK <= 0) {
     throw new Error('ETH_MAINNET_FORK_BLOCK must be a positive pinned block number');
 }
 

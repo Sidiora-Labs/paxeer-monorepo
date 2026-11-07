@@ -1,0 +1,13 @@
+[manifest]
+task = "22.32.49"
+domain = 5
+owner_role = "fm-node-runtime"
+pages = 1
+
+[page.1]
+path = "docs/site/docs/human/owner-registration.md"
+status = "misleading"
+bytes = 9743
+source_1 = "record 22.30.43 [doc.011] (stale): Lines 13-19 and 31-35 retain daemon identity bootstrap, LNI CLI and guarantor checkpoint_finalised proofs; current layerxctl uses --rpc-url EVM submission and eth_call reads."
+source_2 = "record 22.30.52 [doc.5] (misleading): Read in full: lines 9-19 and 33 retain daemon admission, custody-credit and guarantor evidence prerequisites; wiki also retains custody 0x1013 and LNI bootstrap instructions."
+source_3 = "record 22.30.73 [doc.08] (stale): Lines 9, 14-18 and 28-34 retain Bridge Credit, native daemon and guarantor/receipt-authority provisioning as the current registration path."

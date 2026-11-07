@@ -624,6 +624,30 @@ impl FeeSchedule {
     }
 }
 
+/// An authoritative amount, or the exact endpoint/asset whose balance is unknown.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum BalanceObservation {
+    Known(Amount),
+    Unknown { endpoint: Endpoint, asset: AssetId },
+}
+
+impl BalanceObservation {
+    pub fn require(self) -> Result<Amount, Refusal> {
+        match self {
+            Self::Known(amount) => Ok(amount),
+            Self::Unknown { endpoint, asset } => Err(Refusal::BalanceUnknown { endpoint, asset }),
+        }
+    }
+}
+
+// Existing read consumers can still compare an observed amount to an Amount;
+// an unknown observation never compares equal, including to zero.
+impl PartialEq<Amount> for BalanceObservation {
+    fn eq(&self, other: &Amount) -> bool {
+        matches!(self, Self::Known(amount) if amount == other)
+    }
+}
+
 /// The complete deterministic snapshot planning reads. Every collection is
 /// stored in canonical order, so a permuted observation yields an identical
 /// plan.
@@ -723,13 +747,19 @@ impl ObservedState {
         &self.allowances
     }
 
-    /// Returns the observed spendable amount. An unobserved balance is zero.
+    /// Preserves an absent observation, including its endpoint and asset.
     #[must_use]
-    pub fn available(&self, endpoint: &Endpoint, asset: AssetId) -> Amount {
+    pub fn available(&self, endpoint: &Endpoint, asset: AssetId) -> BalanceObservation {
         self.balances
             .iter()
             .find(|entry| &entry.endpoint == endpoint && entry.asset == asset)
-            .map_or(Amount::from_u128(0), |entry| entry.available)
+            .map_or_else(
+                || BalanceObservation::Unknown {
+                    endpoint: endpoint.clone(),
+                    asset,
+                },
+                |entry| BalanceObservation::Known(entry.available),
+            )
     }
 
     fn home(&self) -> Endpoint {
@@ -1438,6 +1468,9 @@ fn candidates(
         });
     }
     let base = base_shapes(intent, observed)?;
+    for shape in &base {
+        observed.available(&shape.source, intent.asset).require()?;
+    }
     let base_drafts = settle(&base, intent.amount.value(), observed)?;
     let base_fee = total_fee(&base_drafts)?;
     let funding = base
@@ -1453,7 +1486,10 @@ fn candidates(
         .value()
         .checked_add(base_fee)
         .ok_or(Refusal::Arithmetic)?;
-    let available = observed.available(&funding, intent.asset).value();
+    let available = observed
+        .available(&funding, intent.asset)
+        .require()?
+        .value();
     let mut built = Vec::new();
     if available >= required {
         built.push(UnifiedPlan::seal(intent.clone(), base_drafts)?);
@@ -1601,6 +1637,9 @@ fn top_up_prefixes(
     }
     let mut prefixes = Vec::new();
     for shapes in shapes_options {
+        for shape in &shapes {
+            observed.available(&shape.source, intent.asset).require()?;
+        }
         let origin = match shapes.first() {
             None => continue,
             Some(shape) => shape.source.clone(),
@@ -1624,7 +1663,7 @@ fn top_up_prefixes(
         let cost = shortfall
             .checked_add(fee_total)
             .ok_or(Refusal::Arithmetic)?;
-        if observed.available(&origin, intent.asset).value() < cost {
+        if observed.available(&origin, intent.asset).require()?.value() < cost {
             continue;
         }
         let amounts = backward_amounts(&shapes, shortfall, observed)?;
@@ -1963,6 +2002,8 @@ impl SignedPlan {
 /// Typed planning refusal. No variant carries a partial plan.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Refusal {
+    /// No authoritative observation exists for this endpoint and asset.
+    BalanceUnknown { endpoint: Endpoint, asset: AssetId },
     /// The intent moved nothing.
     ZeroAmount,
     /// The intent named the same endpoint twice.
@@ -2054,6 +2095,11 @@ pub enum Refusal {
 impl Display for Refusal {
     fn fmt(&self, formatter: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
+            Self::BalanceUnknown { endpoint, asset } => write!(
+                formatter,
+                "balance is unknown for {endpoint:?}, asset {:?}",
+                asset.bytes()
+            ),
             Self::ZeroAmount => formatter.write_str("the intent moves nothing"),
             Self::EndpointsIdentical => {
                 formatter.write_str("the intent names the same endpoint twice")

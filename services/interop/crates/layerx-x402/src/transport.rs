@@ -6,6 +6,7 @@
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 use serde_json::Value;
+use std::io::{self, Write};
 
 use crate::codec::{decode_header, encode_header};
 use crate::facilitator::{
@@ -31,6 +32,27 @@ pub enum TransportKind {
 pub enum TransportValue {
     HttpHeader { name: &'static str, value: String },
     Json(Value),
+}
+
+impl TransportValue {
+    /// Parses a JSON transport body only after enforcing the core byte budget.
+    ///
+    /// # Errors
+    /// Refuses oversized or malformed ingress before constructing a JSON value.
+    pub fn from_json_slice(bytes: &[u8]) -> Result<Self, X402Error> {
+        decode_json_slice(bytes).map(Self::Json)
+    }
+}
+
+/// Decodes a JSON body after enforcing the transport byte budget.
+///
+/// # Errors
+/// Refuses oversized input before deserialization, and malformed JSON or models.
+pub fn decode_json_slice<T: DeserializeOwned>(bytes: &[u8]) -> Result<T, X402Error> {
+    if bytes.len() > MAXIMUM_JSON_BYTES {
+        return Err(X402Error::Bounds);
+    }
+    serde_json::from_slice(bytes).map_err(|_| X402Error::Decode)
 }
 
 /// One published compatibility-matrix row.
@@ -283,18 +305,13 @@ fn decode_core<T: DeserializeOwned>(
                 value: encoded,
             },
         ) if *name == header => decode_header(encoded),
-        (TransportKind::Mcp | TransportKind::A2a, TransportValue::Json(value)) => {
-            serde_json::from_value(value.clone()).map_err(|_| X402Error::Decode)
-        }
+        (TransportKind::Mcp | TransportKind::A2a, TransportValue::Json(_)) => decode_json(value),
         _ => Err(X402Error::Decode),
     }
 }
 
 fn encode_json<T: Serialize>(value: &T) -> Result<TransportValue, X402Error> {
-    let bytes = serde_json::to_vec(value).map_err(|_| X402Error::Encode)?;
-    if bytes.len() > MAXIMUM_JSON_BYTES {
-        return Err(X402Error::Bounds);
-    }
+    let bytes = bounded_json(value, X402Error::Encode)?;
     let value = serde_json::from_slice(&bytes).map_err(|_| X402Error::Encode)?;
     Ok(TransportValue::Json(value))
 }
@@ -303,9 +320,39 @@ fn decode_json<T: DeserializeOwned>(value: &TransportValue) -> Result<T, X402Err
     let TransportValue::Json(value) = value else {
         return Err(X402Error::Decode);
     };
-    let bytes = serde_json::to_vec(value).map_err(|_| X402Error::Decode)?;
-    if bytes.len() > MAXIMUM_JSON_BYTES {
+    let bytes = bounded_json(value, X402Error::Decode)?;
+    serde_json::from_slice(&bytes).map_err(|_| X402Error::Decode)
+}
+
+struct BoundedJson {
+    bytes: Vec<u8>,
+    exceeded: bool,
+}
+
+impl Write for BoundedJson {
+    fn write(&mut self, bytes: &[u8]) -> io::Result<usize> {
+        if bytes.len() > MAXIMUM_JSON_BYTES - self.bytes.len() {
+            self.exceeded = true;
+            return Err(io::Error::other("x402 JSON byte budget exceeded"));
+        }
+        self.bytes.extend_from_slice(bytes);
+        Ok(bytes.len())
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        Ok(())
+    }
+}
+
+fn bounded_json<T: Serialize>(value: &T, error: X402Error) -> Result<Vec<u8>, X402Error> {
+    let mut writer = BoundedJson {
+        bytes: Vec::new(),
+        exceeded: false,
+    };
+    let result = serde_json::to_writer(&mut writer, value);
+    if writer.exceeded {
         return Err(X402Error::Bounds);
     }
-    serde_json::from_slice(&bytes).map_err(|_| X402Error::Decode)
+    result.map_err(|_| error)?;
+    Ok(writer.bytes)
 }

@@ -8,7 +8,6 @@ import json
 import os
 from pathlib import Path
 import re
-import selectors
 import signal
 import socket
 import stat
@@ -130,6 +129,7 @@ def module(name, path):
 
 REVOCATION = module('paid_web_revocation', Path(__file__).with_name('mcp_daemon_revocation.py'))
 HTTP = REVOCATION.HTTP
+FRAMING = module('paid_web_framing', Path(__file__).with_name('fixtures') / 'bounded_mcp_line.py')
 
 
 def build_steps(rows, owner=None):
@@ -190,9 +190,39 @@ def build(directory):
     print(PREFIX + 'ARTIFACTS=' + str(path), flush=True)
 
 
+def committed_settlement(fixture, settlement, offer):
+    require(isinstance(offer, dict) and set(offer) == {
+        'asset', 'payTo', 'payer', 'amount', 'currency', 'scheme', 'network'}
+        and isinstance(settlement, dict) and all(settlement.get(key) == item for key, item in offer.items()),
+        'returned payment does not bind exact offer')
+    require(settlement.get('rung') == 'committed', 'paid content requires a committed receipt')
+    facts = fixture.node().committed(settlement.get('transactionHash'))
+    require(settlement.get('blockHash') == facts['block_hash']
+            and settlement.get('blockNumber') == facts['block_number']
+            and settlement.get('receiptDigest') == facts['receipt_sha256'],
+            'payment settlement differs from committed receipt')
+    from layerx_sdk.evm_transaction import decode_signed
+    tx, _ = decode_signed(bytes.fromhex(facts['raw_transaction'][2:]))
+    def word(name):
+        value = offer[name]
+        require(isinstance(value, str) and re.fullmatch('(?:0x)?[0-9a-f]{64}', value),
+                'exact payment account/asset identity is not canonical')
+        return bytes.fromhex(value.removeprefix('0x'))
+    require(isinstance(offer['amount'], str) and re.fullmatch('[1-9][0-9]*', offer['amount'])
+            and int(offer['amount']) < 2**128, 'bounded exact payment amount required')
+    require(tx.to == bytes.fromhex('00' * 18 + '101a') and tx.value == 0
+            and tx.data[:4] == bytes.fromhex('78ea11db') and len(tx.data) == 4 + 6 * 32
+            and tx.data[4:36] == word('payer') and tx.data[36:68] == word('payTo')
+            and tx.data[68:100] == word('asset')
+            and int.from_bytes(tx.data[100:132], 'big') == int(offer['amount']),
+            'committed payment transaction differs from exact offer')
+    return facts
+
+
 class Stdio(REVOCATION.McpProcess):
     def start(self):
         self.starts += 1
+        self.response_pending = bytearray()
         log = self.directory / (self.label + '-' + str(self.starts) + '.log')
         with log.open('xb') as output:
             self.process = subprocess.Popen([str(self.binary), 'mcp', 'serve',
@@ -201,15 +231,16 @@ class Stdio(REVOCATION.McpProcess):
         self.message('initialize', {})
 
     def message(self, method, params):
+        deadline = time.monotonic() + FRAMING.RESPONSE_TIMEOUT
         self.sequence += 1
         request = {'jsonrpc': '2.0', 'id': self.sequence, 'method': method, 'params': params}
         self.process.stdin.write(json.dumps(request, separators=(',', ':')).encode() + b'\n')
         self.process.stdin.flush()
-        with selectors.DefaultSelector() as selector:
-            selector.register(self.process.stdout, selectors.EVENT_READ)
-            require(selector.select(30), 'real stdio MCP response timeout')
-            raw = self.process.stdout.readline(1_048_577)
-        require(raw.endswith(b'\n') and len(raw) <= 1_048_576, 'stdio MCP framing invalid')
+        try:
+            raw = FRAMING.read_line(self.process.stdout, self.response_pending, deadline)
+        except (OSError, ValueError):
+            self.stop()
+            raise
         response = json.loads(raw, object_pairs_hook=closed)
         require(response.get('id') == self.sequence and response.get('jsonrpc') == '2.0'
                 and 'error' not in response, 'actual CLI MCP protocol response refused')
@@ -375,14 +406,15 @@ class Corpus:
 
     def rpc(self, key, verified=False):
         self.serial += 1
-        request = self.fixture.envelope(key)
+        request = json.loads(json.dumps(key)) if isinstance(key, dict) else self.fixture.envelope(key)
         request['request_id'] = str(900000 + self.serial)
         status, response = HTTP.rpc_request(self.daemon, request)
         save(self.directory / f'rpc-{self.serial}.json', {'status': status, 'response': response})
         require(status == 200 and response.get('request_id') == request['request_id'], 'actual owner RPC refused')
         if verified:
             require(response.get('verification_status', {}).get('state') == 'achieved' and
-                response['verification_status'].get('level') in ('StateProven', 'CheckpointFinalised'),
+                (response['verification_status'].get('rung') == 'committed' if request['operation'] in ('track', 'program.receipt') else
+                 response['verification_status'].get('level') in ('StateProven', 'CheckpointFinalised')),
                 'payment state lacks authenticated protocol authority')
         return response['value']
 
@@ -439,8 +471,8 @@ class Corpus:
                 any(event['kind'] == 'effect_unknown' for event in durable['events']),
                 'genuine owner-produced unknown submission record is missing')
             unknown = self.rpc(row['track_request'])
-            require(unknown.get('submission', {}).get('state') == 'Unknown' and
-                unknown.get('activity_id'), 'actual native owner does not retain the unknown activity')
+            require(unknown.get('state') == 'Unknown' and
+                unknown.get('tx_hash'), 'actual native owner does not retain the unknown activity')
             self.daemon.stop()
             client.stop()
             self.daemon.start()
@@ -463,9 +495,7 @@ class Corpus:
             if row['call']['tool'] != 'web.content':
                 offer = row['offer']
                 settlement = content.get('settlement', {})
-                require(set(offer) == {'asset', 'payTo', 'payer', 'amount', 'currency', 'scheme', 'network'} and
-                    all(settlement.get(key) == item for key, item in offer.items()) and
-                    settlement.get('verificationLevel') == 'sequencer-signed', 'returned payment does not bind exact offer')
+                committed_settlement(self.fixture, settlement, offer)
                 if row['call']['tool'] == 'web.search' and row['offer']['currency'] == 'PAX':
                     pricing = self.profile['pricing']
                     require(pricing == {'usd_numerator': 1, 'usd_denominator': 1000,
@@ -483,13 +513,23 @@ class Corpus:
             deadline = time.monotonic() + 90
             while True:
                 tracked = self.rpc(row['track_request'])
-                if tracked.get('submission', {}).get('state') == 'Executed':
+                if tracked.get('state') == 'Committed':
                     break
                 require(time.monotonic() < deadline, 'unknown payment never reconciled to verified execution')
                 time.sleep(0.2)
-            tracked = self.rpc(row['track_request'], True)
-            require(tracked.get('submission', {}).get('state') == 'Executed', 'executed payment lost verified authority')
-            facts = REVOCATION.READINESS.receipt_facts(tracked['receipt']['canonical_bytes'], tracked['activity_id'])
+            submission = self.rpc(row['track_request'], True)
+            require(submission.get('state') == 'Committed' and submission.get('rung') == 'committed',
+                    'committed payment lost verified authority')
+            lookup = self.fixture.envelope(row['track_request'])
+            lookup['operation'] = 'program.receipt'
+            lookup['request'] = {'idempotency_key': row['call']['idempotency_key'],
+                'expected_activity_id': submission['tx_hash'], 'requested_rung': 'committed'}
+            receipt = self.rpc(lookup, True)
+            require(receipt.get('found') is True and isinstance(receipt.get('receipt'), dict),
+                    'committed payment receipt lookup missing')
+            tracked = {'activity_id': submission['tx_hash'], 'submission': submission, 'receipt': receipt['receipt']}
+            facts = self.fixture.node().committed('0x' + tracked['activity_id'], canonical=tracked['receipt']['canonical_bytes'])
+            require(submission.get('receipt_ref') == facts['receipt_digest'], 'tracked payment receipt identity mismatch')
             if row['offer'] is not None and not refused:
                 require(value['result']['settlement']['receiptDigest'] == facts['receipt_sha256'],
                         'delivered content and actual daemon receipt disagree')
@@ -502,7 +542,8 @@ class Corpus:
             client.start()
             replay_refused, replay_value = client.call(row['call'])
             require((replay_refused, replay_value) == (refused, value), 'restart changed durable paid delivery')
-            require(self.rpc(row['track_request'], True) == first, 'replay replaced its actual native payment')
+            require(self.rpc(row['track_request'], True) == first['submission']
+                    and self.rpc(lookup, True) == receipt, 'replay replaced its actual committed payment')
         after = self.balance(row['balance_request'])
         if not row['expected_charge']:
             require(before == after, 'refused or unpaid content call charged the payer')

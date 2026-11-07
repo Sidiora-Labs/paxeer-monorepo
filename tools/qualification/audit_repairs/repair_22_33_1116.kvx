@@ -1,0 +1,31 @@
+[task.22.33.1116]
+base_revision = "04c1e9407e75f7ac92c260452f2232ab07bf3ef1"
+repair = "Capture the checker and tee statuses immediately from PIPESTATUS for each of the three original proof invocations, combining stdout and stderr into a complete log. Require both statuses to be zero, a successful final-line read and the exact OK marker; retain a sticky failure while continuing all proofs. Guard output-directory creation, use a unique mktemp directory with umask 077, retain all logs, and update only the README warning describing this repaired harness."
+source_proof = "The pytest module proves production source facts: Bash syntax, the shared seeded ivy_check command and all three original proof arguments including complete=fo, combined stdout/stderr through tee, immediate capture of both pipeline exit statuses, their conjunction with successful tail execution and the exact final OK marker, sticky failure propagated to the process exit without skipping later proofs, and guarded unique private log creation without cleanup. It checks the directly related README correction and parses this record against the original audit and all seven declared tests. Bash is invoked only as the explicitly required syntax parser, never as an Ivy/toolchain runner."
+review_only = "Ivy, its legacy Python 2.7 environment, the Docker image and the mathematical proof results are not executed by this source qualification gate. Actual checker error emission, disk-full and permission-error behavior, complete runtime log contents and filesystem permissions rely on review of Bash PIPESTATUS, tee, tail, mktemp and umask semantics; the tests do not claim runtime fault injection or actual proof success. No fake checker, mock, fabricated transcript, environment variable, credential, live endpoint, native artifact or device is used. This is a test-gap finding, with no changed external interface or restart-recovery requirement."
+baseline = "No pre-change verification was run: the explicit implementation-first order and hf-build before hf-done rule prohibit an unchanged-tree manual verify run despite step 5 requesting one. No baseline failures are claimed. Initial git status/diff showed only runner-prepared .cgignore and spec task-start bookkeeping; no scoped repair existed. Initial gate.json recorded zero builds and verifications, two repair cycles available, and /out/run/gates.jsonl was absent."
+build_cmd = "bash -n consensus/spec/ivy-proofs/check_proofs.sh"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_1116.py"
+evidence_ledger = "/out/run/gates.jsonl"
+evidence = "The final hf-done JSON and private /out/run/gates.jsonl name the exact verified content-derived candidate revision, command, exit code and log. hf-build and hf-done must pass on the same candidate revision. This record is finalized before qualification; embedding its own candidate revision would change that revision. The runner records evidence and publishes the task; no manual commit or push is performed."
+wiring_requests = []
+wiring_policy = "The proposal requires no out-of-path change. Any subsequently required step outside scope must be recorded as a one-line wiring request naming its path and owning domain."
+
+[finding.ivy-exit-status-lost]
+audit = "22.30.47"
+file = "consensus/spec/ivy-proofs/check_proofs.sh"
+line = 11
+class = "test-gap"
+severity = "medium"
+tests = ["test_ivy_harness_bash_syntax", "test_ivy_all_three_production_invocations_and_seed_are_preserved", "test_ivy_checker_and_logger_statuses_are_captured_before_any_command", "test_ivy_success_requires_both_statuses_read_success_and_exact_final_ok", "test_ivy_failure_is_sticky_and_does_not_skip_later_proofs", "test_ivy_complete_logs_have_private_unique_paths_and_guarded_setup", "test_ivy_repair_record_maps_finding_tests_and_evidence_limits"]
+
+[format]
+policy = "No Python, shell or KVX formatter is configured for these paths. After full implementation apply only the repository .editorconfig conventions to touched files: UTF-8, LF, final newline, no trailing whitespace except Markdown, and existing indentation."
+
+[gotcha.1]
+observed = "The requested unchanged-tree baseline conflicts with the explicit implementation-first order and exclusive hf-done verification."
+resolution = "Follow the explicit gate order and record that no baseline run or failure is claimed. GOTCHA.kvx and spec files are outside this task's scope, so task-specific notes stay in this record."
+
+[gotcha.2]
+observed = "Broad repository ledgers and workflow reads exceed tool output limits; Codify cached context also includes unrelated task information."
+resolution = "Use bounded sections for the exact task, finding and relevant gotcha, plus the initial working-tree diff and private gate ledger."

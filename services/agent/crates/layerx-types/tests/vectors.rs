@@ -1,5 +1,6 @@
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::process::Command;
 
 use layerx_types::vectors::{
     coverage_report, Corpus, CorpusError, DERIVED_PROTOCOL_VERSION, TYPE_PROTOCOL_VERSIONS,
@@ -9,21 +10,55 @@ fn repository_root() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../..")
 }
 
+fn copy_input(target: &Path, relative: &Path) {
+    let destination = target.join(relative);
+    let Some(parent) = destination.parent() else {
+        panic!("corpus input has no parent: {}", destination.display());
+    };
+    assert!(fs::create_dir_all(parent).is_ok());
+    assert!(fs::copy(repository_root().join(relative), &destination).is_ok());
+}
+
 fn copy_corpora(target: &Path) {
-    let source = repository_root().join("tests/vectors");
-    assert!(fs::create_dir_all(target.join("tests/vectors/codec")).is_ok());
     for relative in [
-        "codec/valid.lxv",
-        "codec/adversarial.lxv",
-        "codec/replay_corpus.lxb",
-        "qualification_replay_10m.digest",
+        "tests/vectors/codec/valid.lxv",
+        "tests/vectors/codec/adversarial.lxv",
+        "tests/vectors/qualification_replay_10m.digest",
+        "tests/vectors/codec/generate.py",
+        "scripts/replica/lxp_replay_fixture.py",
     ] {
-        assert!(fs::copy(
-            source.join(relative),
-            target.join("tests/vectors").join(relative)
-        )
-        .is_ok());
+        copy_input(target, Path::new(relative));
     }
+    let Ok(headers) = fs::read_dir(repository_root().join("include/layerx")) else {
+        panic!("kernel activity declarations unreadable");
+    };
+    for header in headers {
+        let Ok(header) = header else {
+            panic!("kernel activity declaration entry unreadable");
+        };
+        if header
+            .path()
+            .extension()
+            .is_some_and(|extension| extension == "h")
+        {
+            copy_input(
+                target,
+                &Path::new("include/layerx").join(header.file_name()),
+            );
+        }
+    }
+    let Ok(output) = Command::new("python3")
+        .arg(target.join("tests/vectors/codec/generate.py"))
+        .env("PYTHONDONTWRITEBYTECODE", "1")
+        .output()
+    else {
+        panic!("codec replay producer could not start");
+    };
+    assert!(
+        output.status.success(),
+        "codec replay producer failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
 }
 
 fn temporary_repository(name: &str) -> PathBuf {

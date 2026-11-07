@@ -75,6 +75,14 @@ func RepositoryRoot(t *testing.T) string {
 
 func readBound(t *testing.T, root, relative, want string) []byte {
 	t.Helper()
+	switch {
+	case strings.HasPrefix(relative, "core/"):
+		relative = "services/launchpad/" + strings.TrimPrefix(relative, "core/")
+	case strings.HasPrefix(relative, "media/"):
+		relative = "services/launchpad/" + strings.TrimPrefix(relative, "media/")
+	case strings.HasPrefix(relative, "spec/"):
+		relative = "launchpad/" + relative
+	}
 	raw, err := os.ReadFile(filepath.Join(root, relative))
 	if err != nil {
 		t.Fatal(err)

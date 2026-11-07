@@ -1,0 +1,34 @@
+[repair.22.33.1255]
+mode = "BUILD"
+audit = "22.30.62"
+base_revision = "9e535b4932ba8111a729a5cef10e0ca2370ca435"
+baseline = "Not run: the explicit gate order requires complete implementation, then hf-build, then hf-done and forbids running verify_cmd by hand; no unchanged-tree test failure is claimed."
+evidence = "The runner records the exact candidate revision, command, exit and private log in /out/run/gates.jsonl; the final response copies the last gate evidence."
+
+[finding.historical-rewards-value-v605]
+tests = ["TestRepairM_1255_HistoricalRawCALL", "TestRepairM_1255_LiveRoutingActivation", "TestRepairM_1255_ZeroValueQueries"]
+repair = "Preserve distribution.go and abi.json unchanged; pin paid raw EVM CALL acceptance, decoded nonempty keeper rewards, exact sender debit and precompile credit (whole bank units and wei remainders), and finalized balances through a fresh state DB at the v605 activation and following height."
+routing = "The production keeper selects the frozen v605 wrapper/executor for historical tracing even with later done markers present, and the current distribution wrapper/executor for live execution; the current executor accepts the historical payment before merge activation and without the plan, and rejects payment with full balance rollback at and after the recorded merge height."
+activation = "Fixture heights 10 (v6.0.5), 20 (v6.4.0), and 30 (v7.0 merge, the latest registered implementation) are deterministic test heights, not a claim about a deployed network; production activation remains the applied plan's recorded done height."
+client_documentation = "README.md documents the historical value hazard, zero-value queries, and activation semantics."
+wiring = "precompiles/distribution tests and docs/site/docs protocol/client guides — owner domain 6: carry the historical raw CALL and live-routing regression coverage into the parent suite and link legacy/v605/README.md from the public distribution client documentation; no out-of-scope file is changed here."
+
+[qualification.notes]
+workflow = "Root GOTCHA.kvx, spec records, commits and pushes are outside the task's writable scope; this in-scope record carries the finding mapping and wiring request, and the runner owns publication."
+gotcha = "node.LatestUpgrade is the merge plan itself; use a distinct historical marker below the merge instead of marking LatestUpgrade done in an unapplied-plan fixture. Distribution queries also require a height after delegation creation to expose nonzero rewards."
+qualification_repair = "Source review during the first successful build found the test decoder reused legacy output structs whose field order differs from the ABI; use ABI-ordered consumer structs because abi.ConvertType copies by position, keeping every reward and balance assertion. Rebuild the corrected candidate before verification."
+
+[qualification.failure]
+revision = "005fc494af03816fda481f23cc6ca1f390dc7232"
+command = "cg spec done 22.33.1255 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log; compiler details: /tmp/repair-m1255.log"
+observed = "Verification stopped before any repair test executed because unchanged auth, staking and tokenfactory CLI callers consume one result from tx.NewFactoryCLI, which now returns (Factory, error); the declared package build passed on this revision."
+assumption = "These out-of-scope CLI interface mismatches are pre-existing and are recorded without repair or repeat investigation; the finding remains implemented but not qualified and no verified revision is claimed."
+
+[qualification.continuation]
+base_revision = "ca3015b61333a7ebcaedf0914337d4460107fe1a"
+prerequisite = "22.31.463 carries the fallible tx.NewFactoryCLI constructor through the command-line callers; retain the attempt-2 implementation and qualify it on this base."
+review = "The tests drive production keeper version selection, EVM CALL/STATICCALL, ABI encoding and decoding, distribution rewards and bank balances; distribution.go and abi.json remain unchanged."
+evidence = "The current attempt has no earlier gate ledger; hf-build and hf-done create /out/run/gates.jsonl with the exact verified candidate revision and private evidence location."
+gotcha = "The shared keeper fixture records v6.12.0 at height 1; the explicit v6.0.5 marker at height 10 still selects the historical executor because routing compares applied heights. Source lookup must use modules/evm/keeper/keeper.go and node/upgrades.go."

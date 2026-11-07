@@ -1,0 +1,7 @@
+[repair.22.31.243]
+audit = "22.30.117"
+finding = "2"
+tests = ["TestRepair_243_RestartRecovery", "TestRepair_243_RequestRateAndPeerBinding", "TestRepair_243_AtomicBindingRecovery"]
+baseline = "Not run: task order prohibits verification before full implementation and permits verification only through hf-done after hf-build; no baseline failure is claimed."
+wiring = "None: internal/store already exposes durable authenticated UpdateRecord and WithRecord APIs."
+evidence = "Runner hf-build/hf-done ledger records the exact candidate revision, command, exit and private log; qualification is claimed only on hf-done success."

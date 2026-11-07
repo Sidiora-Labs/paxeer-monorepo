@@ -8,6 +8,10 @@ pub(crate) struct ErrorResponse {
 pub(crate) use custom_error::CustomError;
 mod custom_error {
     pub(crate) trait CustomError: std::error::Error + Sized {
+        fn handle_code(_code: &str, _message: &str) -> Option<Self> {
+            None
+        }
+
         fn handle_not_found(_message: &str) -> Option<Self> {
             None
         }
@@ -289,6 +293,18 @@ mod verify_from_etherscan {
     }
 
     impl CustomError for VerifyFromEtherscanError {
+        fn handle_code(code: &str, message: &str) -> Option<Self> {
+            let message = message.to_string();
+            match code {
+                "unsupported_chain" => Some(Self::ChainNotSupported(message)),
+                "etherscan_limit" => Some(Self::TooManyRequests(message)),
+                "etherscan_request_failed" => Some(Self::ApiResponseError(message)),
+                "malformed_etherscan_response" => Some(Self::CannotGenerateSolcJsonInput(message)),
+                "compiler_error" | "no_match" => Some(Self::VerifiedWithErrors(message)),
+                _ => None,
+            }
+        }
+
         fn handle_bad_request(message: &str) -> Option<Self> {
             if message.contains("is not supported for importing from Etherscan") {
                 return Some(VerifyFromEtherscanError::ChainNotSupported(

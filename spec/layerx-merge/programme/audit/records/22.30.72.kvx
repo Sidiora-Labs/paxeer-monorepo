@@ -1,0 +1,828 @@
+# Pre-upgrade audit: platform / Chainflow Rust. Proposals only; audited source unchanged.
+
+[audit.22.30.72]
+task = "22.30.72"
+revision = "2b99f88520e4e809ad5593f3bee2df74fe355d7b"
+files_reviewed = 65
+findings = 31
+docs_reviewed = 20
+upgrade_ready = false
+blocking = ["sdk-credential-selection"]
+note = "Pre-upgrade source audit against decision 2515. Generated members use the stated exception. Registry caller lists include identifier-search coincidences outside the slice; actual imports and paths determine applicability. No audited package runtime tests, network probes or full builds are claimed."
+
+[file.01]
+path = "sdk/chainflow/rust/.github/workflows/sdk-ci.yml"
+lines = 33
+verdict = "issues"
+note = "Read in full; findings: sdk-ci-not-discovered. No code repair made."
+
+[file.02]
+path = "sdk/chainflow/rust/CHANGELOG.md"
+lines = 11
+verdict = "clean"
+note = "Read in full; initial generation and response model extensibility notes agree with the package exports."
+
+[file.03]
+path = "sdk/chainflow/rust/Cargo.toml"
+lines = 66
+verdict = "clean"
+note = "Read in full; features and feature-required tests match module gates and examples. No runtime build or MSRV gate is claimed by the audit."
+
+[file.04]
+path = "sdk/chainflow/rust/README.md"
+lines = 258
+verdict = "issues"
+note = "Read in full; findings: sdk-doc-oauth, sdk-doc-feature-matrix. No code repair made."
+
+[file.05]
+path = "sdk/chainflow/rust/SECURITY.md"
+lines = 19
+verdict = "clean"
+note = "Read in full; separates generated SDK reporting from service security reporting and forbids public credentials/private payloads."
+
+[file.06]
+path = "sdk/chainflow/rust/api.md"
+lines = 539
+verdict = "clean"
+note = "Read in full; paths, models and separate WS mint credential agree with resource declarations; the client credential collision is recorded separately."
+
+[file.07]
+path = "sdk/chainflow/rust/examples/byo_transport_hyper.rs"
+lines = 104
+verdict = "generated"
+note = "Scalar SDK Generator output identified by its DO NOT EDIT header. Generated verdict uses the brief exception; no independent full semantic review or live producer round-trip is claimed for this file."
+
+[file.08]
+path = "sdk/chainflow/rust/examples/mock_transport.rs"
+lines = 45
+verdict = "generated"
+note = "Scalar SDK Generator output identified by its DO NOT EDIT header. Generated verdict uses the brief exception; no independent full semantic review or live producer round-trip is claimed for this file."
+
+[file.09]
+path = "sdk/chainflow/rust/examples/smoke-test.rs"
+lines = 1482
+verdict = "generated"
+note = "Scalar SDK Generator output identified by its DO NOT EDIT header. Generated verdict uses the brief exception; no independent full semantic review or live producer round-trip is claimed for this file."
+
+[file.10]
+path = "sdk/chainflow/rust/reference.md"
+lines = 347
+verdict = "clean"
+note = "Read in full; operation, media type and error catalogue agrees with generated resource declarations."
+
+[file.11]
+path = "sdk/chainflow/rust/rustfmt.toml"
+lines = 3
+verdict = "clean"
+note = "Read in full; edition 2024 agrees with Cargo.toml and the SDK formatting policy."
+
+[file.12]
+path = "sdk/chainflow/rust/src/client.rs"
+lines = 734
+verdict = "issues"
+note = "Scalar-generated client also read in full; findings: sdk-credential-selection. No code repair made."
+
+[file.13]
+path = "sdk/chainflow/rust/src/datetime.rs"
+lines = 258
+verdict = "clean"
+note = "Read in full; serde container helpers preserve stated offsets, apply the documented UTC rule to naive timestamps and reject malformed values."
+
+[file.14]
+path = "sdk/chainflow/rust/src/error.rs"
+lines = 369
+verdict = "generated"
+note = "Scalar SDK Generator output identified by its DO NOT EDIT header. Generated verdict uses the brief exception; no independent full semantic review or live producer round-trip is claimed for this file."
+
+[file.15]
+path = "sdk/chainflow/rust/src/http.rs"
+lines = 1651
+verdict = "generated"
+note = "Scalar SDK Generator output identified by its DO NOT EDIT header. Generated verdict uses the brief exception; no independent full semantic review or live producer round-trip is claimed for this file."
+
+[file.16]
+path = "sdk/chainflow/rust/src/lib.rs"
+lines = 49
+verdict = "generated"
+note = "Scalar SDK Generator output identified by its DO NOT EDIT header. Generated verdict uses the brief exception; no independent full semantic review or live producer round-trip is claimed for this file."
+
+[file.17]
+path = "sdk/chainflow/rust/src/models/coin_gecko.rs"
+lines = 559
+verdict = "generated"
+note = "Scalar SDK Generator output identified by its DO NOT EDIT header. Generated verdict uses the brief exception; no independent full semantic review or live producer round-trip is claimed for this file."
+
+[file.18]
+path = "sdk/chainflow/rust/src/models/coin_market_cap.rs"
+lines = 188
+verdict = "generated"
+note = "Scalar SDK Generator output identified by its DO NOT EDIT header. Generated verdict uses the brief exception; no independent full semantic review or live producer round-trip is claimed for this file."
+
+[file.19]
+path = "sdk/chainflow/rust/src/models/explorer.rs"
+lines = 226
+verdict = "generated"
+note = "Scalar SDK Generator output identified by its DO NOT EDIT header. Generated verdict uses the brief exception; no independent full semantic review or live producer round-trip is claimed for this file."
+
+[file.20]
+path = "sdk/chainflow/rust/src/models/gateway.rs"
+lines = 193
+verdict = "generated"
+note = "Scalar SDK Generator output identified by its DO NOT EDIT header. Generated verdict uses the brief exception; no independent full semantic review or live producer round-trip is claimed for this file."
+
+[file.21]
+path = "sdk/chainflow/rust/src/models/markets.rs"
+lines = 444
+verdict = "generated"
+note = "Scalar SDK Generator output identified by its DO NOT EDIT header. Generated verdict uses the brief exception; no independent full semantic review or live producer round-trip is claimed for this file."
+
+[file.22]
+path = "sdk/chainflow/rust/src/models/mod.rs"
+lines = 18
+verdict = "generated"
+note = "Scalar SDK Generator output identified by its DO NOT EDIT header. Generated verdict uses the brief exception; no independent full semantic review or live producer round-trip is claimed for this file."
+
+[file.23]
+path = "sdk/chainflow/rust/src/models/price_feeds.rs"
+lines = 444
+verdict = "generated"
+note = "Scalar SDK Generator output identified by its DO NOT EDIT header. Generated verdict uses the brief exception; no independent full semantic review or live producer round-trip is claimed for this file."
+
+[file.24]
+path = "sdk/chainflow/rust/src/models/trading_view.rs"
+lines = 580
+verdict = "generated"
+note = "Scalar SDK Generator output identified by its DO NOT EDIT header. Generated verdict uses the brief exception; no independent full semantic review or live producer round-trip is claimed for this file."
+
+[file.25]
+path = "sdk/chainflow/rust/src/number.rs"
+lines = 226
+verdict = "clean"
+note = "Read in full; scalar and container serialization preserves fractions and bounds integer conversion at the exact f64 range, with explicit boundary assertions."
+
+[file.26]
+path = "sdk/chainflow/rust/src/resources/coin_gecko.rs"
+lines = 581
+verdict = "generated"
+note = "Scalar SDK Generator output identified by its DO NOT EDIT header. Generated verdict uses the brief exception; no independent full semantic review or live producer round-trip is claimed for this file."
+
+[file.27]
+path = "sdk/chainflow/rust/src/resources/coin_market_cap.rs"
+lines = 491
+verdict = "generated"
+note = "Scalar SDK Generator output identified by its DO NOT EDIT header. Generated verdict uses the brief exception; no independent full semantic review or live producer round-trip is claimed for this file."
+
+[file.28]
+path = "sdk/chainflow/rust/src/resources/explorer.rs"
+lines = 245
+verdict = "generated"
+note = "Scalar SDK Generator output identified by its DO NOT EDIT header. Generated verdict uses the brief exception; no independent full semantic review or live producer round-trip is claimed for this file."
+
+[file.29]
+path = "sdk/chainflow/rust/src/resources/gateway.rs"
+lines = 154
+verdict = "generated"
+note = "Scalar SDK Generator output identified by its DO NOT EDIT header. Generated verdict uses the brief exception; no independent full semantic review or live producer round-trip is claimed for this file."
+
+[file.30]
+path = "sdk/chainflow/rust/src/resources/markets.rs"
+lines = 518
+verdict = "generated"
+note = "Scalar SDK Generator output identified by its DO NOT EDIT header. Generated verdict uses the brief exception; no independent full semantic review or live producer round-trip is claimed for this file."
+
+[file.31]
+path = "sdk/chainflow/rust/src/resources/mod.rs"
+lines = 53
+verdict = "generated"
+note = "Scalar SDK Generator output identified by its DO NOT EDIT header. Generated verdict uses the brief exception; no independent full semantic review or live producer round-trip is claimed for this file."
+
+[file.32]
+path = "sdk/chainflow/rust/src/resources/price_feeds.rs"
+lines = 550
+verdict = "generated"
+note = "Scalar SDK Generator output identified by its DO NOT EDIT header. Generated verdict uses the brief exception; no independent full semantic review or live producer round-trip is claimed for this file."
+
+[file.33]
+path = "sdk/chainflow/rust/src/resources/trading_view.rs"
+lines = 548
+verdict = "generated"
+note = "Scalar SDK Generator output identified by its DO NOT EDIT header. Generated verdict uses the brief exception; no independent full semantic review or live producer round-trip is claimed for this file."
+
+[file.34]
+path = "sdk/chainflow/rust/src/resources/web_sockets.rs"
+lines = 172
+verdict = "generated"
+note = "Scalar SDK Generator output identified by its DO NOT EDIT header. Generated verdict uses the brief exception; no independent full semantic review or live producer round-trip is claimed for this file."
+
+[file.35]
+path = "sdk/chainflow/rust/src/transport.rs"
+lines = 683
+verdict = "generated"
+note = "Scalar SDK Generator output identified by its DO NOT EDIT header. Generated verdict uses the brief exception; no independent full semantic review or live producer round-trip is claimed for this file."
+
+[file.36]
+path = "sdk/chainflow/rust/src/transport_reqwest.rs"
+lines = 195
+verdict = "generated"
+note = "Scalar SDK Generator output identified by its DO NOT EDIT header. Generated verdict uses the brief exception; no independent full semantic review or live producer round-trip is claimed for this file."
+
+[file.37]
+path = "sdk/chainflow/rust/src/websocket.rs"
+lines = 273
+verdict = "generated"
+note = "Scalar SDK Generator output identified by its DO NOT EDIT header. Generated verdict uses the brief exception; no independent full semantic review or live producer round-trip is claimed for this file."
+
+[file.38]
+path = "sdk/chainflow/rust/tests/mock.rs"
+lines = 171
+verdict = "generated"
+note = "Scalar SDK Generator output identified by its DO NOT EDIT header. Generated verdict uses the brief exception; no independent full semantic review or live producer round-trip is claimed for this file."
+
+[file.39]
+path = "sdk/chainflow/rust/tests/query_encoding.rs"
+lines = 126
+verdict = "clean"
+note = "Read in full; verifies comma-joined form query encoding through real builders. Its recording transport proves URI encoding only, not producer response shapes."
+
+[file.40]
+path = "sdk/chainflow/rust/tests/smoke.rs"
+lines = 755
+verdict = "generated"
+note = "Scalar SDK Generator output identified by its DO NOT EDIT header. Generated verdict uses the brief exception; no independent full semantic review or live producer round-trip is claimed for this file."
+
+[file.41]
+path = "services/agent/crates/layerx-crypto/src/payments.rs"
+lines = 617
+verdict = "issues"
+note = "Read in full; findings: payment-codec-retired-dependency. No code repair made."
+
+[file.42]
+path = "services/agent/crates/layerx-crypto/tests/payments.rs"
+lines = 540
+verdict = "issues"
+note = "Read in full; findings: payment-tests-old-signing-path. No code repair made."
+
+[file.43]
+path = "services/platform/hosted/gateway/tests/authority_readiness_contract.rs"
+lines = 337
+verdict = "clean"
+note = "Read in full; real authority readiness crosses TLS into the gateway decoder with version/network binding and failure checks; no retired public router path is used."
+
+[file.44]
+path = "services/platform/hosted/gateway/tests/browser_profiles.rs"
+lines = 402
+verdict = "clean"
+note = "Read in full; checks browser origin/preflight and credential behavior against route configuration, with private-network restrictions and refusal cases."
+
+[file.45]
+path = "services/platform/hosted/gateway/tests/chain_only_readiness.rs"
+lines = 553
+verdict = "issues"
+note = "Read in full; findings: readiness-contract-conflict. No code repair made."
+
+[file.46]
+path = "services/platform/hosted/gateway/tests/chain_reads.rs"
+lines = 904
+verdict = "issues"
+note = "Read in full; findings: chain-read-router-path. No code repair made."
+
+[file.47]
+path = "services/platform/hosted/gateway/tests/completion_gate.rs"
+lines = 291
+verdict = "clean"
+note = "Read in full; checks retirement dispositions and wave-six declared path existence. Static inventory coverage is not claimed as product runtime proof."
+
+[file.48]
+path = "services/platform/hosted/gateway/tests/degraded.rs"
+lines = 1032
+verdict = "issues"
+note = "Read in full; findings: degraded-router-path. No code repair made."
+
+[file.49]
+path = "services/platform/hosted/gateway/tests/env_example.rs"
+lines = 183
+verdict = "clean"
+note = "Read in full; compares file-secret tables, optional settings and endpoint/listener wiring; rejects unread sequencer variables. Router identifiers are historical test names."
+
+[file.50]
+path = "services/platform/hosted/gateway/tests/explorer_capabilities_keys.rs"
+lines = 58
+verdict = "clean"
+note = "Read in full; requires custody/anchor key and stale representation-digest removal, preserves retained data/headers and rejects malformed responses."
+
+[file.51]
+path = "services/platform/hosted/gateway/tests/hpx_ingress.rs"
+lines = 344
+verdict = "clean"
+note = "Read in full; drives actual Go HPX ingress through the TLS gateway, including peer binding, forbidden identity headers and refusal cases."
+
+[file.52]
+path = "services/platform/hosted/gateway/tests/key-store.py"
+lines = 229
+verdict = "clean"
+note = "Read in full; real Redis kill/restart on persisted AOF checks key/operation recovery and replay behavior; this covers different records from the TAP recovery finding."
+
+[file.53]
+path = "services/platform/hosted/gateway/tests/migration_transport.rs"
+lines = 165
+verdict = "clean"
+note = "Read in full; constrains internal credential carriage by method/path/media type and refuses injection, invalid trace and public forwarding of internal authority."
+
+[file.54]
+path = "services/platform/hosted/gateway/tests/no_bridge_withdraw_kind.rs"
+lines = 29
+verdict = "clean"
+note = "Read in full; prevents removed bridge-withdraw vocabulary in the current contract; retired spellings appear only as forbidden values."
+
+[file.55]
+path = "services/platform/hosted/gateway/tests/one_source_reads.rs"
+lines = 1224
+verdict = "issues"
+note = "Read in full; findings: one-source-router-path. No code repair made."
+
+[file.56]
+path = "services/platform/hosted/gateway/tests/openrpc_methods.rs"
+lines = 210
+verdict = "issues"
+note = "Read in full; findings: method-contract-router-wording. No code repair made."
+
+[file.57]
+path = "services/platform/hosted/gateway/tests/paxeer_failover.rs"
+lines = 606
+verdict = "issues"
+note = "Read in full; findings: failover-router-path, failover-upstream-path-shape. No code repair made."
+
+[file.58]
+path = "services/platform/hosted/gateway/tests/proof_gateway_jsonrpc_methods.rs"
+lines = 610
+verdict = "issues"
+note = "Read in full; findings: proof-router-path, gateway-method-proof-success-gap. No code repair made."
+
+[file.59]
+path = "services/platform/hosted/gateway/tests/receipt_keys.rs"
+lines = 1141
+verdict = "issues"
+note = "Read in full; findings: receipt-key-router-path. No code repair made."
+
+[file.60]
+path = "services/platform/hosted/gateway/tests/router_surface.rs"
+lines = 1048
+verdict = "issues"
+note = "Read in full; findings: surface-router-path. No code repair made."
+
+[file.61]
+path = "services/platform/hosted/gateway/tests/support/hpx_ingress_test.go"
+lines = 108
+verdict = "clean"
+note = "Read in full; serves the actual HPX registry handler over the integration listener and preserves real HTTP status/body behavior for Rust consumers."
+
+[file.62]
+path = "services/platform/hosted/gateway/tests/support/payment_events.rs"
+lines = 451
+verdict = "clean"
+note = "Read in full; real event Service and TLS producer client check identity, acknowledgement, sink reopen and retained pending delivery without substituting the sink."
+
+[file.63]
+path = "services/platform/hosted/gateway/tests/tap_nonce.rs"
+lines = 475
+verdict = "issues"
+note = "Read in full; findings: tap-recovery-proof-gap. No code repair made."
+
+[file.64]
+path = "services/platform/hosted/gateway/tests/test_retired_activity_scripts.py"
+lines = 32
+verdict = "clean"
+note = "Read in full; verifies removed activity helpers and maintained replacement paths. Retired spellings are negative assertions only."
+
+[file.65]
+path = "services/platform/hosted/gateway/tests/unified_service_paths.rs"
+lines = 730
+verdict = "issues"
+note = "Read in full; findings: unified-paths-retired-upgrades. No code repair made."
+
+[finding.sdk-credential-selection]
+file = "sdk/chainflow/rust/src/client.rs"
+line = 66
+class = "interface-mismatch"
+severity = "high"
+observed = "Auth::apply inserts rest_api_key into X-API-Key, then overwrites it with ws_mint_key and appends ws_token to every authenticated URL. Both HTTP dispatch and WebSocket connect call this unconditional renderer. The client built with all three credentials shown in README.md therefore sends the WS mint key on ordinary REST reads, which require the separate REST key."
+expected = "The registered ChainflowDataGatewayClient must preserve separate REST, WS mint and WS upgrade credentials. Its builder documents ws_mint_key as ONLY for minting; api.md:86 requires that key for POST /auth/ws-token, while ordinary REST operations use rest_api_key and upgrades use a scoped token."
+proposal = "Fix the Scalar generation inputs and sdk/chainflow/rust/src/client.rs to carry each operation security scheme into dispatch and connect_websocket. Select the REST key for REST reads, the mint key only for /auth/ws-token, and the scoped token only for upgrades. Prove all three operations with distinct credentials configured against the real gateway auth handlers."
+owner_domain = 15
+interface = "15.rs-chainflow-rust-chainflow-data-gateway-client-j76"
+
+[finding.sdk-ci-not-discovered]
+file = "sdk/chainflow/rust/.github/workflows/sdk-ci.yml"
+line = 1
+class = "wiring-gap"
+severity = "medium"
+observed = "The Rust SDK workflow lives beneath sdk/chainflow/rust/.github/workflows, where GitHub does not discover workflows. Root .github/workflows contains no Chainflow Rust SDK invocation. The nested job also gives cargo commands no crate working-directory, so copying it unchanged to the root would target the wrong directory."
+expected = "SDK changes must reach the declared build, clippy, all-features tests and formatting checks from the monorepo checkout with sdk/chainflow/rust as the cargo working directory."
+proposal = "Add the verification job to a root .github/workflows workflow with SDK path triggers and sdk/chainflow/rust as working-directory. Preserve its all-features build and test flags so the feature-required mock target and gated surfaces remain checked."
+owner_domain = 15
+
+[finding.sdk-doc-oauth]
+file = "sdk/chainflow/rust/README.md"
+line = 174
+class = "doc-drift"
+severity = "low"
+observed = "The tracing section describes failed OAuth token exchanges, and lines 233-235 promise shared cached access tokens and repeated exchanges when rebuilding clients. client.rs stores supplied API credentials only and has no OAuth exchange, refresh or token cache."
+expected = "The usage guide must describe supplied REST and mint keys, caller-managed short-lived WS tokens, and shared transport state across client clones without claiming an unimplemented authentication lifecycle."
+proposal = "Rewrite the tracing and reuse paragraphs in sdk/chainflow/rust/README.md to describe static credentials, explicit WS-token minting and replacement, and shared connection pools; remove the OAuth and cached-token claims."
+owner_domain = 15
+
+[finding.sdk-doc-feature-matrix]
+file = "sdk/chainflow/rust/README.md"
+line = 207
+class = "doc-drift"
+severity = "low"
+observed = "The feature paragraph promises that no combination is rejected. transport_reqwest.rs:23-26 emits compile_error for reqwest without either TLS backend; README.md:127-129 already describes that supported-build restriction."
+expected = "The feature summary must agree with the compile-time TLS requirement and the earlier no-default-features installation instructions."
+proposal = "Replace the unconditional combination claim in sdk/chainflow/rust/README.md with the supported reqwest TLS combinations and independent custom-transport configuration, preserving the existing compile-time TLS protection."
+owner_domain = 15
+
+[finding.payment-codec-retired-dependency]
+file = "services/agent/crates/layerx-crypto/src/payments.rs"
+line = 12
+class = "retired-reference"
+severity = "medium"
+observed = "The maintained payments facade imports Decoder and Encoder from layerx_wire and uses that crate for protocol predicates and signature domain tags. component.wire-codec in programme/data/retired.kvx deletes the layerx-wire crate, while payment encode/decode registry rows remain stable and facade consumers remain live."
+expected = "The stable payment payload API and EIP-1559 ledger-call facade required by 8968.2 must remain usable after the retired activity-wire crate is removed; retaining payload bytes must not retain the retired activity transport."
+proposal = "Move the required bounded payload reader/writer, domain tags and version checks into the maintained payment or transaction codec in services/agent/crates/layerx-crypto, then re-point payments.rs. Preserve exact payload bytes, canonical decode checks and signature refusals."
+owner_domain = 9
+interface = "9.rs-crypto-payment-encode-j70"
+
+[finding.payment-tests-old-signing-path]
+file = "services/agent/crates/layerx-crypto/tests/payments.rs"
+line = 82
+class = "retired-reference"
+severity = "medium"
+observed = "canonical builds a protocol-3 0x1001 eleven-field activity envelope on network 17. Tests call disclosure::bind and SignatureMessage::new, whose registry disposition is retire. The final facade test builds an EIP-1559 call but checks re-export equivalence and signs directly, leaving the old envelope disclosure tests tied to removed interfaces."
+expected = "Payment payload checks must survive activity-wire and SignatureMessage retirement, and reviewed payment signing must bind chain-125 EIP-1559 nonce, target, calldata and gas terms as specified by 9321-9323."
+proposal = "Migrate services/agent/crates/layerx-crypto/tests/payments.rs disclosure/signing checks to maintained payload fixtures, ledger_payment_call, bind_call and sign_disclosed_call. Preserve every malformed-payload and field-tamper assertion, and prove recovered sender plus changed-call refusal."
+owner_domain = 9
+interface = "9.rs-crypto-signaturemessage-new-j70"
+
+[finding.chain-read-router-path]
+file = "services/platform/hosted/gateway/tests/chain_reads.rs"
+line = 403
+class = "retired-reference"
+severity = "medium"
+observed = "chain_reads.rs sends successful gateway JSON-RPC calls to /rpc. Current public_reads::route still serves that alias, so this is a retained pre-merge transport, not a claim that the current route is absent. Registry row 8.http-gateway-any-rpc still labels it stable. These assertions do not establish the finished root endpoint contract."
+expected = "Brief network facts 2 and 3 retire the unified /rpc path and require root JSON-RPC. Hosted-gateway px_ methods remain separate from the namespaces and hostnames owned by the node."
+proposal = "Migrate services/platform/hosted/gateway/tests/chain_reads.rs successful calls to POST / while preserving all authentication, result and refusal assertions. Coordinate removal of the legacy producer alias and add an explicit retired-path refusal without keeping a compatibility router alive."
+owner_domain = 8
+interface = "8.http-gateway-any-rpc"
+
+[finding.degraded-router-path]
+file = "services/platform/hosted/gateway/tests/degraded.rs"
+line = 160
+class = "retired-reference"
+severity = "medium"
+observed = "degraded.rs sends successful gateway JSON-RPC calls to /rpc. Current public_reads::route still serves that alias, so this is a retained pre-merge transport, not a claim that the current route is absent. Registry row 8.http-gateway-any-rpc still labels it stable. These assertions do not establish the finished root endpoint contract."
+expected = "Brief network facts 2 and 3 retire the unified /rpc path and require root JSON-RPC. Hosted-gateway px_ methods remain separate from the namespaces and hostnames owned by the node."
+proposal = "Migrate services/platform/hosted/gateway/tests/degraded.rs successful calls to POST / while preserving all authentication, result and refusal assertions. Coordinate removal of the legacy producer alias and add an explicit retired-path refusal without keeping a compatibility router alive."
+owner_domain = 8
+interface = "8.http-gateway-any-rpc"
+
+[finding.one-source-router-path]
+file = "services/platform/hosted/gateway/tests/one_source_reads.rs"
+line = 159
+class = "retired-reference"
+severity = "medium"
+observed = "one_source_reads.rs sends successful gateway JSON-RPC calls to /rpc. Current public_reads::route still serves that alias, so this is a retained pre-merge transport, not a claim that the current route is absent. Registry row 8.http-gateway-any-rpc still labels it stable. These assertions do not establish the finished root endpoint contract."
+expected = "Brief network facts 2 and 3 retire the unified /rpc path and require root JSON-RPC. Hosted-gateway px_ methods remain separate from the namespaces and hostnames owned by the node."
+proposal = "Migrate services/platform/hosted/gateway/tests/one_source_reads.rs successful calls to POST / while preserving all authentication, result and refusal assertions. Coordinate removal of the legacy producer alias and add an explicit retired-path refusal without keeping a compatibility router alive."
+owner_domain = 8
+interface = "8.http-gateway-any-rpc"
+
+[finding.failover-router-path]
+file = "services/platform/hosted/gateway/tests/paxeer_failover.rs"
+line = 466
+class = "retired-reference"
+severity = "medium"
+observed = "paxeer_failover.rs sends successful gateway JSON-RPC calls to /rpc. Current public_reads::route still serves that alias, so this is a retained pre-merge transport, not a claim that the current route is absent. Registry row 8.http-gateway-any-rpc still labels it stable. These assertions do not establish the finished root endpoint contract."
+expected = "Brief network facts 2 and 3 retire the unified /rpc path and require root JSON-RPC. Hosted-gateway px_ methods remain separate from the namespaces and hostnames owned by the node."
+proposal = "Migrate services/platform/hosted/gateway/tests/paxeer_failover.rs successful calls to POST / while preserving all authentication, result and refusal assertions. Coordinate removal of the legacy producer alias and add an explicit retired-path refusal without keeping a compatibility router alive."
+owner_domain = 8
+interface = "8.http-gateway-any-rpc"
+
+[finding.proof-router-path]
+file = "services/platform/hosted/gateway/tests/proof_gateway_jsonrpc_methods.rs"
+line = 325
+class = "retired-reference"
+severity = "medium"
+observed = "proof_gateway_jsonrpc_methods.rs sends successful gateway JSON-RPC calls to /rpc. Current public_reads::route still serves that alias, so this is a retained pre-merge transport, not a claim that the current route is absent. Registry row 8.http-gateway-any-rpc still labels it stable. These assertions do not establish the finished root endpoint contract."
+expected = "Brief network facts 2 and 3 retire the unified /rpc path and require root JSON-RPC. Hosted-gateway px_ methods remain separate from the namespaces and hostnames owned by the node."
+proposal = "Migrate services/platform/hosted/gateway/tests/proof_gateway_jsonrpc_methods.rs successful calls to POST / while preserving all authentication, result and refusal assertions. Coordinate removal of the legacy producer alias and add an explicit retired-path refusal without keeping a compatibility router alive."
+owner_domain = 8
+interface = "8.http-gateway-any-rpc"
+
+[finding.receipt-key-router-path]
+file = "services/platform/hosted/gateway/tests/receipt_keys.rs"
+line = 1076
+class = "retired-reference"
+severity = "medium"
+observed = "receipt_keys.rs sends successful gateway JSON-RPC calls to /rpc. Current public_reads::route still serves that alias, so this is a retained pre-merge transport, not a claim that the current route is absent. Registry row 8.http-gateway-any-rpc still labels it stable. These assertions do not establish the finished root endpoint contract."
+expected = "Brief network facts 2 and 3 retire the unified /rpc path and require root JSON-RPC. Hosted-gateway px_ methods remain separate from the namespaces and hostnames owned by the node."
+proposal = "Migrate services/platform/hosted/gateway/tests/receipt_keys.rs successful calls to POST / while preserving all authentication, result and refusal assertions. Coordinate removal of the legacy producer alias and add an explicit retired-path refusal without keeping a compatibility router alive."
+owner_domain = 8
+interface = "8.http-gateway-any-rpc"
+
+[finding.surface-router-path]
+file = "services/platform/hosted/gateway/tests/router_surface.rs"
+line = 428
+class = "retired-reference"
+severity = "medium"
+observed = "router_surface.rs sends successful gateway JSON-RPC calls to /rpc. Current public_reads::route still serves that alias, so this is a retained pre-merge transport, not a claim that the current route is absent. Registry row 8.http-gateway-any-rpc still labels it stable. These assertions do not establish the finished root endpoint contract."
+expected = "Brief network facts 2 and 3 retire the unified /rpc path and require root JSON-RPC. Hosted-gateway px_ methods remain separate from the namespaces and hostnames owned by the node."
+proposal = "Migrate services/platform/hosted/gateway/tests/router_surface.rs successful calls to POST / while preserving all authentication, result and refusal assertions. Coordinate removal of the legacy producer alias and add an explicit retired-path refusal without keeping a compatibility router alive."
+owner_domain = 8
+interface = "8.http-gateway-any-rpc"
+
+[finding.failover-upstream-path-shape]
+file = "services/platform/hosted/gateway/tests/paxeer_failover.rs"
+line = 358
+class = "test-gap"
+severity = "medium"
+observed = "Upstream::url returns https://localhost:<port> with no path at line 335, but chain_answer insists on /rpc. src/paxeer.rs::rpc_path selects / for a bare endpoint and node_unmetered uses that path for the identity probe and relayed call. The fixture rejects the real transport before its failover and receipt assertions can be exercised."
+expected = "The listener must accept the root path emitted for the configured endpoint and matching the node contract. Failover, byte fidelity and receipt assertions must run through the actual producer request path."
+proposal = "Change services/platform/hosted/gateway/tests/paxeer_failover.rs upstream listener to assert POST / for bare URLs and capture both identity probes and relayed methods. Retain retry order, all-down refusal, exact response bytes and large-nonce assertions."
+owner_domain = 8
+interface = "8.env-gateway-layerx-gateway-paxeer-rpc-urls"
+
+[finding.unified-paths-retired-upgrades]
+file = "services/platform/hosted/gateway/tests/unified_service_paths.rs"
+line = 535
+class = "retired-reference"
+severity = "medium"
+observed = "The real-process test requires successful GET /rpc/ws upgrades and successful GET /rpc/schema at lines 621 and 718. main.rs and rpc.rs still mount them and registry rows 8.ws-gateway-any-rpc-ws and 8.http-gateway-any-rpc-schema still label them stable, despite the brief retiring both endpoints."
+expected = "Brief network fact 2 retires /rpc/ws and /rpc/schema. Negative lx_ method assertions remain valid, but successful setup must use a declared maintained transport and contract distribution path."
+proposal = "Replace positive setup in services/platform/hosted/gateway/tests/unified_service_paths.rs with the maintained gateway subscription transport and OpenRPC distribution. Retain negative lx_ checks and add explicit retired-path refusals; align producer registration and both interface dispositions in the same owning repair."
+owner_domain = 8
+interface = "8.ws-gateway-any-rpc-ws"
+
+[finding.method-contract-router-wording]
+file = "services/platform/hosted/gateway/tests/openrpc_methods.rs"
+line = 193
+class = "retired-reference"
+severity = "low"
+observed = "The method uniqueness assertion directs maintainers to router methods in /rpc/schema, although it reads the checked-in openrpc.json and the audit brief retires that live schema URL."
+expected = "Diagnostics must identify services/platform/hosted/gateway/openrpc.json and hosted-gateway method ownership without advertising a retired live route."
+proposal = "Update the assertion diagnostic and router terminology in services/platform/hosted/gateway/tests/openrpc_methods.rs to name the checked-in hosted-gateway contract, preserving exact membership and uniqueness assertions."
+owner_domain = 8
+interface = "8.http-gateway-any-rpc-schema"
+
+[finding.readiness-contract-conflict]
+file = "services/platform/hosted/gateway/tests/chain_only_readiness.rs"
+line = 478
+class = "test-gap"
+severity = "medium"
+observed = "The configured-kernel branch requires kernel backends, principal_state_boundary and HTTP 503. The chain-only branch at line 541 requires layerx_activity to be absent. main.rs::readiness and gateway_readiness_scope implement the same behavior: this is a requirement conflict, not a current test/producer disagreement."
+expected = "Requirement 8153.2 requires an unchanged ready chain-only document even with a kernel backend configured, no kernel backend/component or principal_state_boundary, and a retained layerx_activity capability with state not_configured."
+proposal = "Align services/platform/hosted/gateway/src/main.rs and tests/chain_only_readiness.rs with 8153.2: keep serving readiness independent of residual kernel URLs, exclude retired kernel probes, and assert the full declared capability document for both configurations."
+owner_domain = 8
+interface = "8.env-gateway-layerx-gateway-component-url"
+
+[finding.gateway-method-proof-success-gap]
+file = "services/platform/hosted/gateway/tests/proof_gateway_jsonrpc_methods.rs"
+line = 13
+class = "test-gap"
+severity = "medium"
+observed = "The test explicitly omits successful consensus, sequencer receipt and faucet production. Receipt-key reads and key rotation use real consumers, but px_getCommit, px_getValidators, px_getSequenceBatch, pax_sequencerReceipt and px_requestFunds have only absent-backend or malformed refusal coverage and no genuine signed node receipt."
+expected = "Requirement 21078.1 requires real producers through the real endpoint into real consumers, observing both a successful result and a refusal, including stop/reopen when persistent evidence crosses the path."
+proposal = "Extend services/platform/hosted/gateway/tests/proof_gateway_jsonrpc_methods.rs and its owning build target to start real node, consensus and funding producers. Verify a genuine signed receipt and committed evidence with existing Rust/Python/TypeScript consumers, prove persisted recovery, and retain all current refusal cases."
+owner_domain = 8
+
+[finding.tap-recovery-proof-gap]
+file = "services/platform/hosted/gateway/tests/tap_nonce.rs"
+line = 420
+class = "restart-recovery"
+severity = "medium"
+observed = "assert_payment_restart and nonce reconstruction create new RedisStore handles against the same live RedisProcess. Neither stops Redis nor reopens a gateway process. They prove client reconstruction but cannot expose crash loss of nonce bindings, payment completions or pending observations. key-store.py restarts Redis for different key records."
+expected = "Brief check 5 requires persistent TAP nonce/payment/outbox state to resume across a real stop and reopen, with exact retry binding and idempotent event acknowledgement."
+proposal = "Extend services/platform/hosted/gateway/tests/tap_nonce.rs to stop/reopen the relevant service and Redis on the same persisted directory before retry and pending-event consumption. Assert original retry identity, altered-reuse refusal, exact completion bytes and no duplicate acknowledged event."
+owner_domain = 8
+interface = "8.rs-internal-layerx-platform-internal-producer-outbox"
+
+[finding.readme-separate-daemon]
+file = "README.md"
+line = 47
+class = "doc-drift"
+severity = "medium"
+observed = "The overview calls layerxd a separate C17 daemon whose checkpoints settle through layerxAnchor. The build section recommends make layerxd and line 181 presents the merge as only a draft."
+expected = "The brief specifies one BFT paxd network with its kernel integrated, chain id 125 and receipt finality at block commit. Current product documentation must remove the separate daemon/router and checkpoint settlement model."
+proposal = "Rewrite README.md architecture and build sections around the integrated paxd kernel, chain-125 EIP-1559 operations and block-commit finality; remove separate-daemon and checkpoint settlement deployment instructions."
+owner_domain = 8
+
+[finding.monorepo-separate-trust]
+file = "docs/MONOREPO.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The introduction lists paxd and layerxd as independent running subsystems; lines 70-71 retain separate kernel execution and chain custody/checkpoint/guarantor settlement boundaries."
+expected = "The brief specifies one BFT paxd network with its kernel integrated, chain id 125 and receipt finality at block commit. Current product documentation must remove the separate daemon/router and checkpoint settlement model."
+proposal = "Update docs/MONOREPO.md to distinguish source-language/build ownership from the one deployed paxd network and document the integrated kernel and maintained service boundaries."
+owner_domain = 8
+
+[finding.network-separate-settlement]
+file = "docs/paxeer-network.md"
+line = 5
+class = "doc-drift"
+severity = "medium"
+observed = "The page says ordinary activity stays outside Paxeer and periodic checkpoints settle here. Line 9 advertises a public faucet, while related onboarding pages say none is public; line 15 uses obsolete root agent/, human/, platform/ and interop/ paths."
+expected = "The brief specifies one BFT paxd network with its kernel integrated, chain id 125 and receipt finality at block commit. Current product documentation must remove the separate daemon/router and checkpoint settlement model."
+proposal = "Rewrite docs/paxeer-network.md around the integrated chain and committed receipts, update services/ paths, and replace the generic public-faucet claim with the actual gateway funding eligibility and declared operation."
+owner_domain = 8
+
+[finding.site-home-checkpoint-model]
+file = "docs/site/docs/index.md"
+line = 11
+class = "doc-drift"
+severity = "medium"
+observed = "The site entry point says ordinary execution stays inside LayerX and periodic checkpoints supply Paxeer finality and custody; lines 24-26 repeat the split and later advertise guarantor and exit responsibilities."
+expected = "The brief specifies one BFT paxd network with its kernel integrated, chain id 125 and receipt finality at block commit. Current product documentation must remove the separate daemon/router and checkpoint settlement model."
+proposal = "Rewrite docs/site/docs/index.md around the integrated paxd network, final committed receipts and current precompiles, and link root node endpoints separately from the hosted-gateway px_ contract."
+owner_domain = 8
+
+[finding.site-monorepo-old-layout]
+file = "docs/site/docs/overview/monorepo.md"
+line = 9
+class = "doc-drift"
+severity = "medium"
+observed = "The table uses old root agent/, human/, platform/ and interop/ locations and describes independent LayerX/Paxeer deployment trust domains; lines 28-29 retain checkpoint, bond and emergency-exit settlement."
+expected = "The brief specifies one BFT paxd network with its kernel integrated, chain id 125 and receipt finality at block commit. Current product documentation must remove the separate daemon/router and checkpoint settlement model."
+proposal = "Update docs/site/docs/overview/monorepo.md to current services/ locations and one deployed network, retain useful build ownership distinctions, and replace the retired settlement/guarantor deployment guidance."
+owner_domain = 8
+
+[finding.architecture-old-consensus]
+file = "docs/site/docs/overview/unified-network.md"
+line = 11
+class = "doc-drift"
+severity = "medium"
+observed = "The architecture runs core consensus in cmd/layerxd and describes LayerXVerify 0x1012, custody 0x1013 and anchor 0x1014 as the active connector, with checkpoint, guarantor and forced-exit finality."
+expected = "The brief specifies one BFT paxd network with its kernel integrated, chain id 125 and receipt finality at block commit. Current product documentation must remove the separate daemon/router and checkpoint settlement model."
+proposal = "Replace the daemon, connector, custody and anchor sections of docs/site/docs/overview/unified-network.md with kernel integration into paxd, maintained ledger/pay/programs precompiles, tenant domains and committed-block verification."
+owner_domain = 8
+
+[finding.architecture-router-contract]
+file = "docs/site/docs/overview/unified-network.md"
+line = 135
+class = "doc-drift"
+severity = "medium"
+observed = "The endpoint section designates https://api-mainnet-beta.paxeer.network/rpc as a router, says sixteen numbered nodes serve only EVM, keeps lx_ and lx_subscribe live, advertises /rpc/schema and describes px_ reads as two-domain joins."
+expected = "The brief specifies one BFT paxd network with its kernel integrated, chain id 125 and receipt finality at block commit. Current product documentation must remove the separate daemon/router and checkpoint settlement model."
+proposal = "Rewrite that endpoint section with root URLs api1 through api14 and api-mainnet-beta, current node namespaces and hosted-gateway px_ ownership and chain-only result shapes; remove router, lx_ and live schema-route claims."
+owner_domain = 8
+
+[finding.quickstart-old-payment-lifecycle]
+file = "docs/site/docs/overview/quickstart.md"
+line = 20
+class = "doc-drift"
+severity = "medium"
+observed = "Quickstart prescribes /rpc and /rpc/ws, a separately provisioned beta kernel and sequencer trust anchor, canonical lx_sendActivity writes, batched/finalised settlement and custody-credit funding. Its later EIP-1559 toolset example also posts to /rpc."
+expected = "The brief specifies one BFT paxd network with its kernel integrated, chain id 125 and receipt finality at block commit. Current product documentation must remove the separate daemon/router and checkpoint settlement model."
+proposal = "Rewrite docs/site/docs/overview/quickstart.md as a runnable integrated paxd and maintained hosted-service setup with root chain-125 submission, fresh EVM nonce and gas terms, supported program deployment/authentication and committed-block receipt verification."
+owner_domain = 8
+
+[finding.getting-started-retired-rpc]
+file = "docs/site/docs/overview/getting-started.md"
+line = 10
+class = "doc-drift"
+severity = "medium"
+observed = "The endpoint exports /rpc; register/open/mint/SEND submits canonical activities through lx_sendActivity, reads lx_getSequence, waits for executed/batched/finalised and trusts sequencer/authorized-batch policy rather than committed-block evidence."
+expected = "The brief specifies one BFT paxd network with its kernel integrated, chain id 125 and receipt finality at block commit. Current product documentation must remove the separate daemon/router and checkpoint settlement model."
+proposal = "Replace docs/site/docs/overview/getting-started.md endpoint, write, read and recovery examples with root eth_/pax_ operations, declared hosted px_ methods, signed EIP-1559 payment construction and committed-block verification; retain exact-byte retry advice."
+owner_domain = 8
+
+[finding.payments-guide-old-envelope]
+file = "docs/site/docs/overview/payments.md"
+line = 21
+class = "doc-drift"
+severity = "medium"
+observed = "The payments guide exports /rpc, configures first_batch/last_batch/checkpoint_context_digest policy and teaches lx_ activity submission, sequence and receipt watches using the pre-merge commitment ladder."
+expected = "The brief specifies one BFT paxd network with its kernel integrated, chain id 125 and receipt finality at block commit. Current product documentation must remove the separate daemon/router and checkpoint settlement model."
+proposal = "Rewrite docs/site/docs/overview/payments.md for reviewed EIP-1559 ledger/pay calls, root submission, chain-scoped keys and nonce recovery, and receipts final at block commit; preserve exact signed-byte reuse for uncertain payments."
+owner_domain = 8
+
+[finding.settlement-page-retired-model]
+file = "docs/site/docs/concepts/paxeer-settlement.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The page says ordinary activity needs no Paxeer transaction, divides kernel execution from custody/checkpoints/guarantors, and teaches checkpoint withdrawals and emergency exits through the retired separate sequencer settlement model."
+expected = "The brief specifies one BFT paxd network with its kernel integrated, chain id 125 and receipt finality at block commit. Current product documentation must remove the separate daemon/router and checkpoint settlement model."
+proposal = "Replace docs/site/docs/concepts/paxeer-settlement.md with integrated-chain finality/recovery guidance: operations execute in paxd, receipt finality comes from block commit, and current chain proofs and maintained contract paths establish balances and outcomes."
+owner_domain = 8
+
+[finding.gateway-contract-retired-routes]
+file = "spec/layerx-merge/contracts/platform-gateway.md"
+line = 434
+class = "doc-drift"
+severity = "medium"
+observed = "The generated gateway contract labels /rpc and /rpc/schema stable under gateway-http-routes and /rpc/ws stable under gateway-ws-routes. Current producers/tests implement them, but brief fact 2 expressly retires all three, leaving an interface lifecycle contradiction."
+expected = "Registry dispositions, generated contract pages, route registration and consumers must agree on the finished root endpoint lifecycle and hosted-gateway ownership."
+proposal = "Resolve rows 8.http-gateway-any-rpc, 8.http-gateway-any-rpc-schema and 8.ws-gateway-any-rpc-ws in the owning specification, regenerate spec/layerx-merge/contracts/platform-gateway.md, and migrate producers/consumers together with explicit retired-route refusals."
+owner_domain = 8
+interface = "8.http-gateway-any-rpc-schema"
+
+[doc.01]
+path = "README.md"
+status = "stale"
+notes = "Read in full; Line 47: The overview calls layerxd a separate C17 daemon whose checkpoints settle through layerxAnchor. The build section recommends make layerxd and line 181 presents the merge as only a draft. See readme-separate-daemon."
+
+[doc.02]
+path = "docs/MONOREPO.md"
+status = "stale"
+notes = "Read in full; Line 3: The introduction lists paxd and layerxd as independent running subsystems; lines 70-71 retain separate kernel execution and chain custody/checkpoint/guarantor settlement boundaries. See monorepo-separate-trust."
+
+[doc.03]
+path = "docs/site/docs/interop/portable-receipts.md"
+status = "accurate"
+notes = "Read in full; scopes the legacy portable format to sequencer authenticity and independently trusted batch facts, disclaims finality, and explicitly documents format/code and vector-coverage disagreements rather than promising a successful current-network proof."
+
+[doc.04]
+path = "docs/wiki/PortableVerifier.md"
+status = "accurate"
+notes = "Read in full; mirrors the narrowly scoped portable receipt/refusal documentation, including limitations and known disagreements, without claiming running separate infrastructure or checkpoint finality."
+
+[doc.05]
+path = "docs/paxeer-network.md"
+status = "stale"
+notes = "Read in full; Line 5: The page says ordinary activity stays outside Paxeer and periodic checkpoints settle here. Line 9 advertises a public faucet, while related onboarding pages say none is public; line 15 uses obsolete root agent/, human/, platform/ and interop/ paths. See network-separate-settlement."
+
+[doc.06]
+path = "docs/site/docs/index.md"
+status = "stale"
+notes = "Read in full; Line 11: The site entry point says ordinary execution stays inside LayerX and periodic checkpoints supply Paxeer finality and custody; lines 24-26 repeat the split and later advertise guarantor and exit responsibilities. See site-home-checkpoint-model."
+
+[doc.07]
+path = "docs/site/docs/overview/monorepo.md"
+status = "stale"
+notes = "Read in full; Line 9: The table uses old root agent/, human/, platform/ and interop/ locations and describes independent LayerX/Paxeer deployment trust domains; lines 28-29 retain checkpoint, bond and emergency-exit settlement. See site-monorepo-old-layout."
+
+[doc.08]
+path = "docs/site/docs/overview/unified-network.md"
+status = "stale"
+notes = "Read in full; Line 11: The architecture runs core consensus in cmd/layerxd and describes LayerXVerify 0x1012, custody 0x1013 and anchor 0x1014 as the active connector, with checkpoint, guarantor and forced-exit finality. See architecture-old-consensus. Line 135: The endpoint section designates https://api-mainnet-beta.paxeer.network/rpc as a router, says sixteen numbered nodes serve only EVM, keeps lx_ and lx_subscribe live, advertises /rpc/schema and describes px_ reads as two-domain joins. See architecture-router-contract."
+
+[doc.09]
+path = "docs/site/docs/overview/quickstart.md"
+status = "stale"
+notes = "Read in full; Line 20: Quickstart prescribes /rpc and /rpc/ws, a separately provisioned beta kernel and sequencer trust anchor, canonical lx_sendActivity writes, batched/finalised settlement and custody-credit funding. Its later EIP-1559 toolset example also posts to /rpc. See quickstart-old-payment-lifecycle."
+
+[doc.10]
+path = "docs/site/docs/overview/getting-started.md"
+status = "stale"
+notes = "Read in full; Line 10: The endpoint exports /rpc; register/open/mint/SEND submits canonical activities through lx_sendActivity, reads lx_getSequence, waits for executed/batched/finalised and trusts sequencer/authorized-batch policy rather than committed-block evidence. See getting-started-retired-rpc."
+
+[doc.11]
+path = "docs/site/docs/overview/payments.md"
+status = "stale"
+notes = "Read in full; Line 21: The payments guide exports /rpc, configures first_batch/last_batch/checkpoint_context_digest policy and teaches lx_ activity submission, sequence and receipt watches using the pre-merge commitment ladder. See payments-guide-old-envelope."
+
+[doc.12]
+path = "docs/site/docs/concepts/paxeer-settlement.md"
+status = "stale"
+notes = "Read in full; Line 3: The page says ordinary activity needs no Paxeer transaction, divides kernel execution from custody/checkpoints/guarantors, and teaches checkpoint withdrawals and emergency exits through the retired separate sequencer settlement model. See settlement-page-retired-model."
+
+[doc.13]
+path = "sdk/chainflow/rust/README.md"
+status = "stale"
+notes = "Read in full; OAuth/token-cache language and the unconditional feature-combination promise disagree with implementation; see sdk-doc-oauth and sdk-doc-feature-matrix."
+
+[doc.14]
+path = "sdk/chainflow/rust/api.md"
+status = "accurate"
+notes = "Read in full; documents per-operation separate WS mint credentials, paths, models and lifecycle. The client violates credential selection as recorded in sdk-credential-selection."
+
+[doc.15]
+path = "sdk/chainflow/rust/reference.md"
+status = "accurate"
+notes = "Read in full; compact operation paths, media types and error-status catalogue match the resource declarations."
+
+[doc.16]
+path = "sdk/chainflow/rust/SECURITY.md"
+status = "accurate"
+notes = "Read in full; gives private generated-SDK disclosure guidance and separate service responsibility without publishing credentials."
+
+[doc.17]
+path = "sdk/chainflow/rust/CHANGELOG.md"
+status = "accurate"
+notes = "Read in full; initial-generation and response extensibility notes make no unsupported deployment or merged-network claims."
+
+[doc.18]
+path = "spec/layerx-merge/contracts/platform-gateway.md"
+status = "stale"
+notes = "Reviewed the linked gateway route, method and configuration sections. Stable labels for /rpc, /rpc/schema and /rpc/ws conflict with the brief; see gateway-contract-retired-routes."
+
+[doc.19]
+path = "spec/layerx-merge/contracts/agent-rust-api.md"
+status = "accurate"
+notes = "Reviewed EIP-1559 preparation and linked crypto/payment and retirement rows. They require sender-bound review and transaction signing while retaining payload codecs; member findings cover migration dependencies."
+
+[doc.20]
+path = "spec/layerx-merge/contracts/cosmos-fork.md"
+status = "accurate"
+notes = "Reviewed the client-sdks entries linked to Chainflow Rust. They declare the exported client and resources, without claiming per-operation auth, CI execution or live-service proof."
+

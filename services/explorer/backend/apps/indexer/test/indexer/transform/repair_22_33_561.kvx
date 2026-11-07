@@ -1,0 +1,37 @@
+[task.22.33.561]
+base_revision = "de8ab245609a7e0707cc32c502b6dcbe17ce3aca"
+verification = "hf-build then hf-done; authoritative candidate revision, command, exit and private log are recorded by /out/run/gates.jsonl"
+baseline = "No baseline verification ran: gate ledger was absent, the repair test did not exist, and the explicit ordered gate instructions prohibit running verify_cmd before implementation or outside hf-done; no pre-change test failure is claimed."
+wiring_requests = []
+
+[finding.019]
+proof = "Indexer.Repair2233561Test: 019: recorded block miners and heights survive the balance import runner"
+repair = "Exact miner and height MapSet assertion replaces the literal-map assertion."
+
+[finding.020]
+proof = "Indexer.Repair2233561Test: 020: recorded ERC20 receipt reaches exactly the two holder balance schemas"
+repair = "Exact two-holder MapSet includes token contract, type, token_id and height."
+
+[finding.021]
+proof = "Indexer.Repair2233561Test: 021: the discovered address suite merges recorded transaction and miner identities into the address schema"
+repair = "addresses.exs is renamed addresses_test.exs with every assertion and doctest retained; the declared repair gate requires and executes the discovered suite."
+
+[finding.022]
+proof = "Indexer.Repair2233561Test: 022: Base and Clique configuration reaches block and miner balance consumers"
+repair = "Configured Base and Clique outputs are exact, including genesis handling, recovered miner, identity and order."
+
+[finding.023]
+proof = "Indexer.Repair2233561Test: 023: every retired custody and anchor ABI event is refused through receipt conversion and import"
+repair = "All historical payload cases become explicit retirement rejection tests; every committed retired ABI event is refused and retained producer assertions remain."
+
+[finding.024]
+proof = "Indexer.Repair2233561Test: 024: retained binding bridge and launchpad rows survive while retired result keys remain absent"
+repair = "Exact retained result keys and row enumeration replace removed table expectations; retired keys are explicitly absent."
+
+[finding.025]
+proof = "Indexer.Repair2233561Test: 025: modern and legacy OrderPlaced travel from their separate producer ABIs into the same market importer"
+repair = "Definition selection requires emitter plus canonical signature; both OrderPlaced generations have independent exact parameter assertions."
+
+[finding.029]
+proof = "Indexer.Repair2233561Test: 029: all required modern perps and legacy exchange event layouts reach the market schema and importer"
+repair = "Modern perps and legacy exchange ABIs at 0x1015 are checked for exact required coverage, topic hashes and complete ordered indexed layouts."

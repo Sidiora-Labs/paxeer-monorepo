@@ -1,0 +1,1927 @@
+# Pre-upgrade audit of tools-ops qualification and governance surfaces.
+
+[audit.22.30.181]
+task = "22.30.181"
+revision = "9d9e94b1751d89ba849d2d3d0f89b48fabce9756"
+files_reviewed = 187
+lines_reviewed = 21158
+findings = 66
+docs_reviewed = 16
+upgrade_ready = false
+blocking = ["f004","f007","f008"]
+interfaces_produced_reviewed = 400
+interfaces_consumed_reviewed = 400
+interface_coverage = "Coverage follows the 400 explicitly enumerated produced rows and 400 consumed rows; the package's aggregate totals are 652 and 816 respectively."
+network = "One paxd BFT chain, EVM chain id 125; the kernel is embedded, block commitment is final, node RPC is at root, and node.hyperpaxeer.com is a build library mirror."
+
+[file.001]
+path = ".gemini/settings.json"
+lines = 5
+verdict = "clean"
+note = "The Codify MCP server uses the installed cg command with the mcp subcommand; no network credentials or per-host endpoint is embedded."
+
+[file.002]
+path = "tests/proof/lxp_proof_b_error_code_registry_d6.c"
+lines = 432
+verdict = "issues"
+note = "f037: The proof explicitly accepts that LXPReason preserves a bare LXP_-prefixed reason and that the Python SDK refuses it; the positive registry round trips use LXPRevert rather than closing this encoder path."
+
+[file.003]
+path = "tests/proof/lxp_proof_lx_asset_h.c"
+lines = 395
+verdict = "clean"
+note = "Asset registration, mint, send and authority refusals use the real kernel, state store and header ABI; reopen checks preserve committed balances and refusal atomicity."
+
+[file.004]
+path = "tests/proof/lxp_proof_lx_service_h.c"
+lines = 553
+verdict = "clean"
+note = "The service-header consumer exercises real offers, agreements, deliveries, escrow/dispute authority and typed refusals; committed records remain readable across reinitialization."
+
+[file.005]
+path = "tests/proof/lxp_proof_lxp_bridge_h.c"
+lines = 103
+verdict = "clean"
+note = "The retained header proof exercises deposit/withdrawal nullifiers and explicitly refuses the removed exit/claim surface; historical names identify absent symbols rather than a running custody flow."
+
+[file.006]
+path = "tests/proof/lxp_proof_lxp_module_h.c"
+lines = 430
+verdict = "clean"
+note = "Module-context proof uses actual kernel dispatch, runtime binding, effects and authority contexts; restart and malformed-context cases retain exact typed refusals and committed state."
+
+[file.007]
+path = "tests/proof/lxp_proof_lxp_receipt_h.c"
+lines = 456
+verdict = "clean"
+note = "Receipt proof consumes genuine kernel execution facts and signed bytes, checks authority and digest corruption, and preserves committed-state observations through reopen."
+
+[file.008]
+path = "tests/proof/lxp_proof_programs_h.c"
+lines = 352
+verdict = "clean"
+note = "Programs header proof uses the real runtime for deployed code, interfaces and sandbox reads; negative ids, authority and retired methods are refused without replacing the producer."
+
+[file.009]
+path = "tests/proof/lxp_proof_result_registry.c"
+lines = 173
+verdict = "clean"
+note = "The static result table is enumerated through its actual C ABI twice, including genuine kernel result codes and untouched outputs on refusals. Its UNKNOWN_FIELD expectation matches req.1007; contract prose disagreement is f038."
+
+[file.010]
+path = "tools/paxeer-x/ai_evidence.py"
+lines = 837
+verdict = "clean"
+note = "AI evidence admission validates closed schemas, private files, source/artifact identities, real command results and connected lifecycle facts; missing or malformed evidence prevents release credit."
+
+[file.011]
+path = "tools/paxeer-x/builders/104.13.1.py"
+lines = 168
+verdict = "clean"
+note = "The Human production builder derives executable digests from real compiler events, binds production source inputs and records protected build artifacts for the three focused consumers."
+
+[file.012]
+path = "tools/paxeer-x/candidate.py"
+lines = 446
+verdict = "issues"
+note = "f001, f002: FOUNDATION.rpc_records hard-codes api1 through api16 and omits the api-mainnet-beta record."
+
+[file.013]
+path = "tools/paxeer-x/commitfixture/commitfixture_test.go"
+lines = 164
+verdict = "clean"
+note = "The commit fixture derives actual Tendermint validator votes and commits for proof consumers; it uses the current consensus types and rejects malformed fixture inputs."
+
+[file.014]
+path = "tools/paxeer-x/gates/0.2.sh"
+lines = 11
+verdict = "clean"
+note = "Qualification entry point 0.2 invokes tools/paxeer-x/tests/gate_dispatch_test.py through its declared command/argument path and propagates producer failure into gate evidence."
+
+[file.015]
+path = "tools/paxeer-x/gates/0.3.sh"
+lines = 15
+verdict = "clean"
+note = "Focused behavior gate for task 0.3: deterministic spec parser, validator and renderer."
+
+[file.016]
+path = "tools/paxeer-x/gates/0.4.sh"
+lines = 5
+verdict = "issues"
+note = "f039: The paxeer-x-services header names kernel, replica-authority, core-boundary, paxeer-boundaries and twenty-three other legacy aliases, which are absent from the current 40-service catalogue. verify-task.sh bind() refuses the candidate before this gate can execute."
+
+[file.017]
+path = "tools/paxeer-x/gates/0.6.sh"
+lines = 4
+verdict = "clean"
+note = "Qualification entry point 0.6 invokes tools/paxeer-x/tests/durable_release_evidence.py through its declared command/argument path and propagates producer failure into gate evidence."
+
+[file.018]
+path = "tools/paxeer-x/gates/103.6.10.sh"
+lines = 248
+verdict = "clean"
+note = "The focused corpus consumes source-bound Go compiler artifacts and compares executable digests before executing its declared real cases."
+
+[file.019]
+path = "tools/paxeer-x/gates/103.6.11.sh"
+lines = 638
+verdict = "issues"
+note = "f010, f011: The composite builder invokes cargo with workspace + /Cargo.toml for workspace names agent and human, although the manifests live under services/agent and services/human."
+
+[file.020]
+path = "tools/paxeer-x/gates/103.6.13.sh"
+lines = 401
+verdict = "issues"
+note = "f012: qualify requires built.deadline_epoch == DEADLINE, but default DEADLINE is recomputed from time.time()+1800 in each separate build and verification process."
+
+[file.021]
+path = "tools/paxeer-x/gates/103.6.3.sh"
+lines = 412
+verdict = "clean"
+note = "The producer/consumer corpus binds source snapshots, compiler artifacts and protected evidence; actual named cases and no-skip counts govern qualification."
+
+[file.022]
+path = "tools/paxeer-x/gates/103.6.4.sh"
+lines = 382
+verdict = "clean"
+note = "The focused Go qualification binds private compiler manifests and source snapshots before running the retained real test artifacts."
+
+[file.023]
+path = "tools/paxeer-x/gates/103.6.5.sh"
+lines = 81
+verdict = "issues"
+note = "f040: The paxeer-x-services header names identity, which are absent from the current 40-service catalogue. verify-task.sh bind() refuses the candidate before this gate can execute."
+
+[file.024]
+path = "tools/paxeer-x/gates/103.6.8.sh"
+lines = 17
+verdict = "clean"
+note = "The topology entry point invokes the retained hosted topology checker and passes its declared code-only mode through the same command path."
+
+[file.025]
+path = "tools/paxeer-x/gates/103.6.9.sh"
+lines = 381
+verdict = "clean"
+note = "The focused qualification compares current source snapshots and protected artifact digests before accepting its real compiler/test output."
+
+[file.026]
+path = "tools/paxeer-x/gates/104.11.5.sh"
+lines = 65
+verdict = "clean"
+note = "Qualification entry point 104.11.5 invokes tools/paxeer-x/builders/104.13.1.py through its declared command/argument path and propagates producer failure into gate evidence."
+
+[file.027]
+path = "tools/paxeer-x/gates/104.12.4.sh"
+lines = 79
+verdict = "clean"
+note = "Qualification entry point 104.12.4 invokes tools/paxeer-x/builders/104.13.1.py through its declared command/argument path and propagates producer failure into gate evidence."
+
+[file.028]
+path = "tools/paxeer-x/gates/104.13.1.sh"
+lines = 83
+verdict = "clean"
+note = "Qualification entry point 104.13.1 invokes tools/paxeer-x/builders/104.13.1.py through its declared command/argument path and propagates producer failure into gate evidence."
+
+[file.029]
+path = "tools/paxeer-x/gates/104.13.6.sh"
+lines = 9
+verdict = "clean"
+note = "Qualification entry point 104.13.6 invokes tools/qualification/paxeer-x/human-api-boundary.py through its declared command/argument path and propagates producer failure into gate evidence."
+
+[file.030]
+path = "tools/paxeer-x/gates/104.15.4.sh"
+lines = 10
+verdict = "clean"
+note = "Qualification entry point 104.15.4 invokes sdk/platform/conformance/run-jvm.sh through its declared command/argument path and propagates producer failure into gate evidence."
+
+[file.031]
+path = "tools/paxeer-x/gates/104.16.2.sh"
+lines = 10
+verdict = "clean"
+note = "Qualification entry point 104.16.2 invokes services/platform/middleware/conformance/run.mjs through its declared command/argument path and propagates producer failure into gate evidence."
+
+[file.032]
+path = "tools/paxeer-x/gates/104.16.4.sh"
+lines = 286
+verdict = "clean"
+note = "Qualification entry point 104.16.4 invokes sdk/integrations/agents/examples/agent-runtime/index.mjs through its declared command/argument path and propagates producer failure into gate evidence."
+
+[file.033]
+path = "tools/paxeer-x/gates/104.16.5.sh"
+lines = 328
+verdict = "clean"
+note = "Qualification entry point 104.16.5 invokes services/platform/tools/benchmark/src/main.rs through its declared command/argument path and propagates producer failure into gate evidence."
+
+[file.034]
+path = "tools/paxeer-x/gates/104.17.3.sh"
+lines = 81
+verdict = "issues"
+note = "f013, f041: The gate selects prebuilt test executables by supplied path or Cargo filename and trusts their self-reported case counts without a compiler manifest binding the executable digest to the audited revision."
+
+[file.035]
+path = "tools/paxeer-x/gates/104.17.4.sh"
+lines = 50
+verdict = "issues"
+note = "f014, f042: The gate selects prebuilt test executables by supplied path or Cargo filename and trusts their self-reported case counts without a compiler manifest binding the executable digest to the audited revision."
+
+[file.036]
+path = "tools/paxeer-x/gates/104.17.5.sh"
+lines = 131
+verdict = "clean"
+note = "Qualification entry point 104.17.5 invokes services/platform/hosted/dashboard/web/tests/ui-contract.mjs through its declared command/argument path and propagates producer failure into gate evidence."
+
+[file.037]
+path = "tools/paxeer-x/gates/104.17.6.sh"
+lines = 182
+verdict = "clean"
+note = "Qualification entry point 104.17.6 invokes tools/platform/cli/tests/install-journey.sh through its declared command/argument path and propagates producer failure into gate evidence."
+
+[file.038]
+path = "tools/paxeer-x/gates/104.18.2.sh"
+lines = 10
+verdict = "clean"
+note = "Qualification entry point 104.18.2 invokes services/platform/examples/qualify-reference-apps.mjs through its declared command/argument path and propagates producer failure into gate evidence."
+
+[file.039]
+path = "tools/paxeer-x/gates/104.19.2.sh"
+lines = 13
+verdict = "clean"
+note = "Qualification entry point 104.19.2 invokes tools/qualification/paxeer-x/deterministic-execution-producer.py through its declared command/argument path and propagates producer failure into gate evidence."
+
+[file.040]
+path = "tools/paxeer-x/gates/104.19.3.sh"
+lines = 10
+verdict = "clean"
+note = "Qualification entry point 104.19.3 invokes tools/qualification/paxeer-x/program-storage.py through its declared command/argument path and propagates producer failure into gate evidence."
+
+[file.041]
+path = "tools/paxeer-x/gates/104.19.4.sh"
+lines = 222
+verdict = "clean"
+note = "The build binds native/Rust artifacts to the source closure; verification executes retained guest ABI transition cases and checks the exact ABI1-4 matrix. These guest versions are distinct from the host ABI."
+
+[file.042]
+path = "tools/paxeer-x/gates/104.21.1.sh"
+lines = 157
+verdict = "clean"
+note = "Qualification entry point 104.21.1 invokes tests/programs/test_monetary_law.c through its declared command/argument path and propagates producer failure into gate evidence."
+
+[file.043]
+path = "tools/paxeer-x/gates/104.24.1.sh"
+lines = 281
+verdict = "issues"
+note = "f015: The gate selects prebuilt test executables by supplied path or Cargo filename and trusts their self-reported case counts without a compiler manifest binding the executable digest to the audited revision."
+
+[file.044]
+path = "tools/paxeer-x/gates/104.24.2.sh"
+lines = 57
+verdict = "issues"
+note = "f016: The gate selects prebuilt test executables by supplied path or Cargo filename and trusts their self-reported case counts without a compiler manifest binding the executable digest to the audited revision."
+
+[file.045]
+path = "tools/paxeer-x/gates/104.25.1.sh"
+lines = 232
+verdict = "issues"
+note = "f043: The paxeer-x-services header names mirror, which are absent from the current 40-service catalogue. verify-task.sh bind() refuses the candidate before this gate can execute."
+
+[file.046]
+path = "tools/paxeer-x/gates/104.25.2.sh"
+lines = 197
+verdict = "issues"
+note = "f044: The paxeer-x-services header names mirror, which are absent from the current 40-service catalogue. verify-task.sh bind() refuses the candidate before this gate can execute."
+
+[file.047]
+path = "tools/paxeer-x/gates/104.26.1.sh"
+lines = 230
+verdict = "clean"
+note = "Qualification entry point 104.26.1 invokes services/platform/ramps/sandbox-journey.sh through its declared command/argument path and propagates producer failure into gate evidence."
+
+[file.048]
+path = "tools/paxeer-x/gates/104.26.2.sh"
+lines = 7
+verdict = "clean"
+note = "Qualification entry point 104.26.2 invokes tools/qualification/paxeer-x/external_custody.py through its declared command/argument path and propagates producer failure into gate evidence."
+
+[file.049]
+path = "tools/paxeer-x/gates/104.28.1.sh"
+lines = 106
+verdict = "clean"
+note = "Qualification entry point 104.28.1 invokes tests/programs/runtime-module-boundaries.sh through its declared command/argument path and propagates producer failure into gate evidence."
+
+[file.050]
+path = "tools/paxeer-x/gates/104.28.2.sh"
+lines = 144
+verdict = "clean"
+note = "Calldata qualification checks the real root/nested invocation ordering and compiles the activity/composition consumers, including zero and one-past-limit inputs."
+
+[file.051]
+path = "tools/paxeer-x/gates/104.28.3.sh"
+lines = 123
+verdict = "clean"
+note = "Interface ABI qualification compares shared constants and ordered production paths, then executes the actual runtime and SDK consumer corpora."
+
+[file.052]
+path = "tools/paxeer-x/gates/104.28.4.sh"
+lines = 81
+verdict = "clean"
+note = "The declared runtime corpus is enumerated by name and executed through Cargo; missing cases, nonzero exits and skipped requirements prevent credit."
+
+[file.053]
+path = "tools/paxeer-x/gates/104.28.5.sh"
+lines = 112
+verdict = "clean"
+note = "The gate compares declared names with genuine runtime output and checks production invocation paths before tallying the complete real corpus."
+
+[file.054]
+path = "tools/paxeer-x/gates/104.29.1.sh"
+lines = 101
+verdict = "clean"
+note = "The gate compares public runtime enums/structures with their actual consumers and executes the retained program runtime tests with nonempty result checks."
+
+[file.055]
+path = "tools/paxeer-x/gates/104.29.2.sh"
+lines = 148
+verdict = "clean"
+note = "The gate checks production structures and code paths against the declared program contract, then compiles and executes the real runtime consumers."
+
+[file.056]
+path = "tools/paxeer-x/gates/104.29.3.sh"
+lines = 111
+verdict = "clean"
+note = "The gate inspects the actual public execution structures and runs the retained runtime tests, preserving error exits and nonempty corpus checks."
+
+[file.057]
+path = "tools/paxeer-x/gates/104.29.4.sh"
+lines = 130
+verdict = "clean"
+note = "The gate checks ordered production behavior and exact required case names, then executes genuine runtime consumers and rejects skipped or incomplete output."
+
+[file.058]
+path = "tools/paxeer-x/gates/104.29.5.sh"
+lines = 125
+verdict = "clean"
+note = "The gate checks production-path reachability and required runtime case names before crediting actual successful unskipped execution."
+
+[file.059]
+path = "tools/paxeer-x/gates/104.30.2.sh"
+lines = 4
+verdict = "clean"
+note = "Qualification entry point 104.30.2 invokes tools/qualification/paxeer-x/program_transfer_authority.py through its declared command/argument path and propagates producer failure into gate evidence."
+
+[file.060]
+path = "tools/paxeer-x/gates/104.30.3.sh"
+lines = 297
+verdict = "issues"
+note = "f017: NATIVE includes test_interface_protocol and build emits a Make prerequisite tests/programs/test_interface_protocol.c, but that C member does not exist in this tree."
+
+[file.061]
+path = "tools/paxeer-x/gates/104.30.4.sh"
+lines = 4
+verdict = "clean"
+note = "Qualification entry point 104.30.4 invokes tools/qualification/paxeer-x/program_spend_composition.py through its declared command/argument path and propagates producer failure into gate evidence."
+
+[file.062]
+path = "tools/paxeer-x/gates/104.30.5.sh"
+lines = 253
+verdict = "issues"
+note = "f018: The artifact profile requires build/bin/layerxd, sign-credit, test-credit and LAYERX_MULTI_ASSET_CUSTODY_FIXTURE, then launches the consumer with the daemon directory."
+
+[file.063]
+path = "tools/paxeer-x/gates/104.30.7.sh"
+lines = 3
+verdict = "clean"
+note = "Qualification entry point 104.30.7 invokes scripts/qualification/paxeer-x/reference-custody.py through its declared command/argument path and propagates producer failure into gate evidence."
+
+[file.064]
+path = "tools/paxeer-x/gates/104.31.1.sh"
+lines = 4
+verdict = "clean"
+note = "Qualification entry point 104.31.1 invokes tools/qualification/paxeer-x/program_execution_context.py through its declared command/argument path and propagates producer failure into gate evidence."
+
+[file.065]
+path = "tools/paxeer-x/gates/104.31.2.sh"
+lines = 8
+verdict = "clean"
+note = "Qualification entry point 104.31.2 invokes tools/qualification/paxeer-x/program_balance_read.py through its declared command/argument path and propagates producer failure into gate evidence."
+
+[file.066]
+path = "tools/paxeer-x/gates/104.31.6.sh"
+lines = 9
+verdict = "clean"
+note = "Qualification entry point 104.31.6 invokes tools/qualification/paxeer-x/program-abi-freeze.py through its declared command/argument path and propagates producer failure into gate evidence."
+
+[file.067]
+path = "tools/paxeer-x/gates/104.32.1.sh"
+lines = 8
+verdict = "clean"
+note = "Qualification entry point 104.32.1 invokes tools/qualification/paxeer-x/program_cache_native_equivalence.py through its declared command/argument path and propagates producer failure into gate evidence."
+
+[file.068]
+path = "tools/paxeer-x/gates/104.32.2.sh"
+lines = 116
+verdict = "clean"
+note = "The gate compares the actual program runtime structure/contract and executes its retained integration consumers, carrying failures and exact counts."
+
+[file.069]
+path = "tools/paxeer-x/gates/104.32.3.sh"
+lines = 83
+verdict = "clean"
+note = "The dispatch/fee-history gate enumerates required runtime unit and integration cases, including unsupported ABI and version-substitution refusals."
+
+[file.070]
+path = "tools/paxeer-x/gates/104.32.4.sh"
+lines = 8
+verdict = "clean"
+note = "Qualification entry point 104.32.4 invokes tools/qualification/paxeer-x/program_fee_governance.py through its declared command/argument path and propagates producer failure into gate evidence."
+
+[file.071]
+path = "tools/paxeer-x/gates/104.32.5.sh"
+lines = 125
+verdict = "clean"
+note = "Program-call qualification checks the actual typed request and production call path, executes required runtime consumers and rejects missing or skipped cases."
+
+[file.072]
+path = "tools/paxeer-x/gates/104.32.6.sh"
+lines = 118
+verdict = "clean"
+note = "The retained dispatcher gate checks reachable production paths and actual test execution; it no longer launches a separate daemon or replica."
+
+[file.073]
+path = "tools/paxeer-x/gates/104.33.1.sh"
+lines = 9
+verdict = "clean"
+note = "Qualification entry point 104.33.1 invokes tools/qualification/paxeer-x/program-interface.py through its declared command/argument path and propagates producer failure into gate evidence."
+
+[file.074]
+path = "tools/paxeer-x/gates/104.33.3.sh"
+lines = 9
+verdict = "clean"
+note = "Qualification entry point 104.33.3 invokes tools/qualification/paxeer-x/program-bindings.py through its declared command/argument path and propagates producer failure into gate evidence."
+
+[file.075]
+path = "tools/paxeer-x/gates/104.33.4.sh"
+lines = 235
+verdict = "clean"
+note = "Qualification entry point 104.33.4 invokes tools/paxeer-x/verify-task.sh through its declared command/argument path and propagates producer failure into gate evidence."
+
+[file.076]
+path = "tools/paxeer-x/gates/104.33.5.sh"
+lines = 293
+verdict = "clean"
+note = "Qualification entry point 104.33.5 invokes tools/paxeer-x/verify-task.sh through its declared command/argument path and propagates producer failure into gate evidence."
+
+[file.077]
+path = "tools/paxeer-x/gates/104.33.7.sh"
+lines = 78
+verdict = "issues"
+note = "f062, f064, f065: The paxeer-x-services header declares private-profile, which is not an id in the current candidate catalogue; verify-task.sh refuses the binding before running the real acceptance program."
+
+[file.078]
+path = "tools/paxeer-x/gates/104.34.1.sh"
+lines = 58
+verdict = "clean"
+note = "Sandbox lease qualification compiles real host-ffi unit/integration targets and requires its declared lease/resource refusal cases and complete counts."
+
+[file.079]
+path = "tools/paxeer-x/gates/104.34.2.sh"
+lines = 54
+verdict = "clean"
+note = "Sandbox funding qualification executes the real host-ffi tests for escrow, occupancy and expiry conservation, retaining all required test names."
+
+[file.080]
+path = "tools/paxeer-x/gates/104.34.3.sh"
+lines = 57
+verdict = "clean"
+note = "Sandbox execution qualification requires actual hostile-escape, tenant isolation, authority and cumulative ceiling cases with host lifecycle enabled."
+
+[file.081]
+path = "tools/paxeer-x/gates/104.34.4.sh"
+lines = 52
+verdict = "clean"
+note = "Incremental settlement qualification requires real per-activity metering, failed-work charges, refusal atomicity and long-lease escrow conservation cases."
+
+[file.082]
+path = "tools/paxeer-x/gates/104.34.5.sh"
+lines = 56
+verdict = "clean"
+note = "Teardown qualification requires actual terminal-state, cohort sweep, escrow refund, refusal atomicity and host/storage parity cases."
+
+[file.083]
+path = "tools/paxeer-x/gates/104.34.6.sh"
+lines = 71
+verdict = "clean"
+note = "Snapshot qualification checks digest/owner validation before activation and executes the actual host-ffi snapshot/restore consumers and full required corpus."
+
+[file.084]
+path = "tools/paxeer-x/gates/104.35.2.sh"
+lines = 8
+verdict = "clean"
+note = "Qualification entry point 104.35.2 invokes tools/qualification/paxeer-x/single-step-conformance.py through its declared command/argument path and propagates producer failure into gate evidence."
+
+[file.085]
+path = "tools/paxeer-x/gates/104.35.3.sh"
+lines = 67
+verdict = "clean"
+note = "The arbiter gate compiles its actual test executable from Cargo events and requires exact honest/lying strategy, host-call/trap and default-deadline cases."
+
+[file.086]
+path = "tools/paxeer-x/gates/104.35.4.sh"
+lines = 71
+verdict = "issues"
+note = "f034: LAYERX_MARKET_TEST_BINARY and LAYERX_MARKET_RUNTIME_TEST_BINARY are accepted by executable path and self-reported inventories without a compiler/source revision and digest manifest."
+
+[file.087]
+path = "tools/paxeer-x/gates/104.35.5.sh"
+lines = 83
+verdict = "clean"
+note = "The market settlement gate builds the real release Wasm and current unit executable, then requires complete challenge/finalization and conservation cases."
+
+[file.088]
+path = "tools/paxeer-x/gates/104.35.6.sh"
+lines = 83
+verdict = "clean"
+note = "The market stake gate builds the real release Wasm and current unit executable, then requires lock, slash, concurrent lease and value-conservation cases."
+
+[file.089]
+path = "tools/paxeer-x/gates/104.35.7.sh"
+lines = 8
+verdict = "clean"
+note = "Qualification entry point 104.35.7 invokes tools/qualification/paxeer-x/program_market_attestation.py through its declared command/argument path and propagates producer failure into gate evidence."
+
+[file.090]
+path = "tools/paxeer-x/gates/104.37.2.sh"
+lines = 287
+verdict = "issues"
+note = "f045: The paxeer-x-services header names hpx, which are absent from the current 40-service catalogue. verify-task.sh bind() refuses the candidate before this gate can execute."
+
+[file.091]
+path = "tools/paxeer-x/gates/104.38.1.sh"
+lines = 9
+verdict = "clean"
+note = "Qualification entry point 104.38.1 invokes tools/qualification/paxeer-x/storage-recovery.py through its declared command/argument path and propagates producer failure into gate evidence."
+
+[file.092]
+path = "tools/paxeer-x/gates/104.38.10.sh"
+lines = 6
+verdict = "clean"
+note = "Qualification entry point 104.38.10 invokes scripts/qualification/paxeer-x/program-event-bounds.py through its declared command/argument path and propagates producer failure into gate evidence."
+
+[file.093]
+path = "tools/paxeer-x/gates/104.38.2.sh"
+lines = 211
+verdict = "clean"
+note = "Qualification entry point 104.38.2 invokes tools/paxeer-x/verify-task.sh through its declared command/argument path and propagates producer failure into gate evidence."
+
+[file.094]
+path = "tools/paxeer-x/gates/104.38.3.sh"
+lines = 79
+verdict = "issues"
+note = "f046: The paxeer-x-services header names human, which are absent from the current 40-service catalogue. verify-task.sh bind() refuses the candidate before this gate can execute."
+
+[file.095]
+path = "tools/paxeer-x/gates/104.38.4.sh"
+lines = 46
+verdict = "clean"
+note = "Qualification entry point 104.38.4 invokes tools/runtime/run-with-clock.sh through its declared command/argument path and propagates producer failure into gate evidence."
+
+[file.096]
+path = "tools/paxeer-x/gates/104.38.6.sh"
+lines = 121
+verdict = "issues"
+note = "f066: The ordinary gate's first operation invokes sdk/platform/conformance/fixtures/generate_program_receipt_refusals.py, which is absent; this blocks all seven receipt SDK consumer suites."
+
+[file.097]
+path = "tools/paxeer-x/gates/104.38.7.sh"
+lines = 132
+verdict = "clean"
+note = "Qualification entry point 104.38.7 invokes sdk/platform/conformance/run-jvm.sh through its declared command/argument path and propagates producer failure into gate evidence."
+
+[file.098]
+path = "tools/paxeer-x/gates/104.38.9.sh"
+lines = 9
+verdict = "clean"
+note = "Qualification entry point 104.38.9 invokes tools/qualification/paxeer-x/program-abi-policy.py through its declared command/argument path and propagates producer failure into gate evidence."
+
+[file.099]
+path = "tools/paxeer-x/gates/104.5.8.sh"
+lines = 4
+verdict = "clean"
+note = "Qualification entry point 104.5.8 invokes tools/qualification/paxeer-x/custody-provider-producer.py through its declared command/argument path and propagates producer failure into gate evidence."
+
+[file.100]
+path = "tools/paxeer-x/gates/106.4.2.sh"
+lines = 68
+verdict = "clean"
+note = "The native/Go protocol corpus keeps its current-source artifact and exact case inventory checks; typed producer refusals and nonempty execution govern credit."
+
+[file.101]
+path = "tools/paxeer-x/gates/106.4.3.sh"
+lines = 105
+verdict = "clean"
+note = "The gate selects its declared compiled Go package corpora, checks source/artifact provenance and requires the actual unskipped acceptance inventory."
+
+[file.102]
+path = "tools/paxeer-x/gates/106.4.5.sh"
+lines = 10
+verdict = "clean"
+note = "The node activation/upgrade selector executes real node tests and derives its dispatcher counts from actual verbose Go results."
+
+[file.103]
+path = "tools/paxeer-x/gates/106.4.6.sh"
+lines = 62
+verdict = "clean"
+note = "Qualification entry point 106.4.6 invokes tools/chain/upgrade-replay/run.sh through its declared command/argument path and propagates producer failure into gate evidence."
+
+[file.104]
+path = "tools/paxeer-x/gates/106.4.9.sh"
+lines = 170
+verdict = "clean"
+note = "The gate binds its retained compiled Go package artifacts and refuses incomplete, failed or skipped producer/consumer execution."
+
+[file.105]
+path = "tools/paxeer-x/gates/108.0.7.sh"
+lines = 88
+verdict = "issues"
+note = "f021: funded_by_custody_credit requires every onboarding page to contain custody credit and a variable named router; the loop enforces retired funding instructions as a passing documentation contract."
+
+[file.106]
+path = "tools/paxeer-x/gates/108.1.10.sh"
+lines = 10
+verdict = "issues"
+note = "f035: The registered gate still requires PAXEER_X_CUSTODY_GOVERNANCE_ARTIFACTS and invokes custody_governance.py --manifest; that producer now unconditionally reports retirement with argparse.error."
+
+[file.107]
+path = "tools/paxeer-x/gates/11.2.sh"
+lines = 13
+verdict = "issues"
+note = "f019: The gate changes to the repository root and then executes cd human; the Human workspace is located at services/human, so the intended provider corpus is unreachable."
+
+[file.108]
+path = "tools/paxeer-x/gates/11.3.sh"
+lines = 14
+verdict = "clean"
+note = "The identity gate runs the real post-restart session-capacity case and refuses a successful command with an empty or skipped corpus."
+
+[file.109]
+path = "tools/paxeer-x/gates/110.8.2.sh"
+lines = 109
+verdict = "clean"
+note = "The scanner qualification validates its declared real build/runtime inputs and requires actual bounded scan behavior before reporting counts."
+
+[file.110]
+path = "tools/paxeer-x/gates/110.8.4.sh"
+lines = 4
+verdict = "clean"
+note = "Qualification entry point 110.8.4 invokes scripts/paxeer-x/qualify-scan-load.py through its declared command/argument path and propagates producer failure into gate evidence."
+
+[file.111]
+path = "tools/paxeer-x/gates/111.6.11.sh"
+lines = 13
+verdict = "issues"
+note = "f036: The explicit tools/containers/check.sh selection still includes platform-node, although that checker now marks the platform-node recipe retired and rejects unknown service selectors."
+
+[file.112]
+path = "tools/paxeer-x/gates/111.6.12.sh"
+lines = 13
+verdict = "clean"
+note = "Qualification entry point 111.6.12 invokes tools/containers/check.sh through its declared command/argument path and propagates producer failure into gate evidence."
+
+[file.113]
+path = "tools/paxeer-x/gates/12.1.sh"
+lines = 12
+verdict = "issues"
+note = "f020: The gate changes to the repository root and then executes cd human; the Human workspace is located at services/human, so the intended provider corpus is unreachable."
+
+[file.114]
+path = "tools/paxeer-x/gates/13.2.sh"
+lines = 5
+verdict = "clean"
+note = "Qualification entry point 13.2 invokes tools/qualification/paxeer-x/wallet-attestor-disclosure.py through its declared command/argument path and propagates producer failure into gate evidence."
+
+[file.115]
+path = "tools/paxeer-x/gates/14.10.sh"
+lines = 4
+verdict = "clean"
+note = "Qualification entry point 14.10 invokes tools/qualification/paxeer-x/caps-discovery.py through its declared command/argument path and propagates producer failure into gate evidence."
+
+[file.116]
+path = "tools/paxeer-x/gates/14.2.sh"
+lines = 11
+verdict = "clean"
+note = "Qualification entry point 14.2 invokes tools/qualification/paxeer-x/wallet-injected-chain.py through its declared command/argument path and propagates producer failure into gate evidence."
+
+[file.117]
+path = "tools/paxeer-x/gates/14.4.sh"
+lines = 4
+verdict = "clean"
+note = "Qualification entry point 14.4 invokes tools/qualification/paxeer-x/wallet-402-caps.py through its declared command/argument path and propagates producer failure into gate evidence."
+
+[file.118]
+path = "tools/paxeer-x/gates/14.8.sh"
+lines = 11
+verdict = "clean"
+note = "Qualification entry point 14.8 invokes tools/qualification/paxeer-x/wallet-injected-fixture.py through its declared command/argument path and propagates producer failure into gate evidence."
+
+[file.119]
+path = "tools/paxeer-x/gates/14.9.sh"
+lines = 4
+verdict = "clean"
+note = "Qualification entry point 14.9 invokes tools/qualification/paxeer-x/caps-codecs.py through its declared command/argument path and propagates producer failure into gate evidence."
+
+[file.120]
+path = "tools/paxeer-x/gates/15.1.sh"
+lines = 4
+verdict = "clean"
+note = "Qualification entry point 15.1 invokes tools/qualification/paxeer-x/router-authority-schema.py through its declared command/argument path and propagates producer failure into gate evidence."
+
+[file.121]
+path = "tools/paxeer-x/gates/15.2.sh"
+lines = 4
+verdict = "clean"
+note = "Qualification entry point 15.2 invokes tools/qualification/paxeer-x/unified-account-identity.py through its declared command/argument path and propagates producer failure into gate evidence."
+
+[file.122]
+path = "tools/paxeer-x/gates/16.2.sh"
+lines = 10
+verdict = "clean"
+note = "Qualification entry point 16.2 invokes tools/qualification/paxeer-x/registry-contract.py through its declared command/argument path and propagates producer failure into gate evidence."
+
+[file.123]
+path = "tools/paxeer-x/gates/16.6.sh"
+lines = 73
+verdict = "clean"
+note = "Qualification entry point 16.6 invokes services/platform/hosted/gateway/src/state.rs through its declared command/argument path and propagates producer failure into gate evidence."
+
+[file.124]
+path = "tools/paxeer-x/gates/17.1.sh"
+lines = 17
+verdict = "clean"
+note = "Qualification entry point 17.1 invokes tools/qualification/paxeer-x/event-delivery-contract.py through its declared command/argument path and propagates producer failure into gate evidence."
+
+[file.125]
+path = "tools/paxeer-x/gates/18.3.sh"
+lines = 11
+verdict = "issues"
+note = "f047: The paxeer-x-services header names archive, which are absent from the current 40-service catalogue. verify-task.sh bind() refuses the candidate before this gate can execute."
+
+[file.126]
+path = "tools/paxeer-x/gates/20.2.sh"
+lines = 10
+verdict = "clean"
+note = "Qualification entry point 20.2 invokes tools/qualification/paxeer-x/gas-station-contract.py through its declared command/argument path and propagates producer failure into gate evidence."
+
+[file.127]
+path = "tools/paxeer-x/gates/21.1.sh"
+lines = 13
+verdict = "clean"
+note = "Focused behavior gate for task 21.1: the vault's canonical recipient tests."
+
+[file.128]
+path = "tools/paxeer-x/gates/21.2.sh"
+lines = 22
+verdict = "clean"
+note = "The bridge qualification preserves actual remote-chain proof/receipt producers, validates its supplied execution inputs and reports genuine corpus results."
+
+[file.129]
+path = "tools/paxeer-x/gates/21.3.sh"
+lines = 21
+verdict = "clean"
+note = "The bridge qualification retains canonical remote-deposit/release proof consumers and error propagation rather than replacing their wire format."
+
+[file.130]
+path = "tools/paxeer-x/gates/22.2.sh"
+lines = 12
+verdict = "clean"
+note = "Focused behavior gate for task 22.2: rollback restores canonical asset and account projections in the indexer's SQLite store."
+
+[file.131]
+path = "tools/paxeer-x/gates/22.7.sh"
+lines = 3
+verdict = "clean"
+note = "Qualification entry point 22.7 invokes tools/qualification/paxeer-x/explorer-receipt-reader.py through its declared command/argument path and propagates producer failure into gate evidence."
+
+[file.132]
+path = "tools/paxeer-x/gates/22.8.sh"
+lines = 4
+verdict = "clean"
+note = "Qualification entry point 22.8 invokes tools/qualification/paxeer-x/authority-evidence-read.py through its declared command/argument path and propagates producer failure into gate evidence."
+
+[file.133]
+path = "tools/paxeer-x/gates/24.1.sh"
+lines = 4
+verdict = "clean"
+note = "Qualification entry point 24.1 invokes tools/bringup/tests/paxeer-x-runtime-contract.py through its declared command/argument path and propagates producer failure into gate evidence."
+
+[file.134]
+path = "tools/paxeer-x/gates/24.10.sh"
+lines = 4
+verdict = "clean"
+note = "Qualification entry point 24.10 invokes tools/bringup/tests/paxeer-x-runtime-contract.py through its declared command/argument path and propagates producer failure into gate evidence."
+
+[file.135]
+path = "tools/paxeer-x/gates/24.11.sh"
+lines = 4
+verdict = "clean"
+note = "Qualification entry point 24.11 invokes tools/bringup/tests/paxeer-x-runtime-contract.py through its declared command/argument path and propagates producer failure into gate evidence."
+
+[file.136]
+path = "tools/paxeer-x/gates/24.12.sh"
+lines = 4
+verdict = "clean"
+note = "Qualification entry point 24.12 invokes tools/bringup/tests/paxeer-x-runtime-contract.py through its declared command/argument path and propagates producer failure into gate evidence."
+
+[file.137]
+path = "tools/paxeer-x/gates/24.13.sh"
+lines = 4
+verdict = "clean"
+note = "Qualification entry point 24.13 invokes tools/bringup/tests/foundation-artifacts.py through its declared command/argument path and propagates producer failure into gate evidence."
+
+[file.138]
+path = "tools/paxeer-x/gates/24.14.sh"
+lines = 18
+verdict = "issues"
+note = "f026: The registered verify arm is empty and emits no PAXEER_X_GATE summary, so it exits successfully without executing a case and verify-task.sh refuses its empty corpus."
+
+[file.139]
+path = "tools/paxeer-x/gates/24.15.sh"
+lines = 5
+verdict = "clean"
+note = "Qualification entry point 24.15 invokes tools/bringup/tests/registry-artifacts.py through its declared command/argument path and propagates producer failure into gate evidence."
+
+[file.140]
+path = "tools/paxeer-x/gates/24.16.sh"
+lines = 18
+verdict = "issues"
+note = "f022, f027: Build still compiles layerx-platform-paxeer-boundary and the BetaUsdl custody fixture, while verify checks only two ABI artifact files rather than a merged-network withdrawal path."
+
+[file.141]
+path = "tools/paxeer-x/gates/24.18.sh"
+lines = 82
+verdict = "issues"
+note = "f023, f028: Build invokes make layerxd and layerx-genesis-build and publishes a foundation manifest requiring the removed daemon; verification still uses the old custody/core-boundary profile."
+
+[file.142]
+path = "tools/paxeer-x/gates/24.20.sh"
+lines = 106
+verdict = "issues"
+note = "f024, f029: The generation-broker build and manifest require freshly built layerxd plus deleted services/platform/hosted/core and authority Dockerfile sources through the legacy container wrappers."
+
+[file.143]
+path = "tools/paxeer-x/gates/24.9.sh"
+lines = 4
+verdict = "clean"
+note = "Qualification entry point 24.9 invokes tests/ci/websearch-context.py through its declared command/argument path and propagates producer failure into gate evidence."
+
+[file.144]
+path = "tools/paxeer-x/gates/25.1.sh"
+lines = 10
+verdict = "clean"
+note = "Qualification entry point 25.1 invokes tests/ci/focused-source-identity.py through its declared command/argument path and propagates producer failure into gate evidence."
+
+[file.145]
+path = "tools/paxeer-x/gates/25.2.sh"
+lines = 25
+verdict = "clean"
+note = "The source/provenance gate retains its actual candidate identity checks and qualification failures; no independent deployment authority is granted."
+
+[file.146]
+path = "tools/paxeer-x/gates/25.3.sh"
+lines = 10
+verdict = "clean"
+note = "Qualification entry point 25.3 invokes services/platform/hosted/tests/candidate-provenance.py through its declared command/argument path and propagates producer failure into gate evidence."
+
+[file.147]
+path = "tools/paxeer-x/gates/25.4.sh"
+lines = 10
+verdict = "clean"
+note = "Qualification entry point 25.4 invokes tests/ci/ci-recipe-contract.py through its declared command/argument path and propagates producer failure into gate evidence."
+
+[file.148]
+path = "tools/paxeer-x/gates/3.2.sh"
+lines = 10
+verdict = "clean"
+note = "Qualification entry point 3.2 invokes tests/modules/paxeer_x_metered_end_boundary.py through its declared command/argument path and propagates producer failure into gate evidence."
+
+[file.149]
+path = "tools/paxeer-x/gates/4.1.1.sh"
+lines = 10
+verdict = "clean"
+note = "The launchpad holding-history selector runs the real keeper test and counts actual Go pass/fail/skip output."
+
+[file.150]
+path = "tools/paxeer-x/gates/5.1.sh"
+lines = 56
+verdict = "issues"
+note = "f025: The RECORD loop writes for key,event,name,kind in (('probe',...,'bin')) with no singleton-tuple comma; Python iterates the four strings and immediately fails unpacking the five-character probe string."
+
+[file.151]
+path = "tools/paxeer-x/gates/6.1.sh"
+lines = 4
+verdict = "clean"
+note = "Qualification entry point 6.1 invokes tools/qualification/paxeer-x/programs_sandbox_bounds.py through its declared command/argument path and propagates producer failure into gate evidence."
+
+[file.152]
+path = "tools/paxeer-x/gates/6.3.sh"
+lines = 10
+verdict = "clean"
+note = "Qualification entry point 6.3 invokes tools/qualification/paxeer-x/programs_native_interfaces.py through its declared command/argument path and propagates producer failure into gate evidence."
+
+[file.153]
+path = "tools/paxeer-x/gates/8.3.sh"
+lines = 6
+verdict = "clean"
+note = "Qualification entry point 8.3 invokes tools/qualification/paxeer-x/agent_http_bounds.py through its declared command/argument path and propagates producer failure into gate evidence."
+
+[file.154]
+path = "tools/paxeer-x/gov/README.md"
+lines = 34
+verdict = "issues"
+note = "f005: The output table promises 04-exchange-markets, 05-custody and 06-anchor-sequencer-authorization proposals that render.sh no longer emits."
+
+[file.155]
+path = "tools/paxeer-x/gov/render.sh"
+lines = 193
+verdict = "issues"
+note = "f003, f004: Rendering the three retained proposals requires CUSTODY_NETWORK_ID, DEPOSIT_AUTHORITY, SEQUENCER_ID and SEQUENCER_PUBKEY and still constructs retired setSequencerAuthorization calldata."
+
+[file.156]
+path = "tools/paxeer-x/gov/templates/01-software-upgrade.json"
+lines = 9
+verdict = "issues"
+note = "f006: The proposal description says v6.12.0 activates the custody governance route and its messages."
+
+[file.157]
+path = "tools/paxeer-x/gov/templates/02-fee-token-params.json"
+lines = 29
+verdict = "clean"
+note = "The retained fee-token parameter proposal keeps the renderer placeholders and JSON parameter value encoding used by the offline paxd proposal consumer."
+
+[file.158]
+path = "tools/paxeer-x/gov/templates/03-xweb-fee.json"
+lines = 17
+verdict = "clean"
+note = "The retained xweb proposal preserves both fee origins, fee denomination inputs and native governance message encoding used by the renderer and paxd."
+
+[file.159]
+path = "tools/paxeer-x/gov/test.sh"
+lines = 89
+verdict = "issues"
+note = "f063: The governance test still passes --custody-network-id, --deposit-authority, --sequencer-id, --sequencer-pubkey and --first-batch as required live renderer inputs, preserving the retired authorization contract."
+
+[file.160]
+path = "tools/paxeer-x/release.sh"
+lines = 116
+verdict = "clean"
+note = "Release admission checks candidate identity and accepted current gate evidence before producing release evidence; dispatcher signatures, source identity and unresolved service bindings remain mandatory."
+
+[file.161]
+path = "tools/paxeer-x/retired_callers.json"
+lines = 863
+verdict = "issues"
+note = "f032: The lni retirement replacement instructs callers to send eth_sendRawTransaction through the unified router, despite correctly listing the removed transport as inventory data."
+
+[file.162]
+path = "tools/paxeer-x/runtime-inventory.sh"
+lines = 5
+verdict = "clean"
+note = "The inventory wrapper resolves candidate.py beside itself, sets a private umask and applies a 120-second process deadline with a bounded termination grace."
+
+[file.163]
+path = "tools/paxeer-x/sid-snapshot/README.md"
+lines = 27
+verdict = "issues"
+note = "f060: The migration instructions promise reconciliation of every holder against balanceOf but describe no fixed committed snapshot block or total-supply check; the implementation only queries positive transfer-history holders."
+
+[file.164]
+path = "tools/paxeer-x/sid-snapshot/snapshot.py"
+lines = 89
+verdict = "issues"
+note = "f007, f008: balance_of requests eth_call at latest independently for every holder; a transfer while the loop runs can debit one holder and credit another at different heights, changing migrated supply."
+
+[file.165]
+path = "tools/paxeer-x/sid-snapshot/test.sh"
+lines = 55
+verdict = "issues"
+note = "f009: The reconciliation test supplies a handwritten HTTP balance responder and accepts a sum drop from 1000 to 850 without checking a real token producer, pinned height or totalSupply."
+
+[file.166]
+path = "tools/paxeer-x/tests/ai_evidence_test.py"
+lines = 370
+verdict = "clean"
+note = "Evidence tests cover accepted production-shaped manifests, malformed/oversized private material, source and artifact mismatches, real command failures and absence of connected lifecycle proof."
+
+[file.167]
+path = "tools/paxeer-x/tests/candidate_test.py"
+lines = 316
+verdict = "clean"
+note = "Candidate tests preserve Git source identity, private output, exact roster/bindings, unresolved observation refusals and readiness distinctions; dependencies must still be correlated as proposed in f002."
+
+[file.168]
+path = "tools/paxeer-x/tests/durable_release_evidence.py"
+lines = 95
+verdict = "clean"
+note = "Release-evidence tests exercise canonical candidate identity, pre-work deadline refusal, protected material paths and actual accepted authority requirements."
+
+[file.169]
+path = "tools/paxeer-x/tests/gate_dispatch_test.py"
+lines = 313
+verdict = "clean"
+note = "Dispatcher tests execute real temporary Git repositories and gates, checking unknown selectors, source/candidate mismatches, malformed or skipped corpora and stale/tampered release evidence."
+
+[file.170]
+path = "tools/paxeer-x/tests/retired_callers_test.py"
+lines = 974
+verdict = "clean"
+note = "The retirement scanner treats catalogue names as inventory data, scans active caller references and deleted trees, and exercises allowed-reference boundaries through its self-test."
+
+[file.171]
+path = "tools/paxeer-x/tests/routes_test.py"
+lines = 832
+verdict = "issues"
+note = "f030, f031: route_matches defaults JSON-RPC to /rpc and named WebSocket methods to /rpc/ws; run also requires separate native-websocket and evm-websocket scenarios."
+
+[file.172]
+path = "tools/paxeer-x/tests/test_archive_routes_catalogued.py"
+lines = 41
+verdict = "clean"
+note = "Archive catalogue assertions require the three archive-prefixed anchor/receipt GET paths, exact proxy/upstream metadata and absence of the retired non-archive endpoint names."
+
+[file.173]
+path = "tools/paxeer-x/tests/test_catalogue_rpc_served.py"
+lines = 30
+verdict = "clean"
+note = "Gateway RPC catalogue assertions compare each route sourced from the real hosted gateway OpenRPC document against that document's declared method names and reject unserved methods."
+
+[file.174]
+path = "tools/paxeer-x/tests/test_gate_registry.py"
+lines = 38
+verdict = "clean"
+note = "Registry coverage compares declared selectors with executable gate paths and rejects missing or extra registration; this does not substitute for executing each gate's producer path."
+
+[file.175]
+path = "tools/paxeer-x/tests/test_gates_custody_retired.py"
+lines = 36
+verdict = "clean"
+note = "Retirement assertions scan the designated qualification callers for removed custody operations and preserve the supported native replacement boundary."
+
+[file.176]
+path = "tools/paxeer-x/tests/test_gates_deleted_sources.py"
+lines = 53
+verdict = "clean"
+note = "Deleted-source assertions require removed gate helpers/selectors to remain absent and check the retained reference gate's syntax and removed-helper exclusions."
+
+[file.177]
+path = "tools/paxeer-x/tests/test_gates_guarantor_retired.py"
+lines = 43
+verdict = "clean"
+note = "The targeted scanner enforces absence of the guarantor runtime from active qualification callers; catalogue mentions remain historical inventory."
+
+[file.178]
+path = "tools/paxeer-x/tests/test_gates_layerxd_retired.py"
+lines = 40
+verdict = "clean"
+note = "The targeted scanner correctly requires daemon/replica retirement in its selected gates; the surviving 104.30.5 daemon dependency is recorded in f018."
+
+[file.179]
+path = "tools/paxeer-x/tests/test_gates_node_targets_retired.py"
+lines = 49
+verdict = "clean"
+note = "The test checks the node-target retirement boundary and supported replacement gate references without declaring a separate running LayerX node."
+
+[file.180]
+path = "tools/paxeer-x/tests/test_gates_wire_fee_retired.py"
+lines = 41
+verdict = "clean"
+note = "The test preserves removal of the activity-wire and retired fee-governance gate references while retaining supported program qualification entry points."
+
+[file.181]
+path = "tools/paxeer-x/tests/test_gov_templates.py"
+lines = 46
+verdict = "clean"
+note = "Template tests require the three retained proposal files and reject the retired exchange, custody and anchor authorization templates."
+
+[file.182]
+path = "tools/paxeer-x/tests/test_retired_catalogue_deleted.py"
+lines = 47
+verdict = "clean"
+note = "The retirement catalogue self-test and explicit deleted-tree assertions retain the daemon, LNI, guarantor, replica and ingester removal requirements."
+
+[file.183]
+path = "tools/paxeer-x/tests/test_route_catalogue_lx.py"
+lines = 35
+verdict = "clean"
+note = "The catalogue assertion rejects lx_ method names in actual JSON-RPC route fields; its comment distinguishes method paths from rpc_records host inventory."
+
+[file.184]
+path = "tools/paxeer-x/tests/test_service_catalogue.py"
+lines = 48
+verdict = "clean"
+note = "Service-catalogue tests use the real merge specification's 40 declared services, exact purpose/route/dependency fields and both supported dependency declaration types."
+
+[file.185]
+path = "tools/paxeer-x/tests/test_signature_route_catalogued.py"
+lines = 67
+verdict = "clean"
+note = "Signature catalogue assertions require the signature route beside transaction status with matching proxy metadata; the explorer gate must run the real signature-provider workspace after frontend tests."
+
+[file.186]
+path = "tools/paxeer-x/verify-task.sh"
+lines = 310
+verdict = "clean"
+note = "Dispatcher admission binds exact service ids, source/candidate identity and gate digest; protected HMAC evidence rejects dirty, empty, skipped, fabricated and stale qualification results."
+
+[file.187]
+path = "tools/qualification/paxeer-x/human-service-contract.py"
+lines = 214
+verdict = "issues"
+note = "f033: RECORD and CLOCK_RECORD are fixed to /root/lx-ops/paxeer-x-integration-2026-10-03 and default compilation uses /root/.cargo/bin/cargo and /root/lx-target/human."
+
+[finding.f001]
+file = "tools/paxeer-x/candidate.py"
+line = 25
+class = "config-drift"
+severity = "medium"
+observed = "FOUNDATION.rpc_records hard-codes api1 through api16 and omits the api-mainnet-beta record."
+expected = "Brief network fact 3 declares api1 through api14 plus api-mainnet-beta as the public root JSON-RPC pool."
+proposal = "Update tools/paxeer-x/candidate.py and its consumers to preserve the merged-network RPC roster from a single maintained source."
+owner_domain = 16
+interface = "16.cli-pxx-paxeer-x-candidate"
+
+[finding.f002]
+file = "tools/paxeer-x/candidate.py"
+line = 338
+class = "test-gap"
+severity = "medium"
+observed = "validate accepts dependency_ids independently of declaration.dependencies; deployment_decision trusts those caller-supplied ids, so a service can omit required dependencies and still be preserved."
+expected = "Readiness must establish the declared service dependencies, with their running identities and ownership, before recommending a preserved deployment."
+proposal = "Resolve the catalogue dependency declaration into canonical ids in tools/paxeer-x/candidate.py and reject omissions; add refusal cases in tests/candidate_test.py."
+owner_domain = 16
+interface = "16.cli-pxx-paxeer-x-candidate"
+
+[finding.f003]
+file = "tools/paxeer-x/gov/render.sh"
+line = 78
+class = "retired-reference"
+severity = "medium"
+observed = "Rendering the three retained proposals requires CUSTODY_NETWORK_ID, DEPOSIT_AUTHORITY, SEQUENCER_ID and SEQUENCER_PUBKEY and still constructs retired setSequencerAuthorization calldata."
+expected = "Requirement 16040 and brief facts 1-2 remove custody and anchor authorization operations from the merged governance window."
+proposal = "Remove obsolete required flags, validation and unused calldata from tools/paxeer-x/gov/render.sh while retaining the live upgrade, fee-token and xweb proposals."
+owner_domain = 16
+interface = "16.cli-pxx-paxeer-x-gov-render"
+
+[finding.f004]
+file = "tools/paxeer-x/gov/render.sh"
+line = 184
+class = "security"
+severity = "high"
+observed = "A bridge config's unvalidated .name is appended to OUT/bridge and passed to rm -rf; a name containing parent segments can erase an operator directory outside OUT."
+expected = "Rendering governance proposals must only replace files inside its explicitly selected output directory and must never interpret a chain name as a filesystem traversal."
+proposal = "Validate bridge names as single safe identifiers, resolve and enforce output containment, and replace only known generated files in tools/paxeer-x/gov/render.sh."
+owner_domain = 16
+interface = "16.cli-pxx-paxeer-x-gov-render"
+
+[finding.f005]
+file = "tools/paxeer-x/gov/README.md"
+line = 22
+class = "doc-drift"
+severity = "medium"
+observed = "The output table promises 04-exchange-markets, 05-custody and 06-anchor-sequencer-authorization proposals that render.sh no longer emits."
+expected = "Requirement 16040 removes these three retired governance proposals; operator instructions must describe only the current generated files."
+proposal = "Rewrite tools/paxeer-x/gov/README.md to list the three retained templates and bridge outputs, and remove custody-market and anchor instructions."
+owner_domain = 16
+
+[finding.f006]
+file = "tools/paxeer-x/gov/templates/01-software-upgrade.json"
+line = 6
+class = "doc-drift"
+severity = "medium"
+observed = "The proposal description says v6.12.0 activates the custody governance route and its messages."
+expected = "The merged-network window must not promise an active custody executor, which is retained only to refuse after the merge."
+proposal = "Correct the governance proposal's product description in tools/paxeer-x/gov/templates/01-software-upgrade.json and make the intended pre-merge or merge plan explicit."
+owner_domain = 16
+
+[finding.f007]
+file = "tools/paxeer-x/sid-snapshot/snapshot.py"
+line = 55
+class = "runtime-risk"
+severity = "high"
+observed = "balance_of requests eth_call at latest independently for every holder; a transfer while the loop runs can debit one holder and credit another at different heights, changing migrated supply."
+expected = "A holder migration must represent one committed block and preserve the complete balances and total supply at that height."
+proposal = "Pin a committed block hash/height for all SID reads and source queries in tools/paxeer-x/sid-snapshot/snapshot.py, bind it in the output evidence and reconcile against totalSupply."
+owner_domain = 16
+interface = "16.cli-pxx-paxeer-x-sid-snapshot-snapshot"
+
+[finding.f008]
+file = "tools/paxeer-x/sid-snapshot/snapshot.py"
+line = 49
+class = "runtime-risk"
+severity = "high"
+observed = "balances drops zero-history holders before main reconciles RPC; if an incomplete or earlier explorer snapshot gives a holder zero while it has a positive on-chain balance, no balanceOf is requested and the migration omits it."
+expected = "Every SID holder at the chosen migration block must appear exactly once with its actual balance; incomplete transfer history must stop migration rather than silently omit holders."
+proposal = "Keep every observed nonzero-address candidate through reconciliation, require complete history through the pinned height and verify aggregate supply before writing the holder list."
+owner_domain = 16
+interface = "16.cli-pxx-paxeer-x-sid-snapshot-snapshot"
+
+[finding.f009]
+file = "tools/paxeer-x/sid-snapshot/test.sh"
+line = 33
+class = "test-gap"
+severity = "medium"
+observed = "The reconciliation test supplies a handwritten HTTP balance responder and accepts a sum drop from 1000 to 850 without checking a real token producer, pinned height or totalSupply."
+expected = "Brief checks 5 and 7 require the real producer-to-consumer migration path and proof that reconciliation cannot lose holder balances."
+proposal = "Add a real SID contract transfer and snapshot test at a fixed committed block, including moving balances and a previously zero-history holder, in tools/paxeer-x/sid-snapshot/test.sh."
+owner_domain = 16
+interface = "16.cli-pxx-paxeer-x-sid-snapshot-test"
+
+[finding.f010]
+file = "tools/paxeer-x/gates/103.6.11.sh"
+line = 309
+class = "wiring-gap"
+severity = "medium"
+observed = "The composite builder invokes cargo with workspace + /Cargo.toml for workspace names agent and human, although the manifests live under services/agent and services/human."
+expected = "The composite qualification must compile the actual retained crypto, proof and intent consumers from their current workspace manifests."
+proposal = "Point the composite gate's workspace resolution at services/agent/Cargo.toml and services/human/Cargo.toml and preserve its exact test inventory."
+owner_domain = 16
+interface = "16.cli-pxx-paxeer-x-gates-103-6-11"
+
+[finding.f011]
+file = "tools/paxeer-x/gates/103.6.11.sh"
+line = 422
+class = "runtime-risk"
+severity = "medium"
+observed = "Build and qualification compare deadline_epoch for exact equality, but each invocation defaults DEADLINE to a fresh time.time()+1800 when PAXEER_X_TASK_DEADLINE_EPOCH is absent."
+expected = "The documented separate build and verify invocations must share the original bounded deadline without requiring an undocumented matching floating-point timestamp."
+proposal = "Persist and consume the original deadline in the build manifest or require one explicit integer deadline before both phases in tools/paxeer-x/gates/103.6.11.sh."
+owner_domain = 16
+interface = "16.cli-pxx-paxeer-x-gates-103-6-11"
+
+[finding.f012]
+file = "tools/paxeer-x/gates/103.6.13.sh"
+line = 260
+class = "runtime-risk"
+severity = "medium"
+observed = "qualify requires built.deadline_epoch == DEADLINE, but default DEADLINE is recomputed from time.time()+1800 in each separate build and verification process."
+expected = "A genuine source-bound build must remain usable by the declared verification phase within its original time budget."
+proposal = "Read the recorded deadline during verification or require a shared explicit deadline in tools/paxeer-x/gates/103.6.13.sh; test the ordinary two-process invocation."
+owner_domain = 16
+interface = "16.cli-pxx-paxeer-x-gates-103-6-13"
+
+[finding.f013]
+file = "tools/paxeer-x/gates/104.17.3.sh"
+line = 29
+class = "test-gap"
+severity = "medium"
+observed = "The gate selects prebuilt test executables by supplied path or Cargo filename and trusts their self-reported case counts without a compiler manifest binding the executable digest to the audited revision."
+expected = "Qualification credit must come from current-source producer and consumer binaries; an executable from an earlier build must not certify the current merged network."
+proposal = "Require a private compiler-produced manifest with current revision, complete source closure and executable digests before executing this gate's existing corpus; retain exact case and skip checks."
+owner_domain = 16
+interface = "16.cli-pxx-paxeer-x-gates-104-17-3"
+
+[finding.f014]
+file = "tools/paxeer-x/gates/104.17.4.sh"
+line = 25
+class = "test-gap"
+severity = "medium"
+observed = "The gate selects prebuilt test executables by supplied path or Cargo filename and trusts their self-reported case counts without a compiler manifest binding the executable digest to the audited revision."
+expected = "Qualification credit must come from current-source producer and consumer binaries; an executable from an earlier build must not certify the current merged network."
+proposal = "Require a private compiler-produced manifest with current revision, complete source closure and executable digests before executing this gate's existing corpus; retain exact case and skip checks."
+owner_domain = 16
+interface = "16.cli-pxx-paxeer-x-gates-104-17-4"
+
+[finding.f015]
+file = "tools/paxeer-x/gates/104.24.1.sh"
+line = 224
+class = "test-gap"
+severity = "medium"
+observed = "The gate selects prebuilt test executables by supplied path or Cargo filename and trusts their self-reported case counts without a compiler manifest binding the executable digest to the audited revision."
+expected = "Qualification credit must come from current-source producer and consumer binaries; an executable from an earlier build must not certify the current merged network."
+proposal = "Require a private compiler-produced manifest with current revision, complete source closure and executable digests before executing this gate's existing corpus; retain exact case and skip checks."
+owner_domain = 16
+interface = "16.cli-pxx-paxeer-x-gates-104-24-1"
+
+[finding.f016]
+file = "tools/paxeer-x/gates/104.24.2.sh"
+line = 19
+class = "test-gap"
+severity = "medium"
+observed = "The gate selects prebuilt test executables by supplied path or Cargo filename and trusts their self-reported case counts without a compiler manifest binding the executable digest to the audited revision."
+expected = "Qualification credit must come from current-source producer and consumer binaries; an executable from an earlier build must not certify the current merged network."
+proposal = "Require a private compiler-produced manifest with current revision, complete source closure and executable digests before executing this gate's existing corpus; retain exact case and skip checks."
+owner_domain = 16
+interface = "16.cli-pxx-paxeer-x-gates-104-24-2"
+
+[finding.f017]
+file = "tools/paxeer-x/gates/104.30.3.sh"
+line = 19
+class = "wiring-gap"
+severity = "medium"
+observed = "NATIVE includes test_interface_protocol and build emits a Make prerequisite tests/programs/test_interface_protocol.c, but that C member does not exist in this tree."
+expected = "The registered program-account qualification must build all native consumers from existing current-source targets and preserve interface derivation coverage."
+proposal = "Replace the missing C target in tools/paxeer-x/gates/104.30.3.sh with the retained real native interface consumer, preserving all positive and refusal criteria."
+owner_domain = 16
+interface = "16.cli-pxx-paxeer-x-gates-104-30-3"
+
+[finding.f018]
+file = "tools/paxeer-x/gates/104.30.5.sh"
+line = 182
+class = "retired-reference"
+severity = "medium"
+observed = "The artifact profile requires build/bin/layerxd, sign-credit, test-credit and LAYERX_MULTI_ASSET_CUSTODY_FIXTURE, then launches the consumer with the daemon directory."
+expected = "Brief facts 1-2 and requirement 16037 retire the separate daemon and custody-credit path; multiasset qualification must use the embedded kernel and chain bank state."
+proposal = "Repoint tools/paxeer-x/gates/104.30.5.sh and its real profile-2 fixture to paxd-backed native funding and committed proofs; remove daemon and bridge-credit build prerequisites."
+owner_domain = 16
+interface = "16.cli-pxx-paxeer-x-gates-104-30-5"
+
+[finding.f019]
+file = "tools/paxeer-x/gates/11.2.sh"
+line = 5
+class = "wiring-gap"
+severity = "medium"
+observed = "The gate changes to the repository root and then executes cd human; the Human workspace is located at services/human, so the intended provider corpus is unreachable."
+expected = "The registered identity and KMS qualification commands must execute their existing real assertion/provider tests from the retained workspace."
+proposal = "Update the workspace path in tools/paxeer-x/gates/11.2.sh to services/human or an explicit current manifest path, retaining the timeout and nonempty, unskipped corpus checks."
+owner_domain = 16
+interface = "16.cli-pxx-paxeer-x-gates-11-2"
+
+[finding.f020]
+file = "tools/paxeer-x/gates/12.1.sh"
+line = 6
+class = "wiring-gap"
+severity = "medium"
+observed = "The gate changes to the repository root and then executes cd human; the Human workspace is located at services/human, so the intended provider corpus is unreachable."
+expected = "The registered identity and KMS qualification commands must execute their existing real assertion/provider tests from the retained workspace."
+proposal = "Update the workspace path in tools/paxeer-x/gates/12.1.sh to services/human or an explicit current manifest path, retaining the timeout and nonempty, unskipped corpus checks."
+owner_domain = 16
+interface = "16.cli-pxx-paxeer-x-gates-12-1"
+
+[finding.f021]
+file = "tools/paxeer-x/gates/108.0.7.sh"
+line = 28
+class = "test-gap"
+severity = "medium"
+observed = "funded_by_custody_credit requires every onboarding page to contain custody credit and a variable named router; the loop enforces retired funding instructions as a passing documentation contract."
+expected = "Brief facts 1-3 require native funding and root JSON-RPC on the one chain, with no router or custody-credit journey."
+proposal = "Rewrite the funding assertions in tools/paxeer-x/gates/108.0.7.sh around the retained bank-send funding path and public root RPC roster, and retain the unserved-host refusal cases."
+owner_domain = 16
+interface = "16.cli-pxx-paxeer-x-gates-108-0-7"
+
+[finding.f022]
+file = "tools/paxeer-x/gates/24.16.sh"
+line = 9
+class = "retired-reference"
+severity = "medium"
+observed = "Build still compiles layerx-platform-paxeer-boundary and the BetaUsdl custody fixture, while verify checks only two ABI artifact files rather than a merged-network withdrawal path."
+expected = "The pre-upgrade gate must qualify the retained native balance movement through paxd and must not require the retired Paxeer boundary service."
+proposal = "Replace tools/paxeer-x/gates/24.16.sh with a source-bound native transfer/withdrawal qualification using the current product path, or explicitly retire the selector with its superseding gate."
+owner_domain = 16
+interface = "16.cli-pxx-paxeer-x-gates-24-16"
+
+[finding.f023]
+file = "tools/paxeer-x/gates/24.18.sh"
+line = 27
+class = "retired-reference"
+severity = "medium"
+observed = "Build invokes make layerxd and layerx-genesis-build and publishes a foundation manifest requiring the removed daemon; verification still uses the old custody/core-boundary profile."
+expected = "Brief facts 1-2 remove the separate daemon; foundation evidence must identify the actual paxd embedded-kernel runtime and retained consensus/receipt producers."
+proposal = "Repoint tools/paxeer-x/gates/24.18.sh and its foundation/core manifest consumers to the current paxd runtime and remove daemon prerequisites while preserving the real consensus tests."
+owner_domain = 16
+interface = "16.cli-pxx-paxeer-x-gates-24-18"
+
+[finding.f024]
+file = "tools/paxeer-x/gates/24.20.sh"
+line = 35
+class = "retired-reference"
+severity = "medium"
+observed = "The generation-broker build and manifest require freshly built layerxd plus deleted services/platform/hosted/core and authority Dockerfile sources through the legacy container wrappers."
+expected = "The merged network runs its kernel inside paxd, and current generation/recovery evidence must bind retained deployment sources and runtime identities."
+proposal = "Replace the legacy daemon/authority generation profile in tools/paxeer-x/gates/24.20.sh with the retained paxd generation and restart/recovery contract, preserving artifact and source binding."
+owner_domain = 16
+interface = "16.cli-pxx-paxeer-x-gates-24-20"
+
+[finding.f025]
+file = "tools/paxeer-x/gates/5.1.sh"
+line = 34
+class = "runtime-risk"
+severity = "medium"
+observed = "The RECORD loop writes for key,event,name,kind in (('probe',...,'bin')) with no singleton-tuple comma; Python iterates the four strings and immediately fails unpacking the five-character probe string."
+expected = "A successful real probe compilation must yield one probe artifact record rather than fail before the source-bound manifest is written."
+proposal = "Correct the singleton iterable in tools/paxeer-x/gates/5.1.sh and cover the real compiler-event-to-manifest path without substituting emitted artifacts."
+owner_domain = 16
+interface = "16.cli-pxx-paxeer-x-gates-5-1"
+
+[finding.f026]
+file = "tools/paxeer-x/gates/24.14.sh"
+line = 17
+class = "test-gap"
+severity = "medium"
+observed = "The registered verify arm is empty and emits no PAXEER_X_GATE summary, so it exits successfully without executing a case and verify-task.sh refuses its empty corpus."
+expected = "The dispatcher requires a nonempty executed corpus and its standard count marker before it grants qualification credit."
+proposal = "Wire tools/paxeer-x/gates/24.14.sh to the actual current archive/runtime producer and recovery consumers and report their executed counts, or explicitly retire the selector and name its replacement."
+owner_domain = 16
+interface = "16.cli-pxx-paxeer-x-gates-24-14"
+
+[finding.f027]
+file = "tools/paxeer-x/gates/24.16.sh"
+line = 14
+class = "wiring-gap"
+severity = "medium"
+observed = "Verification only checks two file paths and never executes their contracts. The selector remains registered, but verify-task.sh rejects a zero/missing standard corpus marker."
+expected = "A registered qualification must return a nonempty genuine case count and the shared PAXEER_X_GATE tests=N skipped=M evidence format."
+proposal = "Update tools/paxeer-x/gates/24.16.sh to execute its retained real corpus and report its actual totals using the dispatcher contract, without inventing counts or weakening refusal checks."
+owner_domain = 16
+interface = "16.cli-pxx-paxeer-x-gates-24-16"
+
+[finding.f028]
+file = "tools/paxeer-x/gates/24.18.sh"
+line = 78
+class = "wiring-gap"
+severity = "medium"
+observed = "Verification runs Go tests without converting their results into the dispatcher's required count marker. The selector remains registered, but verify-task.sh rejects a zero/missing standard corpus marker."
+expected = "A registered qualification must return a nonempty genuine case count and the shared PAXEER_X_GATE tests=N skipped=M evidence format."
+proposal = "Update tools/paxeer-x/gates/24.18.sh to execute its retained real corpus and report its actual totals using the dispatcher contract, without inventing counts or weakening refusal checks."
+owner_domain = 16
+interface = "16.cli-pxx-paxeer-x-gates-24-18"
+
+[finding.f029]
+file = "tools/paxeer-x/gates/24.20.sh"
+line = 100
+class = "wiring-gap"
+severity = "medium"
+observed = "Verification prints PAXEER_X_GENERATION_BROKER_GATE rather than the dispatcher's required PAXEER_X_GATE marker. The selector remains registered, but verify-task.sh rejects a zero/missing standard corpus marker."
+expected = "A registered qualification must return a nonempty genuine case count and the shared PAXEER_X_GATE tests=N skipped=M evidence format."
+proposal = "Update tools/paxeer-x/gates/24.20.sh to execute its retained real corpus and report its actual totals using the dispatcher contract, without inventing counts or weakening refusal checks."
+owner_domain = 16
+interface = "16.cli-pxx-paxeer-x-gates-24-20"
+
+[finding.f030]
+file = "tools/paxeer-x/tests/routes_test.py"
+line = 565
+class = "retired-reference"
+severity = "medium"
+observed = "route_matches defaults JSON-RPC to /rpc and named WebSocket methods to /rpc/ws; run also requires separate native-websocket and evm-websocket scenarios."
+expected = "Brief facts 1-3 declare one network with root RPC and no /rpc, /rpc/ws, separate LayerX interface or router."
+proposal = "Rework route matching and connected coverage in tools/paxeer-x/tests/routes_test.py for the root paxd RPC and retained gateway transports; remove the separate native/EVM endpoint model."
+owner_domain = 16
+interface = "16.cli-pxx-paxeer-x-tests-routes-test"
+
+[finding.f031]
+file = "tools/paxeer-x/tests/routes_test.py"
+line = 794
+class = "test-gap"
+severity = "medium"
+observed = "The mandatory chain_only_cases batch pairs eth_chainId with lx_get* and requires kernel_unavailable (-32010), while test_route_catalogue_lx.py forbids lx_ methods and the kernel is embedded in paxd."
+expected = "A merged node must expose the current retained methods with committed native state; a separate unavailable kernel is not a required successful product scenario."
+proposal = "Replace the obsolete chain-only cases in tools/paxeer-x/tests/routes_test.py with connected current-method reads and real node degradation/restart cases, preserving typed refusal assertions on supported methods."
+owner_domain = 16
+interface = "16.cli-pxx-paxeer-x-tests-routes-test"
+
+[finding.f032]
+file = "tools/paxeer-x/retired_callers.json"
+line = 280
+class = "config-drift"
+severity = "medium"
+observed = "The lni retirement replacement instructs callers to send eth_sendRawTransaction through the unified router, despite correctly listing the removed transport as inventory data."
+expected = "Brief fact 2 removes the router; replacement instructions must send transactions to the one network's public node root RPC."
+proposal = "Correct the lni replacement guidance in tools/paxeer-x/retired_callers.json to direct root RPC and committed-height reads, retaining the historical names needed for retirement scanning."
+owner_domain = 16
+interface = "16.cfg-pxx-retired-component-lni"
+
+[finding.f033]
+file = "tools/qualification/paxeer-x/human-service-contract.py"
+line = 16
+class = "config-drift"
+severity = "medium"
+observed = "RECORD and CLOCK_RECORD are fixed to /root/lx-ops/paxeer-x-integration-2026-10-03 and default compilation uses /root/.cargo/bin/cargo and /root/lx-target/human."
+expected = "A retained qualification entry point must accept an operator-selected private evidence directory and the configured toolchain instead of depending on a previous machine's private integration layout."
+proposal = "Add explicit evidence/build-record options or documented environment bindings in tools/qualification/paxeer-x/human-service-contract.py; keep ownership, bounded-file and compiler/source digest checks."
+owner_domain = 16
+interface = "16.cli-qual-qualification-paxeer-x-human-service-contract"
+
+[finding.f034]
+file = "tools/paxeer-x/gates/104.35.4.sh"
+line = 25
+class = "test-gap"
+severity = "medium"
+observed = "LAYERX_MARKET_TEST_BINARY and LAYERX_MARKET_RUNTIME_TEST_BINARY are accepted by executable path and self-reported inventories without a compiler/source revision and digest manifest."
+expected = "Qualification credit must bind both actual market/runtime test executables to the current source closure, including the real guest used by lifecycle cases."
+proposal = "Require a private compiler-produced current-revision manifest for both binaries and their guest in tools/paxeer-x/gates/104.35.4.sh, retaining every existing lifecycle and no-skip assertion."
+owner_domain = 16
+interface = "16.cli-pxx-paxeer-x-gates-104-35-4"
+
+[finding.f035]
+file = "tools/paxeer-x/gates/108.1.10.sh"
+line = 9
+class = "retired-reference"
+severity = "medium"
+observed = "The registered gate still requires PAXEER_X_CUSTODY_GOVERNANCE_ARTIFACTS and invokes custody_governance.py --manifest; that producer now unconditionally reports retirement with argparse.error."
+expected = "Requirement 16040 retires custody governance production/execution, so current release qualification must not demand successful legacy artifact execution."
+proposal = "Remove or explicitly retire the selector in tools/paxeer-x/gates/108.1.10.sh and its registry consumer, pointing to the retained governance-window qualification and preserving retirement refusal coverage."
+owner_domain = 16
+interface = "16.cli-pxx-paxeer-x-gates-108-1-10"
+
+[finding.f036]
+file = "tools/paxeer-x/gates/111.6.11.sh"
+line = 9
+class = "wiring-gap"
+severity = "medium"
+observed = "The explicit tools/containers/check.sh selection still includes platform-node, although that checker now marks the platform-node recipe retired and rejects unknown service selectors."
+expected = "Requirement 16037 and the retained container catalogue require gates to qualify only supported running components and to test retired component refusal separately."
+proposal = "Update tools/paxeer-x/gates/111.6.11.sh to the retained container service set, replacing the retired platform-node selection with the current paxd recipe and keeping its actual build checks."
+owner_domain = 16
+interface = "16.cli-pxx-paxeer-x-gates-111-6-11"
+
+[finding.f037]
+file = "tests/proof/lxp_proof_b_error_code_registry_d6.c"
+line = 9
+class = "test-gap"
+severity = "medium"
+observed = "The proof explicitly accepts that LXPReason preserves a bare LXP_-prefixed reason and that the Python SDK refuses it; the positive registry round trips use LXPRevert rather than closing this encoder path."
+expected = "Brief check 1 requires the real precompile error encoder and SDK decoder to agree on the registry reason shape, including malformed or unstructured error input."
+proposal = "Extend this proof through precompiles/common.LXPReason and the Python receipt decoder; normalize or reject invalid prefixed reasons at the producer in precompiles/common/precompiles.go so a registered reason is delivered canonically."
+owner_domain = 6
+interface = "6.go-pc-common-lxpreason-j34"
+
+[finding.f038]
+file = "spec/layerx-merge/contracts/kernel.md"
+line = 7781
+class = "doc-drift"
+severity = "medium"
+observed = "The result-registry contract says out-of-range access returns LXP_ERR_NON_CANONICAL, but its own req.1007 acceptance text, src/protocol/lxp_result.c and proof_result_registry_refusal agree on LXP_ERR_UNKNOWN_FIELD."
+expected = "The frozen contract context, requirement and actual producer/consumer must name one exact error for an index equal to or greater than the registry count."
+proposal = "Reconcile the result-registry context with req.1007 in the owning specification source and regenerate spec/layerx-merge/contracts/kernel.md; retain the real refusal proof and its untouched-output checks."
+owner_domain = 1
+interface = "1.c-lxp-result-registry-at-j21"
+
+[finding.f039]
+file = "tools/paxeer-x/gates/0.4.sh"
+line = 2
+class = "wiring-gap"
+severity = "medium"
+observed = "The paxeer-x-services header names kernel, replica-authority, core-boundary, paxeer-boundaries and twenty-three other legacy aliases, which are absent from the current 40-service catalogue. verify-task.sh bind() refuses the candidate before this gate can execute."
+expected = "Each declared gate service must use the exact id produced by candidate.catalogue from spec/layerx-merge/spec.kvx; unknown bindings must remain refused."
+proposal = "Map every retained route producer to its exact current service id in tools/paxeer-x/gates/0.4.sh and update the connected plan to the same roster, removing retired producers."
+owner_domain = 16
+interface = "16.cli-pxx-paxeer-x-verify-task"
+
+[finding.f040]
+file = "tools/paxeer-x/gates/103.6.5.sh"
+line = 4
+class = "wiring-gap"
+severity = "medium"
+observed = "The paxeer-x-services header names identity, which are absent from the current 40-service catalogue. verify-task.sh bind() refuses the candidate before this gate can execute."
+expected = "Each declared gate service must use the exact id produced by candidate.catalogue from spec/layerx-merge/spec.kvx; unknown bindings must remain refused."
+proposal = "Use platform-identity in tools/paxeer-x/gates/103.6.5.sh and keep the full identity tenant/restart/refusal corpus."
+owner_domain = 16
+interface = "16.cli-pxx-paxeer-x-verify-task"
+
+[finding.f041]
+file = "tools/paxeer-x/gates/104.17.3.sh"
+line = 2
+class = "wiring-gap"
+severity = "medium"
+observed = "The paxeer-x-services header names private-profile, which are absent from the current 40-service catalogue. verify-task.sh bind() refuses the candidate before this gate can execute."
+expected = "Each declared gate service must use the exact id produced by candidate.catalogue from spec/layerx-merge/spec.kvx; unknown bindings must remain refused."
+proposal = "Bind tools/paxeer-x/gates/104.17.3.sh to the applicable declared producer ids; carry private-profile as a protected evidence dimension rather than a service."
+owner_domain = 16
+interface = "16.cli-pxx-paxeer-x-verify-task"
+
+[finding.f042]
+file = "tools/paxeer-x/gates/104.17.4.sh"
+line = 2
+class = "wiring-gap"
+severity = "medium"
+observed = "The paxeer-x-services header names private-profile, which are absent from the current 40-service catalogue. verify-task.sh bind() refuses the candidate before this gate can execute."
+expected = "Each declared gate service must use the exact id produced by candidate.catalogue from spec/layerx-merge/spec.kvx; unknown bindings must remain refused."
+proposal = "Bind tools/paxeer-x/gates/104.17.4.sh to the applicable declared producer ids; carry private-profile as a protected evidence dimension rather than a service."
+owner_domain = 16
+interface = "16.cli-pxx-paxeer-x-verify-task"
+
+[finding.f043]
+file = "tools/paxeer-x/gates/104.25.1.sh"
+line = 2
+class = "wiring-gap"
+severity = "medium"
+observed = "The paxeer-x-services header names mirror, which are absent from the current 40-service catalogue. verify-task.sh bind() refuses the candidate before this gate can execute."
+expected = "Each declared gate service must use the exact id produced by candidate.catalogue from spec/layerx-merge/spec.kvx; unknown bindings must remain refused."
+proposal = "Bind tools/paxeer-x/gates/104.25.1.sh to mirror-publisher and any actual mirror-signer dependency from the catalogue, preserving both archive-lane recovery scenarios."
+owner_domain = 16
+interface = "16.cli-pxx-paxeer-x-verify-task"
+
+[finding.f044]
+file = "tools/paxeer-x/gates/104.25.2.sh"
+line = 2
+class = "wiring-gap"
+severity = "medium"
+observed = "The paxeer-x-services header names mirror, which are absent from the current 40-service catalogue. verify-task.sh bind() refuses the candidate before this gate can execute."
+expected = "Each declared gate service must use the exact id produced by candidate.catalogue from spec/layerx-merge/spec.kvx; unknown bindings must remain refused."
+proposal = "Bind tools/paxeer-x/gates/104.25.2.sh to the declared mirror-publisher/mirror-signer service ids and the real retained verifier consumers."
+owner_domain = 16
+interface = "16.cli-pxx-paxeer-x-verify-task"
+
+[finding.f045]
+file = "tools/paxeer-x/gates/104.37.2.sh"
+line = 2
+class = "wiring-gap"
+severity = "medium"
+observed = "The paxeer-x-services header names hpx, which are absent from the current 40-service catalogue. verify-task.sh bind() refuses the candidate before this gate can execute."
+expected = "Each declared gate service must use the exact id produced by candidate.catalogue from spec/layerx-merge/spec.kvx; unknown bindings must remain refused."
+proposal = "Bind tools/paxeer-x/gates/104.37.2.sh to the declared merge-tools/runtime producers, representing the hpx library mirror as a build dependency rather than an invented service id."
+owner_domain = 16
+interface = "16.cli-pxx-paxeer-x-verify-task"
+
+[finding.f046]
+file = "tools/paxeer-x/gates/104.38.3.sh"
+line = 2
+class = "wiring-gap"
+severity = "medium"
+observed = "The paxeer-x-services header names human, which are absent from the current 40-service catalogue. verify-task.sh bind() refuses the candidate before this gate can execute."
+expected = "Each declared gate service must use the exact id produced by candidate.catalogue from spec/layerx-merge/spec.kvx; unknown bindings must remain refused."
+proposal = "Replace human with human-service in tools/paxeer-x/gates/104.38.3.sh, retain human-kms and preserve the real service/browser/component checks."
+owner_domain = 16
+interface = "16.cli-pxx-paxeer-x-verify-task"
+
+[finding.f047]
+file = "tools/paxeer-x/gates/18.3.sh"
+line = 3
+class = "wiring-gap"
+severity = "medium"
+observed = "The paxeer-x-services header names archive, which are absent from the current 40-service catalogue. verify-task.sh bind() refuses the candidate before this gate can execute."
+expected = "Each declared gate service must use the exact id produced by candidate.catalogue from spec/layerx-merge/spec.kvx; unknown bindings must remain refused."
+proposal = "Bind tools/paxeer-x/gates/18.3.sh to the retained mirror/full-node service contract and replace the relay-archive journey with committed-block archive freshness."
+owner_domain = 16
+interface = "16.cli-pxx-paxeer-x-verify-task"
+
+[finding.f048]
+file = "README.md"
+line = 47
+class = "doc-drift"
+severity = "medium"
+observed = "The network introduction describes layerxd as a separate daemon whose checkpoints settle through layerxAnchor; line 145 still tells builders to make layerxd."
+expected = "Brief facts 1-3 define one paxd chain with an embedded kernel, committed-block finality and root RPC; documentation must describe the retained network and current source paths."
+proposal = "Rewrite README.md's architecture, build example and trust-boundary explanation for paxd and its embedded kernel; use the retained commands and committed-block finality, removing separate settlement instructions."
+owner_domain = 16
+
+[finding.f049]
+file = "docs/site/docs/overview/quickstart.md"
+line = 20
+class = "doc-drift"
+severity = "medium"
+observed = "The runnable guide advertises POST /rpc, /rpc/ws and lx_sendActivity, later funds by custody credit and deploys Programs through retired REST/authorized-batch and hosted/paxeer paths."
+expected = "Brief facts 1-3 define one paxd chain with an embedded kernel, committed-block finality and root RPC; documentation must describe the retained network and current source paths."
+proposal = "Replace docs/site/docs/overview/quickstart.md with the supported one-chain journey: current private cluster bootstrap, native account funding, program payload transaction, root RPC and committed receipt verification; update every cited command and endpoint."
+owner_domain = 16
+
+[finding.f050]
+file = "docs/site/docs/overview/i18n/de.md"
+line = 98
+class = "doc-drift"
+severity = "medium"
+observed = "The German overview lists layerxd under native daemons and describes separate execution/settlement domains, custody contracts and obsolete agent/human workspace locations."
+expected = "Brief facts 1-3 define one paxd chain with an embedded kernel, committed-block finality and root RPC; documentation must describe the retained network and current source paths."
+proposal = "Rewrite docs/site/docs/overview/i18n/de.md for the embedded-kernel network, retained service locations and native balances, with the same technical facts as the current canonical overview."
+owner_domain = 16
+
+[finding.f051]
+file = "docs/site/docs/operators/qualification.md"
+line = 20
+class = "doc-drift"
+severity = "medium"
+observed = "The qualification matrix and lines 79-82 prescribe DA withholding, guarantor disagreement, live custody reconciliation and sequencer-offline exit/replay settlement gates."
+expected = "Brief facts 1-3 define one paxd chain with an embedded kernel, committed-block finality and root RPC; documentation must describe the retained network and current source paths."
+proposal = "Replace the retired settlement matrix in docs/site/docs/operators/qualification.md with the retained committed-block, native balance, validator/receipt and restart/recovery gates and their actual evidence requirements."
+owner_domain = 16
+
+[finding.f052]
+file = "docs/README.md"
+line = 21
+class = "doc-drift"
+severity = "medium"
+observed = "The documentation index still presents wiki/LNI.md as the active Node interface v1.7, directing integrators to the retired separate-kernel transport."
+expected = "Brief facts 1-3 define one paxd chain with an embedded kernel, committed-block finality and root RPC; documentation must describe the retained network and current source paths."
+proposal = "Replace the active LNI entry in docs/README.md with the current node root RPC, precompile and gRPC contracts; mark any retained historical transport documentation explicitly archival."
+owner_domain = 16
+
+[finding.f053]
+file = "docs/readme/README.pt-BR.md"
+line = 37
+class = "doc-drift"
+severity = "medium"
+observed = "This translated network introduction describes two execution domains and layerxd; lines 39, 80-88 and 125-243 retain custody, checkpoint/guarantor settlement, old workspace paths and LNI-era diagrams."
+expected = "Brief facts 1-3 define one paxd chain with an embedded kernel, committed-block finality and root RPC; documentation must describe the retained network and current source paths."
+proposal = "Rewrite docs/readme/README.pt-BR.md from the current one-network architecture and current source layout; replace daemon/settlement diagrams, commands and interface guidance while preserving the translation."
+owner_domain = 16
+
+[finding.f054]
+file = "docs/readme/README.fr.md"
+line = 37
+class = "doc-drift"
+severity = "medium"
+observed = "This translated network introduction describes two execution domains and layerxd; lines 39, 80-88 and 125-243 retain custody, checkpoint/guarantor settlement, old workspace paths and LNI-era diagrams."
+expected = "Brief facts 1-3 define one paxd chain with an embedded kernel, committed-block finality and root RPC; documentation must describe the retained network and current source paths."
+proposal = "Rewrite docs/readme/README.fr.md from the current one-network architecture and current source layout; replace daemon/settlement diagrams, commands and interface guidance while preserving the translation."
+owner_domain = 16
+
+[finding.f055]
+file = "docs/readme/README.ja.md"
+line = 37
+class = "doc-drift"
+severity = "medium"
+observed = "This translated network introduction describes two execution domains and layerxd; lines 39, 80-88 and 125-243 retain custody, checkpoint/guarantor settlement, old workspace paths and LNI-era diagrams."
+expected = "Brief facts 1-3 define one paxd chain with an embedded kernel, committed-block finality and root RPC; documentation must describe the retained network and current source paths."
+proposal = "Rewrite docs/readme/README.ja.md from the current one-network architecture and current source layout; replace daemon/settlement diagrams, commands and interface guidance while preserving the translation."
+owner_domain = 16
+
+[finding.f056]
+file = "docs/readme/README.ru.md"
+line = 37
+class = "doc-drift"
+severity = "medium"
+observed = "This translated network introduction describes two execution domains and layerxd; lines 39, 80-88 and 125-243 retain custody, checkpoint/guarantor settlement, old workspace paths and LNI-era diagrams."
+expected = "Brief facts 1-3 define one paxd chain with an embedded kernel, committed-block finality and root RPC; documentation must describe the retained network and current source paths."
+proposal = "Rewrite docs/readme/README.ru.md from the current one-network architecture and current source layout; replace daemon/settlement diagrams, commands and interface guidance while preserving the translation."
+owner_domain = 16
+
+[finding.f057]
+file = "docs/readme/README.zh-CN.md"
+line = 37
+class = "doc-drift"
+severity = "medium"
+observed = "This translated network introduction describes two execution domains and layerxd; lines 39, 80-88 and 125-243 retain custody, checkpoint/guarantor settlement, old workspace paths and LNI-era diagrams."
+expected = "Brief facts 1-3 define one paxd chain with an embedded kernel, committed-block finality and root RPC; documentation must describe the retained network and current source paths."
+proposal = "Rewrite docs/readme/README.zh-CN.md from the current one-network architecture and current source layout; replace daemon/settlement diagrams, commands and interface guidance while preserving the translation."
+owner_domain = 16
+
+[finding.f058]
+file = "docs/readme/README.de.md"
+line = 37
+class = "doc-drift"
+severity = "medium"
+observed = "This translated network introduction describes two execution domains and layerxd; lines 39, 80-88 and 125-243 retain custody, checkpoint/guarantor settlement, old workspace paths and LNI-era diagrams."
+expected = "Brief facts 1-3 define one paxd chain with an embedded kernel, committed-block finality and root RPC; documentation must describe the retained network and current source paths."
+proposal = "Rewrite docs/readme/README.de.md from the current one-network architecture and current source layout; replace daemon/settlement diagrams, commands and interface guidance while preserving the translation."
+owner_domain = 16
+
+[finding.f059]
+file = "docs/readme/README.es.md"
+line = 37
+class = "doc-drift"
+severity = "medium"
+observed = "This translated network introduction describes two execution domains and layerxd; lines 39, 80-88 and 125-243 retain custody, checkpoint/guarantor settlement, old workspace paths and LNI-era diagrams."
+expected = "Brief facts 1-3 define one paxd chain with an embedded kernel, committed-block finality and root RPC; documentation must describe the retained network and current source paths."
+proposal = "Rewrite docs/readme/README.es.md from the current one-network architecture and current source layout; replace daemon/settlement diagrams, commands and interface guidance while preserving the translation."
+owner_domain = 16
+
+[finding.f060]
+file = "tools/paxeer-x/sid-snapshot/README.md"
+line = 23
+class = "doc-drift"
+severity = "medium"
+observed = "The migration instructions promise reconciliation of every holder against balanceOf but describe no fixed committed snapshot block or total-supply check; the implementation only queries positive transfer-history holders."
+expected = "Brief facts 1-3 define one paxd chain with an embedded kernel, committed-block finality and root RPC; documentation must describe the retained network and current source paths."
+proposal = "Update tools/paxeer-x/sid-snapshot/README.md together with snapshot.py to require complete indexed history, one committed migration height, all holder candidates and an exact totalSupply reconciliation before release."
+owner_domain = 16
+
+[finding.f061]
+file = "spec/layerx-merge/contracts/operations.md"
+line = 9776
+class = "doc-drift"
+severity = "medium"
+observed = "The pxx-cli tables still label deleted gate entry points such as 0.5 and 2.2 as stable and describe retired gov/render custody and sequencer authorization flags as active interfaces."
+expected = "Brief facts 1-3 define one paxd chain with an embedded kernel, committed-block finality and root RPC; documentation must describe the retained network and current source paths."
+proposal = "Regenerate spec/layerx-merge/contracts/operations.md from the reconciled interface registry after the owning tools gates and governance renderer are repaired or explicitly retired; distinguish historical inventory from current supported invocation."
+owner_domain = 16
+
+[finding.f062]
+file = "tools/paxeer-x/gates/104.33.7.sh"
+line = 2
+class = "wiring-gap"
+severity = "medium"
+observed = "The paxeer-x-services header declares private-profile, which is not an id in the current candidate catalogue; verify-task.sh refuses the binding before running the real acceptance program."
+expected = "Every gate service binding must refer to an exact current catalogue id; a private deployment profile is evidence, not a separately declared service."
+proposal = "Bind tools/paxeer-x/gates/104.33.7.sh to the applicable retained producer services and carry the private profile through protected evidence inputs, preserving its connected acceptance cases."
+owner_domain = 16
+interface = "16.cli-pxx-paxeer-x-verify-task"
+
+[finding.f063]
+file = "tools/paxeer-x/gov/test.sh"
+line = 62
+class = "test-gap"
+severity = "medium"
+observed = "The governance test still passes --custody-network-id, --deposit-authority, --sequencer-id, --sequencer-pubkey and --first-batch as required live renderer inputs, preserving the retired authorization contract."
+expected = "Requirement 16040 retains only supported governance proposals and brief facts 1-2 remove custody/anchor authorization from the merged governance window."
+proposal = "Update tools/paxeer-x/gov/test.sh alongside render.sh to exercise only live proposal inputs and real paxd validation, adding traversal refusal coverage for bridge names without constructing retired authorization calldata."
+owner_domain = 16
+interface = "16.cli-pxx-paxeer-x-gov-test"
+
+[finding.f064]
+file = "tools/paxeer-x/gates/104.33.7.sh"
+line = 8
+class = "wiring-gap"
+severity = "medium"
+observed = "The mandatory source_files closure includes gateway/src/native_call.rs and services/human/crates/layerx-explorer-index/src/programs.rs, both absent, so its digest loop cannot accept any manifest."
+expected = "Qualification must bind retained source producers and consumers; files deleted by the merge cannot be mandatory current-source artifacts."
+proposal = "Replace the deleted closure members in tools/paxeer-x/gates/104.33.7.sh with the retained transaction/precompile and native explorer implementations and rebuild their real acceptance artifacts."
+owner_domain = 16
+interface = "16.cli-pxx-paxeer-x-gates-104-33-7"
+
+[finding.f065]
+file = "tools/paxeer-x/gates/104.33.7.sh"
+line = 64
+class = "retired-reference"
+severity = "medium"
+observed = "The connected acceptance flow POSTs signed activities to /v1/programs/call and requires legacy executed/unknown/pending receipt replay; the old Programs REST ingress has been retired."
+expected = "The retired programs-ingress catalogue requires program payload submission as an EVM transaction to layerxprograms 0x101D and finality at block commit."
+proposal = "Rewrite the connected submission/replay portion of tools/paxeer-x/gates/104.33.7.sh around the actual EVM transaction producer and retained program reads, with real committed receipts and duplicate/tamper refusal cases."
+owner_domain = 16
+interface = "16.cli-pxx-paxeer-x-gates-104-33-7"
+
+[finding.f066]
+file = "tools/paxeer-x/gates/104.38.6.sh"
+line = 57
+class = "wiring-gap"
+severity = "medium"
+observed = "The ordinary gate's first operation invokes sdk/platform/conformance/fixtures/generate_program_receipt_refusals.py, which is absent; this blocks all seven receipt SDK consumer suites."
+expected = "The declared SDK receipt parity command must derive its fixture from the retained real producer before running the seven current consumers."
+proposal = "Point tools/paxeer-x/gates/104.38.6.sh at the retained receipt refusal fixture producer, preserving the --check drift condition and all seven genuine receipt decoder suites."
+owner_domain = 16
+interface = "16.cli-pxx-paxeer-x-gates-104-38-6"
+
+[doc.001]
+path = "README.md"
+status = "stale"
+notes = "f048 at line 47: The network introduction describes layerxd as a separate daemon whose checkpoints settle through layerxAnchor; line 145 still tells builders to make layerxd."
+
+[doc.002]
+path = "docs/site/docs/overview/quickstart.md"
+status = "misleading"
+notes = "f049 at line 20: The runnable guide advertises POST /rpc, /rpc/ws and lx_sendActivity, later funds by custody credit and deploys Programs through retired REST/authorized-batch and hosted/paxeer paths."
+
+[doc.003]
+path = "docs/site/docs/overview/i18n/de.md"
+status = "stale"
+notes = "f050 at line 98: The German overview lists layerxd under native daemons and describes separate execution/settlement domains, custody contracts and obsolete agent/human workspace locations."
+
+[doc.004]
+path = "docs/site/docs/operators/qualification.md"
+status = "stale"
+notes = "f051 at line 20: The qualification matrix and lines 79-82 prescribe DA withholding, guarantor disagreement, live custody reconciliation and sequencer-offline exit/replay settlement gates."
+
+[doc.005]
+path = "docs/readme/README.pt-BR.md"
+status = "stale"
+notes = "f053 at line 37: This translated network introduction describes two execution domains and layerxd; lines 39, 80-88 and 125-243 retain custody, checkpoint/guarantor settlement, old workspace paths and LNI-era diagrams."
+
+[doc.006]
+path = "docs/readme/README.fr.md"
+status = "stale"
+notes = "f054 at line 37: This translated network introduction describes two execution domains and layerxd; lines 39, 80-88 and 125-243 retain custody, checkpoint/guarantor settlement, old workspace paths and LNI-era diagrams."
+
+[doc.007]
+path = "docs/readme/README.ja.md"
+status = "stale"
+notes = "f055 at line 37: This translated network introduction describes two execution domains and layerxd; lines 39, 80-88 and 125-243 retain custody, checkpoint/guarantor settlement, old workspace paths and LNI-era diagrams."
+
+[doc.008]
+path = "docs/readme/README.ru.md"
+status = "stale"
+notes = "f056 at line 37: This translated network introduction describes two execution domains and layerxd; lines 39, 80-88 and 125-243 retain custody, checkpoint/guarantor settlement, old workspace paths and LNI-era diagrams."
+
+[doc.009]
+path = "docs/readme/README.zh-CN.md"
+status = "stale"
+notes = "f057 at line 37: This translated network introduction describes two execution domains and layerxd; lines 39, 80-88 and 125-243 retain custody, checkpoint/guarantor settlement, old workspace paths and LNI-era diagrams."
+
+[doc.010]
+path = "docs/readme/README.de.md"
+status = "stale"
+notes = "f058 at line 37: This translated network introduction describes two execution domains and layerxd; lines 39, 80-88 and 125-243 retain custody, checkpoint/guarantor settlement, old workspace paths and LNI-era diagrams."
+
+[doc.011]
+path = "docs/readme/README.es.md"
+status = "stale"
+notes = "f059 at line 37: This translated network introduction describes two execution domains and layerxd; lines 39, 80-88 and 125-243 retain custody, checkpoint/guarantor settlement, old workspace paths and LNI-era diagrams."
+
+[doc.012]
+path = "docs/README.md"
+status = "stale"
+notes = "f052 at line 21: The documentation index still presents wiki/LNI.md as the active Node interface v1.7, directing integrators to the retired separate-kernel transport."
+
+[doc.013]
+path = "tools/paxeer-x/gov/README.md"
+status = "misleading"
+notes = "f005 at line 22: The output table promises 04-exchange-markets, 05-custody and 06-anchor-sequencer-authorization proposals that render.sh no longer emits."
+
+[doc.014]
+path = "tools/paxeer-x/sid-snapshot/README.md"
+status = "misleading"
+notes = "f060 at line 23: The migration instructions promise reconciliation of every holder against balanceOf but describe no fixed committed snapshot block or total-supply check; the implementation only queries positive transfer-history holders."
+
+[doc.015]
+path = "spec/layerx-merge/contracts/kernel.md"
+status = "misleading"
+notes = "f038 at line 7781: The result-registry contract says out-of-range access returns LXP_ERR_NON_CANONICAL, but its own req.1007 acceptance text, src/protocol/lxp_result.c and proof_result_registry_refusal agree on LXP_ERR_UNKNOWN_FIELD."
+
+[doc.016]
+path = "spec/layerx-merge/contracts/operations.md"
+status = "stale"
+notes = "f061 at line 9776: The pxx-cli tables still label deleted gate entry points such as 0.5 and 2.2 as stable and describe retired gov/render custody and sequencer authorization flags as active interfaces."

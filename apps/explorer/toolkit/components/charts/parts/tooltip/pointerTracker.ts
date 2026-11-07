@@ -4,7 +4,7 @@ export interface Pointer {
   id: number;
   point: [number, number] | null;
   prev: [number, number] | null;
-  sourceEvent?: PointerEvent;
+  sourceEvent?: PointerEvent | TouchEvent;
 }
 
 export interface PointerOptions {
@@ -26,7 +26,7 @@ export function trackPointer(event: PointerEvent, { start, move, out, end }: Poi
   tracker.point = d3.pointer(event, target);
   target.setPointerCapture(id);
 
-  const untrack = (sourceEvent: PointerEvent) => {
+  const untrack = (sourceEvent: PointerEvent | TouchEvent) => {
     tracker.sourceEvent = sourceEvent;
     d3.select(target).on(`.${ id }`, null);
     target.releasePointerCapture(id);
@@ -34,7 +34,7 @@ export function trackPointer(event: PointerEvent, { start, move, out, end }: Poi
   };
 
   d3.select(target)
-    .on(`touchstart.${ id }`, (sourceEvent: PointerEvent) => {
+    .on(`touchstart.${ id }`, (sourceEvent: TouchEvent) => {
       const target = sourceEvent.target as Element;
       const touches = d3.pointers(sourceEvent, target);
 

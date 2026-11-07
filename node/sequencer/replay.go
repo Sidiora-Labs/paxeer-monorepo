@@ -10,9 +10,10 @@ import (
 )
 
 type AppReplayer struct {
-	exec Executor
-	r    *Receipter
-	src  *ReceiptSource
+	exec  Executor
+	r     *Receipter
+	src   *ReceiptSource
+	batch *Batch
 }
 
 var _ wal.Executor = (*AppReplayer)(nil)
@@ -31,6 +32,17 @@ func (r *AppReplayer) Apply(e wal.Entry) error {
 		if v.Height > math.MaxInt64 || v.OpenTimeMs > math.MaxInt64 {
 			return fmt.Errorf("%w: OPEN height or time exceeds int64", wal.ErrMalformed)
 		}
+		if len(v.ProposerAddress) != 0 {
+			exec := r.exec
+			if floor, ok := exec.(*FeeFloor); ok {
+				exec = floor.Executor
+			}
+			seq := baseSequential(exec)
+			seq.mu.Lock()
+			seq.proposer = append([]byte(nil), v.ProposerAddress...)
+			seq.mu.Unlock()
+		}
+		r.batch = nil
 		return r.exec.Open(int64(v.Height), int64(v.OpenTimeMs))
 	case *wal.Committed:
 		return nil
@@ -38,7 +50,14 @@ func (r *AppReplayer) Apply(e wal.Entry) error {
 		if v.Height > math.MaxInt64 {
 			return fmt.Errorf("%w: SEAL height exceeds int64", wal.ErrMalformed)
 		}
-		_, err := r.exec.Seal(int64(v.Height))
+		batch, err := r.exec.Seal(int64(v.Height))
+		if err == nil {
+			fields := BatchFields(batch)
+			if fields.Height != v.Height || fields.FromSeq != v.FromSeq || fields.ToSeq != v.ToSeq || fields.LastSeqHash != v.LastSeqHash {
+				return ErrBatchFieldsMismatch
+			}
+			r.batch = batch
+		}
 		if err == nil && r.src != nil {
 			r.src.Committed(int64(v.Height))
 		}

@@ -1,10 +1,11 @@
 //! This module is used to validate the correctness of the gas metering algorithm.
 //!
-//! Since the gas metering algorithm is complex, this checks correctness by fuzzing. The testing
-//! strategy is to generate reproducible, valid Wasm modules using Binaryen's translate-to-fuzz
-//! functionality, then ensure for all functions defined, in all execution paths though the
+//! Since the gas metering algorithm is complex, this checks correctness using fixed WAT modules
+//! covering structured control flow. The testing strategy is to ensure for all functions defined,
+//! in all execution paths through the
 //! function body that do not trap that the amount of gas charged by the proposed metering
-//! instructions is correct. This is done by constructing a control flow graph and exhaustively
+//! instructions matches the expected translated fuel costs, including prepaid continuations.
+//! This is done by constructing a control flow graph and exhaustively
 //! searching through all paths, which may take exponential time in the size of the function body in
 //! the worst case.
 
@@ -22,7 +23,7 @@ struct ControlFlowNode {
     /// The index of the first instruction in the basic block. This is only used for debugging.
     first_instr_pos: Option<usize>,
 
-    /// The actual gas cost of executing all instructions in the basic block.
+    /// The expected translated gas cost attributed to this basic block.
     actual_cost: u64,
 
     /// The amount of gas charged by the injected metering instructions within this basic block.
@@ -101,6 +102,7 @@ impl ControlFlowGraph {
 /// instructions and is closed by `end` instructions.
 struct ControlFrame {
     is_loop: bool,
+    if_origin: Option<NodeId>,
     entry_node: NodeId,
     exit_node: NodeId,
     active_node: NodeId,
@@ -110,6 +112,7 @@ impl ControlFrame {
     fn new(entry_node_id: NodeId, exit_node_id: NodeId, is_loop: bool) -> Self {
         ControlFrame {
             is_loop,
+            if_origin: None,
             entry_node: entry_node_id,
             exit_node: exit_node_id,
             active_node: entry_node_id,
@@ -117,14 +120,17 @@ impl ControlFrame {
     }
 }
 
-/// Construct a control flow graph from a function body and the metered blocks computed for it.
+/// Construct a control flow graph from a function body, computed metered blocks and fixed
+/// expected translated instruction costs, including prepaid continuations.
 ///
 /// This assumes that the function body has been validated already, otherwise this may panic.
 fn build_control_flow_graph(
     body: &FuncBody,
     rules: &impl Rules,
     blocks: &[MeteredBlock],
+    expected_costs: &[u32],
 ) -> Result<ControlFlowGraph, ()> {
+    assert_eq!(body.code().elements().len(), expected_costs.len());
     let mut graph = ControlFlowGraph::new();
 
     let entry_node_id = graph.add_node();
@@ -162,9 +168,7 @@ fn build_control_flow_graph(
             graph.increment_actual_cost(active_node_id, rules.block_entry_cost());
             graph.increment_actual_cost(active_node_id, locals_init_cost);
         }
-        let instruction_cost = rules
-            .instruction_cost_at(0, cursor as u32, instruction)
-            .ok_or(())?;
+        let instruction_cost = expected_costs[cursor];
         match instruction {
             Instruction::Block(_) => {
                 graph.increment_actual_cost(active_node_id, instruction_cost);
@@ -178,7 +182,9 @@ fn build_control_flow_graph(
                 let then_node_id = graph.add_node();
                 let exit_node_id = graph.add_node();
 
-                stack.push(ControlFrame::new(then_node_id, exit_node_id, false));
+                let mut frame = ControlFrame::new(then_node_id, exit_node_id, false);
+                frame.if_origin = Some(active_node_id);
+                stack.push(frame);
                 graph.new_forward_edge(active_node_id, then_node_id);
                 graph.increment_actual_cost(then_node_id, rules.block_entry_cost());
                 graph.set_first_instr_pos(then_node_id, cursor + 1);
@@ -196,15 +202,15 @@ fn build_control_flow_graph(
             }
             Instruction::Else => {
                 let active_frame_idx = stack.len() - 1;
-                let prev_frame_idx = stack.len() - 2;
+                let origin = stack[active_frame_idx].if_origin.take().ok_or(())?;
+                graph.new_forward_edge(active_node_id, stack[active_frame_idx].exit_node);
 
                 let else_node_id = graph.add_node();
                 stack[active_frame_idx].active_node = else_node_id;
                 graph.increment_actual_cost(else_node_id, instruction_cost);
                 graph.increment_actual_cost(else_node_id, rules.block_entry_cost());
 
-                let prev_node_id = stack[prev_frame_idx].active_node;
-                graph.new_forward_edge(prev_node_id, else_node_id);
+                graph.new_forward_edge(origin, else_node_id);
                 graph.set_first_instr_pos(else_node_id, cursor + 1);
             }
             Instruction::End => {
@@ -212,6 +218,9 @@ fn build_control_flow_graph(
                 let closing_frame = stack.pop()
 					.expect("module is valid by pre-condition; ends correspond to control stack frames; qed");
 
+                if let Some(origin) = closing_frame.if_origin {
+                    graph.new_forward_edge(origin, closing_frame.exit_node);
+                }
                 graph.new_forward_edge(active_node_id, closing_frame.exit_node);
                 graph.set_first_instr_pos(closing_frame.exit_node, cursor + 1);
 
@@ -303,12 +312,12 @@ fn validate_graph_gas_costs(graph: &ControlFlowGraph) -> bool {
     ) -> bool {
         let node = graph.get_node(node_id);
 
+        if node.is_loop_target {
+            loop_costs.insert(node_id, (total_actual, total_charged));
+        }
+
         total_actual += node.actual_cost;
         total_charged += node.charged_cost;
-
-        if node.is_loop_target {
-            loop_costs.insert(node_id, (node.actual_cost, node.charged_cost));
-        }
 
         if node.forward_edges.is_empty() && total_actual != total_charged {
             return false;
@@ -316,9 +325,9 @@ fn validate_graph_gas_costs(graph: &ControlFlowGraph) -> bool {
 
         for loop_node_id in node.loopback_edges.iter() {
             let (loop_actual, loop_charged) = loop_costs
-                .get_mut(loop_node_id)
+                .get(loop_node_id)
                 .expect("cannot arrive at loopback edge without visiting loop entry node");
-            if loop_actual != loop_charged {
+            if total_actual - loop_actual != total_charged - loop_charged {
                 return false;
             }
         }
@@ -354,42 +363,95 @@ fn validate_metering_injections(
     body: &FuncBody,
     rules: &impl Rules,
     blocks: &[MeteredBlock],
+    expected_costs: &[u32],
 ) -> Result<bool, ()> {
-    let graph = build_control_flow_graph(body, rules, blocks)?;
+    let graph = build_control_flow_graph(body, rules, blocks, expected_costs)?;
     Ok(validate_graph_gas_costs(&graph))
 }
 
 mod tests {
     use super::{super::determine_metered_blocks, *};
 
-    use binaryen::tools::translate_to_fuzz_mvp;
     use parity_wasm::elements;
 
-    /// Validate a fixed corpus for reproducibility: SplitMix64 seed 0x4c58_504d_4554_4552.
-    /// Each output word fills eight input bytes in little-endian order.
     #[test]
     fn test_build_control_flow_graph() {
-        const SEED: u64 = 0x4c58_504d_4554_4552;
-        let mut state = SEED;
-        for _ in 0..20 {
-            let mut rand_input = [0u8; 2048];
-            for chunk in rand_input.chunks_exact_mut(8) {
-                state = state.wrapping_add(0x9e37_79b9_7f4a_7c15);
-                let mut word = state;
-                word = (word ^ (word >> 30)).wrapping_mul(0xbf58_476d_1ce4_e5b9);
-                word = (word ^ (word >> 27)).wrapping_mul(0x94d0_49bb_1331_11eb);
-                word ^= word >> 31;
-                chunk.copy_from_slice(&word.to_le_bytes());
-            }
-
-            let module_bytes = translate_to_fuzz_mvp(&rand_input).write();
+        // dfffe1310 prepays control-frame continuations across conditional branches.
+        // Freeze that translated cost model independently of determine_metered_blocks.
+        type ExpectedFunction<'a> = (&'a [u32], &'a [(usize, u64)]);
+        let modules: &[(&str, &[ExpectedFunction<'_>])] = &[
+            (
+                r#"(module (func (result i32)
+                (block (result i32)
+                    (block (result i32) i32.const 7)
+                    i32.const 3 i32.add)))"#,
+                &[(&[1, 1, 1, 1, 1, 1, 1, 1], &[(0, 8)])],
+            ),
+            (
+                r#"(module (func (param i32)
+                (loop $again
+                    local.get 0 i32.const 1 i32.sub local.tee 0
+                    br_if $again)))"#,
+                &[(&[2, 1, 1, 1, 1, 2, 0, 0], &[(0, 2), (1, 6)])],
+            ),
+            (
+                r#"(module (func (result i32)
+                (block $exit (result i32)
+                    i32.const 7 br $exit
+                    i32.const 9)))"#,
+                &[(&[1, 1, 1, 0, 0, 1], &[(0, 4)])],
+            ),
+            (
+                r#"(module (func (param i32) (result i32)
+                (block $exit
+                    local.get 0 br_if $exit
+                    i32.const 3 local.set 0)
+                local.get 0))"#,
+                &[(&[1, 1, 4, 0, 0, 0, 1, 1], &[(0, 8)])],
+            ),
+            (
+                r#"(module (func (param i32) (result i32)
+                (block $outer
+                    (block $inner
+                        local.get 0 br_table $inner $outer $outer)
+                    i32.const 7 local.set 0)
+                local.get 0))"#,
+                &[(&[1, 1, 1, 1, 0, 1, 1, 1, 1, 1], &[(0, 6), (5, 3)])],
+            ),
+            (
+                r#"(module (func (param i32) (result i32)
+                local.get 0
+                (if (result i32)
+                    (then i32.const 7)
+                    (else i32.const 9))))"#,
+                &[(&[2, 1, 1, 1, 1, 1, 0], &[(0, 3), (2, 1), (4, 3)])],
+            ),
+            (
+                r#"(module
+                (func $callee (param i32) (result i32)
+                    local.get 0 i32.const 1 i32.add)
+                (func (param i32) (result i32)
+                    local.get 0 call $callee))"#,
+                &[(&[1, 1, 1, 1], &[(0, 4)]), (&[1, 1, 1], &[(0, 3)])],
+            ),
+            (
+                r#"(module (func (param i32) (result i32)
+                local.get 0
+                (if (then i32.const 7 return))
+                i32.const 9 return
+                i32.const 11))"#,
+                &[(&[1, 1, 1, 1, 0, 1, 1, 0, 0], &[(0, 2), (2, 2), (5, 2)])],
+            ),
+        ];
+        for &(text, expected_functions) in modules {
+            let module_bytes = wat::parse_str(text).expect("failed to parse fixed WAT module");
             let module: elements::Module = elements::deserialize_buffer(&module_bytes)
-                .expect("failed to parse Wasm blob generated by translate_to_fuzz");
+                .expect("failed to parse Wasm blob generated from fixed WAT");
 
-            for func_body in module
-                .code_section()
-                .iter()
-                .flat_map(|section| section.bodies())
+            let functions = module.code_section().unwrap().bodies();
+            assert_eq!(functions.len(), expected_functions.len());
+            for (func_body, &(expected_costs, expected_blocks)) in
+                functions.iter().zip(expected_functions)
             {
                 let rules = ConstantCostRules::default();
                 let locals_count = func_body
@@ -399,9 +461,46 @@ mod tests {
 
                 let metered_blocks =
                     determine_metered_blocks(func_body.code(), &rules, locals_count, 0).unwrap();
-                let success =
-                    validate_metering_injections(func_body, &rules, &metered_blocks).unwrap();
-                assert!(success);
+                assert_eq!(
+                    metered_blocks
+                        .iter()
+                        .map(|block| (block.start_pos, block.cost))
+                        .collect::<Vec<_>>(),
+                    expected_blocks,
+                    "unexpected metering schedule for WAT module {text}",
+                );
+                let success = validate_metering_injections(
+                    func_body,
+                    &rules,
+                    &metered_blocks,
+                    expected_costs,
+                )
+                .unwrap();
+                assert!(
+                    success,
+                    "metering mismatch for WAT module {text}: blocks {metered_blocks:?}; graph {:#?}",
+                    build_control_flow_graph(func_body, &rules, &metered_blocks, expected_costs).unwrap(),
+                );
+                for changed_block in 0..metered_blocks.len() {
+                    let mut incorrect_blocks = metered_blocks
+                        .iter()
+                        .map(|block| MeteredBlock {
+                            start_pos: block.start_pos,
+                            cost: block.cost,
+                        })
+                        .collect::<Vec<_>>();
+                    incorrect_blocks[changed_block].cost += 1;
+                    assert!(
+                        !validate_metering_injections(
+                            func_body,
+                            &rules,
+                            &incorrect_blocks,
+                            expected_costs
+                        )
+                        .unwrap(),
+                        "accepted incorrect cost at block {changed_block} for WAT module {text}",
+                    );
+                }
             }
         }
     }

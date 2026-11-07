@@ -8,7 +8,7 @@ fail() { echo "FAIL: $*" >&2; exit 1; }
 
 mkdir "$work/certs"
 for i in 1 2 3 4 5; do
-	openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:prime256v1 -nodes -days 1 \
+	openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:prime256v1 -nodes -days 1 -addext basicConstraints=critical,CA:FALSE \
 		-subj "/CN=paxeer-attestor-$i" -keyout "$work/certs/attestor-$i.key" -out "$work/certs/attestor-$i.crt" 2>/dev/null
 done
 
@@ -17,7 +17,7 @@ ATTESTOR_CERT_DIR=$work/certs MODULE_REGISTRY_FILE=$root/services/interop/deploy
 	"$root/tools/bringup/mint-secrets.sh" "$out" >"$work/stdout"
 
 [ "$(stat -c %a "$out")" = 700 ] || fail "out-dir mode is not 700"
-services="wallet-gateway router webhooks-public webhooks-ingress internal-kms internal-journeys internal-payments internal-approvals internal-programs identity dashboard ramp interop"
+services="wallet-gateway gateway webhooks-public webhooks-ingress internal-kms internal-journeys internal-payments internal-approvals internal-programs identity dashboard ramp"
 boxes="paxeer-attestor-1 paxeer-attestor-2 paxeer-attestor-3 paxeer-attestor-4 paxeer-attestor-5 paxeer-human-service paxeer-program-registry"
 files=""
 for s in $services; do files="$files $s.railway.env $s.railway.sh"; done
@@ -27,8 +27,9 @@ for f in $files; do
 	[ "$(stat -c %a "$out/$f")" = 600 ] || fail "$f is not 0600"
 	grep -qxF "$out/$f" "$work/stdout" || fail "$f not reported"
 done
-[ "$(wc -l <"$work/stdout")" -eq 33 ] || fail "tool printed more than the written paths"
-[ "$(find "$out" -maxdepth 1 -type f | wc -l)" -eq 33 ] || fail "tool wrote files beyond the Railway and box forms"
+diff -u <(printf '%s\n' $files | sort) <(find "$out" -maxdepth 1 -type f -printf '%f\n' | sort) || fail "mint differs from the exact surviving target set"
+[ "$(wc -l <"$work/stdout")" -eq "$(wc -w <<<"$files")" ] || fail "tool printed more than the written paths"
+[ ! -e "$out/router.railway.env" ] && [ ! -e "$out/interop.railway.env" ] || fail "retired delivery target emitted"
 for f in $files; do
 	case "$f" in *.sh) continue ;; esac
 	grep -vqE '^[A-Z][A-Z0-9_]*=[^[:space:]]+$' "$out/$f" && fail "$f holds a line that is not KEY=value"
@@ -51,21 +52,15 @@ expect wallet-gateway.railway.env WALLET_IDENTITY_BINDING_TENANT WALLET_IDENTITY
 for i in 1 2 3 4 5; do
 	expect "paxeer-attestor-$i.box.env" WALLET_IDENTITY_BINDING_PUBLIC_KEY WALLET_CUSTODY_INVENTORY_PUBLIC_KEY WALLET_CUSTODY_INVENTORY
 done
-expect paxeer-human-service.box.env HUMAN_EVENTS_JOURNEY_TOKEN HUMAN_EVENTS_APPROVAL_TOKEN HUMAN_EVENTS_WEBHOOKS_TOKEN \
-	LAYERX_KERNEL_PROGRAM_TOKEN LAYERX_KERNEL_REPLICA_TOKEN LAYERX_KERNEL_BACKEND_ADMIN_TOKEN \
-	LAYERX_KERNEL_GATEWAY_COMPONENT_TOKEN LAYERX_KERNEL_GATEWAY_AUTHORITY_TOKEN LAYERX_KERNEL_WEBHOOKS_COMPONENT_TOKEN \
-	LAYERX_KERNEL_WEBHOOKS_AUTHORITY_TOKEN LAYERX_REGISTRY_NODE_AUTHORIZATION LAYERX_REGISTRY_RECEIPT_AUTHORITY_AUTHORIZATION
-expect paxeer-program-registry.box.env REGISTRY_IDENTITY_TOKEN REGISTRY_PROGRAM_EVENTS_TOKEN REGISTRY_WEBHOOKS_EVENTS_TOKEN \
-	REGISTRY_REQUEST_TOKEN REGISTRY_PUBLICATION_TOKEN LAYERX_REGISTRY_NODE_AUTHORIZATION LAYERX_REGISTRY_RECEIPT_AUTHORITY_AUTHORIZATION
-expect router.railway.env ENDPOINT_EVENTS_PAYMENT_TOKEN ENDPOINT_EVENTS_WEBHOOKS_TOKEN ENDPOINT_COMPONENT_TOKEN \
-	ENDPOINT_AUTHORITY_TOKEN ENDPOINT_IDENTITY_TOKEN ENDPOINT_IDENTITY_PROVISIONING_TOKEN ENDPOINT_PROGRAM_REGISTRY_TOKEN \
-	ENDPOINT_KEY_PROVISIONING_KEY ENDPOINT_MODULE_REGISTRY
-for s in webhooks-public webhooks-ingress; do
-	expect "$s.railway.env" WEBHOOKS_KMS_TOKEN WEBHOOKS_IDENTITY_TOKEN WEBHOOKS_COMPONENT_TOKEN WEBHOOKS_AUTHORITY_TOKEN \
-		WEBHOOKS_JOURNEY_SOURCE_TOKEN WEBHOOKS_PAYMENT_SOURCE_TOKEN WEBHOOKS_APPROVAL_SOURCE_TOKEN WEBHOOKS_PROGRAM_SOURCE_TOKEN \
-		WEBHOOKS_SOURCE_TRIGGER_TOKEN WEBHOOKS_OPERATOR_TOKEN WEBHOOKS_CURSOR_KEY
+expect paxeer-human-service.box.env HUMAN_EVENTS_JOURNEY_TOKEN HUMAN_EVENTS_APPROVAL_TOKEN HUMAN_EVENTS_WEBHOOKS_TOKEN
+expect paxeer-program-registry.box.env REGISTRY_IDENTITY_TOKEN REGISTRY_PROGRAM_EVENTS_TOKEN REGISTRY_WEBHOOKS_EVENTS_TOKEN REGISTRY_REQUEST_TOKEN REGISTRY_PUBLICATION_TOKEN
+expect gateway.railway.env ENDPOINT_EVENTS_PAYMENT_TOKEN ENDPOINT_EVENTS_WEBHOOKS_TOKEN ENDPOINT_IDENTITY_TOKEN ENDPOINT_IDENTITY_PROVISIONING_TOKEN ENDPOINT_PROGRAM_REGISTRY_TOKEN ENDPOINT_KEY_PROVISIONING_KEY ENDPOINT_MODULE_REGISTRY
+expect webhooks-public.railway.env WEBHOOKS_IDENTITY_TOKEN
+expect webhooks-ingress.railway.env WEBHOOKS_KMS_TOKEN WEBHOOKS_JOURNEY_SOURCE_TOKEN WEBHOOKS_PAYMENT_SOURCE_TOKEN WEBHOOKS_APPROVAL_SOURCE_TOKEN WEBHOOKS_PROGRAM_SOURCE_TOKEN WEBHOOKS_SOURCE_TRIGGER_TOKEN WEBHOOKS_OPERATOR_TOKEN WEBHOOKS_CURSOR_KEY
+! cmp -s "$out/webhooks-public.railway.env" "$out/webhooks-ingress.railway.env" || fail "public role received ingress capabilities"
+for f in paxeer-human-service.box.env paxeer-program-registry.box.env gateway.railway.env webhooks-public.railway.env webhooks-ingress.railway.env; do
+	! grep -E '^[A-Z_]*(REPLICA|AUTHORITY|COMPONENT)[A-Z_]*=' "$out/$f" || fail "retired capability emitted"
 done
-cmp -s "$out/webhooks-public.railway.env" "$out/webhooks-ingress.railway.env" || fail "the webhooks roles hold different secrets"
 expect internal-kms.railway.env INTERNAL_KMS_TOKEN INTERNAL_KMS_SEAL_SECRET
 for role in JOURNEYS PAYMENTS APPROVALS PROGRAMS; do
 	lower=$(printf '%s' "$role" | tr A-Z a-z)
@@ -75,7 +70,6 @@ expect identity.railway.env IDENTITY_GATEWAY_TOKEN IDENTITY_REGISTRY_TOKEN IDENT
 	IDENTITY_FAUCET_TOKEN IDENTITY_TESTNET_TOKEN IDENTITY_RAMP_TOKEN IDENTITY_PROVISIONING_TOKEN IDENTITY_REGISTRAR_TOKEN
 expect dashboard.railway.env DASHBOARD_IDENTITY_TOKEN
 expect ramp.railway.env RAMP_IDENTITY_TOKEN
-expect interop.railway.env INTEROP_AUTHORITY_TOKEN
 
 # Each minted token, decoded as its consumer reads it, is one 32-byte hex
 # value shared by every end.
@@ -88,42 +82,53 @@ same() {
 }
 same "$(plain paxeer-human-service.box.env HUMAN_EVENTS_JOURNEY_TOKEN)" "$(plain internal-journeys.railway.env INTERNAL_JOURNEYS_PRODUCER_TOKEN)"
 same "$(plain paxeer-human-service.box.env HUMAN_EVENTS_APPROVAL_TOKEN)" "$(plain internal-approvals.railway.env INTERNAL_APPROVALS_PRODUCER_TOKEN)"
-same "$(plain router.railway.env ENDPOINT_EVENTS_PAYMENT_TOKEN)" "$(plain internal-payments.railway.env INTERNAL_PAYMENTS_PRODUCER_TOKEN)"
+same "$(plain gateway.railway.env ENDPOINT_EVENTS_PAYMENT_TOKEN)" "$(plain internal-payments.railway.env INTERNAL_PAYMENTS_PRODUCER_TOKEN)"
 same "$(value paxeer-program-registry.box.env REGISTRY_PROGRAM_EVENTS_TOKEN)" "$(plain internal-programs.railway.env INTERNAL_PROGRAMS_PRODUCER_TOKEN)"
-same "$(plain webhooks-public.railway.env WEBHOOKS_SOURCE_TRIGGER_TOKEN)" "$(plain paxeer-human-service.box.env HUMAN_EVENTS_WEBHOOKS_TOKEN)" \
-	"$(plain router.railway.env ENDPOINT_EVENTS_WEBHOOKS_TOKEN)" "$(value paxeer-program-registry.box.env REGISTRY_WEBHOOKS_EVENTS_TOKEN)"
-same "$(plain webhooks-public.railway.env WEBHOOKS_KMS_TOKEN)" "$(plain internal-kms.railway.env INTERNAL_KMS_TOKEN)"
+same "$(plain webhooks-ingress.railway.env WEBHOOKS_SOURCE_TRIGGER_TOKEN)" "$(plain paxeer-human-service.box.env HUMAN_EVENTS_WEBHOOKS_TOKEN)" \
+	"$(plain gateway.railway.env ENDPOINT_EVENTS_WEBHOOKS_TOKEN)" "$(value paxeer-program-registry.box.env REGISTRY_WEBHOOKS_EVENTS_TOKEN)"
+same "$(plain webhooks-ingress.railway.env WEBHOOKS_KMS_TOKEN)" "$(plain internal-kms.railway.env INTERNAL_KMS_TOKEN)"
 for role in JOURNEY:journeys PAYMENT:payments APPROVAL:approvals PROGRAM:programs; do
 	same "$(plain webhooks-ingress.railway.env "WEBHOOKS_${role%%:*}_SOURCE_TOKEN")" \
 		"$(plain "internal-${role#*:}.railway.env" "INTERNAL_$(printf '%s' "${role#*:}" | tr a-z A-Z)_TOKEN")"
 done
 hex "$(plain internal-kms.railway.env INTERNAL_KMS_SEAL_SECRET)" INTERNAL_KMS_SEAL_SECRET
-same "$(plain identity.railway.env IDENTITY_GATEWAY_TOKEN)" "$(plain router.railway.env ENDPOINT_IDENTITY_TOKEN)"
-same "$(plain identity.railway.env IDENTITY_PROVISIONING_TOKEN)" "$(plain router.railway.env ENDPOINT_IDENTITY_PROVISIONING_TOKEN)"
-same "$(plain identity.railway.env IDENTITY_WEBHOOKS_TOKEN)" "$(plain webhooks-public.railway.env WEBHOOKS_IDENTITY_TOKEN)"
-same "$(plain identity.railway.env IDENTITY_DASHBOARD_TOKEN)" "$(plain dashboard.railway.env DASHBOARD_IDENTITY_TOKEN)"
-same "$(plain identity.railway.env IDENTITY_RAMP_TOKEN)" "$(plain ramp.railway.env RAMP_IDENTITY_TOKEN)"
-same "$(plain identity.railway.env IDENTITY_REGISTRY_TOKEN)" "$(value paxeer-program-registry.box.env REGISTRY_IDENTITY_TOKEN)"
-# The kernel init writes LAYERX_KERNEL_*_TOKEN verbatim to its token files.
-same "$(value paxeer-human-service.box.env LAYERX_KERNEL_GATEWAY_COMPONENT_TOKEN)" "$(plain router.railway.env ENDPOINT_COMPONENT_TOKEN)"
-same "$(value paxeer-human-service.box.env LAYERX_KERNEL_GATEWAY_AUTHORITY_TOKEN)" "$(plain router.railway.env ENDPOINT_AUTHORITY_TOKEN)" \
-	"$(plain interop.railway.env INTEROP_AUTHORITY_TOKEN)"
-same "$(value paxeer-human-service.box.env LAYERX_KERNEL_WEBHOOKS_COMPONENT_TOKEN)" "$(plain webhooks-ingress.railway.env WEBHOOKS_COMPONENT_TOKEN)" \
-	"$(plain webhooks-public.railway.env WEBHOOKS_COMPONENT_TOKEN)"
-same "$(value paxeer-human-service.box.env LAYERX_KERNEL_WEBHOOKS_AUTHORITY_TOKEN)" "$(plain webhooks-ingress.railway.env WEBHOOKS_AUTHORITY_TOKEN)" \
-	"$(plain webhooks-public.railway.env WEBHOOKS_AUTHORITY_TOKEN)"
-kernel_tokens=""
-for name in PROGRAM REPLICA BACKEND_ADMIN GATEWAY_COMPONENT GATEWAY_AUTHORITY WEBHOOKS_COMPONENT WEBHOOKS_AUTHORITY; do
-	v=$(value paxeer-human-service.box.env "LAYERX_KERNEL_${name}_TOKEN")
-	hex "$v" "LAYERX_KERNEL_${name}_TOKEN"
-	kernel_tokens="$kernel_tokens$v
-"
+same "$(value identity.railway.env IDENTITY_GATEWAY_TOKEN)" "$(plain gateway.railway.env ENDPOINT_IDENTITY_TOKEN)"
+same "$(value identity.railway.env IDENTITY_PROVISIONING_TOKEN)" "$(plain gateway.railway.env ENDPOINT_IDENTITY_PROVISIONING_TOKEN)"
+same "$(value identity.railway.env IDENTITY_WEBHOOKS_TOKEN)" "$(plain webhooks-public.railway.env WEBHOOKS_IDENTITY_TOKEN)"
+same "$(value identity.railway.env IDENTITY_DASHBOARD_TOKEN)" "$(plain dashboard.railway.env DASHBOARD_IDENTITY_TOKEN)"
+same "$(value identity.railway.env IDENTITY_RAMP_TOKEN)" "$(plain ramp.railway.env RAMP_IDENTITY_TOKEN)"
+same "$(value identity.railway.env IDENTITY_REGISTRY_TOKEN)" "$(value paxeer-program-registry.box.env REGISTRY_IDENTITY_TOKEN)"
+# All twenty-five independent surviving capabilities remain distinct.
+capabilities=""
+for spec in \
+  paxeer-human-service.box.env:HUMAN_EVENTS_JOURNEY_TOKEN:b64 \
+  paxeer-human-service.box.env:HUMAN_EVENTS_APPROVAL_TOKEN:b64 \
+  gateway.railway.env:ENDPOINT_EVENTS_PAYMENT_TOKEN:b64 \
+  paxeer-program-registry.box.env:REGISTRY_PROGRAM_EVENTS_TOKEN:plain \
+  webhooks-ingress.railway.env:WEBHOOKS_SOURCE_TRIGGER_TOKEN:b64 \
+  internal-kms.railway.env:INTERNAL_KMS_TOKEN:b64 \
+  internal-kms.railway.env:INTERNAL_KMS_SEAL_SECRET:b64 \
+  internal-journeys.railway.env:INTERNAL_JOURNEYS_TOKEN:b64 \
+  internal-payments.railway.env:INTERNAL_PAYMENTS_TOKEN:b64 \
+  internal-approvals.railway.env:INTERNAL_APPROVALS_TOKEN:b64 \
+  internal-programs.railway.env:INTERNAL_PROGRAMS_TOKEN:b64 \
+  paxeer-program-registry.box.env:REGISTRY_REQUEST_TOKEN:plain \
+  paxeer-program-registry.box.env:REGISTRY_PUBLICATION_TOKEN:plain \
+  gateway.railway.env:ENDPOINT_KEY_PROVISIONING_KEY:b64 \
+  webhooks-ingress.railway.env:WEBHOOKS_OPERATOR_TOKEN:b64 \
+  webhooks-ingress.railway.env:WEBHOOKS_CURSOR_KEY:b64; do
+	IFS=: read -r file variable encoding <<<"$spec"
+	if [ "$encoding" = b64 ]; then v=$(plain "$file" "$variable"); else v=$(value "$file" "$variable"); fi
+	hex "$v" "$variable"
+	capabilities+="$v"$'\n'
 done
-[ "$(printf '%s' "$kernel_tokens" | sort -u | wc -l)" -eq 7 ] || fail "kernel bearers collide"
-same "$(value paxeer-human-service.box.env LAYERX_REGISTRY_NODE_AUTHORIZATION)" "$(value paxeer-program-registry.box.env LAYERX_REGISTRY_NODE_AUTHORIZATION)"
-same "$(value paxeer-human-service.box.env LAYERX_REGISTRY_RECEIPT_AUTHORITY_AUTHORIZATION)" \
-	"$(value paxeer-program-registry.box.env LAYERX_REGISTRY_RECEIPT_AUTHORITY_AUTHORIZATION)"
-same "$(value paxeer-program-registry.box.env REGISTRY_REQUEST_TOKEN)" "$(plain router.railway.env ENDPOINT_PROGRAM_REGISTRY_TOKEN)"
+for role in GATEWAY REGISTRY WEBHOOKS DASHBOARD FAUCET TESTNET RAMP PROVISIONING REGISTRAR; do
+	v=$(value identity.railway.env "IDENTITY_${role}_TOKEN")
+	hex "$v" "IDENTITY_${role}_TOKEN"
+	capabilities+="$v"$'\n'
+done
+[ "$(printf '%s' "$capabilities" | sort -u | wc -l)" -eq 25 ] || fail "surviving capabilities collide"
+same "$(value paxeer-program-registry.box.env REGISTRY_REQUEST_TOKEN)" "$(plain gateway.railway.env ENDPOINT_PROGRAM_REGISTRY_TOKEN)"
 hex "$(value paxeer-program-registry.box.env REGISTRY_PUBLICATION_TOKEN)" REGISTRY_PUBLICATION_TOKEN
 [ "$(value paxeer-program-registry.box.env REGISTRY_PUBLICATION_TOKEN)" != "$(value paxeer-program-registry.box.env REGISTRY_REQUEST_TOKEN)" ] ||
 	fail "registry request and publication tokens collide"
@@ -134,18 +139,30 @@ for i in 2 3 4 5; do
 done
 [ "$(value wallet-gateway.railway.env WALLET_CUSTODY_INVENTORY)" = "$(value paxeer-attestor-1.box.env WALLET_CUSTODY_INVENTORY)" ] ||
 	fail "gateway and attestor inventories differ"
-[ "$(plain router.railway.env ENDPOINT_KEY_PROVISIONING_KEY)" != "$(plain router.railway.env ENDPOINT_COMPONENT_TOKEN)" ] ||
+[ "$(plain gateway.railway.env ENDPOINT_KEY_PROVISIONING_KEY)" != "$(plain gateway.railway.env ENDPOINT_IDENTITY_TOKEN)" ] ||
 	fail "independent tokens collide"
-hex "$(plain router.railway.env ENDPOINT_KEY_PROVISIONING_KEY)" "key provisioning key"
-cmp -s <(plain router.railway.env ENDPOINT_MODULE_REGISTRY) "$root/services/interop/deploy/gateway/module-registry.example.json" ||
+hex "$(plain gateway.railway.env ENDPOINT_KEY_PROVISIONING_KEY)" "key provisioning key"
+cmp -s <(plain gateway.railway.env ENDPOINT_MODULE_REGISTRY) "$root/services/interop/deploy/gateway/module-registry.example.json" ||
 	fail "module registry does not round-trip"
 
+# Drive each emitted dotenv through the production closed-schema consumer.
+for service in $services $boxes; do
+    suffix=box
+    case " $services " in *" $service "*) suffix=railway ;; esac
+    "${BRINGUP_INSPECT_BIN:-bringup-inspect}" mint-consume "$service" <"$out/$service.$suffix.env" >/dev/null || fail "$service consumer refused"
+done
+cp "$out/gateway.railway.env" "$work/bad.env"
+printf 'ENDPOINT_AUTHORITY_TOKEN=retired\n' >>"$work/bad.env"
+if "${BRINGUP_INSPECT_BIN:-bringup-inspect}" mint-consume gateway <"$work/bad.env" >/dev/null 2>&1; then fail "foreign authority input accepted"; fi
+sed 's/^ENDPOINT_IDENTITY_TOKEN=.*/ENDPOINT_IDENTITY_TOKEN=malformed/' "$out/gateway.railway.env" >"$work/bad.env"
+if "${BRINGUP_INSPECT_BIN:-bringup-inspect}" mint-consume gateway <"$work/bad.env" >/dev/null 2>&1; then fail "malformed file secret accepted"; fi
 # Each Railway script reads its own dotenv and sets every variable of it on
 # standard input, without a deploy.
 for s in $services; do
 	f=$out/$s.railway.sh
 	sh -n "$f" || fail "$f is not valid sh"
-	grep -qF -- "--stdin --service $s --environment" "$f" || fail "$f does not set variables of $s on stdin"
+	target=$s; [ "$s" != gateway ] || target=$("${BRINGUP_INSPECT_BIN:-bringup-inspect}" rollout-service "$root/deploy/rollout.kvx" router | cut -d' ' -f2)
+	grep -qF -- "--stdin --service $target --environment" "$f" || fail "$f does not set variables of $s on stdin"
 	grep -qF -- "--skip-deploys" "$f" || fail "$f deploys"
 	grep -qF "/$s.railway.env\"" "$f" || fail "$f does not read its dotenv"
 done
@@ -195,6 +212,17 @@ EOF
 		ATTESTOR_QUORUM=3 EXPECTED_PINS="$pins" GATEWAY_SRC="$root/services/wallet/gateway/src" \
 		node_modules/.bin/tsx "$work/check.mts"
 ) || fail "gateway rejected the minted files"
+
+# Invalid producer inputs cannot publish even a partial secret directory.
+cp -a "$work/certs" "$work/bad-certs"
+printf 'malformed certificate\n' >"$work/bad-certs/attestor-1.crt"
+if ATTESTOR_CERT_DIR=$work/bad-certs MODULE_REGISTRY_FILE=$root/services/interop/deploy/gateway/module-registry.example.json \
+    "$root/tools/bringup/mint-secrets.sh" "$work/bad-cert-output" >/dev/null 2>&1; then fail "malformed certificate accepted"; fi
+[ ! -e "$work/bad-cert-output" ] || fail "invalid certificate published output"
+printf '{"schema_version":1}\n' >"$work/bad-modules.json"
+if ATTESTOR_CERT_DIR=$work/certs MODULE_REGISTRY_FILE=$work/bad-modules.json \
+    "$root/tools/bringup/mint-secrets.sh" "$work/bad-module-output" >/dev/null 2>&1; then fail "malformed module registry accepted"; fi
+[ ! -e "$work/bad-module-output" ] || fail "invalid module registry published output"
 
 # A second run into the filled directory is refused.
 if ATTESTOR_CERT_DIR=$work/certs MODULE_REGISTRY_FILE=$root/services/interop/deploy/gateway/module-registry.example.json \

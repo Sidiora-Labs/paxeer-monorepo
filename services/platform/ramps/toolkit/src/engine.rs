@@ -200,6 +200,26 @@ impl RampEngine<'_> {
         self.submit_payment(&order, expected, prepared, now)
     }
 
+    /// Journals and submits the exact transaction authorized by the customer.
+    pub fn submit_customer_payment(
+        &mut self,
+        order_digest: [u8; 32],
+        raw: &[u8],
+        now: u64,
+    ) -> Result<(), RampError> {
+        self.acquire(order_digest, now)?;
+        let snapshot = self.snapshot(order_digest)?;
+        if snapshot.stage != WorkflowStage::AwaitingLayerxPayment
+            || snapshot.order.direction() != RampDirection::OffRamp
+        {
+            return Err(RampError::IllegalTransition);
+        }
+        let prepared = self
+            .layerx
+            .prepare_customer_payment(&snapshot.order, raw, now)?;
+        self.submit_payment(&snapshot.order, snapshot.stage, prepared, now)
+    }
+
     fn submit_payment(
         &mut self,
         order: &RampOrder,
@@ -244,9 +264,18 @@ impl RampEngine<'_> {
             return Err(RampError::IllegalTransition);
         }
         let tx_hash = snapshot.evidence.tx_hash.ok_or(RampError::Layerx)?;
-        let (mut result, _, committed) = self
-            .layerx
-            .resolve_with_evidence(&snapshot.order, tx_hash)?;
+        let (mut result, _, committed) = self.layerx.resolve_transaction(
+            &snapshot.order,
+            tx_hash,
+            Some(
+                snapshot
+                    .evidence
+                    .raw_transaction
+                    .as_deref()
+                    .ok_or(RampError::Layerx)?,
+            ),
+            now < snapshot.order.quote.expires_at,
+        )?;
         if committed {
             if let LayerxSubmission::Verified { leg, .. } = &mut result {
                 leg.rung = Rung::Committed;
@@ -303,7 +332,7 @@ impl RampEngine<'_> {
                 evidence.receipt_digest = Some(leg.receipt_digest);
                 evidence.receipt_height = Some(leg.height);
                 evidence.rung = Some(leg.rung);
-                if leg.rung == Rung::Submitted {
+                if leg.rung != Rung::Committed {
                     evidence.retry_at = Some(now.saturating_add(self.lease_seconds));
                     WorkflowStage::LayerxPending
                 } else {
@@ -498,6 +527,8 @@ impl<'InventoryRebalancer> InventoryRebalancer<'InventoryRebalancer> {
             .sequencer_receipt(&transaction_hash)
             .map_err(|_| RampError::Paxeer)?;
         if let Some(receipt) = &receipt {
+            self.layerx
+                .authenticate_settlement(transaction_hash, receipt)?;
             self.journal.observe_paxeer(
                 idempotency_key,
                 PaxeerObservation::from_sequencer_receipt(operation_id, receipt),

@@ -7,18 +7,43 @@ use crate::{
     },
     codec::{self, Writer},
     errors::{
-        CodecResult, ACCOUNT_BINDING, ARITHMETIC, CAPACITY, F08_MARKET_PAUSED,
-        F08_NO_PRUNABLE_MEMBER, F08_QUORUM_UNAVAILABLE, F08_RETENTION_BLOCKED, F08_STALE_STATE,
-        NON_CANONICAL, WRONG_EPOCH, WRONG_PHASE,
+        CodecResult, ACCOUNT_BINDING, ARITHMETIC, CAPACITY, F02_METADATA_INTEGRITY_FAILURE,
+        F08_MARKET_PAUSED, F08_NO_PRUNABLE_MEMBER, F08_QUORUM_UNAVAILABLE, F08_RETENTION_BLOCKED,
+        F08_STALE_STATE, NON_CANONICAL, WRONG_EPOCH, WRONG_PHASE,
     },
     evaluators::authority::split_identity_section,
     registry::{market_clock, MarketHeader},
     registry_ops::{PolicySection, ACTIVE, REGISTERED, SUSPENDED},
     rewards::{decode_reward_state, Disposition, EpochStatus, RewardState, REWARD_STATE_BYTES},
     state::{self, ActorSlot, Control, Section, SharedState},
-    types::{Amount, Digest32, EpochPhase, WorkerId},
-    workers::{WorkerState, WorkerTable},
+    types::{Amount, Digest32, EpochPhase, WorkerId, WorkerRosterEntry},
+    workers::{decode_manifest, CapabilityFields, WorkerState, WorkerTable},
 };
+
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
+pub struct ParticipantRosterEntry {
+    pub worker: WorkerRosterEntry,
+    pub capabilities: Option<CapabilityFields>,
+}
+
+impl ParticipantRosterEntry {
+    pub fn from_manifest(worker: WorkerRosterEntry, manifest: &[u8]) -> CodecResult<Self> {
+        let summary = decode_manifest(manifest)?;
+        if summary.worker != worker.worker
+            || summary.owner != worker.owner
+            || summary.generation != worker.generation.get()
+            || summary.key_version != worker.key_version.get()
+            || summary.digest != worker.metadata
+        {
+            return Err(F02_METADATA_INTEGRITY_FAILURE);
+        }
+        Ok(Self {
+            worker,
+            capabilities: summary.capabilities,
+        })
+    }
+}
 
 /// Bytes per frozen member in the roster digest preimage.
 const ROSTER_MEMBER_BYTES: usize = 33 + 32 + 8 + 8;
@@ -48,7 +73,8 @@ pub fn prune_candidate(
         .ok_or(F08_NO_PRUNABLE_MEMBER)
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct Health {
     pub roster_evaluators: u8,
     pub eligible_evaluators: u8,
@@ -76,6 +102,8 @@ pub fn health(table: &AdmissionTable) -> CodecResult<Health> {
 }
 
 /// New evaluation-dependent task admission gate.
+/// `tasks::admit` supplies the committed F08 table after exact-retry handling,
+/// before writing a new task.
 ///
 /// # Errors
 /// `F08_QUORUM_UNAVAILABLE` below three eligible frozen evaluators.
@@ -87,7 +115,8 @@ pub fn require_quorum(table: &AdmissionTable) -> CodecResult<()> {
     }
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct Rollover {
     pub epoch: u64,
     pub removed: u8,
@@ -217,7 +246,8 @@ pub const ROLLOVER_SCRATCH_BYTES: usize =
     TABLE_MAX_BYTES + Section::IdentityRoster.payload_cap() + Section::Control.payload_cap();
 
 /// `RosterOpened` summary of one complete rollover over the shared state value.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct RosterOpened {
     pub rollover: Rollover,
     pub previous: Option<u64>,

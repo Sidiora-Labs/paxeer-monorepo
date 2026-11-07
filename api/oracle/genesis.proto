@@ -20,6 +20,15 @@ message GenesisState {
     (gogoproto.nullable) = false,
     (gogoproto.castrepeated) = "PriceSnapshots"
   ];
+  // Version 0 is legacy: exchange_rates has no observation metadata and is
+  // imported as unavailable. Version 1 uses oracle_exchange_rates exclusively.
+  uint32 exchange_rate_version = 8;
+  repeated GenesisExchangeRate oracle_exchange_rates = 9 [(gogoproto.nullable) = false];
+}
+
+message GenesisExchangeRate {
+  string denom = 1;
+  OracleExchangeRate oracle_exchange_rate = 2 [(gogoproto.nullable) = false];
 }
 
 message FeederDelegation {

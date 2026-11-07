@@ -1,0 +1,630 @@
+# Pre-upgrade audit at the reviewed base revision; findings propose repairs only.
+
+[audit.22.30.93]
+task = "22.30.93"
+revision = "2b99f88520e4e809ad5593f3bee2df74fe355d7b"
+files_reviewed = 19
+findings = 40
+docs_reviewed = 16
+upgrade_ready = false
+blocking = ["journey-wire", "finalization-rungs", "session-observation-shape", "human-refusal-wire", "checkpoint-request-shape", "startup-gateway-node", "history-commit-inclusion", "history-window-completeness"]
+
+[file.01]
+path = "services/agent/crates/layerx-agentd/src/agent_rpc_adapters.rs"
+lines = 2706
+verdict = "issues"
+note = "Read all 2706 lines, including native/current conversions, canonical mutations, proof/read export handling, typed error mapping and response bounds. Offline export owner wiring is missing; other reviewed conversions use the declared current request and response types."
+
+[file.02]
+path = "services/agent/crates/layerx-agentd/src/agent_rpc_dispatch.rs"
+lines = 2418
+verdict = "issues"
+note = "Read all 2418 lines, including canonicalization, exact-field decoding and the full operation dispatch. Current transaction/rung and program.receipt paths were compared with their wire owners; read.checkpoint has an incompatible request and no live owner route."
+
+[file.03]
+path = "services/agent/crates/layerx-agentd/src/agent_rpc_wire.rs"
+lines = 3306
+verdict = "clean"
+note = "Read all 3306 lines. Canonical decimal/hex validation, exact-field requests, typed native preparation/approval forms, current rungs, height selectors and cursor triples agree with the corresponding current schema conversions; RPC owner wiring defects are recorded against the adapters and dispatch that introduce them."
+
+[file.04]
+path = "services/agent/crates/layerx-agentd/src/human.rs"
+lines = 3361
+verdict = "issues"
+note = "Read all 3361 lines, including every opcode decoder, subject/trace envelopes, peer authentication, response encoding, request evidence validation and Unix listener. Findings cover journey producer agreement, typed refusal loss, stale socket recovery and elapsed request bounds; the finalization consumer conflict is recorded in managed_agent.rs."
+
+[file.05]
+path = "services/agent/crates/layerx-agentd/src/limits/admission.rs"
+lines = 362
+verdict = "issues"
+note = "Read all 362 lines, including priority order, independent lane bounds, duplicate tracking, backpressure and capacity release. The implementation has no live production scheduler caller, so its limits do not protect actual outbound work."
+
+[file.06]
+path = "services/agent/crates/layerx-agentd/src/limits/deadline.rs"
+lines = 475
+verdict = "issues"
+note = "Read all 475 lines, including deadline composition, write-stage ownership, unknown resolver transfer, cancellation and metrics. The isolated lifecycle is not attached to real request/disconnect/outbox paths."
+
+[file.07]
+path = "services/agent/crates/layerx-agentd/src/limits/mod.rs"
+lines = 44
+verdict = "issues"
+note = "Read all 44 lines. Reviewed reexports and cancel/shed facade signatures against their implementations and callers; neither hook is invoked by a production boundary."
+
+[file.08]
+path = "services/agent/crates/layerx-agentd/src/limits/quota.rs"
+lines = 565
+verdict = "issues"
+note = "Read all 565 lines, including tenant resource accounting, client isolation, durable shedding encoding and recovery scans. Unbounded client-window cardinality and historical shedding storage make the protection itself grow without bound."
+
+[file.09]
+path = "services/agent/crates/layerx-agentd/src/limits/rate.rs"
+lines = 360
+verdict = "issues"
+note = "Read all 360 lines, including all limit scopes, atomic counter admission, logical-time windows, utilization and documented consistency model. Delayed windows erase newer consumption and the counter authority cannot survive process restart or span processes."
+
+[file.10]
+path = "services/agent/crates/layerx-agentd/src/main.rs"
+lines = 1853
+verdict = "issues"
+note = "Read all 1853 lines, including mode selection, readiness, Human startup, program/node wiring, environment and HTTP error paths. Findings distinguish an actual hosted-gateway/node dependency conflict, parsed but unapplied Human controls and stale registry configuration claims."
+
+[file.11]
+path = "services/agent/crates/layerx-agentd/src/managed_agent.rs"
+lines = 2260
+verdict = "issues"
+note = "Read all 2260 lines, including persisted aggregate versions, replay digests, lifecycle transitions, budget/key/session observations, finalization and unit tests. Producer/consumer generation and rung conflicts block control; effect binding and lifetime evidence retention also need repair."
+
+[file.12]
+path = "services/agent/crates/layerx-agentd/src/ops/mod.rs"
+lines = 3
+verdict = "clean"
+note = "Read all 3 lines. The sole declaration is pub mod program, which exposes the reviewed program owner. This module introduces no separate runtime state, wire encoding, configuration or retired endpoint."
+
+[file.13]
+path = "services/agent/crates/layerx-agentd/src/ops/program.rs"
+lines = 2574
+verdict = "issues"
+note = "Read all 2574 lines, including legacy unavailable paths, current EVM simulation/submission, registration/ABI pins, receipt checks, error mapping and fixtures. Current and legacy paths were distinguished; malformed Unicode in external hex can panic in a shared decoder."
+
+[file.14]
+path = "services/agent/crates/layerx-agentd/src/protocol_evidence.rs"
+lines = 2597
+verdict = "issues"
+note = "Read all 2597 lines, including legacy recovery evidence, committed state/time verification, cumulative and time-window usage, fixtures and live history acquisition. The live history path does not prove committed membership or complete window coverage before authenticating policy usage."
+
+[file.15]
+path = "services/agent/crates/layerx-agentd/src/session.rs"
+lines = 1818
+verdict = "clean"
+note = "Read all 1818 lines. Tenant-bound session liveness, token generation and revocation, narrowed scopes, public expiry, companion writes and versioned durable restore were compared with callers. No independent shape, persistence or retired transport defect found in this member; managed session-observation disagreement is in managed_agent.rs."
+
+[file.16]
+path = "services/agent/crates/layerx-agentd/tests/support/mod.rs"
+lines = 1009
+verdict = "issues"
+note = "Read all 1009 lines. Reviewed transaction/receipt and signing fixtures, authority setup and budget/account helpers. New transaction fixtures coexist with retired canonical-activity authorization builders that do not prove the real ledger path."
+
+[file.17]
+path = "services/agent/crates/layerx-agentd/tests/support/real_authority.rs"
+lines = 216
+verdict = "issues"
+note = "Read all 216 lines. The environment chain-id precondition and actual localhost JSON producer were traced through readiness and Gate recreation; the fixture does not prove a real node or node restart."
+
+[file.18]
+path = "services/agent/crates/layerx-agentd/tests/support/send_authorization.rs"
+lines = 16
+verdict = "issues"
+note = "Read all 16 lines and traced its shared encoded-payload caller. The fixed-trailer signing helper maintains the retired activity-envelope authorization shape instead of the ledger type-2 preparation required by the test contract."
+
+[file.19]
+path = "services/agent/sdk/COMPATIBILITY.md"
+lines = 39
+verdict = "generated"
+note = "Generated from services/agent/schema/agent-api/v1.kvx; not hand-authored source. The line-35 offline guarantee still names batch headers/checkpoint certificates. Domain 9 should update the generator source and regenerate this page with portable v2 bundles, receipt keys and validator-set trust; see its documentation status."
+
+[finding.journey-wire]
+file = "services/agent/crates/layerx-agentd/src/human.rs"
+line = 2951
+class = "interface-mismatch"
+severity = "high"
+observed = "AGENT_JOURNEY reads currency with Reader::text, whose bytes decoder rejects zero length, but rotate/recover require currency.is_empty(). The real Human producer agent_key_change at services/human/crates/layerx-human-service/src/server/agent_runtime.rs:1705 calls Writer::text(\"\") and itself refuses before sending. It also supplies zero pre_observation, whereas managed_agent::finalize_journey:943 requires a nonzero key-policy observation for these operations."
+expected = "Opcode 28 must carry key rotation and recovery from the real Human client to agentd with one agreed operation-specific shape and a verified key-policy observation; valid requests must reach the lifecycle owner."
+proposal = "Domain 9 should define a shared versioned journey codec with currency present for reclaim only and bind the required key-policy observation. Coordinate the Human producer in domain 10 and prove rotate and recover through the actual socket, persisted observations and store reopen."
+owner_domain = 9
+interface = "9.proto-human-peer-agent-journey"
+
+[finding.finalization-rungs]
+file = "services/agent/crates/layerx-agentd/src/managed_agent.rs"
+line = 1612
+class = "interface-mismatch"
+severity = "high"
+observed = "HumanFinalizationEvidence::validate in human.rs:376 accepts only non-Submitted Rung ranks 1 or 2, and From copies that byte unchanged. valid_finalization_shape accepts only legacy VerificationLevel ranks 4 or 5; validate_finalization_source:1567 also looks up legacy receipt metadata and compares the legacy rank. The predicate additionally equates the transaction hash with the caller action key. No finalization received through the Human wire can satisfy both rank checks. Unit tests at :2228 explicitly assert the retired ranks."
+expected = "Human control, limit, reclaim, archive and revocation finalization must consume the same transaction hash, independent action key, committed height and Committed rung emitted by the transaction receipt producer, as required by the merged evidence model and req.9047."
+proposal = "Domain 9 should move managed finalization onto the transaction receipt store and typed Rung::Committed evidence with a verified commit, retaining the action key as replay identity rather than equating it with the transaction hash. Exercise real Human requests and receipt persistence across restart, including refusal below Committed."
+owner_domain = 9
+interface = "9.rs-agentd-managed-agent-finalizationevidence-j43"
+
+[finding.session-observation-shape]
+file = "services/agent/crates/layerx-agentd/src/managed_agent.rs"
+line = 816
+class = "interface-mismatch"
+severity = "high"
+observed = "session_bytes at :1186 writes session_generation as u64 between token and open. require_session_observation reads open immediately after token, then action and digest, without reading generation. Its end-of-buffer check rejects every record its own producer emits, leaving eight bytes and shifted fields. finalize_control and finalize_archive consume this decoder."
+expected = "Recorded and prepared session observations must be consumed byte for byte after persistence and reopen, binding the same session, token, generation, action and open state before control or archive is finalized."
+proposal = "Domain 9 should use one versioned session-observation codec for the producer, storage and consumer, check generation against the authoritative restored session and agent, and prove suspend/resume/archive through the actual observation and finalization paths after reopen."
+owner_domain = 9
+interface = "9.rs-agentd-managed-agent-record-session-observation-j43"
+
+[finding.human-refusal-wire]
+file = "services/agent/crates/layerx-agentd/src/human.rs"
+line = 1802
+class = "interface-mismatch"
+severity = "high"
+observed = "encode_response preserves only StaleNonce details; every other HumanOperationError::Typed and CapabilityRefused becomes a single status byte 1. Even the StaleNonce extension is discarded by the real Human client exchange at services/human/crates/layerx-human-service/src/server/agent_runtime.rs:2268, which maps every status 1 to AgentBoundaryError::Refused without decoding a reason. ExportLevelUnattainable and policy, budget and session refusals cannot reach their consumers distinctly."
+expected = "HumanRefusal declares terminal reasons that callers must distinguish, and req.9048.1 specifically requires export.rung_unattainable. Error names and structured details must survive producer, frame transport and real consumer."
+proposal = "Domain 9 should specify and encode the complete bounded typed-refusal envelope, including nonce details, and coordinate domain 10 decoding and API mapping. Prove representative budget, session, capability and export refusals across the real Human socket instead of asserting only the Rust enum."
+owner_domain = 9
+interface = "9.rs-agentd-human-humanrefusal-j43"
+
+[finding.checkpoint-request-shape]
+file = "services/agent/crates/layerx-agentd/src/agent_rpc_dispatch.rs"
+line = 1533
+class = "interface-mismatch"
+severity = "high"
+observed = "Both canonical_request_bytes and dispatch_operation deserialize read.checkpoint as deny_unknown_fields CoordinatesOnly, which has only tenant and agent. The published request requires checkpoint and requested_verification_level, so a schema-valid request is rejected before dispatch; the coordinates-only request instead gets unconditional unavailable_capability.read.checkpoint at :1833."
+expected = "The declared read.checkpoint request must select a committed checkpoint and return its verified CometBFT commit, validator set and height. services/agent/schema/agent-api/read.kvx:63-68 and req.9258.1 require a verified committed block rather than an incompatible decoder."
+proposal = "Domain 9 should give canonicalization and dispatch the same typed checkpoint request as the published schema, route it to the committed checkpoint owner, and prove a real valid selector plus a malformed selector and insufficient-voting-power refusal."
+owner_domain = 9
+interface = "9.http-rpc-read-checkpoint"
+
+[finding.startup-gateway-node]
+file = "services/agent/crates/layerx-agentd/src/main.rs"
+line = 503
+class = "interface-mismatch"
+severity = "high"
+observed = "connect_human_node reads HumanNodeEnvironment.rpc, whose URL is LAYERX_AGENT_NODE_RPC_URL, then requires PxEndpoint::network on that same URL before constructing SequencerEndpoint. The client method emits px_getNetwork (services/agent/crates/layerx-client/src/px.rs:124), which is produced by the hosted gateway, not the direct node endpoint. start_human_owner calls this at :755, so a correctly configured direct public node cannot satisfy startup."
+expected = "The declared node RPC URL must work against the merged node root using its node methods and chain id 125. Gateway network metadata is a separate interface owned by services/platform/hosted/gateway; brief network facts 1 and 3 distinguish the producers."
+proposal = "Domain 9 should establish Human readiness from eth_chainId and verified committed node evidence without requiring gateway metadata on the node URL. If a product function needs px_getNetwork, give it an explicit hosted gateway dependency. Prove startup against the real direct node interface and reject a chain-id mismatch."
+owner_domain = 9
+interface = "8.rpc-gateway-px-getnetwork"
+
+[finding.history-commit-inclusion]
+file = "services/agent/crates/layerx-agentd/src/protocol_evidence.rs"
+line = 2478
+class = "security"
+severity = "high"
+observed = "PolicyHistorySource::prove verifies the signed receipt and compares eth_getTransactionReceipt, pax_sequencerReceipt and block_by_number answers. For a receipt below checkpoint.height it proves neither receipt inclusion under a committed root nor the historical block commitment/ancestry. It then assigns checkpoint.block_hash to CommittedHistoryReceipt.checkpoint_hash at :2581. The authenticated cumulative/time-window consumers trust this assigned checkpoint tag, although the landing and timestamp assertions came from unproven RPC answers."
+expected = "A policy decision must count outcomes and timestamps proven to belong to the committed chain at its captured checkpoint. A sequencer signature proves a receipt, not membership in a committed historical block; req.9258.1 and the brief require verified committed evidence."
+proposal = "Domain 9 should bind each history outcome to a verified committed block and receipt inclusion proof with the receipt height, index, hash and block timestamp covered by that evidence. Reject a validly signed but uncommitted or foreign-block receipt, altered landing metadata and altered timestamps on the real policy-history path."
+owner_domain = 9
+interface = "9.rs-agentd-protocol-evidence-authenticatedcumulativeuse-j43"
+
+[finding.history-window-completeness]
+file = "services/agent/crates/layerx-agentd/src/protocol_evidence.rs"
+line = 2273
+class = "security"
+severity = "high"
+observed = "CumulativeUseWindow::authenticate_history sums only the supplied entries and accepts an empty list as zero use. HistoryWindowBatch::authenticate_history at :2335 trusts first_covered_sequence after simple bounds checks. The live producer read_policy_history in human_runtime.rs:22063-22135 stops when the RPC index reports no next cursor, without authenticating omitted items or coverage; an empty/truncated index response can understate recent spending or activity while returning authenticated usage."
+expected = "Policy cumulative-use and time-window limits must cover every relevant committed outcome in the claimed window. Signed individual items and an unauthenticated end-of-pagination marker cannot establish absence or completeness."
+proposal = "Domain 9 should derive usage from proof-backed committed counters or authenticated complete history ranges and carry verified coverage into the usage types. Refuse incomplete or stale index coverage and prove omitted-item, premature-end and empty-page cases through the actual history producer and policy consumer after restart."
+owner_domain = 9
+interface = "9.rs-agentd-protocol-evidence-cumulativeusewindow"
+
+[finding.offline-export-unwired]
+file = "services/agent/crates/layerx-agentd/src/agent_rpc_adapters.rs"
+line = 1896
+class = "wiring-gap"
+severity = "medium"
+observed = "export_offline validates ExportOfflineWire, discards owner and context, and always returns unavailable_capability.export.offline. Its own documentation promises to pass the level to the owner and validate exactly the requested facts, but no owner call occurs. The published major-2 export operation remains declared with facts, portable v2 bundles and one height."
+expected = "A caller requesting an owned committed fact set must be able to obtain the declared portable export and verify it without a daemon or network. req.9005.4 and services/agent/schema/agent-api/read.kvx:128-145 require the committed v2 export shape and size bound."
+proposal = "Domain 9 should connect the RPC adapter to the existing offline export owner, preserve the ordered fact set and requested rung, and validate the returned common height and complete proof bundles within the response bound. Prove producer-to-RPC-to-offline-verifier success and mismatched-fact refusal."
+owner_domain = 9
+interface = "9.http-rpc-export-offline"
+
+[finding.human-socket-restart]
+file = "services/agent/crates/layerx-agentd/src/human.rs"
+line = 1644
+class = "restart-recovery"
+severity = "medium"
+observed = "HumanUnixServer::bind refuses whenever endpoint.exists(). The server has no socket-path cleanup or owned-stale-socket recovery, and dropping UnixListener does not unlink its pathname. After shutdown or a crash, the next start rejects the prior socket before serving Human requests."
+expected = "The Human owner must restart on its configured protected Unix socket without operator deletion of a stale pathname, while preserving the existing anti-symlink and ownership protections and refusing a live competing owner."
+proposal = "Domain 9 should manage the socket lifetime and reclaim only a verified owned stale socket under a protected directory after checking for a live owner. Prove normal stop/restart, crash/restart and refusal of foreign, symlinked and live sockets through the real startup path."
+owner_domain = 9
+interface = "9.rs-agentd-human-humanunixserver"
+
+[finding.human-total-deadline]
+file = "services/agent/crates/layerx-agentd/src/human.rs"
+line = 1669
+class = "runtime-risk"
+severity = "medium"
+observed = "HumanUnixServer::serve handles each admitted connection synchronously before accepting the next. AcceptedTransport::new sets only per-syscall read/write timeouts, and receive delegates to frame::read_frame. An admitted peer that supplies bytes within each socket timeout can stretch one frame beyond the configured deadline and monopolize this single listener."
+expected = "A Human request must have one bounded elapsed deadline and bounded occupancy so a stalled admitted peer cannot indefinitely block other principals. A socket timeout reset by progress does not enforce the configured whole-request deadline."
+proposal = "Domain 9 should enforce a monotonic whole-frame/request deadline and bounded concurrent admission while preserving authenticated tenant isolation. Prove a slow partial frame times out within the declared bound and that another admitted peer can still obtain service."
+owner_domain = 9
+interface = "9.rs-agentd-human-humanlistenerconfig"
+
+[finding.human-limits-config-unapplied]
+file = "services/agent/crates/layerx-agentd/src/main.rs"
+line = 472
+class = "config-drift"
+severity = "medium"
+observed = "human_frame_limits parses and validates LAYERX_AGENT_HUMAN_MAX_CONNECTIONS, MAX_STREAMS and MAX_QUEUED_BYTES. When binding HumanUnixServer at :843-859, only maximum_frame_bytes and deadline are passed; HumanListenerConfig has no fields for the other limits. These mandatory operator settings do not control the listener."
+expected = "The registry-declared connection, stream and queued-byte limits must control actual Human boundary occupancy, rather than merely passing startup validation."
+proposal = "Domain 9 should wire the three validated limits into the actual listener admission and queue accounting, with per-tenant ownership where applicable. Prove at the real boundary that each configured limit refuses excess work and releases capacity on completion and disconnect."
+owner_domain = 9
+interface = "9.env-layerx-agent-human-max-connections"
+
+[finding.retired-environment-registry]
+file = "services/agent/crates/layerx-agentd/src/main.rs"
+line = 1838
+class = "config-drift"
+severity = "medium"
+observed = "main invokes node_rpc::environment::refuse_retired_environment, which rejects LAYERX_AGENT_MCP_CORE_SEQUENCE and MCP_EXPIRY_SEQUENCE and uses height settings instead. The registry still describes both sequence variables as stable main.rs inputs. Stable main.rs rows also advertise HUMAN_RECONNECT_ATTEMPTS/BASE_MS/MAX_MS/JITTER_PERCENT and HUMAN_EXPORT_SET_VERSION, which have no current environment reader in this startup path."
+expected = "The interface registry and operator configuration must distinguish supported settings, explicit retired-key refusals and removed controls at the reviewed revision. Published stable knobs must name a real reader and runtime effect."
+proposal = "Domain 17 should reconcile the agent-config registry and generated contract rows with domain 9 startup: retire the sequence/reconnect/export-set rows as appropriate and publish the actual height and node RPC settings, preserving explicit rejection of retired inputs. Domain 9 should cover the resulting env contract through its real startup proof."
+owner_domain = 17
+interface = "9.env-layerx-agent-mcp-core-sequence"
+
+[finding.admission-controller-unwired]
+file = "services/agent/crates/layerx-agentd/src/limits/admission.rs"
+line = 140
+class = "wiring-gap"
+severity = "medium"
+observed = "BoundaryAdmission implements bounded priority lanes for submission, receipt resolution and reads, but no production source outside limits/admission.rs constructs or calls it. The live Human and node request paths do not pass through this scheduler, so these lane capacities and submission/receipt priorities do not bound actual traffic."
+expected = "The declared boundary admission controller must own real outbound work at the node boundary, preserve submission and receipt-resolution priority and expose actual backpressure instead of existing only as an isolated library."
+proposal = "Domain 9 should attach BoundaryAdmission to the live node request dispatcher with explicit lifecycle ownership and bounded tenant queues, then prove an overloaded real boundary preserves submission/receipt capacity while refusing lower-priority excess work."
+owner_domain = 9
+interface = "9.rs-agentd-limits-admission-boundaryadmission-j43"
+
+[finding.request-deadline-tracker-unwired]
+file = "services/agent/crates/layerx-agentd/src/limits/deadline.rs"
+line = 203
+class = "wiring-gap"
+severity = "medium"
+observed = "RequestTracker tracks cancellation and transfers UnknownResolving writes to a daemon resolver, but production references outside this module are only the unused limits::cancel facade. RPC/Human request entry, disconnect, deadline and receipt-resolution paths do not create or advance this tracker."
+expected = "The advertised request lifecycle must cancel caller-owned reads and retain ownership of uncertain submissions until receipt resolution, including disconnect and restart, as req.9066 requires for exactly-once behavior."
+proposal = "Domain 9 should connect the tracker to actual request creation, transport disconnect and outbox resolver transitions, deriving recovery from durable submissions. Prove real disconnect before submission and after uncertain broadcast, plus reopen, without releasing the latter reservation prematurely."
+owner_domain = 9
+interface = "9.rs-agentd-limits-deadline-requesttracker"
+
+[finding.shedding-cancellation-hooks-unwired]
+file = "services/agent/crates/layerx-agentd/src/limits/mod.rs"
+line = 15
+class = "wiring-gap"
+severity = "medium"
+observed = "The public cancel and shed functions only forward to RequestTracker and Quota. No production caller invokes either hook, and no live request boundary constructs Quota or RateLimiter. Their durable client-shedding and cancellation behavior therefore does not protect actual RPC or Human traffic."
+expected = "The exported layered tenant controls must apply to the running boundary, shedding only a pathological client while retaining submission and receipt-resolution capacity and preserving unknown-outcome ownership."
+proposal = "Domain 9 should mount these hooks in the authenticated tenant request lifecycle, feed real activity/disconnect observations and expose current utilization. Prove one client can be shed without blocking another tenant or cancelling a daemon-owned unknown resolver."
+owner_domain = 9
+interface = "9.rs-agentd-limits-shed"
+
+[finding.rate-window-regression]
+file = "services/agent/crates/layerx-agentd/src/limits/rate.rs"
+line = 298
+class = "runtime-risk"
+severity = "medium"
+observed = "RateLimiter::admit retains only the selected window for each limit. It accepts authenticated logical_time_ms without a monotonic watermark. After requests in window A and B, a delayed request for A deletes B and starts A from zero; a subsequent B request starts B from zero again. Out-of-order observations can repeatedly reset consumed capacity."
+expected = "Authenticated but delayed requests must not erase consumption in newer rate windows or allow a tenant/client to exceed its declared ceiling by interleaving valid timestamps."
+proposal = "Domain 9 should retain the required overlap of windows or reject observations behind a durable monotonic admission watermark, with atomic checks and increments. Prove A/B/A/B delivery and concurrent delayed requests preserve the configured ceiling and refusal metadata."
+owner_domain = 9
+interface = "9.rs-agentd-limits-rate-ratelimiter"
+
+[finding.rate-counter-recovery]
+file = "services/agent/crates/layerx-agentd/src/limits/rate.rs"
+line = 217
+class = "restart-recovery"
+severity = "medium"
+observed = "CounterLedger is an Arc<Mutex<CounterState>> and shared() creates an empty process-local state. There is no persistence or cross-process backend. A restarted daemon or a second daemon process cannot share the linearizable consumed counters promised by COUNTER_CONSISTENCY_MODEL at :6, and starts with fresh capacity within the same logical window."
+expected = "All daemon instances serving the same tenant must use the same atomic rate counters, and reopening within a live window must preserve prior consumption rather than silently granting a new allowance."
+proposal = "Domain 9 should implement the declared shared counter authority with durable atomic window updates and restore it before admitting work. Prove two real daemon instances and a stop/reopen share one ceiling under concurrent requests and preserve counter revisions."
+owner_domain = 9
+interface = "9.rs-agentd-limits-rate-counterledger"
+
+[finding.quota-unbounded-observations]
+file = "services/agent/crates/layerx-agentd/src/limits/quota.rs"
+line = 321
+class = "runtime-risk"
+severity = "medium"
+observed = "Quota.windows keeps one ClientWindow per tenant/client forever, with no cardinality bound or eviction. Every shed event writes a new timestamped Configuration record at :379-393 with no expiry compaction. active_decision and health scan historical Configuration IDs, so rotating client identifiers grows memory and repeated shedding grows durable state and per-request scan cost."
+expected = "Tenant load protection must itself have bounded memory, durable retention and lookup cost under changing client identities and repeated pathological traffic."
+proposal = "Domain 9 should bound active-client cardinality and expire idle windows, retain an indexed latest shedding decision per client and compact expired history under a defined audit-retention policy. Prove sustained client churn and repeated shed periods keep memory, storage and lookup work within declared limits."
+owner_domain = 9
+interface = "9.rs-agentd-limits-quota-quota"
+
+[finding.managed-effect-binding]
+file = "services/agent/crates/layerx-agentd/src/managed_agent.rs"
+line = 1579
+class = "security"
+severity = "medium"
+observed = "validate_finalization_source checks only module/operation, receipt identity, success, rank and digest before loading the named agent. The requested operation bytes affect only finalization_digest; they are not compared with the signed transaction or proven effect. finalize_limit:867 can consequently project a requested replacement_budget_id and monthly_limit without proving that the successful budget-create receipt created that budget for that agent. The incompatible-rank finding currently blocks the Human path but does not establish this missing authorization binding."
+expected = "Each managed projection update must be authorized by the exact owner transaction and committed effect for its tenant, agent and requested fields. An unrelated successful operation must never authorize a local limit or budget replacement."
+proposal = "Domain 9 should bind the retained raw transaction, authenticated owner/agent identity and committed budget/grant state to every projected mutation before publication. Prove a genuine limit change, then refuse reuse of a same-module successful receipt for a different agent, amount or budget and retain that refusal after reopen."
+owner_domain = 9
+interface = "9.rs-agentd-managed-agent-finalize-limit-j43"
+
+[finding.managed-evidence-lifetime-cap]
+file = "services/agent/crates/layerx-agentd/src/managed_agent.rs"
+line = 1517
+class = "runtime-risk"
+severity = "medium"
+observed = "Every successful finalize_agent appends a digest to verified_evidence, then ManagedAgent::validate rejects lengths above MAX_EVIDENCE=64. There is no rotation or archival path for this vector, so after enough lifecycle actions future finalized changes cannot be projected even when the chain operation succeeded. This becomes reachable once the finalization interface is restored."
+expected = "A long-lived managed agent must remain controllable and recoverable after arbitrarily many valid actions, with a bounded display projection and durable evidence/replay history rather than a lifetime action ceiling."
+proposal = "Domain 9 should separate bounded recent evidence in the agent view from the durable complete action/evidence index. Prove more than 64 finalized actions, reopen and replay without losing auditability, duplicating effects or blocking subsequent control."
+owner_domain = 9
+interface = "9.rs-agentd-managed-agent-finalizationevidence-j43"
+
+[finding.program-hex-unicode-panic]
+file = "services/agent/crates/layerx-agentd/src/ops/program.rs"
+line = 542
+class = "runtime-risk"
+severity = "medium"
+observed = "decode_hex_json checks only even byte length and then slices a Rust str at offset..offset+2. An even-length malformed value such as a followed by U+00E9 followed by a crosses a UTF-8 boundary at byte 2 and panics instead of returning UnverifiedReceipt. The helper reads external simulation receipt fields and program_revert_reason at :1597 uses it on node-provided revert data."
+expected = "Malformed external hexadecimal data must yield a bounded typed refusal without panicking or terminating the owner request/process, including non-ASCII and invalid-boundary text."
+proposal = "Domain 9 should decode bounded ASCII byte pairs and reject any non-hex input before slicing or allocating unbounded output. Prove malformed Unicode in the actual simulation/revert response path produces ProgramOperationError and leaves the owner available."
+owner_domain = 9
+interface = "9.rs-agentd-programoperations-simulate-native-j70"
+
+[finding.support-kernel-authorizations]
+file = "services/agent/crates/layerx-agentd/tests/support/mod.rs"
+line = 20
+class = "test-gap"
+severity = "medium"
+observed = "The shared support imports prepare_activity_for_protocol, attach_kernel_signature and verify_kernel_before_submit and calls them at :201-203 and :292-328. It constructs a protocol-3 canonical activity and protected layerx-sequencer-authority-v1 fixture alongside newer EIP-1559 helpers. These retained fixture paths assert a different authorization shape from the live ledger-call producer."
+expected = "req.22061.1 requires test authorizations to prepare and bind the ledger payment call with no encoded activity envelope; req.22059 and req.22056 require restored type-2 call-bound disclosure and signing records."
+proposal = "Domain 9 should port the shared authorization, budget and expiry fixtures to real ledger EIP-1559 preparation and the live signing/receipt path, retaining all existing success and refusal assertions. Prove these fixtures through producer, transport, receipt consumer and reopen instead of maintaining a parallel kernel-envelope shape."
+owner_domain = 9
+interface = "9.rs-agentd-prepare-prepare-activity-for-protocol"
+
+[finding.send-authorization-retired-shape]
+file = "services/agent/crates/layerx-agentd/tests/support/send_authorization.rs"
+line = 5
+class = "test-gap"
+severity = "medium"
+observed = "sign assumes a 167-byte authorization trailer, overwrites embedded Ed25519 key/signature ranges and computes the retired SignaturePreimage over fixed slices. Its shared caller send_payload in support/mod.rs:91-143 encodes a 0x5301 envelope; signing, expiry, binding and budget tests reuse this helper. It does not produce the live EIP-1559 ledger payment authorization."
+expected = "req.22061.1 requires these tests to obtain their authorizations from the real ledger call and binding path. Fixed-offset envelope repair cannot establish that the actual type-2 transaction and disclosure round-trip."
+proposal = "Domain 9 should replace the helper consumers with the real typed ledger-call preparation, disclosure binding and transaction signing path, preserving the tests and all negative cases. Include a restored-preparation case so tests detect producer-shape changes rather than silently reconstructing another format."
+owner_domain = 9
+interface = "9.rs-agentd-prepare-prepare-activity-for-protocol"
+
+[finding.readiness-real-path-test-gap]
+file = "services/agent/crates/layerx-agentd/tests/support/real_authority.rs"
+line = 54
+class = "test-gap"
+severity = "medium"
+observed = "ReadinessNode::new requires LAYERX_TEST_PAXEER_CHAIN_ID with the message real isolated Paxeer chain id is required, but binds a local TcpListener. readiness_gate:98-106 serves eth_chainId and px_getReceiptKeys responses constructed from fixture signing seeds. restart_authority recreates only Gate against that listener. This proves client consistency with synthetic replies, not the declared real node producer, key rotation or node recovery path."
+expected = "req.22045.1 and the brief require readiness and recovery to be demonstrated through the real node producer and transport. A supplied real chain-id string does not turn a fixture server into a live node proof."
+proposal = "Domain 9 should retain these focused decoder checks as unit coverage and add the required real isolated-node readiness/restart path with the node-produced receipt key intervals and actual transport. Prove wrong-chain and uncovered/rotated-key refusal without replacing the producer with constructed JSON."
+owner_domain = 9
+interface = "9.cli-layerx-agentd"
+
+[finding.agentd-site]
+file = "docs/site/docs/agents/agentd.md"
+line = 12
+class = "doc-drift"
+severity = "medium"
+observed = "The page describes a real sequencer handshake backed by layerx-sequencer-authority-v1 (:12-15), startup through StartupConfig.sequencer_authority_source (:49-64), signed batch evidence and retired verification levels. Its budget section (:31-41) says create_protocol_budget never returns Ok. The current startup reads node RPC readiness, and real_authority.rs serves constructed JSON rather than that claimed handshake. Wiki offsets after its introduction differ by one line."
+expected = "Operator guidance must describe the one-chain major-2 daemon, real readiness dependencies, current committed/receipted evidence and the actual supported budget lifecycle. Historical implementation notes must not be presented as the running system."
+proposal = "Domain 17 should rewrite this page with domain 9 owners against the current startup and budget code: node root URL and chain id, receipt keys and verified commits, current budget effects and explicit limitations. Replace stale line citations and distinguish unit fixtures from a real node/restart proof."
+owner_domain = 17
+
+[finding.agentd-wiki]
+file = "docs/wiki/Agentd.md"
+line = 12
+class = "doc-drift"
+severity = "medium"
+observed = "The page describes a real sequencer handshake backed by layerx-sequencer-authority-v1 (:12-15), startup through StartupConfig.sequencer_authority_source (:50-65), signed batch evidence and retired verification levels. Its budget section (:32-42) says create_protocol_budget never returns Ok. The current startup reads node RPC readiness, and real_authority.rs serves constructed JSON rather than that claimed handshake."
+expected = "Operator guidance must describe the one-chain major-2 daemon, real readiness dependencies, current committed/receipted evidence and the actual supported budget lifecycle. Historical implementation notes must not be presented as the running system."
+proposal = "Domain 17 should rewrite this page with domain 9 owners against the current startup and budget code: node root URL and chain id, receipt keys and verified commits, current budget effects and explicit limitations. Replace stale line citations and distinguish unit fixtures from a real node/restart proof."
+owner_domain = 17
+
+[finding.running-site]
+file = "docs/site/docs/agents/running.md"
+line = 512
+class = "doc-drift"
+severity = "medium"
+observed = "The page sends eth_sendRawTransaction to /rpc at :512 and lists expected_protocol_version, legacy verification levels and sequencer_authority_source at :697-702. The library configuration table still calls node_endpoint an absolute node path and names retired authority/version settings, although the Human environment table already includes the current LAYERX_AGENT_NODE_RPC_URL and NODE_CHAIN_ID. The full-mode NODE_ENDPOINT and Human RPC settings need distinct current guidance; newer entries do not repair the conflicting library instructions."
+expected = "An operator must be able to configure and run the merged daemon using direct node roots, chain id 125, supported environment variables and current rungs without following retired sequencer or /rpc instructions."
+proposal = "Domain 17 should regenerate both startup examples and configuration tables from domain 9 actual environment readers/refusals, remove split-network endpoint and verification guidance, and retain the correct MCP height/key-index material. Publish one coherent node/gateway configuration and current transaction preparation flow."
+owner_domain = 17
+
+[finding.running-wiki]
+file = "docs/wiki/RunningAnAgent.md"
+line = 512
+class = "doc-drift"
+severity = "medium"
+observed = "The page sends eth_sendRawTransaction to /rpc at :512 and lists expected_protocol_version, legacy verification levels and sequencer_authority_source at :697-702. The library configuration table still calls node_endpoint an absolute node path and names retired authority/version settings, although the Human environment table already includes the current LAYERX_AGENT_NODE_RPC_URL and NODE_CHAIN_ID. The full-mode NODE_ENDPOINT and Human RPC settings need distinct current guidance; newer entries do not repair the conflicting library instructions."
+expected = "An operator must be able to configure and run the merged daemon using direct node roots, chain id 125, supported environment variables and current rungs without following retired sequencer or /rpc instructions."
+proposal = "Domain 17 should regenerate both startup examples and configuration tables from domain 9 actual environment readers/refusals, remove split-network endpoint and verification guidance, and retain the correct MCP height/key-index material. Publish one coherent node/gateway configuration and current transaction preparation flow."
+owner_domain = 17
+
+[finding.gateway-rpc-doc]
+file = "docs/site/docs/platform/gateway-rpc.md"
+line = 19
+class = "doc-drift"
+severity = "medium"
+observed = "The Endpoints table advertises api-mainnet-beta.paxeer.network/rpc, /rpc/schema and /rpc/ws and the method table presents lx_ methods, canonical activities and signed-batch verification as the public transport. Those addresses and the retired gateway/node model contradict the declared merged public roots."
+expected = "Brief network facts 2 and 3 require node RPC at the root on api1 through api14 and api-mainnet-beta, with node namespaces distinguished from hosted gateway px_ methods and its OpenRPC contract."
+proposal = "Domain 17 should rewrite this page with domains 7 and 8 around the actual node root methods and separately configured hosted gateway contract, removing retired lx_ activity submission, batch levels and /rpc endpoint guidance and showing type-2 transactions and current receipt rungs."
+owner_domain = 17
+
+[finding.cli-site]
+file = "docs/site/docs/platform/cli.md"
+line = 8
+class = "doc-drift"
+severity = "medium"
+observed = "The introduction requires --rpc URLs ending in /rpc; :277-299 repeats gateway /rpc and eth_sendRawTransaction to /rpc. The page also says command groups and flags are not implemented at :106-138 while its opening and command table describe them as implemented, leaving contradictory operator instructions in the same page."
+expected = "CLI documentation must name the supported commands and flags once, distinguish direct node and hosted gateway endpoints, and use the merged root URL and current transaction/receipt behavior."
+proposal = "Domain 17 should reconcile the command inventory with domain 8 CLI parsers, remove superseded not-implemented paragraphs and retired /rpc restrictions, and provide runnable root-URL examples with the actual credential, fee, type-2 preparation and receipt-rung requirements."
+owner_domain = 17
+
+[finding.cli-wiki]
+file = "docs/wiki/Cli.md"
+line = 8
+class = "doc-drift"
+severity = "medium"
+observed = "The introduction requires --rpc URLs ending in /rpc; :277-299 repeats gateway /rpc and eth_sendRawTransaction to /rpc. The page also says command groups and flags are not implemented at :106-138 while its opening and command table describe them as implemented, leaving contradictory operator instructions in the same page."
+expected = "CLI documentation must name the supported commands and flags once, distinguish direct node and hosted gateway endpoints, and use the merged root URL and current transaction/receipt behavior."
+proposal = "Domain 17 should reconcile the command inventory with domain 8 CLI parsers, remove superseded not-implemented paragraphs and retired /rpc restrictions, and provide runnable root-URL examples with the actual credential, fee, type-2 preparation and receipt-rung requirements."
+owner_domain = 17
+
+[finding.x402-site]
+file = "docs/site/docs/interop/x402.md"
+line = 90
+class = "doc-drift"
+severity = "medium"
+observed = "The public transport section directs integrators to gateway POST /rpc and lx_sendActivity, and describes finalised as requiring a guarantor checkpoint certificate (:103 in the site page, one line later in the wiki). Other sections have newer receipt-signature guidance, so the page mixes current receipt validation with retired submission/finality instructions."
+expected = "Payment integration guidance must use the merged chain transaction route and receipt rungs, with commit finality and no separate guarantor settlement phase. Transport-independent x402 identifiers and amount rules still apply."
+proposal = "Domain 17 should update both pages with domain 11 payment owners to show the real EIP-1559 payment/receipt path, direct-node versus hosted-gateway responsibilities and committed finality. Preserve valid x402 encoding, amount, idempotency and deduplication rules while removing retired transport and certificate examples."
+owner_domain = 17
+
+[finding.x402-wiki]
+file = "docs/wiki/X402Transport.md"
+line = 91
+class = "doc-drift"
+severity = "medium"
+observed = "The public transport section directs integrators to gateway POST /rpc and lx_sendActivity, and describes finalised as requiring a guarantor checkpoint certificate (:103 in the site page, one line later in the wiki). Other sections have newer receipt-signature guidance, so the page mixes current receipt validation with retired submission/finality instructions."
+expected = "Payment integration guidance must use the merged chain transaction route and receipt rungs, with commit finality and no separate guarantor settlement phase. Transport-independent x402 identifiers and amount rules still apply."
+proposal = "Domain 17 should update both pages with domain 11 payment owners to show the real EIP-1559 payment/receipt path, direct-node versus hosted-gateway responsibilities and committed finality. Preserve valid x402 encoding, amount, idempotency and deduplication rules while removing retired transport and certificate examples."
+owner_domain = 17
+
+[finding.agent-api-doc]
+file = "docs/wiki/AgentApi.md"
+line = 4
+class = "doc-drift"
+severity = "medium"
+observed = "The page calls the contract major 1 minor 2, describes a binary contract header, a Paxeer settlement domain and prepare returning unsigned_canonical_bytes (:30). Its verification ladder at :125-126 is Unverified through SettlementAnchored. The current schema is major 2, with EIP-1559 preparation, block-position cursors and submitted/receipted/committed rungs."
+expected = "The Agent API guide must match the published major-2 envelope, typed transaction preparation, current read/export shapes and rungs, and the actual supported operation catalogue."
+proposal = "Domain 17 should rewrite the page from domain 9 major-2 schema and real RPC adapters, replacing the old header, unsigned activity, settlement domain and six-level ladder. Include current transaction fields, cursor triples, committed proof bundles and typed errors with accurate availability statements."
+owner_domain = 17
+
+[finding.index-site]
+file = "docs/site/docs/index.md"
+line = 11
+class = "doc-drift"
+severity = "medium"
+observed = "The overview says ordinary execution remains inside LayerX while checkpoints settle to Paxeer, and lists guarantor bonds, custody reconciliation, challenges and emergency exits as an independent settlement system. It presents split deployment/trust boundaries as the current architecture."
+expected = "Brief network facts 1 and 2 specify one paxd BFT network on EVM chain id 125 with the kernel inside the node and receipt finality at block commit. The separate sequencer daemon and checkpoint-settlement network are retired."
+proposal = "Domain 17 should replace the split-network architecture and settlement tables with the merged execution/receipt/commit flow, current root node endpoints and hosted gateway role. Retain historical context only when clearly dated and revise linked operator concepts with the owning domains."
+owner_domain = 17
+
+[finding.home-wiki]
+file = "docs/wiki/Home.md"
+line = 7
+class = "doc-drift"
+severity = "medium"
+observed = "The overview says ordinary execution remains inside LayerX while checkpoints settle to Paxeer, and lists guarantor bonds, custody reconciliation, challenges and emergency exits as an independent settlement system. It presents split deployment/trust boundaries as the current architecture."
+expected = "Brief network facts 1 and 2 specify one paxd BFT network on EVM chain id 125 with the kernel inside the node and receipt finality at block commit. The separate sequencer daemon and checkpoint-settlement network are retired."
+proposal = "Domain 17 should replace the split-network architecture and settlement tables with the merged execution/receipt/commit flow, current root node endpoints and hosted gateway role. Retain historical context only when clearly dated and revise linked operator concepts with the owning domains."
+owner_domain = 17
+
+[finding.human-peer-contract-note]
+file = "spec/layerx-merge/contracts/agent-human-peer.md"
+line = 145
+class = "doc-drift"
+severity = "medium"
+observed = "The generated agent-owner-rotated registry note says the Human client defines no opcode 43. The actual client agent_owner_rotated in services/human/crates/layerx-human-service/src/server/agent_runtime.rs:1681 constructs Writer::new(43), and human.rs decodes AGENT_OWNER_ROTATED. This note no longer describes the producer/consumer pair."
+expected = "Generated interface prose must identify the current shared opcode and any remaining actual wire disagreements without preserving a disproved missing-producer claim."
+proposal = "Domain 17 should update the underlying interface.9.proto-human-peer-agent-owner-rotated inventory note using domains 9 and 10 current codecs and regenerate the contract page, retaining the opcode and the remaining independently recorded journey/finalization defects."
+owner_domain = 17
+
+[finding.agent-api-contract-notes]
+file = "spec/layerx-merge/contracts/agent-api.md"
+line = 266
+class = "doc-drift"
+severity = "medium"
+observed = "The referenced export-offline note says agentd builds a certificate-based export; the referenced read-checkpoint note at :601 says agentd verifies guarantor certificates. Current RPC adapters instead return unavailable and reject the declared checkpoint fields; the current OfflineExport mirror no longer has a certificates member. The frozen target acceptance rows below these notes describe the desired committed-v2 behavior rather than current runtime availability."
+expected = "Contract pages must separate target acceptance criteria and pinned historical notes from the behavior of the reviewed revision, so consumers do not mistake old certificate implementations for current supported endpoints."
+proposal = "Domain 17 should reconcile the two underlying registry notes with domain 9 current adapters and regenerate this page, preserving the target committed checkpoint and offline-v2 acceptance criteria while documenting the actual availability and open wiring work."
+owner_domain = 17
+
+[finding.agent-format-contract-notes]
+file = "spec/layerx-merge/contracts/agent-formats.md"
+line = 376
+class = "doc-drift"
+severity = "medium"
+observed = "The referenced offline-export note says Rust OfflineExport carries certificates and headers, and the receipt-evidence row at :388 declares LXRE version 1. The current agent-api mirror has facts/bundles/height and receipt.rs declares EVIDENCE_VERSION=2. Frozen requirements in these sections correctly describe the intended upgrade but the inventory notes are stale."
+expected = "Published format inventory must name the current versioned producer and decoder shapes; historical pinned rows must be clearly distinguished from current format compatibility."
+proposal = "Domain 17 should refresh the interface.9.fmt-offline-export and interface.9.fmt-receipt-evidence source notes with domain 9 evidence owners and regenerate the page, publishing the portable v2 bundle and LXRE v2 formats and the actual legacy refusal/recovery rules."
+owner_domain = 17
+
+[doc.01]
+path = "docs/site/docs/agents/agentd.md"
+status = "misleading"
+notes = "Read the full page and compared the wiki mirror. Stale handshake/protected authority-file narrative at lines 12-15 and 49-64 and budget-never-Ok claim at 31-41 need a merged node/readiness and current lifecycle rewrite; see the page finding."
+
+[doc.02]
+path = "docs/wiki/Agentd.md"
+status = "misleading"
+notes = "Read the full page and compared the wiki mirror. Stale handshake/protected authority-file narrative at lines 12-15 and 49-64 and budget-never-Ok claim at 31-41 need a merged node/readiness and current lifecycle rewrite; see the page finding."
+
+[doc.03]
+path = "docs/site/docs/index.md"
+status = "misleading"
+notes = "Read the full page. The opening architecture and settlement sections present separate LayerX execution and Paxeer checkpoint settlement with guarantors. Rewrite for one BFT paxd network on chain 125 and commit finality; see the overview finding."
+
+[doc.04]
+path = "docs/site/docs/agents/running.md"
+status = "misleading"
+notes = "Read the full page and compared the mirror. Lines 512 and 697-735 mix retired /rpc, sequence/authority configuration and verification levels with newer MCP height guidance. Rewrite startup configuration and retain the correct newer MCP sections."
+
+[doc.05]
+path = "docs/site/docs/platform/gateway-rpc.md"
+status = "misleading"
+notes = "Read the full page. Lines 19-31 publish retired /rpc, /rpc/schema and /rpc/ws endpoints; method/read descriptions still mix lx_ canonical activities and legacy verification with the merged public chain. See gateway-rpc-doc."
+
+[doc.06]
+path = "docs/site/docs/platform/cli.md"
+status = "misleading"
+notes = "Read the full page and compared the mirror. Lines 8, 131 and 277-299 require retired /rpc transport; lines 106-138 contradict implemented commands/flags described earlier. Reconcile the inventory and current node/gateway examples."
+
+[doc.07]
+path = "docs/site/docs/interop/x402.md"
+status = "misleading"
+notes = "Read the full page and compared the mirror. Site lines 90-105 (wiki plus one) retain /rpc, lx_sendActivity and guarantor-certificate finality. Preserve the reviewed encoding, payment identity and deduplication rules while rewriting the chain integration."
+
+[doc.08]
+path = "docs/wiki/X402Transport.md"
+status = "misleading"
+notes = "Read the full page and compared the mirror. Site lines 90-105 (wiki plus one) retain /rpc, lx_sendActivity and guarantor-certificate finality. Preserve the reviewed encoding, payment identity and deduplication rules while rewriting the chain integration."
+
+[doc.09]
+path = "docs/wiki/AgentApi.md"
+status = "misleading"
+notes = "Read all 147 lines. Lines 4, 30 and 125-126 describe contract 1.2, unsigned canonical activities and the retired verification ladder rather than major 2, EIP-1559 and three rungs; rewrite from the current schema."
+
+[doc.10]
+path = "docs/wiki/Home.md"
+status = "misleading"
+notes = "Read the full page. The opening architecture and settlement sections present separate LayerX execution and Paxeer checkpoint settlement with guarantors. Rewrite for one BFT paxd network on chain 125 and commit finality; see the overview finding."
+
+[doc.11]
+path = "docs/wiki/RunningAnAgent.md"
+status = "misleading"
+notes = "Read the full page and compared the mirror. Lines 512 and 697-735 mix retired /rpc, sequence/authority configuration and verification levels with newer MCP height guidance. Rewrite startup configuration and retain the correct newer MCP sections."
+
+[doc.12]
+path = "docs/wiki/Cli.md"
+status = "misleading"
+notes = "Read the full page and compared the mirror. Lines 8, 131 and 277-299 require retired /rpc transport; lines 106-138 contradict implemented commands/flags described earlier. Reconcile the inventory and current node/gateway examples."
+
+[doc.13]
+path = "services/agent/sdk/COMPATIBILITY.md"
+status = "stale"
+notes = "Read all 39 lines; generated-source verdict applies. Contract-major 2 matrix is current, but line 35 still promises batch headers and checkpoint certificates. Domain 9 should update its generator/schema source and regenerate portable-v2, receipt-key and validator-set offline guidance."
+
+[doc.14]
+path = "spec/layerx-merge/contracts/agent-human-peer.md"
+status = "stale"
+notes = "Consulted the opcode/interface sections through line 187, especially journey, lifecycle and owner-rotated. The owner-rotated note at line 145 incorrectly claims no producer opcode 43; preserve opcode numbers and refresh the registry note, then regenerate."
+
+[doc.15]
+path = "spec/layerx-merge/contracts/agent-api.md"
+status = "stale"
+notes = "Consulted export-offline lines 258-288 and read-checkpoint lines 583-618. Target committed-v2 acceptance rows informed the review; pinned certificate implementation notes at 266 and 601 no longer describe current adapters. Reconcile the inventory before regenerating."
+
+[doc.16]
+path = "spec/layerx-merge/contracts/agent-formats.md"
+status = "stale"
+notes = "Consulted offline-export and receipt-evidence sections at lines 368-409. Target v2 criteria are useful, but notes at 376 and the LXRE-v1 row at 388 are stale against the current mirrors and receipt store; refresh the inventory and regenerate."
+

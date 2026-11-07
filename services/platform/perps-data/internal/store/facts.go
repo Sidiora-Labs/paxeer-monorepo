@@ -1390,28 +1390,51 @@ func rebuildProject(ctx context.Context, tx *sql.Tx, rows []decode.Row, scope *r
 	return nil
 }
 
-// Rebuild re-folds the accounts, markets and spot tokens touched by [from, to]
-// from their stored history. Keeper cycles are replaced only in that range;
-// cumulative protocol snapshots are refreshed from the first changed time.
-// The leaderboard is rebuilt once at the end, as of its last changing block.
-func Rebuild(ctx context.Context, tx *sql.Tx, from, to int64) error {
+// Recovery retains the keys and first changed time before facts are removed.
+// Rebuild unions these keys with those of the replacement facts.
+type Recovery struct {
+	Accounts []common.Address
+	Markets  []string
+	Tokens   []common.Address
+	FromTime time.Time
+}
+
+// CaptureRecovery must run in the recovery transaction before deleting facts.
+func CaptureRecovery(ctx context.Context, tx *sql.Tx, from, to int64) (Recovery, error) {
+	var out Recovery
 	if tx == nil {
-		return errors.New("store: Rebuild needs a transaction")
+		return out, errors.New("store: CaptureRecovery needs a transaction")
 	}
 	if from < 0 || to < from {
-		return fmt.Errorf("store: rebuild range %d to %d", from, to)
+		return out, fmt.Errorf("store: rebuild range %d to %d", from, to)
 	}
+	scope, err := collectRecoveryScope(ctx, tx, from, to)
+	if err != nil {
+		return out, err
+	}
+	var at sql.NullTime
+	if err := tx.QueryRowContext(ctx, `SELECT min(time) FROM perps.blocks WHERE number BETWEEN $1 AND $2`, from, to).Scan(&at); err != nil {
+		return out, fmt.Errorf("store: capture recovery time: %w", err)
+	}
+	out.Accounts, out.Markets, out.Tokens = scope.accountSet.list, scope.markets.list, scope.tokens.list
+	if at.Valid {
+		out.FromTime = at.Time
+	}
+	return out, nil
+}
+
+func collectRecoveryScope(ctx context.Context, tx *sql.Tx, from, to int64) (*rebuildScope, error) {
 	scope := &rebuildScope{from: from, to: to}
 	for start := from; start <= to; {
 		end := start + min(int64(rebuildSpan-1), to-start)
 		facts, err := loadFacts(ctx, tx, start, end)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		for _, rows := range facts {
 			for _, row := range rows {
 				if err := scope.include(ctx, tx, row); err != nil {
-					return err
+					return nil, err
 				}
 			}
 		}
@@ -1420,15 +1443,54 @@ func Rebuild(ctx context.Context, tx *sql.Tx, from, to int64) error {
 		}
 		start = end + 1
 	}
+	return scope, nil
+}
+
+// Rebuild re-folds the accounts, markets and spot tokens touched by [from, to]
+// from their stored history. Keeper cycles are replaced only in that range;
+// cumulative protocol snapshots are refreshed from the first changed time.
+// Recovery supplies keys and time captured before deletion, including an empty
+// replacement range. Both leaderboards are rebuilt from surviving history.
+func Rebuild(ctx context.Context, tx *sql.Tx, from, to int64, recovery ...Recovery) error {
+	if tx == nil {
+		return errors.New("store: Rebuild needs a transaction")
+	}
+	if from < 0 || to < from {
+		return fmt.Errorf("store: rebuild range %d to %d", from, to)
+	}
+	scope, err := collectRecoveryScope(ctx, tx, from, to)
+	if err != nil {
+		return err
+	}
+	var changedAt sql.NullTime
+	if err := tx.QueryRowContext(ctx, `SELECT min(time) FROM perps.blocks WHERE number BETWEEN $1 AND $2`, from, to).Scan(&changedAt); err != nil {
+		return fmt.Errorf("store: recovery time: %w", err)
+	}
+	for _, old := range recovery {
+		for _, a := range old.Accounts {
+			scope.accountSet.add(a)
+		}
+		for _, m := range old.Markets {
+			scope.markets.add(m)
+		}
+		for _, token := range old.Tokens {
+			scope.tokens.add(token)
+		}
+		if !old.FromTime.IsZero() && (!changedAt.Valid || old.FromTime.Before(changedAt.Time)) {
+			changedAt = sql.NullTime{Time: old.FromTime, Valid: true}
+		}
+	}
 	for _, a := range scope.accountSet.list {
 		scope.accounts = append(scope.accounts, a.Bytes())
 	}
 	var lo, hi sql.NullInt64
-	var changedAt sql.NullTime
-	if err := tx.QueryRowContext(ctx, `SELECT min(number), max(number), min(time) FILTER (WHERE number BETWEEN $1 AND $2) FROM perps.blocks`, from, to).Scan(&lo, &hi, &changedAt); err != nil {
+	if err := tx.QueryRowContext(ctx, `SELECT min(number), max(number) FROM perps.blocks`).Scan(&lo, &hi); err != nil {
 		return fmt.Errorf("store: block range: %w", err)
 	}
-	if !lo.Valid || !changedAt.Valid {
+	if !changedAt.Valid {
+		if len(scope.accounts) != 0 || len(scope.markets.list) != 0 || len(scope.tokens.list) != 0 {
+			return errors.New("store: recovery time required for deleted facts")
+		}
 		return nil
 	}
 	for _, table := range []string{"positions_current", "orders", "spot_orders", "account_margin", "user_stats", "user_pnl_daily"} {
@@ -1447,7 +1509,7 @@ func Rebuild(ctx context.Context, tx *sql.Tx, from, to int64) error {
 	if _, err := tx.ExecContext(ctx, `DELETE FROM perps.protocol_snapshots WHERE hour >= $1`, changedAt.Time.UTC().Truncate(time.Hour).Add(time.Hour)); err != nil {
 		return err
 	}
-	for start := lo.Int64; start <= hi.Int64; {
+	for start := lo.Int64; lo.Valid && start <= hi.Int64; {
 		end := start + min(int64(rebuildSpan-1), hi.Int64-start)
 		facts, err := loadRebuildFacts(ctx, tx, start, end, scope)
 		if err != nil {
@@ -1518,6 +1580,9 @@ SELECT $1, min(block) FROM (
 			return err
 		}
 	}
+	if err := rebuildSpotBoard(ctx, tx, hi.Int64); err != nil {
+		return err
+	}
 	var boardAt sql.NullTime
 	if err := tx.QueryRowContext(ctx, `SELECT max(block_time) FROM (
  SELECT block_time FROM perps.position_events WHERE kind IN ('opened', 'closed')
@@ -1528,5 +1593,6 @@ SELECT $1, min(block) FROM (
 	if boardAt.Valid {
 		return rebuildLeaderboard(ctx, tx, boardAt.Time)
 	}
-	return nil
+	_, err = tx.ExecContext(ctx, `DELETE FROM perps.leaderboard`)
+	return err
 }

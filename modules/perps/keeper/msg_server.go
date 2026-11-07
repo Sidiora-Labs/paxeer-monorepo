@@ -2,7 +2,6 @@ package keeper
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/perps/types"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
@@ -20,7 +19,7 @@ func NewMsgServerImpl(k *Keeper) types.MsgServer { return &msgServer{keeper: k} 
 
 func (k *Keeper) checkGovernanceAuthority(authority string) error {
 	if authority != k.authority {
-		return fmt.Errorf("%w: %s", types.ErrUnauthorized, authority)
+		return types.ErrUnauthorized.Wrapf("%s", authority)
 	}
 	return nil
 }
@@ -42,7 +41,7 @@ func (s *msgServer) UpdateParams(goCtx context.Context, msg *types.MsgUpdatePara
 		return nil, err
 	}
 	if msg.Params.CollateralToken != before.CollateralToken {
-		return nil, fmt.Errorf("%w: collateral token cannot change", types.ErrInvalidParams)
+		return nil, types.ErrInvalidParams.Wrapf("collateral token cannot change")
 	}
 	if msg.Params.MaxOpenOrdersPerAccount < before.MaxOpenOrdersPerAccount {
 		iterator := sdk.KVStorePrefixIterator(s.keeper.store(cacheCtx), types.AccountPrefix)
@@ -51,15 +50,14 @@ func (s *msgServer) UpdateParams(goCtx context.Context, msg *types.MsgUpdatePara
 		for ; iterator.Valid(); iterator.Next() {
 			var account types.Account
 			if err := account.Unmarshal(iterator.Value()); err != nil {
-				return nil, fmt.Errorf("%w: corrupt account: %v", types.ErrInvalidParams, err)
+				return nil, types.ErrInvalidParams.Wrapf("corrupt account: %v", err)
 			}
 			if account.OpenOrderCount > largestOpenOrderCount {
 				largestOpenOrderCount = account.OpenOrderCount
 			}
 		}
 		if msg.Params.MaxOpenOrdersPerAccount < largestOpenOrderCount {
-			return nil, fmt.Errorf("%w: max open orders per account %d below live count %d",
-				types.ErrInvalidParams, msg.Params.MaxOpenOrdersPerAccount, largestOpenOrderCount)
+			return nil, types.ErrInvalidParams.Wrapf("max open orders per account %d below live count %d", msg.Params.MaxOpenOrdersPerAccount, largestOpenOrderCount)
 		}
 	}
 	cacheCtx.EventManager().EmitEvent(sdk.NewEvent("perps_params_updated",

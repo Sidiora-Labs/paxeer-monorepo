@@ -5,9 +5,10 @@ defmodule BlockScoutWeb.API.V2.PaxeerX.UnifiedAccountController do
   import BlockScoutWeb.Chain, only: [split_list_by_page: 1]
 
   alias BlockScoutWeb.AccessHelper
+  alias BlockScoutWeb.Schemas.API.V2.ErrorResponses.NotFoundResponse
   alias Explorer.Chain
   alias Explorer.Chain.{Block, Hash}
-  alias Explorer.Chain.PaxeerX.UnifiedAccount
+  alias Explorer.Chain.PaxeerX.{Identity, UnifiedAccount}
   alias OpenApiSpex.Schema
   alias Phoenix.Token
 
@@ -136,7 +137,7 @@ defmodule BlockScoutWeb.API.V2.PaxeerX.UnifiedAccountController do
 
   tags(["paxeer-x"])
 
-  operation :unified,
+  operation(:unified,
     summary: "Retrieve the native address page on Paxeer X Network",
     description:
       "Retrieves the address's EVM, Paxeer and DID identities, bank and ERC-20 balances, " <>
@@ -154,13 +155,16 @@ defmodule BlockScoutWeb.API.V2.PaxeerX.UnifiedAccountController do
     responses: [
       ok: {"The native address page.", "application/json", @native_schema},
       forbidden: ForbiddenResponse.response(),
+      not_found: NotFoundResponse.response(),
       unprocessable_entity: {"Invalid parameter(s).", "application/json", @invalid_response_schema}
     ]
+  )
 
   @spec unified(Plug.Conn.t(), map()) :: Plug.Conn.t() | {atom(), any()}
   def unified(conn, %{"address_hash_param" => address_hash_string} = params) do
-    with {:format, {:ok, address_hash}} <- {:format, Chain.string_to_address_hash(address_hash_string)},
-         {:ok, false} <- AccessHelper.restricted_access?(address_hash_string, params) do
+    with {:format, {:ok, identity}} <- {:format, Identity.parse(address_hash_string)},
+         {:not_found, {:ok, address_hash}} <- {:not_found, UnifiedAccount.resolve(identity, @api_true)},
+         {:ok, false} <- AccessHelper.restricted_access?(to_string(address_hash), params) do
       identities = UnifiedAccount.identities(address_hash, @api_true)
       native_page(conn, params, address_hash, identities)
     end

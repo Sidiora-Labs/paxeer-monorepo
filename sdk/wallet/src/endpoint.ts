@@ -30,20 +30,56 @@ const EVM_ADDRESS = /^0x[0-9a-fA-F]{40}$/;
 const DECIMAL = /^(0|[1-9][0-9]*)$/;
 const HISTORY_CURSOR = /^[0-9A-Za-z]{1,32}$/;
 
+export interface EndpointClientOptions extends Omit<JsonRpcClientOptions, 'url'> {
+  url?: string;
+  nodeUrl?: string;
+  hostedUrl?: string;
+}
+
 export class EndpointClient {
   readonly rpc: JsonRpcClient;
+  readonly hostedRpc: JsonRpcClient | null;
 
-  constructor(
-    options: (Omit<JsonRpcClientOptions, 'url'> & { url?: string }) | JsonRpcClient = {}
-  ) {
+  constructor(options: EndpointClientOptions | JsonRpcClient = {}) {
     this.rpc =
       options instanceof JsonRpcClient
         ? options
-        : new JsonRpcClient({ ...options, url: options.url ?? DEFAULT_ENDPOINT_URL });
+        : new JsonRpcClient({
+            ...options,
+            url: options.nodeUrl ?? options.url ?? DEFAULT_ENDPOINT_URL,
+          });
+    this.hostedRpc =
+      options instanceof JsonRpcClient || !options.hostedUrl
+        ? null
+        : new JsonRpcClient({
+            ...options,
+            url: options.hostedUrl,
+          });
   }
 
-  batch(calls: readonly JsonRpcCall[]): Promise<JsonRpcOutcome[]> {
-    return this.rpc.batch(calls);
+  private hosted(): JsonRpcClient {
+    if (this.hostedRpc === null)
+      throw new JsonRpcTransportError('EndpointClient: hostedUrl required for hosted px_ reads');
+    return this.hostedRpc;
+  }
+
+  async batch(calls: readonly JsonRpcCall[]): Promise<JsonRpcOutcome[]> {
+    const hosted = calls.filter((call) => this.isHosted(call.method));
+    const node = calls.filter((call) => !this.isHosted(call.method));
+    const hostedRpc = hosted.length ? this.hosted() : null;
+    const [hostedResults, nodeResults] = await Promise.all([
+      hostedRpc ? hostedRpc.batch(hosted) : Promise.resolve([]),
+      node.length ? this.rpc.batch(node) : Promise.resolve([]),
+    ]);
+    let h = 0;
+    let n = 0;
+    return calls.map((call) =>
+      this.isHosted(call.method) ? hostedResults[h++]! : nodeResults[n++]!
+    );
+  }
+
+  private isHosted(method: string): boolean {
+    return method === 'px_register' || method === 'px_requestFunds';
   }
 
   async resolveAccount(account: string): Promise<UnifiedAccountDocument> {

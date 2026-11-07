@@ -2,42 +2,42 @@
   "abi_sources": [
     {
       "export": "factoryAbi",
-      "artifact": "contracts/launchpad/artifacts/contracts/core/SidioraFactory.sol/SidioraFactory.json",
-      "artifact_sha256": "51df37841825e382c351336f1b5ec0e0a4215bc9dbb7e54635e20999b8e8c39d",
-      "source": "contracts/core/SidioraFactory.sol",
+      "artifact": "precompiles/launchpad/abi/SidioraFactory.json",
+      "artifact_sha256": "c9a74337cd6b4887456e68d9f4db096bce2fa377db05e02af584652377a1f33e",
+      "source": "contracts/launchpad/contracts/core/SidioraFactory.sol",
       "source_sha256": "f2b0ffb6fc5b8d2f6cfdcf20324edf183007aa631014868dd092fa6b741a14cf",
       "license": "// SPDX-License-Identifier: LicenseRef-Paxlabs-HyperPax-OS-Protocol"
     },
     {
       "export": "routerAbi",
-      "artifact": "contracts/launchpad/artifacts/contracts/periphery/Router.sol/Router.json",
-      "artifact_sha256": "6d34ea56cfeb9cd7701af68f0c9d278506461f00e70baa2c7ce3fbc0a91b6b03",
-      "source": "contracts/periphery/Router.sol",
+      "artifact": "precompiles/launchpad/abi/Router.json",
+      "artifact_sha256": "01e514e26c0b33871103dfc2d6b6df17db1f4901d35ea49626d77e56be70e2ef",
+      "source": "contracts/launchpad/contracts/periphery/Router.sol",
       "source_sha256": "aedb20e550af0ee8682bd7b7d60a6804cf4ab873ae4cd2b592d7df6732e7cbd5",
       "license": "// SPDX-License-Identifier: LicenseRef-Paxlabs-HyperPax-OS-Protocol"
     },
     {
       "export": "quoterAbi",
-      "artifact": "contracts/launchpad/artifacts/contracts/periphery/Quoter.sol/Quoter.json",
-      "artifact_sha256": "b5f425483dc773bef968a326bbc4d8ef575e8b022e966e055963428ee5c90e77",
-      "source": "contracts/periphery/Quoter.sol",
+      "artifact": "precompiles/launchpad/abi/Quoter.json",
+      "artifact_sha256": "15507598f661fa671d265c45cfb6db19a900aef95832ac132b85953eb2cc6c29",
+      "source": "contracts/launchpad/contracts/periphery/Quoter.sol",
       "source_sha256": "78ffd0cec849011d9f28ad721ba0fb12a35423e489895e601653c208d4c40666",
       "license": "// SPDX-License-Identifier: LicenseRef-Paxlabs-HyperPax-OS-Protocol"
     },
     {
       "export": "protocolConfigAbi",
-      "artifact": "contracts/launchpad/artifacts/contracts/protocol/ProtocolConfig.sol/ProtocolConfig.json",
-      "artifact_sha256": "547266f2c80d021c2cd1696a3d4d7077af0c9cc086bb96f656aa3dae25cc1a7d",
-      "source": "contracts/protocol/ProtocolConfig.sol",
+      "artifact": "precompiles/launchpad/abi/ProtocolConfig.json",
+      "artifact_sha256": "6dc654ac638c579f48b701b47dbec0506392fe42b1190fffac3aafd57f7b8567",
+      "source": "contracts/launchpad/contracts/protocol/ProtocolConfig.sol",
       "source_sha256": "2406f457ff41ee2625a7858b0ff6868c5b66485c8b5c375ad69ff12ddbb75f86",
       "license": "// SPDX-License-Identifier: LicenseRef-Paxlabs-HyperPax-OS-Protocol"
     },
     {
       "export": "erc20Abi",
-      "artifact": "contracts/launchpad/artifacts/contracts/base/ERC20Base.sol/ERC20Base.json",
-      "artifact_sha256": "6131ba0eef1d213df350c4ff51b7e4dc86420b68fbaf9d65a4e7f2ea4e538245",
-      "source": "contracts/base/ERC20Base.sol",
-      "source_sha256": "cdf1f4eeb6b8fe28df50aa2ecf61d3b6a4cab111865faf9a8665a7ac437b9c1e",
+      "artifact": "precompiles/launchpad/abi/SidioraERC20.json",
+      "artifact_sha256": "bde0143d0f5817548718dbd71c7783ea9afc2bace76905aad688f2e5ebad7988",
+      "source": "contracts/launchpad/contracts/core/SidioraERC20.sol",
+      "source_sha256": "f1858c4fe249a470f6baa798c7905f369f2d5c2448971493f004ff57f1f933a1",
       "license": "// SPDX-License-Identifier: LicenseRef-Paxlabs-HyperPax-OS-Protocol"
     }
   ],

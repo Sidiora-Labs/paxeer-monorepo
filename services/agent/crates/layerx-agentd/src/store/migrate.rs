@@ -1,16 +1,14 @@
 //! Forward-only store schema migrations.
 
 use std::fmt::{Display, Formatter};
-use std::fs::{self, File, OpenOptions};
-use std::io::{self, Write};
-use std::path::Path;
+use std::io;
+
+use super::protected::ProtectedRoot;
 
 const MAGIC: &[u8; 4] = b"LXAS";
-const STORE_FILE: &str = "store.bin";
-const MIGRATION_TEMP_FILE: &str = "store.bin.migrating";
 
 /// Current durable store schema.
-pub const CURRENT_SCHEMA_VERSION: u32 = 3;
+pub const CURRENT_SCHEMA_VERSION: u32 = 4;
 const OLDEST_SUPPORTED_SCHEMA_VERSION: u32 = 1;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -65,17 +63,15 @@ impl From<io::Error> for MigrationError {
 }
 
 /// Migrates a store forward without deriving any protocol fact locally.
-pub(super) fn migrate_store(root: &Path) -> Result<MigrationReport, MigrationError> {
-    let path = root.join(STORE_FILE);
-    if !path.exists() {
+pub(super) fn migrate_store(root: &ProtectedRoot) -> Result<MigrationReport, MigrationError> {
+    let Some(mut bytes) = root.read()? else {
         return Ok(MigrationReport {
             original_version: CURRENT_SCHEMA_VERSION,
             final_version: CURRENT_SCHEMA_VERSION,
             steps: Vec::new(),
             core_produced_records_preserved: 0,
         });
-    }
-    let mut bytes = fs::read(&path)?;
+    };
     let original_version = schema_version(&bytes)?;
     let mut version = original_version;
     if version > CURRENT_SCHEMA_VERSION {
@@ -101,6 +97,7 @@ pub(super) fn migrate_store(root: &Path) -> Result<MigrationReport, MigrationErr
         bytes = match version {
             1 => migrate_v1_to_v2(&bytes)?,
             2 => migrate_v2_to_v3(&bytes)?,
+            3 => migrate_v3_to_v4(&bytes)?,
             _ => return Err(MigrationError::UnsupportedOldSchema(version)),
         };
         steps.push(MigrationStep {
@@ -110,16 +107,7 @@ pub(super) fn migrate_store(root: &Path) -> Result<MigrationReport, MigrationErr
         version += 1;
     }
     let core_produced_records_preserved = validate_v2_or_v3(&bytes, version)?;
-    let temp_path = root.join(MIGRATION_TEMP_FILE);
-    let mut file = OpenOptions::new()
-        .create(true)
-        .truncate(true)
-        .write(true)
-        .open(&temp_path)?;
-    file.write_all(&bytes)?;
-    file.sync_all()?;
-    fs::rename(temp_path, path)?;
-    File::open(root)?.sync_all()?;
+    root.write(&bytes)?;
     Ok(MigrationReport {
         original_version,
         final_version: version,
@@ -170,8 +158,51 @@ fn migrate_v2_to_v3(bytes: &[u8]) -> Result<Vec<u8>, MigrationError> {
     Ok(output)
 }
 
+fn migrate_v3_to_v4(bytes: &[u8]) -> Result<Vec<u8>, MigrationError> {
+    let _core_records = validate_v2_or_v3(bytes, 3)?;
+    let mut offset = 8;
+    let count = read_u32(bytes, &mut offset)?;
+    let mut output = bytes[..offset].to_vec();
+    output[4..8].copy_from_slice(&4_u32.to_be_bytes());
+    for _ in 0..count {
+        let record_start = offset;
+        skip_sized(bytes, &mut offset)?;
+        let kind = bytes[offset];
+        offset += 2;
+        let key = read_sized(bytes, &mut offset)?;
+        let value_start = offset;
+        let value = read_sized(bytes, &mut offset)?;
+        let migrated = if kind == 6 {
+            crate::policy::approval::migrate_legacy_hold(key, value)
+                .map_err(|_| MigrationError::CorruptV1)?
+        } else {
+            None
+        };
+        if let Some(value) = migrated {
+            output.extend_from_slice(&bytes[record_start..value_start]);
+            let length = u32::try_from(value.len()).map_err(|_| MigrationError::SizeOverflow)?;
+            output.extend_from_slice(&length.to_be_bytes());
+            output.extend_from_slice(&value);
+        } else {
+            output.extend_from_slice(&bytes[record_start..offset]);
+        }
+    }
+    Ok(output)
+}
+
+fn read_sized<'a>(input: &'a [u8], offset: &mut usize) -> Result<&'a [u8], MigrationError> {
+    let length =
+        usize::try_from(read_u32(input, offset)?).map_err(|_| MigrationError::SizeOverflow)?;
+    let end = offset
+        .checked_add(length)
+        .ok_or(MigrationError::SizeOverflow)?;
+    let value = input.get(*offset..end).ok_or(MigrationError::CorruptV1)?;
+    *offset = end;
+    Ok(value)
+}
+
 fn validate_v2_or_v3(bytes: &[u8], expected_version: u32) -> Result<u32, MigrationError> {
-    if schema_version(bytes)? != expected_version {
+    if !(2..=4).contains(&expected_version) || schema_version(bytes)? != expected_version {
         return Err(MigrationError::InvalidHeader);
     }
     let mut offset = 8_usize;

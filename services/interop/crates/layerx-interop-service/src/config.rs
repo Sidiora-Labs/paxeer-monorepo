@@ -1,3 +1,4 @@
+use crate::relay::RelayJournal;
 use base64::engine::general_purpose::STANDARD;
 use base64::Engine as _;
 use ed25519_dalek::VerifyingKey as Ed25519Key;
@@ -43,6 +44,8 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use zeroize::{Zeroize, Zeroizing};
 
+pub const PAXEER_CHAIN_ID: u64 = 125;
+
 const MAX_IDEMPOTENCY_SECONDS: u64 = 2_592_000;
 const REQUIRED_ADAPTERS: [&str; 5] = ["x402", "ap2", "ucp", "visa-tap", "fiat"];
 const REQUIRED_TRANSPORTS: [&str; 3] = ["http", "mcp", "a2a"];
@@ -53,7 +56,8 @@ pub struct Config {
     pub listener: Listener,
     pub client: Client,
     pub store: RedisStore,
-    pub sequencer: SequencerEndpoint,
+    pub sequencer: Arc<SequencerEndpoint>,
+    pub(crate) relay_journal: RelayJournal,
     pub receipt_keys: Vec<SequencerAuthorization>,
     pub network_id: String,
     pub wire_version: String,
@@ -66,6 +70,7 @@ pub struct Config {
     pub idempotency_seconds: u64,
     pub manifest: RuntimeManifest,
     pub migration_v2: Option<MigrationV2Config>,
+    pub(crate) ap2_receipt_signers: Option<Mutex<crate::ap2_export::Ap2ReceiptSigners>>,
 }
 
 pub struct MigrationV2Config {
@@ -258,10 +263,16 @@ pub fn load() -> Result<Config, String> {
     .map_err(|error| error.to_string())?;
     let redis_username = read_secret("LAYERX_INTEROP_REDIS_USERNAME_FILE")?;
     let redis_password = read_secret("LAYERX_INTEROP_REDIS_PASSWORD_FILE")?;
-    let redis = RedisEndpoint::parse(
-        &env::var("LAYERX_INTEROP_REDIS_URL")
-            .map_err(|_| "LAYERX_INTEROP_REDIS_URL is required".to_owned())?,
-    )?;
+    let redis_url = env::var("LAYERX_INTEROP_REDIS_URL")
+        .map_err(|_| "LAYERX_INTEROP_REDIS_URL is required".to_owned())?;
+    let redis = RedisEndpoint::parse(&redis_url)?;
+    let relay_journal = RelayJournal::new(
+        &redis_url,
+        outbound_ca.clone(),
+        redis_username.clone(),
+        redis_password.clone(),
+    )
+    .map_err(|error| error.to_string())?;
     let sequencer = if private_network {
         SequencerEndpoint::new_with_railway_private_network(
             &sequencer_url,
@@ -303,7 +314,7 @@ pub fn load() -> Result<Config, String> {
         .map_err(|_| "LAYERX_INTEROP_CHAIN_ID is required".to_owned())?
         .parse::<u64>()
         .map_err(|_| "interop chain identifier is invalid".to_owned())?;
-    if readiness_chain_id != 125 {
+    if readiness_chain_id != PAXEER_CHAIN_ID {
         return Err("interop chain identifier must select Paxeer chain 125".to_owned());
     }
     let readiness_max_age_ms = env::var("LAYERX_INTEROP_READINESS_MAX_AGE_MS")
@@ -330,7 +341,8 @@ pub fn load() -> Result<Config, String> {
         listener: listener_config()?,
         client: Client::new(outbound_ca.clone(), identity),
         store: RedisStore::new(redis, outbound_ca, redis_username, redis_password),
-        sequencer,
+        sequencer: Arc::new(sequencer),
+        relay_journal: relay_journal.with_retention(idempotency_seconds),
         receipt_keys,
         network_id,
         wire_version,
@@ -343,7 +355,27 @@ pub fn load() -> Result<Config, String> {
         idempotency_seconds,
         manifest,
         migration_v2: migration_v2_config()?,
+        ap2_receipt_signers: ap2_receipt_signers()?,
     })
+}
+
+fn ap2_receipt_signers() -> Result<Option<Mutex<crate::ap2_export::Ap2ReceiptSigners>>, String> {
+    let name = "LAYERX_INTEROP_AP2_RECEIPT_SIGNERS_FILE";
+    let path = match env::var(name) {
+        Err(env::VarError::NotPresent) => return Ok(None),
+        Err(_) => return Err(format!("{name} is invalid")),
+        Ok(path) => path,
+    };
+    let metadata = fs::metadata(&path).map_err(|_| format!("{name} cannot be read"))?;
+    if !metadata.is_file()
+        || metadata.len() == 0
+        || metadata.len() > 4096
+        || metadata.permissions().mode() & 0o077 != 0
+    {
+        return Err(format!("{name} must be a private bounded signer file"));
+    }
+    let bytes = Zeroizing::new(fs::read(path).map_err(|_| format!("{name} cannot be read"))?);
+    crate::ap2_export::Ap2ReceiptSigners::from_json(&bytes).map(|signers| Some(Mutex::new(signers)))
 }
 
 fn parse_receipt_keys(bytes: &[u8]) -> Result<Vec<SequencerAuthorization>, String> {
@@ -990,9 +1022,6 @@ fn validate_listener_mode() -> Result<(), String> {
 
 fn listener_config() -> Result<Listener, String> {
     validate_listener_mode()?;
-    rustls::crypto::ring::default_provider()
-        .install_default()
-        .map_err(|_| "failed to install TLS crypto provider".to_owned())?;
     match env::var("LAYERX_INTEROP_LISTENER") {
         Err(env::VarError::NotPresent) => tls_config().map(Listener::Tls),
         Ok(mode) if mode == "tls" => tls_config().map(Listener::Tls),
@@ -1007,7 +1036,9 @@ fn tls_config() -> Result<Arc<ServerConfig>, String> {
         "LAYERX_INTEROP_TLS_KEY_DER",
         64 * 1024,
     )?));
-    ServerConfig::builder()
+    ServerConfig::builder_with_provider(Arc::new(rustls::crypto::ring::default_provider()))
+        .with_safe_default_protocol_versions()
+        .map_err(|error| error.to_string())?
         .with_no_client_auth()
         .with_single_cert(vec![cert], key)
         .map(Arc::new)

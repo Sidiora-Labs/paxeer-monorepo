@@ -10,7 +10,7 @@ import (
 func TestBoundsCheckReportsMinAverageTPS(t *testing.T) {
 	fs := FinalStats{
 		LoadTestStatistics: LoadTestStatistics{AvgTPS: 200, TotalTxs: 10000},
-		OverallPerformance: OverallPerformance{
+		OverallPerformance: OverallPerformance{SampleCount: 1,
 			AverageTPS:        90,
 			TotalTransactions: 9000,
 		},
@@ -20,7 +20,7 @@ func TestBoundsCheckReportsMinAverageTPS(t *testing.T) {
 	}, (Bounds{MinAverageTPS: 100}).Check(&fs))
 
 	t.Run("fractional throughput", func(t *testing.T) {
-		fs := FinalStats{OverallPerformance: OverallPerformance{AverageTPS: 99.999}}
+		fs := FinalStats{OverallPerformance: OverallPerformance{SampleCount: 1, AverageTPS: 99.999}}
 		require.Equal(t, []Violation{
 			{Bound: "min_average_tps", Limit: "100.001", Observed: "99.999"},
 		}, (Bounds{MinAverageTPS: 100.001}).Check(&fs))
@@ -34,7 +34,7 @@ func TestBoundsCheckReportsMinAverageTPS(t *testing.T) {
 	})
 
 	t.Run("transaction counts retain uint64 precision", func(t *testing.T) {
-		fs := FinalStats{OverallPerformance: OverallPerformance{TotalTransactions: 18446744073709551614}}
+		fs := FinalStats{OverallPerformance: OverallPerformance{SampleCount: 1, TotalTransactions: 18446744073709551614}}
 		require.Equal(t, []Violation{
 			{Bound: "min_total_txs", Limit: "18446744073709551615", Observed: "18446744073709551614"},
 		}, (Bounds{MinTotalTxs: 18446744073709551615}).Check(&fs))
@@ -43,8 +43,8 @@ func TestBoundsCheckReportsMinAverageTPS(t *testing.T) {
 
 func TestBoundsCheckReportsP99PerEndpoint(t *testing.T) {
 	fs := FinalStats{EndpointPerformance: map[string]EndpointPerformance{
-		"a": {LatencyP99: 80 * time.Millisecond},
-		"b": {LatencyP99: 250 * time.Millisecond},
+		"a": {SampleCount: 1, LatencyP99: 80 * time.Millisecond},
+		"b": {SampleCount: 1, LatencyP99: 250 * time.Millisecond},
 	}}
 	bounds := Bounds{MaxP99Latency: 200 * time.Millisecond}
 	require.Equal(t, []Violation{
@@ -53,12 +53,12 @@ func TestBoundsCheckReportsP99PerEndpoint(t *testing.T) {
 
 	t.Run("every failing endpoint in sorted order", func(t *testing.T) {
 		fs := FinalStats{
-			OverallPerformance: OverallPerformance{AverageTPS: 90, TotalTransactions: 9},
+			OverallPerformance: OverallPerformance{SampleCount: 1, AverageTPS: 90, TotalTransactions: 9},
 			EndpointPerformance: map[string]EndpointPerformance{
-				"z":     {LatencyP99: 400 * time.Millisecond},
-				"b":     {LatencyP99: 250 * time.Millisecond},
-				"a":     {LatencyP99: 80 * time.Millisecond},
-				"equal": {LatencyP99: 200 * time.Millisecond},
+				"z":     {SampleCount: 1, LatencyP99: 400 * time.Millisecond},
+				"b":     {SampleCount: 1, LatencyP99: 250 * time.Millisecond},
+				"a":     {SampleCount: 1, LatencyP99: 80 * time.Millisecond},
+				"equal": {SampleCount: 1, LatencyP99: 200 * time.Millisecond},
 			},
 		}
 		require.Equal(t, []Violation{
@@ -72,9 +72,9 @@ func TestBoundsCheckReportsP99PerEndpoint(t *testing.T) {
 
 func TestBoundsCheckPassesWithinBounds(t *testing.T) {
 	fs := FinalStats{
-		OverallPerformance: OverallPerformance{AverageTPS: 150, TotalTransactions: 9000},
+		OverallPerformance: OverallPerformance{SampleCount: 1, AverageTPS: 150, TotalTransactions: 9000},
 		EndpointPerformance: map[string]EndpointPerformance{
-			"a": {LatencyP99: 50 * time.Millisecond},
+			"a": {SampleCount: 1, LatencyP99: 50 * time.Millisecond},
 		},
 	}
 	for _, tc := range []struct {
@@ -105,7 +105,7 @@ func TestBoundsCheckPassesWithinBounds(t *testing.T) {
 			name:   "throughput and transaction bounds unset",
 			bounds: Bounds{MaxP99Latency: time.Millisecond},
 			stats: FinalStats{EndpointPerformance: map[string]EndpointPerformance{
-				"a": {LatencyP99: time.Millisecond},
+				"a": {SampleCount: 1, LatencyP99: time.Millisecond},
 			}},
 		},
 		{

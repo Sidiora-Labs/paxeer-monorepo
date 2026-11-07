@@ -58,10 +58,12 @@ func MsgUpdateMinterProposalCmd() *cobra.Command {
 
 			contents, err := os.ReadFile(args[0])
 			if err != nil {
-				return err
+				return fmt.Errorf("read minter proposal file %q: %w", args[0], err)
 			}
 
-			clientCtx.Codec.MustUnmarshalJSON(contents, &proposal)
+			if err := clientCtx.Codec.UnmarshalAsJSON(contents, &proposal); err != nil {
+				return fmt.Errorf("decode minter proposal file %q: %w", args[0], err)
+			}
 
 			from := clientCtx.GetFromAddress()
 

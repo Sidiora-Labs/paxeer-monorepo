@@ -2,44 +2,83 @@
 
 # Light Client Verification
 
-The light client implements a read operation of a
-[header][TMBC-HEADER-link] from the [blockchain][TMBC-SEQ-link], by
-communicating with full nodes.  As some full nodes may be faulty, this
-functionality must be implemented in a fault-tolerant way.
-
-In the Tendermint blockchain, the validator set may change with every
-new block.  The staking and unbonding mechanism induces a [security
-model][TMBC-FM-2THIRDS-link]: starting at time *Time* of the
-[header][TMBC-HEADER-link],
-more than two-thirds of the next validators of a new block are correct
-for the duration of *TrustedPeriod*. The fault-tolerant read
-operation is designed for this security model.
-
-The challenge addressed here is that the light client might have a
-block of height *h1* and needs to read the block of height *h2*
-greater than *h1*.  Checking all headers of heights from *h1* to *h2*
-might be too costly (e.g., in terms of energy for mobile devices).
-This specification tries to reduce the number of intermediate blocks
-that need to be checked, by exploiting the guarantees provided by the
-[security model][TMBC-FM-2THIRDS-link].
+This page retains the published upstream Tendermint light-client verification
+model. It explains how to authenticate a header obtained from an untrusted full
+node while downloading fewer intermediate headers. Parts I–V preserve that
+model's trust, timing and validator assumptions, tagged definitions, pseudocode
+and preliminary IBC discussion.
 
 # Status
 
-This document is thoroughly reviewed, and the protocol has been
-formalized in TLA+ and model checked.
+This is a historical research specification. Its upstream review and TLA+ model
+checking concern the Tendermint model described below; they do not establish
+conformance of the merged network or its Autobahn implementation. The current
+Go implementation and the consensus mode determine which verification path is
+available.
+
+## Applicability to the merged network
+
+Paxeer mainnet-beta is one BFT network run by `paxd`. The kernel is part of the
+network and proposes blocks; a receipt is final once its block is committed.
+The EVM chain ID is `125` (`0x7d`). Public EVM JSON-RPC uses the node names at
+the root path, for example `https://api1.mainnet-beta.paxeer.network/`.
+The `commit` and `validators` operations discussed below belong to the
+consensus RPC API. An Ethereum JSON-RPC response alone does not supply the
+signed-header proof required by this model.
+
+| Context | Applicability and source |
+| --- | --- |
+| Classic Tendermint signed headers | The retained model explains adjacent and skipping verification in the [Go verifier](../../../light/verifier.go), subject to its trust and time assumptions. |
+| Autobahn | Selected by a non-empty `autobahn-config-file` in the [node configuration](../../../config/config.go). The [consensus commit handler](../../../internal/rpc/core/blocks.go) returns `ErrCommitNotAvailable` in this mode. This page's signed-header fetch and verification path is therefore unavailable there. |
+| Autobahn certificates | [CommitQC and FullCommitQC](../../../autobahn/types/commit_qc.go) verify proposals, signatures and finalized lane-header ranges against a [Committee](../../../autobahn/types/committee.go). These are distinct proof types from the Tendermint precommit sets defined below; this page supplies no conversion or equivalence proof. |
+| Autobahn recovery | [Persisted consensus state](../../../internal/autobahn/consensus/persisted_inner.go) validates saved certificates, votes and view consistency. Its [persistence implementation](../../../internal/autobahn/consensus/persist/persist.go) loads durable state when configured. Restoring the research `LightStore` below is not an Autobahn restart procedure. |
+
+In particular, the [HTTP light provider](../../../light/provider/http/http.go)
+fetches a signed header through `Commit`. It maps `ErrCommitNotAvailable` to
+`provider.ErrUnreliableProvider`. Serving block data in Autobahn mode does not
+make that data a Tendermint light-client proof. Do not apply the trust-period
+or validator-overlap argument below to an Autobahn certificate.
+
+## Mapping the research model to the Go implementation
+
+The names in Parts I–V are mathematical abstractions and Go-like pseudocode,
+including `LightStore`, `VerifiedState`, `ValidAndVerified`, `Schedule` and
+`VerifyToTarget`. They are not declarations of the current Go API.
+
+| Research concept | Current classic-mode implementation |
+| --- | --- |
+| Initial trust | [TrustOptions](../../../light/trust_options.go) carries `Period`, `Height` and `Hash`. An independently trusted checkpoint is required; a peer response cannot establish its own initial trust. |
+| Light block | [types.LightBlock](../../../types/light.go) embeds `*SignedHeader` and holds `ValidatorSet`. The signed header contains `*Header` and `*Commit`; the research state flags and `NextValidators` payload are not fields of this Go type. |
+| Target verification and scheduling | [Client.VerifyLightBlockAtHeight](../../../light/client.go) drives verification. The skipping implementation caches intermediate blocks; its `schedule` uses a `9/16` pivot between verified and failed heights. The half-distance calculation in the research liveness example is an assumption of that example. |
+| Local checks | [Verify](../../../light/verifier.go) dispatches to `VerifyAdjacent` or `VerifyNonAdjacent`. Both check expiration, chain/header consistency, increasing height and time, future clock bounds, the supplied validator-set hash and more than two-thirds commit voting power. Adjacent verification additionally requires the old `NextValidatorsHash` to match the new `ValidatorsHash`; non-adjacent verification checks signatures against the supplied trusted validator set. |
+| Trust threshold | `DefaultTrustLevel` is the rational fraction `1/3`. `ValidateTrustLevel` accepts values at least `1/3` and strictly less than `1`. `SkippingVerification` configures this fraction; the research `trustThreshold` is not a floating-point node configuration key. |
+| Time bounds | `HeaderExpired` treats `header.Time + trustingPeriod <= now` as expired. A new header must have `Time < now + maxClockDrift`; `MaxClockDrift` defaults to ten seconds in the client. The trusting period is supplied through trust options, not derived from EVM chain ID. |
+| Outcomes | Success is `nil`. [Verifier errors](../../../light/errors.go) include `ErrOldHeaderExpired`, `ErrInvalidHeader` and `ErrNewValSetCantBeTrusted`; the latter triggers intermediate-height verification in the skipping client. `SUCCESS` and `NOT_ENOUGH_TRUST` below are research verdicts, not wire error codes. |
+| Trusted storage | The [store.Store interface](../../../light/store/store.go) saves and loads light blocks. `NewClientFromTrustedStore` in the client restores the classic client's checkpoint; it does not restore Autobahn votes or certificates. |
+
+`ValidateBasic` on a light block or signed header checks internal consistency;
+it does not verify cryptographic signatures. A caller must use the verifier to
+establish the commit proof. The Go client's witness cross-checking and provider
+replacement also go beyond the single-primary core algorithm in this paper.
+
+The staking/unbonding assumption below is part of the retained Tendermint
+security model. Neither a configured trusting period nor these source mappings
+prove that a particular deployment satisfies it. The same qualification applies
+to the bounded communication and clock assumptions used in the liveness proof.
 
 ## Issues that need to be addressed
 
-As it is part of the larger light node, its data structures and
-functions interact with the fork dectection functionality of the light
-client. As a result of the work on
-[Pull Request 479](https://github.com/informalsystems/tendermint-rs/pull/479) we
-established the need for an update in the data structures in [Issue 499](https://github.com/informalsystems/tendermint-rs/issues/499). This
-will not change the verification logic, but it will record information
-about verification that can be used in fork detection (in particular
-in computing more efficiently the proof of fork).
+The upstream discussion of verification metadata and fork detection in
+[Pull Request 479](https://github.com/informalsystems/tendermint-rs/pull/479) and
+[Issue 499](https://github.com/cometbft/tendermint-rs/issues/499) records
+historical design context. It is not the current fork's issue status. The
+preliminary IBC questions in Part V remain part of that research discussion;
+consult the Go sources above for implemented behavior.
 
 # Outline
+
+The following parts describe the retained Tendermint research model. See the
+[applicability map](#applicability-to-the-merged-network) before using them.
 
 - [Part I](#part-i---tendermint-blockchain): Introduction of
  relevant terms of the Tendermint
@@ -48,10 +87,10 @@ blockchain.
 - [Part II](#part-ii---sequential-definition-of-the-verification-problem): Introduction
 of the problem addressed by the Lightclient Verification protocol.
     - [Verification Informal Problem
-      statement](#Verification-Informal-Problem-statement): For the general
+      statement](#verification-informal-problem-statement): For the general
       audience, that is, engineers who want to get an overview over what
       the component is doing from a bird's eye view.
-    - [Sequential Problem statement](#Sequential-Problem-statement):
+    - [Sequential Problem statement](#sequential-problem-statement):
       Provides a mathematical definition of the problem statement in
       its sequential form, that is, ignoring the distributed aspect of
       the implementation of the blockchain.
@@ -63,17 +102,17 @@ of the problem addressed by the Lightclient Verification protocol.
     - [Incentives](#incentives): how faulty full nodes may benefit from
     misbehaving and how correct full nodes benefit from cooperating.
   
-    - [Computational Model](#Computational-Model):
+    - [Computational Model](#computational-model):
       timing and correctness assumptions.
 
-    - [Distributed Problem Statement](#Distributed-Problem-Statement):
+    - [Distributed Problem Statement](#distributed-problem-statement):
       temporal properties that formalize safety and liveness
       properties in the distributed setting.
 
 - [Part IV](#part-iv---light-client-verification-protocol):
   Specification of the protocols.
 
-    - [Definitions](#Definitions): Describes inputs, outputs,
+    - [Definitions](#definitions): Describes inputs, outputs,
        variables used by the protocol, auxiliary functions
 
     - [Core Verification](#core-verification): gives an outline of the solution,
@@ -130,7 +169,10 @@ data they represent.
 
 #### **[TMBC-HEADER-FIELDS.1]**
 
-A header contains the following fields:
+For this mathematical model, a header contains the following conceptual fields.
+Validator sets, commits and application data are treated as values identified by
+their hashes, as assumed above. These are not literal Go `Header` field names;
+see [types/block.go](../../../types/block.go) for the implementation:
 
 - `Height`: non-negative integer
 - `Time`: time (integer)
@@ -255,9 +297,9 @@ For a block *b*, each element *pc* of *PossibleCommit(b)* satisfies:
     - v.blockID = hash(b)
 
 > The following property comes from the validity of the [consensus][arXiv]: A
-> correct validator node only sends `prevote` or `precommit`, if
-> `BlockID` of the new (to-be-decided) block is equal to the hash of
-> the last block.
+> correct validator signs a precommit for the proposed block only after the
+> consensus voting rules allow it. The precommit's `BlockID` identifies that
+> proposed block; `LastBlockID` in its header identifies the previous block.
 
 #### **[TMBC-VAL-COMMIT.1]**
 
@@ -408,9 +450,9 @@ Each instance must eventually terminate.
 
 > These definitions imply that if the primary is faulty, a header may or
 > may not be added to *LightStore*. In any case,
-> [**[LCV-DIST-SAFE.1]**](#lcv-vc-inv) must hold.
-> The invariant [**[LCV-DIST-SAFE.1]**](#lcv-dist-safe) and the liveness
-> requirement [**[LCV-DIST-LIVE.1]**](#lcv-dist-life)
+> [**[LCV-DIST-SAFE.1]**](#lcv-dist-safe1) must hold.
+> The invariant [**[LCV-DIST-SAFE.1]**](#lcv-dist-safe1) and the liveness
+> requirement [**[LCV-DIST-LIVE.1]**](#lcv-dist-live1)
 > allow that verified headers are added to *LightStore* whose
 > height was not passed
 > to the verifier (e.g., intermediate headers used in bisection; see below).
@@ -427,22 +469,23 @@ Each instance must eventually terminate.
 This specification provides a partial solution to the sequential specification.
 The *Verifier* solves the invariant of the sequential part
 
-[**[LCV-DIST-SAFE.1]**](#lcv-vc-inv) => [**[LCV-SEQ-SAFE.1]**](#lcv-seq-inv)
+[**[LCV-DIST-SAFE.1]**](#lcv-dist-safe1) => [**[LCV-SEQ-SAFE.1]**](#lcv-seq-safe1)
 
 In the case the primary is correct, and there is a recent header in *LightStore*, the verifier satisfies the liveness requirements.
 
 ⋀ *primary is correct*  
 ⋀ always ∃ verified header in LightStore. *header.Time* > *now* - *trustingPeriod*  
-⋀ [**[LCV-A-Comm.1]**](#lcv-a-comm) ⋀ (
+⋀ [**[LCV-A-Comm.1]**](#lcv-a-comm1) ⋀ (
        ( [**[TMBC-CorrFull.1]**][TMBC-CorrFull-link] ⋀
-         [**[LCV-DIST-LIVE.1]**](#lcv-vc-live) )
-       ⟹ [**[LCV-SEQ-LIVE.1]**](#lcv-seq-live)
+         [**[LCV-DIST-LIVE.1]**](#lcv-dist-live1) )
+       ⟹ [**[LCV-SEQ-LIVE.1]**](#lcv-seq-live1)
 )
 
 # Part IV - Light Client Verification Protocol
 
-We provide a specification for Light Client Verification. The local
-code for verification is presented by a sequential function
+We retain the research specification for Tendermint light client verification.
+The pseudocode below describes the model, rather than executable Go or the
+Autobahn protocol. The local verification flow is presented by a sequential function
 `VerifyToTarget` to highlight the control flow of this functionality.
 We note that if a different concurrency model is considered for
 an implementation, the sequential flow of the function may be
@@ -571,7 +614,9 @@ func (ls LightStore) FilterVerified() LightSTore
 
 ### Configuration Parameters
 
-- *trustThreshold*: a float. Can be used if correctness should not be based on more voting power and 1/3.
+- *trustThreshold*: a model fraction used to require more trusted voting power
+  than the minimum of one-third. The implementation uses a rational
+  `trustLevel` in `[1/3, 1)`; see the mapping above.
 - *trustingPeriod*: a time duration [**[TMBC-TIME_PARAMS.1]**][TMBC-TIME_PARAMS-link].
 - *clockDrift*: a time duration. Correction parameter dealing with only approximately synchronized clocks.
 
@@ -601,8 +646,18 @@ It is always the case that *LightStore.LatestTrusted.Header.Time > now - trustin
 
 ### Used Remote Functions
 
-We use the functions `commit` and `validators` that are provided
-by the [RPC client for Tendermint][RPC].
+In the retained model, `Commit` and `Validators` abstract requests to a
+Tendermint consensus peer. The signatures below are simplified model
+operations. The current [Go RPC client](../../../rpc/client/http/http.go) uses
+`Commit(ctx, height)` returning `*coretypes.ResultCommit` and
+`Validators(ctx, height, page, perPage)` returning `*coretypes.ResultValidators`,
+with an error in each case. Heights are pointers to `int64`; `nil` requests the
+latest height. The provider fetches `Commit` and the paginated validators at the
+returned height to assemble the actual `types.LightBlock`.
+
+The JSON examples show consensus JSON-RPC requests sent to the configured
+consensus listener's root path. They do not describe methods of the public EVM
+endpoint. Autobahn rejects `commit` as explained in the applicability map.
 
 ```go
 func Commit(height int64) (SignedHeader, error)
@@ -613,13 +668,13 @@ func Commit(height int64) (SignedHeader, error)
     - JSON sent:
 
 ```javascript
-// POST /commit
+// POST to the configured consensus listener root path
 {
  "jsonrpc": "2.0",
  "id": "ccc84631-dfdb-4adc-b88c-5291ea3c2cfb", // UUID v4, unique per request
  "method": "commit",
  "params": {
-  "height": 1234
+  "height": "1234"
  }
 }
 ```
@@ -645,13 +700,13 @@ func Validators(height int64) (ValidatorSet, error)
     - JSON sent:
 
 ```javascript
-// POST /validators
+// POST to the configured consensus listener root path
 {
  "jsonrpc": "2.0",
  "id": "ccc84631-dfdb-4adc-b88c-5291ea3c2cfb", // UUID v4, unique per request
  "method": "validators",
  "params": {
-  "height": 1234
+  "height": "1234"
  }
 }
 ```
@@ -678,7 +733,10 @@ func FetchLightBlock(peer PeerID, height Height) LightBlock
 
 - Implementation remark
     - RPC to peer at *PeerID*
-    - calls `Commit` for *height* and `Validators` for *height* and *height+1*
+    - In this research model, calls `Commit` for *height* and `Validators`
+      for *height* and *height+1*. The current Go provider fetches only the
+      validator set at the returned signed header's height; it does not populate
+      the model's `NextValidators` payload.
 - Expected precondition
     - `height` is less than or equal to height of the peer **[LCV-IO-PRE-HEIGHT.1]**
 - Expected postcondition:
@@ -769,7 +827,7 @@ func VerifyToTarget(primary PeerID, lightStore LightStore,
 - Error conditions
     - if the precondition is violated
     - if `ValidAndVerified` or `FetchLightBlock` report an error
-    - if [**[LCV-INV-TP.1]**](#LCV-INV-TP.1) is violated
+    - if [**[LCV-INV-TP.1]**](#lcv-inv-tp1) is violated
   
 ### Details of the Functions
 
@@ -856,7 +914,7 @@ func Schedule(lightStore, nextHeight, targetHeight) Height
 *trustedStore* is implemented by the light blocks in lightStore that
 have the state *StateVerified*.
 
-#### Argument for [**[LCV-DIST-SAFE.1]**](#lcv-dist-safe)
+#### Argument for [**[LCV-DIST-SAFE.1]**](#lcv-dist-safe1)
 
 - `ValidAndVerified` implements the soundness checks and the checks
   [**[TMBC-VAL-CONTAINS-CORR.1]**][TMBC-VAL-CONTAINS-CORR-link] and
@@ -865,7 +923,7 @@ have the state *StateVerified*.
 - Only if `ValidAndVerified` returns with `SUCCESS`, the state of a light block is
   set to *StateVerified*.
 
-#### Argument for [**[LCV-DIST-LIVE.1]**](#lcv-dist-life)
+#### Argument for [**[LCV-DIST-LIVE.1]**](#lcv-dist-live1)
 
 - If *primary* is correct,
     - `FetchLightBlock` will always return a light block consistent
@@ -873,7 +931,7 @@ have the state *StateVerified*.
     - `ValidAndVerified` either verifies the header using the trusting
       period or falls back to sequential
       verification
-    - If [**[LCV-INV-TP.1]**](#LCV-INV-TP.1) holds, eventually every
+    - If [**[LCV-INV-TP.1]**](#lcv-inv-tp1) holds, eventually every
    header will be verified and core verification **terminates successfully**.
     - successful termination depends on the age of *lightStore.LatestVerified*
       (for instance, initially on the age of  *trustedHeader*) and the
@@ -889,7 +947,7 @@ have the state *StateVerified*.
 
 ## Liveness Scenarios
 
-The liveness argument above assumes [**[LCV-INV-TP.1]**](#LCV-INV-TP.1)
+The liveness argument above assumes [**[LCV-INV-TP.1]**](#lcv-inv-tp1)
 
 which requires that there is a header that does not expire before the
 target height is reached. Here we discuss scenarios to ensure this.
@@ -967,6 +1025,13 @@ If on the blockchain the validator set of the block at height
   2 Delta - Comp*, then core verification terminates successfully
 
 # Part V - Supporting the IBC Relayer
+
+This part retains a preliminary upstream design, not a merged-network IBC
+integration contract. The current classic-mode `VerifyBackwards` in the
+[Go verifier](../../../light/verifier.go) checks basic header validity, chain ID,
+time ordering and the trusted header's `LastBlockID.Hash` against the older
+header hash. It intentionally performs no trusting-period check. That behavior
+does not supply an Autobahn backwards-verification or recovery algorithm.
 
 The above specification focuses on the most common case, which also
 constitutes the most challenging task: using the Tendermint [security
@@ -1138,6 +1203,12 @@ func Main (primary PeerID, lightStore LightStore, targetHeight Height)
 
 # References
 
+The source links in the applicability map describe the current fork. The links
+below retain upstream research provenance; they do not establish current
+network API support. See also the local [verification overview](README.md),
+[light-client index](../README.md) and [specification index](../../README.md),
+read with the mode restrictions above.
+
 [[block]] Specification of the block data structure.
 
 [[RPC]] RPC client for Tendermint
@@ -1150,9 +1221,9 @@ func Main (primary PeerID, lightStore LightStore, targetHeight Height)
 
 [[lightclient]] The light client ADR [77d2651 on Dec 27, 2019].
 
-[RPC]: https://docs.tendermint.com/master/rpc/
+[RPC]: https://docs.cometbft.com/v0.38/rpc/
 
-[block]: https://github.com/tendermint/spec/blob/d46cd7f573a2c6a2399fcab2cde981330aa63f37/spec/core/data_structures.md
+[block]: https://github.com/cometbft/cometbft/blob/main/spec/core/data_structures.md
 
 [TMBC-HEADER-link]: #tmbc-header1
 [TMBC-SEQ-link]: #tmbc-seq1
@@ -1165,16 +1236,16 @@ func Main (primary PeerID, lightStore LightStore, targetHeight Height)
 [TMBC-SOUND-DISTR-POSS-COMMIT-link]: #tmbc-sound-distr-poss-commit1
 
 [lightclient]: https://github.com/interchainio/tendermint-rs/blob/e2cb9aca0b95430fca2eac154edddc9588038982/docs/architecture/adr-002-lite-client.md
-[fork-detector]: https://github.com/informalsystems/tendermint-rs/blob/master/docs/spec/lightclient/detection.md
-[fullnode]: https://github.com/tendermint/spec/blob/master/spec/blockchain/fullnode.md
+[fork-detector]: ../detection/README.md
+[fullnode]: https://github.com/cometbft/cometbft/blob/main/spec/light-client/verification/verification_001_published.md#used-remote-functions
 
 [ibc-rs]:https://github.com/informalsystems/ibc-rs
 
-[FN-LuckyCase-link]: https://github.com/tendermint/spec/blob/master/spec/blockchain/fullnode.md#fn-luckycase
+[FN-LuckyCase-link]: https://github.com/cometbft/cometbft/blob/main/spec/light-client/verification/verification_001_published.md#used-remote-functions
 
-[blockchain-validator-set]: https://github.com/tendermint/spec/blob/master/spec/blockchain/blockchain.md#data-structures
-[fullnode-data-structures]: https://github.com/tendermint/spec/blob/master/spec/blockchain/fullnode.md#data-structures
+[blockchain-validator-set]: https://github.com/cometbft/cometbft/blob/main/spec/core/data_structures.md#validatorset
+[fullnode-data-structures]: https://github.com/cometbft/cometbft/blob/main/spec/core/data_structures.md#lightblock
 
-[FN-ManifestFaulty-link]: https://github.com/tendermint/spec/blob/master/spec/blockchain/fullnode.md#fn-manifestfaulty
+[FN-ManifestFaulty-link]: https://github.com/cometbft/cometbft/blob/main/spec/light-client/verification/verification_001_published.md#used-remote-functions
 
 [arXiv]: https://arxiv.org/abs/1807.04938

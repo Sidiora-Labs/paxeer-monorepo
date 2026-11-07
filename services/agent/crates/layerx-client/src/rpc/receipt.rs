@@ -8,11 +8,14 @@ use layerx_types::result::ResultCode;
 use layerx_wire::receipt::Receipt;
 use sha2::{Digest as _, Sha256};
 
+use crate::rpc::commit::{acquire_committed_header, CommitError};
+use crate::rpc::receipt_commit::{verify_receipt_coverage, CoverageError, ReceiptCommitEvidence};
 use crate::rpc::submit::Unknown;
 use crate::sequencer::{
     ExecutedReceipt, ReceiptKeyEntry, SequencerEndpoint, SequencerError, SequencerReceipt,
     TransactionReceipt,
 };
+use layerx_programs_registry::chain_proof::VerifiedChainHead;
 use std::time::Duration;
 
 /// Bounded deterministic jitter schedule for reconnect attempts.
@@ -69,6 +72,8 @@ pub struct AuthenticatedReceipt {
     module_id: u16,
     rung: Rung,
     landing: Option<TransactionReceipt>,
+    covering_block: Option<(u64, [u8; 32])>,
+    committed_header: Option<VerifiedChainHead>,
 }
 
 impl AuthenticatedReceipt {
@@ -118,6 +123,16 @@ impl AuthenticatedReceipt {
     }
 
     #[must_use]
+    pub const fn covering_block(&self) -> Option<(u64, [u8; 32])> {
+        self.covering_block
+    }
+
+    #[must_use]
+    pub const fn committed_header(&self) -> Option<&VerifiedChainHead> {
+        self.committed_header.as_ref()
+    }
+
+    #[must_use]
     pub const fn landing(&self) -> Option<&TransactionReceipt> {
         self.landing.as_ref()
     }
@@ -139,6 +154,8 @@ pub enum ReceiptError {
     Logs(SequencerLogRefusal),
     FieldMismatch(&'static str),
     InvalidTransactionHash,
+    Commit(CommitError),
+    Coverage(CoverageError),
 }
 
 impl ReceiptError {
@@ -178,16 +195,38 @@ pub fn lookup_authenticated(
     tx_hash: [u8; 32],
     context: AuthenticatedLookupContext<'_>,
 ) -> Result<AuthenticatedLookup, ReceiptError> {
+    lookup_with_evidence(endpoint, tx_hash, context, None)
+}
+
+pub fn lookup_authenticated_with_commit(
+    endpoint: &SequencerEndpoint,
+    tx_hash: [u8; 32],
+    context: AuthenticatedLookupContext<'_>,
+    evidence: &ReceiptCommitEvidence<'_>,
+) -> Result<AuthenticatedLookup, ReceiptError> {
+    lookup_with_evidence(endpoint, tx_hash, context, Some(evidence))
+}
+
+fn lookup_with_evidence(
+    endpoint: &SequencerEndpoint,
+    tx_hash: [u8; 32],
+    context: AuthenticatedLookupContext<'_>,
+    evidence: Option<&ReceiptCommitEvidence<'_>>,
+) -> Result<AuthenticatedLookup, ReceiptError> {
     if tx_hash == [0; 32] {
         return Err(ReceiptError::InvalidTransactionHash);
     }
-    let execution = match endpoint.sequencer_receipt(&tx_hash)? {
+    let (execution, covering_block) = match endpoint.sequencer_receipt(&tx_hash)? {
         None => return Ok(Lookup::Absent),
         Some(SequencerReceipt::Submitted { tx_hash, nonce }) => {
             return Ok(Lookup::Submitted { tx_hash, nonce });
         }
-        Some(SequencerReceipt::Receipted(receipt))
-        | Some(SequencerReceipt::Committed { receipt, .. }) => receipt,
+        Some(SequencerReceipt::Receipted(receipt)) => (receipt, None),
+        Some(SequencerReceipt::Committed {
+            receipt,
+            block_number,
+            block_hash,
+        }) => (receipt, Some((block_number, block_hash))),
     };
     let keys: Vec<_> = context
         .receipt_keys
@@ -204,7 +243,11 @@ pub fn lookup_authenticated(
     let receipt = verify_sequencer_signature(&execution.receipt, keys.as_slice())
         .map_err(ReceiptError::Verification)?;
     let module_id = verify_execution(&receipt, &execution, tx_hash)?;
-    let landing = endpoint.transaction_receipt(&tx_hash)?;
+    let landing = match endpoint.transaction_receipt(&tx_hash) {
+        Ok(landing) => landing,
+        Err(SequencerError::Unavailable) => None,
+        Err(error) => return Err(error.into()),
+    };
     if let Some(committed) = &landing {
         if committed.block_number < execution.height {
             return Err(ReceiptError::FieldMismatch("blockNumber"));
@@ -213,7 +256,50 @@ pub fn lookup_authenticated(
             return Err(ReceiptError::FieldMismatch("status"));
         }
     }
-    let rung = if landing.is_some() {
+    let mut committed_header = None;
+    if let Some(evidence) = evidence {
+        let height = evidence.covering_height;
+        if height < execution.height
+            || landing
+                .as_ref()
+                .is_some_and(|landing| landing.block_number > height)
+            || covering_block.is_some_and(|(claimed_height, _)| claimed_height != height)
+        {
+            return Err(ReceiptError::FieldMismatch("coveringBlock"));
+        }
+        match acquire_committed_header(endpoint, height, evidence.verifier) {
+            Ok(head) => {
+                if covering_block.is_some_and(|(_, block_hash)| block_hash != head.header_hash()) {
+                    return Err(ReceiptError::FieldMismatch("blockHash"));
+                }
+                let block = match endpoint.block_by_number(height) {
+                    Ok(block) => block,
+                    Err(SequencerError::Unavailable) => None,
+                    Err(error) => return Err(error.into()),
+                };
+                if let Some(block) = block {
+                    if block.hash != head.header_hash() {
+                        return Err(ReceiptError::FieldMismatch("blockHash"));
+                    }
+                    verify_receipt_coverage(
+                        receipt
+                            .protocol()
+                            .ok_or(ReceiptError::FieldMismatch("receipt"))?,
+                        execution.height,
+                        &head,
+                        evidence,
+                        context.receipt_keys,
+                    )
+                    .map_err(ReceiptError::Coverage)?;
+                    committed_header = Some(head);
+                }
+            }
+            Err(CommitError::Rpc(SequencerError::Unavailable)) => {}
+            Err(CommitError::Rpc(SequencerError::Rpc(ref refusal))) if refusal.code == -32601 => {}
+            Err(error) => return Err(ReceiptError::Commit(error)),
+        }
+    }
+    let rung = if committed_header.is_some() {
         Rung::Committed
     } else {
         Rung::Receipted
@@ -224,6 +310,8 @@ pub fn lookup_authenticated(
         module_id,
         rung,
         landing,
+        covering_block,
+        committed_header,
     }))
 }
 
@@ -286,8 +374,8 @@ fn verify_execution(
         (summary.sponsor() == execution.sponsor, "sponsor"),
         (summary.fee_denom() == execution.fee_denom, "feeDenom"),
         (
-            protocol.asset() == sha256(execution.fee_denom.as_bytes()),
-            "feeDenom",
+            protocol.asset() == sha256(execution.payment_denom.as_bytes()),
+            "paymentDenom",
         ),
         (fee == execution.fee_amount, "feeAmount"),
         (protocol.from() == from, "from"),

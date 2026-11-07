@@ -1,15 +1,15 @@
 [sweep.go-storage]
-revision = "1fea7069e58b649760bb1afcabdb9c4caec5ea4c"
+revision = "ace3608260f2ec826292dab08cd058031efe2f46"
 command = "CGO_ENABLED=1 go vet ./TARGET/ && CGO_ENABLED=1 go test -count=1 ./TARGET/"
 targets_total = 69
-targets_passed = 67
-targets_failed = 2
+targets_passed = 69
+targets_failed = 0
 targets_not_run = 0
 enumeration_command = "CGO_ENABLED=1 go list ./storage/..."
 enumeration_exit_code = 0
 execution_environment = "GOMAXPROCS=2; three concurrent per-target workers; CGO_ENABLED=1 throughout."
 native_archives = "The cgo dependency inventory contains no native kernel archive dependency; no additional make paxd-native-libs invocation was needed."
-evidence = "/out/logs/go-storage/qualification.jsonl"
+evidence = "/out/logs/go-storage-closure/qualification.jsonl"
 
 [target.go-storage.1]
 target = "storage/common/errors"
@@ -133,10 +133,8 @@ exit_code = 0
 
 [target.go-storage.25]
 target = "storage/db_engine/litt/util"
-result = "failed"
-exit_code = 1
-observed = "storage/db_engine/litt/util/file_utils_test.go:1041: TestDeleteOrphanedSwapFilesPermissions expected an error but received nil."
-assumption = "The sandbox runs as root, which likely bypasses the filesystem permission restriction expected by this test; this is an environmental cause."
+result = "passed"
+exit_code = 0
 
 [target.go-storage.26]
 target = "storage/db_engine/pebbledb"
@@ -275,10 +273,8 @@ exit_code = 0
 
 [target.go-storage.53]
 target = "storage/state_db/sc/memiavl"
-result = "failed"
-exit_code = 1
-observed = "storage/state_db/sc/memiavl/snapshot_methods_test.go:161: TestWriterLoopErrors expected an error from WriteSnapshot but received nil."
-assumption = "The sandbox runs as root, which can create the intended invalid path /invalid/path/snapshot and likely prevents the expected write error; this is an environmental cause."
+result = "passed"
+exit_code = 0
 
 [target.go-storage.54]
 target = "storage/state_db/sc/migration"

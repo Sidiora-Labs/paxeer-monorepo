@@ -1,8 +1,15 @@
+//go:build ignore
+
+#define _POSIX_C_SOURCE 200809L
+
 #include "layerx/lxp_kernel.h"
 
 #include <stdbool.h>
 #include <stdint.h>
 #include <string.h>
+
+#include "lxp_test_host_bound_migration.h"
+#include "lxp_test_audit_m966.h"
 
 static size_t begin_calls;
 static size_t end_calls;
@@ -368,8 +375,11 @@ done:
     return result;
 }
 
-int main(void)
+int main(int argc, char **argv)
 {
+    if (argc == 5 && strcmp(argv[1], "--build-genesis-artifacts") == 0)
+        return lxp_genesis_builder_cli_main(argc - 1, argv + 1);
+    if (argc != 1) return 2;
     static const uint32_t v1_types[] = { UINT32_C(0x00010001),
                                          UINT32_C(0x00010002) };
     static const uint32_t v2_types[] = { UINT32_C(0x00010001),
@@ -425,5 +435,9 @@ int main(void)
     if (capacity_checks(&kernel, &store, &journal) != 0) return 1;
     if (lxp_state_store_destroy(&store) != LXP_OK) return 1;
     if (prepare_staging_checks() != 0) return 1;
+    if (host_bound_migration_admission() != 0) return 1;
+    if (host_bound_migration_refusals() != 0) return 1;
+    if (host_bound_migration_transport() != 0) return 1;
+    if (audit_m966_tests() != 0) return 1;
     return 0;
 }

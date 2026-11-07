@@ -33,7 +33,8 @@ class GateDispatchTest(unittest.TestCase):
         self.repo = self.base / 'repo'
         self.tools = self.repo / 'tools/paxeer-x'
         (self.tools / 'gates').mkdir(parents=True)
-        for name in ('candidate.py', 'verify-task.sh', 'release.sh'):
+        for name in ('candidate.py', 'candidate_contract.go', 'route-catalogue.json',
+                     'verify-task.sh', 'release.sh'):
             shutil.copy2(TOOLS / name, self.tools / name)
         self.spec = self.tools / 'gates/registry.kvx'
         self.spec.write_text('[meta]\nstatus = "active"\n\n' + SERVICES + ''.join(

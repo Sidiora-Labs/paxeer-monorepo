@@ -1,0 +1,21 @@
+[repair.22.33.320]
+finding = "boundary_dynamic_navigation"
+implementation = "Record the concrete router.asPath when a child throws and clear the error only when that route identity changes."
+tests = ["boundaryDynamicNavigationTransactionHashes", "boundaryDynamicNavigationAddressHashes"]
+test_path = "apps/explorer/ui/shared/repair-22-33-320.spec.ts"
+proof = "The real Next.js Router and PageLoader consume committed in-memory bootstrap manifests; shallow pushes update browser history and publish public router snapshots through RouterContext to the production ErrorBoundary wrapper and resource consumer. Both dynamic route templates recover across resource hashes, retain errors on unchanged routes, and recover again after a later error."
+baseline = "Not run: the explicit task order requires the complete implementation before any build or test and permits verification only through hf-done. No baseline failure is claimed; comparing pathname would retain the first error screen at the regression's recovery assertion."
+wiring_requests = []
+evidence = "The runner records the verified candidate revision, exact command, exit and private evidence location in /out/run/gates.jsonl and the final task evidence; this record is included in that candidate."
+
+[gotcha.task_gate_order]
+observed = "Audit step 5 requests baseline verification, but the explicit task order prohibits gates before implementation and verification outside hf-done."
+resolution = "Follow the explicit task order and record baseline provenance here; root GOTCHA.kvx and spec files are outside the permitted scope."
+
+[gotcha.named_test_formatter]
+observed = "The repository's eslint --fix applied formatting, then reported vitest/valid-title and vitest/expect-expect for the explicitly required test(namedFunction) registrations whose assertions execute in their helper."
+resolution = "Keep the mandated named tests and their real assertions intact; disable no checks and use the declared TypeScript and Vitest gates for qualification."
+
+[gotcha.named_test_registration]
+observed = "The first hf-done returned zero but Vitest 4.1.11 interpreted test(function) as a title with no body, reporting two TODO tests and executing no assertions; that result is not behavioral qualification."
+resolution = "Register each declared function with test(function.name, function) so both named bodies and all assertions execute; rerun the build and verification for this repaired candidate."

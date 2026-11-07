@@ -11,8 +11,15 @@ use std::path::PathBuf;
 use std::process::{Child, Command, Stdio};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::sync::Mutex;
 use std::time::Duration;
-use zeroize::{Zeroize, Zeroizing};
+
+#[allow(dead_code)]
+#[path = "support/attestor_cluster.rs"]
+mod attestor_cluster;
+#[path = "support/principal_attestors.rs"]
+mod principal_attestors;
+static ATTESTOR_FIXTURE: Mutex<()> = Mutex::new(());
 
 #[path = "../../../../platform/hosted/runtime-clock/src/server.rs"]
 mod runtime_clock_server;
@@ -35,6 +42,7 @@ type Result<T> = std::result::Result<T, Box<dyn Error>>;
 const MAX: usize = 2_097_152;
 struct Host {
     root: PathBuf,
+    _attestors: attestor_cluster::Cluster,
     address: SocketAddr,
     child: Option<Child>,
     runtime: Option<Runtime>,
@@ -50,6 +58,9 @@ impl Drop for Host {
 }
 impl Host {
     fn new() -> Result<Self> {
+        let _fixture = ATTESTOR_FIXTURE
+            .lock()
+            .map_err(|_| "attestor fixture lock poisoned")?;
         let _ = rustls::crypto::ring::default_provider().install_default();
         let mut nonce = [0; 8];
         getrandom::fill(&mut nonce).map_err(|error| std::io::Error::other(error.to_string()))?;
@@ -82,8 +93,19 @@ impl Host {
         let listener = TcpListener::bind("127.0.0.1:0")?;
         let address = listener.local_addr()?;
         drop(listener);
+        let mut attestors = attestor_cluster::Cluster::start_with_policies(
+            &[],
+            &serde_json::json!({"version":1,"defaults":{
+                "chain_id":125,"kinds":["evm_tx"],
+                "selectors":{"0x000000000000000000000000000000000000101a":[format!("0x{}", attestor_cluster::hex(&layerx_crypto::disclosure::call::ledger_selector("openAccount(bytes32)")))]},
+                "caps":{"native":{"per_transaction":"1000000000000000000","daily":"10000000000000000000"}},"rate_per_minute":1000
+            }}),
+            &serde_json::json!({"version":1,"defaults":{"modules":{}}}),
+        )?;
+        principal_attestors::provision(&mut attestors, &root, "beta-kms", &[31])?;
         let mut host = Self {
             root,
+            _attestors: attestors,
             address,
             child: None,
             runtime: Some(runtime),
@@ -219,6 +241,7 @@ impl Host {
             ("TLS_KEY_DER", "server-key.der"),
             ("CLIENT_CERT_DER", "client.der"),
             ("SEAL_SECRET_FILE", "seal"),
+            ("ATTESTOR_CONFIG_FILE", "attestor.json"),
         ] {
             command.env(format!("LAYERX_HUMAN_KMS_{suffix}"), self.root.join(file));
         }
@@ -296,42 +319,15 @@ impl Host {
         checked(read_frame(&mut tls, MAX))
     }
     fn sender(&self, handle: &[u8; 32]) -> Result<[u8; 20]> {
-        use ring::aead::{Aad, LessSafeKey, Nonce, UnboundKey, AES_256_GCM};
-        #[derive(serde::Deserialize)]
-        struct SigningRecord {
-            handle: [u8; 32],
-            seed: [u8; 32],
-        }
-        impl Drop for SigningRecord {
-            fn drop(&mut self) {
-                self.seed.zeroize();
-            }
-        }
-        #[derive(serde::Deserialize)]
-        struct SigningState {
-            records: std::collections::BTreeMap<String, SigningRecord>,
-        }
-        let seal = Zeroizing::new(fs::read(self.root.join("seal"))?);
-        let mut encrypted = Zeroizing::new(fs::read(self.root.join("state/state.aead"))?);
-        let nonce = encrypted[..12].try_into()?;
-        let key = checked(UnboundKey::new(&AES_256_GCM, &seal))?;
-        let mut aad = b"LXKP/state/v1\0beta-kms".to_vec();
-        aad.extend(125_u32.to_be_bytes());
-        let plain = checked(LessSafeKey::new(key).open_in_place(
-            Nonce::assume_unique_for_key(nonce),
-            Aad::from(&aad),
-            &mut encrypted[12..],
-        ))?;
-        let state: SigningState = serde_json::from_slice(plain)?;
-        let record = state
-            .records
-            .values()
-            .find(|record| &record.handle == handle)
-            .ok_or("missing signing record")?;
-        let key = k256::ecdsa::SigningKey::from_slice(&record.seed)?;
-        checked(layerx_crypto::secp256k1::evm_address(
-            key.verifying_key().to_encoded_point(false).as_bytes(),
-        ))
+        let described = facts(&self.call(&request(2, [31; 32], handle, None)?)?)?;
+        assert_eq!(&described.0, handle);
+        let mut wallet = request(6, [31; 32], handle, None)?;
+        wallet[4..6].copy_from_slice(&3_u16.to_be_bytes());
+        let response = self.call(&wallet)?;
+        assert_eq!(&response[..8], b"LXKP\0\x03\x06\0");
+        let sender = response[8..].try_into()?;
+        assert_ne!(sender, [0; 20]);
+        Ok(sender)
     }
 }
 fn blob(out: &mut Vec<u8>, value: &[u8]) -> Result<()> {

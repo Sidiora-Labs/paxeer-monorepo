@@ -32,7 +32,7 @@ const height = String(blockMock.base.height);
 const renderPage = async() => {
   const result = render(<Block/>);
 
-  await screen.findByText(blockMock.base.hash);
+  await waitFor(() => expect(result.container.querySelector('h1')?.textContent).toBe(`Block #${ height }`));
 
   return result;
 };
@@ -43,19 +43,23 @@ describe('BlockPageContent', () => {
     routerState.query = { height_or_hash: height };
     routerSpy.push.mockClear();
     fetchMock.resetMocks();
-    fetchMock.mockResponse((request) => Promise.resolve({
-      body: JSON.stringify(
-        request.url.includes('/internal-transactions') ? internalTxsMock.baseResponse : blockMock.base,
-      ),
-      ...responseInit,
-    }));
+    fetchMock.mockResponse((request) => {
+      if (request.url.includes('/internal-transactions')) {
+        return Promise.resolve({ body: JSON.stringify(internalTxsMock.baseResponse), ...responseInit });
+      }
+      if (request.url.includes('/transactions')) {
+        return Promise.resolve({ body: JSON.stringify({ items: [], next_page_params: null }), ...responseInit });
+      }
+      return Promise.resolve({ body: JSON.stringify(blockMock.base), ...responseInit });
+    });
   });
 
   it('heads the page with the block title and its number', async() => {
     const { container } = await renderPage();
 
     expect(screen.getByRole('heading', { level: 1 }).textContent).toContain('Block');
-    expect(container.querySelector('[data-block-number]')?.textContent).toBe(`#${ height }`);
+    expect(container.querySelector('h1')?.textContent).toBe(`Block #${ height }`);
+    expect(container.querySelector('[data-entity-kind-label]')?.textContent).toBe('BLOCK');
   });
 
   it('lists the sections the block carries as pills', async() => {
@@ -64,7 +68,8 @@ describe('BlockPageContent', () => {
     const tabs = container.querySelector('[data-scan-section-tabs]') as HTMLElement;
     const titles = Array.from(tabs.querySelectorAll('[data-tab]')).map((tab) => tab.textContent);
 
-    expect(titles).toEqual([ 'Overview', 'Transactions', 'Internal txns' ]);
+    expect(titles).toEqual([ 'Transactions', 'Details' ]);
+    expect(container.querySelector('[data-tab="internal_txs"]')).not.toBeNull();
   });
 
   it('puts the api entry beside the pills', async() => {
@@ -75,21 +80,22 @@ describe('BlockPageContent', () => {
     expect(rightSlot.querySelector('[data-api-entry]')?.textContent).toBe('API');
   });
 
-  it('opens on the overview, which is the details card', async() => {
+  it('opens on Transactions and keeps the details available on the index route', async() => {
     const { container } = await renderPage();
 
-    expect(container.querySelector('[data-block-details-card]')).not.toBeNull();
-    expect(container.querySelector('[data-scan-table-card]')).toBeNull();
+    expect(container.querySelector('[data-block-details-card]')).toBeNull();
+    expect(container.querySelector('[data-scan-table-card]')).not.toBeNull();
+    expect(container.querySelector('[data-tab="index"]')?.textContent).toBe('Details');
   });
 
   it('routes to the section a pill names, keeping the block out of the query string', async() => {
     const { container } = await renderPage();
 
-    (container.querySelector('[data-tab="txs"]') as HTMLElement).click();
+    (container.querySelector('[data-tab="index"]') as HTMLElement).click();
 
     await waitFor(() => {
       expect(routerSpy.push).toHaveBeenCalledWith(
-        { pathname: '/block/[height_or_hash]', query: { height_or_hash: height, tab: 'txs' } },
+        { pathname: '/block/[height_or_hash]', query: { height_or_hash: height, tab: 'index' } },
         undefined,
         { shallow: true },
       );

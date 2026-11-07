@@ -1,0 +1,6 @@
+{
+  "base_revision": "b06a8e8502aeb3eee0ed79afb1979f134a140ff1",
+  "source": "services/platform/hosted/gateway/openrpc.json",
+  "normalization": "Exact UTF-8 source bytes; the inherited catalogue already removes retired server and route claims.",
+  "sha256": "6e639ceea5b044168c9783546ae92f2bcccfbd7ad765cceb98299c6b8e813b2a"
+}

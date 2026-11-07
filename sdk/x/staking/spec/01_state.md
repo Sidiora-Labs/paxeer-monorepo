@@ -4,214 +4,206 @@ order: 1
 
 # State
 
+The staking module maintains validator and delegation state inside the merged
+Paxeer network. The layouts below follow this fork's
+[staking key constructors](../types/keys.go) and
+[protobuf definitions](../../../proto/cosmos/staking/v1beta1/staking.proto).
+`LP(address)` denotes the raw address prefixed by its length in one byte; `|`
+denotes byte concatenation. Protobuf values are encoded with the module codec.
+
 ## Pool
 
-Pool is used for tracking bonded and not-bonded token supply of the bond denomination.
+The bank module holds the bond denomination in two module accounts:
+
+- `bonded_tokens_pool` (`BondedPoolName`) holds bonded validator tokens.
+- `not_bonded_tokens_pool` (`NotBondedPoolName`) holds unbonded and unbonding
+  validator tokens and pending unbonding-delegation balances.
+
+The queried `Pool` reports these balances; it is not a separate store of coins.
+See the [pool keeper](../keeper/pool.go) and the
+[transitions](./02_state_transitions.md) that move tokens between the accounts.
 
 ## LastTotalPower
 
-LastTotalPower tracks the total amounts of bonded tokens recorded during the previous end block.
-Store entries prefixed with "Last" must remain unchanged until EndBlock.
+`LastTotalPower` records the sum of bonded validators' consensus voting powers
+from the preceding validator-set update, rather than their raw token balances.
+The `Last` indexes remain unchanged during block processing until the EndBlock
+validator-set update.
 
-- LastTotalPower: `0x12 -> ProtocolBuffer(sdk.Int)`
+- LastTotalPower: `0x12 -> protobuf(sdk.IntProto)`.
 
 ## Params
 
-Params is a module-wide configuration structure that stores system parameters
-and defines overall functioning of the staking module.
-
-- Params: `Paramsspace("staking") -> legacy_amino(params)`
-
-+++ https://github.com/cosmos/cosmos-sdk/blob/v0.40.1/proto/cosmos/staking/v1beta1/staking.proto#L230-L241
+Parameters are stored in the `staking` parameter subspace. The keeper's
+`GetParams` assembles the registered parameter values into `Params`; it does not
+load a single staking-store `Params` record. See the
+[parameter reference](./08_params.md) for fields, store keys, types and defaults.
 
 ## Validator
 
-Validators can have one of three statuses
+A validator has one of three bond statuses:
 
-- `Unbonded`: The validator is not in the active set. They cannot sign blocks and do not earn
-  rewards. They can receive delegations.
-- `Bonded`: Once the validator receives sufficient bonded tokens they automtically join the
-  active set during [`EndBlock`](./05_end_block.md#validator-set-changes) and their status is updated to `Bonded`.
-  They are signing blocks and receiving rewards. They can receive further delegations.
-  They can be slashed for misbehavior. Delegators to this validator who unbond their delegation
-  must wait the duration of the UnbondingTime, a chain-specific param, during which time
-  they are still slashable for offences of the source validator if those offences were committed
-  during the period of time that the tokens were bonded.
-- `Unbonding`: When a validator leaves the active set, either by choice or due to slashing, jailing or
-  tombstoning, an unbonding of all their delegations begins. All delegations must then wait the UnbondingTime
-  before their tokens are moved to their accounts from the `BondedPool`.
+- `Unbonded`: outside the active set, with its tokens in the not-bonded pool.
+  It can receive delegations and become bonded when selected at EndBlock.
+- `Bonded`: selected for the active set. Its tokens are in the bonded pool and
+  its consensus power contributes to block signing and reward accounting.
+- `Unbonding`: it has left the active set and is waiting until its recorded
+  `UnbondingTime` to become unbonded. Its remaining tokens are already in the
+  not-bonded pool and may still be slashable for earlier faults.
 
-Validators objects should be primarily stored and accessed by the
-`OperatorAddr`, an SDK validator address for the operator of the validator. Two
-additional indices are maintained per validator object in order to fulfill
-required lookups for slashing and validator-set updates. A third special index
-(`LastValidatorPower`) is also maintained which however remains constant
-throughout each block, unlike the first two indices which mirror the validator
-records within a block.
+Leaving the active set changes the **validator's** bond status. It does not
+create an `UnbondingDelegation` for every delegator or send their tokens back to
+accounts. Delegation shares remain recorded across these status changes. A
+delegator
+requests withdrawal through [MsgUndelegate](./03_messages.md#msgundelegate);
+only the requested shares are removed, and the separate
+[request/completion lifecycle](./02_state_transitions.md#begin-unbonding)
+determines when the resulting tokens can be paid.
 
-- Validators: `0x21 | OperatorAddrLen (1 byte) | OperatorAddr -> ProtocolBuffer(validator)`
-- ValidatorsByConsAddr: `0x22 | ConsAddrLen (1 byte) | ConsAddr -> OperatorAddr`
-- ValidatorsByPower: `0x23 | BigEndian(ConsensusPower) | OperatorAddrLen (1 byte) | OperatorAddr -> OperatorAddr`
-- LastValidatorsPower: `0x11 | OperatorAddrLen (1 byte) | OperatorAddr -> ProtocolBuffer(ConsensusPower)`
+The `Jailed` flag is independent of bond status. Jailed validators are excluded
+from the power index. A validator's operator address identifies its primary
+record; the consensus-address index supports lookups from consensus evidence.
 
-`Validators` is the primary index - it ensures that each operator can have only one
-associated validator, where the public key of that validator can change in the
-future. Delegators can refer to the immutable operator of the validator, without
-concern for the changing public key.
+- Validators: `0x21 | LP(OperatorAddr) -> protobuf(Validator)`.
+- ValidatorsByConsAddr: `0x22 | LP(ConsAddr) -> OperatorAddr` (raw bytes).
+- ValidatorsByPower: `0x23 | BE64(PotentialConsensusPower) | LP(inverted OperatorAddr) -> OperatorAddr`.
+- LastValidatorPower: `0x11 | LP(OperatorAddr) -> protobuf(google.protobuf.Int64Value)`.
 
-`ValidatorByConsAddr` is an additional index that enables lookups for slashing.
-When Tendermint reports evidence, it provides the validator address, so this
-map is needed to find the operator. Note that the `ConsAddr` corresponds to the
-address which can be derived from the validator's `ConsPubKey`.
+The power key contains the bitwise complement of each operator-address byte;
+the address-length byte is unchanged. Reverse iteration ranks power descending
+and breaks equal-power ties by operator address ascending. Potential consensus
+power is integer token balance divided by `PowerReduction`, whose application
+default is `10^6`. Jailed validators have no power-index entry.
 
-`ValidatorsByPower` is an additional index that provides a sorted list of
-potential validators to quickly determine the current active set. Here
-ConsensusPower is validator.Tokens/10^6 by default. Note that all validators
-where `Jailed` is true are not stored within this index.
-
-`LastValidatorsPower` is a special index that provides a historical list of the
-last-block's bonded validators. This index remains constant during a block but
-is updated during the validator set update process which takes place in [`EndBlock`](./05_end_block.md).
-
-Each validator's state is stored in a `Validator` struct:
-
-+++ https://github.com/cosmos/cosmos-sdk/blob/v0.40.0/proto/cosmos/staking/v1beta1/staking.proto#L65-L99
-
-+++ https://github.com/cosmos/cosmos-sdk/blob/v0.40.0/proto/cosmos/staking/v1beta1/staking.proto#L24-L63
+`LastValidatorPower` contains the last selected bonded set and each validator's
+power. It is updated during
+[EndBlock validator-set changes](./05_end_block.md#validator-set-changes), unlike
+the current validator and power records that can change within a block.
 
 ## Delegation
 
-Delegations are identified by combining `DelegatorAddr` (the address of the delegator)
-with the `ValidatorAddr` Delegators are indexed in the store as follows:
+A `Delegation` identifies one delegator/validator pair and records its shares in
+the validator's tokens. The coins themselves are held in the staking pools.
 
-- Delegation: `0x31 | DelegatorAddrLen (1 byte) | DelegatorAddr | ValidatorAddrLen (1 byte) | ValidatorAddr -> ProtocolBuffer(delegation)`
-
-Stake holders may delegate coins to validators; under this circumstance their
-funds are held in a `Delegation` data structure. It is owned by one
-delegator, and is associated with the shares for one validator. The sender of
-the transaction is the owner of the bond.
-
-+++ https://github.com/cosmos/cosmos-sdk/blob/v0.40.0/proto/cosmos/staking/v1beta1/staking.proto#L159-L170
+- Delegation: `0x31 | LP(DelegatorAddr) | LP(ValidatorAddr) -> protobuf(Delegation)`.
 
 ### Delegator Shares
 
-When one Delegates tokens to a Validator they are issued a number of delegator shares based on a
-dynamic exchange rate, calculated as follows from the total number of tokens delegated to the
-validator and the number of shares issued so far:
+Let `T` be the validator's `Tokens` and `S` its `DelegatorShares`. For an existing
+nonzero exchange rate:
 
-`Shares per Token = validator.TotalShares() / validator.Tokens()`
+- Shares issued per token: `S / T`.
+- Tokens represented by one share: `T / S`.
+- A delegator holding `s` shares has a token claim of `T * s / S`, subject to the
+  keeper's decimal arithmetic and integer rounding on removal.
 
-Only the number of shares received is stored on the DelegationEntry. When a delegator then
-Undelegates, the token amount they receive is calculated from the number of shares they currently
-hold and the inverse exchange rate:
-
-`Tokens per Share = validator.Tokens() / validatorShares()`
-
-These `Shares` are simply an accounting mechanism. They are not a fungible asset. The reason for
-this mechanism is to simplify the accounting around slashing. Rather than iteratively slashing the
-tokens of every delegation entry, instead the Validators total bonded tokens can be slashed,
-effectively reducing the value of each issued delegator share.
+The first delegation, when no shares exist, issues one share per token. Shares
+are accounting units, not transferable fungible coins. Slashing a validator's
+tokens reduces the value of its outstanding shares without rewriting every
+delegation. A validator with zero tokens and positive outstanding shares has an
+invalid exchange rate and cannot accept further delegations.
 
 ## UnbondingDelegation
 
-Shares in a `Delegation` can be unbonded, but they must for some time exist as
-an `UnbondingDelegation`, where shares can be reduced if Byzantine behavior is
-detected.
+An `UnbondingDelegation` groups pending withdrawals for a delegator/validator
+pair. Entries contain `CreationHeight`, `CompletionTime`, `InitialBalance` and
+remaining `Balance`; they no longer contain delegation shares. Eligible entries
+can lose balance through slashing before maturity.
 
-`UnbondingDelegation` are indexed in the store as:
+- UnbondingDelegation: `0x32 | LP(DelegatorAddr) | LP(ValidatorAddr) -> protobuf(UnbondingDelegation)`.
+- UnbondingDelegationsFromValidator: `0x33 | LP(ValidatorAddr) | LP(DelegatorAddr) -> empty bytes`.
 
-- UnbondingDelegation: `0x32 | DelegatorAddrLen (1 byte) | DelegatorAddr | ValidatorAddrLen (1 byte) | ValidatorAddr -> ProtocolBuffer(unbondingDelegation)`
-- UnbondingDelegationsFromValidator: `0x33 | ValidatorAddrLen (1 byte) | ValidatorAddr | DelegatorAddrLen (1 byte) | DelegatorAddr -> nil`
-
-The first map here is used in queries, to lookup all unbonding delegations for
-a given delegator, while the second map is used in slashing, to lookup all
-unbonding delegations associated with a given validator that need to be
-slashed.
-
-A UnbondingDelegation object is created every time an unbonding is initiated.
-
-+++ https://github.com/cosmos/cosmos-sdk/blob/v0.40.0/proto/cosmos/staking/v1beta1/staking.proto#L172-L198
+The primary key supports delegator queries. The validator index locates entries
+for slashing. A successful `Undelegate` adds an entry, creating the pair's record
+if necessary, and schedules it at current block time plus `UnbondingTime` for
+**all** validator statuses. Completion transfers the remaining balance from the
+not-bonded pool to the delegator account. See
+[begin and complete unbonding](./02_state_transitions.md#begin-unbonding), including
+recipient-refusal retries.
 
 ## Redelegation
 
-The bonded tokens worth of a `Delegation` may be instantly redelegated from a
-source validator to a different validator (destination validator). However when
-this occurs they must be tracked in a `Redelegation` object, whereby their
-shares can be slashed if their tokens have contributed to a Byzantine fault
-committed by the source validator.
+Redelegation immediately moves stake from a source validator to a destination
+validator. A `Redelegation` record tracks exposure to earlier source-validator
+faults while its entries are immature. Each entry records `CreationHeight`,
+`CompletionTime`, `InitialBalance` and destination shares `SharesDst`.
 
-`Redelegation` are indexed in the store as:
+- Redelegations: `0x34 | LP(DelegatorAddr) | LP(ValidatorSrcAddr) | LP(ValidatorDstAddr) -> protobuf(Redelegation)`.
+- RedelegationsBySrc: `0x35 | LP(ValidatorSrcAddr) | LP(DelegatorAddr) | LP(ValidatorDstAddr) -> empty bytes`.
+- RedelegationsByDst: `0x36 | LP(ValidatorDstAddr) | LP(DelegatorAddr) | LP(ValidatorSrcAddr) -> empty bytes`.
 
-- Redelegations: `0x34 | DelegatorAddrLen (1 byte) | DelegatorAddr | ValidatorAddrLen (1 byte) | ValidatorSrcAddr | ValidatorDstAddr -> ProtocolBuffer(redelegation)`
-- RedelegationsBySrc: `0x35 | ValidatorSrcAddrLen (1 byte) | ValidatorSrcAddr | ValidatorDstAddrLen (1 byte) | ValidatorDstAddr | DelegatorAddrLen (1 byte) | DelegatorAddr -> nil`
-- RedelegationsByDst: `0x36 | ValidatorDstAddrLen (1 byte) | ValidatorDstAddr | ValidatorSrcAddrLen (1 byte) | ValidatorSrcAddr | DelegatorAddrLen (1 byte) | DelegatorAddr -> nil`
+The source index locates redelegations for source-validator slashing. The
+destination index detects receiving redelegations for a particular delegator,
+preventing that delegator from immediately moving the received stake onward
+through the same validator (transitive redelegation).
 
-The first map here is used for queries, to lookup all redelegations for a given
-delegator. The second map is used for slashing based on the `ValidatorSrcAddr`,
-while the third map is for slashing based on the `ValidatorDstAddr`.
-
-A redelegation object is created every time a redelegation occurs. To prevent
-"redelegation hopping" redelegations may not occur under the situation that:
-
-- the (re)delegator already has another immature redelegation in progress
-  with a destination to a validator (let's call it `Validator X`)
-- and, the (re)delegator is attempting to create a _new_ redelegation
-  where the source validator for this new redelegation is `Validator X`.
-
-+++ https://github.com/cosmos/cosmos-sdk/blob/v0.40.0/proto/cosmos/staking/v1beta1/staking.proto#L200-L228
+A source that is already unbonded normally needs no tracking record; an
+unbonding source uses its existing validator deadline, and a bonded source uses
+a full period from the current block time. See
+[begin redelegation](./02_state_transitions.md#begin-redelegation) for the keeper's
+completion-time selection.
 
 ## Queues
 
-All queues objects are sorted by timestamp. The time used within any queue is
-first rounded to the nearest nanosecond then sorted. The sortable time format
-used is a slight modification of the RFC3339Nano and uses the the format string
-`"2006-01-02T15:04:05.000000000"`. Notably this format:
-
-- right pads all zeros
-- drops the time zone info (uses UTC)
-
-In all cases, the stored timestamp represents the maturation time of the queue
-element.
+Queue entries schedule completion work. `sdk.FormatTimeBytes` encodes UTC time
+using `2006-01-02T15:04:05.000000000`, with nine fixed fractional digits and no
+time-zone suffix. It preserves nanosecond precision and strips monotonic clock
+metadata; it does not round to a coarser interval. The fixed format makes
+completion timestamps sortable as bytes.
 
 ### UnbondingDelegationQueue
 
-For the purpose of tracking progress of unbonding delegations the unbonding
-delegations queue is kept.
+- UnbondingQueue: `0x41 | format(CompletionTime) -> protobuf(DVPairs)`.
 
-- UnbondingDelegation: `0x41 | format(time) -> []DVPair`
-
-+++ https://github.com/cosmos/cosmos-sdk/blob/v0.40.0/proto/cosmos/staking/v1beta1/staking.proto#L123-L133
+`DVPairs.Pairs` contains delegator/validator address pairs. EndBlock dequeues
+mature timeslices and completes each pair's mature entries. A failed completion
+with a remaining unbonding record schedules a retry at the current block time.
+Thus a retry's queue time can be later than the entry's original maturity time.
 
 ### RedelegationQueue
 
-For the purpose of tracking progress of redelegations the redelegation queue is
-kept.
+- RedelegationQueue: `0x42 | format(CompletionTime) -> protobuf(DVVTriplets)`.
 
-- RedelegationQueue: `0x42 | format(time) -> []DVVTriplet`
-
-+++ https://github.com/cosmos/cosmos-sdk/blob/v0.40.0/proto/cosmos/staking/v1beta1/staking.proto#L140-L152
+`DVVTriplets.Triplets` contains delegator/source/destination address triples.
+Mature entries are removed from redelegation tracking; this completion does not
+pay tokens to the delegator because they are already delegated at the destination.
 
 ### ValidatorQueue
 
-For the purpose of tracking progress of unbonding validators the validator
-queue is kept.
+- ValidatorQueue: `0x43 | BE64(len(timeBytes)) | timeBytes | BE64(UnbondingHeight) -> protobuf(ValAddresses)`.
 
-- ValidatorQueueTime: `0x43 | format(time) -> []sdk.ValAddress`
+Here `timeBytes` is the formatted validator `UnbondingTime`, both integer fields
+are eight-byte unsigned big-endian encodings, and `UnbondingHeight` is the height
+at which the validator began unbonding. `ValAddresses.Addresses` holds Bech32
+operator-address strings. Multiple validators can share a queue key. With the
+29-byte time encoding, the key is 46 bytes: one prefix byte, eight length
+bytes, 29 timestamp bytes and eight height bytes. The length field is the
+big-endian integer `29`, not an address length or a single-byte time prefix.
 
-The stored object as each key is an array of validator operator addresses from
-which the validator object can be accessed. Typically it is expected that only
-a single validator record will be associated with a given timestamp however it is possible
-that multiple validators exist in the queue at the same location.
+The keeper checks **both** that the encoded time is no later than the current
+block time and that the encoded height is no greater than the current height
+before completing validator unbonding. Rebonding deletes the validator's queued
+address. Validator completion changes bond status; it does not withdraw the
+remaining delegations.
 
 ## HistoricalInfo
 
-HistoricalInfo objects are stored and pruned at each block such that the staking keeper persists
-the `n` most recent historical info defined by staking module parameter: `HistoricalEntries`.
+- HistoricalInfo: `0x50 | ASCII(decimal block height) -> protobuf(HistoricalInfo)`.
 
-+++ https://github.com/cosmos/cosmos-sdk/blob/v0.40.0/proto/cosmos/staking/v1beta1/staking.proto#L15-L22
+At BeginBlock, `TrackHistoricalInfo` combines the current block header with
+`GetLastValidators`, the set recorded by the preceding validator-set update.
+`NewHistoricalInfo` sorts that set by consensus voting power **descending**, then
+consensus address **ascending** for equal power, using the keeper's power
+reduction. This matches consensus ordering; it is not operator-address ordering.
+For
+powers `3, 5, 5`, the stored order is `5, 5, 3`; the two power-5 validators
+are ordered by their consensus addresses. The encoded height in the historical
+key is decimal ASCII (`0x50 | "11"` at height 11), unlike the binary height
+suffix in a validator queue key.
 
-At each BeginBlock, the staking keeper will persist the current Header and the Validators that committed
-the current block in a `HistoricalInfo` object. The Validators are sorted on their address to ensure that
-they are in a determisnistic order.
-The oldest HistoricalEntries will be pruned to ensure that there only exist the parameter-defined number of
-historical entries.
+The keeper retains the most recent `HistoricalEntries` heights and prunes older
+records. Setting that parameter to zero disables new historical records and
+prunes the existing contiguous history. See the
+[historical-info keeper](../keeper/historical_info.go),
+[ordering implementation](../types/historical_info.go) and
+[parameters](./08_params.md).

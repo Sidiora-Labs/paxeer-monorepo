@@ -1,0 +1,21 @@
+[repair.22.33.618]
+audit = "22.30.163"
+acceptance = "22998.1"
+verification = "swift test --package-path sdk/integrations/ios --filter '^LayerXMobileTests.Repair2233618Tests/'"
+evidence = "The runner's hf-build/hf-done ledger records the qualified candidate revision, command, exit code and private log location."
+baseline = "Not run: ordered instructions prohibit verification before complete implementation and allow verification only through hf-done; no baseline test failure is claimed."
+wiring_requests = "None; all proposed production repairs are within the declared source directory."
+
+[finding.021]
+tests = ["Repair2233618Tests.test021PackagedJSONAndPlistCredentialsAreRefusedWithoutValuesInDiagnostics", "Repair2233618Tests.test021TokensAcrossPrintableRunBoundsAndDeclaredPublicExemptions"]
+repair = "Inspect bounded credential tokens in structured resources, including tokens spanning printable-run chunks; diagnostics retain only rule, path, byte offset and length."
+
+[finding.042]
+tests = ["Repair2233618Tests.test042CapacityOneOverlappingSignedDeliveriesRunHandlerOnceAndRetainCompletion", "Repair2233618Tests.test042ExpiredAndReleasedIncompleteClaimsFreeCapacity"]
+repair = "At capacity, evict only expired incomplete claims and otherwise fail with delivery-store-failure. Completed claims are retained for the store lifetime, matching the durable ledger's indefinite retention."
+
+[finding.020]
+tests = ["Repair2233618Tests.test020TwoOpenInstancesPreserveClaimsAndCompletedDeliveriesOnReopen", "Repair2233618Tests.test020ConcurrentInstancesAdmitOnlyOneSignedDelivery", "Repair2233618Tests.test020AbandonedClaimAndCompletedRecordSurviveCrashReopen", "Repair2233618Tests.test020UnreadableLedgerDoesNotCreatePhantomClaimAndCorruptionFailsClosed"]
+repair = "Serialize every ledger operation with flock on a stable companion inode; reload under lock, persist through a private exclusive staging file, fsync data, rename atomically, then fsync the parent directory. No cached mutation can survive a failed write."
+proof = "Real signed receipt JSON from the committed conformance producer is signed by the test peer, transported by loopback HTTP and URLSession, parsed as production envelope headers, cryptographically verified, claimed and delivered by VerifiedEventConsumer. Two preopened instances and sixteen concurrent instances share one application-support ledger."
+crash_boundary = "No subprocess or external tool is required: abandon the component after a durable claim without complete/release, reopen, refuse live replay, recover at lease expiry, complete, discard and reopen again; an orphaned partial staging file is ignored."

@@ -1,0 +1,48 @@
+[repair.22.33.665]
+audit = "22.30.166"
+base_revision = "fedbeb3bb47c5bb972f66afc8189f92f5395f3eb"
+criterion = "22998.1"
+evidence = "hf-done records the qualified candidate revision, command, exit and private log in the runner gate ledger; detailed test output is /tmp/repair-m665.log."
+baseline = "No baseline command was run: the explicit ordered gate instructions prohibit running verify_cmd by hand first and require implementation before qualification; no pre-change runtime failures are claimed."
+
+[finding.metadata-suite-not-discovered]
+test = "TestRepairM_665_MetadataSuite"
+repair = "Discover both integration methods with Test prefixes, assign the outer expected metadata, retain existing success/error assertions, and add factory-denom cases and pagination-error coverage."
+
+[finding.invariant-query-error-healthy]
+test = "TestRepairM_665_InvariantCollectionError"
+repair = "Collection errors report broken=true and preserve the original error text; a real store value corruption proves failure, with healthy and unconserved controls."
+
+[finding.legacy-supply-test-third-shape]
+test = "TestRepairM_665_LegacySupplyRESTPages"
+repair = "The keeper integration test exercises registered REST handlers over loopback HTTP and JSON-RPC through BaseApp into the real querier, comparing three limit-two pages with direct legacy and gRPC results, exact supply, next keys and totals."
+wiring_request = "sdk/x/bank/client/rest/query_test.go — owning domain 15 (fm-cosmos-fork): extend the norace network suite with the same multi-page nondefault-limit REST-to-querier equality assertions; this path is outside this task's scope."
+
+[workflow.scope]
+note = "Task records and workflow gotchas are kept here because the explicit scope forbids editing spec/ files or GOTCHA.kvx; no commit or push is performed by the agent."
+gotcha = "The legacy bank REST supply producer was already repaired on the base; exercise its registered handler and real BaseApp transport instead of introducing another request shape."
+
+[qualification.first_attempt]
+revision = "555cb8e56fbc7edeeb915dc9415024c8ec27f2c0"
+command = "cg spec done 22.33.665 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The fixture referenced a nonexistent sdk.NewMemoryStoreKey constructor; corrected to NewMemoryStoreKeys and MountMemoryStores before rerunning the declared gates."
+
+[workflow.fixture_gotcha]
+note = "This fork exposes sdk.NewMemoryStoreKeys (plural); BaseApp.MountStores accepts KV/transient keys only, so memory stores use MountMemoryStores. Empty repeated protobuf metadata fields decode to nil; exact expected values must match that real transport representation."
+
+[qualification.inherited_attempt]
+revision = "a4e4fed2886547ac71f399281d638b283bcb4ebf"
+command = "cg spec done 22.33.665 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+observed = "The supplied prior attempt failed metadata-list cases and the legacy REST supply fixture, while single-denom metadata and invariant collection-error cases passed; its private log was not carried into this sandbox."
+repair = "Use the production storev2 multistore for the committed supply fixture because the legacy multistore explicitly rejects CreateQueryContext at a committed height; retain all real REST, JSON-RPC, BaseApp and pagination comparisons."
+
+[qualification.continuation_first_gate]
+revision = "882063e0531241f819fc89ad27061468ef691401"
+command = "cg spec done 22.33.665 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log; detailed assertion output: /tmp/repair-m665-verify-1.log"
+observed = "REST pagination passed; metadata-list cases encountered app-genesis ATOM/ETH entries, and the invariant fixture's uncached versioned-store iterator did not observe pending writes."
+repair = "Explicitly clear the metadata fixture before each list case while retaining exact expectations, and use the production cached SDK context for the invariant's uncommitted mutations and iteration."

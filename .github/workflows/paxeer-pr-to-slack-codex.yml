@@ -62,7 +62,6 @@ on:
       - 'docs/paxeer-network.md'
       - 'docs/paxeer-chain-docs.md'
       - 'scripts/**'
-      - '!scripts/PaxeerBetaDeploy.s.sol'
       - '!scripts/qualify-mirror-live.sh'
       - '!scripts/qualify-mirror-verification-live.sh'
       - '.github/workflows/paxeer-pr-to-slack-codex.yml'
@@ -113,7 +112,7 @@ jobs:
           set -euo pipefail
           git fetch --no-tags origin "$BASE_REF":"refs/remotes/origin/$BASE_REF"
           MB=$(git merge-base "origin/$BASE_REF" HEAD)
-          CHAIN_PATHS=(go.mod go.sum chain.mk docker/layerx/Dockerfile docker/layerx/Dockerfile.dockerignore foundry.paxeer.toml buf.gen.yaml buf.lock buf.yaml .github/codecov.yml .golangci.yml tools/repotest/gen.go tools/repotest/link_directives_test.go tools/repotest/mod_test.go scripts/run_blocktests.sh tools/release/version.json admin api tools/benchmark consensus custodyproof daemon docker engine example hpx tests/integration interchain modules node tests/occ precompiles rpc sdk storage tests/testutil utils wasm wasm-runtime contracts/src contracts/test contracts/scripts contracts/wasm docs/swagger docs/swagger-ui tests/chain tools/chain tools/tx-scanner tools/utils contracts/config/client.toml contracts/hardhat.config.js contracts/package.json contracts/package-lock.json contracts/tsconfig.json docs/evm_jsonrpc_unsupported.md docs/paxeer-network.md docs/paxeer-chain-docs.md scripts ':(exclude)scripts/PaxeerBetaDeploy.s.sol' ':(exclude)scripts/qualify-mirror-live.sh' ':(exclude)scripts/qualify-mirror-verification-live.sh')
+          CHAIN_PATHS=(go.mod go.sum chain.mk docker/layerx/Dockerfile docker/layerx/Dockerfile.dockerignore foundry.paxeer.toml buf.gen.yaml buf.lock buf.yaml .github/codecov.yml .golangci.yml tools/repotest/gen.go tools/repotest/link_directives_test.go tools/repotest/mod_test.go scripts/run_blocktests.sh tools/release/version.json admin api tools/benchmark consensus custodyproof daemon docker engine example hpx tests/integration interchain modules node tests/occ precompiles rpc sdk storage tests/testutil utils wasm wasm-runtime contracts/src contracts/test contracts/scripts contracts/wasm docs/swagger docs/swagger-ui tests/chain tools/chain tools/tx-scanner tools/utils contracts/config/client.toml contracts/hardhat.config.js contracts/package.json contracts/package-lock.json contracts/tsconfig.json docs/evm_jsonrpc_unsupported.md docs/paxeer-network.md docs/paxeer-chain-docs.md scripts ':(exclude)scripts/qualify-mirror-live.sh' ':(exclude)scripts/qualify-mirror-verification-live.sh')
           git diff --unified=0 "$MB"..HEAD -- "${CHAIN_PATHS[@]}" > pr.diff
           git --no-pager diff --stat "$MB"..HEAD -- "${CHAIN_PATHS[@]}" > pr.stat || true
 
@@ -260,12 +259,18 @@ jobs:
             --data-urlencode "filename=codex_review.md" \
             --data "length=$BYTES" \
             --data "snippet_type=markdown")
-          echo "$ticket"
-          upload_url=$(echo "$ticket" | jq -r '.upload_url')
-          file_id=$(echo "$ticket" | jq -r '.file_id')
-          test "$upload_url" != "null" -a "$file_id" != "null" || { echo "getUploadURLExternal failed: $ticket" >&2; exit 1; }
+          upload_url=$(printf '%s' "$ticket" | jq -r '.upload_url // empty')
+          if [[ -n "$upload_url" ]]; then
+            masked_url=${upload_url//'%'/'%25'}
+            masked_url=${masked_url//$'\r'/'%0D'}
+            masked_url=${masked_url//$'\n'/'%0A'}
+            printf '::add-mask::%s\n' "$masked_url"
+          fi
+          printf '%s' "$ticket" | jq -c '{ok, error: (.error // null), file_id: (.file_id // null)}'
+          file_id=$(printf '%s' "$ticket" | jq -r '.file_id // empty')
+          test "$(printf '%s' "$ticket" | jq -r '.ok')" = "true" -a -n "$upload_url" -a -n "$file_id" || { echo "getUploadURLExternal failed" >&2; exit 1; }
 
-          curl -sS -X POST "$upload_url" \
+          curl --fail -sS -X POST "$upload_url" \
             -F "filename=@review.md;type=text/markdown" \
             > /dev/null
 
@@ -276,5 +281,5 @@ jobs:
             -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
             -H "Content-type: application/json; charset=utf-8" \
             --data "$payload")
-          echo "$resp"
-          test "$(echo "$resp" | jq -r '.ok')" = "true" || { echo "files.completeUploadExternal failed: $resp" >&2; exit 1; }
+          printf '%s' "$resp" | jq -c '{ok, error: (.error // null)}'
+          test "$(printf '%s' "$resp" | jq -r '.ok')" = "true" || { echo "files.completeUploadExternal failed" >&2; exit 1; }

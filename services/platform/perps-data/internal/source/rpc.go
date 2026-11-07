@@ -215,7 +215,7 @@ func (s *RPC) Head(ctx context.Context) (uint64, error) {
 	}
 	height, err := decodeBlockNumber(raw)
 	if err != nil {
-		return 0, err
+		return 0, endpointFailure("eth_blockNumber", idx, err)
 	}
 	s.mu.Lock()
 	sl := s.slots[idx]
@@ -601,7 +601,7 @@ func (s *RPC) request(ctx context.Context, timeout time.Duration, need uint64, m
 			}
 			if err != nil {
 				lastErr = err
-				s.markFailure(idx, err)
+				s.markFailure(idx, "eth_blockNumber", err)
 				continue
 			}
 			if !holds {
@@ -610,7 +610,7 @@ func (s *RPC) request(ctx context.Context, timeout time.Duration, need uint64, m
 			}
 		}
 		t0 := s.now()
-		result, err := s.doRequest(ctx, timeout, s.slotURL(idx), body)
+		result, err := s.doRequest(ctx, timeout, idx, method, body)
 		if err == nil {
 			s.markSuccess(idx, s.now().Sub(t0).Milliseconds())
 			return result, idx, nil
@@ -628,7 +628,7 @@ func (s *RPC) request(ctx context.Context, timeout time.Duration, need uint64, m
 			pruned++
 			continue
 		}
-		s.markFailure(idx, err)
+		s.markFailure(idx, method, err)
 	}
 	if pruned == len(order) {
 		return nil, 0, lastErr
@@ -649,7 +649,7 @@ func (s *RPC) request(ctx context.Context, timeout time.Duration, need uint64, m
 func (s *RPC) holds(ctx context.Context, idx int, need uint64) (bool, error) {
 	s.mu.Lock()
 	sl := s.slots[idx]
-	seen, url := sl.lastBlock, sl.url
+	seen := sl.lastBlock
 	s.mu.Unlock()
 	if seen >= need {
 		return true, nil
@@ -658,13 +658,13 @@ func (s *RPC) holds(ctx context.Context, idx int, need uint64) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	raw, err := s.doRequest(ctx, s.timeout, url, body)
+	raw, err := s.doRequest(ctx, s.timeout, idx, "eth_blockNumber", body)
 	if err != nil {
 		return false, err
 	}
 	head, err := decodeBlockNumber(raw)
 	if err != nil {
-		return false, err
+		return false, endpointFailure("eth_blockNumber", idx, err)
 	}
 	s.mu.Lock()
 	sl.lastBlock = max(sl.lastBlock, head)
@@ -746,10 +746,15 @@ func (t poolTransport) RoundTrip(r *http.Request) (*http.Response, error) {
 	}, nil
 }
 
-func (s *RPC) doRequest(ctx context.Context, timeout time.Duration, url string, body []byte) (json.RawMessage, error) {
+func (s *RPC) doRequest(ctx context.Context, timeout time.Duration, idx int, method string, body []byte) (result json.RawMessage, err error) {
+	defer func() {
+		if err != nil {
+			err = endpointFailure(method, idx, err)
+		}
+	}()
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(body))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, s.slotURL(idx), bytes.NewReader(body))
 	if err != nil {
 		return nil, err
 	}
@@ -763,7 +768,7 @@ func (s *RPC) doRequest(ctx context.Context, timeout time.Duration, url string, 
 		return nil, fmt.Errorf("%w: http %d", ErrResponseSize, resp.StatusCode)
 	}
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("source: http %d", resp.StatusCode)
+		return nil, &endpointHTTPError{status: resp.StatusCode}
 	}
 	data, err := io.ReadAll(io.LimitReader(resp.Body, maxResponseBytes+1))
 	if err != nil {
@@ -803,7 +808,7 @@ func (s *RPC) doRequest(ctx context.Context, timeout time.Duration, url string, 
 		if e.Code != methodNotFoundCode && prunedRefusal(e.Message) {
 			return nil, fmt.Errorf("%w: %s", decode.ErrStatePruned, e.Message)
 		}
-		return nil, fmt.Errorf("source: json-rpc error %d: %s", e.Code, e.Message)
+		return nil, &endpointRPCError{code: e.Code}
 	}
 	return out.Result, nil
 }
@@ -879,13 +884,13 @@ func (s *RPC) markSuccess(idx int, latencyMs int64) {
 	sl.lastSeenAt = s.now().UnixMilli()
 }
 
-func (s *RPC) markFailure(idx int, err error) {
+func (s *RPC) markFailure(idx int, method string, err error) {
 	s.mu.Lock()
 	sl := s.slots[idx]
 	sl.consecutiveFailures++
-	url, failures := sl.url, sl.consecutiveFailures
+	failures := sl.consecutiveFailures
 	s.mu.Unlock()
-	s.logger.Warn("source: node request failed", slog.String("url", url), slog.Int("failures", failures), slog.String("err", err.Error()))
+	s.logger.Warn("source: node request failed", slog.Int("endpoint", idx), slog.String("method", method), slog.Int("failures", failures), slog.String("failure_class", endpointFailureClass(err)), slog.Any("err", endpointFailure(method, idx, err)))
 }
 
 // runHealthCheck pings eth_blockNumber on every node, computes the median, and
@@ -895,39 +900,40 @@ func (s *RPC) runHealthCheck(ctx context.Context) {
 		head    uint64
 		latency int64
 		ok      bool
+		err     error
 	}
 	s.mu.Lock()
-	urls := make([]string, len(s.slots))
-	for i, sl := range s.slots {
-		urls[i] = sl.url
-	}
+	count := len(s.slots)
 	s.mu.Unlock()
 
 	body, err := json.Marshal(jsonRPCRequest{JSONRPC: "2.0", Method: "eth_blockNumber", Params: []any{}, ID: s.nextID.Add(1)})
 	if err != nil {
 		return
 	}
-	probes := make([]probe, len(urls))
+	probes := make([]probe, count)
 	var wg sync.WaitGroup
-	for i, url := range urls {
+	for i := 0; i < count; i++ {
 		wg.Add(1)
-		go func(i int, url string) {
+		go func(i int) {
 			defer wg.Done()
 			t0 := s.now()
-			raw, err := s.doRequest(ctx, s.timeout, url, body)
+			raw, err := s.doRequest(ctx, s.timeout, i, "eth_blockNumber", body)
 			if err != nil {
+				probes[i].err = err
 				return
 			}
 			var hexStr string
 			if err := json.Unmarshal(raw, &hexStr); err != nil {
+				probes[i].err = err
 				return
 			}
 			h, err := parseHexUint64(hexStr)
 			if err != nil {
+				probes[i].err = err
 				return
 			}
 			probes[i] = probe{head: h, latency: max(s.now().Sub(t0).Milliseconds(), 1), ok: true}
-		}(i, url)
+		}(i)
 	}
 	wg.Wait()
 
@@ -948,6 +954,7 @@ func (s *RPC) runHealthCheck(ctx context.Context) {
 			heads = append(heads, p.head)
 		} else {
 			sl.consecutiveFailures++
+			s.logger.Warn("source: node health check failed", slog.Int("endpoint", i), slog.String("method", "eth_blockNumber"), slog.String("failure_class", endpointFailureClass(p.err)), slog.Any("err", endpointFailure("eth_blockNumber", i, p.err)))
 		}
 	}
 	if len(heads) == 0 {
@@ -956,14 +963,14 @@ func (s *RPC) runHealthCheck(ctx context.Context) {
 	}
 	sort.Slice(heads, func(a, b int) bool { return heads[a] < heads[b] })
 	median := heads[len(heads)/2]
-	for _, sl := range s.slots {
+	for i, sl := range s.slots {
 		wasStale := sl.isStale
 		behind := sl.lastSeenAt != 0 && median > sl.lastBlock && median-sl.lastBlock > uint64(s.staleThreshold)
 		sl.isStale = sl.consecutiveFailures >= 3 || behind
 		if sl.isStale && !wasStale {
-			s.logger.Warn("source: node quarantined as stale", slog.String("url", sl.url), slog.Uint64("lastBlock", sl.lastBlock), slog.Uint64("median", median))
+			s.logger.Warn("source: node quarantined as stale", slog.Int("endpoint", i), slog.String("method", "eth_blockNumber"), slog.Uint64("lastBlock", sl.lastBlock), slog.Uint64("median", median))
 		} else if !sl.isStale && wasStale {
-			s.logger.Info("source: node recovered", slog.String("url", sl.url), slog.Uint64("lastBlock", sl.lastBlock))
+			s.logger.Info("source: node recovered", slog.Int("endpoint", i), slog.String("method", "eth_blockNumber"), slog.Uint64("lastBlock", sl.lastBlock))
 		}
 	}
 }

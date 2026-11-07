@@ -33,6 +33,7 @@ var gasTable = pcommon.GasTable{
 	"deploy":           {Write: true, Surcharge: lifecycleSurcharge},
 	"upgrade":          {Write: true, Surcharge: lifecycleSurcharge},
 	"call":             {Write: true, Surcharge: executionSurcharge},
+	"callWithReceipts": {Write: true, Surcharge: executionSurcharge},
 	"sandboxExecute":   {Write: true, Surcharge: executionSurcharge},
 	"simulateCall":     {Surcharge: executionSurcharge},
 	"retireStorage":    {Write: true, Surcharge: retireSurcharge},

@@ -1,0 +1,25 @@
+[repair.22.33.469]
+audit = "22.30.149"
+test_module = "Explorer.Repair.Repair2233469Test"
+test_path = "services/explorer/backend/apps/explorer/test/repair/repair_22_33_469_test.exs"
+baseline = "Not run: the explicit gate order requires complete implementation before hf-build and hf-done; no pre-change test failure is claimed."
+evidence = "The runner's private gate ledger records the exact candidate revision, command, exit code and log; closure requires hf-done to pass on the hf-build revision."
+fixtures = "Committed paxeer_x/consecutive_blocks.json supplies chain height, hash and timestamp; scenario transactions use production schema changesets and ERC-20/ERC-1155 transfers enter via Import.Runner.TokenTransfers before real HTTP requests and JSON responses."
+wiring_requests = []
+qualification_attempt_1 = "07606406261773bb55a8467db08af49cf1dda1a8; cg spec done 22.33.469 -f layerx-merge --root /work/paxeer-monorepo; exit 1; /out/logs/verify-1.log; eight tests ran, batch pagination at log zero and mixed OR each returned one element on page two because the inner limit preceded the batch cursor."
+
+[finding.filter-zero-log-batch-page]
+tests = ["filter-zero-log-batch-page: a first-log batch survives three successive API pages"]
+repair = "Permit log index zero when a cursor has remaining batch elements and apply the page limit after the batch cursor; assert all 123 elements across three pages."
+
+[finding.filter-or-duplicates]
+tests = ["filter-or-duplicates: both mixed OR directions page transactions exactly once", "filter-or-duplicates: both mixed OR directions preserve distinct ERC-1155 batch elements", "filter-or-duplicates: each disjunct independently admits its matching transaction and transfer"]
+repair = "Apply a single mixed OR predicate before paging, retaining complete transfer identities even when batch token IDs and amounts repeat."
+
+[finding.filter-decimal-term-order]
+tests = ["filter-decimal-term-order: mixed scales apply both bounds before and after unnesting"]
+repair = "Validate two supplied bounds numerically in both stages without struct-order guards; retain the existing strict interval validation for equal and reversed bounds."
+
+[finding.filter-empty-inclusion]
+tests = ["filter-empty-inclusion: fully overlapping address lists match no API rows", "filter-empty-inclusion: overlapping token lists remain empty alongside unrelated transfers and native rows", "filter-empty-inclusion: an empty address disjunct retains the other side of an OR"]
+repair = "Preserve an empty effective inclusion and compile it as false, including AND and OR composition for addresses and token filtering."

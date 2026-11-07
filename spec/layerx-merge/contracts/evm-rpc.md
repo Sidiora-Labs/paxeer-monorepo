@@ -3588,3 +3588,151 @@ Contract context <code>contract_context.7.ws-transport</code>:
 | <code>acceptance.7.9.6</code> | test | rpc/http_ws_parity_test.go::TestHTTPAndWSAnswersMatch (planned) |
 | <code>acceptance.7.9.6</code> | qualification | UNRUN |
 | <code>req.7009</code> | ac_6 | For every read method served on both transports, the WebSocket answer equals the HTTP answer for the same parameters, using the helpers at rpc/setup_test.go:1224 and rpc/setup_test.go:1280. |
+
+## px-node-root-account
+
+Decisions 2514 and 2521 place the px namespace on the same node root `/` as eth
+and pax. Both HTTP and WebSocket register `px_resolveAccount`, `px_getAccount`,
+`px_getBalances`, `px_listAssets`, `px_getNetwork`, `px_getCapabilities` and
+`px_getRouteCatalogue`. Parameters and results follow
+`services/platform/hosted/gateway/openrpc.json`. Existing px receipt-key
+registration remains available independently.
+
+Account resolution checks both addr binding directions and the derived native
+main account. Account and coin reads share one committed watermark; balances
+and nonces use the existing state/transaction paths and bank amounts retain
+all 256 bits as decimal strings. A bare native account ID returns `-32001`,
+`Paxeer read unavailable`, data.code `native_account_reverse_resolution_unsupported`;
+conflicts return `conflicting_identity_binding`. An unbound DID has null paxeer
+state; its coin-list read returns `identity_binding_unavailable`.
+
+Asset enumeration uses `[evm].px_indexer_url` or `WithPxIndexerURL` on each server; no hosted gateway
+or environment variable is required. A missing indexer returns `-32001`,
+`Paxeer read unavailable`, data.code `indexer_not_configured`. The joined result
+is sorted by asset ID, capped at sixteen, and uses local metadata at one height.
+Failed per-asset metadata reads retain the documented null fields. Successful
+ledger reads alone carry authenticated snapshot verification and paused state.
+
+Network identity comes from the node chain context and EVM keeper. An invalid
+or unavailable local consensus Status leaves consensus null with reason
+`consensus_unavailable`. Capability probes execute the seven documented views
+at one committed height and require canonical ABI output; the result is cached
+for fifteen seconds. Hosted capability write gating stays with the gateway.
+The catalogue carries committed product route definitions, advertises only
+`/`, reports actual node registrations and marks hosted dependencies unknown.
+It publishes no private route bindings or upstream topology.
+
+`px_register` and `px_requestFunds` validate positional arguments before
+returning `-32004`, `Hosted gateway service operation`, with data
+`{code:"hosted_gateway_service_required", method:<requested method>}`.
+Malformed parameters return `-32602`. These are deliberate, dispatched
+refusals on both transports, never method-not-found responses. Every px method
+records the same per-method/error/transport metrics as the existing RPC APIs.
+The node handlers perform no chain writes and require no hosted credentials.
+
+## px-node-root-history
+
+Decisions 2514 and 2521 also register `px_getHistory`, `px_getUnifiedHistory`
+and `px_listHolderRecords` at node root `/` on HTTP and WebSocket. Their
+positional parameters and result schemas follow
+`services/platform/hosted/gateway/openrpc.json`. These methods share the
+existing px indexer configuration (`evm.px_indexer_url` / `WithPxIndexerURL`),
+local account resolution, committed watermark and RPC metrics. No hosted
+credential or gateway upstream is needed. The handlers perform no chain writes.
+
+History and holder enumeration come from `/v1/history/{account}` and
+`/v1/holders/{address}` of the configured indexer. Amounts remain exact decimal
+strings. Asset records are joined from `/v1/assets/{asset}` and registry
+metadata; missing asset records yield null metadata. Indexer `indexedHeight`,
+readiness from `/readyz`, and the node's pinned `chainHeight` remain distinct.
+Indexer readiness never promotes a transfer's finality. HTTP and WebSocket
+expose the same result and error contract, including per-method metrics.
+
+Unified history resolves the binding locally and enumerates persisted owned
+accounts using the kernel account codec and owner rules over the committed
+`lxphost` registry. It includes the binding's canonical main account and every
+owned persisted account, with at most sixteen keys including the EVM address.
+Each side uses the same position cursor. Rows merge in indexer order and
+identical indexer row keys are deduplicated. An unavailable, corrupt or oversized
+native enumeration returns `-32001`, `History unavailable`, data.code
+`native_account_enumeration_unavailable`; an EVM-only partial unified answer
+must not be substituted. This implements the native merge promised by the
+OpenRPC method description; its older parameter text still describes the
+hosted gateway's EVM-only behavior. Hosted behavior and client cutover are
+outside this task.
+
+The existing indexer and gateway store implementations order positions oldest
+first, strictly after the supplied cursor. The architecture document's
+newest-first wording conflicts with that interface. Node reads preserve the
+existing cursor direction, with 32 lowercase hex digits encoding a signed-range
+height and two uint32 indexes. They keep every row at a page's last position
+together so advancing a cursor cannot lose self-transfer legs. The result stays
+within OpenRPC's 100-row bound; an indivisible position exceeding it fails with
+`-32001`, `History unavailable`, data.code `history_position_page_too_large`.
+The node makes no claim of newest-first or native-history client cutover.
+
+Invalid selectors, unbound DID history selectors, legacy 112-hex cursors,
+invalid kinds and limits outside 1–100 return `-32602`, `Invalid params`.
+Missing indexer configuration returns `-32001`, `History unavailable`,
+data.code `indexer_not_configured`. Unreachable or invalid indexer reads return
+that same code/message with `indexer_unreachable`, `indexer_unavailable`,
+`invalid_indexer_response`, `registry_unavailable` or
+`invalid_indexer_readiness` as appropriate. An indexer parameter refusal
+preserves its refusal document as `-32602` data. Local state/binding failures
+retain the account API's `Paxeer read unavailable` errors. These registered
+methods never use `-32601` to represent an unavailable backend. Existing
+`px_register` and `px_requestFunds` hosted-service refusals remain dispatched.
+
+## px-node-root-consensus-and-receipts
+
+Decisions 2514 and 2521 expose this group on the node root `/` over both HTTP
+and WebSocket. These are dispatched methods in `HTTPMethods` and `WSMethods`;
+`pax_sequencerReceipt` retains its compatibility name and bypasses the legacy
+pax allowlist. There is no `px_sequencerReceipt` alias.
+
+| Method | Parameters | Local authority and result |
+|---|---|---|
+| `px_getCommit` | One positive decimal u64 height string | Local consensus Commit; decimal `height`, unmodified consensus `signedHeader.header` and `signedHeader.commit` |
+| `px_getValidators` | One positive decimal u64 height string | Local consensus Validators at that height, every page; `height`, complete `validators` with consensus `address`/`pubKey` and decimal `votingPower`, decimal `total` |
+| `px_getReceiptKeys` | Explicit empty positional array `[]` | Latest committed governed sequencer ReceiptKeys; `keys` with 0x-prefixed 32-byte `keyId`/`publicKey` and inclusive u64 JSON-integer `firstHeight`/`lastHeight` |
+| `px_getSequenceBatch` | One positive decimal u64 height string | Local consensus Block transaction zero decoded with sequencer types; decimal `height`, 0x transaction `tx`, consensus Merkle `proof` with integer `total`/`index=0`, 0x `leafHash`/`aunts` |
+| `pax_sequencerReceipt` | One 0x-prefixed 32-byte transaction hash | Local sequencer send record, governed receipt pins and committed LastSeq/LastSeqHash; null for unknown hashes, otherwise the submitted/receipted/committed rung and signed execution output, with covering block coordinates on committed answers |
+
+Height strings outside the positive u64 domain return `-32602`. Valid u64
+heights beyond the consensus int64 range are unavailable. Missing, pruned,
+unreachable or inconsistent commit/validator state returns `-32003`,
+`Chain read unavailable`, data.code `consensus_unavailable`. Pagination checks
+height, count, stable total, public-key envelopes and duplicate validators.
+
+A batch proof authenticates the consensus transaction hash under
+`header.data_hash`; it is verified before serving and is separate from the
+batch activity `TxRoot`. An absent batch returns `-32602`, `Invalid params`,
+data.code `no_sequence_batch`; malformed batches or inconsistent block/proof
+state return `-32003`, `Chain read unavailable`, data.code
+`invalid_consensus_response`. Unavailable consensus returns data.code
+`consensus_unavailable` with the same `-32003` error.
+
+Receipt keys are read locally on ordinary nodes, without a send-record source
+or forwarding URL. An explicitly configured empty list returns `{"keys":[]}`.
+An absent or invalid governed list returns `-32003`, `Chain read unavailable`,
+data.code `receipt_keys_unavailable`. Each request reads the latest committed
+governed state before validating parameters, including after a server restart;
+unavailable authority takes precedence over parameter errors. When the governed
+list is available, omitted, null, object or nonempty params return `-32602`,
+`Invalid params`, on either transport, including mixed batches.
+Receipt keys beside a receipt never establish authority by themselves.
+
+A node without a local sequencer send record uses only an explicitly configured
+sequencer forwarding path for `pax_sequencerReceipt`; otherwise it returns
+`-32000`, `pax_sequencerReceipt served by sequencer`. The method never constructs
+send records from committed transactions. All seven methods record the existing
+per-method, error and connection metrics. The hosted-operation decisions remain
+`-32004`, `Hosted gateway service operation`, data
+`{code:"hosted_gateway_service_required",method:<requested method>}` for valid
+`px_register`/`px_requestFunds` parameters, and `-32602` for invalid parameters.
+
+Task path mapping: the inventory's `src/kernel` and `src/modules/kernel` paths
+are absent in this revision. The existing sequencer state owner is
+`modules/sequencer`; task 22.34.4 reuses its public reads without changing it.
+The node read adapters are `rpc/px_kernel.go` and `rpc/sequencer_receipt.go`,
+as required by the node-root design, rather than a duplicate kernel tree.

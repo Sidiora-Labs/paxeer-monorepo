@@ -1,7 +1,7 @@
-mod seal;
 use layerx_platform_identity::mailer::Smtp;
 use layerx_platform_identity::signup::{self, Desk, Limits, SignupRequest};
 use layerx_platform_identity::store;
+use layerx_platform_identity::{seal, verification};
 
 use rustls::pki_types::{CertificateDer, PrivateKeyDer, PrivatePkcs8KeyDer};
 use rustls::server::WebPkiClientVerifier;
@@ -1009,26 +1009,6 @@ fn json_body<T: for<'de> Deserialize<'de>>(request: &Request) -> Result<T, Respo
     serde_json::from_slice(&request.body).map_err(|_| refusal(400, "invalid_argument", None))
 }
 
-fn deliver_verification(
-    outbox: &Path,
-    email: &str,
-    token: &str,
-    expires_at: u64,
-) -> Result<(), String> {
-    fs::create_dir_all(outbox).map_err(|error| error.to_string())?;
-    let name = sha256_hex(token.as_bytes());
-    let temporary = outbox.join(format!("{name}.tmp"));
-    let message = Zeroizing::new(
-        serde_json::json!({"kind":"signup_verification","email":email,"token":token,"expires_at":expires_at})
-            .to_string(),
-    );
-    let mut file = fs::File::create(&temporary).map_err(|error| error.to_string())?;
-    file.write_all(message.as_bytes())
-        .and_then(|()| file.sync_all())
-        .map_err(|error| error.to_string())?;
-    fs::rename(&temporary, outbox.join(format!("{name}.json"))).map_err(|error| error.to_string())
-}
-
 fn start_signup(shared: &Shared, request: &Request) -> Response {
     let body: SignupBody = match json_body(request) {
         Ok(body) => body,
@@ -1051,8 +1031,11 @@ fn start_signup(shared: &Shared, request: &Request) -> Response {
     let (Ok(mut desk), Ok(mut store)) = (shared.desk.lock(), shared.store.lock()) else {
         return refusal(503, "store_unavailable", Some(5));
     };
-    let pending = match desk.start(
+    let pending = match verification::start(
+        &mut desk,
         &mut store,
+        &shared.config.store_key,
+        &shared.config.outbox_dir,
         &SignupRequest {
             email: &body.email,
             client_ip: &body.client_ip,
@@ -1060,25 +1043,12 @@ fn start_signup(shared: &Shared, request: &Request) -> Response {
             sub: &body.sub,
             signer_public_key: &body.signer_public_key,
         },
-        &sha256_hex(token.as_bytes()),
+        &token,
         now,
     ) {
         Ok(pending) => pending,
         Err(refused) => return signup_refusal(refused),
     };
-    let email = signup::normalize_email(&body.email)
-        .map(|(email, _)| email)
-        .unwrap_or_default();
-    if deliver_verification(
-        &shared.config.outbox_dir,
-        &email,
-        &token,
-        pending.expires_at,
-    )
-    .is_err()
-    {
-        return refusal(503, "verification_delivery_unavailable", Some(30));
-    }
     serialize(&serde_json::json!({
         "pending": true,
         "tenant": pending.tenant,
@@ -1103,28 +1073,20 @@ fn verify_signup(shared: &Shared, request: &Request) -> Response {
     let Ok(now) = unix_seconds() else {
         return refusal(503, "clock_unavailable", Some(5));
     };
-    let digest = sha256_hex(token.as_bytes());
-    let principal = {
-        let Ok(mut store) = shared.store.lock() else {
-            return refusal(503, "store_unavailable", Some(5));
-        };
-        if store
-            .pending_signup(&digest)
-            .is_some_and(|pending| pending.sub != body.sub)
-        {
-            return refusal(404, "verification_not_found", None);
-        }
-        match signup::verify(&mut store, &digest, now) {
-            Ok(principal) => principal,
-            Err(refused) => return signup_refusal(refused),
-        }
+    let Ok(mut store) = shared.store.lock() else {
+        return refusal(503, "store_unavailable", Some(5));
     };
-    issue_session(
-        shared,
-        &principal.sub,
-        None,
+    match verification::complete(
+        &mut store,
+        &shared.config.store_key,
+        &token,
+        &body.sub,
         shared.config.default_ttl_seconds,
-    )
+        now,
+    ) {
+        Ok(response) => serialize(&response),
+        Err(refused) => signup_refusal(refused),
+    }
 }
 
 fn starter_credit(shared: &Shared, request: &Request, settle: bool) -> Response {
@@ -1484,7 +1446,13 @@ impl Drop for ConnectionPermit {
 }
 
 fn platform_identity(config: Config) -> Result<(), String> {
-    let store = Store::open(&config.state_dir)?;
+    let mut store = Store::open(&config.state_dir)?;
+    verification::reconcile(
+        &mut store,
+        &config.store_key,
+        &config.outbox_dir,
+        unix_seconds()?,
+    )?;
     store.probe_writable()?;
     let listener = TcpListener::bind(config.listen).map_err(|error| error.to_string())?;
     let bound = listener.local_addr().map_err(|error| error.to_string())?;
@@ -1492,20 +1460,45 @@ fn platform_identity(config: Config) -> Result<(), String> {
     let health_bound = health.local_addr().map_err(|error| error.to_string())?;
     let desk = Desk::new(config.signup_limits, config.disposable_domains.clone());
     let mut config = config;
-    if let Some(smtp) = config.smtp.take() {
-        let outbox = config.outbox_dir.clone();
-        thread::spawn(move || loop {
-            if let Err(error) = smtp.drain(&outbox) {
-                eprintln!("layerx-identity mailer failed: {error}");
-            }
-            thread::sleep(MAILER_INTERVAL);
-        });
-    }
+    let smtp = config.smtp.take();
     let shared = Arc::new(Shared {
         config,
         store: Mutex::new(store),
         desk: Mutex::new(desk),
     });
+    {
+        let mail_shared = Arc::clone(&shared);
+        thread::spawn(move || loop {
+            let result = (|| {
+                {
+                    let mut store = mail_shared
+                        .store
+                        .lock()
+                        .map_err(|_| "store lock failed".to_owned())?;
+                    verification::reconcile(
+                        &mut store,
+                        &mail_shared.config.store_key,
+                        &mail_shared.config.outbox_dir,
+                        unix_seconds()?,
+                    )?;
+                }
+                match &smtp {
+                    Some(smtp) => smtp.drain_confirmed(&mail_shared.config.outbox_dir, |digest| {
+                        mail_shared
+                            .store
+                            .lock()
+                            .map_err(|_| "store lock failed".to_owned())?
+                            .delivery_accepted(digest)
+                    }),
+                    None => Ok(0),
+                }
+            })();
+            if let Err(error) = result {
+                eprintln!("layerx-identity mailer failed: {error}");
+            }
+            thread::sleep(MAILER_INTERVAL);
+        });
+    }
     let health_shared = Arc::clone(&shared);
     thread::spawn(move || serve(&health, &health_shared, handle_health));
     eprintln!("layerx-identity health on {health_bound}");

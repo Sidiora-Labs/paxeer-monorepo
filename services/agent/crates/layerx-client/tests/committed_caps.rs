@@ -2,12 +2,73 @@ use layerx_client::budget::{
     budget_state_key, ProtocolBudgetRecord, ReconcileError, BUDGET_MODULE_ID,
 };
 use serde_json::Value;
+use std::os::unix::fs::DirBuilderExt;
+use std::path::Path;
+use std::process::Command;
+use std::sync::OnceLock;
 
 fn vectors() -> Value {
-    let path =
-        std::env::var("LAYERX_CAPS_VECTORS").expect("native vector producer output required");
-    serde_json::from_slice(&std::fs::read(path).expect("native vectors readable"))
-        .expect("native JSON")
+    static VECTORS: OnceLock<Value> = OnceLock::new();
+    VECTORS
+        .get_or_init(|| {
+            let root = Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("../../../..")
+                .canonicalize()
+                .expect("repository root");
+            let directory =
+                std::env::temp_dir().join(format!("layerx-caps-vectors-{}", std::process::id()));
+            std::fs::DirBuilder::new()
+                .mode(0o700)
+                .create(&directory)
+                .expect("private native producer directory");
+            let executable = directory.join("lxp_wallet_caps_vectors");
+            let compiled = Command::new("cc")
+                .current_dir(&root)
+                .args([
+                    "-std=c17",
+                    "-pedantic",
+                    "-Werror",
+                    "-Wall",
+                    "-Wextra",
+                    "-Wconversion",
+                    "-Wshadow",
+                    "-Wvla",
+                    "-fno-strict-aliasing",
+                    "-ffp-contract=off",
+                    "-O2",
+                    "-ffunction-sections",
+                    "-fdata-sections",
+                    "-Iinclude",
+                    "tests/qualification/lxp_wallet_caps_vectors.c",
+                    "src/modules/budget/lx_budget_codec.c",
+                    "src/modules/budget/lx_budget_create.c",
+                    "src/protocol/lxp_u128.c",
+                    "src/crypto/lxp_ct.c",
+                    "-Wl,--gc-sections",
+                    "-o",
+                ])
+                .arg(&executable)
+                .output()
+                .expect("compile native vector producer");
+            assert!(
+                compiled.status.success(),
+                "native vector producer compile failed: {}",
+                String::from_utf8_lossy(&compiled.stderr)
+            );
+            let produced = Command::new(&executable)
+                .output()
+                .expect("run native vector producer");
+            assert!(
+                produced.status.success(),
+                "native vector producer failed: {}",
+                String::from_utf8_lossy(&produced.stderr)
+            );
+            let vectors = serde_json::from_slice(&produced.stdout).expect("native JSON");
+            std::fs::remove_file(executable).expect("remove native vector producer");
+            std::fs::remove_dir(directory).expect("remove native producer directory");
+            vectors
+        })
+        .clone()
 }
 
 fn bytes(v: &Value, name: &str) -> Vec<u8> {

@@ -20,6 +20,7 @@ import argparse
 import json
 import pathlib
 import sys
+from urllib.parse import urlsplit
 
 BASE58_ALPHABET = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"
 
@@ -98,6 +99,20 @@ def endpoints(values, field):
         url, backend, certificate, token = parts
         if not url.startswith("https://"):
             refuse("%s endpoint %r is not an https URL" % (field, url))
+        if field == "--paxeer-endpoint":
+            try:
+                endpoint = urlsplit(url)
+            except ValueError:
+                refuse("%s endpoint %r is not a root JSON-RPC URL" % (field, url))
+            if (
+                not endpoint.hostname
+                or endpoint.username is not None
+                or endpoint.password is not None
+                or endpoint.path not in ("", "/")
+                or endpoint.query
+                or endpoint.fragment
+            ):
+                refuse("%s endpoint %r must use the root JSON-RPC URL" % (field, url))
         if not backend or any(
             not (character.isalnum() or character in "-_.") for character in backend
         ):
@@ -155,6 +170,7 @@ def checkpoint_policy(receipt_keys_file):
         refuse("--receipt-keys-file must contain a nonempty JSON array")
     windows = []
     receipt_keys = []
+    key_ids = set()
     for index, key in enumerate(keys):
         field = "--receipt-keys-file entry %d" % index
         if not isinstance(key, dict) or set(key) != {
@@ -172,13 +188,17 @@ def checkpoint_policy(receipt_keys_file):
             if not isinstance(key[name], str):
                 refuse("%s %s must be hexadecimal text" % (field, name))
             identities[target] = hexadecimal(key[name], "%s %s" % (field, name), 32)
+        key_id = identities["sequencer_id_hex"]
+        if key_id in key_ids:
+            refuse("%s repeats keyId; receipt key identifiers must be unique" % field)
+        key_ids.add(key_id)
         first, last = key["firstHeight"], key["lastHeight"]
         if (
             type(first) is not int
             or type(last) is not int
-            or not 0 < first <= last < 2**64
+            or not 0 <= first <= last < 2**64
         ):
-            refuse("%s must have a positive uint64 height range in order" % field)
+            refuse("%s must have an inclusive uint64 height range in order" % field)
         windows.append((first, last))
         receipt_keys.append({**identities, "first_height": first, "last_height": last})
     ordered = sorted(windows)

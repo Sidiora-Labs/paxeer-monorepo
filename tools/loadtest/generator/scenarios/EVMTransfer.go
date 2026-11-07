@@ -46,37 +46,18 @@ func (s *EVMTransferScenario) AttachScenario(config *config.LoadConfig, address 
 
 // CreateTransaction implements ScenarioDeployer interface - creates ETH transfer transaction
 func (s *EVMTransferScenario) CreateTransaction(config *config.LoadConfig, scenario *types2.TxScenario) (*ethtypes.Transaction, error) {
-	// Create transaction with value transfer
+	auth, err := createScenarioTransactionOpts(config.GetChainID(), scenario, s.scenarioConfig, 21000)
+	if err != nil {
+		return nil, err
+	}
 	tx := &ethtypes.DynamicFeeTx{
-		Nonce:     scenario.Sender.GetAndIncrementNonce(),
+		Nonce:     auth.Nonce.Uint64(),
 		To:        &scenario.Receiver,
 		Value:     big.NewInt(time.Now().Unix()),
-		Gas:       21000,                   // Standard gas limit for ETH transfer
-		GasTipCap: big.NewInt(2000000000),  // 2 gwei
-		GasFeeCap: big.NewInt(20000000000), // 20 gwei
-		Data:      nil,                     // No data for simple transfer
-	}
-
-	if s.scenarioConfig.GasPicker != nil {
-		var err error
-		tx.Gas, err = s.scenarioConfig.GasPicker.GenerateGas()
-		if err != nil {
-			return nil, err
-		}
-	}
-	if s.scenarioConfig.GasTipCapPicker != nil {
-		gasTipCap, err := s.scenarioConfig.GasTipCapPicker.GenerateGas()
-		if err != nil {
-			return nil, err
-		}
-		tx.GasTipCap = big.NewInt(int64(gasTipCap))
-	}
-	if s.scenarioConfig.GasFeeCapPicker != nil {
-		gasFeeCap, err := s.scenarioConfig.GasFeeCapPicker.GenerateGas()
-		if err != nil {
-			return nil, err
-		}
-		tx.GasFeeCap = big.NewInt(int64(gasFeeCap))
+		Gas:       auth.GasLimit,
+		GasTipCap: auth.GasTipCap,
+		GasFeeCap: auth.GasFeeCap,
+		Data:      nil,
 	}
 
 	// Sign the transaction

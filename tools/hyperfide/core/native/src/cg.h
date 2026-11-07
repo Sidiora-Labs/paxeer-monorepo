@@ -1,0 +1,1768 @@
+/*
+ * Hyperfide — agent-native code graph + content-addressed version control.
+ * Single shared header. C11, POSIX. Linux-first (inotify); watcher has a
+ * platform layer with stubs for FSEvents / ReadDirectoryChangesW.
+ */
+#ifndef CG_H
+#define CG_H
+
+#define _GNU_SOURCE
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stdint.h>
+#include <stdbool.h>
+#include <stdarg.h>
+#include <sqlite3.h>
+#include "semantic.h"
+
+#define CG_DIR      ".codegraph"
+#define CG_DB       ".codegraph/graph.db"
+#define CG_OBJECTS  ".codegraph/objects"
+#define CG_HEAD     ".codegraph/HEAD"
+#define CG_IGNORE   ".cgignore"
+#include "version.h"
+#define CG_VERSION HYPERFIDE_VERSION
+#define HYPERFIDE_PRODUCT "Hyperfide"
+#define CG_MCP_VERSION "2025-11-25"
+#define CG_AGENT_CONTEXT ".codify/agent-context.md"
+#define CG_DOC_TASK "@docs"
+#define CG_DOCS_DIR ".codegraph/docs"
+
+/* ---------------- sysinfo: adapt to the machine ---------------- */
+typedef struct {
+    int    cores_online;      /* raw online CPUs */
+    int    cores_affinity;    /* sched_getaffinity mask size */
+    double cores_quota;       /* cgroup cpu quota (cores), -1 if none */
+    int    cores_effective;   /* min of the above, >=1 */
+    long   mem_total_kb;      /* MemTotal */
+    long   mem_avail_kb;      /* honest available: MemAvailable ∩ cgroup */
+    long   cg_mem_limit_kb;   /* cgroup memory limit, -1 if none */
+    int    workers;           /* sized worker pool */
+    int    db_cache_kb;       /* sqlite page cache budget */
+    long   mmap_bytes;        /* sqlite mmap budget */
+    const char *profile;      /* "workstation" | "constrained" | "minimal" */
+} SysInfo;
+
+void sysinfo_detect(SysInfo *si);
+/* The most parse threads one index pass will run, whoever asks: --workers,
+ * CG_INDEX_WORKERS, or [index] workers in codify.kvx. The machine profile's
+ * own choice stays at or under 16; a person may ask for more, up to this. */
+#define CG_MAX_WORKERS 64
+
+/* ---------------- small utils ---------------- */
+typedef struct { char *p; size_t len, cap; } StrBuf;
+void  sb_init(StrBuf *b);
+void  sb_free(StrBuf *b);
+void  sb_putc(StrBuf *b, char c);
+void  sb_puts(StrBuf *b, const char *s);
+void  sb_printf(StrBuf *b, const char *fmt, ...);
+void  sb_json_str(StrBuf *b, const char *s);   /* emits "escaped" incl quotes */
+void  sb_shquote(StrBuf *b, const char *s);    /* 'single-quoted' for sh -c */
+/* resolve a program name through PATH (or check a path); false when absent */
+bool  cg_find_exe(const char *name, char *out, size_t cap);
+
+void *xmalloc(size_t n);
+void *xrealloc(void *p, size_t n);
+char *xstrdup(const char *s);
+char *read_entire_file(const char *path, size_t *out_len); /* NUL-terminated */
+int   write_entire_file(const char *path, const void *data, size_t len);
+int   mkdirs(const char *path);                 /* mkdir -p for dirs */
+bool path_format(char *out, size_t cap, const char *fmt, ...)
+    __attribute__((format(printf, 3, 4))); /* false and empty on overflow */
+long  now_ms(void);
+bool  looks_binary(const char *data, size_t len);
+const char *path_ext(const char *path);
+/* agent identity: flag > $CG_AGENT > "agent"; never NULL, not malloc'd */
+const char *cg_agent_name(const char *flag);
+/* fleet identity: flag > $CG_ROLE / $CG_PARENT; NULL when unset */
+const char *cg_agent_role(const char *flag);
+const char *cg_agent_parent(const char *flag);
+
+/* ---------------- sha256: content identity ---------------- */
+void sha256_hex(const void *data, size_t len, char out_hex[65]);
+/* sha256 of the raw bytes of lines [from..to], 1-based inclusive — the
+ * drift identity behind comments.anchored_hash. Index time and query time
+ * must compute it identically, so both go through here. A declaration's
+ * span ends at its own terminator, so editing one header doc comment leaves
+ * its neighbours' baselines alone. */
+void hash_lines(const char *data, size_t len, int from, int to,
+                char out_hex[65]);
+/* An identifier's words, lowercased and space-separated: snake_case,
+ * camelCase, PascalCase and digit runs all split ("HTTPServer2go" ->
+ * "http server 2 go"). symbol_fts.words at index time, query terms at
+ * search time — both sides must split identically. */
+void name_words(const char *name, char *out, size_t cap);
+
+/* ---------------- ignore rules ---------------- */
+typedef struct {
+    char *pat;
+    bool negate;       /* `!rule` — re-includes a previously ignored path */
+    bool dir_only;     /* `rule/` — matches directories only */
+    bool anchored;     /* rule holds a `/` — matched against the full rel path */
+} IgnorePat;
+
+typedef struct {
+    IgnorePat *pats; int n, cap;
+} Ignore;
+/* defaults + .gitignore + .cgignore, in that precedence order */
+void ignore_load(Ignore *ig, const char *root);
+bool ignore_match(const Ignore *ig, const char *rel, bool is_dir);
+void ignore_free(Ignore *ig);
+
+/* ---------------- language layer: what lang_parse hands back ---------------- */
+#define MAX_DEFS_PER_LINE 4
+
+typedef struct {
+    char *name;        /* symbol name (owned) */
+    const char *kind;  /* static string: function/class/... */
+    int line;
+    char *sig;         /* trimmed definition line (owned) */
+    int end_line;      /* real scope end (brace/indent tracked); 0 = unresolved */
+    bool decl;         /* C/C++ prototype: no body, ends at its own ';' */
+} SymDef;
+
+typedef struct {
+    char *name;        /* callee-ish identifier (owned) */
+    int line;
+    char qual[64];     /* immediate receiver of a.b( / a->b( / A::b(; "" none;
+                          "(expr)" / "(local)" / "(param)" when the callee is
+                          a member of an expression, a value used earlier on
+                          the line, or a parameter of the enclosing function */
+    char ref_kind;     /* 'c' = call */
+    int argc;          /* argument count at call site; -1 = uncountable */
+} SymRef;
+
+typedef struct {
+    char *name;        /* imported name, "*" = whole module (owned) */
+    char *module;      /* module/path as written (owned) */
+    int line;
+    bool system;       /* true for <header.h> system includes */
+} ImportDef;
+
+typedef struct {
+    const char *framework;
+    char *method;      /* GET/POST/... or "*" (owned) */
+    char *pattern;     /* url pattern (owned) */
+    char *handler;     /* best-effort handler name (owned), may be NULL */
+    int line;
+} RouteDef;
+
+/* One captured comment span — the raw material of the intent layer.
+ * lang.c lexes and coalesces; scan.c classifies and binds it to a symbol,
+ * exactly as it does for refs. `pure` is false for a comment trailing code
+ * on the same line, which never coalesces into a doc block. */
+typedef struct {
+    char *body;        /* span text, lines joined with '\n' (owned) */
+    int line, end_line;
+    bool pure;         /* the span's lines carry no code */
+    bool below;        /* documents the def ABOVE it — a python docstring */
+} CmtDef;
+
+typedef struct {
+    SymDef  *defs;   int ndefs,  cdefs;
+    SymRef  *refs;   int nrefs,  crefs;
+    RouteDef*routes; int nroutes,croutes;
+    int nlines;
+    ImportDef *imports; int nimports, cimports;
+    CmtDef  *cmts;   int ncmts,  ccmts;
+    int first_code_line;   /* 1-based; 0 = the file is all comment or empty */
+    SemResult sem;         /* owned rich source facts from syntax adapters */
+    char parser[32];       /* extractor identity; bounded and owned by result */
+    char diagnostic[64];   /* bounded reason code for partial extraction */
+    int diagnostic_line;
+    char diagnostics[256]; /* up to eight line:code entries */
+    unsigned diagnostic_count;
+    bool partial;
+} ParseResult;
+
+const char *lang_for_path(const char *path);       /* NULL if not source */
+void lang_parse(const char *lang, const char *path, const char *src,
+                size_t len, ParseResult *pr);
+void parse_result_free(ParseResult *pr);
+void lang_global_init(void);                        /* compile all regexes once */
+
+/* routes (framework-aware) — used by lang.c during parse */
+void routes_global_init(void);
+void routes_scan_file(const char *path, ParseResult *pr);
+void routes_scan_line(const char *lang, const char *path, int lineno,
+                      const char *orig_line, ParseResult *pr);
+void route_add(ParseResult *pr, const char *framework, const char *method,
+               const char *pattern, const char *handler, int line);
+
+/* ---------------- database ---------------- */
+typedef struct Cg {
+    sqlite3 *db;
+    /* The tree cg operates on: files are read, walked, and git-queried
+     * here, and spec/ is read from here because it travels with the branch.
+     * Equals shared unless this is a linked git worktree of an initialized
+     * repository. */
+    char root[4096];
+    /* Where .codegraph lives: the database, object store, index gate, and
+     * docs packets. One per repository, shared by every worktree of it. */
+    char shared[4096];
+    bool worktree;         /* root != shared: a linked worktree joined in */
+    /* The branch root is on, resolved at open time from git's HEAD (no
+     * process spawned) and registered in branches. Every file row the
+     * indexer writes from this tree carries branch_id; "(detached)" and
+     * "(none)" stand in when there is no branch name. 0 only when the
+     * registry could not be written (database busy). */
+    long branch_id;
+    char branch[256];
+    char head[65];         /* commit HEAD points at, "" when unknown */
+    bool no_soft;          /* --no-soft: exclude prose-derived soft edges */
+    /* How long a write may wait for another cg process to release the
+     * database before giving up. CLI commands wait the full default so an
+     * agent's `cg spec done` survives an editor re-index; long-running
+     * servers (lsp, watch) set a short wait and defer their own index
+     * instead, because they must never hold agents up. */
+    long lock_wait_ms;
+    /* Which branch's rows a read command may see: 0 — the open branch, the
+     * default an agent gets without asking; -1 — every tracked branch
+     * (--all-branches), where hits are labelled with the branch they came
+     * from; >0 — the one branch --branch <name> resolved to. The indexer
+     * ignores it: writes always land under branch_id. */
+    long scope_branch;
+} Cg;
+
+/* Exit status when the database stayed busy past lock_wait_ms: nothing was
+ * written, so the command is safe to run again. Distinct from the generic 2
+ * so an orchestrator retries instead of treating the task as broken; 75 is
+ * EX_TEMPFAIL from sysexits. */
+#define CG_EXIT_BUSY 75
+
+int  cg_open(Cg *cg, bool create);                 /* finds root upward */
+/* Take the write lock (BEGIN IMMEDIATE), waiting up to cg->lock_wait_ms.
+ * Returns 0 holding the lock, -1 when the database stayed busy — without
+ * exiting, so a server can defer. Any other SQL failure still exits. */
+int  cg_begin_write(Cg *cg);
+long cg_lock_wait_default(void);                   /* CG_BUSY_TIMEOUT_MS */
+/* The message a person or agent should see when a write gave up on a busy
+ * database: names the likely holder and says nothing was changed. */
+void cg_busy_report(const char *what);
+void cg_close(Cg *cg);
+/* The shared project directory (the one holding .codegraph) for the
+ * current directory: the nearest ancestor, or — from a linked git worktree
+ * whose main worktree is initialized — that main worktree. 0 ok */
+int  cg_find_root(char *out, size_t cap);
+/* resolve from an explicit directory (LSP/MCP roots, hooks) */
+int  cg_find_root_at(const char *start, char *out, size_t cap);
+/* Both halves: root is the tree to operate on, shared the project whose
+ * .codegraph holds the graph. They differ only for a linked worktree that
+ * joined an initialized main worktree. Returns 0, or -1 when no project
+ * owns <start>. */
+int  cg_find_project_at(const char *start, char *root, char *shared,
+                        size_t cap);
+/* meta key scoped to the open branch ("last_index_at:3"): freshness and
+ * file counts describe one branch's rows, not the whole database */
+void cg_bkey(const Cg *cg, const char *name, char *out, size_t cap);
+/* true when dir owns its subtree (.git, go.mod, package.json, ...) */
+bool cg_is_boundary(const char *dir);
+int  cmd_root(bool json);                          /* print the bound root */
+sqlite3_stmt *cg_prep(Cg *cg, const char *sql);
+void cg_exec(Cg *cg, const char *sql);
+void cg_meta_set(Cg *cg, const char *k, const char *v);
+char *cg_meta_get(Cg *cg, const char *k);          /* malloc'd or NULL */
+/* schema_version migration: drop+recreate derived tables so the next sync
+ * rebuilds them; memories/history/leases always survive. 0 ok */
+int  cg_schema_upgrade(Cg *cg);
+
+/* -------------- project configuration (config.c): hyperfide.kvx -------------- */
+/* Canonical root configuration; legacy codify.kvx remains selectable under the
+ * names-migration rules. Configuration travels with the branch like
+ * the spec directory does, so every accessor takes the tree it asks about:
+ * cg->root for the tree being worked on, cg->shared where a caller reads the
+ * main tree's spec. Loaded once per tree per process; a missing file or key
+ * is the built-in default. Paths are root-relative and normalized. */
+#define CG_CONFIG_FILE "hyperfide.kvx"
+#define CG_LEGACY_CONFIG_FILE "codify.kvx"
+/* the basename of the file this tree actually reads: hyperfide.kvx, or
+ * codify.kvx while the legacy file is the selected one (26.3 migration) */
+const char *config_file_name(const char *root);
+int hyperfide_environment_aliases(void);
+enum { CFG_SYNC_AUTO, CFG_PATH_SPEC, CFG_PATH_CONTEXT, CFG_PATH_SKILLS,
+       CFG_PATH_CODEMAP, CFG_INDEX_WORKERS,
+       /* codify-v15 3.1 */
+       CFG_PROJ_BASE, CFG_PROJ_STALE, CFG_PROJ_EXCLUDE, CFG_PROJ_INDEX,
+       CFG_FLEET_DISCOVER,                 /* codify-v15 2.4 */
+       CFG_PROJ_STEER,            /* codify-v15 3.2 */
+       /* codify-v15 1.4 */
+       CFG_HOOKS_SHELL_ADVICE,
+       CFG_INDEX_WALK,             /* codify-v15 1.3 */
+       /* codify-v15 3.3 */
+       CFG_PROJ_AUTO, CFG_PROJ_MIN_INTERVAL,
+       CFG_NKEYS };
+typedef struct {
+    char root[4096];
+    char file[4200];           /* <root>/codify.kvx */
+    bool present;              /* the file exists */
+    bool sync_auto;            /* [sync] auto: implicit syncs run */
+    char spec[1024], context[1024], skills[1024], codemap[1024];
+    int  index_workers;        /* [index] workers: 1..CG_MAX_WORKERS, 0 = auto */
+    /* codify-v15 3.1: [projection] */
+    char proj_base[256];       /* "" = [hierarchy] main, else main */
+    char proj_stale_s[64];     /* as written: "24h" */
+    long proj_stale;           /* seconds */
+    char proj_exclude[1024];   /* globs, comma-joined */
+    bool proj_index;           /* check out and index the projection */
+    bool fleet_discover;       /* codify-v15 2.4: [fleet] discover */
+    bool proj_steer;           /* codify-v15 3.2: steer on new findings */
+    bool shell_advice;         /* codify-v15 1.4: [hooks] shell_advice */
+    int  index_walk;           /* [index] walk: CG_WALK_AUTO|GIT|FULL */
+    /* codify-v15 3.3: [projection] auto, min_interval */
+    bool proj_auto;
+    char proj_min_interval_s[64];
+    long proj_min_interval;    /* seconds */
+    bool from_file[CFG_NKEYS]; /* the value came from the file, not the default */
+    int  nproblems;            /* unusable values (already reported on stderr) */
+} CgConfig;
+/* never NULL; an unusable value is reported on stderr the first time */
+const CgConfig *config_load(const char *root);
+bool config_auto_sync(const char *root);
+const char *config_spec_rel(const char *root);     /* "spec" */
+const char *config_context_rel(const char *root);  /* ".codify" */
+const char *config_skills_rel(const char *root);   /* ".agents/skills" */
+const char *config_codemap_rel(const char *root);  /* "CODEMAP.md" */
+/* [index] workers: the parse worker count asked for, 0 = the machine's */
+int  config_index_workers(const char *root);
+/* a worker count as written anywhere (codify.kvx, CG_INDEX_WORKERS,
+ * --workers): "auto" or 0 -> 0, 1..CG_MAX_WORKERS -> itself, else -1 */
+int  config_parse_workers(const char *v);
+/* absolute joins; false (out empty) on overflow, like path_format */
+bool config_spec_dir(const char *root, char *out, size_t cap);
+bool config_workflow_path(const char *root, char *out, size_t cap);
+bool config_feature_path(const char *root, const char *feature, char *out,
+                         size_t cap);              /* <spec>/<f>/spec.kvx */
+bool config_context_dir(const char *root, char *out, size_t cap);
+bool config_context_path(const char *root, const char *name, char *out,
+                         size_t cap);              /* <context>/<name> */
+bool config_skills_dir(const char *root, char *out, size_t cap);
+bool config_codemap_path(const char *root, char *out, size_t cap);
+/* is the root-relative path under the configured spec directory? */
+bool config_in_spec(const char *root, const char *rel);
+/* nearest ancestor of start (NULL: cwd) holding <its spec>/workflow.kvx */
+int  config_find_spec_root(const char *start, char *out, size_t cap);
+/* unknown sections and keys, unusable values, an unparseable file: one line
+ * each into text, a {"file","present","ok","problems":[...]} object into
+ * json (either may be NULL); returns how many. Never prints. */
+int  config_check(const char *root, StrBuf *text, StrBuf *json);
+int  cmd_config(int argc, char **argv, bool json);
+
+/* ---------------- scan / index ---------------- */
+typedef struct {
+    long files_seen, files_indexed, files_removed, files_skipped;
+    long symbols, refs, routes, anchors, soft, bytes;
+    long ms;
+    /* the database stayed busy past lock_wait_ms; the graph is whatever the
+     * last index left (any chunks written before the stall are kept) */
+    bool busy;
+    bool semantic_failed;  /* file facts or a semantic pass failed to persist */
+    /* the walk was skipped: the last pass is younger than the caller's
+     * freshness window and nothing is pending or marked dirty */
+    bool fresh;
+    /* another process held the index gate; this caller left a dirty note
+     * for it instead of walking, and returned without indexing */
+    bool coalesced;
+    int  workers;          /* parse threads the pass actually used */
+    int  passes;           /* walks run, including dirty-marker drains */
+    bool scoped;           /* resolution ran over the change scope only */
+    /* files whose rows were copied from an identical twin on another
+     * branch instead of parsed again (see branch reuse in scan.c) */
+    long files_reused;
+    /* codify-v15 1.5: body_tri rows put back for unchanged files */
+    long tri_repaired;
+    /* codify-v15 1.3: ms per phase, peak RSS, and how the tree was walked */
+    long phase_ms[5];      /* IDX_PH_WALK .. IDX_PH_SOFT */
+    long peak_rss_kb;
+    const char *walk;      /* "full" | "git" | "targets" | "none" */
+} IndexStats;
+enum { IDX_PH_WALK, IDX_PH_PARSE, IDX_PH_WRITE, IDX_PH_RESOLVE, IDX_PH_SOFT };
+
+/* How a caller wants its index pass run. Zero-initialised means: walk now,
+ * wait cg->lock_wait_ms for the gate, full machine budget, foreground. */
+typedef struct {
+    bool full;             /* reparse every file (cg index --full) */
+    bool force_walk;       /* discover from filesystem; retain content reuse */
+    /* skip the walk when meta.last_index_at is younger than this and no
+     * resolve is pending and no dirty note exists; 0 = always walk */
+    long max_age_ms;
+    /* how long to wait for another process's index pass to finish before
+     * coalescing into it: 0 = never, -1 = cg->lock_wait_ms */
+    long lock_wait_ms;
+    int  workers_cap;      /* a ceiling on whatever is asked; 0 = none */
+    /* --workers N: the count asked for, ahead of CG_INDEX_WORKERS and
+     * [index] workers; 0 = not given (see syncgate_worker_request) */
+    int  workers;
+    bool background;       /* hook/watch/editor: renice, quarter of the cores */
+    bool quiet;
+    /* targeted sync: only these root-relative paths (files or dirs) are
+     * stat'd, parsed, or removed; a targeted pass never claims the whole
+     * tree is fresh */
+    const char *const *paths;
+    int npaths;
+} IndexOpts;
+
+/* Returns 0, or -1 with st->busy set when another process held the write
+ * lock for the whole wait. Never exits on a busy database. A coalesced or
+ * fresh pass returns 0 with the matching flag set and no files indexed. */
+int cg_index_ex(Cg *cg, const SysInfo *si, const IndexOpts *o, IndexStats *st);
+/* codify-v15 1.3 — the index at scale */
+/* walk.c: every regular file (at most max_bytes, no symlinks, the ignore
+ * rules applied as ever) under root/rel ("" = the tree), walked by `threads`
+ * threads over a shared directory list and appended to out, which comes back
+ * sorted by path. Ticks the progress line per directory (main thread). */
+typedef struct { char *rel; long size, mtime, mtime_ns; } WalkEntry;
+typedef struct { WalkEntry *v; int n, cap; long dirs; } WalkSet;
+void walk_parallel(const char *root, const char *rel, const Ignore *ig,
+                   int threads, long max_bytes, WalkSet *out);
+void walkset_free(WalkSet *w);
+int  walk_threads_default(int budget);     /* CG_WALK_THREADS overrides */
+/* gitint.c: the paths that may differ from what the pass at `since` saw —
+ * porcelain v2 status with untracked files, plus `git diff --name-only
+ * since..HEAD` (both sides of a rename). Root-relative, malloc'd, the
+ * *nstatus status paths first; returns the count, or -1 when git cannot
+ * answer (no git, unknown commit). */
+int  walk_git_candidates(const char *root, const char *since, char ***out,
+                         int *nstatus);
+/* scan.c: add the time since t0 to one phase of st */
+void index_phase_ms(IndexStats *st, int phase, long t0);
+/* the pass as one JSON object (sync and index --json) */
+void index_stats_json(const IndexStats *st, bool targeted, StrBuf *b);
+long index_peak_rss_kb(void);              /* VmHWM, 0 when unknown */
+/* db.c: body_fts is contentless (SQLite >= 3.43, meta fts_mode) */
+bool db_fts_contentless(Cg *cg);
+/* progress.c: directories walked so far, shown beside the file count */
+void progress_dirs(long dirs);
+/* [index] walk: how a whole-tree pass finds its candidates */
+enum { CG_WALK_AUTO, CG_WALK_GIT, CG_WALK_FULL };
+int  config_index_walk(const char *root);
+int  config_parse_walk(const char *v);     /* -1 when not auto|git|full */
+#define CG_WALK_GIT_MIN_FILES 20000        /* auto: git above this many */
+#define CG_WALK_FULL_EVERY    20           /* every Nth pass walks fully */
+/* Blocking full-strength wrapper: waits for the gate, always walks. */
+int cg_index(Cg *cg, const SysInfo *si, bool full, IndexStats *st, bool quiet);
+
+/* progress.c — the live status line for init, index, and sync (main thread
+ * only; off unless requested and the pass is neither quiet nor background) */
+void progress_request(bool want);   /* the command a person runs asks for it */
+void progress_begin(const IndexOpts *o);
+void progress_step(const char *step);   /* cg init's named steps */
+void progress_phase(const char *phase, long done, long total);
+void progress_flush(void);              /* draw now: bounded points only */
+void progress_tick(long done, long total, const char *path);
+void progress_workers(int n);
+void progress_wait(const char *what, long waited_ms);  /* NULL clears */
+void progress_end(void);                /* erases the line; call before output */
+int  progress_begin_write(Cg *cg);      /* cg_begin_write, wait shown */
+
+/* syncgate.c — the single-writer index gate and machine-wide parse slots */
+int  syncgate_acquire(const Cg *cg, long wait_ms);     /* fd or -1 */
+void syncgate_release(int fd);
+void syncgate_mark_dirty(const Cg *cg, const char *const *paths, int npaths);
+bool syncgate_is_dirty(const Cg *cg);
+char *syncgate_take_dirty(const Cg *cg);               /* malloc'd or NULL */
+int  syncgate_slot_count(const SysInfo *si);
+int  syncgate_slot_acquire(const SysInfo *si);         /* fd or -1 */
+void syncgate_slot_release(int fd);
+/* The parse worker count asked for, before any per-pass bound: flag (when
+ * > 0), then CG_INDEX_WORKERS, then [index] workers in root's codify.kvx,
+ * then the machine profile; *origin names which ("flag",
+ * "CG_INDEX_WORKERS", "codify.kvx", "machine"). Never above CG_MAX_WORKERS. */
+int  syncgate_worker_request(const char *root, const SysInfo *si, int flag,
+                             const char **origin);
+int  syncgate_worker_budget(const char *root, const SysInfo *si,
+                            const IndexOpts *o, int jobs, int *slot_fd);
+void syncgate_background_nice(void);
+
+/* import resolution and ref resolution (resolve.c) — runs post-scan */
+void resolve_imports(Cg *cg);
+void resolve_refs(Cg *cg);
+/* Incremental variants: only rows the change scope reaches — imports and
+ * refs in changed files, refs anywhere naming a symbol the change added or
+ * removed, unresolved imports a new file could satisfy. Valid between
+ * index_scope_begin and index_scope_end on the same connection. */
+void resolve_imports_scoped(Cg *cg);
+void resolve_refs_scoped(Cg *cg);
+/* change scope (scan.c): temp tables scope_files(id,added) and
+ * scope_names(name) that the write phase fills */
+void index_scope_begin(Cg *cg);
+void index_scope_end(Cg *cg);
+/* true when the scope is small next to the graph, so the scoped passes
+ * beat rebuilding everything */
+bool index_scope_bounded(Cg *cg);
+
+/* grounding findings (resolve.c) — query-time, never stored */
+typedef struct {
+    char path[512];
+    int line;
+    char name[128];
+    char kind[16];      /* "call" or "import" */
+    char near[128];     /* near-miss suggestion, "" if none */
+    char detail[256];   /* human-readable explanation */
+} GroundFinding;
+
+int ground_findings(Cg *cg, const char *path, GroundFinding **out);
+void ground_findings_free(GroundFinding *v, int n);
+bool file_calibrated(Cg *cg, long file_id, const char *lang);
+
+/* contract findings: arity and kind checks */
+typedef struct {
+    char path[512];
+    int line;
+    char name[128];
+    char kind[32];      /* "arity" or "kind-mismatch" or "dead-handler" */
+    char detail[256];
+} ContractFinding;
+
+int contract_findings(Cg *cg, const char *path, ContractFinding **out);
+void contract_findings_free(ContractFinding *v, int n);
+
+/* hygiene findings: unused symbols and imports, delta by default */
+typedef struct {
+    char path[512];
+    int line;
+    char name[128];
+    char kind[16];      /* "unused-sym" or "unused-import" */
+    char detail[256];
+} HygieneFinding;
+
+int hygiene_findings(Cg *cg, const char *path, HygieneFinding **out);
+int hygiene_findings_all(Cg *cg, HygieneFinding **out, int limit);
+void hygiene_findings_free(HygieneFinding *v, int n);
+bool is_entrypoint(Cg *cg, long sym_id, const char *name, const char *kind,
+                   const char *path);
+
+/* ---------------- graph queries ---------------- */
+int cmd_search (Cg *cg, const char *q, int limit, bool json);
+/* codify-v15 1.1: cg grep (grep.c) — trigram candidates from body_tri, the
+ * candidates scanned from disk in parallel, each hit placed in the symbol
+ * span that encloses it, ranked and capped by -n and a token budget */
+#define GREP_MAX_PATHS 16
+typedef struct {
+    const char *pattern;
+    bool regex, icase;              /* -E/--regex, -i */
+    const char *paths[GREP_MAX_PATHS]; int npaths;   /* --path GLOB */
+    const char *lang;               /* --lang L */
+    bool no_tests;                  /* --no-tests */
+    const char *symbol, *kind;      /* --symbol NAME, --kind K */
+    int context;                    /* -C N */
+    int limit, budget;              /* -n N (50), --budget TOKENS (4000) */
+    bool files_only, count_only;    /* --files, --count */
+} GrepOpts;
+int cmd_grep(Cg *cg, const SysInfo *si, const GrepOpts *o, bool json);
+/* the grep_code MCP tool: its input schema and its handler, which takes
+ * mcp.c's call context ({Cg *, const SysInfo *, const char *args}) */
+extern const char GREP_CODE_SCHEMA[];
+int t_grep(void *call_ctx);
+/* codify-v15 1.5 */
+/* body_tri holds a row for every file in scope that carries a body; when
+ * false, *have of *want such files have one and grep scans the scope */
+bool grep_tri_complete(Cg *cg, long *have, long *want);
+int cmd_symbol (Cg *cg, const char *name, bool json);
+int cmd_impact (Cg *cg, const char *name, int depth, int budget, bool json);
+int cmd_context(Cg *cg, const char *q, int budget, int limit, bool json);
+char *graph_task_focus(Cg *cg, const char *task_packet); /* malloc'd query */
+/* a declared symbol for a task packet: definition, purpose, opening lines,
+ * callers and callees; returns definitions found (0: not in the graph yet) */
+int  graph_symbol_brief(Cg *cg, const char *name, int snippet_lines,
+                        int max_edges, StrBuf *b);
+/* files matching a touch glob and the symbols each defines */
+int  graph_glob_symbols(Cg *cg, const char *glob, int max_files, int max_syms,
+                        StrBuf *b);
+/* The briefing an agent starts from, built from the spec and the graph and
+ * fitted to budget tokens (govern.c). Worker: the task's criteria, steps,
+ * scope, declared symbols in the code, what its prerequisites produced,
+ * live siblings' paths, and decisions. Returns the approximate tokens. */
+int  task_packet_build(Cg *cg, const char *tag, int budget, StrBuf *out);
+/* manager: subtree state, live workers, failures, conflicts, approvals */
+int  manager_packet_build(Cg *cg, const char *feature, int budget, StrBuf *out);
+/* what a required task produced: its declared symbols as they now stand in
+ * the graph, and the commits tagged with it; returns symbols found */
+int  packet_upstream_evidence(Cg *cg, const char *feature, const char *req,
+                              StrBuf *b);
+/* the tier below bodies: purpose lines and docs, wide and cheap */
+int cmd_survey(Cg *cg, const char *scope, int budget, bool json);
+/* codify-v15 1.2 */
+/* --path GLOB (repeatable), --lang L, --no-tests: the one narrowing every
+ * retrieval read shares. A path is a directory, a file, or a glob where
+ * `**` and `*` both cross `/`; a slashless glob also matches basenames. */
+#define QF_MAX_PATHS 16
+typedef struct {
+    char paths[QF_MAX_PATHS][512];
+    int  npaths;
+    char lang[32];        /* files.lang spelling; "py" etc. normalised */
+    bool no_tests;        /* drop what graph_path_is_test calls a test */
+} QueryFilter;
+/* Strip the filter flags from argv (anywhere after the command) into f.
+ * 0 ok, -1 on a flag missing its value (reported on stderr). */
+int  query_filter_parse(int *argc, char **argv, QueryFilter *f);
+bool query_filter_active(const QueryFilter *f);
+/* " AND (...)" over the alias's path and lang columns, or "" when f is
+ * inactive; malloc'd. The no-tests clause calls cg_is_test(), which
+ * cg_filter_set (or query_filter_register) installs on the connection. */
+char *query_filter_sql(const QueryFilter *f, const char *alias);
+void query_filter_register(sqlite3 *db);
+/* The same decision for a row already in hand (grep's candidates). */
+bool query_filter_match(const QueryFilter *f, const char *path,
+                        const char *lang);
+/* The filter graph.c's scoped reads (search, context, survey) apply until
+ * cleared with NULL; per thread, so one MCP call never leaks into the next */
+void cg_filter_set(Cg *cg, const QueryFilter *f);
+const QueryFilter *cg_filter_get(const Cg *cg);
+/* cg files [pattern] [--dirs [prefix]] [--depth N] [-n N] [filters] */
+int cmd_files(Cg *cg, int argc, char **argv, bool json);
+/* anchor health: stale docs plus the coordination-ranked backfill list */
+int cmd_anchors(Cg *cg, bool stale_only, bool unc_only, bool json);
+int cmd_routes (Cg *cg, const char *filter, bool json);
+int cmd_show   (Cg *cg, const char *name, bool full, bool json); /* one body */
+int cmd_test_impact(Cg *cg, const char *name, bool json);
+int cmd_why    (Cg *cg, const char *name, bool json);   /* provenance join */
+bool graph_path_is_test(const char *path);
+/* name of the symbol enclosing path:line; 0 ok, -1 when nothing encloses it */
+int  graph_symbol_at(Cg *cg, const char *path, int line, char *name, size_t cap);
+
+/* Branch scope for queries. A query answers for one branch — the one this
+ * tree is on — unless the caller widened it, because an agent asking what
+ * calls a function means on its branch, not on somebody else's. */
+/* The predicate that keeps a query on the branch in scope, written for the
+ * caller's files alias: " AND f.branch_id=3 ", or "" when every branch is in
+ * scope. Spliced into the statement text rather than bound, so the planner
+ * still sees a constant and each scope gets its own prepared statement. */
+const char *branch_scope_sql(const Cg *cg, const char *alias, char *out,
+                             size_t cap);
+/* Resolve --branch <name> / --all-branches into cg->scope_branch. 0 ok,
+ * -1 when the name is no branch the graph has rows for. */
+int  cg_scope_set(Cg *cg, const char *name, bool all);
+/* The branch a hit came from, for labelling results. Empty while one
+ * branch is in scope, so callers can label unconditionally and the
+ * default output is unchanged. */
+const char *branch_hit_label(Cg *cg, long branch_id, char *out, size_t cap);
+/* The tree a branch's bytes live in — the worktree it was last indexed
+ * from — so a hit on another branch quotes that branch's file and not this
+ * one's. Falls back to cg->root. */
+const char *branch_tree(Cg *cg, long branch_id, char *out, size_t cap);
+
+/* ---------------- vcs ---------------- */
+int cmd_commit  (Cg *cg, const char *msg, bool quiet);
+int cmd_commit_with_options(Cg *cg, const char *msg, bool quiet,
+                            const char *spec_tag, bool amend);
+int cmd_log     (Cg *cg, int limit, bool json);
+int cmd_status  (Cg *cg, bool json);
+int cmd_state   (Cg *cg, bool json);              /* Git/snapshot/spec/live */
+int cmd_event(Cg *cg, int argc, char **argv, bool json);
+int runtime_event_ingest(Cg *cg, const char *source, const char *payload,
+                         bool json);
+void runtime_workspace_revision(Cg *cg, char out[65]);
+typedef struct {
+    char classification[40], reason[256], action[40], next_action[40];
+    int no_evidence_events, repeated_failures, signal_events, stage;
+    long latest_event_id, age_seconds;
+    bool activity, stalled, waiting, enforced, patch_oscillation;
+} RuntimeProgress;
+int runtime_classify_progress(Cg *cg, const char *attempt,
+                              const char *session, RuntimeProgress *out);
+int runtime_progress(Cg *cg, bool json);
+int cmd_diff    (Cg *cg, const char *a, const char *b);
+int cmd_checkout(Cg *cg, const char *id, bool force);
+int cmd_changes (Cg *cg, int limit, bool json); /* impact of uncommitted edits */
+
+/* history probes for `cg spec trace` / graph-verified task completion */
+/* commits whose message contains needle, newest first, over the whole
+ * snapshot chain from HEAD; ids, msgs and dates are malloc'd for the
+ * caller. Returns n. */
+int vcs_find_commits(Cg *cg, const char *needle, char ***ids, char ***msgs,
+                     long **dates);
+/* unique repo-relative paths changed in worktree-vs-HEAD, plus by commits
+ * whose message contains needle (needle may be NULL); returns count */
+int vcs_changed_paths(Cg *cg, const char *needle, char ***out);
+typedef struct {
+    char **paths, **ids, **messages;
+    long *dates;
+    int npaths, ncommits;
+} VcsTrace;
+void vcs_trace_batch(Cg *cg, const char **tags, int n, VcsTrace *rows,
+                     char ***workpaths, int *nworkpaths);
+void vcs_trace_free(VcsTrace *rows, int n);
+sqlite3_stmt *graph_trace_symbols_prepare(Cg *cg);
+bool graph_qualified_split(const char *name, const char **final, char *qual,
+                           size_t cap, bool *rust);
+bool graph_symbol_in_container(Cg *cg, long sym_id, const char *path,
+                               const char *sig, const char *qual, bool rust);
+bool graph_trace_is_fresh(Cg *cg);
+/* commits whose snapshot changed <path>, newest first — provenance for why.
+ * ids and msgs, their strings, and dates are all malloc'd for the caller. */
+int vcs_commits_for_path(Cg *cg, const char *path, int limit, char ***ids,
+                         char ***msgs, long **dates);
+/* the built-in store (task hyperfide-v21/3.9): counts from the last working
+ * tree snapshot (hashed = files read, cached = vouched for by the stat
+ * cache), and the authority mode the store answers to, with whether it is
+ * authoritative there (only local and offline-local) */
+typedef struct { long files, hashed, cached; } VcsSnapshotStats;
+void vcs_snapshot_stats(VcsSnapshotStats *out);
+const char *vcs_store_mode(const Cg *cg, bool *authoritative);
+/* the working tree's files and content hashes through the store's stat
+ * cache, sorted by path (task hyperfide-v21/3.24: the runtime workspace
+ * revision reads this instead of keeping a second cache); returns the count,
+ * *out freed with vcs_worktree_files_free. Leaves vcs_snapshot_stats as the
+ * last snapshot set them. */
+typedef struct { char *path; long size; char hash[65]; } VcsFile;
+int vcs_worktree_files(const Cg *cg, VcsFile **out);
+void vcs_worktree_files_free(VcsFile *files, int n);
+
+/* ---------------- agent memory (memories table in graph.db) ---------- */
+typedef struct {
+    long id, created;                    /* created = unix seconds */
+    char *type, *task, *body, *symbols, *files, *source;  /* task.. nullable */
+    /* Jev's verdict from `cg memory classify`: skill|fact|decision|
+     * constraint|noise, NULL until the memory has been classified, with the
+     * confidence it was given. Advice, never a gate. */
+    char *cls;
+    double confidence;
+    /* the branch the decision was made on; NULL for memories written
+     * before branches existed, which every branch still sees */
+    char *branch;
+} Memory;
+
+/* insert one memory; returns its id, -1 on failure */
+long memory_add(Cg *cg, const char *type, const char *task, const char *body,
+                const char *symbols, const char *files, const char *source);
+/* query: free text matched via FTS (NULL = recency only); task/type exact
+ * filters (NULL = any); fills a malloc'd array, returns count */
+int  memory_query(Cg *cg, const char *query, const char *task,
+                  const char *type, int limit, Memory **out);
+int memory_query_feature(Cg *cg, const char *feature, Memory **out);
+void memory_clear(Memory *m);            /* free one entry's fields */
+void memory_free(Memory *v, int n);
+void memory_json(const Memory *m, StrBuf *b);
+void memory_print_brief(const Memory *m, const char *indent);
+/* open the enclosing .codegraph without reindexing; false when absent */
+bool memory_open_quiet(Cg *g);
+int  cmd_remember(Cg *cg, const char *text, const char *type, const char *task,
+                  const char *symbols, const char *files, bool json);
+int  cmd_recall(Cg *cg, const char *query, const char *task, const char *type,
+                int limit, bool json);
+int  cmd_forget(Cg *cg, const char *idstr);
+int  memory_supersede(Cg *cg, long old_id, long new_id);
+int  cmd_recall_near(Cg *cg, const char *path, int limit, bool json);
+int  cmd_memory_compact(Cg *cg, bool dry_run, bool json);
+/* Move a merged branch's memories onto the branch it merged into, so a
+ * decision keeps the code it was made for company once the wave lands.
+ * A memory the base already carries is left where it is. Returns how many
+ * moved, -1 when the write failed. */
+int  memory_promote_branch(Cg *cg, const char *from, const char *to);
+/* Memory transport (docs/memory-transport.md). The content id is sha256 of
+ * type, 0x1F, task (NULL as empty), 0x1F, body: the same note has the same
+ * id in every graph, which is what import deduplicates and relinks by. */
+void memory_content_id(const char *type, const char *task, const char *body,
+                       char out[65]);
+typedef struct {
+    const char *outfile;        /* NULL or "-": stdout */
+    const char *task;           /* a tag, or a prefix ending before a '/' */
+    const char *type, *branch;  /* exact */
+    int since_days;             /* 0: all time */
+} MemExportOpts;
+typedef struct {
+    const char *file;           /* exactly one of file ("-" = stdin), */
+    const char *from;           /* another project's directory, */
+    const char *data;           /* or the JSONL text itself (MCP) */
+    const char *retask;         /* "OLD=NEW" task-tag prefix rewrite */
+    bool dry_run, keep_branch;
+} MemImportOpts;
+int  cmd_memory_export(Cg *cg, const MemExportOpts *o, bool json);
+/* One transaction; an unusable header stops it before any write. 0 ok
+ * (invalid lines are reported, not fatal), 1 error, CG_EXIT_BUSY. */
+int  cmd_memory_import(Cg *cg, const MemImportOpts *o, bool json);
+
+/* ---------------- watcher ---------------- */
+int cmd_watch(Cg *cg, const SysInfo *si, int debounce_ms);
+/* cg watch --fleet: one process following every worktree in the branch
+ * registry, so a fleet keeps every branch's slice of the graph current
+ * without one watcher per agent. New worktrees are picked up as the
+ * registry learns them; vanished ones are dropped. */
+int watch_fleet(Cg *cg, const SysInfo *si, int debounce_ms);
+
+/* ---------------- minimal JSON reading (for MCP + package.json) ------- */
+char *json_get_string(const char *obj, const char *key);  /* malloc, unescaped */
+char *json_string_value(const char *raw);  /* "\"a\\nb\"" -> malloc "a\nb"; NULL if not a string */
+long  json_get_int(const char *obj, const char *key, long dflt);
+char *json_get_raw(const char *obj, const char *key);     /* raw token, malloc */
+char *json_get_object(const char *obj, const char *key);  /* balanced {...}   */
+int   json_object_keys(const char *obj, char **keys, int cap); /* malloc'd each */
+/* the raw items of a JSON array (malloc'd each, and the vector); 0 when
+ * arr is not an array */
+int   json_array_items(const char *arr, char ***out);
+
+/* run fn with stdout captured into *out (malloc'd); returns fn's rc */
+int cg_capture(char **out, int (*fn)(void *), void *ctx);
+
+/* ---------------- kvx: Ion spec format ---------------- */
+typedef struct { char *section, *key, *raw; } KvxEntry;
+typedef struct {
+    KvxEntry *v; int n, cap;
+    char **secs; int nsec, csec;
+    char *path;
+    /* parse-time indexes: open-addressed hash slots (index+1, 0 = empty) */
+    int *sec_slot, sec_slots;          /* section name -> secs[] index */
+    int *ent_slot, ent_slots;          /* (section,key) -> v[] index */
+    int *sec_first, *sec_last;         /* per section: first/last v[] index */
+    int *ent_next;                     /* per entry: next v[] in its section */
+} Kvx;
+
+Kvx  *kvx_parse(const char *path);                /* NULL on open/parse error */
+void  kvx_free(Kvx *k);
+bool  kvx_has(const Kvx *k, const char *sec);
+const char *kvx_raw(const Kvx *k, const char *sec, const char *key);
+char *kvx_str(const Kvx *k, const char *sec, const char *key); /* malloc; NULL absent */
+long  kvx_long(const Kvx *k, const char *sec, const char *key, long dflt);
+bool  kvx_bool(const Kvx *k, const char *sec, const char *key, bool dflt);
+int   kvx_list(const Kvx *k, const char *sec, const char *key, char ***out);
+int   kvx_keys(const Kvx *k, const char *sec, const char ***out); /* borrowed */
+int   kvx_subsections(const Kvx *k, const char *prefix, char ***out); /* file order */
+void  kvx_sort_dotted(char **ids, int n);
+/* surgically rewrite `status = "..."` inside [section]; preserves all else */
+int   kvx_set_status(const char *path, const char *section, const char *value);
+/* called after every successful status write (kvx_set_status, and
+ * kvx_set_string on a "status" key) with the value it replaced, or NULL.
+ * NULL hook by default, so kvx stays free of the database for unit tests;
+ * main installs events_kvx_status. */
+extern void (*kvx_status_hook)(const char *path, const char *section,
+                               const char *from, const char *to);
+/* surgically set a quoted scalar, adding the key/section when absent */
+int   kvx_set_string(const char *path, const char *section, const char *key,
+                     const char *value);
+/* same, but writes the literal (a list such as ["a", "b"]) unquoted */
+int   kvx_set_raw(const char *path, const char *section, const char *key,
+                  const char *raw);
+
+int cmd_spec(int argc, char **argv, bool json);
+/* Record where a task's live attempt is being worked: its branch, the
+ * worktree holding it, and the manager it reports to. 0 when a running
+ * attempt for tag ("feature/id") was updated, 1 when there was none. */
+int spec_attempt_set_branch(Cg *g, const char *tag, const char *branch,
+                            const char *worktree, const char *parent);
+typedef struct {
+    char attempt_id[65];
+    char task[700];
+    char agent[256];
+    long fence;
+    long heartbeat;
+    long expires;
+} SpecAttempt;
+/* Claim task <id> of <feature> (NULL: the active one) in the spec repo at
+ * <root>, on an open graph, exactly as `cg spec claim` would: same
+ * eligibility, ownership, and touch-conflict refusals, printed to stderr.
+ * 0 with *out filled, 1 refused. */
+int spec_claim(Cg *g, const char *root, const char *feature, const char *id,
+               const char *agent, long ttl_min, SpecAttempt *out);
+/* in_progress task of the cwd's spec repo as "feature/id" (malloc'd), or
+ * NULL when there is no spec repo / no active task — never prints */
+char *spec_active_tag(void);
+/* requested in_progress task as "feature/id"; NULL when invalid/not active */
+char *spec_task_tag(const char *requested);
+/* before a snapshot: bring the claimed task's kvx status and evidence pointer
+ * in line with its claim receipt; 1 (reason printed) when they disagree */
+int   spec_commit_sync(const char *requested);
+/* touches globs of the in-progress task; 0 when none (everything in scope) */
+int   spec_active_touches(char ***out);
+/* can these two touch patterns cover a common path? glob-vs-glob aware */
+bool  spec_globs_overlap(const char *a, const char *b);
+/* resolve "id" or "feature/id" (or, when NULL, the calling agent's current
+ * task) to a malloc'd "feature/id"; NULL when nothing matches */
+char *spec_resolve_task(const char *requested, const char *agent);
+/* json task packet for a resolved "feature/id" (malloc'd); NULL if unknown */
+char *spec_task_packet(const char *requested);
+/* task-scoped memories for a resolved "feature/id"; count (<=5), malloc'd */
+int   spec_task_memories_tag(const char *requested, Memory **out);
+
+/* ---------------- language server (lsp.c) ---------------- */
+int  cmd_lsp(Cg *cg, const SysInfo *si);
+void lsp_hover(Cg *cg, const char *name, StrBuf *md);
+void lsp_diagnostics(Cg *cg, const char *abs, StrBuf *out);
+bool lsp_path_in_task_scope(Cg *cg, const char *rel);
+
+/* ---------------- governance (govern.c) ---------------- */
+/* Walk every baselined doc anchor; report each stale one through cb (which
+ * may be NULL when only the count matters). Returns the stale count. Stale is
+ * derived, never stored: the baseline in comments.anchored_hash no longer
+ * matches the bound symbol's current body bytes. */
+int anchor_stale(Cg *cg,
+                 void (*cb)(void *u, const char *path, int line,
+                            const char *sym, int sym_line),
+                 void *u);
+
+int cmd_check(Cg *cg, bool json, bool strict);   /* the single CI gate */
+int cmd_brief(Cg *cg, bool json);                /* session state in one call */
+int cmd_guard(Cg *cg, int npath, char **pathv, bool json, bool strict);
+int cmd_review(Cg *cg, bool json);
+int cmd_hook_install(Cg *cg);
+int cmd_hook_post_edit(Cg *cg, const SysInfo *si, bool json);
+/* codify-v15 2.2 */
+/* native agents (native.c): host sessions and their own subagents in the
+ * agents registry (kind 'native'), fed by `cg hook event --host H` */
+extern bool native_show_all;            /* --all: stopped > 1 day shown too */
+int  cmd_hook_event(Cg *cg, const char *host, bool json);   /* always 0 */
+/* codify-v15 1.4 */
+/* PreToolUse Bash advice (govern.c): a shell search answered with its cg
+ * equivalent, once per session per command; never a permission decision */
+int  cmd_hook_pre_bash(Cg *cg, bool json);                  /* always 0 */
+char *shell_advice_for(const char *root, const char *cwd, const char *cmd);
+bool config_shell_advice(const char *root);    /* [hooks] shell_advice */
+int  native_record(Cg *cg, const char *host, const char *payload,
+                   char *agent_out, size_t cap);
+const char *native_attribute_task(Cg *cg, const char *session,
+                                  const char *description, const char *prompt,
+                                  const char *parent, char *task, size_t cap);
+bool native_worktree(Cg *cg, const char *cwd, char *wt, size_t wcap,
+                     char *branch, size_t bcap, char *head, size_t hcap);
+void native_tree_json(Cg *cg, StrBuf *b);           /* [...] */
+void native_fleet_section(Cg *cg, StrBuf *b, bool json);
+int  native_fleet_tree_json(Cg *cg, const char *feature);
+bool native_counts(Cg *cg, int *live, int *subs, int *branches);
+void native_summary(Cg *cg, StrBuf *b, bool json);  /* brief/state line */
+void native_flags(int argc, char **argv);
+/* codify-v15 2.4 */
+/* The project's transcript directories (recap.c), shared by cg recap and cg
+ * fleet discover: Claude Code's ~/.claude/projects/<root, non-alnum -> '-'>
+ * and Codex's ~/.codex/sessions; either out may be NULL. */
+void transcript_dirs(const char *root, char *claude, size_t ccap,
+                     char *codex, size_t xcap);
+/* a Codex rollout's session_meta: cwd, id, timestamp; false if none */
+bool transcript_codex_head(const char *path, char *cwd, size_t ccap,
+                           char *id, size_t icap, char *ts, size_t tcap);
+/* cg fleet discover (native.c): native rows from the transcripts the hosts
+ * write, for what hooks did not report. native_discover_auto runs it first
+ * in fleet status/tree, serve's refresh, and watch --fleet when [fleet]
+ * discover is true, at most once per 10 s per process; --no-discover (a
+ * global flag) sets native_no_discover. */
+extern bool native_no_discover;
+int  cmd_fleet_discover(Cg *cg, int argc, char **argv, bool json);
+void native_discover_auto(Cg *cg);
+bool config_fleet_discover(const char *root);   /* [fleet] discover */
+int cmd_integrate(Cg *cg, const char *action, bool json, bool compatibility);
+int integrate_plan(Cg *cg, bool json);
+int integrate_apply(Cg *cg, bool json);
+int integrate_doctor(Cg *cg, bool json);
+int integrate_apply_portable(Cg *cg, bool quiet);
+/* codify-v15 2.1 */
+/* the Claude Code plugin under $HOME/.codify/plugins/claude-code and the
+ * Codex <root>/.codex/hooks.json (src/plugin.c) */
+typedef struct {
+    char root[4700];              /* the rendered marketplace */
+    bool rendered;                /* plugin.json there and codify-owned */
+    char rendered_version[32];
+    bool registered;              /* known_marketplaces.json names codify */
+    char registered_path[4700];
+    bool entry;                   /* installed_plugins.json has codify@codify */
+    bool installed;               /* registered and entry */
+    char version[32];             /* the installed version */
+    bool current;                 /* installed at CG_VERSION */
+} PluginState;
+void integrate_self(char out[4096]);
+const char *integrate_skill_body(void);
+void integrate_skip_plugin(bool skip);
+void plugin_root(char out[4700]);
+int  plugin_render(const char *bin, bool json, StrBuf *out, int *changed,
+                   int *conflicts);
+int  plugin_install(bool json, StrBuf *out);
+void plugin_state(PluginState *st);
+void plugin_state_json(const PluginState *st, StrBuf *b);
+char *plugin_codex_hooks_body(const char *bin);
+int  plugin_codex_hooks(const Cg *cg, const char *bin, char path[4700]);
+const char *plugin_codex_state(const Cg *cg, char path[4700]);
+const char *plugin_file_state(const char *path, const char *mark);
+/* structured session handoff stored as a superseding task memory */
+int cmd_handoff(Cg *cg, const char *task, const char *done, const char *next,
+                const char *blocked, const char *note, bool json);
+/* task packet + latest handoff + task memories + tree/lease state */
+int cmd_resume(Cg *cg, const char *task, bool json, bool prompt);
+int cmd_work(Cg *cg, int argc, char **argv, bool json);
+int work_open(Cg *cg, const char *task, bool json);
+int work_update(Cg *cg, const char *revision, bool json);
+int work_close(Cg *cg, const char *task, int nevidence, char **evidence,
+               bool json);
+
+/* ---------------- orchestrator (orchestrate.c) ---------------- */
+/* `cg spec run` — claim conflict-free tasks and drive one agent per slot;
+ * argv is everything after `run` */
+int cmd_spec_run(int argc, char **argv);
+/* Durable fleet runs. cg fleet up [--foreground] [--resume [RUN]] and the
+ * rest of `cg spec run --fleet`'s flags: detached, it re-executes cg as a
+ * supervisor in its own session and returns once the run is recorded.
+ * down/pause/resume write the run's state, which the supervisor reads
+ * every tick; with no supervisor alive, down cleans up itself. */
+int  cmd_fleet_up(Cg *cg, int argc, char **argv, bool json);
+int  cmd_fleet_control(Cg *cg, const char *verb, int argc, char **argv,
+                       bool json);
+int  cmd_fleet_runs(Cg *cg, bool json);
+bool fleet_supervisor_alive(const char *shared);
+/* An opt-in approval gate ([role.*] approve). 0: go ahead; CG_EXIT_APPROVAL:
+ * a pending approval now waits (printed); 1: a person rejected it. Only
+ * agents wait — a command run by a person, with no CG_ROLE, is its own
+ * approval. */
+#define CG_EXIT_APPROVAL 4
+int  fleet_gate(Cg *cg, const char *gate, const char *subject);
+int  cmd_fleet_approvals(Cg *cg, int argc, char **argv, bool json);
+/* Decide fleet approval #id and emit approval.decided; sync_ask also
+ * answers its linked permission Ask (fleet_approvals.ask_id). 1: no such
+ * approval or it was used. */
+int  fleet_approval_decide(Cg *cg, long id, bool reject, const char *by,
+                           const char *note, bool sync_ask);
+
+/* ---------------- asks (ask.c, hyperfide-v21 3.4) ---------------- */
+/* An Ask to raise. NULL task/attempt/session/sandbox fall back to CG_TASK,
+ * CG_ATTEMPT, CG_SESSION and HYPERFIDE_SANDBOX; raised_by to the agent or
+ * user; deadline 0 means none. */
+typedef struct {
+    const char *kind, *title, *body, *recommended;
+    char **options; int noptions;
+    char **chain; int nchain;
+    long deadline;
+    const char *task, *attempt, *session, *sandbox, *raised_by;
+} AskSpec;
+long ask_raise(Cg *cg, const AskSpec *a);      /* id, -1 refused (printed) */
+/* 1 recorded (emits ask.answered), 0 already answered, -1 no such Ask */
+int  ask_record_answer(Cg *cg, long id, const char *answer, const char *by,
+                       const char *note);
+int  ask_expire_due(Cg *cg, long now);         /* number that expired */
+/* Ask #id as a JSON object into b; false when there is no such Ask */
+bool ask_json(Cg *cg, long id, StrBuf *b);
+/* open Asks (all: every Ask, newest first), optionally one task's, as a
+ * JSON array */
+void ask_list_json(Cg *cg, bool all, const char *task, StrBuf *b);
+int  cmd_ask(Cg *cg, int argc, char **argv, bool json);
+/* D4 (spec.c, hyperfide-v21 3.3): a blocking Ask on an in_progress task
+ * blocks it with blocked_ask; its answer returns the task to in_progress.
+ * 1 when the task's declaration changed. */
+int  spec_ask_transition(Cg *cg, long ask_id);
+
+/* ---------------- agent drivers (drivers.c) ---------------- */
+typedef struct {
+    const char *driver;   /* codex | claude | custom */
+    const char *model;    /* "" or NULL: the driver's default */
+    const char *args;     /* extra argv, whitespace-split */
+    const char *cmd;      /* custom template */
+    bool structured;      /* claude stream-json / codex --json */
+} DriverSpec;
+/* One driver command line: codex/claude take args split on whitespace (the
+ * prompt file arrives on stdin); custom renders cmd with ${PROMPT_FILE}
+ * ${TASK} ${ROOT} ${AGENT} ${MODEL} and runs it via /bin/sh -c. av receives
+ * malloc'd entries plus a NULL terminator; returns argc, or -1 for an
+ * unknown driver or custom without a template. */
+int driver_argv(const DriverSpec *d, const char *root, const char *promptfile,
+                const char *task, const char *agent, char **av, int cap);
+typedef struct {
+    const char *kind;     /* text | tool | usage | result | session */
+    const char *text;     /* message text, tool detail, result text */
+    const char *tool, *subtype, *session;
+    long tokens_in, tokens_out, turns, duration_ms;
+    double cost;          /* USD; -1 when the line does not say */
+    bool is_error;
+} DriverEvent;
+typedef void (*DriverEventFn)(const DriverEvent *e, void *ud);
+/* one output line of Claude stream-json or Codex exec --json; returns the
+ * number of events produced (0 for anything else) */
+int driver_stream_parse(const char *line, DriverEventFn fn, void *ud);
+typedef struct {
+    char log[4700], agent[128], role[16], subject[300], session[128];
+    long off;             /* bytes of the log already read */
+    StrBuf partial;       /* an unfinished last line */
+    long tokens_in, tokens_out, turns, tools, texts;
+    double cost;          /* USD so far */
+    long last_ms;         /* wall ms of the last event: progress for stalls */
+    bool finished, failed;/* a result line arrived; it reported an error */
+} DriverTap;
+void driver_tap_init(DriverTap *t, const char *log, const char *agent,
+                     const char *role, const char *subject);
+/* read what the agent wrote since the last poll into agent.* events,
+ * attributed to the agent; returns how many */
+int  driver_tap_poll(DriverTap *t);
+void driver_tap_free(DriverTap *t);
+/* queue a message for a running agent (an agent.steer event) */
+long driver_steer(Cg *cg, const char *agent, const char *message);
+/* the messages not yet delivered to agent, as "- msg" lines, marked
+ * delivered via `via`; NULL when there are none */
+char *driver_steer_take(Cg *cg, const char *agent, const char *via);
+/* file edits among the agent's agent.tool events after seq since, counted
+ * from its last visible Ask raise (*raised says whether one was seen);
+ * -1 when the event log cannot be read */
+long driver_block_edits(Cg *cg, const char *subject, const char *agent,
+                        long since, bool *raised);
+/* answered Asks of attempt not yet delivered, as "- Ask N" lines, marked
+ * delivered via `via` (an agent.answer.delivered event); NULL when none */
+char *driver_answers_take(Cg *cg, const char *attempt, const char *agent,
+                          const char *via);
+
+/* ---------------- event log (events.c) ---------------- */
+typedef struct {
+    long seq, at;                    /* at: ms since the epoch */
+    const char *kind, *subject, *run, *node, *branch, *payload;
+} EventRow;
+/* nonzero stops the walk */
+typedef int (*EventFn)(const EventRow *e, void *ud);
+int  events_install(Cg *cg);         /* triggers; called by cg_open */
+/* payload is a JSON object or NULL; run, node, and branch come from CG_RUN,
+ * CG_AGENT, and the connection. Joins the caller's transaction if any.
+ * Returns the new seq, -1 on failure. */
+long events_emit(Cg *cg, const char *kind, const char *subject,
+                 const char *payload);
+/* same, attributed to node instead of CG_AGENT: the orchestrator reports
+ * what its children did */
+long events_emit_as(Cg *cg, const char *kind, const char *subject,
+                    const char *node, const char *payload);
+long events_emit_quiet(const char *kind, const char *subject,
+                       const char *payload);    /* opens its own connection */
+void events_bind(Cg *cg);            /* see events_kvx_status */
+void events_unbind(void);
+void events_kvx_status(const char *path, const char *section,
+                       const char *from, const char *to);
+long events_head(Cg *cg);
+long events_pruned_through(Cg *cg);
+/* events with seq > since, oldest first; returns the last seq visited */
+long events_since(Cg *cg, long since, const char *kinds, int limit,
+                  EventFn fn, void *ud);
+void events_json(StrBuf *b, const EventRow *e);
+int  cmd_events(Cg *cg, int argc, char **argv, bool json);
+/* the raw insert behind events_emit_as, with every column explicit and no
+ * journal fallback: what a journal replay applies. -1 on failure. */
+long events_emit_at(Cg *cg, long at_ms, const char *kind, const char *subject,
+                    const char *run, const char *node, const char *branch,
+                    const char *payload);
+
+/* ---------------- write journal (journal.c, docs/journal.md) ----------------
+ * A lifecycle write that finds the database still busy after the lock wait
+ * is appended to .codegraph/journal/ instead of failing the command; the
+ * next cg process that holds the write lock replays it. Writes that must see
+ * the current state (claims, the indexer) are never journaled. */
+#define JOURNAL_VERSION 1
+typedef enum {
+    JOURNAL_HELD,    /* the caller holds BEGIN IMMEDIATE; keep one open */
+    JOURNAL_PROBE,   /* take the lock only if it is free right now */
+    JOURNAL_WAIT     /* wait up to cg->lock_wait_ms for the lock */
+} JournalMode;
+/* args: a JSON object (the operation's arguments). 0 written, -1 not. */
+int  journal_append(Cg *cg, const char *op, const char *args,
+                    const char *summary);
+/* Applied count, or -1 when the lock could not be had (or was lost between
+ * records under JOURNAL_HELD, leaving no transaction open). */
+int  journal_replay(Cg *cg, JournalMode mode);
+/* Take the write lock for a journaled write: 0 holding it, -1 busy. Once a
+ * process has seen the database busy, later journaled writes try once and
+ * journal at once instead of waiting the full timeout again. */
+int  journal_begin(Cg *cg);
+bool journal_busy_seen(void);
+void journal_mark_busy(void);
+int  journal_queued_count(void);          /* records this process appended */
+void journal_announced(void);             /* the command said "queued" itself */
+void journal_set_command(const char *cmd, const char *sub);
+int  journal_pending(const Cg *cg, int *failed);  /* pending; failed via ptr */
+/* queued memory.add records matching like memory_query, as Memory rows with
+ * id 0; returns the count */
+int  journal_queued_memories(const Cg *cg, const char *query,
+                             const char *task, const char *type, Memory **out);
+int  cmd_journal(Cg *cg, int argc, char **argv, bool json);
+/* Why the busy write that is about to be reported is not journaled; NULL
+ * restores the generic reason. Read by cg_busy_report. */
+void cg_busy_why(const char *why);
+/* the replay half of each journaled operation, beside the command it
+ * belongs to; args is the record's args object, branch the writer's */
+int  spec_journal_apply(Cg *g, const char *op, const char *args,
+                        char *err, size_t errcap);
+int  govern_journal_apply(Cg *g, const char *op, const char *args,
+                          const char *branch, long at_ms,
+                          char *err, size_t errcap);
+int  runtime_journal_apply(Cg *g, const char *args, char *err, size_t errcap);
+long memory_add_at(Cg *cg, long created, const char *branch, const char *type,
+                   const char *task, const char *body, const char *symbols,
+                   const char *files, const char *source);
+int  cmd_remember_ex(Cg *cg, const char *text, const char *type,
+                     const char *task, const char *symbols, const char *files,
+                     long supersedes, bool json);
+
+/* ---------------- drift (drift.c) ---------------- */
+/* A task's change against its declaration: paths outside its touches and
+ * public symbols changed but not declared. head NULL diffs base against the
+ * working tree; branch scopes the graph lookup. Writes a JSON report to out
+ * when given, emits drift.spec when asked and there are findings; returns
+ * the number of findings. Advice: nothing here fails a command. */
+int  drift_spec_check(Cg *cg, const char *tree, const char *base,
+                      const char *head, const char *tag, const char *branch,
+                      bool emit, StrBuf *out);
+void drift_print(const char *report_json);
+/* will tasks a and b of feature step on each other if run at once? */
+bool drift_collision_predict(Cg *cg, const char *feature, const char *a,
+                             const char *b, char *why, size_t cap);
+int  cmd_drift(Cg *cg, int argc, char **argv, bool json);
+/* After a merge pre..post into base_branch (from `from`, for task tag):
+ * public symbols removed or re-signatured, that other live branches
+ * reference in the unified graph. Emits drift.interface per symbol and
+ * steers the agents on those branches and their parents. out (optional)
+ * receives a JSON array; returns findings. */
+int  drift_interface_check(Cg *cg, const char *tree, const char *base_branch,
+                           const char *pre, const char *post, const char *from,
+                           const char *tag, StrBuf *out);
+/* acceptance criteria of feature with no done task naming them; out
+ * (optional) receives a JSON array of {clause,text,task}; returns count */
+int  coverage_check(Cg *cg, const char *feature, StrBuf *out);
+void coverage_print(const char *report_json, const char *feature);
+/* counts of drift.* events for a feature; text lines and/or a JSON object */
+int  drift_summary(Cg *cg, const char *feature, StrBuf *text, StrBuf *json);
+/* direct callers and callees of name (malloc'd names); returns count */
+int  graph_neighbors(Cg *cg, const char *name, char ***out);
+
+/* ---------------- git interop (gitint.c) ---------------- */
+/* ---------------- fleet: hierarchy, identity, reports (fleet.c) -------- */
+enum { FLEET_MAIN = 0, FLEET_FEATURE = 1, FLEET_WORKER = 2, FLEET_ROLES = 3 };
+/* approval gates a role stops at until `cg fleet approve` (opt-in) */
+enum { APPROVE_LAND = 1, APPROVE_PR = 2, APPROVE_RETRY = 4, APPROVE_DRIFT = 8,
+       APPROVE_COVERAGE = 16 };
+/* What each role may spend and how it is run. Every field has a default
+ * (see hier_role_caps), so a supervisor never has to guess; 0 for wall or
+ * spend means no limit. */
+typedef struct {
+    char *driver;      /* codex | claude | custom */
+    char *model;       /* handed to the driver; "" is the driver's default */
+    char *args;        /* extra driver argv, whitespace-split */
+    long max;          /* agents of this role alive at once */
+    long wall;         /* seconds one attempt may run */
+    double spend;      /* USD one attempt may cost */
+    long retries;      /* attempts after the first, per task */
+    long stall;        /* seconds without progress before a nudge */
+    unsigned approve;  /* APPROVE_* bits */
+} RoleCaps;
+typedef struct {
+    char *name;        /* main | manager (or feature) | worker */
+    char *title;       /* what the role is called in reports and prompts */
+    char *agent;       /* agent-name template: {feature}, {wave}, {task} */
+    char *branch;      /* branch template: {main}, {feature}, {wave}, {task} */
+    char *base;        /* branch the role's branch is cut from and merges into */
+    RoleCaps caps;
+} FleetRole;
+typedef struct {
+    bool configured;   /* [hierarchy] present in spec/workflow.kvx */
+    bool enabled;      /* configured and not switched off */
+    char *main_branch; /* the main role's local integration branch */
+    char *remote;      /* where pull requests go */
+    char *worktrees;   /* root for per-branch worktrees, relative to the repo */
+    char *test_gate;   /* shell command that must exit 0 before a PR opens */
+    char *lint_gate;   /* same; "" means no lint gate is configured */
+    char *pr;          /* auto: open on green; manual: print the commands */
+    char *checkpoint;  /* manual | auto: when open PRs merge */
+    bool main_agent;   /* run Main Gideon as a process (opt-in: it costs) */
+    FleetRole roles[FLEET_ROLES];
+    char *unknown[8];  /* [role.X] names that are none of the three */
+    int nunknown;
+    char *problems[16]; /* capability values that could not be used as given */
+    int nproblems;
+} Hierarchy;
+bool hier_load(const Kvx *wf, Hierarchy *h);   /* defaults, then overrides */
+/* role capabilities from [agents] and [role.*]; hier_load calls it, whether
+ * or not the hierarchy is configured */
+void hier_role_caps(const Kvx *wf, Hierarchy *h);
+/* "90s", "30m", "2h", "1d", or plain seconds; -1 when unreadable */
+long hier_duration(const char *s);
+void hier_free(Hierarchy *h);
+/* hier_expand plus {task}: a worker branch template naming {task} gives
+ * every task its own branch and worktree, so a wave's tasks can run at
+ * once (hier_per_task); without it a wave shares one */
+void hier_expand_task(const Hierarchy *h, const char *tmpl, const char *feature,
+                      long wave, const char *task, char *out, size_t cap);
+bool hier_per_task(const Hierarchy *h);
+/* codify-v15 4.1: a manager branch template naming {wave} gives every wave
+ * its own Wave Manager on its own branch, cut from main and landed into it
+ * on its own; without it one manager owns the whole feature (the old shape) */
+bool hier_per_wave(const Hierarchy *h);
+/* the wave whose branch <tmpl> names for a manager: -1 in the old shape */
+long hier_manager_wave(const Hierarchy *h, long wave);
+/* One merge into a feature branch at a time: merge-up and land hold it,
+ * so workers and their manager run together instead of taking turns.
+ * Returns a descriptor to release with fleet_merge_unlock, -1 when
+ * wait_ms passed with the lock still held. */
+int  fleet_merge_lock(const char *shared, const char *feature, long wait_ms);
+void fleet_merge_unlock(int fd);
+void hier_expand(const Hierarchy *h, const char *tmpl, const char *feature,
+                 long wave, char *out, size_t cap);
+int  fleet_identity_record(Cg *g);           /* no-op without CG_ROLE */
+void fleet_brief(Cg *cg, StrBuf *b, bool json);
+/* The branch lifecycle (fleet.c). Every step is a git operation the
+ * hierarchy already names: a worker's wave branch and worktree, its merge
+ * into the feature branch, the feature's landing on local main behind the
+ * gates, the pull request, and the checkpoint that merges what is open.
+ * feature NULL means the workflow's active feature. All return the exit
+ * code to print. */
+int  fleet_worker_begin(Cg *cg, const char *id, const char *feature,
+                        const char *agent_flag, bool json);
+int  fleet_merge_up(Cg *cg, const char *id, const char *feature, bool force,
+                    bool keep, bool json);
+int  fleet_feature_land(Cg *cg, const char *feature, bool no_pr, bool json);
+/* codify-v15 4.1: land one wave branch into main — <what> is a wave number
+ * or a task id in it (a feature name in the old shape); refuses, naming
+ * them, while any task of the wave is open */
+int  fleet_land(Cg *cg, const char *what, const char *feature, bool no_pr,
+                bool json);
+int  fleet_pr_open(Cg *cg, const char *feature, bool dry_run, bool json);
+int  fleet_checkpoint(Cg *cg, bool dry_run, bool json);
+int  cmd_fleet(Cg *cg, int argc, char **argv, bool json);
+int  cmd_slice(Cg *cg, int argc, char **argv, bool json);   /* fleet.c */
+
+/* The two-level fleet run (orchestrate.c). One node is one process
+ * `cg spec run --fleet` spawned: the identity it carries in its
+ * environment, and the branch and worktree it works in. */
+typedef struct {
+    char agent[128];      /* CG_AGENT */
+    char role[16];        /* CG_ROLE: "feature" | "worker" */
+    char parent[128];     /* CG_PARENT */
+    char feature[128];    /* CG_FEATURE */
+    long wave;            /* CG_WAVE; -1 for a manager of the whole feature */
+    char task[64];        /* the task a worker holds; "" for a manager */
+    char branch[256];     /* CG_BRANCH */
+    char base[256];       /* CG_BASE */
+    char worktree[4096];  /* the tree the child runs in */
+    char attempt[65];     /* the claim a worker carries; "" for a manager */
+    long fence;
+    int  pid;             /* -1 when nothing was forked (dry run) */
+} FleetNode;
+/* Spawn the manager of <wave> of <feature> (-1: of the whole feature, the
+ * old shape): its worktree on the wave branch (cut from main when new), a
+ * briefing built from the plan, and the driver exec'd there. 0 with *n
+ * filled, 1 when nothing ran. */
+int orch_spawn_manager(Cg *cg, const char *feature, long wave,
+                       const char *driver,
+                       const char *extra, const char *cmd_tmpl, bool dry_run,
+                       FleetNode *n);
+/* Spawn one wave worker for task <id>: the branch, worktree, and claim come
+ * from `cg fleet begin` (fleet_worker_begin), the prompt from resume. */
+int orch_spawn_worker(Cg *cg, const char *feature, const char *id,
+                      const char *driver, const char *extra,
+                      const char *cmd_tmpl, bool dry_run, FleetNode *n);
+/* The tree main → feature managers → wave workers, with branches, attempts,
+ * heartbeats, and what the subtree still owes. feature NULL: the active one. */
+int orch_tree_status(Cg *cg, const char *feature, bool json);
+
+/* ---------------- jev: System One decisions (jev.c) ----------------
+ * Jev is TypeSafe AI's decision model, reached through OpenRouter with
+ * OPENROUTER_API_KEY. It answers a fixed set of typed questions about a
+ * state: noul (probability a statement is true), choice (one of up to 255
+ * labelled options), score (an ordinal level). It never generates text and
+ * its answers are advice — verify_cmd and the graph checks stay the
+ * authority. The key is mandatory for every feature built on it: a missing
+ * key is an error, not a silent fallback. */
+enum { JEV_NOUL, JEV_CHOICE, JEV_SCORE };
+enum { JEV_OK = 0, JEV_ECONFIG = 1, JEV_EREQUEST = 2, JEV_EPARSE = 3 };
+typedef struct {
+    char *name, *instructions;
+    int type;
+    char **keys;     /* choice: option keys; noul: "true"/"false"; score: NULL */
+    char **descs;    /* option or criterion text; score: the levels in order */
+    int n;
+} JevQuestion;
+typedef struct {
+    char *name;
+    int type;
+    double value;         /* noul: probability true; score: the score */
+    char *choice;         /* choice: the selected option key */
+    double confidence;    /* noul: distance from undecided */
+    char *probabilities;  /* raw JSON object, NULL when absent */
+    char *legend;         /* score: raw JSON object level -> text */
+} JevAnswer;
+typedef struct {
+    char *model, *requested_model, *id;
+    long input_tokens, output_tokens;
+    double cost;
+    int status, attempts;
+    long ms;
+    JevAnswer *answers; int n;
+    char error[640];      /* set when jev_ask returns non-zero */
+} JevResult;
+/* Build one question; -1 when the cardinality is invalid (choice needs 2
+ * to 255 options, score at least 2 levels). when_true/when_false may be
+ * NULL. Strings are copied. */
+int  jev_question_noul(JevQuestion *q, const char *name,
+                       const char *instructions, const char *when_true,
+                       const char *when_false);
+int  jev_question_choice(JevQuestion *q, const char *name,
+                         const char *instructions, const char *const *keys,
+                         const char *const *descs, int n);
+int  jev_question_score(JevQuestion *q, const char *name,
+                        const char *instructions, const char *const *levels,
+                        int n);
+void jev_question_free(JevQuestion *q);
+/* The canonical request body: question names and criteria keys sorted, state
+ * verbatim but trimmed. The same ask serializes to the same bytes every
+ * time, which is what makes jev.log comparable across runs. */
+void jev_request_json(const char *model, const char *state_json,
+                      const JevQuestion *qs, int nq, StrBuf *out);
+/* Ask Jev. Returns JEV_OK with answers, or JEV_E* with out->error filled
+ * (key or curl missing; the request kept failing across retries; the
+ * response could not be read). Transport failures and 429/529 back off and
+ * retry. Every call is logged to <shared>/.codegraph/jev.log; cg may be
+ * NULL (no project, no log). Release out with jev_result_free either way. */
+int  jev_ask(Cg *cg, const char *state_json, const JevQuestion *qs, int nq,
+             JevResult *out);
+/* Same, with a complete {"model","questions","state"} body; a missing
+ * model is filled in from the configuration. */
+int  jev_ask_raw(Cg *cg, const char *body, JevResult *out);
+/* The same call against another System One endpoint: any /v1/systemone
+ * server (Solar Decide through the Centra gateway, for `cg recap`). key,
+ * model and endpoint replace the OPENROUTER_API_KEY/CG_JEV_* trio; curl,
+ * timeout and retries still come from CG_JEV_*. */
+int  jev_ask_at(Cg *cg, const char *key, const char *model,
+                const char *endpoint, const char *state_json,
+                const JevQuestion *qs, int nq, JevResult *out);
+const JevAnswer *jev_answer(const JevResult *r, const char *name);
+void jev_result_free(JevResult *r);
+int  cmd_jev(Cg *cg, int argc, char **argv, bool json);
+
+/* Advisory Jev: the decisions that ride inside a deterministic command.
+ * Jev is mandatory for these features and never for the loop they live in
+ * — `cg spec done`, `cg guard`, and `cg fleet pr` reach their own verdict
+ * with or without an answer. One gate decides: without OPENROUTER_API_KEY
+ * (or when the call fails) each helper prints one warning naming what was
+ * skipped, leaves its output neutral, and returns non-zero. */
+bool jev_advisory_ready(const char *what);
+typedef struct {
+    char category[64];     /* test_failure, build_error, flaky, ... */
+    char action[64];       /* fix_code, fix_test, rerun, ask_human, ... */
+    double category_confidence, action_confidence;  /* -1 when unstated */
+    char line[240];        /* both, formatted for a human */
+} JevTriage;
+/* Classify a failed command: only the tail of output (40 lines / 4 KB) is
+ * sent, since that is where a failure says what it was. */
+int  jev_triage_failure(Cg *cg, const char *output, JevTriage *out);
+typedef struct {
+    char kind[24];         /* grounding | contract | hygiene */
+    char path[512];
+    int  line;
+    char detail[256];
+    double score;          /* Jev severity; -1 when it was not ranked */
+    char level[64];        /* the legend text for that score, "" if none */
+} JevFinding;
+/* Rank findings most severe first, in one call (one score question each),
+ * stably, so an unranked run keeps the order it was collected in. */
+int  jev_rank_findings(Cg *cg, JevFinding *v, int n);
+typedef struct {
+    double value;          /* probability the feature is ready to merge */
+    char band[16];         /* low | medium | high */
+} JevReadiness;
+int  jev_pr_readiness(Cg *cg, const char *state_json, JevReadiness *out);
+
+/* ---------------- skills: classified memory -> SKILL.md (skills.c) ----
+ * A memory is a note; a skill is a note worth carrying into other tasks.
+ * `cg memory classify` asks Jev which is which and writes the verdict on
+ * the row; `cg skills promote` renders a candidate as a portable
+ * .agents/skills/<slug>/SKILL.md carrying Codify's ownership marker and the
+ * id of the memory it came from. Promotion is recorded by that generated
+ * file, not by the class column: the column stays Jev's opinion. */
+/* Report a failed Jev call on stderr as "cg: <what>: <error>" and return 1,
+ * so every Jev-backed command fails the same way. Defined in jev.c. */
+int  jev_report_error(const JevResult *r, const char *what);
+/* One memory by id; false when there is no such row. Fields are owned by
+ * the caller (memory_clear). */
+bool memory_get(Cg *cg, long id, Memory *out);
+/* Classify memories with Jev and store class + confidence. sel is NULL or
+ * "--unclassified" (rows with no class yet), "--all", or a memory id. */
+int  cmd_memory_classify(Cg *cg, const char *sel, int limit, bool json);
+/* Render one memory as .agents/skills/<slug>/SKILL.md; path_out receives the
+ * repo-relative path. 0 wrote it, 1 already identical, 2 the file exists and
+ * is not Codify's, -1 the write failed. */
+int  skill_render(Cg *cg, const Memory *m, char *path_out, size_t cap);
+/* Generated skills that no longer agree with the memories they came from:
+ * one malloc'd sentence each (the vector is malloc'd too). */
+int  skill_findings(Cg *cg, char ***out);
+int  cmd_skills(Cg *cg, int argc, char **argv, bool json);
+
+bool git_available(const Cg *cg);
+/* Where tree's HEAD points, read from the git files themselves so opening
+ * the graph never spawns a process. branch gets the short ref name, or
+ * "(detached)"; sha gets the commit when it could be found, else "".
+ * false when tree is not a git worktree, with both left empty. */
+bool git_head(const char *tree, char *branch, size_t bcap, char *sha,
+              size_t scap);
+/* For a linked worktree (tree/.git is a file), the main worktree it
+ * belongs to: the directory holding the common .git. false otherwise. */
+bool git_worktree_main(const char *tree, char *main_out, size_t cap);
+/* Resolve cg->root's branch into cg (name, head, branch_id), registering a
+ * branch never seen before. 0 ok; -1 when the registry could not be
+ * written, leaving branch_id 0. */
+int  cg_branch_resolve(Cg *cg);
+/* Upsert one branch row, keyed by name, so re-registering a branch moves its
+ * worktree and head instead of adding a row; base NULL keeps the stored base.
+ * Returns its id, or -1 when the write failed. */
+long branch_register(Cg *cg, const char *name, const char *worktree,
+                     const char *head, const char *base);
+int  cmd_branches(Cg *cg, int argc, char **argv, bool json);
+/* codify-v15 3.1 */
+/* The projection (projection.c): every active branch folded onto the base
+ * with git merge-tree, uncommitted work included through shadow commits,
+ * written to refs/codify/projection. See docs/projection.md. */
+#define PROJECTION_REF    "refs/codify/projection"
+#define PROJECTION_BRANCH "codify/projection"
+/* One conflicted path of one fold step. git_merge_tree fills path and kind;
+ * the fold adds the branch whose step reported it and the earlier folded
+ * branches that changed the same path against the base. Task 3.2 extends
+ * this record with symbol-level findings. */
+typedef struct {
+    char  *path;          /* repository-relative, malloc'd */
+    char   kind[32];      /* content | modify/delete | add/add | git's word */
+    char  *branch;        /* the branch being folded, malloc'd */
+    char **earlier;       /* earlier folded branches touching path */
+    int    nearlier;
+} ProjectionConflict;
+void projection_conflicts_free(ProjectionConflict *v, int n);
+/* cg projection build|status|diff|show; argv after "projection" */
+int  cmd_projection(Cg *cg, const SysInfo *si, int argc, char **argv,
+                    const char *first_branch, bool json);
+/* [projection] in codify.kvx (config.c): base ("" = [hierarchy] main, else
+ * main), stale seconds (default 24h), exclude globs, index */
+const char *config_projection_base(const char *root);
+long config_projection_stale(const char *root);
+int  config_projection_exclude(const char *root, char ***out);  /* malloc'd */
+bool config_projection_index(const char *root);
+/* codify-v15 3.2 */
+/* The interface check's machinery, asked before a merge (drift.c): the
+ * hunks of the three-dot diff base...head with both sides' lines, and the
+ * public symbols re-signatured or removed between pre and post. Codify's
+ * own bookkeeping paths are left out of both. */
+typedef struct { int from, to, ofrom, oto; } DriftHunk; /* head side, base side */
+typedef struct { char *path; DriftHunk *h; int nh; } DriftFile;
+int  drift_hunks(const char *tree, const char *base, const char *head,
+                 DriftFile **out);
+void drift_files_free(DriftFile *v, int n);
+typedef struct {
+    char *name, *path, *kind, *old_sig, *new_sig;   /* new_sig NULL: removed */
+    bool removed;
+} DriftIface;
+int  drift_interface_changes(const char *tree, const char *pre,
+                             const char *post, DriftIface **out);
+void drift_ifaces_free(DriftIface *v, int n);
+/* Projection findings (conflicts.c, docs/projection.md): what the fold of
+ * the active branches collides on, beyond the textual conflicts. */
+typedef struct {
+    const char *name;          /* the branch */
+    const char *worktree;      /* "" when folded from its ref */
+    const char *head;          /* its branch head */
+    const char *contribution;  /* its head, or the shadow commit over it */
+} ConflictBranch;
+typedef struct {
+    char   kind[16];           /* symbol | interface | near | content |
+                                * delete | add-add */
+    char  *path, *symbol;      /* symbol "" when none */
+    char  *lines;              /* per branch, "feat-a 3-5; feat-b 9" */
+    char **branches;           /* sorted; the key's branch set */
+    int    nbranches;
+    char  *agents;             /* JSON [{branch, agent}] */
+    char  *advice;             /* one line */
+    char  *changer;            /* interface: the branch that changes it */
+    bool   fresh;              /* conflicts_store: appeared in this build */
+} ProjectionFinding;
+/* every finding of one fold; returns how many (*out malloc'd) */
+int  conflicts_compute(Cg *cg, const char *base, const char *base_head,
+                       const ConflictBranch *b, int nb,
+                       const ProjectionConflict *fold, int nfold,
+                       ProjectionFinding **out);
+/* diff against projection_findings: projection.conflict for each new one
+ * (fresh set), projection.resolved for each gone, projection.built for the
+ * build; returns the number of new findings, -1 when not stored */
+int  conflicts_store(Cg *cg, ProjectionFinding *f, int n, int nbranches,
+                     const char *commit, long ms, bool unchanged);
+/* steer the agents on the branches of every fresh finding, once, unless
+ * [projection] steer = false; returns the messages queued */
+int  conflicts_steer(Cg *cg, ProjectionFinding *f, int n);
+void conflicts_free(ProjectionFinding *f, int n);
+/* the live findings: text lines, or {"findings":[...],"count":N} */
+int  conflicts_print(Cg *cg, bool json, StrBuf *out);
+int  cmd_projection_findings(Cg *cg, int argc, char **argv, bool json);
+bool config_projection_steer(const char *root);   /* [projection] steer */
+/* codify-v15 4.2 */
+/* Waves side by side (docs/hierarchy.md). [hierarchy] waves = parallel |
+ * sequential in spec/workflow.kvx; unset, parallel when git is 2.38 or
+ * newer (merge-tree --write-tree, which the projection folds with). why
+ * (may be NULL) gets how it was decided. */
+bool hier_waves_parallel(const Kvx *wf, char *why, size_t cap);
+/* `cg fleet begin --ahead` and the supervisor under a parallel start: the
+ * claim may take a pending task whose requires are still open, and records
+ * them as ahead on the lease. spec_claim is spec_claim_ex(..., false, ...). */
+int  spec_claim_ex(Cg *g, const char *root, const char *feature,
+                   const char *id, const char *agent, long ttl_min,
+                   bool ahead, SpecAttempt *out);
+int  fleet_worker_begin_ex(Cg *cg, const char *id, const char *feature,
+                           const char *agent_flag, bool json, bool ahead);
+/* Record on <tag>'s lease ("feature/id") the requires it started ahead of
+ * (space separated); creates the lease for <agent> when there is none. */
+int  spec_start_ahead(Cg *g, const char *tag, const char *agent,
+                      const char *reqs, const char *touches);
+/* cg fleet sync [--base B] [--json]: the worker's base branch merged into
+ * its task branch in the cwd's worktree; refused when uncommitted changes
+ * overlap what comes in. Then a projection build. */
+int  fleet_sync(Cg *cg, int argc, char **argv, bool json);
+/* a projection build in this process, quiet; line (may be NULL) gets one
+ * summary line. 0 built or unchanged. */
+int  fleet_projection_rebuild(Cg *cg, char *line, size_t cap);
+/* codify-v15 3.3 */
+/* The projection follows the work (projection.c, docs/projection.md#live).
+ * projection_mark_dirty notes that something an active branch holds moved;
+ * projection_auto_build starts one detached `cg projection build --quiet`
+ * when the note is set, [projection] auto is not false, another branch is
+ * registered, no build holds the lock, and the last build (or launch) is
+ * older than [projection] min_interval. It returns 1 when it started one,
+ * 0 when there is nothing to do, and -1 when the interval holds it back —
+ * *retry_ms (may be NULL) then says when it would go. It never waits and
+ * never fails the caller. */
+void projection_mark_dirty(Cg *cg, const char *why);
+int  projection_auto_build(Cg *cg, const char *why, long *retry_ms);
+/* Callers that see work only as events (the supervisor, serve): mark the
+ * projection dirty when fleet.merge, fleet.land, orch.spawn, fleet.begin or
+ * a native spawn/worktree event landed since the last call in this process,
+ * then try projection_auto_build. */
+void projection_follow(Cg *cg, const char *why);
+/* the live findings that name branch, one line each ("" when none);
+ * returns how many — merge-up and land print them before merging */
+int  projection_branch_findings(Cg *cg, const char *branch, StrBuf *out);
+/* cg brief / cg state: ",\"projection\":{...}" or the one text line */
+void projection_summary(Cg *cg, StrBuf *b, bool json);
+/* fleet tree --json: ",\"projection\":{commit, built, findings, branches}" */
+void projection_tree_json(Cg *cg, StrBuf *b);
+bool config_projection_auto(const char *root);           /* default true */
+long config_projection_min_interval(const char *root);   /* seconds, 15 */
+/* Run `git -C <tree> <args>` (args already shell-quoted), stdout and
+ * stderr appended to out (may be NULL). Returns the exit status, -1 when
+ * git could not be started. */
+int  git_run(const char *tree, const char *args, StrBuf *out);
+/* codify-v15 3.1: plumbing for the projection (gitint.c). Commits and
+ * trees are written under a fixed "Codify projection" identity. */
+int  git_version(int *major, int *minor);          /* 0, or -1: no git */
+/* rev resolved to a commit id; 0, or -1 (sha empty) */
+int  git_rev_commit(const char *tree, const char *rev, char *sha, size_t cap);
+bool git_is_ancestor(const char *tree, const char *a, const char *b);
+long git_count_commits(const char *tree, const char *from, const char *to);
+/* paths `git diff from to` names (to may be "a...b" style), malloc'd */
+int  git_changed_paths(const char *tree, const char *from, const char *to,
+                       char ***out);
+/* merge-tree --write-tree --messages -z of two COMMITS (trees are refused
+ * by git): 0 clean, 1 conflicted (records in *conf, path and kind set),
+ * -1 failure. tree_out gets the merged tree, markers in conflicted files. */
+int  git_merge_tree(const char *tree, const char *a, const char *b,
+                    char *tree_out, size_t cap, ProjectionConflict **conf,
+                    int *nconf);
+/* commit-tree; date > 0 pins author and committer dates (deterministic ids) */
+int  git_commit_tree(const char *tree, const char *treeid,
+                     const char *const *parents, int nparents,
+                     const char *msg, long date, char *out, size_t cap);
+int  git_update_ref(const char *tree, const char *ref, const char *sha);
+long git_commit_time(const char *tree, const char *rev);   /* 0 unknown */
+/* worktree's files as a tree object, staged into a copy of its index at
+ * tmp_index (GIT_INDEX_FILE, add -A honoring .gitignore, write-tree); the
+ * real index and the worktree are never touched. 0, or -1. */
+int  git_shadow_tree(const char *worktree, const char *tmp_index,
+                     char *tree_out, size_t cap);
+/* how many paths differ between two tree-ish */
+int  git_tree_diff_count(const char *tree, const char *a, const char *b);
+/* `git -C tree args` with stderr folded in, for output shown as is */
+int  git_capture_text(const char *tree, const char *args, StrBuf *out);
+bool git_branch_exists(const char *tree, const char *branch);
+/* Make sure <path> is a worktree of <tree> on <branch>: an existing <path>
+ * is reused as it stands — nothing here checks it is really on <branch>, so
+ * the caller must — else it is added, creating the branch from <base> when
+ * it does not exist yet. *created says whether the worktree was added;
+ * *branch_created whether the branch was. Returns 0, or -1 with git's words
+ * in err. */
+int  git_worktree_add(const char *tree, const char *path, const char *branch,
+                      const char *base, bool *created, bool *branch_created,
+                      StrBuf *err);
+/* paths still conflicted in tree's index (malloc'd each); returns count */
+int  git_conflicted_paths(const char *tree, char ***out);
+/* import git log into git_commits/git_churn (the evidence behind `touches`
+ * and churn ranking); counts are optional, -1 when git cannot be run */
+int  git_ingest(Cg *cg, int limit, long *ncommits, long *npaths, long *seen);
+int  cmd_git_sync(Cg *cg, int limit, bool json);
+int  git_churn_for_path(Cg *cg, const char *path);
+int  git_commit_mirror(Cg *cg, const char *message);
+
+/* ---------------- agentic layer ---------------- */
+int cmd_mcp(Cg *cg, const SysInfo *si);            /* stdio MCP server */
+/* The MCP tool table, shared with cg tool and cg serve. mcp_call_tool
+ * returns 0 on success, 1 when the tool reported an error, -1 for an
+ * unknown tool; *out is the tool's text (malloc, may be NULL). */
+void mcp_tools_json(StrBuf *r);                    /* {"tools":[...]} */
+int  mcp_call_tool(Cg *cg, const SysInfo *si, const char *name,
+                   const char *args_json, char **out);
+int  cmd_tool(Cg *cg, const SysInfo *si, int argc, char **argv, bool json);
+/* cg serve: newline-delimited JSON-RPC over stdio for editors — every tool,
+ * any cg command, and pushed event subscriptions (serve.c) */
+int  cmd_serve(Cg *cg, const SysInfo *si);
+int cmd_mcp_install(Cg *cg);                       /* wire into agent configs */
+/* the snapshot-chain renderer (vcs.c): the no-git fallback, and --snapshots */
+int cmd_changelog(Cg *cg, int limit, const char *outfile);
+/* release notes from git history (changelog.c); summarize: 1 on, -1 off,
+ * 0 when a key decides */
+typedef struct {
+    int limit;
+    const char *outfile, *tag;
+    bool unreleased;
+    int summarize;
+} ChangelogOpts;
+int cmd_changelog_git(Cg *cg, const ChangelogOpts *o);
+
+/* The gateway chat model (changelog.c): the one prose-writing model Codify
+ * talks to, opt-in through CENTRA_API_KEY (or CG_CHANGELOG_KEY) in the
+ * environment or the project's .env. `cg changelog` uses it for Highlights
+ * and `cg recap` for the brief. Same private-config curl discipline as Jev:
+ * the key never reaches a command line. */
+typedef struct {
+    char key[512], endpoint[512], model[128], curl[512];
+    bool have;               /* a key was found */
+} ChatModel;
+void  chat_model_config(const Cg *cg, ChatModel *m);
+/* one chat completion; malloc'd trimmed text, or NULL with err filled.
+ * max_tokens is the first budget; an answer cut short retries with 4x. */
+char *chat_model_ask(const Cg *cg, const ChatModel *m, const char *prompt,
+                     const char *title, long max_tokens, char *err, size_t errcap);
+/* KEY=value from <root>/.env, spaces in the name ignored; out empty if absent */
+void  env_file_key(const char *root, const char *want, char *out, size_t cap);
+
+/* cg recap (recap.c): a resume brief built from past Claude Code and Codex
+ * sessions — a System One model picks the statements, the chat model writes */
+typedef struct {
+    int sessions;            /* newest N sessions (default 6) */
+    int since_days;          /* only sessions younger than this (default 21) */
+    long budget;             /* chars of picked statements handed to the writer */
+    const char *outfile;     /* default .codify/recap.md; "-" for stdout */
+    const char *agents;      /* "claude,codex" */
+    bool decided_only;       /* stop after the System One pass, print the log */
+    bool facts_only;         /* print the repository facts block; no model */
+    bool json;
+} RecapOpts;
+int cmd_recap(Cg *cg, const RecapOpts *o);
+int cmd_agentmd(Cg *cg, bool write_files);         /* graph agent context */
+/* codemap.c: CODEMAP.md, the repository map. outfile NULL = the default
+ * path, "-" = stdout; budget 0 = the default (or, for --check, the budget
+ * recorded in the existing map's marker). */
+typedef struct {
+    int budget;
+    bool json, force, check;
+    const char *outfile;
+} CodemapOpts;
+int  cmd_codemap(Cg *cg, const CodemapOpts *o);
+/* The map into out, deterministic for a given graph and tree; self_rel is
+ * a repo-relative output path left out of the map. -1: budget too small. */
+int  codemap_render(Cg *cg, int budget, bool json, const char *self_rel,
+                    StrBuf *out);
+void codemap_default_path(const Cg *cg, char *out, size_t cap);
+/* -1 no map, 0 current, 1 stale, 2 not generated by cg codemap; rel gets
+ * the map's repo-relative path. Renders the map to compare: not free. */
+int  codemap_status(Cg *cg, char *rel, size_t cap);
+int cmd_docs(Cg *cg, int argc, char **argv, bool json); /* documentation closure */
+int spec_docs_finish(Cg *cg, const char *feature); /* internal checked closure */
+
+/* ---------------- help.c: the command table ---------------- */
+/* One table drives the overview, per-command detail, --all, --json, and
+ * main's bad-argument usage lines. help_route returns -1 when argv is not
+ * a help request (cg help, -h, --help, cg <command> ... --help|-h). */
+void help_overview(void);
+int  help_command(const char *name);
+int  cmd_help(int argc, char **argv);
+int  help_route(int argc, char **argv);
+void help_usage(const char *name);              /* "usage: cg ..." on stderr */
+void help_suggest(const char *name);            /* closest names, on stderr */
+bool help_known(const char *name);              /* a top-level row or alias */
+
+#endif

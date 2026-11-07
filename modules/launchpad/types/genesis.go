@@ -1,8 +1,6 @@
 package types
 
 import (
-	"fmt"
-
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 	"github.com/ethereum/go-ethereum/common"
 )
@@ -118,16 +116,24 @@ type FeeRightIDMapping struct {
 	Generation2ID uint64 `json:"generation_2_id"`
 }
 
+// FeeRightOwnerTokens preserves one owner's ERC721Enumerable token order.
+type FeeRightOwnerTokens struct {
+	Owner    string   `json:"owner"`
+	TokenIDs []uint64 `json:"token_ids"`
+}
+
 // FeeRightCollection is the generation 2 fee-right collection: its counters,
 // tokens, operator approvals and the generation 1 id map. Balances, the
-// enumeration arrays and poolTokenId are derived from Tokens.
+// global enumeration and poolTokenId are derived from Tokens; OwnerTokens
+// records the independent owner enumeration after swap-last removals.
 type FeeRightCollection struct {
-	NextTokenID              uint64              `json:"next_token_id"`
-	PoolIndexMigrationCursor uint64              `json:"pool_index_migration_cursor"`
-	PoolIndexReady           bool                `json:"pool_index_ready"`
-	Tokens                   []FeeRight          `json:"tokens,omitempty"`
-	Operators                []FeeRightOperator  `json:"operators,omitempty"`
-	IDMap                    []FeeRightIDMapping `json:"id_map,omitempty"`
+	NextTokenID              uint64                `json:"next_token_id"`
+	PoolIndexMigrationCursor uint64                `json:"pool_index_migration_cursor"`
+	PoolIndexReady           bool                  `json:"pool_index_ready"`
+	Tokens                   []FeeRight            `json:"tokens,omitempty"`
+	OwnerTokens              []FeeRightOwnerTokens `json:"owner_tokens,omitempty"`
+	Operators                []FeeRightOperator    `json:"operators,omitempty"`
+	IDMap                    []FeeRightIDMapping   `json:"id_map,omitempty"`
 }
 
 // PoolFeeAccount is the per-pool accounting of the generation 2
@@ -220,6 +226,13 @@ type PoolMetadata struct {
 	CreatedBlock int64  `json:"created_block"`
 }
 
+// FactoryNonce is the next CREATE2 nonce of a creator, including creators
+// imported by migration who have no native market records.
+type FactoryNonce struct {
+	Creator string `json:"creator"`
+	Nonce   uint64 `json:"nonce"`
+}
+
 type GenesisState struct {
 	Params             Params               `json:"params"`
 	Markets            []Market             `json:"markets"`
@@ -239,6 +252,7 @@ type GenesisState struct {
 	BookHeldDeltas     []BookHeldDelta      `json:"book_held_deltas,omitempty"`
 	Retired            []RetiredAddress     `json:"retired,omitempty"`
 	PoolMetadata       []PoolMetadata       `json:"pool_metadata,omitempty"`
+	FactoryNonces      []FactoryNonce       `json:"factory_nonces,omitempty"`
 }
 
 func DefaultGenesis() *GenesisState {
@@ -253,22 +267,22 @@ func (gs GenesisState) Validate() error {
 		return err
 	}
 	if len(gs.AirdropEpochs) != 0 {
-		return fmt.Errorf("%w: airdrop_epochs is no longer supported", ErrInvalidGenesis)
+		return ErrInvalidGenesis.Wrap("airdrop_epochs is no longer supported")
 	}
 	if len(gs.AirdropClaims) != 0 {
-		return fmt.Errorf("%w: airdrop_claims is no longer supported", ErrInvalidGenesis)
+		return ErrInvalidGenesis.Wrap("airdrop_claims is no longer supported")
 	}
 	if len(gs.ProtocolFees) != 0 {
-		return fmt.Errorf("%w: protocol_fees is no longer supported", ErrInvalidGenesis)
+		return ErrInvalidGenesis.Wrap("protocol_fees is no longer supported")
 	}
 	if len(gs.AirdropBases) != 0 {
-		return fmt.Errorf("%w: airdrop_bases is no longer supported", ErrInvalidGenesis)
+		return ErrInvalidGenesis.Wrap("airdrop_bases is no longer supported")
 	}
 	if len(gs.HoldingHistories) != 0 {
-		return fmt.Errorf("%w: holding_histories is no longer supported", ErrInvalidGenesis)
+		return ErrInvalidGenesis.Wrap("holding_histories is no longer supported")
 	}
 	if len(gs.HoldingCheckpoints) != 0 {
-		return fmt.Errorf("%w: holding_checkpoints is no longer supported", ErrInvalidGenesis)
+		return ErrInvalidGenesis.Wrap("holding_checkpoints is no longer supported")
 	}
 	denoms := map[string]Market{}
 	indexes := map[uint64]bool{}
@@ -277,14 +291,14 @@ func (gs GenesisState) Validate() error {
 			return err
 		}
 		if _, dup := denoms[market.Denom]; dup || indexes[market.Index] {
-			return fmt.Errorf("%w: duplicate market %s", ErrInvalidGenesis, market.Denom)
+			return ErrInvalidGenesis.Wrapf("duplicate market %s", market.Denom)
 		}
 		denoms[market.Denom] = market
 		indexes[market.Index] = true
 	}
 	for i := uint64(1); i <= uint64(len(gs.Markets)); i++ {
 		if !indexes[i] {
-			return fmt.Errorf("%w: market indexes must be 1..%d", ErrInvalidGenesis, len(gs.Markets))
+			return ErrInvalidGenesis.Wrapf("market indexes must be 1..%d", len(gs.Markets))
 		}
 	}
 	return gs.validateContracts()
@@ -310,13 +324,20 @@ func word(value string) bool {
 }
 
 func invalid(format string, args ...interface{}) error {
-	return fmt.Errorf("%w: %s", ErrInvalidGenesis, fmt.Sprintf(format, args...))
+	return ErrInvalidGenesis.Wrapf(format, args...)
 }
 
 // validateContracts checks the surfaces, role tables, fee rights,
 // FeeAccumulator accounting, custody ledgers, book-held deltas and retired
 // list that replace the Launch-x contracts.
 func (gs GenesisState) validateContracts() error {
+	creators := map[string]bool{}
+	for _, entry := range gs.FactoryNonces {
+		if !canonicalAddress(entry.Creator) || creators[entry.Creator] {
+			return invalid("factory nonce %s", entry.Creator)
+		}
+		creators[entry.Creator] = true
+	}
 	surfaces := map[string]string{}
 	singleRoles := map[string]bool{}
 	for _, surface := range gs.Surfaces {
@@ -425,6 +446,25 @@ func (c FeeRightCollection) validate(isPool func(string) bool) error {
 		}
 		ids[token.ID] = true
 		pools[token.Pool] = true
+	}
+	owners := map[string]bool{}
+	owned := map[uint64]string{}
+	for _, owner := range c.OwnerTokens {
+		if !canonicalAddress(owner.Owner) || owners[owner.Owner] || len(owner.TokenIDs) == 0 {
+			return invalid("fee-right owner enumeration %s", owner.Owner)
+		}
+		owners[owner.Owner] = true
+		for _, id := range owner.TokenIDs {
+			if !ids[id] || owned[id] != "" {
+				return invalid("fee-right owner enumeration token %d", id)
+			}
+			owned[id] = owner.Owner
+		}
+	}
+	for _, token := range c.Tokens {
+		if owned[token.ID] != token.Owner {
+			return invalid("fee-right owner enumeration missing or wrong owner for %d", token.ID)
+		}
 	}
 	operators := map[FeeRightOperator]bool{}
 	for _, operator := range c.Operators {

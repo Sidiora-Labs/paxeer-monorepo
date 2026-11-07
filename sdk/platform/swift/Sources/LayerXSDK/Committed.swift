@@ -188,7 +188,21 @@ public struct ReceiptInclusion: Sendable {
 }
 
 public enum CommittedError: Error, Sendable, Equatable {
-  case receipt, height, commit, nextHeader, nextCommit, inclusion, result, batch
+  case receipt, height, commit, nextHeader, nextCommit, inclusion, result, batch, trust
+}
+
+/// A block checkpoint obtained independently from the receipt or portable bundle.
+/// Callers must authenticate it using their configured chain's consensus history.
+public struct CommittedTrust: Sendable {
+  public let chainID: String
+  public let height: Int64
+  public let blockHash: Data
+
+  public init(chainID: String, height: Int64, blockHash: Data) {
+    self.chainID = chainID
+    self.height = height
+    self.blockHash = blockHash
+  }
 }
 
 public struct Committed: Sendable {
@@ -204,8 +218,14 @@ public struct Committed: Sendable {
   public static func verify(
     _ receiptVerification: SequencerReceiptVerification,
     blockHeader: CommittedHeader, receiptInclusion: ReceiptInclusion,
-    commit: CometCommit, validatorSet: [CometValidator]
+    commit: CometCommit, validatorSet: [CometValidator], trust: CommittedTrust? = nil
   ) throws -> Committed {
+    guard let trust, !trust.chainID.isEmpty, trust.chainID.utf8.count <= 50,
+      trust.height > 0, trust.blockHash.count == 32,
+      trust.blockHash.contains(where: { $0 != 0 }),
+      blockHeader.chainID == trust.chainID, blockHeader.height == trust.height,
+      blockHeader.hash == trust.blockHash
+    else { throw CommittedError.trust }
     let r = receiptVerification.receipt
     let i = receiptInclusion
     guard receiptVerification.level == "receipted", (0...1).contains(r.resultCode),
@@ -220,6 +240,12 @@ public struct Committed: Sendable {
       i.nextHeader.chainID == blockHeader.chainID,
       i.nextHeader.validatorsHash == blockHeader.nextValidatorsHash
     else { throw CommittedError.height }
+    guard
+      receiptVerification.reportedBlockNumber == nil
+        || receiptVerification.reportedBlockNumber == UInt64(blockHeader.height),
+      receiptVerification.reportedBlockHash == nil
+        || receiptVerification.reportedBlockHash == blockHeader.hash
+    else { throw CommittedError.receipt }
     let power = try CommittedWire.verifyCommit(blockHeader, commit, validatorSet, error: .commit)
     guard i.nextHeader.lastBlockID == commit.blockID else { throw CommittedError.nextHeader }
     _ = try CommittedWire.verifyCommit(

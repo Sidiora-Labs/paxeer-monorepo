@@ -47,7 +47,7 @@ describe('PaxeerXAnchorsTable', () => {
     const { container } = renderTable();
 
     expect(Array.from(container.querySelectorAll('thead th')).map((cell) => cell.textContent))
-      .toEqual([ 'Batch', 'Checkpoint height', 'Sealed height', 'State root', 'Block', 'Age', 'Settlement' ]);
+      .toEqual([ 'Batch', 'Checkpoint ID', 'Checkpoint height', 'Sealed height', 'State root', 'Block', 'Age', 'Settlement' ]);
   });
 
   it('renders one row per checkpoint, each marked by its checkpoint id', () => {
@@ -77,7 +77,7 @@ describe('PaxeerXAnchorsTable', () => {
 
     expect(row.querySelector('[data-label="checkpoint-height"]')?.textContent).toBe('—');
     expect(row.querySelector('[data-label="sealed-height"]')?.textContent).toBe('—');
-    expect(row.querySelectorAll('td')[3]?.textContent).toBe('—');
+    expect(row.querySelectorAll('td')[4]?.textContent).toBe('—');
   });
 
   it('puts every accepted checkpoint on the same rung of the settlement ladder', () => {

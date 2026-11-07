@@ -98,6 +98,8 @@ func tokenfactory(t *testing.T, directory string) *proofCliState {
 }
 
 func TestProofCli(t *testing.T) {
+	started := time.Now()
+	defer func() { t.Logf("CLI proof wall time: %s", time.Since(started)) }()
 	// Building the executable is part of the proof: all command invocations below
 	// execute this repository's daemon, rather than a helper test process.
 	_, source, _, ok := runtime.Caller(0)
@@ -108,12 +110,15 @@ func TestProofCli(t *testing.T) {
 	defer cancelBuild()
 	build := exec.CommandContext(buildCtx, "go", "build", "-o", binary, "./daemon/paxd")
 	build.Dir = root
+	t.Log("building real paxd")
 	buildOutput, err := build.CombinedOutput()
+	t.Logf("real paxd build wall time: %s", time.Since(started))
 	require.NoError(t, err, "build real paxd: %s", buildOutput)
 
 	home := t.TempDir()
 	run := func(args ...string) ([]byte, string, error) {
 		t.Helper()
+		t.Logf("paxd %v", args)
 		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 		defer cancel()
 		cmd := exec.CommandContext(ctx, binary, append(args, "--home", home)...)

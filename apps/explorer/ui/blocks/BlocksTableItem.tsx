@@ -5,10 +5,9 @@ import React from 'react';
 import type { Block } from 'types/api/block';
 import type { ClusterChainConfig } from 'types/multichain';
 
-import { route } from 'nextjs-routes';
+import { route } from 'nextjs/routes';
 
 import config from 'configs/app';
-import getBlockTotalReward from 'lib/block/getBlockTotalReward';
 import { Link } from 'toolkit/chakra/link';
 import { Skeleton } from 'toolkit/chakra/skeleton';
 import { TableCell, TableRow } from 'toolkit/chakra/table';
@@ -24,18 +23,22 @@ import Utilization from 'ui/shared/Utilization/Utilization';
 import NativeCoinValue from 'ui/shared/value/NativeCoinValue';
 import SimpleValue from 'ui/shared/value/SimpleValue';
 
+import { getBlockTotalReward, getBlockNativeValueProps } from './blockValues';
+
 interface Props {
   data: Block;
   isLoading?: boolean;
   animation?: string;
   enableTimeIncrement?: boolean;
   chainData?: ClusterChainConfig;
+  appConfig?: typeof config;
 }
 
-const isRollup = config.features.rollup.isEnabled;
-
-const BlocksTableItem = ({ data, isLoading, enableTimeIncrement, animation, chainData }: Props) => {
-  const totalReward = getBlockTotalReward(data);
+const BlocksTableItem = ({ data, isLoading, enableTimeIncrement, animation, chainData, appConfig: appConfigProp }: Props) => {
+  const appConfig = appConfigProp ?? chainData?.app_config ?? config;
+  const currency = appConfig.chain.currency;
+  const isRollup = appConfig.features.rollup.isEnabled;
+  const totalReward = getBlockTotalReward(data, currency);
   const burntFees = BigNumber(data.burnt_fees || 0);
   const txFees = BigNumber(data.transaction_fees || 0);
 
@@ -47,7 +50,7 @@ const BlocksTableItem = ({ data, isLoading, enableTimeIncrement, animation, chai
         </TableCell>
       ) }
       <TableCell >
-        <Flex columnGap={ 2 } alignItems="center" mb={ 2 }>
+        <Flex columnGap={ 2 } alignItems="center" mb={ 0 }>
           { data.celo?.l1_era_finalized_epoch_number && (
             <Tooltip content={ `Finalized epoch #${ data.celo.l1_era_finalized_epoch_number }` }>
               <IconSvg name="checkered_flag" boxSize={ 5 } p="1px" isLoading={ isLoading } flexShrink={ 0 }/>
@@ -60,6 +63,7 @@ const BlocksTableItem = ({ data, isLoading, enableTimeIncrement, animation, chai
                 isLoading={ isLoading }
                 number={ data.height }
                 hash={ data.type !== 'block' ? data.hash : undefined }
+                chain={ chainData }
                 noIcon
                 fontWeight={ 600 }
               />
@@ -75,16 +79,17 @@ const BlocksTableItem = ({ data, isLoading, enableTimeIncrement, animation, chai
           display="inline-block"
         />
       </TableCell>
-      <TableCell >
+      <TableCell isNumeric>
         <Skeleton loading={ isLoading } display="inline-block">
           { data.size?.toLocaleString() || 'N/A' }
         </Skeleton>
       </TableCell>
-      { !config.UI.views.block.hiddenFields?.miner && (
+      { !appConfig.UI.views.block.hiddenFields?.miner && (
         <TableCell >
           <AddressEntity
             address={ data.miner }
             isLoading={ isLoading }
+            chain={ chainData }
             truncation="constant"
           />
         </TableCell>
@@ -95,15 +100,15 @@ const BlocksTableItem = ({ data, isLoading, enableTimeIncrement, animation, chai
             <Link href={ route({
               pathname: '/block/[height_or_hash]',
               query: { height_or_hash: String(data.height), tab: 'txs' },
-            }) }>
+            }, { chain: chainData }) }>
               { data.transactions_count }
             </Link>
           </Skeleton>
         ) : data.transactions_count }
       </TableCell>
-      <TableCell >
+      <TableCell isNumeric>
         <Skeleton loading={ isLoading } display="inline-block">{ BigNumber(data.gas_used || 0).toFormat() }</Skeleton>
-        <Flex mt={ 2 }>
+        <Flex mt={ 0 } justifyContent="flex-end">
           <BlockGasUsed
             gasUsed={ data.gas_used || undefined }
             gasLimit={ data.gas_limit }
@@ -112,28 +117,31 @@ const BlocksTableItem = ({ data, isLoading, enableTimeIncrement, animation, chai
           />
         </Flex>
       </TableCell>
-      { !isRollup && !config.UI.views.block.hiddenFields?.total_reward && (
-        <TableCell >
+      { !isRollup && !appConfig.UI.views.block.hiddenFields?.total_reward && (
+        <TableCell isNumeric>
           <SimpleValue value={ totalReward } loading={ isLoading }/>
         </TableCell>
       ) }
-      { !isRollup && !config.UI.views.block.hiddenFields?.burnt_fees && (
-        <TableCell >
+      { !isRollup && !appConfig.UI.views.block.hiddenFields?.burnt_fees && (
+        <TableCell isNumeric>
           <NativeCoinValue
+            { ...getBlockNativeValueProps(currency, data.burnt_fees) }
             amount={ data.burnt_fees }
             noSymbol
             startElement={ <IconSvg name="flame" mr={ 2 } boxSize={ 5 } color="text.secondary" isLoading={ isLoading }/> }
             loading={ isLoading }
             display="flex"
+            justifyContent="flex-end"
           />
           <Tooltip content="Burnt fees / Txn fees * 100%" disabled={ isLoading }>
-            <Utilization mt={ 2 } w="min-content" value={ burntFees.div(txFees).toNumber() } isLoading={ isLoading }/>
+            <Utilization mt={ 0 } w="min-content" value={ burntFees.div(txFees).toNumber() } isLoading={ isLoading }/>
           </Tooltip>
         </TableCell>
       ) }
-      { !isRollup && !config.UI.views.block.hiddenFields?.base_fee && data.base_fee_per_gas && (
+      { !isRollup && !appConfig.UI.views.block.hiddenFields?.base_fee && data.base_fee_per_gas && (
         <TableCell isNumeric>
           <NativeCoinValue
+            { ...getBlockNativeValueProps(currency, data.base_fee_per_gas, 'wei', 4) }
             amount={ data.base_fee_per_gas }
             loading={ isLoading }
             gweiThreshold={ 4 }

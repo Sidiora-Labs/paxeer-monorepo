@@ -6,10 +6,12 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"regexp"
 	"strings"
 	"time"
+	"unicode/utf16"
 )
 
 const qualificationSchema = "paxeer-x.qualification-manifest.v1"
@@ -69,12 +71,39 @@ type qualificationRecord struct {
 }
 
 func qHash(b []byte) string { h := sha256.Sum256(b); return hex.EncodeToString(h[:]) }
-func qCanonical(v any) []byte {
-	b, _ := json.Marshal(v)
+
+// qCanonical uses the sorted, compact, ASCII JSON wire format of
+// tools/qualification/paxeer_x_release.py:canonical without rounding integers.
+func qCanonical(v any) ([]byte, error) {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return nil, err
+	}
 	var generic any
-	_ = json.Unmarshal(b, &generic)
-	b, _ = json.Marshal(generic)
-	return b
+	decoder := json.NewDecoder(bytes.NewReader(b))
+	decoder.UseNumber()
+	if err = decoder.Decode(&generic); err != nil {
+		return nil, err
+	}
+	var buf bytes.Buffer
+	encoder := json.NewEncoder(&buf)
+	encoder.SetEscapeHTML(false)
+	if err = encoder.Encode(generic); err != nil {
+		return nil, err
+	}
+	raw := bytes.TrimSuffix(buf.Bytes(), []byte("\n"))
+	var out bytes.Buffer
+	for _, r := range string(raw) {
+		if r < 127 {
+			out.WriteRune(r)
+		} else if r <= 0xffff {
+			fmt.Fprintf(&out, "\\u%04x", r)
+		} else {
+			hi, lo := utf16.EncodeRune(r)
+			fmt.Fprintf(&out, "\\u%04x\\u%04x", hi, lo)
+		}
+	}
+	return out.Bytes(), nil
 }
 func qStrict(b []byte, v any) error {
 	if len(b) == 0 || len(b) > qualificationLimit {
@@ -201,7 +230,11 @@ func (r qualificationRequest) validate() error {
 	if e := r.Manifest.validate(); e != nil {
 		return e
 	}
-	if r.LogicalID != qHash(append([]byte("paxeer-x.logical.v1\x00"), qCanonical(r.Manifest)...)) {
+	b, e := qCanonical(r.Manifest)
+	if e != nil {
+		return e
+	}
+	if r.LogicalID != qHash(append([]byte("paxeer-x.logical.v1\x00"), b...)) {
 		return errors.New("logical identity mismatch")
 	}
 	if !strings.HasPrefix(r.Ref, "refs/tags/") || strings.ContainsAny(r.Ref, " \n\r\t~^:?*[\\") {

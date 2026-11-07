@@ -85,7 +85,7 @@ func TestEnvNamesMatchTheBridgeAppConfig(t *testing.T) {
 		}
 		records = append(records, record)
 	}
-	solana, err := LoadRecord("../tests/fixtures/records/solana.json")
+	solana, err := LoadRecord(readySolanaRecordPath(t))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -149,6 +149,9 @@ func TestCheckAcceptsAMatchingEnv(t *testing.T) {
 	dir := t.TempDir()
 	for _, name := range []string{"ethereum", "solana"} {
 		path := filepath.Join("../tests/fixtures/records", name+".json")
+		if name == "solana" {
+			path = readySolanaRecordPath(t)
+		}
 		record, err := LoadRecord(path)
 		if err != nil {
 			t.Fatal(err)
@@ -231,7 +234,7 @@ func TestEnvLinesFromEVMRecords(t *testing.T) {
 		Chain: "ethereum", ChainID: 1, Kind: "evm",
 		Vault: "0x7a3e5c81b04d296f8e1a7c35d92b6f04e8c1a37d",
 	}
-	if record != wantRecord {
+	if !reflect.DeepEqual(record, wantRecord) {
 		t.Fatalf("LoadRecord() = %+v, want %+v", record, wantRecord)
 	}
 	want := []string{"NEXT_PUBLIC_BRIDGE_VAULT_ETHEREUM=0x7a3e5c81b04d296f8e1a7c35d92b6f04e8c1a37d"}
@@ -257,7 +260,7 @@ func TestEnvLinesFromEVMRecords(t *testing.T) {
 	for i, j := 0, len(records)-1; i < j; i, j = i+1, j-1 {
 		records[i], records[j] = records[j], records[i]
 	}
-	solana, err := LoadRecord("../tests/fixtures/records/solana.json")
+	solana, err := LoadRecord(readySolanaRecordPath(t))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -281,13 +284,13 @@ func TestEnvLinesFromEVMRecords(t *testing.T) {
 }
 
 func TestSolanaRecordEmitsTheProgramID(t *testing.T) {
-	record, err := LoadRecord("../tests/fixtures/records/solana.json")
+	record, err := LoadRecord(readySolanaRecordPath(t))
 	if err != nil {
 		t.Fatal(err)
 	}
 	const programID = "A7SZbByPYuHpunZ9pyMDMrhMYvK44ANT1AVqb8U1FpM9"
-	wantRecord := Record{Chain: "solana", ChainID: 91600046870081, Kind: "solana", ProgramID: programID}
-	if record != wantRecord {
+	wantRecord := readySolanaRecord(t)
+	if !reflect.DeepEqual(record, wantRecord) {
 		t.Fatalf("LoadRecord(solana) = %+v, want %+v", record, wantRecord)
 	}
 	want := []string{"NEXT_PUBLIC_BRIDGE_SOLANA_PROGRAM_ID=" + programID}
@@ -327,7 +330,7 @@ func TestSolanaRecordEmitsTheProgramID(t *testing.T) {
 			if !strings.Contains(err.Error(), path) || !strings.Contains(err.Error(), "program_id") {
 				t.Fatalf("error must name file %q and program_id: %v", path, err)
 			}
-			if invalid != (Record{}) {
+			if !reflect.DeepEqual(invalid, Record{}) {
 				t.Fatalf("LoadRecord returned an invalid record: %+v", invalid)
 			}
 		})
@@ -345,7 +348,7 @@ func TestRefusesARecordWithAnotherChainID(t *testing.T) {
 			if !strings.Contains(err.Error(), path) || !strings.Contains(err.Error(), "chain_id") {
 				t.Fatalf("error must name file %q and chain_id: %v", path, err)
 			}
-			if record != (Record{}) {
+			if !reflect.DeepEqual(record, Record{}) {
 				t.Fatalf("LoadRecord returned an invalid record: %+v", record)
 			}
 		})
@@ -376,7 +379,7 @@ func TestRefusesAZeroVault(t *testing.T) {
 			if !strings.Contains(err.Error(), path) || !strings.Contains(err.Error(), "vault") {
 				t.Fatalf("error must name file %q and vault: %v", path, err)
 			}
-			if record != (Record{}) {
+			if !reflect.DeepEqual(record, Record{}) {
 				t.Fatalf("LoadRecord returned an invalid record: %+v", record)
 			}
 		})

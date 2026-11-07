@@ -1,0 +1,7 @@
+[repair.22.33.376]
+acceptance = "22998.1"
+finding.coin-task-recovery = "Explorer.Repair.Repair2233376Test: coin-task-recovery bounds crashes for both coins, retains rates and recovers before and after reopening; coin-task-recovery also retries returned provider errors without losing cached data"
+finding.history-task-recovery = "Explorer.Repair.Repair2233376Test: history-task-recovery persists other types after exhaustion and recovers on the next cycle and reopening; history-task-recovery bounds returned errors and refreshes in the subsequent cycle"
+baseline = "Not run: the explicit gate order requires complete implementation before hf-build and hf-done, and prohibits running verify_cmd by hand; no pre-change failures claimed."
+wiring_requests = "None: both proposals are entirely within the fetcher scope."
+evidence = "The bounded hf-build/hf-done ledger records the exact candidate revision, command, exit code and private log; no qualification claimed before those gates pass."

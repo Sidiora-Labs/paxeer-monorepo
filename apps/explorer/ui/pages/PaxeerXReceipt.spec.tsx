@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 
+import { onlineManager } from '@tanstack/react-query';
 import React from 'react';
 
 import type { PaxeerXArchiveReceipt } from 'types/api/paxeerXArchive';
@@ -23,10 +24,26 @@ const receipt: PaxeerXArchiveReceipt = {
   verification_status: 'checkpoint_finalised',
   payload_hash: '0x3ed9d81e7c1001bdda1caa1dc62c0acbbe3d2c671cdc20dc1e65efdaa4186967',
   transaction_hash: '0x8f9e7d6c5b4a39281706f5e4d3c2b1a0998877665544332211ffeeddccbbaa99',
+  provenance: { evm: { ...PAXEER_X_RECEIPTS_ITEM.provenance.evm, transaction_hash: '0x8f9e7d6c5b4a39281706f5e4d3c2b1a0998877665544332211ffeeddccbbaa99' } },
   timestamp: '2023-05-22T18:00:36.000000Z',
 };
 
 const JSON_HEADERS = { 'Content-Type': 'application/json' };
+const archivePath = `/api/v2/paxeer-x/archive/receipts/${ receipt.id }`;
+const archiveBodies: Array<unknown> = [];
+const unexpectedRequests: Array<string> = [];
+
+function serveArchive(body: unknown) {
+  fetchMock.mockResponse((request) => {
+    const path = new URL(request.url).pathname;
+    if (path !== archivePath) {
+      unexpectedRequests.push(path);
+      return Promise.reject(new Error(`Unexpected archive request: ${ path }`));
+    }
+    archiveBodies.push(body);
+    return Promise.resolve({ body: JSON.stringify(body), headers: JSON_HEADERS });
+  });
+}
 
 const setVisibility = (state: DocumentVisibilityState) => {
   Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => state });
@@ -82,8 +99,15 @@ describe('PaxeerXReceiptPageContent', () => {
   beforeEach(() => {
     routerState.pathname = '/paxeer-x/receipts/[id]';
     routerState.query = { id: receipt.id };
+    onlineManager.setOnline(true);
     fetchMock.resetMocks();
-    fetchMock.mockResponse(JSON.stringify(receipt), { headers: JSON_HEADERS });
+    archiveBodies.length = 0;
+    unexpectedRequests.length = 0;
+    serveArchive(receipt);
+  });
+
+  afterEach(() => {
+    expect(unexpectedRequests).toEqual([]);
   });
 
   it('heads the page with the receipt label, its identifier and a copy control', async() => {
@@ -157,25 +181,24 @@ describe('PaxeerXReceiptPageContent', () => {
 
   describe('freshness of the evidence', () => {
     afterEach(() => {
+      onlineManager.setOnline(true);
       Reflect.deleteProperty(document, 'visibilityState');
       Reflect.deleteProperty(navigator, 'onLine');
     });
 
-    it('reports the evidence current once the node has answered', async() => {
+    it('reports frozen evidence complete once the archive has answered', async() => {
       const { container } = await renderPage();
 
       await waitFor(() => {
-        expect(freshnessOf(container)?.getAttribute('data-receipt-freshness')).toBe('current');
+        expect(freshnessOf(container)?.getAttribute('data-receipt-freshness')).toBe('complete');
       });
-      expect(freshnessOf(container)?.textContent).toContain('Latest indexed response received. Checking for updates.');
+      expect(freshnessOf(container)?.textContent)
+        .toContain('Recorded archive verification status. This historical evidence is frozen; automatic refresh stopped.');
       expect(container.querySelector('[data-receipt-checked-at]')).toBeTruthy();
     });
 
     it('reports the evidence complete once verification is anchored', async() => {
-      fetchMock.mockResponse(
-        JSON.stringify({ ...receipt, verification_status: 'settlement_anchored' }),
-        { headers: JSON_HEADERS },
-      );
+      serveArchive({ ...receipt, verification_status: 'settlement_anchored' });
 
       const { container } = await renderPage();
 
@@ -183,10 +206,10 @@ describe('PaxeerXReceiptPageContent', () => {
         expect(freshnessOf(container)?.getAttribute('data-receipt-freshness')).toBe('complete');
       });
       expect(freshnessOf(container)?.textContent)
-        .toContain('Anchored verification reported. Automatic refresh stopped.');
+        .toContain('Recorded archive verification status. This historical evidence is frozen; automatic refresh stopped.');
     });
 
-    it('reports the refresh paused while the page is hidden', async() => {
+    it('keeps the recorded evidence complete while the page is hidden', async() => {
       const { container } = await renderPage();
 
       act(() => {
@@ -194,45 +217,31 @@ describe('PaxeerXReceiptPageContent', () => {
       });
 
       await waitFor(() => {
-        expect(freshnessOf(container)?.getAttribute('data-receipt-freshness')).toBe('paused');
+        expect(freshnessOf(container)?.getAttribute('data-receipt-freshness')).toBe('complete');
       });
-      expect(freshnessOf(container)?.textContent).toContain('Refresh paused while this page is hidden.');
+      expect(freshnessOf(container)?.textContent).toContain('This historical evidence is frozen; automatic refresh stopped.');
     });
 
-    it('reports a refresh in flight when the page comes back into view', async() => {
-      let receiptRequests = 0;
-      fetchMock.mockResponse((request) => {
-        if (!request.url.includes(`/paxeer-x/receipts/${ receipt.id }`)) {
-          return Promise.resolve({ body: JSON.stringify(receipt), headers: JSON_HEADERS });
-        }
-        receiptRequests += 1;
-        if (receiptRequests === 1) {
-          return Promise.resolve({ body: JSON.stringify(receipt), headers: JSON_HEADERS });
-        }
-        return new Promise<string>(() => undefined);
-      });
-
+    it('keeps the exact archive body without another request when the page returns', async function archiveReceiptVisibilityDoesNotRefreshFrozenEvidence() {
       const { container } = await renderPage();
+      expect(archiveBodies).toEqual([ receipt ]);
+      expect(new URL(String(fetchMock.mock.calls[0][0])).pathname).toBe(archivePath);
 
       act(() => {
         setVisibility('hidden');
       });
-      await waitFor(() => {
-        expect(freshnessOf(container)?.getAttribute('data-receipt-freshness')).toBe('paused');
-      });
-
       act(() => {
         setVisibility('visible');
       });
+      await new Promise((resolve) => setTimeout(resolve, 5_500));
 
-      await waitFor(() => {
-        expect(freshnessOf(container)?.getAttribute('data-receipt-freshness')).toBe('refreshing');
-      });
-      expect(freshnessOf(container)?.textContent).toContain('Checking for newer indexed evidence.');
-      expect(receiptRequests).toBe(2);
+      expect(freshnessOf(container)?.getAttribute('data-receipt-freshness')).toBe('complete');
+      expect(container.querySelector('[data-verification-status]')?.getAttribute('data-verification-status')).toBe('checkpoint_finalised');
+      expect(archiveBodies).toEqual([ receipt ]);
+      expect(fetchMock.mock.calls.filter(([ url ]) => new URL(String(url)).pathname === archivePath)).toHaveLength(1);
     });
 
-    it('reports the evidence stale and keeps it when the connection drops', async() => {
+    it('keeps the frozen evidence complete when the connection drops', async() => {
       const { container } = await renderPage();
 
       act(() => {
@@ -240,10 +249,25 @@ describe('PaxeerXReceiptPageContent', () => {
       });
 
       await waitFor(() => {
-        expect(freshnessOf(container)?.getAttribute('data-receipt-freshness')).toBe('stale');
+        expect(freshnessOf(container)?.getAttribute('data-receipt-freshness')).toBe('complete');
       });
-      expect(freshnessOf(container)?.textContent).toContain('Offline. Retaining the last indexed evidence.');
+      expect(freshnessOf(container)?.textContent).toContain('This historical evidence is frozen; automatic refresh stopped.');
       expect(container.querySelector('[data-field="id"]')?.textContent).toBe(receipt.id);
+    });
+    it.each([
+      { ...receipt, frozen: false },
+      { ...receipt, verification_status: 'unknown' },
+      { ...receipt, id: 'different-receipt' },
+      { ...receipt, block_number: -1 },
+    ])('refuses an invalid archive response %#', async(body) => {
+      serveArchive(body);
+      const { container, unmount } = render(<PaxeerXReceiptPage/>);
+      await waitFor(() => {
+        expect(container.querySelector('[data-receipt-refresh-error]')).not.toBeNull();
+      });
+      expect(container.querySelector('[data-receipt-details-card]')).toBeNull();
+      expect(archiveBodies).toEqual([ body ]);
+      unmount();
     });
   });
 });

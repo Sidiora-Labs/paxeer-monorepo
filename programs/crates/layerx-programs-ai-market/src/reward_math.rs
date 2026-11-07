@@ -31,7 +31,7 @@ pub fn lower_median(scores: &[Score]) -> CodecResult<Presence<Score>> {
     for (slot, score) in sorted.iter_mut().zip(scores) {
         *slot = score.get();
     }
-    sorted.sort_unstable();
+    crate::codec::sort_by(sorted, Ord::cmp);
     Ok(Presence::Present(Score::new(
         sorted[(scores.len() - 1) / 2],
     )?))
@@ -79,7 +79,8 @@ pub fn mul_div_rem(b: u128, s: u64, t: u64) -> CodecResult<(u128, u64)> {
 
 /// Exact epoch entitlements in ascending `WorkerId` order. A `NO_ELIGIBLE_SCORE`
 /// result carries no entries and releases the whole budget.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct Allocation {
     budget: Amount,
     total_weight: u64,
@@ -142,7 +143,9 @@ pub fn allocate(budget: Amount, outputs: &[WorkerAggregate]) -> CodecResult<Allo
     for (i, slot) in order[..n].iter_mut().enumerate() {
         *slot = i;
     }
-    order[..n].sort_unstable_by_key(|&i| outputs[i].worker());
+    crate::codec::sort_by(&mut order[..n], |&a, &b| {
+        outputs[a].worker().cmp(&outputs[b].worker())
+    });
     if order[..n]
         .windows(2)
         .any(|p| outputs[p[0]].worker() == outputs[p[1]].worker())
@@ -188,7 +191,9 @@ pub fn allocate(budget: Amount, outputs: &[WorkerAggregate]) -> CodecResult<Allo
     for (k, slot) in rank[..n].iter_mut().enumerate() {
         *slot = k;
     }
-    rank[..n].sort_unstable_by(|&a, &b| remainders[b].cmp(&remainders[a]).then(a.cmp(&b)));
+    crate::codec::sort_by(&mut rank[..n], |&a, &b| {
+        remainders[b].cmp(&remainders[a]).then(a.cmp(&b))
+    });
     for &k in &rank[..n] {
         if left == 0 {
             break;

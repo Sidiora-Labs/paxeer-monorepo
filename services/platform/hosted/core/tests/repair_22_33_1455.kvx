@@ -1,0 +1,9 @@
+[repair.22.33.1455]
+audit = "22.30.83"
+requirement = "22998.1"
+native-funding-integration-gap = "repair_22_33_1455::native_funding_integration_gap_lost_response_reopen_and_archive_import"
+funding-intent-fixture-gap = "repair_22_33_1455::funding_intent_fixture_gap_live_producer_import_and_raw_replay"
+proof = "Real native fund producer, TLS admin transport, authenticated durable intent and receipt stores, dropped RPC response, reopened core state, intent import and identical raw rebroadcast, archived import and offline replay. Committed Anvil receipt and balance captures are consumed over loopback; deterministic preparation inputs reproduce the captured signed value transfer."
+baseline = "Not run: the explicit task order forbids verification before implementation and permits only hf-build followed by hf-done. No pre-change failing test is claimed."
+evidence = "The runner's private gate ledger /out/run/gates.jsonl records the exact candidate revision, command, exit and log for hf-build and hf-done."
+wiring_requests = []

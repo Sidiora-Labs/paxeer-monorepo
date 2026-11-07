@@ -2,9 +2,13 @@ package layerx
 
 import (
 	"bytes"
+	"context"
+	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"net/http"
 	"os"
 	"testing"
 	"time"
@@ -102,10 +106,26 @@ type committedRecordedTxProof struct {
 	Proof committedRecordedProof `json:"proof"`
 }
 
+const committedRecordingSHA256 = "5013cd232ee94ece8d25fca4c802ca60c892f3a5f637a70962d9909dc71c4e7b"
+
+func committedRecordingTrust(t *testing.T) CommittedTrust {
+	t.Helper()
+	var hash [32]byte
+	decoded, err := hex.DecodeString("a7c648246a5213d57d6a2f2aa7bdc8e0050249629e5e92a4b89f2bdb918e9108")
+	if err != nil || len(decoded) != len(hash) {
+		t.Fatal("invalid independently pinned committed recording hash")
+	}
+	copy(hash[:], decoded)
+	return CommittedTrust{ChainID: "committed-fixture", Height: 10, BlockHash: hash}
+}
+
 func TestCommittedInclusionBindsTheWrappedTransaction(t *testing.T) {
 	recorded, err := os.ReadFile("../../../daemon/committed-fixture/vectors/vector-v4-committed.json")
 	if err != nil {
 		t.Fatal(err)
+	}
+	if digest := sha256.Sum256(recorded); hex.EncodeToString(digest[:]) != committedRecordingSHA256 {
+		t.Fatal("committed producer recording changed")
 	}
 	var vector struct {
 		Authorization struct {
@@ -162,15 +182,15 @@ func TestCommittedInclusionBindsTheWrappedTransaction(t *testing.T) {
 	if string(receiptEnvelope["rung"]) != `"committed"` {
 		t.Fatal("recorded settlement is not committed")
 	}
-	// Verify the signed receipt at the receipted rung before proving its block inclusion.
-	receiptEnvelope["rung"] = json.RawMessage(`"receipted"`)
-	receiptBytes, err := json.Marshal(receiptEnvelope)
-	if err != nil {
-		t.Fatal(err)
-	}
+	// Preserve the producer's committed RPC view; only inclusion under an
+	// independently trusted checkpoint may promote the authenticated result.
+	receiptBytes := append([]byte(nil), s.Receipt...)
 	receipt, err := VerifySequencerReceipt(receiptBytes, raw, keys)
 	if err != nil {
 		t.Fatalf("recorded sequencer receipt: %v", err)
+	}
+	if receipt.Rung != "receipted" || receipt.Level != "receipted" || receipt.TransportBlock == nil {
+		t.Fatal("RPC rung promoted finality without trusted inclusion")
 	}
 	var validators []CometValidator
 	for _, validator := range s.Validators {
@@ -182,6 +202,7 @@ func TestCommittedInclusionBindsTheWrappedTransaction(t *testing.T) {
 		validators = append(validators, CometValidator{PublicKey: public, VotingPower: validator.Power})
 	}
 	header, commit := s.ExecutionHeader.decode(t), s.ExecutionCommit.decode(t)
+	trust := committedRecordingTrust(t)
 	inclusion := ReceiptInclusion{
 		Transaction: s.TransactionProof.Data, TransactionProof: s.TransactionProof.Proof.decode(t),
 		Result:      ExecTxResult{Code: s.Result.Code, Data: s.Result.Data, GasWanted: s.Result.GasWanted, GasUsed: s.Result.GasUsed},
@@ -198,13 +219,46 @@ func TestCommittedInclusionBindsTheWrappedTransaction(t *testing.T) {
 	if !committedVerifyTransactionProof(inclusion.Transaction, inclusion.TransactionProof, header.DataHash) {
 		t.Fatal("recorded block transaction proof failed")
 	}
-	result, err := VerifyCommittedReceipt(receipt, header, inclusion, commit, validators)
+	result, err := VerifyCommittedReceipt(receipt, header, inclusion, commit, validators, trust)
 	if err != nil {
 		t.Fatalf("recorded V4 settlement: %v", err)
 	}
 	if result.Rung != "committed" || result.Level != "committed" || result.Height != uint64(header.Height) ||
 		result.BlockHash != header.Hash() || result.ReceiptDigest != receipt.ReceiptDigest || result.Status != receipt.Status {
 		t.Fatalf("unexpected committed result: %+v", result)
+	}
+	evidence := PortableCommittedEvidence{BlockHeader: header, ReceiptInclusion: inclusion, Commit: commit, ValidatorSet: validators}
+	programs := committedRecordedPrograms(t, receiptBytes, raw, keys)
+	hash := receiptKeccak256(raw)
+	activity, err := programs.Activity(context.Background(), hash)
+	if err != nil || activity.SequencerReceipt == nil || activity.SequencerReceipt.Level != "receipted" || activity.SequencerReceipt.TransportBlock == nil {
+		t.Fatalf("unchanged committed RPC response through Activity: %+v %v", activity, err)
+	}
+	key, err := NewIdempotencyKey(hex.EncodeToString(hash[:]))
+	if err != nil {
+		t.Fatal(err)
+	}
+	publicReceipt, err := programs.Receipt(context.Background(), key, hash)
+	if err != nil || publicReceipt.SequencerReceipt == nil || publicReceipt.SequencerReceipt.Level != "receipted" || publicReceipt.IdempotencyKey != key.String() {
+		t.Fatalf("unchanged response through Receipt: %+v %v", publicReceipt, err)
+	}
+	committed, err := programs.ActivityCommitted(context.Background(), hash, evidence, trust)
+	if err != nil || committed.SequencerReceipt == nil || committed.SequencerReceipt.Level != "committed" || committed.SequencerReceipt.ReceiptDigest != result.ReceiptDigest {
+		t.Fatalf("public trusted inclusion: %+v %v", committed, err)
+	}
+	wrongTrust := trust
+	wrongTrust.BlockHash[0] ^= 1
+	if got, err := programs.ActivityCommitted(context.Background(), hash, evidence, wrongTrust); !errors.Is(err, ErrVerification) || got.SequencerReceipt != nil {
+		t.Fatalf("untrusted finality through Activity: %+v %v", got, err)
+	}
+	changedEvidence := evidence
+	changedEvidence.ReceiptInclusion.Transaction = append([]byte(nil), inclusion.Transaction...)
+	changedEvidence.ReceiptInclusion.Transaction[0] ^= 1
+	if got, err := programs.ActivityCommitted(context.Background(), hash, changedEvidence, trust); !errors.Is(err, ErrVerification) || got.SequencerReceipt != nil {
+		t.Fatalf("invalid inclusion through Activity: %+v %v", got, err)
+	}
+	if !bytes.Equal(receiptBytes, s.Receipt) || string(receiptEnvelope["rung"]) != `"committed"` {
+		t.Fatal("rewrote recorded response")
 	}
 	// The recorded payExact calldata appears verbatim inside the typed LegacyTx.
 	calldata, err := hex.DecodeString("78ea11db")
@@ -234,7 +288,7 @@ func TestCommittedInclusionBindsTheWrappedTransaction(t *testing.T) {
 			if committedVerifyTransactionProof(changed.Transaction, changed.TransactionProof, header.DataHash) {
 				t.Fatal("mutated block transaction retained inclusion")
 			}
-			result, err := VerifyCommittedReceipt(receipt, header, changed, commit, validators)
+			result, err := VerifyCommittedReceipt(receipt, header, changed, commit, validators, trust)
 			var verification *VerificationError
 			if !errors.As(err, &verification) || verification.Check != "committed-inclusion" || !errors.Is(err, ErrVerification) || result.Rung != "" {
 				t.Fatalf("expected committed-inclusion refusal, got rung %q, error %v", result.Rung, err)
@@ -258,4 +312,42 @@ func TestCommittedInclusionBindsTheWrappedTransaction(t *testing.T) {
 			}
 		}
 	})
+}
+
+// Replay the node's recorded result byte-for-byte through the production RPC
+// transport. The receipt fields, including rung and coordinates, stay intact.
+func committedRecordedPrograms(t *testing.T, receipt, raw []byte, keys ReceiptKeys) *Programs {
+	t.Helper()
+	hash := receiptKeccak256(raw)
+	return repair141Programs(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/" || r.Method != http.MethodPost {
+			t.Error("retired or unexpected receipt ingress")
+			http.Error(w, "route", 400)
+			return
+		}
+		var request programRPCRecord
+		if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+			t.Error(err)
+			return
+		}
+		if len(request.Params) != 1 || string(request.Params[0]) != fmt.Sprintf("%q", portableHex(hash[:])) {
+			t.Error("receipt transaction identity changed")
+		}
+		var result any
+		switch request.Method {
+		case "eth_getTransactionByHash":
+			result = map[string]string{"hash": portableHex(hash[:])}
+		case "pax_sequencerReceipt":
+			// Avoid re-encoding the recorded receipt object.
+			_, _ = fmt.Fprintf(w, `{"jsonrpc":"2.0","id":%d,"result":%s}`, request.ID, receipt)
+			return
+		case "eth_getRawTransactionByHash":
+			result = portableHex(raw)
+		default:
+			t.Errorf("unexpected receipt method %s", request.Method)
+			http.Error(w, "method", 400)
+			return
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{"jsonrpc": "2.0", "id": request.ID, "result": result})
+	}), keys)
 }

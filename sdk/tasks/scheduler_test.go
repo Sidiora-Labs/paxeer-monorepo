@@ -244,7 +244,7 @@ func TestProcessAll(t *testing.T) {
 					Info: val,
 				}
 			},
-			assertions:  func(t *testing.T, ctx sdk.Context, res []types.ResponseDeliverTx) {},
+			assertions:  assertMixedConflictResponses,
 			expectedErr: nil,
 		},
 		{
@@ -413,4 +413,18 @@ func (t *testTxTracer) OnTxExecute() {
 	}
 
 	t.canExecute = false
+}
+
+func assertMixedConflictResponses(t *testing.T, ctx sdk.Context, res []types.ResponseDeliverTx) {
+	t.Helper()
+	previous := ""
+	for idx, response := range res {
+		if idx%10 != 0 {
+			require.Equal(t, "none", response.Info, "independent transaction %d", idx)
+			continue
+		}
+		require.Equal(t, previous, response.Info, "shared transaction %d", idx)
+		previous = fmt.Sprintf("%d", idx)
+	}
+	require.Equal(t, previous, string(ctx.MultiStore().GetKVStore(testStoreKey).Get(itemKey)))
 }

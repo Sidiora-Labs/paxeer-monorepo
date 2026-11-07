@@ -91,7 +91,7 @@ func TestMicroBatchPlacesTxWithSetTxPosition(t *testing.T) {
 		acc, err := h.exec.Accept(tx.bz)
 		require.NoError(t, err)
 		require.Equal(t, i+1, acc.TxIndex)
-		require.Equal(t, acc, tx.acc)
+		requireSameAccepted(t, acc, tx.acc)
 		sequentialReceipt, err := h.app.EvmKeeper.GetTransientReceipt(h.openCtx(), tx.evm.Hash(), uint64(i+1))
 		require.NoError(t, err)
 		batchReceipt, err := h.app.EvmKeeper.GetTransientReceipt(batch.Ctx, tx.evm.Hash(), uint64(i+1))

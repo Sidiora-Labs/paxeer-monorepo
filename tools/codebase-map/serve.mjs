@@ -14,7 +14,7 @@ const contentTypes = new Map([
   [".svg", "image/svg+xml"],
 ]);
 
-function resolveRequest(requestUrl) {
+function resolveRequest(requestUrl, root) {
   try {
     const pathname = decodeURIComponent(new URL(requestUrl, "http://localhost").pathname);
     const relativePath = pathname === "/" ? "index.html" : normalize(pathname).replace(/^[/\\]+/, "");
@@ -28,34 +28,37 @@ function resolveRequest(requestUrl) {
   }
 }
 
-const server = createServer((request, response) => {
-  if (request.method !== "GET" && request.method !== "HEAD") {
-    response.writeHead(405, { "content-type": "text/plain; charset=utf-8", allow: "GET, HEAD" });
-    response.end("Method not allowed\n");
-    return;
-  }
-  const path = resolveRequest(request.url ?? "/");
-  if (!path || !existsSync(path) || !statSync(path).isFile()) {
-    response.writeHead(404, { "content-type": "text/plain; charset=utf-8" });
-    response.end("Not found\n");
-    return;
-  }
-  response.writeHead(200, {
-    "content-type": contentTypes.get(extname(path)) ?? "application/octet-stream",
-    "cache-control": path.endsWith("codebase-map.json") ? "no-store" : "public, max-age=60",
-    "x-content-type-options": "nosniff",
-    "content-security-policy": "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'",
+export function createMapServer(directory = root) {
+  const servingRoot = realpathSync(directory).replace(/[/\\]$/, "");
+  return createServer((request, response) => {
+    if (request.method !== "GET" && request.method !== "HEAD") {
+      response.writeHead(405, { "content-type": "text/plain; charset=utf-8", allow: "GET, HEAD" });
+      response.end("Method not allowed\n");
+      return;
+    }
+    const path = resolveRequest(request.url ?? "/", servingRoot);
+    if (!path || !existsSync(path) || !statSync(path).isFile()) {
+      response.writeHead(404, { "content-type": "text/plain; charset=utf-8" });
+      response.end("Not found\n");
+      return;
+    }
+    response.writeHead(200, {
+      "content-type": contentTypes.get(extname(path)) ?? "application/octet-stream",
+      "cache-control": path.endsWith("codebase-map.json") ? "no-store" : "public, max-age=60",
+      "x-content-type-options": "nosniff",
+      "content-security-policy": "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'",
+    });
+    if (request.method === "HEAD") {
+      response.end();
+      return;
+    }
+    const stream = createReadStream(path);
+    stream.on("error", () => response.destroy());
+    stream.pipe(response);
   });
-  if (request.method === "HEAD") {
-    response.end();
-    return;
-  }
-  const stream = createReadStream(path);
-  stream.on("error", () => response.destroy());
-  stream.pipe(response);
-});
+}
 
-server.listen(port, host, () => {
+if (process.argv[1] === fileURLToPath(import.meta.url)) createMapServer().listen(port, host, () => {
   const dataPath = join(root, "data/codebase-map.json");
   if (!existsSync(dataPath)) console.warn("No generated map found. Run `npm run generate` first.");
   console.log(`LayerX codebase map: http://${host}:${port}`);

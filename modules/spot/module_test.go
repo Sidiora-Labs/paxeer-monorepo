@@ -2,6 +2,8 @@ package spot_test
 
 import (
 	"encoding/json"
+	"fmt"
+	"os"
 	"testing"
 	"time"
 
@@ -16,6 +18,14 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 )
+
+func TestMain(m *testing.M) {
+	started := time.Now()
+	fmt.Println("spot package tests started")
+	code := m.Run()
+	fmt.Printf("spot package test wall time: %s (exit %d)\n", time.Since(started), code)
+	os.Exit(code)
+}
 
 // invariantRecorder records the routes RegisterInvariants registers.
 type invariantRecorder struct{ routes []string }

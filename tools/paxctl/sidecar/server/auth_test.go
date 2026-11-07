@@ -15,7 +15,7 @@ func TestAuthnMode(t *testing.T) {
 		want    string
 		wantErr string
 	}{
-		{"unset", "", AuthnModeUnauthenticated, ""},
+		{"unset", "", AuthnModeTrustedHeader, ""},
 		{"explicit unauthenticated", "unauthenticated", AuthnModeUnauthenticated, ""},
 		{"trusted-header", "trusted-header", AuthnModeTrustedHeader, ""},
 		{"case-insensitive", "TRUSTED-HEADER", AuthnModeTrustedHeader, ""},
@@ -27,6 +27,7 @@ func TestAuthnMode(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			t.Setenv("SEI_SIDECAR_AUTHN_MODE", c.env)
+			t.Setenv("SEI_SIDECAR_ISOLATED_DEVELOPMENT", "true")
 			got, err := AuthnMode()
 			if c.wantErr != "" {
 				if err == nil {
@@ -48,6 +49,7 @@ func TestAuthnMode(t *testing.T) {
 }
 
 func TestBindAddress(t *testing.T) {
+	t.Setenv("SEI_SIDECAR_ISOLATED_DEVELOPMENT", "true")
 	if got := BindAddress("7777", AuthnModeUnauthenticated); got != ":7777" {
 		t.Errorf("unauthenticated: %q, want :7777", got)
 	}
@@ -102,7 +104,7 @@ func TestTrustedHeaderMiddleware(t *testing.T) {
 }
 
 func TestNewServerAppliesMiddlewareInTrustedHeaderMode(t *testing.T) {
-	s := NewServer(":0", nil, t.TempDir(), AuthnModeTrustedHeader)
+	s := NewServer("127.0.0.1:0", nil, t.TempDir(), AuthnModeTrustedHeader)
 
 	t.Run("healthz bypasses", func(t *testing.T) {
 		defer func() { _ = recover() }() // handleHealthz panics on nil engine; the auth gate is what we're testing.
@@ -125,6 +127,7 @@ func TestNewServerAppliesMiddlewareInTrustedHeaderMode(t *testing.T) {
 }
 
 func TestNewServerSkipsMiddlewareInUnauthenticatedMode(t *testing.T) {
+	t.Setenv("SEI_SIDECAR_ISOLATED_DEVELOPMENT", "true")
 	s := NewServer(":0", nil, t.TempDir(), AuthnModeUnauthenticated)
 	if s.handler != s.mux {
 		t.Fatal("unauthenticated mode wrapped the mux in middleware")

@@ -2,12 +2,16 @@ package interactions
 
 import (
 	"encoding/json"
+	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 
+	v2 "github.com/Sidiora-Technologies/KindleLaunch/shared/interfaces/v2"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 )
 
 func TestPublicContractReadRecognisesOnlyViewerAwareReads(t *testing.T) {
@@ -91,5 +95,77 @@ func TestContractProfileProjection(t *testing.T) {
 	}
 	if _, e = contractProfile(wallet, []byte(`not json`), false, "1"); e == nil {
 		t.Fatal("corrupt stored profile accepted")
+	}
+}
+
+func TestContractErrorMapping(t *testing.T) {
+	testContractErrorMapping(t, repair67SDK(t))
+}
+
+func testContractErrorMapping(t *testing.T, sdk string) {
+	for _, tc := range []struct {
+		name   string
+		err    error
+		status int
+		code   string
+	}{
+		{"invalid-wallet", ErrInvalid, 422, "FIELD_INVALID"},
+		{"self-follow", ErrInvalid, 422, "FIELD_INVALID"},
+		{"denied", ErrDenied, 403, "SCOPE_DENIED"},
+		{"missing", pgx.ErrNoRows, 404, "NOT_FOUND"},
+		{"dependency", ErrDependency, 503, "DEPENDENCY_UNAVAILABLE"},
+		{"revision", ErrRevision, 409, "REVISION_CONFLICT"},
+		{"depth", ErrDepth, 422, "FIELD_INVALID"},
+		{"reaction-kind", ErrReactionKind, 422, "FIELD_INVALID"},
+		{"unknown", errors.New("private database connection information"), 503, "DEPENDENCY_UNAVAILABLE"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			request := httptest.NewRequest(http.MethodPut, "/v2/me/following/invalid", nil)
+			id := uuid.NewString()
+			request.Header.Set("X-Request-ID", id)
+			response := httptest.NewRecorder()
+			contractError(response, request, fmt.Errorf("wrapped internal error: %w", tc.err))
+			if err := v2.ValidateJSON("Error", response.Body.Bytes()); err != nil {
+				t.Fatal(err, response.Body.String())
+			}
+			var value v2.Error
+			if err := json.Unmarshal(response.Body.Bytes(), &value); err != nil {
+				t.Fatal(err)
+			}
+			if response.Code != tc.status || value.Code != tc.code || value.RequestId != id || value.Retryable != (tc.status == 503) || value.FieldErrors == nil || len(value.FieldErrors) != 0 || value.Details != nil || value.RetryAfterMs != nil || value.Message == "" {
+				t.Fatalf("status=%d error=%+v", response.Code, value)
+			}
+			if strings.Contains(response.Body.String(), "private database") || strings.Contains(response.Body.String(), "wrapped internal") {
+				t.Fatal("internal error leaked", response.Body.String())
+			}
+			handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				contractHeaders(w)
+				contractError(w, r, fmt.Errorf("wrapped internal error: %w", tc.err))
+			})
+			repair67AssertSDK(t, sdk, handler, http.MethodPut, "/v2/me/following/invalid", tc.status, tc.code, value.Message)
+		})
+	}
+}
+
+func TestContractErrorRequestIdentity(t *testing.T) {
+	for _, raw := range []string{"", "invalid", uuid.Nil.String(), "A0B1C2D3-1234-4ABC-8DEF-0123456789AB"} {
+		request := httptest.NewRequest(http.MethodGet, "/v2/profiles/invalid/followers", nil)
+		request.Header.Set("X-Request-ID", raw)
+		response := httptest.NewRecorder()
+		contractError(response, request, ErrDependency)
+		if err := v2.ValidateJSON("Error", response.Body.Bytes()); err != nil {
+			t.Fatal(err)
+		}
+		var value v2.Error
+		if err := json.Unmarshal(response.Body.Bytes(), &value); err != nil {
+			t.Fatal(err)
+		}
+		id, err := uuid.Parse(value.RequestId)
+		if err != nil || id == uuid.Nil || response.Header().Get("X-Request-ID") != value.RequestId {
+			t.Fatal("missing response identity", value)
+		}
+		if expected, err := uuid.Parse(raw); err == nil && expected != uuid.Nil && id != expected {
+			t.Fatal("request identity replaced", raw, id)
+		}
 	}
 }

@@ -33,7 +33,7 @@ use layerx_agentd::identity::{
 use layerx_agentd::session::{close, open, OpenRequest, SessionId, SessionRegistry, Token};
 use layerx_agentd::store::{ObjectKind, Store, TenantId, TenantKey};
 use layerx_agentd::tenant::{AuthorizationError, Operation, TenantObservability};
-use layerx_client::lni::framing::read_frame;
+use layerx_client::frame::framing::read_frame;
 use layerx_types::ids::Did;
 use layerx_types::result::ResultCode;
 use layerx_types::verify::VerificationLevel;

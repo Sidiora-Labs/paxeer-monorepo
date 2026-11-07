@@ -8,6 +8,7 @@ from fastapi import FastAPI, Request, Response
 from fastapi.responses import JSONResponse
 
 from layerx_sdk import LocalSignatureVerifier
+from layerx_sdk.account_derivation import keccak256
 
 from .config import (
     DeclaredConfig,
@@ -24,9 +25,8 @@ from .protocol import (
     MiddlewareErrorCode,
     PaymentRequirements,
     constant_time_equal,
-    constant_time_equal_text,
-    merkle_leaf_digest,
-    parse_hex32,
+    parse_layerx_evidence,
+    parse_receipt_hex,
 )
 from .seller import (
     FulfillmentRepository,
@@ -76,6 +76,7 @@ class LayerXMountOptions:
     authority: SellerPaymentAuthority | None = None
     signatures: LocalSignatureVerifier | None = None
     now: Callable[[], int] | None = None
+    offer_purpose_hash: str | None = None
 
 
 @dataclass(frozen=True)
@@ -105,7 +106,7 @@ def create_layerx_mount(options: LayerXMountOptions) -> LayerXMount:
 
 
 def create_integration(options: LayerXMountOptions) -> LayerXMount:
-    config = read_declared_config(options.environment)
+    config = read_declared_config(options.environment, purpose_hash=options.offer_purpose_hash)
     signatures = options.signatures if options.signatures is not None else LayerXSignatureVerifier()
     seller: SellerMiddleware[LayerXResource] = SellerMiddleware(
         payment_required=config.payment_required,
@@ -182,19 +183,27 @@ def assert_receipt_backed(
     decision: ReleasedDecision[LayerXResource],
     requirements: PaymentRequirements,
 ) -> None:
-    evidence_digest = layerx_evidence_digest(decision.settlement.extensions)
-    receipt_digest = merkle_leaf_digest(decision.verification.canonical_bytes).hex()
+    try:
+        evidence = parse_layerx_evidence(decision.settlement.extensions.get("layerx"))
+        receipt_digest = parse_receipt_hex(evidence.receipt_digest, 32)
+        signed_receipt = parse_receipt_hex(evidence.signed_receipt)
+    except MiddlewareError as error:
+        raise IntegrationError(IntegrationErrorCode.RECEIPT_NOT_BACKED) from error
     if (
         decision.verification.level != "sequencer-signed"
+        or evidence.verification_level != "receipted"
         or decision.verification.receipt.result_code != 0
         or not decision.settlement.success
         or decision.settlement.network != requirements.network
         or decision.settlement.amount != requirements.amount
-        or decision.settlement.transaction != f"lxp:{receipt_digest}"
-        or not constant_time_equal_text(evidence_digest, receipt_digest)
-        or decision.verification.receipt.amount != int(requirements.amount)
-        or not constant_time_equal(decision.verification.receipt.asset, parse_hex32(requirements.asset))
-        or not constant_time_equal(decision.verification.receipt.to_account, parse_hex32(requirements.pay_to))
+        or decision.settlement.payer != decision.verification.receipt.from_account.hex()
+        or decision.settlement.transaction != "0x" + decision.verification.receipt.activity_id.hex()
+        or not constant_time_equal(signed_receipt, decision.verification.canonical_bytes)
+        or not constant_time_equal(receipt_digest, keccak256(decision.verification.canonical_bytes))
+        or not constant_time_equal(
+            keccak256(parse_receipt_hex(evidence.raw_transaction)),
+            decision.verification.receipt.activity_id,
+        )
     ):
         raise IntegrationError(IntegrationErrorCode.RECEIPT_NOT_BACKED)
 
@@ -231,7 +240,7 @@ async def release_guarded(runtime: LayerXSellerRuntime, request: Request) -> Res
         media_type=decision.resource.content_type,
         headers={
             PAYMENT_RESPONSE_HEADER: decision.headers[PAYMENT_RESPONSE_HEADER],
-            "layerx-receipt-digest": decision.verification.receipt_digest.hex(),
+            "layerx-receipt-digest": layerx_evidence_digest(decision.settlement.extensions)[2:],
             "layerx-transaction": decision.settlement.transaction,
         },
     )
@@ -268,7 +277,7 @@ def layerx_evidence_digest(extensions: Mapping[str, JsonValue]) -> str:
     if not isinstance(layerx, Mapping):
         raise IntegrationError(IntegrationErrorCode.RECEIPT_NOT_BACKED)
     digest = layerx.get("receiptDigest")
-    if not isinstance(digest, str) or fullmatch(r"[0-9a-f]{64}", digest) is None:
+    if not isinstance(digest, str) or fullmatch(r"0x[0-9a-f]{64}", digest) is None:
         raise IntegrationError(IntegrationErrorCode.RECEIPT_NOT_BACKED)
     return digest
 

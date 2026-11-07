@@ -1,10 +1,12 @@
 //! Preparation of EIP-1559 calls against sequencer pending state.
 
+pub mod disclose;
+
 pub mod evm {
     use std::time::Duration;
 
     use layerx_client::sequencer::{CallRequest, SequencerEndpoint, SequencerError};
-    use layerx_crypto::disclosure::{call::bind_call, Disclosure, DisclosureError};
+    use layerx_crypto::disclosure::{Disclosure, DisclosureError};
     use layerx_crypto::evm_transaction::Eip1559Call;
     use serde_json::{json, Value};
 
@@ -346,10 +348,9 @@ pub mod evm {
         if call.gas_limit == 0 {
             return Err(PrepareError::InvalidDefaults);
         }
-        let disclosure = bind_call(&call, from).map_err(PrepareError::Disclosure)?;
-        let disclosure_digest = disclosure
-            .signing_digest()
-            .map_err(PrepareError::Disclosure)?;
+        let bound = super::disclose::bind(&call, from).map_err(PrepareError::Disclosure)?;
+        let disclosure = bound.disclosure;
+        let disclosure_digest = bound.digest;
         Ok(Prepared {
             from,
             disclosure,
@@ -368,24 +369,7 @@ pub mod evm {
     }
 
     pub fn verify_call_binding(prepared: &Prepared) -> Result<(), CallBindingError> {
-        if prepared.call.signing_hash() != prepared.signing_hash {
-            return Err(CallBindingError::SigningHashMismatch);
-        }
-        let disclosure =
-            bind_call(&prepared.call, prepared.from).map_err(CallBindingError::Disclosure)?;
-        if disclosure != prepared.disclosure {
-            return Err(CallBindingError::Disclosure(
-                DisclosureError::FieldMismatch("call"),
-            ));
-        }
-        if disclosure
-            .signing_digest()
-            .map_err(CallBindingError::Disclosure)?
-            != prepared.disclosure_digest
-        {
-            return Err(CallBindingError::DigestMismatch);
-        }
-        Ok(())
+        super::disclose::verify_binding(prepared)
     }
 
     fn build_call(
@@ -461,7 +445,7 @@ pub mod legacy {
     use layerx_wire::sign::preimage_unsigned;
     use layerx_wire::WireError;
 
-    #[path = "disclose.rs"]
+    #[path = "legacy_disclose.rs"]
     mod disclosure_binding;
     #[path = "expiry.rs"]
     mod lifecycle;
@@ -471,7 +455,8 @@ pub mod legacy {
     pub use lifecycle::{
         DurablePreparation, ExpirationReport, LifecycleError, LifecycleState, PayloadRedaction,
         PreparationExtension, PreparationInvalidationReport, PreparationLifecycle, RetentionReport,
-        EXTENSION_CAPABILITY, EXTENSION_IDEMPOTENCY, EXTENSION_OUTCOME,
+        EXTENSION_CALL, EXTENSION_CAPABILITY, EXTENSION_IDEMPOTENCY, EXTENSION_OUTCOME,
+        EXTENSION_TERMINAL_SEQUENCE,
     };
 
     /// Domain-separated digest of the validated structured disclosure.
@@ -581,7 +566,10 @@ pub mod legacy {
             let state = CorePreparationState {
                 network_id,
                 account_sequence,
-                protocol_timestamp: head.timestamp,
+                protocol_timestamp: head
+                    .timestamp
+                    .checked_mul(1000)
+                    .ok_or(CoreStateError::Unverified)?,
                 observed_head_sequence: head.number,
                 module_registry: self.module_registry.clone(),
             };
@@ -633,6 +621,16 @@ pub mod legacy {
         pub disclosure: layerx_crypto::disclosure::Disclosure,
         pub disclosure_digest: DisclosureDigest,
         pub audit: PreparationAuditEntry,
+    }
+
+    impl Prepared {
+        pub(crate) fn lifecycle_facts(&self) -> Result<(u64, [u8; 32]), LifecycleError> {
+            verify_disclosure_binding(self).map_err(|_| LifecycleError::InvalidSignedBytes)?;
+            Ok((
+                self.disclosure.expiry.not_after,
+                self.envelope.payload_hash(),
+            ))
+        }
     }
 
     /// Preparation audit evidence emitted with every response.
@@ -945,7 +943,7 @@ pub mod legacy {
     }
 
     #[cfg(test)]
-    #[path = "restore_tests.rs"]
+    #[path = "legacy_restore_tests.rs"]
     mod restore_tests;
 }
 

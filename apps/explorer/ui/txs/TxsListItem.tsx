@@ -5,7 +5,6 @@ import {
 import React from 'react';
 
 import type { NovesDescribeTxsResponse } from 'types/api/noves';
-import type { Transaction } from 'types/api/transaction';
 import type { ClusterChainConfig } from 'types/multichain';
 
 import config from 'configs/app';
@@ -24,13 +23,14 @@ import NativeCoinValue from 'ui/shared/value/NativeCoinValue';
 import TxAdditionalInfo from 'ui/txs/TxAdditionalInfo';
 import TxType from 'ui/txs/TxType';
 
+import type { TransactionFeedItem } from './TxPriceUpdate';
 import { isPriceUpdate, PriceUpdateFromTo, priceUpdateHref, priceUpdateMethod } from './TxPriceUpdate';
 import TxTranslationType from './TxTranslationType';
 
 const SELECTOR_LENGTH = 10;
 
 type Props = {
-  tx: Transaction;
+  tx: TransactionFeedItem;
   showBlockInfo: boolean;
   currentAddress?: string;
   enableTimeIncrement?: boolean;
@@ -52,13 +52,13 @@ const TxsListItem = ({
   translationIsLoading,
   translationData,
 }: Props) => {
-  const dataTo = tx.to ? tx.to : tx.created_contract;
-
-  const protocolTag = tx.to?.hash !== currentAddress && tx.to?.metadata?.tags?.find(tag => tag.tagType === 'protocol');
-
   const priceUpdate = isPriceUpdate(tx);
+  const evmTx = priceUpdate ? undefined : tx;
+  const dataTo = priceUpdate ? null : tx.to ?? tx.created_contract;
 
-  const evmMethod = tx.method ?? (tx.raw_input && tx.raw_input.length >= SELECTOR_LENGTH ? tx.raw_input.slice(0, SELECTOR_LENGTH) : undefined);
+  const protocolTag = evmTx?.to?.hash !== currentAddress && evmTx?.to?.metadata?.tags?.find(tag => tag.tagType === 'protocol');
+
+  const evmMethod = evmTx?.method ?? (evmTx?.raw_input && evmTx.raw_input.length >= SELECTOR_LENGTH ? evmTx.raw_input.slice(0, SELECTOR_LENGTH) : undefined);
   const method = priceUpdate ? priceUpdateMethod(tx) : evmMethod;
 
   return (
@@ -75,7 +75,7 @@ const TxsListItem = ({
             <TxType types={ tx.transaction_types } isLoading={ isLoading }/>
           }
           { tx.status !== 'ok' && <TxStatus status={ tx.status } errorText={ tx.status === 'error' ? tx.result : undefined } isLoading={ isLoading }/> }
-          <TxWatchListTags tx={ tx } isLoading={ isLoading }/>
+          { !priceUpdate && <TxWatchListTags tx={ tx } isLoading={ isLoading }/> }
           { protocolTag && <EntityTag data={ protocolTag } isLoading={ isLoading } noColors/> }
         </HStack>
         { !priceUpdate && <TxAdditionalInfo tx={ tx } isMobile isLoading={ isLoading }/> }
@@ -87,9 +87,9 @@ const TxsListItem = ({
           href={ priceUpdate ? priceUpdateHref(tx.hash) : undefined }
           truncation="constant_long"
           fontWeight="700"
-          icon={ !tx.is_pending_update && tx.transaction_types.includes('blob_transaction') ? { name: 'blob' } : undefined }
+          icon={ !priceUpdate && !tx.is_pending_update && tx.transaction_types.includes('blob_transaction') ? { name: 'blob' } : undefined }
           chain={ chainData }
-          isPendingUpdate={ tx.is_pending_update }
+          isPendingUpdate={ evmTx?.is_pending_update }
         />
         <TimeWithTooltip
           timestamp={ tx.timestamp }
@@ -133,6 +133,7 @@ const TxsListItem = ({
           <Skeleton loading={ isLoading } display="inline-block" whiteSpace="pre">Value</Skeleton>
           { priceUpdate ? <Skeleton loading={ isLoading } color="text.secondary">-</Skeleton> : (
             <NativeCoinValue
+              textStyle="number"
               amount={ tx.value }
               exchangeRate={ tx.exchange_rate }
               historicalExchangeRate={ tx.historic_exchange_rate }
@@ -144,12 +145,12 @@ const TxsListItem = ({
       ) }
       { !config.UI.views.tx.hiddenFields?.tx_fee && (
         <Flex mt={ 2 } mb={ 3 } columnGap={ 2 }>
-          { (tx.stability_fee !== undefined || tx.fee.value !== null) && (
+          { (evmTx?.stability_fee !== undefined || tx.fee.value !== null) && (
             <>
               <Skeleton loading={ isLoading } display="inline-block" whiteSpace="pre">Fee</Skeleton>
               { priceUpdate ?
                 <Skeleton loading={ isLoading } color="text.secondary">-</Skeleton> :
-                <TxFee tx={ tx } loading={ isLoading } color="text.secondary"/> }
+                <TxFee textStyle="number" tx={ tx } loading={ isLoading } color="text.secondary"/> }
             </>
           ) }
         </Flex>

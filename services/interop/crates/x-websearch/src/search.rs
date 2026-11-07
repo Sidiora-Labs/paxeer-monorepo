@@ -1,14 +1,15 @@
 use std::cmp::Ordering;
 use std::collections::BTreeSet;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use serde::Serialize;
-use tantivy::collector::TopDocs;
+use tantivy::collector::{Collector, SegmentCollector};
 use tantivy::query::{BooleanQuery, Occur, Query, TermQuery};
+use tantivy::schema::document::{DeserializeError, DocumentDeserialize, DocumentDeserializer};
 use tantivy::schema::{IndexRecordOption, Value as _};
 use tantivy::snippet::SnippetGenerator;
 use tantivy::tokenizer::TokenStream as _;
-use tantivy::{Score, TantivyDocument, Term};
+use tantivy::{DocAddress, DocId, Score, SegmentOrdinal, SegmentReader, TantivyDocument, Term};
 
 use crate::canonical::{self, CanonicalError, ContentKind};
 use crate::content::ContentStore;
@@ -161,54 +162,192 @@ fn snippet_text(generator: &SnippetGenerator, body: &str) -> String {
     fragment.split_whitespace().collect::<Vec<_>>().join(" ")
 }
 
-/// Searches the index: at most [`MAX_RESULTS`] results of url, title and
-/// snippet, sorted by score descending then url ascending. Every document
-/// tied with the last admitted score is considered before the url order
-/// decides, so the result does not depend on the order documents were
-/// indexed in.
+/// Resource accounting from the same bounded collector used by every search.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub struct SearchStats {
+    pub matches_considered: usize,
+    pub retained_candidates_peak: usize,
+    pub stored_bodies_loaded: usize,
+}
+
+struct Candidate {
+    score: Score,
+    url: String,
+    address: DocAddress,
+}
+
+impl Candidate {
+    fn compare(&self, other: &Self) -> Ordering {
+        other
+            .score
+            .total_cmp(&self.score)
+            .then_with(|| self.url.cmp(&other.url))
+    }
+}
+
+#[derive(Default)]
+struct Selection {
+    winners: Vec<Candidate>,
+    stats: SearchStats,
+}
+
+struct BestTen {
+    selection: Arc<Mutex<Selection>>,
+    url_field: tantivy::schema::Field,
+}
+
+struct SegmentBestTen {
+    selection: Arc<Mutex<Selection>>,
+    store: tantivy::store::StoreReader,
+    segment: SegmentOrdinal,
+    url_field: tantivy::schema::Field,
+    error: Option<tantivy::TantivyError>,
+}
+
+// WebIndex::put writes the URL first. Stop deserializing immediately after
+// that field, leaving title and body unmaterialized for losing candidates.
+struct StoredUrl(tantivy::schema::Field, String);
+
+impl DocumentDeserialize for StoredUrl {
+    fn deserialize<'de, D: DocumentDeserializer<'de>>(
+        mut deserializer: D,
+    ) -> Result<Self, DeserializeError> {
+        let (field, url) = deserializer
+            .next_field::<String>()?
+            .ok_or_else(|| DeserializeError::custom("missing indexed URL"))?;
+        Ok(Self(field, url))
+    }
+}
+
+impl SegmentCollector for SegmentBestTen {
+    type Fruit = tantivy::Result<()>;
+
+    fn collect(&mut self, doc: DocId, score: Score) {
+        if self.error.is_some() {
+            return;
+        }
+        let result = (|| -> tantivy::Result<()> {
+            let mut selection = self.selection.lock().map_err(|_| {
+                tantivy::TantivyError::InvalidArgument("search collection poisoned".to_owned())
+            })?;
+            selection.stats.matches_considered += 1;
+            if selection.winners.len() == MAX_RESULTS
+                && selection
+                    .winners
+                    .last()
+                    .is_some_and(|worst| score.total_cmp(&worst.score) == Ordering::Less)
+            {
+                return Ok(());
+            }
+            let StoredUrl(field, url) = self.store.get::<StoredUrl>(doc)?;
+            if field != self.url_field {
+                return Err(tantivy::TantivyError::InvalidArgument(
+                    "indexed URL is not the first stored field".to_owned(),
+                ));
+            }
+            let candidate = Candidate {
+                score,
+                url,
+                address: DocAddress::new(self.segment, doc),
+            };
+            if selection.winners.len() < MAX_RESULTS {
+                selection.winners.push(candidate);
+            } else if candidate.compare(&selection.winners[MAX_RESULTS - 1]) == Ordering::Less {
+                selection.winners[MAX_RESULTS - 1] = candidate;
+            } else {
+                return Ok(());
+            }
+            selection.winners.sort_by(Candidate::compare);
+            selection.stats.retained_candidates_peak = selection
+                .stats
+                .retained_candidates_peak
+                .max(selection.winners.len());
+            Ok(())
+        })();
+        if let Err(error) = result {
+            self.error = Some(error);
+        }
+    }
+
+    fn harvest(self) -> Self::Fruit {
+        match self.error {
+            Some(error) => Err(error),
+            None => Ok(()),
+        }
+    }
+}
+
+impl Collector for BestTen {
+    type Fruit = (Vec<Candidate>, SearchStats);
+    type Child = SegmentBestTen;
+
+    fn for_segment(
+        &self,
+        segment: SegmentOrdinal,
+        reader: &SegmentReader,
+    ) -> tantivy::Result<Self::Child> {
+        Ok(SegmentBestTen {
+            selection: Arc::clone(&self.selection),
+            store: reader.get_store_reader(1)?,
+            segment,
+            url_field: self.url_field,
+            error: None,
+        })
+    }
+
+    fn requires_scoring(&self) -> bool {
+        true
+    }
+
+    fn merge_fruits(&self, fruits: Vec<tantivy::Result<()>>) -> tantivy::Result<Self::Fruit> {
+        for fruit in fruits {
+            fruit?;
+        }
+        let mut selection = self.selection.lock().map_err(|_| {
+            tantivy::TantivyError::InvalidArgument("search collection poisoned".to_owned())
+        })?;
+        Ok((std::mem::take(&mut selection.winners), selection.stats))
+    }
+}
+
+/// Searches by descending score and ascending URL, retaining at most ten
+/// candidates across all segments and loading bodies only for those winners.
 ///
 /// # Errors
-/// Returns the query refusals and the error reading the index.
+/// Returns query refusals and errors reading the index.
 pub fn search(index: &WebIndex, query: &str) -> Result<Vec<ScoredResult>, SearchError> {
+    search_with_stats(index, query).map(|(results, _)| results)
+}
+
+pub fn search_with_stats(
+    index: &WebIndex,
+    query: &str,
+) -> Result<(Vec<ScoredResult>, SearchStats), SearchError> {
     let terms = query_terms(index, query)?;
     let query = build_query(index, &terms);
     let searcher = index.searcher();
-    let mut limit = MAX_RESULTS;
-    let hits = loop {
-        let hits = searcher.search(&query, &TopDocs::with_limit(limit).order_by_score())?;
-        let complete = hits.len() < limit
-            || hits[MAX_RESULTS - 1].0.total_cmp(&hits[limit - 1].0) == Ordering::Greater;
-        if complete {
-            break hits;
-        }
-        limit = limit.saturating_mul(2);
-    };
     let fields = index.fields();
-    let mut ranked: Vec<(Score, String, TantivyDocument)> = Vec::with_capacity(hits.len());
-    for (score, address) in hits {
-        let document = searcher.doc::<TantivyDocument>(address)?;
-        ranked.push((score, stored_text(&document, fields.url), document));
-    }
-    ranked.sort_by(|left, right| {
-        right
-            .0
-            .total_cmp(&left.0)
-            .then_with(|| left.1.cmp(&right.1))
-    });
-    ranked.truncate(MAX_RESULTS);
+    let collector = BestTen {
+        selection: Arc::new(Mutex::new(Selection::default())),
+        url_field: fields.url,
+    };
+    let (winners, mut stats) = searcher.search(&query, &collector)?;
     let mut generator = SnippetGenerator::create(&searcher, &query, fields.body)?;
     generator.set_max_num_chars(SNIPPET_CHARS);
-    Ok(ranked
-        .into_iter()
-        .map(|(score, url, document)| ScoredResult {
-            score,
+    let mut results = Vec::with_capacity(winners.len());
+    for candidate in winners {
+        let document = searcher.doc::<TantivyDocument>(candidate.address)?;
+        stats.stored_bodies_loaded += 1;
+        results.push(ScoredResult {
+            score: candidate.score,
             result: SearchResult {
-                url,
+                url: candidate.url,
                 title: stored_text(&document, fields.title),
                 snippet: snippet_text(&generator, &stored_text(&document, fields.body)),
             },
-        })
-        .collect())
+        });
+    }
+    Ok((results, stats))
 }
 
 /// The search text: the compact JSON array of the results with keys url,

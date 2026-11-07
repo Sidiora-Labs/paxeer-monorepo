@@ -1,0 +1,46 @@
+[task.22.33.257]
+base_revision = "399c122802fbe3326c62ef9251760c3e53ee4060"
+checkout_revision = "858f9244c1741cbefd21d1d3c0a9d6125755770d"
+repair = "Consume task 22.31.470's root README rewrite under decision 2525. Add focused regression checks for audit 22.30.13 finding 034; README.md remains outside scope. The inherited README already states every expected fact, so no missing-fact wiring request is necessary."
+source_proof = "Read the actual root README, extract architecture, root RPC quickstart, transaction/receipt flow, proof, retirement and release sections, parse its curl JSON-RPC request and URL roots, and assert its topology and receipt diagram order. Trace the documented producer through rpc/send.go acceptance/forwarding, node/sequencer/accepter.go WAL release before publication, and rpc/sequencer_receipt.go committed coverage. Check the embedded host/consensus and retirement source guards, current source directories and integrated merge status."
+review_only = "These are documentation source assertions, not runtime certification. Native node compilation, execution, BFT commitment, signatures, network availability, WAL durability and restart/recovery are not executed. No interface-mismatch or restart-recovery finding applies. No shell script, unit file, manifest or build file is changed or repaired; the README curl example is parsed in-process, never executed. No environment variable, credential, live endpoint, external binary, subprocess toolchain, native artifact or device is needed by pytest."
+baseline = "Initial Git status/diff showed only runner-prepared .cgignore and spec task-start changes, preserved unchanged; both scoped files were absent. Private gate.json reported zero builds and verifies, and gates.jsonl did not exist. No pre-change verification was run because the explicit implementation-first order and exclusive hf-done gate prohibit a manual baseline invocation. No baseline failures are claimed."
+build_cmd = "python3 --version"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_257.py"
+evidence_ledger = "/out/run/gates.jsonl"
+verified_revision = "Resolved by the final hf-done JSON and its private evidence_ledger entry, which record the exact content-derived candidate revision, command, exit code and log path; no gate result is claimed before that entry exists."
+evidence = "Finalize this record before hf-build and hf-done so their candidate revisions match. Embedding the candidate hash in its own source would change that hash; the immutable external gate ledger provides verified revision evidence. The runner commits and publishes; no manual commit or push."
+
+[finding.034]
+audit = "22.30.13"
+file = "README.md"
+line = 47
+class = "doc-drift"
+severity = "medium"
+owner_domain = 17
+owner_task = "22.31.470"
+observed = "The audit's old README advertised a separate C17 layerxd daemon and layerxAnchor checkpoint settlement, and called the merge a draft."
+expected = "One chain-125 BFT network embeds kernel execution in paxd; receipts become final at committed blocks. Public api1..api14 JSON-RPC hosts use the root path; signed transactions and committed receipt flows use the node. Custody and checkpoint executors are retired refusal surfaces, with no separate daemon or checkpoint deployment. Current source paths and integrated merge status are documented."
+resolution = "The actual README delivered by 22.31.470 satisfies the expected documentation facts. It contains no layerxd topology to preserve in a dated migration section; retained ABI names identify historical refusal surfaces and explicitly add no finality step. Closure is qualified only by the declared hf-done result."
+tests = ["test_034_one_chain_125_embeds_kernel_in_paxd", "test_034_public_root_hosts_and_chain_probe", "test_034_transaction_producer_transport_and_receipt_consumer", "test_034_finality_requires_authenticated_block_commitment", "test_034_retired_custody_checkpoint_executors_are_refusal_surfaces", "test_034_current_repository_paths_and_merge_status", "test_034_record_maps_proof_limits_and_external_revision_evidence"]
+wiring_requests = []
+wiring_policy = "README.md belongs to domain 17, task 22.31.470: any missing expected README fact must be requested there rather than edited here; inspection found none. No other out-of-path proposal step applies."
+
+[format]
+policy = "No Python or KVX formatter is configured for these paths. After the complete implementation, apply only .editorconfig UTF-8, LF, final-newline and trailing-whitespace conventions to the two scoped files."
+
+[gotcha.1]
+observed = "The older task step requests unchanged-tree verification, conflicting with explicit implementation-first and wrapper-only gate ordering."
+resolution = "Follow the explicit order and record baseline as unrun, without inventing failures; GOTCHA.kvx and spec files are outside scope."
+
+[gotcha.2]
+observed = "Codify brief/survey reports stale unrelated tasks and changes; broad combined reads exceeded output limits."
+resolution = "Use the exact task block, actual Git diff, private gate configuration and bounded reads as task context."
+
+[gotcha.3]
+observed = "Initial daemon-name check incorrectly matched layerxd inside the valid getLayerXDid ABI accessor; six other tests passed."
+resolution = "Match the retired daemon identifier with word boundaries, preserving the prohibition on any occurrence of that identifier while distinguishing the current account API."
+revision = "0cf3b657d332ba3f42697ac1272be60ea8f1440f"
+command = "cg spec done 22.33.257 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"

@@ -4,6 +4,9 @@ import lib
 
 
 def process_raw_genesis(genesis, parsed_args):
+    # Reject unsupported governance data before changing the genesis state.
+    migrate_gov_data(genesis['app_state']['gov'])
+
     # update genesis with breaking changes
     if 'block_size' in genesis['consensus_params']:
         genesis['consensus_params']['block'] = genesis['consensus_params']['block_size']
@@ -15,9 +18,6 @@ def process_raw_genesis(genesis, parsed_args):
             'denom': 'uatom',
         },
     }
-
-    # migrate governance state as the internal structure of proposals has changed
-    migrate_gov_data(genesis['app_state']['gov'])
 
     # default Tendermint block time (ms)
     genesis['consensus_params']['block']['time_iota_ms'] = '1000'
@@ -42,15 +42,18 @@ def process_raw_genesis(genesis, parsed_args):
 
 def migrate_gov_data(gov_data):
     for p in gov_data['proposals']:
+        if p['type'] != 'gov/TextProposal':
+            raise ValueError(f"invalid proposal type: {p['type']!r}")
+        if set(p) != {'type', 'value'}:
+            raise ValueError('expected proposal to contain only type and value')
+
+    for p in gov_data['proposals']:
         # get Amino type and value
         t = p['type']
         v = p['value']
 
         del p['type']
         del p['value']
-
-        assert t == 'gov/TextProposal', 'invalid proposal type: {t}'
-        assert p == {}, 'expected proposal to be empty after deleting contents'
 
         p['proposal_content'] = {
             'type': t,

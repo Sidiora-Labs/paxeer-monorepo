@@ -2,8 +2,8 @@
   "name": "pax-rpc-tests",
   "version": "1.0.0",
   "private": true,
-  "description": "Self-contained suite that verifies Pax's EVM JSON-RPC against a local geth reference node.",
-  "license": "MIT",
+  "description": "Self-contained suite that verifies Pax's EVM JSON-RPC against a local geth reference node. Optional manual Hardhat forks require ETH_MAINNET_UPSTREAM and a positive safe-integer ETH_MAINNET_FORK_BLOCK.",
+  "license": "Apache-2.0",
   "scripts": {
     "compile": "hardhat compile",
     "rpc:geth": "geth --dev --http --http.addr 127.0.0.1 --http.port 9547 --http.api eth,net,web3,debug,txpool --dev.period 0",

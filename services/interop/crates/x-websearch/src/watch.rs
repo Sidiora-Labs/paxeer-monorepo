@@ -413,6 +413,15 @@ struct PendingProgram {
     source: SourceIdentity,
 }
 
+/// A watcher still discovers both topics, but retains only work assigned to
+/// its durable completion owner. Both is the standalone dispatcher default.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum WatchOwnership {
+    Both,
+    Ordinary,
+    Program,
+}
+
 /// Follows web and program request logs of the precompile to the configured
 /// confirmation depth. The next block to read is kept in a cursor file under
 /// the state directory, so a restart resumes where the last poll stopped.
@@ -427,6 +436,7 @@ pub struct RequestWatcher {
     program_pending: BTreeMap<([u8; 32], u64), PendingProgram>,
     chain_id: Option<u64>,
     _lock: Option<std::fs::File>,
+    ownership: WatchOwnership,
 }
 
 /// A confirmed request the watcher committed to before moving its cursor.
@@ -599,6 +609,7 @@ impl RequestWatcher {
             program_pending,
             chain_id,
             _lock: None,
+            ownership: WatchOwnership::Both,
         })
     }
 
@@ -630,6 +641,27 @@ impl RequestWatcher {
             .map_err(|_| io::Error::other("watch journal already open"))?;
         self._lock = Some(lock);
         self.chain_id = Some(chain_id);
+        Ok(self)
+    }
+
+    pub fn with_ownership(mut self, ownership: WatchOwnership) -> io::Result<Self> {
+        if self._lock.is_none() {
+            return Err(io::Error::other(
+                "watch ownership requires a chain-bound journal lock",
+            ));
+        }
+        let mut pending = self.pending.clone();
+        let mut programs = self.program_pending.clone();
+        match ownership {
+            WatchOwnership::Both => {}
+            WatchOwnership::Ordinary => programs.clear(),
+            WatchOwnership::Program => pending.clear(),
+        }
+        self.store_progress(&pending, &programs, self.next_block, self.chain_id)
+            .map_err(io::Error::other)?;
+        self.pending = pending;
+        self.program_pending = programs;
+        self.ownership = ownership;
         Ok(self)
     }
 
@@ -949,6 +981,9 @@ impl RequestWatcher {
                     block_number,
                     source: source_identity(log, chain_id)?,
                 };
+                if self.ownership == WatchOwnership::Ordinary {
+                    continue;
+                }
                 if let Some(existing) = program_pending.get(&key) {
                     if existing != &entry {
                         return Err(EvmError::Malformed);
@@ -963,6 +998,9 @@ impl RequestWatcher {
                 .chain_id
                 .map(|chain_id| source_identity(log, chain_id))
                 .transpose()?;
+            if self.ownership == WatchOwnership::Program {
+                continue;
+            }
             if let Some(existing) = pending.get(&request.request_id) {
                 if existing.request != request
                     || (existing.source.is_some() && existing.source != source)

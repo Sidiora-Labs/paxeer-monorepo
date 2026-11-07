@@ -1,0 +1,51 @@
+[task.22.33.739]
+base_revision = "76c050242a1edcad6212aa52fac15670ecb5612d"
+mode = "BUILD"
+repair = "Replace the snapshot-directory and positive-height predicates with bounded native restoration in a fresh temporary receiver home, followed by donor snapshot-content, known bank-state and committed application-hash comparison at the actual imported height. Preserve both existing scenario names and their registered suites."
+source_proof = "The pytest module parses both production YAML files, syntax-checks every embedded command with bash -n, checks strict shell guards and captured bootstrap/import transport through the existing runner, exercises the production snapshot_probe metadata/configuration/import/comparison predicates, and checks the native snapshot writer, state-sync log producer, ABCI verification and historical bank-query source contracts. Real temporary files exercise empty, incomplete and changed snapshot contents. Parsed native TOML fixtures establish clean receiver wiring and storage-mode preservation. Predicate inputs are schema test vectors, not native execution transcripts or a simulated chain."
+review_only = "Native paxd initialization, peer snapshot advertisement, chunk transport, ABCI restoration, historical query availability, donor snapshot retention, application-hash consensus and full Docker scenarios are not executed by this offline gate. The native paths and their evidence ordering are reviewed and source-checked; the YAML requires their actual success in a cluster. This task repairs test gaps and changes no native stateful component or interface, so no native restart/recovery execution is claimed. The separate temporary receiver runs inside the named container without replacing its existing node home or validator keys."
+baseline = "Initial git status/diff showed only runner-prepared .cgignore and spec task-status changes; both scoped YAML files were unchanged, neither repair file nor the shared probe existed, gate.json recorded zero builds/verifies, and no gates.jsonl existed. A pre-change verify was not run: the explicit implementation-first order and exclusive hf-done verification override the embedded request to run pytest on an unchanged tree. No pre-change failing tests are claimed."
+build_cmd = "python3 --version"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_739.py"
+evidence_ledger = "/out/run/gates.jsonl"
+evidence = "The final hf-done JSON and private gate ledger identify the exact verified candidate revision, command, exit code and log; hf-build and hf-done must pass on the same candidate revision. This record precedes the gates because inserting its own content-derived revision would change that revision. The runner records and publishes the qualified revision; no manual commit or push is performed."
+wiring_requests = []
+
+[finding.snapshot-directory-only]
+audit = "22.30.172"
+file = "tests/integration/chain_operation/snapshot_operation.yaml"
+class = "test-gap"
+severity = "medium"
+owner_domain = 16
+observed = "The snapshot test passes when the directory exists, including an empty directory created before any snapshot export."
+expected = "Snapshot coverage must establish a usable advertised snapshot at a committed height and successful restoration of known state."
+repair = "Inspect the custom snapshot directory for nonempty contiguous chunks; initialize a fresh isolated receiver in pax-node-0; require matching advertised, accepted, applied, verified and restored native snapshot evidence; compare its imported height/format/chunk count/hash with the donor files and its known uhpx account balance and application hash with donor state at that height."
+tests = ["test_yaml_drives_donor_transport_clean_receiver_and_comparison", "test_snapshot_directory_only_requires_nonempty_contiguous_content", "test_native_producer_transport_consumer_source_contract", "test_same_height_known_state_and_digest_reject_divergence"]
+wiring_requests = []
+
+[finding.statesync-height-only]
+audit = "22.30.172"
+file = "tests/integration/chain_operation/statesync_operation.yaml"
+class = "test-gap"
+severity = "medium"
+owner_domain = 16
+observed = "The receiver only needs latest_block_height greater than zero; stale local state or ordinary block replay meets that predicate."
+expected = "State-sync coverage must prove a snapshot was imported and restored state matches the donor at an identified committed height."
+repair = "Initialize a distinct temporary receiver home in pax-rpc-node; retain generated keys and reject preexisting application/consensus data; use donor and witness trust RPCs and the explicit donor peer with PEX/local-snapshot disabled; require full native import and ABCI verification evidence; compare known nonzero bank state and the H+1 header commitment for imported height H before reporting verified. Terminate/reap the receiver on every exit and remove its temporary home."
+tests = ["test_yaml_drives_donor_transport_clean_receiver_and_comparison", "test_statesync_receiver_configuration_is_clean_isolated_and_native", "test_native_producer_transport_consumer_source_contract", "test_statesync_height_only_cannot_substitute_for_completed_import", "test_same_height_known_state_and_digest_reject_divergence"]
+wiring_requests = []
+
+[format]
+policy = "No Python, YAML or KVX formatter is configured for these paths. Apply existing .editorconfig UTF-8, LF, final-newline, trailing-whitespace and two-space YAML indentation conventions to touched files after implementation."
+
+[gotcha.1]
+observed = "The embedded baseline instruction conflicts with the explicit implementation-first and hf-done-only verification order."
+resolution = "Record that no baseline was run; use only hf-build then hf-done, never invoke pytest manually."
+
+[gotcha.2]
+observed = "Codify brief/context reports stale unrelated task information; broad initial workflow/gotcha reads exceed tool output limits, and guessed chain/app paths do not exist."
+resolution = "Use actual git status/diff and the private task gate ledger; inspect bounded concrete source paths. Keep task notes here because root GOTCHA.kvx and spec files are outside scope."
+
+[gotcha.3]
+observed = "The native log-format flag is deprecated; paxlog selects its JSON handler at initialization from PAX_LOG_FORMAT, and slog serializes native byte digests as base64."
+resolution = "Set the receiver child process JSON logging environment explicitly and decode its exact structured identity/hash fields rather than accepting text substrings as completed-import evidence."

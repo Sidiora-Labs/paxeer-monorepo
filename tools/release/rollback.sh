@@ -2,11 +2,21 @@
 set -euo pipefail
 umask 077
 
+if ! declare -F release_node_process >/dev/null; then
+  release_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+  source "$release_dir/stage.sh"
+  release_load_identity "$release_dir" || {
+    printf 'rollback: invalid release identity\n' >&2
+    exit 1
+  }
+fi
+
 env_file= mode= receipt= phase= local_only=false
 expected_release= expected_height=
 manager=systemd
 readiness=false
 rollback_executed=false
+forward=false
 
 fail() {
   printf 'rollback: %s\n' "$*" >&2
@@ -43,6 +53,10 @@ while [ "$#" -gt 0 ]; do
     need_value "$@"
     manager=$2
     shift 2
+    ;;
+  --forward)
+    forward=true
+    shift
     ;;
   --local)
     local_only=true
@@ -108,8 +122,13 @@ remote_phase() {
   printf -v command 'bash -s -- --env-file %q --local --%s --service-manager systemd' "$env_file" "$mode"
   printf -v command '%s --expected-release-id %q --expected-halt-height %q' \
     "$command" "${input[RELEASE_ID]}" "${input[HALT_HEIGHT]}"
+  if "$forward"; then command+=" --forward"; fi
   if [ -n "$step" ]; then printf -v command '%s --phase %q' "$command" "$step"; fi
-  ssh -o BatchMode=yes -o ConnectTimeout=10 -- "$host" "$command" <"${BASH_SOURCE[0]}"
+  {
+    declare -f release_operation_lock release_node_process
+    declare -p release_version release_upgrade
+    cat -- "${BASH_SOURCE[0]}"
+  } | ssh -o BatchMode=yes -o ConnectTimeout=10 -- "$host" "$command"
 }
 
 if ! "$local_only" && [ "${#hosts[@]}" -gt 0 ]; then
@@ -147,9 +166,16 @@ halt_height=${input[HALT_HEIGHT]}
 [[ $bin_dir = /* && $snapshot_dir = /* ]] || fail "directories must be absolute"
 bin_dir=$(realpath -e -- "$bin_dir")
 snapshot_dir=$(realpath -e -- "$snapshot_dir")
-exec 9>"$bin_dir/.rollback.lock"
-flock -n 9 || fail "another rollback is running"
+release_operation_lock "$bin_dir" || fail "another release operation is running"
 previous=$bin_dir/paxd.pre-$release_id
+if "$forward"; then
+  require RECOVERY_BIN
+  require RECOVERY_SHA256
+  previous=${input[RECOVERY_BIN]}
+  [[ $previous = /* && ${input[RECOVERY_SHA256]} =~ ^[0-9a-f]{64}$ ]] || fail "invalid forward recovery binary"
+  [ "$(realpath -e -- "$previous")" = "$previous" ] || fail "recovery binary must be canonical"
+  [ "$previous" != "$bin_dir/paxd" ] && [ "$previous" != "$bin_dir/paxd.new" ] || fail "recovery binary must be staged separately"
+fi
 homes=() units=() validator_homes=() fullnode_homes=() validator_units=() fullnode_units=()
 read -r -a validator_homes <<<"${input[VALIDATOR_HOMES]:-}"
 read -r -a fullnode_homes <<<"${input[FULLNODE_HOMES]:-}"
@@ -163,7 +189,7 @@ units=("${validator_units[@]}" "${fullnode_units[@]}")
 declare -A seen_homes=() seen_units=() seen_archives=()
 for i in "${!homes[@]}"; do
   home=${homes[$i]}
-  [[ $home = /* && $home != / && $home != *'/../'* && $home != */data.v6.12.0-* ]] || fail "invalid home"
+  [[ $home = /* && $home != / && $home != *'/../'* && $home != */data."$release_version"-* ]] || fail "invalid home"
   [ "$(realpath -e -- "$home")" = "$home" ] || fail "home must be canonical: $home"
   name=${home##*/}
   unit=${units[$i]}
@@ -178,9 +204,15 @@ for i in "${!homes[@]}"; do
 done
 
 sha() { sha256sum -- "$1" | cut -d' ' -f1; }
-archive() { printf '%s/%s-pre-v6.12.0.tar.zst' "$snapshot_dir" "${1##*/}"; }
-record_dir() { printf '%s/.rollback-%s' "$1" "$release_id"; }
-set_aside() { printf '%s/data.v6.12.0-%s' "$1" "$release_id"; }
+archive() { printf '%s/%s-pre-%s.tar.zst' "$snapshot_dir" "${1##*/}" "$release_version"; }
+record_dir() {
+  if "$forward"; then
+    printf '%s/.forward-recovery-%s' "$1" "$release_id"
+  else
+    printf '%s/.rollback-%s' "$1" "$release_id"
+  fi
+}
+set_aside() { printf '%s/data.%s-%s' "$1" "$release_version" "$release_id"; }
 
 check_archive() {
   local file=$1 role=$2
@@ -263,32 +295,15 @@ PY
 }
 
 matching_pids() {
-  local home=$1 candidates rc=0
-  candidates=$(pgrep -a -x paxd) || rc=$?
-  [ "$rc" -le 1 ] || fail "process enumeration failed"
-  python3 - "$home" "$candidates" <<'PY'
-import pathlib
-import sys
-
-for line in sys.argv[2].splitlines():
-    pid = line.split()[0]
-    try:
-        args = pathlib.Path("/proc", pid, "cmdline").read_bytes().split(b"\0")
-    except FileNotFoundError:
-        continue
-    home = sys.argv[1].encode()
-    if any(arg == b"--home=" + home or (arg == b"--home" and i + 1 < len(args)
-           and args[i + 1] == home) for i, arg in enumerate(args)):
-        print(pid)
-PY
+  release_node_process list "$1"
 }
 
 check_stopped() {
   local home i state
   for i in "${!homes[@]}"; do
     home=${homes[$i]}
-    [ -z "$(matching_pids "$home")" ] || fail "node still running for $home"
-    [ -z "$(matching_pids "$(set_aside "$home")")" ] || fail "set-aside data is running"
+    release_node_process stopped "$home" || fail "node ownership is not stopped for $home"
+    release_node_process stopped "$(set_aside "$home")" || fail "set-aside data is not stopped"
     if [ "$manager" = systemd ]; then
       state=$(systemctl show --property=ActiveState --value "${units[$i]}")
       case $state in inactive | failed) ;; *) fail "unit is not stopped" ;; esac
@@ -300,6 +315,11 @@ check_material() {
   local i home file role
   [ -f "$previous" ] && [ -x "$previous" ] && [ ! -L "$previous" ] || fail "no previous binary"
   previous_sha=$(sha "$previous")
+  if "$forward"; then
+    [ "$previous_sha" = "${input[RECOVERY_SHA256]}" ] || fail "forward recovery checksum mismatch"
+    readiness=true
+    return
+  fi
   for i in "${!homes[@]}"; do
     home=${homes[$i]}
     file=$(archive "$home")
@@ -320,13 +340,25 @@ check_binary() {
 
 prepare() {
   local home path
+  check_stopped
   check_material
   check_binary "$previous"
   for home in "${homes[@]}"; do
     [ -d "$home/data" ] && [ ! -L "$home/data" ] || fail "invalid data directory for $home"
-    for path in "$(set_aside "$home")" "$(record_dir "$home")"; do
+    path=$(record_dir "$home")
+    if "$forward"; then
+      check_signing_state "$home/data/priv_validator_state.json" "$home/data/priv_validator_state.json"
+      if [ -e "$path" ] || [ -L "$path" ]; then
+        [ -d "$path" ] && [ ! -L "$path" ] || fail "invalid forward recovery journal"
+        [ "$(cat "$path/material")" = "$previous_sha" ] || fail "forward recovery material changed"
+        check_signing_state "$path/priv_validator_state.json" "$home/data/priv_validator_state.json"
+      fi
+    else
       [ ! -e "$path" ] && [ ! -L "$path" ] || fail "rollback destination already exists for $home"
-    done
+    fi
+    if ! "$forward"; then
+      [ ! -e "$(set_aside "$home")" ] && [ ! -L "$(set_aside "$home")" ] || fail "retained data already exists"
+    fi
     [ -f "$home/config/app.toml" ] && [ ! -L "$home/config/app.toml" ] || fail "invalid app config"
     [ "$(grep -cE '^[[:space:]]*halt-height[[:space:]]*=' "$home/config/app.toml")" -eq 1 ] || fail "expected one halt-height"
     python3 - "$home/config/app.toml" <<'PY'
@@ -340,7 +372,12 @@ if type(height) is not int or height < 0:
     sys.exit("rollback: invalid halt-height")
 PY
   done
-  [ ! -e "$bin_dir/paxd.new" ] && [ ! -L "$bin_dir/paxd.new" ] || fail "paxd.new already exists"
+  if "$forward"; then
+    [ ! -L "$bin_dir/paxd.new" ] || fail "invalid staged recovery binary"
+    [ ! -e "$bin_dir/paxd.new" ] || [ -f "$bin_dir/paxd.new" ] || fail "invalid staged recovery binary"
+  else
+    [ ! -e "$bin_dir/paxd.new" ] && [ ! -L "$bin_dir/paxd.new" ] || fail "paxd.new already exists"
+  fi
 }
 
 stop_nodes() {
@@ -355,13 +392,13 @@ stop_nodes() {
   else
     [ -z "${input[SIDECAR_UNITS]:-}" ] || fail "foreground cannot manage sidecar units"
     for home in "${homes[@]}"; do
-      for pid in $(matching_pids "$home"); do kill -TERM "$pid" || rc=1; done
+      release_node_process stop "$home" || rc=1
     done
   fi
   [ "$rc" -eq 0 ] || fail "could not stop every unit"
   for ((attempt = 0; attempt < 120; attempt++)); do
     rc=0
-    for home in "${homes[@]}"; do [ -z "$(matching_pids "$home")" ] || rc=1; done
+    for home in "${homes[@]}"; do release_node_process stopped "$home" || rc=1; done
     if [ "$rc" -eq 0 ]; then
       check_stopped
       return
@@ -371,10 +408,153 @@ stop_nodes() {
   fail "nodes did not stop"
 }
 
+# A forward recovery binary must understand the already committed application state.
+# Its explicit checksum is an operator selection, never an automatic downgrade.
+check_signing_state() {
+  python3 - "$1" "$2" <<'PY_SIGNING'
+import json
+import sys
+
+
+def mark(state):
+    height = state["height"]
+    if not isinstance(height, str) or not height.isascii() or not height.isdecimal():
+        raise ValueError("invalid signing height")
+    if any(type(state[k]) is not int or state[k] < 0 for k in ("round", "step")):
+        raise ValueError("invalid signing round or step")
+    return int(height), state["round"], state["step"]
+
+
+try:
+    before, after = [json.load(open(path)) for path in sys.argv[1:]]
+    if mark(after) < mark(before) or (mark(after) == mark(before) and after != before):
+        raise ValueError("validator signing high-water mark regressed")
+except (ValueError, KeyError, OSError) as error:
+    sys.exit("rollback: " + str(error))
+PY_SIGNING
+}
+
+check_rewind() {
+  local home=$1
+  python3 - "$home" "$(archive "$home")" "${input[ROLLBACK_ISOLATED_FORK]:-false}" \
+    "${input[ROLLBACK_SOURCE_GENESIS]:-}" <<'PY_REWIND'
+import ipaddress
+import json
+from pathlib import Path
+import subprocess
+import sys
+import tarfile
+import tomllib
+from urllib.parse import urlsplit
+
+
+def loopback(address):
+    parts = urlsplit(address)
+    return parts.hostname is not None and ipaddress.ip_address(parts.hostname).is_loopback
+
+
+try:
+    home = Path(sys.argv[1])
+    live = json.loads((home / "data/priv_validator_state.json").read_text())
+    with subprocess.Popen(["zstd", "-dc", "--", sys.argv[2]], stdout=subprocess.PIPE) as process:
+        with tarfile.open(fileobj=process.stdout, mode="r|") as archive:
+            snapshot = None
+            for member in archive:
+                if str(Path(member.name)) == "data/priv_validator_state.json":
+                    snapshot = json.load(archive.extractfile(member))
+        if process.wait() != 0 or snapshot is None:
+            raise ValueError("snapshot signing state unavailable")
+    def mark(state):
+        height = state["height"]
+        if not isinstance(height, str) or not height.isascii() or not height.isdecimal():
+            raise ValueError("invalid signing height")
+        if any(type(state[k]) is not int or state[k] < 0 for k in ("round", "step")):
+            raise ValueError("invalid signing round or step")
+        return int(height), state["round"], state["step"]
+    rewinds = mark(live) > mark(snapshot) or (mark(live) == mark(snapshot) and live != snapshot)
+    if sys.argv[3] != "true":
+        raise ValueError(("post-halt signing: " if rewinds else "") +
+                         "same-chain snapshot restore refused; use --forward with a compatible recovery binary")
+    source = json.loads(Path(sys.argv[4]).read_text())
+    genesis = json.loads((home / "config/genesis.json").read_text())
+    if genesis["chain_id"] == source["chain_id"]:
+        raise ValueError("isolated fork must use a different consensus chain identity")
+    source_keys = {v["consensus_pubkey"]["key"] for v in source["app_state"]["staking"]["validators"]}
+    source_keys.update(v["pub_key"]["value"] for v in source.get("validators", []))
+    fork_keys = {v["pub_key"]["value"] for v in genesis["validators"]}
+    local = json.loads((home / "config/priv_validator_key.json").read_text())["pub_key"]["value"]
+    if not source_keys or not fork_keys or fork_keys & source_keys or local not in fork_keys:
+        raise ValueError("isolated fork requires fresh consensus identities for every validator")
+    config = tomllib.loads((home / "config/config.toml").read_text())
+    if not loopback(config["rpc"]["laddr"]) or not loopback(config["p2p"]["laddr"]):
+        raise ValueError("isolated fork listeners must be loopback")
+    p2p = config["p2p"]
+    if p2p.get("pex", True) or any(p2p.get(k, "") for k in ("external-address", "bootstrap-peers", "seeds")):
+        raise ValueError("isolated fork peer discovery must be disabled")
+    for peer in p2p.get("persistent-peers", "").split(","):
+        if peer and not loopback("tcp://" + peer.split("@", 1)[1]):
+            raise ValueError("isolated fork peers must be loopback")
+except (ValueError, KeyError, IndexError, TypeError, OSError, tarfile.TarError) as error:
+    sys.exit("rollback: " + str(error))
+PY_REWIND
+}
+
+restore_forward() {
+  local home record
+  check_stopped
+  check_material
+  check_binary "$previous"
+  check_stopped
+  # The journal is written before the atomic binary switch; rerunning this phase
+  # after interruption reuses it and never replaces the current data directory.
+  for home in "${homes[@]}"; do
+    record=$(record_dir "$home")
+    [ -d "$home/data" ] && [ ! -L "$home/data" ] || fail "invalid live data"
+    check_signing_state "$home/data/priv_validator_state.json" "$home/data/priv_validator_state.json"
+    if [ -e "$record" ]; then
+      [ -d "$record" ] && [ ! -L "$record" ] || fail "invalid forward recovery journal"
+      [ "$(cat "$record/material")" = "$previous_sha" ] || fail "forward recovery material changed"
+      check_signing_state "$record/priv_validator_state.json" "$home/data/priv_validator_state.json"
+    fi
+    [ -f "$home/config/app.toml" ] && [ ! -L "$home/config/app.toml" ] || fail "invalid app config"
+    [ "$(grep -cE '^[[:space:]]*halt-height[[:space:]]*=' "$home/config/app.toml")" -eq 1 ] || fail "expected one halt-height"
+  done
+  for home in "${homes[@]}"; do
+    record=$(record_dir "$home")
+    if [ ! -e "$record" ]; then
+      if [ -e "$record.tmp" ]; then
+        [ -d "$record.tmp" ] && [ ! -L "$record.tmp" ] || fail "invalid pending recovery journal"
+        [ ! -L "$record.tmp/priv_validator_state.json" ] && [ ! -L "$record.tmp/material" ] || fail "invalid pending journal files"
+      else
+        mkdir -- "$record.tmp"
+      fi
+      cp -p -- "$home/data/priv_validator_state.json" "$record.tmp/priv_validator_state.json"
+      printf '%s\n' "$previous_sha" >"$record.tmp/material"
+      sync -f "$record.tmp/priv_validator_state.json"
+      sync -f "$record.tmp/material"
+      sync -f "$record.tmp"
+      mv -T -- "$record.tmp" "$record"
+      sync -f "$home"
+    fi
+    sed -i -E 's/^[[:space:]]*halt-height[[:space:]]*=.*/halt-height = 0/' "$home/config/app.toml"
+  done
+  [ ! -L "$bin_dir/paxd.new" ] || fail "invalid staged recovery binary"
+  cp -p -- "$previous" "$bin_dir/paxd.new"
+  check_binary "$bin_dir/paxd.new"
+  mv -fT -- "$bin_dir/paxd.new" "$bin_dir/paxd"
+  for home in "${homes[@]}"; do : >"$(record_dir "$home")/restored"; done
+}
+
 restore() {
   local home record file
+  if "$forward"; then
+    restore_forward
+    return
+  fi
   prepare
   check_stopped
+  # Check every home before moving any data or replacing the binary.
+  for home in "${homes[@]}"; do check_rewind "$home"; done
   for home in "${homes[@]}"; do
     file=$(archive "$home")
     record=$(record_dir "$home")
@@ -402,6 +582,16 @@ check_restored() {
   local home record want
   check_material
   check_binary "$bin_dir/paxd"
+  if "$forward"; then
+    for home in "${homes[@]}"; do
+      record=$(record_dir "$home")
+      [ -f "$record/restored" ] && [ ! -L "$record" ] || fail "no completed forward recovery"
+      [ "$(cat "$record/material")" = "$previous_sha" ] || fail "forward recovery material changed"
+      check_signing_state "$record/priv_validator_state.json" "$home/data/priv_validator_state.json"
+      grep -qx 'halt-height = 0' "$home/config/app.toml" || fail "halt-height is not zero"
+    done
+    return
+  fi
   for home in "${homes[@]}"; do
     record=$(record_dir "$home")
     [ -d "$(set_aside "$home")" ] && [ ! -L "$(set_aside "$home")" ] || fail "no retained data for $home"
@@ -411,7 +601,7 @@ check_restored() {
     [ "$(cat "$record/material")" = "$want" ] || fail "restored material changed"
     [ ! -e "$home/data/upgrade-info.json" ] && [ ! -L "$home/data/upgrade-info.json" ] || fail "upgrade file remains"
     grep -qx 'halt-height = 0' "$home/config/app.toml" || fail "halt-height is not zero"
-    [ -z "$(matching_pids "$(set_aside "$home")")" ] || fail "set-aside data is running"
+    release_node_process stopped "$(set_aside "$home")" || fail "set-aside data is not stopped"
   done
 }
 
@@ -458,7 +648,7 @@ PY
     )
     before=
     for ((attempt = 0; attempt < 120; attempt++)); do
-      pids=$(matching_pids "$home")
+      pids=$(matching_pids "$home") || fail "process inspection failed"
       if [[ $pids =~ ^[0-9]+$ ]]; then
         pid=$pids
         [ "$(sha "/proc/$pid/exe")" = "$previous_sha" ] || fail "running binary checksum mismatch"
@@ -474,7 +664,9 @@ PY
       sleep 1
     done
     [ "$attempt" -lt 120 ] || fail "chain height did not rise past HALT_HEIGHT for $home"
-    [ ! -e "$home/data/upgrade-info.json" ] || fail "upgrade file reappeared"
+    if ! "$forward"; then
+      [ ! -e "$home/data/upgrade-info.json" ] || fail "upgrade file reappeared"
+    fi
   done
   rollback_executed=true
 }
@@ -483,6 +675,11 @@ case $mode in
 readiness)
   [ -z "$phase" ] || fail "phase requires --execute"
   check_material
+  if "$forward"; then
+    for home in "${homes[@]}"; do
+      check_signing_state "$home/data/priv_validator_state.json" "$home/data/priv_validator_state.json"
+    done
+  fi
   ;;
 verify)
   [ -z "$phase" ] || fail "phase requires --execute"

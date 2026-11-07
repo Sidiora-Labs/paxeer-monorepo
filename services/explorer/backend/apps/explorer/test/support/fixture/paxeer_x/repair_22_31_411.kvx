@@ -1,0 +1,60 @@
+[task.22.31.411]
+finding = "committed_without_inclusion"
+status = "implemented_not_qualified"
+test_module = "Explorer.Repair2231411Test"
+proving_tests = ["committed_without_inclusion_same_execution_reaches_status", "committed_without_inclusion_preserves_r7_and_r8_rejections", "committed_without_inclusion_rejects_unrelated_valid_header", "committed_without_inclusion_rejects_altered_covering_ranges", "committed_without_inclusion_rejects_wrong_execution_block_identity", "committed_without_inclusion_rejects_changed_transaction_and_result_witnesses", "committed_without_inclusion_reconstructs_only_with_authenticated_evidence", "committed_without_inclusion_never_promotes_unproven_unindexed_hash", "committed_without_inclusion_controller_preserves_authenticated_evidence", "committed_without_inclusion_requires_every_witness", "committed_without_inclusion_rejects_changed_result_header_and_proofs"]
+baseline = "Not run: the task's explicit gate order forbids verification before implementation and permits only hf-build followed by hf-done; no current-attempt gate ledger exists. The supplied attempt-1 evidence reports eight tests with six failures caused by missing inclusion refusal; no new baseline run is claimed."
+closure = "Production verification now requires and authenticates inclusion evidence, binds the execution block and successor results, and preserves R7 range versus R8 witness errors; closure awaits hf-done on the final candidate."
+evidence = "The private hf-build/hf-done ledger records the exact candidate revision, command, exit code and log location; this record claims no gate pass."
+wiring_1 = "Domain 14: services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x/sequencer_receipt.ex must consume receipt_inclusion (the recorded SDK V4 witness), bind raw transaction, signed sequence batch range/position and deterministic execution result to the execution header and its committed successor, and reject missing or altered evidence before returning committed."
+wiring_2 = "Domain 14: services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x/comet_commit.ex must authenticate the execution header and H+1 result header against independently trusted validator history; caller-supplied validators alone cannot establish chain identity."
+wiring_3 = "Domain 7: rpc/ must expose transaction, MsgSequenceBatch and execution-result inclusion proofs plus H+1 committed header/validator history through the gateway consumed by domain 14."
+wiring_4 = "Domain 14: services/explorer/backend/apps/explorer/test/explorer/chain/paxeer_x/committed_vectors_test.exs and status_committed_test.exs must use the recorded execution height 10 and proof-bearing positive, retaining the R7/R8 negatives and new refusal cases."
+wiring_5 = "Domain 14: services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/paxeer_x/transaction_status_committed_test.exs and transaction_signature_committed_test.exs must replay recorded proof transport and replace assumptions about synthetic height 1000 and its test signing seed."
+gotcha_1 = "Comet H+1 last_results_hash authenticates results of H; the V4 execution block is height 10 and the results header is height 11."
+gotcha_2 = "The V4 eth_receipt is explicitly a projection of recorded sequencer execution fields, not a claim of an independently captured eth_getTransactionReceipt response."
+gotcha_3 = "The production verifier currently ignores receipt_inclusion; the regression assertions remain strict and require production wiring outside this task's scope."
+gotcha_4 = "Recorded Comet proof total/index fields are decimal strings; the repair test asserts their actual wire representation."
+
+[qualification.initial]
+revision = "34c0874c83ab4082fc1ff889ff330d0afabfef0a"
+command = "cg spec done 22.31.411 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "Private hf-done ledger, verify-1.log"
+observed = "Eight tests executed: six production inclusion/status refusals failed, one new test expected integer proof fields instead of recorded decimal strings, and the existing R7/R8 refusals passed."
+assumption = "Repair the new test's wire-type mismatch within scope; production refusal failures require the domain 14 and domain 7 wiring requests above."
+
+[continuation.2]
+base_revision = "5c06a9cfa23f88d328fc7e91545e90609e8cd0c0"
+implementation = "Retained every previous assertion; transported recorded V4 receipt, keys, landing receipt, commit, validators and complete batch proof through loopback HTTP into production adapters and verifier; added a real status-controller assertion and exhaustive missing/changed inclusion witness checks."
+trust = "The test config pins committed-fixture and validator hash 65CEAF405AF4643DA85D93D6CAA8CA8A47F80A4174D4541D7D3F58401981ACA2 at heights 10 and 11 as fixed recording constants, independently of received RPC data, and restores application state after each test."
+conversion = "Gateway batch bytes/proofs are lossless hex/integer conversions of recorded settlement.sequence_batch_proof; negative landing receipts gain their signed transactionIndex to reach the intended R7/R8 branch of the current production API."
+wiring_6 = "Domain 14: services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x/receipt_inclusion.ex currently authenticates the batch but must require receipt_inclusion and verify its transaction/result proofs and successor commit/validator linkage, returning r8 for missing or changed witnesses."
+wiring_7 = "Domain 14: services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/paxeer_x/transaction_status_controller.ex must preserve the complete sequence batch proof and transport transaction/result inclusion plus ordered activity IDs to SequencerReceipt.verify/4; its current sequence_batch/2 discards proofs and committed_options/2 omits witnesses."
+gotcha_5 = "The current production verifier requires configured trust pins and a complete gateway batch; passing only from_seq/to_seq makes refusal tests fail before their intended inclusion check."
+gotcha_6 = "Source scope excludes the production verifier and controller; no fixture/test-local replacement verifier or runtime patch is used to hide their missing checks."
+qualification = "Run only hf-build then hf-done on the final candidate; exact revision, command, exit and private log are emitted by the runner ledger and final evidence line. No gate pass or finding closure is claimed in advance."
+
+[qualification.continuation_first]
+revision = "6344411bc6e55a2d0351d9d808e7a5459394b212"
+command = "cg spec done 22.31.411 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Eleven tests executed with eight failures: seven expose production witness/range/controller gaps, while the new positive transport assertion found the gateway omits proposer_priority."
+assumption = "Correct only the fixture gateway validator projection, preserving every assertion, then qualify the final candidate with hf-build and hf-done; production closure remains outside scope."
+
+[repair.continuation_first]
+change = "The positive validators fixture now matches the documented gateway-decoded representation without optional proposer_priority; authenticated address/public key/power, validator hash, recorded settlement and all assertions remain intact."
+gotcha_7 = "SequencerReceipt.validators/2 converts gateway pubKey/votingPower and does not carry Comet proposer_priority; fixture equality must compare the actual consumer representation."
+
+[continuation.3]
+implementation = "Normalized the recorded SDK inclusion witness into the existing native settlement verifier; required every witness, verified transaction and deterministic result Merkle proofs against authenticated H/H+1 roots, linked both commits to configured validator checkpoints, and removed invalid-inclusion promotion fallback."
+controller = "ReceiptEvidence supplies reconstructed native inclusion from recorded block and block_results plus successor commit/validators. The status action renders the existing JSON view explicitly, including for unindexed authenticated transactions."
+baseline = "The supplied attempt-2 outcome executed eleven tests with seven failures: controller_preserves_authenticated_evidence, rejects_altered_covering_ranges, rejects_wrong_execution_block_identity, rejects_changed_transaction_and_result_witnesses, reconstructs_only_with_authenticated_evidence, requires_every_witness, and rejects_changed_result_header_and_proofs (all have committed_without_inclusion_ prefix). No extra baseline gate was run."
+trust = "Fixed recording constants now pin the governed receipt public key and validity window plus execution block hash and validator-set hash at height 10; successor trust follows the execution header next_validators_hash and full last_block_id linkage."
+fixture_migration = "Preserved the original positive bytes and all earlier negatives in legacy_cases/legacy_refusals. Active R7/R8 negatives use the recorded V4 signed receipt and original unrelated valid height-1000 header; this reaches the intended finality checks without relaxing current SHA256 governed-key identity enforcement."
+transport = "The loopback transcript reconstructs the two-transaction block and its deterministic results from the recorded settlement proofs; the batch result is empty protobuf, authenticated by the recorded result proof aunt SHA256(0x00). No chain bytes are re-signed."
+additional_tests = ["committed_without_inclusion_controller_rejects_altered_recorded_result", "committed_without_inclusion_rejects_untrusted_chain_and_validator_history", "committed_without_inclusion_rejects_changed_aunts_and_validator_set"]
+resolved_wiring = "The verifier and API v2 controller changes formerly requested from domain 14 are now authorized and implemented in scope; wiring_3, wiring_4 and wiring_5 remain requests to their owning domains for external transport/configuration and broader suite migration."
+wiring_runtime = "Domain 14: services/explorer/backend/config/runtime.exs must supply SequencerReceipt receipt_keys, validator_checkpoints, optional contiguous validator_history, and node_rpc_url from trusted network configuration; absent authentication or evidence fails closed."
+evidence = "Only hf-build followed by hf-done qualifies this candidate; the private runner ledger and final JSON line name the exact verified revision, command, exit and log. No gate result is claimed before execution."

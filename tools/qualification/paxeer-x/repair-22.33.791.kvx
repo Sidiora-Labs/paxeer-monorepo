@@ -1,0 +1,47 @@
+[repair]
+task = "22.33.791"
+audit = "spec/layerx-merge/programme/audit/records/22.30.176.kvx"
+base = "33e39ac9e249303769aad2d7f4de272148932e12"
+tests = "tools/qualification/paxeer-x/tests/test_repair_22_33_791.py"
+verified_revision = "The exact built and verified candidate revision, command, exit and private log are retained by hf-build and hf-done in /out/run/gates.jsonl; only hf-done passing at the built revision qualifies the repair."
+baseline = "Not run: the explicit implementation-first and hf-done-only gate order forbids the contradictory unchanged-tree verification in step 7; no pre-change test failures are claimed."
+format = "No Python formatter is configured for these qualification paths; retain the existing four-space and newline conventions."
+boundary = "The focused gate uses production qualification clients, original node-produced signed receipts, TLS with real certificates, production enrollment and source-observation encoders, private JSON build sidecars, and persistent in-process peers; no environment variable, live endpoint, credential, subprocess toolchain, external executable or native artifact is needed."
+limits = "The recorded receipt proves signed execution and exact retry, not a fabricated committed certificate; native Human passkey onboarding, live webhook finality verification and deployed assembly retain their existing real-process gates and require owner-provided current private inventories."
+
+[finding.19]
+tests = ["test_current_inventory_preserves_private_roles_and_durable_volumes", "test_topology_rejects_each_product_security_regression", "test_enrollment_authorization_redelivery_and_restart_use_real_tls_clients", "test_provisioning_cookie_security_and_header_shapes"]
+repair = "Read the current internal and webhook Kubernetes inventories instead of deleted Fly TOMLs; require private Services, separate TLS webhook roles, role-only read-only secret mounts, protected internal credentials and five distinct persistent claims; retain initializer credential isolation and public-only edge routing."
+
+[finding.20]
+tests = ["test_provisioning_rejects_every_retired_executable", "test_receipt_configuration_requires_paxd_and_current_governed_keys", "test_receipt_configuration_refuses_retired_or_unbound_inputs", "test_paxd_signed_receipt_transport_and_exact_retry_survive_reopen", "test_paxd_event_receipt_refuses_substitution", "test_enrollment_authorization_redelivery_and_restart_use_real_tls_clients"]
+repair = "Require merged paxd and remove standalone daemon, guarantor and retired Human provider executables; v2 provisioning binds node/Comet root RPC, protected node token, mTLS identity, validator chain policy and governed key-id/public-key/height pins; remove separate sequencer authority fixture fields, observe node readiness and retain enrollment, authorization, redelivery, rotation and restart assertions."
+
+[finding.18]
+tests = ["test_complete_source_build_producer_transport_and_paid_consumer_reopen", "test_paid_consumer_refuses_actual_source_change_even_with_claimed_clean_manifest", "test_paid_consumer_refuses_each_build_binding_failure", "test_build_producer_never_publishes_dirty_changed_or_failed_evidence", "test_all_nested_artifact_roles_use_the_same_build_binding"]
+repair = "Use tools/paxeer-x/candidate.py's complete revision/tree/actual-dirty identity plus every tracked source and submodule file without extension filtering; share the capture, build-sidecar producer and admission contract, bind every executable and reference WASM to unchanged source/build/log/artifact bytes, and recheck actual checkout and all artifact bindings before evidence creation, execution and assertion records."
+proof = "The source fixture copies actual Go/module/Makefile/Python/Rust inputs, the real capture and sidecar producers emit their inventory and JSON, and paid-web's actual artifact consumer refuses subsequent disk mutations even when the candidate dirty flag remains false; no external Git or build process runs in the focused gate."
+
+[wiring.1]
+request = "services/platform/hosted/webhooks/deployment.yaml, railway.env.example and env-init.sh — platform hosted domain: publish current NODE_URL, COMET_URL, NODE_TOKEN_FILE and CHAIN_POLICY_FILE bindings and remove the remaining deployment-level separate sequencer/authority fields; protected producer fixture inputs are validated here without editing those owner paths."
+
+[wiring.2]
+request = "tools/ops and tools/release — operations/release domain: regenerate private paxeer-x.event-principal-provisioning.v2 and webhook-process artifact inventories with a source-bound paxd dependency, independent home, current TLS node/Comet producer configuration, mTLS PEM references, validator policy and governed receipt key pins."
+
+[wiring.3]
+request = "services/interop/deploy/x-websearch and tools/paxeer-x/build — interop/build owners: use candidate_build.source_identity before and after actual builds, publish candidate_build.publish sidecars with successful argv/exit/private-log/all-artifact digests, and attach build_sidecar path/sha256 plus the new complete source_digest to every paid-web executable and reference WASM record."
+
+[gotcha.1]
+observed = "The embedded baseline instruction conflicts with the explicit permitted gate order; qualification is only through hf-build followed by hf-done after implementation."
+
+[gotcha.2]
+observed = "Current webhook ReceiptVerifier reads a node token and validator chain policy; legacy deployment files still expose separate sequencer keys despite that producer interface having changed."
+
+[gotcha.3]
+observed = "The runtime event fixture's independent authority/component producer assembly needs owner regeneration before live qualification; the focused gate replays original paxd signatures and does not invent native finality evidence."
+
+[gotcha.4]
+observed = "The current internal inventory includes three exact cross-namespace ExternalName aliases in addition to ClusterIP listeners; qualify each alias against its specific in-cluster target and namespace, and refuse external DNS targets."
+
+[gotcha.5]
+observed = "Dynamically imported paid-web verifiers have module-local Refusal types; the event client translates signed-JSON binding refusals into its declared Missing error without accepting the invalid receipt."

@@ -1,7 +1,5 @@
 <div align="center">
 
-<img src="https://cdn.redixusercontent.ocfstudio.com/perf_db.png" alt="PerfDB" width="500" />
-
 <h3>Embedded Rust database engine for high-frequency trading systems</h3>
 
 <p>
@@ -12,12 +10,12 @@ Time series storage · real-time state · relational data · event sourcing unif
 <p align="center">
   <img src="https://img.shields.io/badge/Project-PerfDB-FFFFFF?style=for-the-badge&amp;labelColor=004CED" alt="Project: PerfDB" />
   <img src="https://img.shields.io/badge/Built_by-Sidiora_Labs-004CED?style=for-the-badge&amp;labelColor=000000" alt="Built by Sidiora Labs" />
-  <a href="#license"><img src="https://img.shields.io/badge/License-MIT_OR_Apache--2.0-004CED?style=for-the-badge&amp;labelColor=000000" alt="License: MIT OR Apache-2.0" /></a>
+  <a href="#license"><img src="https://img.shields.io/badge/License-Apache--2.0-004CED?style=for-the-badge&amp;labelColor=000000" alt="License: Apache-2.0" /></a>
   <img src="https://img.shields.io/badge/Status-Pre--release-FF6B35?style=for-the-badge&amp;labelColor=000000" alt="Status: Pre-release" />
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Rust-1.75%2B-004CED?style=for-the-badge&amp;labelColor=000000&amp;logo=rust&amp;logoColor=white" alt="Rust 1.75+" />
+  <img src="https://img.shields.io/badge/Rust-1.85%2B-004CED?style=for-the-badge&amp;labelColor=000000&amp;logo=rust&amp;logoColor=white" alt="Rust 1.85+" />
   <img src="https://img.shields.io/badge/Engine-Zero_Network_Hops-00C896?style=for-the-badge&amp;labelColor=000000" alt="Zero network hops" />
   <img src="https://img.shields.io/badge/Concurrency-Lock--free-004CED?style=for-the-badge&amp;labelColor=000000" alt="Lock-free reads" />
 </p>
@@ -138,47 +136,66 @@ PerfDB
 ## Quick Start
 
 ```rust
-use perfdb::{PerfDb, PerfDbConfig};
+use perfdb::core::market::market_by_symbol;
 use perfdb::core::types::PriceTick;
+use perfdb::{PerfDb, PerfDbConfig};
 
-fn main() -> Result<(), perfdb::PerfDbError> {
-    let config = PerfDbConfig::new("/data/perfdb");
+pub fn ingest_btc(data_dir: impl AsRef<std::path::Path>) -> Result<(), perfdb::PerfDbError> {
+    let config = PerfDbConfig::new(data_dir);
     let db = PerfDb::open(config)?;
+    let btc = market_by_symbol("BTC").expect("BTC is a registered market");
 
     db.ingest_tick(&PriceTick {
         timestamp_ns: 1_699_900_000_000_000_000,
-        market_id: 1, // BTC
+        market_id: btc.id, // BTC = 0; ETH = 1
+        _pad: [0; 6],
         price: 43_250.50,
     })?;
 
-    let price = db.latest_price(1);
-    let recent_ticks = db.ticks(1);
+    assert_eq!(db.latest_price(btc.id), 43_250.50);
+    assert_eq!(db.ticks(btc.id).len(), 1);
 
     db.shutdown()?;
     Ok(())
 }
+
+fn main() -> Result<(), perfdb::PerfDbError> {
+    ingest_btc("./data")
+}
 ```
+
+The example creates `./data`; start with an empty directory for its single-tick assertion.
 
 ## Installation
 
-PerfDB is not yet published to crates.io. Use it as a path or git dependency:
+PerfDB is not yet published to crates.io. Its source lives at
+`services/platform/perf-db` in the monorepo. Use it as a git dependency
+(Cargo finds the `perfdb` package in that directory):
 
 ```toml
 [dependencies]
-perfdb = { git = "https://github.com/Sidiora-Labs/perf-db" }
+perfdb = { git = "https://github.com/Sidiora-Labs/paxeer-monorepo" }
+```
+
+For a local monorepo checkout, use a path dependency, adjusting the path
+relative to your application's `Cargo.toml`:
+
+```toml
+[dependencies]
+perfdb = { path = "../paxeer-monorepo/services/platform/perf-db" }
 ```
 
 ### From source
 
 ```bash
-git clone https://github.com/Sidiora-Labs/perf-db.git
-cd perf-db
+git clone https://github.com/Sidiora-Labs/paxeer-monorepo
+cd paxeer-monorepo/services/platform/perf-db
 cargo build --release
 ```
 
 ### System requirements
 
-- Rust 1.75 or newer (stable)
+- Rust 1.85 or newer (stable), with edition 2024 support
 - Linux (kernel 4.15+) or macOS 10.15+
 - SSD recommended for WAL and mmap performance
 
@@ -312,12 +329,12 @@ design rationale and the systems it replaces.
 
 ## Contributing
 
-Contributions are welcome. See [`CONTRIBUTING.md`](CONTRIBUTING.md) for
+Contributions are welcome. See [`CONTRIBUTING.md`](../../../CONTRIBUTING.md) for
 setup instructions, code standards, and the PR process.
 
 ```bash
-git clone https://github.com/Sidiora-Labs/perf-db.git
-cd perf-db
+git clone https://github.com/Sidiora-Labs/paxeer-monorepo
+cd paxeer-monorepo/services/platform/perf-db
 rustup component add clippy rustfmt
 cargo test
 cargo clippy --all-targets --all-features -- -D warnings
@@ -326,16 +343,12 @@ cargo fmt
 
 ## Security
 
-See [`SECURITY.md`](SECURITY.md) for the vulnerability disclosure process.
+See [`SECURITY.md`](../../../SECURITY.md) for the vulnerability disclosure process.
 
 ## License
 
-Licensed under either of:
-
-- Apache License, Version 2.0 ([LICENSE-APACHE](LICENSE-APACHE) or <http://www.apache.org/licenses/LICENSE-2.0>)
-- MIT License ([LICENSE-MIT](LICENSE-MIT) or <http://opensource.org/licenses/MIT>)
-
-at your option.
+Licensed under Apache-2.0 (Apache License, Version 2.0). See the repository
+[LICENSE](../../../LICENSE) or <http://www.apache.org/licenses/LICENSE-2.0>.
 
 ### Acknowledgments
 
@@ -359,5 +372,5 @@ at your option.
 </p>
 
 <p align="center">
-  <sub>SPDX-License-Identifier: MIT OR Apache-2.0</sub>
+  <sub>SPDX-License-Identifier: Apache-2.0</sub>
 </p>

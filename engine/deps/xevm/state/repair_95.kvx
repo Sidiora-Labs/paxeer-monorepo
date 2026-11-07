@@ -1,0 +1,7 @@
+[repair.22.31.95]
+audit = "22.30.49"
+finding_010 = "TestRepair_95_010_EmptyCodeAndGethReopen"
+finding_011 = "TestRepair_95_011_PreviousBalanceHooksAndRollback"
+baseline = "Not run: the task's explicit gate order prohibits testing before implementation and requires verification only through hf-done after hf-build; no pre-change failures are claimed."
+wiring_requests = []
+evidence = "The runner's private gates.jsonl records the candidate revision, command, exit and log for hf-build and hf-done; qualification is established only by a passing hf-done on the same candidate."

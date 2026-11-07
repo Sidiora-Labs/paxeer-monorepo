@@ -1,0 +1,17 @@
+[repair.22.33.1263]
+finding = "historical-distribution-static-v562"
+tests = ["TestRepairM_1263_HistoricalStaticCallStateDiff", "TestRepairM_1263_LiveStaticCallPreservesState", "TestRepairM_1263_LegacyConstructorIsolation"]
+implementation = "Preserve distribution.go and abi.json byte-for-byte for exact replay; add coverage through real height-selected precompiles, EVM STATICCALL, SDK distribution and bank keepers, and in-memory stores."
+proof = "At the recorded v5.6.2 height and the last height before v5.8.0, all three mutators retain the complete historical bank/distribution state diff and ABI success result through finalization; reward payouts are exactly 475 per validator. At the current activation height and the next height, ordinary and tracing execution refuse identical calldata with the staticcall error and preserve both stores through finalization. Current and future latest-version mappings confine the legacy constructor to v5.6.2."
+baseline = "Inherited attempts did not reach TestRepairM_1263_*: their verification failed compiling the NewFactoryCLI callers recorded below and in the continuation ruling. No test-level baseline failure is claimed. The explicit gate order prohibits an additional manual baseline verify run."
+continuation = "Attempt 3 retains the attempt-2 tests and exact historical implementation; prerequisite 22.31.463 is present on this base and its CLI callers now handle the fallible transaction factory constructor. Qualification uses only hf-build followed by hf-done on the same candidate."
+wiring_requests = []
+evidence = "The hf-done private gate ledger and final task evidence record the exact verified candidate revision, command, exit code and log location."
+gotcha = "Use an external Go test package to avoid an import cycle through generated version registration; assemble real SDK and EVM keepers directly on an in-memory multistore to avoid unrelated application CLI dependencies."
+
+[qualification.application_fixture]
+revision = "125d13ab78e7b1337a87de380aa51ead9986fc56"
+command = "cg spec done 22.33.1263 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log; /tmp/repair-m1263-first.log"
+observed = "The application fixture transitively imported existing NewFactoryCLI assignment mismatches in sdk/x/auth/client/cli, sdk/x/staking/client/cli and modules/tokenfactory/client/cli before tests could compile; use directly assembled real keepers to avoid that unrelated dependency without modifying those paths or weakening assertions."

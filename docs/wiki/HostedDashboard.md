@@ -28,7 +28,7 @@ The browser UI, dashboard API and webhooks use separate services:
   (`services/platform/hosted/dashboard/web/fly.toml`), built from
   `docker/platform-dashboard-web/Dockerfile` and served on port `3000`.
   Its `/v1/dashboard/*` rewrite targets
-  `http://dashboard.railway.internal:9445`
+  `http://OPERATOR_HOST:9445`
   (`services/platform/hosted/dashboard/web/next.config.ts`).
 - Railway service `dashboard` is built from
   `docker/platform-dashboard/Dockerfile`. Its configuration is
@@ -36,9 +36,9 @@ The browser UI, dashboard API and webhooks use separate services:
   `PORT=9445`, `LAYERX_DASHBOARD_LISTEN=[::]:9445` and
   `LAYERX_DASHBOARD_LISTENER=plain`. The API and `GET /healthz` share
   that plain HTTP listener. It reads webhook state from
-  `rediss://redis-internal.railway.internal:6379`, gateway keys, quota
-  and request logs from `rediss://redis-router.railway.internal:6379`,
-  and developer sessions from `https://identity.railway.internal:9443`.
+  `rediss://OPERATOR_HOST:6379`, gateway keys, quota
+  and request logs from `rediss://OPERATOR_HOST:6379`,
+  and developer sessions from `https://OPERATOR_HOST:9443`.
 - Railway services `webhooks-public` and `webhooks-ingress` use the
   `env-init-prebuilt` or `env-init` target of
   `docker/platform-webhooks/Dockerfile`, with settings from
@@ -48,6 +48,8 @@ The browser UI, dashboard API and webhooks use separate services:
   listener, health listener and credential paths from `LAYERX_ROLE`,
   and its instance id from the replica id or hostname; see
   [Hosted webhooks](HostedWebhooks.md).
+
+Replace `OPERATOR_HOST` with the operator-supplied hostname for each URL's dashboard API, webhook Redis, gateway Redis or identity service.
 
 The dashboard image starts `layerx-env-files` before `layerx-dashboard`
 as uid `65532`. The file variables in the dashboard env example hold

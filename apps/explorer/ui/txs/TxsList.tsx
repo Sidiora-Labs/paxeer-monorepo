@@ -2,7 +2,6 @@ import { Box } from '@chakra-ui/react';
 import React from 'react';
 
 import type { TxsSocketType } from './socket/types';
-import type { Transaction } from 'types/api/transaction';
 
 import { useMultichainContext } from 'lib/contexts/multichain';
 import useInitialList from 'lib/hooks/useInitialList';
@@ -10,6 +9,7 @@ import useLazyRenderedList from 'lib/hooks/useLazyRenderedList';
 
 import type { TxsTranslationQuery } from './noves/useDescribeTxs';
 import TxsSocketNotice from './socket/TxsSocketNotice';
+import type { TransactionFeedItem } from './TxPriceUpdate';
 import TxsListItem from './TxsListItem';
 
 interface Props {
@@ -18,7 +18,7 @@ interface Props {
   enableTimeIncrement?: boolean;
   currentAddress?: string;
   isLoading: boolean;
-  items: Array<Transaction>;
+  items: Array<TransactionFeedItem>;
   translationQuery?: TxsTranslationQuery;
 }
 

@@ -60,7 +60,7 @@ const sdk = await import("../../../services/agent/sdk/typescript/src/gas-station
 const { privateKeyToAccount } = await import("viem/accounts");
 
 const IDENTIFIER = "ab".repeat(32);
-const TARGET = { kind: "receipt", receiptId: IDENTIFIER } as const;
+const { withNativeReceipt } = await import("./repair-22-33-338-receipts.ts");
 const PUBLIC_BASE = "PAXEER_X_EXPLORER_BASE_URL";
 const RETIRED_KEYS = [
   "LAYERX_EXPLORER_API_ORIGIN",
@@ -81,28 +81,32 @@ function preserveEnvironment(context: TestContext, keys: readonly string[]): voi
 
 async function proveRetiredExplorerSetting(context: TestContext, key: typeof RETIRED_KEYS[number]): Promise<void> {
   preserveEnvironment(context, [PUBLIC_BASE, ...RETIRED_KEYS]);
-  for (const host of ["first.example", "second.example"]) {
-    const producer = new URL(`https://${host}`);
-    process.env[PUBLIC_BASE] = producer.href;
-    process.env[key] = key.endsWith("TOKEN") ? "retired-credential" : "https://retired.example";
-    for (let read = 0; read < 2; read += 1) {
-      assert.equal(explorer.explorerLink(TARGET), new URL(`/paxeer-x/receipts/${IDENTIFIER}`, producer).href);
-    }
-    // A malformed retired value cannot override the current public producer.
-    process.env[key] = "\r\nmalformed";
-    assert.equal(explorer.explorerLink(TARGET), new URL(`/paxeer-x/receipts/${IDENTIFIER}`, producer).href);
-    assert.throws(() => explorer.explorerLink({ kind: "receipt", receiptId: "malformed" }), TypeError);
+  await withNativeReceipt(async read => {
+    const receipt = await read();
+    const TARGET = { kind: "receipt", receiptId: IDENTIFIER, transactionHash: receipt.txHash } as const;
+    for (const host of ["first.example", "second.example"]) {
+      const producer = new URL(`https://${host}`);
+      process.env[PUBLIC_BASE] = producer.href;
+      process.env[key] = key.endsWith("TOKEN") ? "retired-credential" : "https://retired.example";
+      for (let read = 0; read < 2; read += 1) {
+        assert.equal(explorer.explorerLink(TARGET), new URL(`/tx/${receipt.txHash}`, producer).href);
+      }
+      // A malformed retired value cannot override the current public producer.
+      process.env[key] = "\r\nmalformed";
+      assert.equal(explorer.explorerLink(TARGET), new URL(`/tx/${receipt.txHash}`, producer).href);
+      assert.throws(() => explorer.explorerLink({ kind: "receipt", receiptId: "malformed", transactionHash: `0x${"de".repeat(32)}` }), TypeError);
 
-    // Every real read must decode the current env, even after a successful read.
-    process.env[key] = key.endsWith("TOKEN") ? "retired-credential" : "https://retired.example";
-    for (const malformed of [undefined, "not a URL", `${producer.origin}/?`, `${producer.origin}/#`]) {
-      if (malformed === undefined) delete process.env[PUBLIC_BASE];
-      else process.env[PUBLIC_BASE] = malformed;
-      assert.throws(() => explorer.explorerLink(TARGET), explorer.ExplorerUnavailableError);
-      await assert.rejects(explorer.receiptRecord(IDENTIFIER), explorer.ExplorerUnavailableError);
-      await assert.rejects(explorer.programRecord(IDENTIFIER), explorer.ExplorerUnavailableError);
+      // Every real read must decode the current env, even after a successful read.
+      process.env[key] = key.endsWith("TOKEN") ? "retired-credential" : "https://retired.example";
+      for (const malformed of [undefined, "not a URL", `${producer.origin}/?`, `${producer.origin}/#`]) {
+        if (malformed === undefined) delete process.env[PUBLIC_BASE];
+        else process.env[PUBLIC_BASE] = malformed;
+        assert.throws(() => explorer.explorerLink(TARGET), explorer.ExplorerUnavailableError);
+        await assert.rejects(explorer.receiptRecord(IDENTIFIER), explorer.ExplorerUnavailableError);
+        await assert.rejects(explorer.programRecord(IDENTIFIER), explorer.ExplorerUnavailableError);
+      }
     }
-  }
+  });
 }
 
 async function LAYERX_EXPLORER_API_ORIGIN(context: TestContext): Promise<void> {

@@ -1,59 +1,98 @@
 # Ramps and fiat rails
 
-Third-party on and off ramps are market makers operating ordinary LayerX
-accounts. The protocol grants them no special authority. Default human
-surfaces must not present them as LayerX custody
-(`spec/layerx-platform/spec.kvx`, decision `multichain_surface` and
-requirement 34 `ac_5`–`ac_6`).
+Third-party on-ramps and off-ramps are independent market makers operating
+ordinary accounts on Paxeer X Network. They receive no special protocol
+authority. The network's native ledger and committed receipts establish the
+on-network payment outcome; provider evidence establishes the external
+funding or payout outcome.
 
-Paxeer remains the sole LayerX custody and guaranteed-withdrawal boundary.
+Every customer surface must display:
+
+> External custody: this independent market maker controls the off-platform funds and payout.
+
+The market maker controls external funds; the customer's network payment
+uses an ordinary account on the same network, with EVM chain ID `125`.
 
 ## Market-maker toolkit
 
-`services/platform/ramps/README.md` describes the shipped toolkit and reference
-service. `RampOrder::bind` combines an authenticated identity-plane customer
-with an operator-owned quote. The LayerX legs are ordinary `LxpSend`
-(operator to customer, on-ramp) and `LxpReceive` under the customer's payer
-grant (customer to operator, off-ramp). Unknown submission is retained and
-resolved only by activity receipt lookup.
+`services/platform/ramps/toolkit` provides `layerx-ramp-toolkit` and
+`ramp-verify-receipt`; `services/platform/ramps/reference` provides
+`layerx-reference-ramp`. Both belong to the `services/platform` Cargo
+workspace.
 
-The public status vocabulary is `pending`, `unknown`, `refused`,
-`manual_review`, `reversed`, and `done`. `done` requires a verified LayerX
-receipt and, for off-ramp, a settled external payout. A later provider
-reversal removes `done` immediately.
+`RampOrder::bind` combines an authenticated customer, an operator-owned quote
+and operator configuration. Its digest binds the accounts, direction,
+asset, exact amounts, rate, fees, expiry, provider tokens and payment
+authorisation. Customer JSON cannot select operator credentials, signers,
+compliance decisions or an arbitrary customer account.
 
-The reference executable serves TLS on a configured address. Routes named in
-that README are `POST /v1/orders`, `GET /v1/orders/{order_digest}`,
-`POST /v1/provider-callbacks`, `/livez`, and `/readyz`, plus operator-only
-`/internal/v1/work` and rebalance paths. Those are the reference ramp's
-routes, not public LayerX Network product hostnames.
+The maintained payment paths compile signed EVM transactions:
 
-Customer JSON cannot set a customer account, operator account, compliance
-result, provider credential, signer handle, or activity id.
+| Direction | Network leg |
+| --- | --- |
+| On-ramp | Operator-funded `payExact` to the native ledger at `0x000000000000000000000000000000000000101a`; the reference binds the order digest. |
+| Off-ramp | Customer-authorised `budgetSpend(bytes32,bytes32,uint128)` at `0x000000000000000000000000000000000000101b`, paying the configured operator from the customer's budget authority. |
 
-## Fiat adapter
+`compile_operator_send` and `compile_customer_payment` implement these
+paths in `toolkit/src/lib.rs`. The compatibility name
+`compile_payer_grant_draw` delegates to the customer budget path. Historical
+activity-envelope send/receive and ledger-draw instructions are retired.
 
-`services/interop/crates/layerx-fiat` is the gateway adapter id `fiat`. Supported
-rails are `Card`, `Bank`, and `RealTimePayment`. Card data terminates at the
-certified provider; the crate accepts only opaque token references
-(`services/interop/crates/layerx-fiat/src/lib.rs`; `spec/layerx-platform/spec.kvx`,
-requirement 33 `ac_3`–`ac_4`).
+The client submits exact signed bytes through `eth_sendRawTransaction`,
+retains their hash and resolves them through `pax_sequencerReceipt`.
+It authenticates the receipt under pinned key windows, execution metadata,
+transaction and payment logs against the bound order. Committed answers
+also require matching block inclusion. A signed receipt at `receipted`
+remains pending; the engine requires authenticated `committed` evidence
+before advancing to `LayerxVerified`, marking the order done or permitting
+the off-ramp payout.
 
-Money entering LayerX through an external rail is credited only against
-verified settlement evidence. Chargeback and reversal are typed states, never
-hidden (`spec/layerx-platform/spec.kvx`, decision `external_settlement`).
+## Provider settlement and status
 
-## Crash recovery (beta)
+The public order vocabulary is `pending`, `unknown`, `refused`,
+`manual_review`, `reversed` and `done`. An on-ramp requires verified source
+settlement before the operator pays on-network. An off-ramp requires the
+committed network payment and settled external payout before `done`.
+A later provider reversal removes `done` immediately.
 
-The beta specification (`spec/layerx-beta/spec.kvx`, requirement 9) requires
-a ramp callback to be validated completely against a staged view before any
-durable append, and appended together with its index mutations in one step.
-That repair is specified as a beta fix.
+`services/interop/crates/layerx-fiat` supplies adapter ID `fiat` and rails
+`Card`, `Bank` and `RealTimePayment`. Card data terminates at the certified
+provider; the adapter accepts opaque token references. Its evidence classes
+`Authorised`, `Clearing`, `Settled`, `Reversed` and `Chargeback` remain
+distinct. A card authorisation or clearing notice does not establish settled
+funds, and a network receipt cannot prove the external payout.
 
-## Status
+## Crash recovery
 
-The toolkit, reference binary, and fiat adapter are in this tree. The
-repository does not invent provider, compliance, or Paxeer custody-owner wire
-coordinates (`services/platform/ramps/README.md`). Qualification against real provider
-sandboxes is an owner-supplied beta input
-(`spec/layerx-beta/spec.kvx`, decision `owner_inputs`).
+The append-only journal persists planned submissions, exact signed
+transactions, transaction hashes, receipt observations, provider identities
+and callback sequences. Restart replays that state. Unknown outcomes retain
+their original identity; recovery reconciles them before deciding whether
+the exact transaction may be redelivered. It never creates a replacement
+payment merely because a response was lost.
+
+Callback handling is implemented in `toolkit/src/engine.rs` and
+`toolkit/src/journal.rs`. The engine verifies the signed callback against
+the order. `apply_provider_callback` rejects conflicting identities or
+sequences and treats identical redelivery as a no-op. `Journal::append`
+validates the complete projected transition before its durable write, then
+applies the staged order and callback-index changes. Atomic callback handling
+is current behavior, rather than a future beta repair.
+
+## Reference service and deployment
+
+The configured TLS listener mounts `POST /v1/orders`,
+`GET /v1/orders/{order_digest}`, `POST /v1/provider-callbacks`, `/livez`
+and `/readyz`. Operator worker routes include `POST /internal/v1/work`,
+`POST /internal/v1/rebalances` and
+`GET /internal/v1/rebalances/{idempotency_key}`. These belong to the
+reference ramp deployment, not the node JSON-RPC. Customer identity comes
+from token introspection; inventory rebalance configuration is operator-owned.
+
+Deployments supply actual provider, compliance and signer coordinates and
+qualify them against the corresponding services. See
+`services/platform/ramps/config.example.json` and
+`services/platform/ramps/OPERATIONS.md`. Repository code does not establish
+that a provider sandbox or production payout service is available.
+
+[Receipts](../concepts/receipts.md) · [Portable verification](portable-receipts.md) · [Interoperability](index.md)

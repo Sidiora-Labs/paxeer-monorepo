@@ -1,5 +1,5 @@
 [sweep.go-tests]
-revision = "1fea7069e58b649760bb1afcabdb9c4caec5ea4c"
+revision = "ace3608260f2ec826292dab08cd058031efe2f46"
 command = "CGO_ENABLED=1 go vet ./TARGET/ && CGO_ENABLED=1 go test -count=1 ./TARGET/"
 enumeration_command = "CGO_ENABLED=1 go list ./tests/..."
 enumeration_exit_code = 0
@@ -9,7 +9,7 @@ targets_total = 19
 targets_passed = 19
 targets_failed = 0
 targets_not_run = 0
-notes = "Targets are root-module packages returned with the default Go build tags; nested modules and the autobahn_integration-only package are excluded by go list."
+notes = "Closure inventory at the supplied main revision; targets are root-module packages returned with the default Go build tags, which exclude nested modules and the autobahn_integration-only package. No go-tests repair records or named producer-input test exclusions are present at this revision."
 
 [target.go-tests.1]
 target = "tests/chain"

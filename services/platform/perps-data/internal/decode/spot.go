@@ -476,7 +476,6 @@ var shareEvents = []eventDecoder{
 		f.Account = r.addr("owner")
 		return []Row{SpotShareApprovalRow{f, f.Emitter, b.shareToken, f.Account, r.addr("spender"), r.u256("value")}}
 	}},
-	{"OwnershipTransferred", ownershipTransferred},
 }
 
 // SpotMarketOrderRow is a perps.spot_swaps row of kind market_order.

@@ -1,0 +1,16 @@
+[repair.22.33.942]
+audit = "22.30.23"
+base_revision = "4299cb15eced23eb9a839162acd11e9a937edd05"
+verify_cmd = "python3 -m pytest -q tools/launchpad/production/bootstrap/security/test_repair_22_33_942.py"
+verified_revision_evidence = "hf-done records the exact verified candidate revision, command, exit and private log in /out/run/gates.jsonl and its final JSON line."
+baseline = "Not run: the explicit task order requires complete implementation before gates and prohibits running verify_cmd by hand; no baseline failures are claimed. The base already names the current generator and fail-closed scanner."
+proof_boundary = "The Python gate executes the real inventory generator in process, transports its stdout through the real JSON codec and reconciles emitted source hashes and scanner test names with committed sources and the map. Scanner Go assertions are inspected, not executed; there is no network interface changed by these documentation repairs and no Go, ClamAV or deployment qualification is claimed."
+wiring_requests = []
+
+[finding.security-map-generator-path]
+tests = ["test_security_map_generator_path_emits_reconcilable_inventory"]
+repair = "Retain the current generator command and make the checked-in manifest destination, candidate review and unexecuted status explicit; do not regenerate or admit the historical manifest without review."
+
+[finding.security-map-scanner-behaviour]
+tests = ["test_security_map_scanner_behaviour_matches_current_assertions", "test_security_map_scanner_qualification_remains_explicit"]
+repair = "Describe host precedence, failed-scan assertions, clean-only version rechecks and upload forwarding denial accurately, while retaining real-scanner, failed-dependency and storage-side-effect qualification needs."

@@ -1,0 +1,10 @@
+[repair.22.31.264]
+finding = "22.30.129/001"
+status = "blocked_on_external_wiring"
+implementation = "TokenCall binds canonical requests to exact storage and backing-payment grants; NestedTokenCall defines the settlement-only route and immediate-program spender identity."
+tests = ["finding_001_pull_routes_canonical_transfer_from_with_pool_spender", "finding_001_push_debits_immediate_pool_caller_without_user_allowance", "finding_001_nested_route_refuses_non_settlement_and_noncanonical_requests"]
+proof_limit = "These tests exercise the real swap request producer, SDK codec, routing contract and capability encoder; native liquidity, trading, refusal rollback and reopened persistent balances remain unproven until the token handler and registry are wired. Finding 001 is not closed."
+baseline = "No baseline gate run: the ordered task instructions forbid testing before implementation and require verification exclusively through hf-done. No pre-change failure is claimed."
+wiring_token = "Domain 13 (fm-programs): programs/sdk/rust/examples/token-lxt20/src/lib.rs must route layerx_call through the shared settlement contract using authenticated Context::immediate_caller, debit the pool for Transfer, use the pool as allowance spender for TransferFrom, register program-owned recipients, and stage token state and backing payments in the existing atomic runtime transaction."
+wiring_registry = "Domain 13 (fm-programs): programs/crates/layerx-programs-registry/src/lxt20.rs must bind the nested settlement route and its exact storage/payment authority to the deployed token artifact and registered backing asset; current token constants also need deployment binding to the swap's TOKEN_A/TOKEN_B assets."
+wiring_proof = "Domain 13 (fm-programs): programs/crates/layerx-programs-runtime/tests must run real swap and token artifacts through native settlement and persistent storage, assert liquidity and swaps, refuse an output leg after a successful input leg, reopen the store and verify balances, allowances and reserves."

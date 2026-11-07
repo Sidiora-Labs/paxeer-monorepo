@@ -52,7 +52,7 @@ func testDB(t *testing.T) *sql.DB {
 	t.Helper()
 	url := os.Getenv(testDatabaseEnv)
 	if url == "" {
-		t.Fatal("TestMarkets requires " + testDatabaseEnv)
+		t.Fatalf("%s requires %s", t.Name(), testDatabaseEnv)
 	}
 	db, err := store.Open(url)
 	if err != nil {
@@ -73,7 +73,7 @@ func testClient(t *testing.T) *ethclient.Client {
 	t.Helper()
 	url := os.Getenv(testRPCEnv)
 	if url == "" {
-		t.Fatal("TestMarkets requires " + testRPCEnv)
+		t.Fatalf("%s requires %s", t.Name(), testRPCEnv)
 	}
 	client, err := ethclient.Dial(url)
 	if err != nil {

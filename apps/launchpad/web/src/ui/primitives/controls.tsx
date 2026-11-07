@@ -64,7 +64,14 @@ export function SegmentedControl<T extends string>({ options, value, onChange, l
     if (event.key === 'ArrowRight' || event.key === 'ArrowDown') { event.preventDefault(); move(index, 1); }
     else if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') { event.preventDefault(); move(index, -1); }
     else if (event.key === 'Home') { event.preventDefault(); move(-1, 1); }
-    else if (event.key === 'End') { event.preventDefault(); move(options.length, -1); }
+    else if (event.key === 'End') {
+      event.preventDefault();
+      const enabled = options.map((o, i) => (o.disabled ? -1 : i)).filter(i => i >= 0);
+      const next = enabled[enabled.length - 1];
+      if (next === undefined) return;
+      onChange(options[next].value);
+      refs.current[next]?.focus();
+    }
   }
 
   const radius = shape === 'pill' ? 'rounded-pill' : 'rounded-sm';

@@ -67,10 +67,11 @@ on:
       - 'docs/paxeer-network.md'
       - 'docs/paxeer-chain-docs.md'
       - 'scripts/**'
-      - '!scripts/PaxeerBetaDeploy.s.sol'
       - '!scripts/qualify-mirror-live.sh'
       - '!scripts/qualify-mirror-verification-live.sh'
       - '.github/workflows/paxeer-integration-test.yml'
+      - '.github/workflows/integration-registry.json'
+      - '.github/workflows/scripts/integration_registry.py'
   pull_request:
     branches:
       - main
@@ -134,17 +135,18 @@ on:
       - 'docs/paxeer-network.md'
       - 'docs/paxeer-chain-docs.md'
       - 'scripts/**'
-      - '!scripts/PaxeerBetaDeploy.s.sol'
       - '!scripts/qualify-mirror-live.sh'
       - '!scripts/qualify-mirror-verification-live.sh'
       - '.github/workflows/paxeer-integration-test.yml'
+      - '.github/workflows/integration-registry.json'
+      - '.github/workflows/scripts/integration_registry.py'
   merge_group:
     branches:
       - main
       - release/**
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event_name == 'push' && github.sha || github.ref }}
   cancel-in-progress: true
 
 defaults:
@@ -169,11 +171,10 @@ jobs:
     permissions:
       packages: write
       contents: read
-    env:
-      GHCR_LOCALNODE: ghcr.io/sidiora-labs/pax-chain-integration-test-localnode
-      GHCR_RPCNODE: ghcr.io/sidiora-labs/pax-chain-integration-test-rpcnode
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - name: Load integration registry configuration
+        run: python3 .github/workflows/scripts/integration_registry.py environment
       - name: Login to Docker Hub
         uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
         if: env.DOCKERHUB_USERNAME != ''
@@ -186,7 +187,7 @@ jobs:
         uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
         with:
           registry: ghcr.io
-          username: ${{ github.repository_owner }}
+          username: ${{ env.GHCR_OWNER }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
@@ -228,10 +229,10 @@ jobs:
       # Registry pulls are content-addressed and retried per layer by the docker client
       - name: Push images to GHCR for test jobs
         run: |
-          docker tag pax-chain/localnode "${GHCR_LOCALNODE}:${{ github.run_id }}"
-          docker tag pax-chain/rpcnode "${GHCR_RPCNODE}:${{ github.run_id }}"
-          docker push "${GHCR_LOCALNODE}:${{ github.run_id }}"
-          docker push "${GHCR_RPCNODE}:${{ github.run_id }}"
+          docker tag pax-chain/localnode "${GHCR_LOCALNODE_RUN_IMAGE}"
+          docker tag pax-chain/rpcnode "${GHCR_RPCNODE_RUN_IMAGE}"
+          docker push "${GHCR_LOCALNODE_RUN_IMAGE}"
+          docker push "${GHCR_RPCNODE_RUN_IMAGE}"
       - name: Package CI artifacts
         run: tar -czf integration-build.tar.gz build/paxd
       - name: Upload integration CI artifacts
@@ -251,8 +252,6 @@ jobs:
       contents: read
     env:
       JOB_TIMEOUT: 28m
-      GHCR_LOCALNODE: ghcr.io/sidiora-labs/pax-chain-integration-test-localnode
-      GHCR_RPCNODE: ghcr.io/sidiora-labs/pax-chain-integration-test-rpcnode
       AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
       DAPP_TESTS_MNEMONIC: ${{ secrets.DAPP_TESTS_MNEMONIC }}
@@ -553,6 +552,8 @@ jobs:
         ]
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - name: Load integration registry configuration
+        run: python3 .github/workflows/scripts/integration_registry.py environment
       - uses: actions/setup-python@7f4fc3e22c37d6ff65e88745f38bd3157c663f7c # v4
         with:
           python-version: '3.10'
@@ -584,7 +585,7 @@ jobs:
         uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
         with:
           registry: ghcr.io
-          username: ${{ github.repository_owner }}
+          username: ${{ env.GHCR_OWNER }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Download integration CI artifacts
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
@@ -594,10 +595,10 @@ jobs:
       - name: Load prebuilt paxd and pull Docker images
         run: |
           tar -xzf integration-build.tar.gz
-          docker pull "${GHCR_LOCALNODE}:${{ github.run_id }}"
-          docker pull "${GHCR_RPCNODE}:${{ github.run_id }}"
-          docker tag "${GHCR_LOCALNODE}:${{ github.run_id }}" pax-chain/localnode
-          docker tag "${GHCR_RPCNODE}:${{ github.run_id }}" pax-chain/rpcnode
+          docker pull "${GHCR_LOCALNODE_RUN_IMAGE}"
+          docker pull "${GHCR_RPCNODE_RUN_IMAGE}"
+          docker tag "${GHCR_LOCALNODE_RUN_IMAGE}" pax-chain/localnode
+          docker tag "${GHCR_RPCNODE_RUN_IMAGE}" pax-chain/rpcnode
       - name: Start 4 node docker cluster
         run: DOCKER_DETACH=true INVARIANT_CHECK_INTERVAL=10 ${{matrix.test.env}} make -f chain.mk docker-cluster-start-ci
 

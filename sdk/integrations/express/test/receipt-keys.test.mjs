@@ -115,7 +115,7 @@ function signedProof({ amount = 25n, height = 7n, signingPin = pin, paymentRefer
   const signedReceipt = Buffer.concat([prefix, Buffer.of(1), bounded(sign(null, signingDigest, pair.privateKey))]);
   return {
     format: "layerx-receipt-proof-v2", verificationLevel: "receipted", rawTransaction: hex(rawTransaction),
-    signedReceipt: hex(signedReceipt), receiptDigest: hex(keccak256(signedReceipt)),
+    signedReceipt: hex(signedReceipt), receiptDigest: hex(signingDigest),
     receiptKey: { keyId: hex(signingPin.keyId), publicKey: hex(signingPin.publicKey),
       firstHeight: `0x${signingPin.first_height.toString(16)}`, lastHeight: `0x${signingPin.last_height.toString(16)}` },
   };
@@ -343,7 +343,7 @@ async function integrationSettlesSignedSequencerReceipt() {
       receiptKey: produced.receiptKey,
     };
     assert.equal(portable.signedReceipt, payment.signedReceipt);
-    assert.equal(portable.receiptDigest, hex(keccak256(bytes(payment.signedReceipt))));
+    assert.equal(portable.receiptDigest, hex(produced.verification.receiptDigest));
     for (let restart = 0; restart < 2; restart += 1) {
       await closeServer();
       ({ mount, server } = startServer(environment()));

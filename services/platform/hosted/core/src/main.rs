@@ -1,4 +1,5 @@
 mod chain_fund;
+mod funding_native;
 mod public_reads;
 
 use layerx_client::px::PxEndpoint;
@@ -344,16 +345,22 @@ fn config() -> Result<Config, String> {
         sequencer,
         network,
         network_id,
-        node: parse_node_url(&required("LAYERX_CORE_NODE_URL")?)?,
-        node_token: read_secret("LAYERX_CORE_NODE_BEARER_TOKEN_FILE")?,
+        node: NodeEndpoint {
+            host: String::new(),
+            port: 0,
+        },
+        node_token: Zeroizing::new(String::new()),
         wallet_caps_token: env::var_os("LAYERX_CORE_WALLET_CAPS_TOKEN_FILE")
             .map(|_| read_secret("LAYERX_CORE_WALLET_CAPS_TOKEN_FILE"))
             .transpose()?,
         receipt_events_token: env::var_os("LAYERX_CORE_RECEIPT_EVENTS_TOKEN_FILE")
             .map(|_| read_secret("LAYERX_CORE_RECEIPT_EVENTS_TOKEN_FILE"))
             .transpose()?,
-        replica: parse_node_url(&required("LAYERX_CORE_REPLICA_URL")?)?,
-        replica_token: read_secret("LAYERX_CORE_REPLICA_BEARER_TOKEN_FILE")?,
+        replica: NodeEndpoint {
+            host: String::new(),
+            port: 0,
+        },
+        replica_token: Zeroizing::new(String::new()),
         admin_token: read_secret("LAYERX_CORE_ADMIN_TOKEN_FILE")?,
         treasury_did: did_for_public_key(&treasury.public_key()),
         treasury: Arc::new(treasury),
@@ -583,7 +590,7 @@ fn await_authenticated_receipt(
     config: &Config,
     tx_hash: [u8; 32],
     deadline: Duration,
-) -> Result<Option<layerx_client::rpc::receipt::AuthenticatedReceipt>, String> {
+) -> Result<layerx_client::rpc::receipt::Lookup, String> {
     use layerx_client::rpc::receipt::{lookup_authenticated, Lookup, LookupContext};
     let started = Instant::now();
     let keys = config
@@ -591,25 +598,46 @@ fn await_authenticated_receipt(
         .receipt_keys()
         .map_err(|error| format!("receipt keys unavailable: {error:?}"))?;
     loop {
-        match lookup_authenticated(
+        let outcome = lookup_authenticated(
             &config.sequencer,
             tx_hash,
             LookupContext {
                 receipt_keys: &keys,
             },
         )
-        .map_err(|error| format!("receipt lookup failed: {error:?}"))?
-        {
-            Lookup::Verified(receipt) => return Ok(Some(receipt)),
-            Lookup::Absent | Lookup::Submitted { .. } => {}
+        .map_err(|error| format!("receipt lookup failed: {error:?}"))?;
+        if let Lookup::Verified(receipt) = &outcome {
+            if !keys.iter().any(|key| {
+                key.key_id == receipt.execution().key_id
+                    && key.public_key == receipt.execution().signing_key
+                    && (key.first_height..=key.last_height).contains(&receipt.height())
+            }) {
+                return Err("receipt signing key differs".to_owned());
+            }
+            return Ok(outcome);
         }
         let Some(remaining) = deadline
             .checked_sub(started.elapsed())
             .filter(|remaining| !remaining.is_zero())
         else {
-            return Err("receipt_unavailable".to_owned());
+            return Ok(outcome);
         };
         thread::sleep(remaining.min(Duration::from_millis(250)));
+    }
+}
+
+enum ReceiptRead {
+    Absent,
+    Submitted { tx_hash: [u8; 32], nonce: u64 },
+    Verified(ReceiptFacts),
+}
+
+impl ReceiptRead {
+    fn into_verified(self) -> Option<ReceiptFacts> {
+        match self {
+            Self::Verified(facts) => Some(facts),
+            Self::Absent | Self::Submitted { .. } => None,
+        }
     }
 }
 
@@ -617,19 +645,20 @@ fn await_receipt(
     config: &Config,
     tx_hash: [u8; 32],
     deadline: Duration,
-) -> Result<Option<ReceiptFacts>, String> {
-    let Some(receipt) = await_authenticated_receipt(config, tx_hash, deadline)? else {
-        return Ok(None);
+) -> Result<ReceiptRead, String> {
+    use layerx_client::rpc::receipt::Lookup;
+    let receipt = match await_authenticated_receipt(config, tx_hash, deadline)? {
+        Lookup::Absent => return Ok(ReceiptRead::Absent),
+        Lookup::Submitted { tx_hash, nonce } => {
+            return Ok(ReceiptRead::Submitted { tx_hash, nonce });
+        }
+        Lookup::Verified(receipt) => receipt,
     };
-    let batch = layerx_client::rpc::evidence::checkpoint(&config.sequencer, receipt.height())
-        .map_err(|error| format!("receipt checkpoint unavailable: {error:?}"))?;
-    let state_root = layerx_platform_core::custody_checkpoint_state_root(
-        &config.sequencer,
-        receipt.height(),
-        receipt.height(),
-    )?
-    .unwrap_or([0; 32]);
-    Ok(Some(ReceiptFacts {
+    let landing = receipt.landing().ok_or("native receipt has not landed")?;
+    let (batch, state_root) =
+        layerx_platform_core::native_committed_state(&config.sequencer, landing.block_number)?;
+    validate_receipt_landing(&receipt, &batch)?;
+    Ok(ReceiptRead::Verified(ReceiptFacts {
         activity_id: receipt.activity_id(),
         global_sequence: receipt.global_sequence(),
         result_code: receipt.result_code().raw(),
@@ -637,6 +666,30 @@ fn await_receipt(
         batch_id: batch.hash,
         state_root,
     }))
+}
+
+fn validate_receipt_landing(
+    receipt: &layerx_client::rpc::receipt::AuthenticatedReceipt,
+    block: &layerx_client::sequencer::SequencerBlock,
+) -> Result<(), String> {
+    let landing = receipt.landing().ok_or("native receipt has not landed")?;
+    let index =
+        usize::try_from(landing.transaction_index).map_err(|_| "native receipt index overflow")?;
+    if block.transactions.get(index).is_none_or(|transaction| {
+        layerx_crypto::evm_transaction::transaction_hash(transaction) != receipt.activity_id()
+    }) {
+        return Err("native receipt transaction is absent from its landing block".into());
+    }
+    if block.number != landing.block_number
+        || block.number < receipt.height()
+        || landing.status != receipt.execution().success
+        || receipt
+            .covering_block()
+            .is_some_and(|(height, hash)| height != block.number || hash != block.hash)
+    {
+        return Err("native receipt landing block differs".into());
+    }
+    Ok(())
 }
 
 fn receipt_result(facts: &ReceiptFacts) -> serde_json::Value {
@@ -752,113 +805,55 @@ fn receipt_route(config: &Config, activity_hex: &str) -> Response {
         return refusal(400, "invalid_argument", None);
     }
     match await_receipt(config, activity_id, Duration::ZERO) {
-        Ok(Some(facts)) => success(&serde_json::json!({
+        Ok(ReceiptRead::Verified(facts)) => success(&serde_json::json!({
             "activity_id": activity_hex,
             "receipt": hex_encode(&facts.canonical),
+            "block_hash": hex_encode(&facts.batch_id),
+            "state_root": hex_encode(&facts.state_root),
         })),
-        Ok(None) => refusal(404, "not_found", None),
+        Ok(ReceiptRead::Absent) => refusal(404, "not_found", None),
+        Ok(ReceiptRead::Submitted { tx_hash, nonce }) => json_response(
+            202,
+            &serde_json::json!({"result": {
+                "state": "pending", "rung": "submitted",
+                "activity_id": hex_encode(&tx_hash), "nonce": nonce.to_string()
+            }}),
+        ),
         Err(error) => {
             eprintln!("layerx-core-boundary: {error}");
-            refusal(503, "node_unavailable", Some(5))
+            refusal(503, "receipt_unavailable", Some(5))
         }
     }
-}
-
-fn program_idempotency_receipt(config: &Config, key: &str) -> Response {
-    #[derive(Deserialize)]
-    #[serde(deny_unknown_fields)]
-    struct Document {
-        activity_id: String,
-        receipt: String,
-    }
-    if key.len() != 64
-        || key
-            .bytes()
-            .any(|byte| !byte.is_ascii_digit() && !(b'a'..=b'f').contains(&byte))
-    {
-        return refusal(400, "invalid_idempotency_key", None);
-    }
-    let target = format!("/v1/programs/receipts/by-idempotency/{key}");
-    let body = match node_get(&config.node, &config.node_token, &target) {
-        Ok((200, body)) => body,
-        Ok((404, _)) => return refusal(404, "receipt_not_found", None),
-        _ => return refusal(503, "receipt_unavailable", Some(5)),
-    };
-    let document: Document = match serde_json::from_slice(&body) {
-        Ok(value) => value,
-        Err(_) => return refusal(502, "receipt_invalid", None),
-    };
-    let bytes = match hex_decode(&document.receipt) {
-        Ok(value)
-            if !value.is_empty()
-                && value.len() <= 1_048_576
-                && hex_encode(&value) == document.receipt =>
-        {
-            value
-        }
-        _ => return refusal(502, "receipt_invalid", None),
-    };
-    let Ok(keys) = config.sequencer.receipt_keys() else {
-        return refusal(503, "node_unavailable", Some(5));
-    };
-    let Some(key) = keys.iter().max_by_key(|key| key.last_height) else {
-        return refusal(503, "node_unavailable", Some(5));
-    };
-    let Ok(receipt) = layerx_proof::receipt::verify_sequencer_signature(&bytes, key.public_key)
-    else {
-        return refusal(502, "receipt_invalid", None);
-    };
-    let Some(protocol) = receipt.protocol() else {
-        return refusal(502, "receipt_invalid", None);
-    };
-    if protocol.protocol_version() != 3
-        || protocol.module_id() != 9
-        || protocol.module_version() != 4
-        || document.activity_id != hex_encode(&protocol.activity_id())
-    {
-        return refusal(502, "receipt_invalid", None);
-    }
-    success(&serde_json::json!({"activity_id": document.activity_id, "receipt": document.receipt}))
 }
 
 fn readiness(config: &Config) -> Response {
-    let mut response = (|| match config.network.network() {
-        Ok(head) => {
-            let zero = "0".repeat(64);
-            let target = format!("/v1/batches/{zero}/receipt-authority?receipt_digest={zero}");
-            if !matches!(
-                node_get(&config.replica, &config.replica_token, &target),
-                Ok((200 | 404, _))
-            ) {
-                return refusal(503, "replica_unavailable", Some(5));
-            }
-            let Ok(_guard) = config.journal_lock.lock() else {
-                return refusal(503, "journal_unavailable", Some(5));
-            };
-            if journal_probe(&config.state_dir.join("journal/ready")).is_err() {
-                return refusal(503, "journal_unavailable", Some(5));
-            }
-            json_response(
-                200,
-                &serde_json::json!({
-                    "ready": true,
-                    "network_id": head.network_id,
-                    "paxeer": {
-                        "chain_id": head.paxeer.chain_id,
-                        "latest_block": head.paxeer.latest_block,
-                    },
-                    "layerx": head.layerx,
-                    "latest_committed_height": head.latest_committed_height,
-                    "wire_version": WIRE_VERSION,
-                    "synchronous_receipts": true,
-                    "state_snapshot": true,
-                }),
-            )
+    let mut response = (|| {
+        let (Ok(chain_id), Ok(height)) =
+            (config.sequencer.chain_id(), config.sequencer.block_number())
+        else {
+            return refusal(503, "node_unavailable", Some(5));
+        };
+        let Ok((block, app_hash)) =
+            layerx_platform_core::native_committed_state(&config.sequencer, height)
+        else {
+            return refusal(503, "committed_chain_unavailable", Some(5));
+        };
+        let Ok(_guard) = config.journal_lock.lock() else {
+            return refusal(503, "journal_unavailable", Some(5));
+        };
+        if journal_probe(&config.state_dir.join("journal/ready")).is_err() {
+            return refusal(503, "journal_unavailable", Some(5));
         }
-        Err(error) => {
-            eprintln!("layerx-core-boundary: readiness: {error:?}");
-            refusal(503, "node_unavailable", Some(5))
-        }
+        json_response(
+            200,
+            &serde_json::json!({
+                "ready": true, "network_id": format!("eip155:{chain_id}"),
+                "paxeer": {"chain_id": chain_id, "latest_block": block.number},
+                "latest_committed_height": block.number, "block_hash": hex_encode(&block.hash),
+                "app_hash": hex_encode(&app_hash), "wire_version": WIRE_VERSION,
+                "synchronous_receipts": true, "state_snapshot": true,
+            }),
+        )
     })();
     let funding = config
         .funding
@@ -870,6 +865,19 @@ fn readiness(config: &Config) -> Response {
     document["funding"] = funding;
     response.body = document.to_string();
     response
+}
+
+fn native_state_route(config: &Config) -> Response {
+    let Ok(height) = config.sequencer.block_number() else {
+        return refusal(503, "node_unavailable", Some(5));
+    };
+    match layerx_platform_core::native_committed_state(&config.sequencer, height) {
+        Ok((block, root)) => success(&serde_json::json!({
+            "height": block.number.to_string(), "block_hash": hex_encode(&block.hash),
+            "state_root": hex_encode(&root), "commitment": "native_app_hash"
+        })),
+        Err(_) => refusal(503, "committed_chain_unavailable", Some(5)),
+    }
 }
 
 fn sequencer_route(config: &Config) -> Response {
@@ -890,109 +898,11 @@ fn sequencer_route(config: &Config) -> Response {
     }
 }
 
-fn read_relay_response(stream: &mut TcpStream) -> Result<(u16, Vec<u8>), String> {
-    let mut bytes = Vec::with_capacity(4096);
-    let mut chunk = [0_u8; 4096];
-    loop {
-        let count = stream.read(&mut chunk).map_err(|error| error.to_string())?;
-        if count == 0 {
-            break;
-        }
-        if bytes.len().saturating_add(count) > MAX_RELAY_BYTES {
-            return Err("node response exceeds its bound".to_owned());
-        }
-        bytes.extend_from_slice(&chunk[..count]);
-    }
-    let header_end = bytes
-        .windows(4)
-        .position(|window| window == b"\r\n\r\n")
-        .ok_or_else(|| "node response has no header terminator".to_owned())?;
-    let head = std::str::from_utf8(&bytes[..header_end])
-        .map_err(|_| "node response headers are not UTF-8".to_owned())?;
-    let status = head
-        .split_whitespace()
-        .nth(1)
-        .and_then(|value| value.parse::<u16>().ok())
-        .ok_or_else(|| "node response status is invalid".to_owned())?;
-    let mut body = bytes[header_end + 4..].to_vec();
-    for line in head.split("\r\n").skip(1) {
-        if let Some((name, value)) = line.split_once(':') {
-            if name.trim().eq_ignore_ascii_case("content-length") {
-                let length = value
-                    .trim()
-                    .parse::<usize>()
-                    .map_err(|_| "node content length is invalid".to_owned())?;
-                if length > body.len() {
-                    return Err("node response body is truncated".to_owned());
-                }
-                body.truncate(length);
-            }
-        }
-    }
-    Ok((status, body))
-}
-
-fn node_get(node: &NodeEndpoint, token: &str, target: &str) -> Result<(u16, Vec<u8>), String> {
-    TcpStream::connect((node.host.as_str(), node.port))
-        .and_then(|mut stream| {
-            stream.set_read_timeout(Some(IO_TIMEOUT))?;
-            stream.set_write_timeout(Some(IO_TIMEOUT))?;
-            write!(stream, "GET {target} HTTP/1.1\r\nHost: {}:{}\r\nAuthorization: Bearer {token}\r\nAccept: application/json\r\nConnection: close\r\n\r\n", node.host, node.port)?;
-            Ok(stream)
-        })
-        .map_err(|error| error.to_string())
-        .and_then(|mut stream| read_relay_response(&mut stream))
-}
-
-fn relay_route(config: &Config, request: &Request) -> Response {
-    let target = request.query.as_ref().map_or_else(
-        || request.path.clone(),
-        |query| format!("{}?{query}", request.path),
-    );
-    let relayed = node_get(&config.node, &config.node_token, &target);
-    match relayed {
-        Ok((status @ (200 | 404 | 503), body)) => {
-            let Ok(body) = String::from_utf8(body) else {
-                return refusal(503, "node_unavailable", Some(5));
-            };
-            if serde_json::from_str::<serde_json::Value>(&body).is_err() {
-                return refusal(503, "node_unavailable", Some(5));
-            }
-            Response {
-                status,
-                body,
-                retry_after: None,
-                authoritative_replay: false,
-            }
-        }
-        Ok((status, _)) => {
-            eprintln!("layerx-core-boundary: node answered {status} for {target}");
-            refusal(503, "node_unavailable", Some(5))
-        }
-        Err(error) => {
-            eprintln!("layerx-core-boundary: relay {target}: {error}");
-            refusal(503, "node_unavailable", Some(5))
-        }
-    }
-}
-
-fn wrapped_relay_route(config: &Config, request: &Request) -> Response {
-    let response = relay_route(config, request);
-    if response.status == 200 {
-        serde_json::from_str(&response.body).map_or_else(
-            |_| refusal(503, "node_unavailable", Some(5)),
-            |value| success(&value),
-        )
-    } else {
-        response
-    }
-}
-
 fn is_hex64(value: &str) -> bool {
     value.len() == 64 && value.bytes().all(|byte| byte.is_ascii_hexdigit())
 }
 
-fn relay_target(path: &str) -> bool {
+fn retired_contract(path: &str) -> bool {
     let segments: Vec<&str> = path.trim_start_matches('/').split('/').collect();
     match segments.as_slice() {
         ["v1", "protocol", "account-state", "head"]
@@ -1080,7 +990,8 @@ fn protocol_route(config: &Config, request: &Request) -> Response {
         } else if request.query.is_some() {
             refusal(400, "invalid_request", None)
         } else {
-            program_idempotency_receipt(config, key)
+            let _ = key;
+            refusal(410, "retired_http_contract", None)
         };
     }
     if unavailable_capability(path) {
@@ -1094,12 +1005,16 @@ fn protocol_route(config: &Config, request: &Request) -> Response {
         } else if request.query.is_some() {
             refusal(400, "invalid_request", None)
         } else {
-            wrapped_relay_route(config, request)
+            refusal(410, "retired_http_contract", None)
         };
     }
-    if relay_target(path) {
+    if retired_contract(path) {
         return if method == "GET" {
-            relay_route(config, request)
+            if path == "/v1/protocol/account-state/head" {
+                native_state_route(config)
+            } else {
+                refusal(410, "retired_http_contract", None)
+            }
         } else {
             refusal(405, "method_not_allowed", None)
         };
@@ -1111,16 +1026,7 @@ fn protocol_route(config: &Config, request: &Request) -> Response {
         ("GET", "/livez") => json_response(200, &serde_json::json!({ "live": true })),
         ("GET", "/readyz") => readiness(config),
         ("GET", "/v1/sequencer") => sequencer_route(config),
-        ("GET", "/v1/state") => wrapped_relay_route(
-            config,
-            &Request {
-                method: "GET".to_owned(),
-                path: "/v1/protocol/account-state/head".to_owned(),
-                query: None,
-                headers: BTreeMap::new(),
-                body: Vec::new(),
-            },
-        ),
+        ("GET", "/v1/state") => native_state_route(config),
         ("GET", other) if other.starts_with("/v1/receipts/") => {
             receipt_route(config, &other["/v1/receipts/".len()..])
         }
@@ -1455,66 +1361,67 @@ fn fund(config: &Config, request: &Request, key: &str) -> Response {
 
 fn prepare_funding(
     config: &Config,
+    request: &Request,
     command: &FundingCommand,
     key: &str,
-) -> Result<chain_fund::SignedFunding, Response> {
-    let stage_path = journal_path(config, "fund-canonical", key);
-    let command_bytes =
-        serde_json::to_vec(command).map_err(|_| refusal(503, "journal_unavailable", Some(5)))?;
-    let command_digest = hex_encode(&Sha256::digest(&command_bytes));
-    let staged =
-        journal_read(&stage_path).map_err(|_| refusal(503, "journal_unavailable", Some(5)))?;
-    if let Some(entry) = staged {
-        if entry.request_digest != command_digest {
-            return Err(refusal(409, "idempotency_conflict", None));
-        }
-        let signed: chain_fund::SignedFunding = serde_json::from_str(&entry.body)
-            .map_err(|_| refusal(503, "journal_unavailable", Some(5)))?;
-        signed
-            .validate()
-            .map_err(|_| refusal(503, "journal_unavailable", Some(5)))?;
-        return Ok(signed);
-    }
-    let funding = config
-        .funding
-        .get()
-        .map_err(|_| refusal(503, "treasury_unavailable", Some(5)))?;
-    let public_key = fixed_hex::<32>("public_key", &command.public_key)
-        .map_err(|_| refusal(400, "invalid_argument", None))?;
-    let signed = funding.prepare(&public_key, command.amount)?;
-    journal_write(
-        &stage_path,
-        &JournalEntry {
-            request_digest: command_digest,
-            status: 202,
-            body: serde_json::to_string(&signed)
-                .map_err(|_| refusal(503, "journal_unavailable", Some(5)))?,
-            retry_after: Some(5),
-        },
-    )
-    .map_err(|_| refusal(503, "journal_unavailable", Some(5)))?;
-    Ok(signed)
+) -> Result<chain_fund::NativeTransfer, Response> {
+    funding_native::prepare(config, request, command, key)
 }
 
 fn fund_send(
     config: &Config,
-    _request: &Request,
+    request: &Request,
     command: &FundingCommand,
     key: &str,
 ) -> Result<Response, Response> {
-    let signed = prepare_funding(config, command, key)?;
+    if let Some(bytes) = funding_read(&funding_record_path(config, "funding-intents", key))
+        .map_err(|_| refusal(503, "journal_unavailable", Some(5)))?
+    {
+        if !funding_native::is_native(&bytes) {
+            // Version one is an authenticated native ledger SEND, not a
+            // value transfer. Replay it through its original chain interface.
+            let intent: FundingIntent = serde_json::from_slice(&bytes)
+                .map_err(|_| refusal(503, "journal_unavailable", Some(5)))?;
+            validate_funding_intent(config, &intent)
+                .map_err(|_| refusal(503, "journal_unavailable", Some(5)))?;
+            if intent.request_digest != request_digest(request) {
+                return Err(refusal(409, "idempotency_conflict", None));
+            }
+            config
+                .sequencer
+                .send_raw_transaction(&intent.signed.canonical)
+                .map_err(|_| refusal(503, "treasury_unavailable", Some(5)))?;
+            let facts = await_receipt(
+                config,
+                intent.signed.transaction_hash,
+                config.receipt_deadline,
+            )
+            .map_err(|_| refusal(503, "receipt_unavailable", Some(5)))?
+            .into_verified()
+            .ok_or_else(|| refusal(503, "receipt_unavailable", Some(5)))?;
+            return intent_funding_response(config, &intent, &facts, true);
+        }
+    }
+    let transfer = prepare_funding(config, request, command, key)?;
     let funding = config
         .funding
         .get()
         .map_err(|_| refusal(503, "treasury_unavailable", Some(5)))?;
-    funding.submit(&signed)?;
-    let funded = funding.funded(&signed)?;
+    if transfer.sender != funding.sender_address() || transfer.chain_id != funding.chain_id {
+        return Err(refusal(409, "funding_sender_conflict", None));
+    }
+    funding.submit(&transfer.signed)?;
+    let receipt = funding.confirmation(&transfer)?;
+    if let Some(receipt) = receipt {
+        funding_native::archive(config, key, receipt)?;
+        return funding_native::archived_response(config, request, key)?
+            .ok_or_else(|| refusal(503, "journal_unavailable", Some(5)));
+    }
     Ok(json_response(
-        if funded { 200 } else { 202 },
+        202,
         &serde_json::json!({
-            "funding_id": command.funding_id,
-            "state": if funded { "funded" } else { "pending" },
-            "transaction_id": signed.transaction_hash,
+            "funding_id": command.funding_id, "state": "pending",
+            "transaction_id": transfer.signed.transaction_hash,
         }),
     ))
 }
@@ -1790,6 +1697,28 @@ fn funding_intent_route(config: &Config, request: &Request) -> Response {
         return unavailable();
     };
     if request.path == "/admin/v1/testnet/funding-intents" {
+        if request.method == "POST" && funding_native::is_native(&request.body) {
+            if request.headers.get("content-type").map(String::as_str) != Some("application/json") {
+                return refusal(400, "content_type_required", None);
+            }
+            return funding_native::route(config, request);
+        }
+    } else if let Some(key) = request
+        .path
+        .strip_prefix("/admin/v1/testnet/funding-intents/")
+    {
+        if !valid_key(key) || !request.body.is_empty() {
+            return refusal(400, "invalid_funding_intent", None);
+        }
+        match funding_read(&funding_record_path(config, "funding-intents", key)) {
+            Ok(Some(bytes)) if funding_native::is_native(&bytes) => {
+                return funding_native::route(config, request)
+            }
+            Err(_) => return unavailable(),
+            _ => {}
+        }
+    }
+    if request.path == "/admin/v1/testnet/funding-intents" {
         if request.method != "POST" {
             return refusal(405, "method_not_allowed", None);
         }
@@ -1967,6 +1896,9 @@ fn archived_funding_response(
             Ok(None)
         };
     };
+    if funding_native::is_native(&intent_bytes) {
+        return funding_native::archived_response(config, request, key);
+    }
     let intent: FundingIntent = serde_json::from_slice(&intent_bytes).map_err(|_| unavailable())?;
     validate_funding_intent(config, &intent).map_err(|_| unavailable())?;
     if intent.key != key || intent.request_digest != request_digest(request) {
@@ -2068,7 +2000,10 @@ fn retain_funding_receipts(config: &Config) -> Result<(), Response> {
         let entry = journal_read(&path)
             .map_err(|_| unavailable())?
             .ok_or_else(unavailable)?;
-        if serde_json::from_str::<PreparedFunding>(&entry.body).is_ok() {
+        if serde_json::from_str::<PreparedFunding>(&entry.body).is_ok()
+            || serde_json::from_str::<chain_fund::SignedFunding>(&entry.body).is_ok()
+            || serde_json::from_str::<chain_fund::NativeTransfer>(&entry.body).is_ok()
+        {
             let counterpart = config
                 .state_dir
                 .join("funding-intents")
@@ -2083,6 +2018,10 @@ fn retain_funding_receipts(config: &Config) -> Result<(), Response> {
         let bytes = funding_read(&path)
             .map_err(|_| unavailable())?
             .ok_or_else(unavailable)?;
+        if funding_native::is_native(&bytes) {
+            funding_native::retain(config, &bytes)?;
+            continue;
+        }
         let intent: FundingIntent = serde_json::from_slice(&bytes).map_err(|_| unavailable())?;
         validate_funding_intent(config, &intent).map_err(|_| unavailable())?;
         if path != funding_record_path(config, "funding-intents", &intent.key) {
@@ -2098,10 +2037,12 @@ fn retain_funding_receipts(config: &Config) -> Result<(), Response> {
                     .receipt_deadline
                     .checked_sub(started.elapsed())
                     .ok_or_else(|| refusal(503, "receipt_unavailable", Some(5)))?;
-                let receipt =
+                let lookup =
                     await_authenticated_receipt(config, intent.signed.transaction_hash, remaining)
-                        .map_err(|_| refusal(503, "receipt_unavailable", Some(5)))?
-                        .ok_or_else(|| refusal(503, "receipt_unavailable", Some(5)))?;
+                        .map_err(|_| refusal(503, "receipt_unavailable", Some(5)))?;
+                let layerx_client::rpc::receipt::Lookup::Verified(receipt) = lookup else {
+                    return Err(refusal(503, "receipt_unavailable", Some(5)));
+                };
                 if receipt.execution().signing_key != intent.sequencer_key {
                     return Err(refusal(503, "receipt_unavailable", Some(5)));
                 }

@@ -1,0 +1,17 @@
+[manifest]
+task = "22.32.185"
+domain = 17
+owner_role = "fm-programme"
+pages = 2
+
+[page.1]
+path = "spec/layerx-merge/contracts/platform-examples.md"
+status = "stale"
+bytes = 20647
+source_1 = "record 22.30.78 [doc.15] (stale): Complete page read; the finding naming this page identifies stale architecture, endpoint, ABI, transport or provisioning guidance and its rewrite proposal."
+
+[page.2]
+path = "spec/layerx-merge/contracts/verifier-http.md"
+status = "stale"
+bytes = 20523
+source_1 = "record 22.30.161 [doc.04] (stale): Read route/method contract page and compared all package HTTP routes, generated proto rules, Rust HTTP client and backend caller. Names and response families are wired; launcher implementation citations refer to an unlinked local crate, as launcher-provenance-docs records. Health's unknown-service promise is violated by its handler."

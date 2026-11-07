@@ -44,7 +44,7 @@ cleanup() {
 }
 trap cleanup EXIT
 
-for tool in timeout python3 curl sha256sum openssl base64 cast; do
+for tool in timeout python3 curl sha256sum openssl base64 cast "${BRINGUP_INSPECT_BIN:-bringup-inspect}"; do
 	if ! command -v "$tool" >/dev/null 2>&1; then
 		echo "check-live.test: $tool is required" >&2
 		exit 2
@@ -103,6 +103,10 @@ true) exit 0 ;;
 *"@@sites"*)
 	cat "$CHECK_LIVE_TEST_EDGE"
 	exit 0
+	;;
+curl\ -fsS\ --max-time*)
+	bash -c "$command"
+	exit
 	;;
 *"ss -Hltn"*)
 	case "$dest" in
@@ -318,7 +322,7 @@ chmod +x "$work/bin/railway"
 
 # A local curl stand-in: answers eth_blockNumber for the public names, at the
 # fixed head minus the lag CHECK_LIVE_TEST_LAG ("apiN:blocks ...") assigns,
-# answers a readiness request to an app's .internal name with the body and
+# answers a readiness request to an app's private network host with the body and
 # the -w status code, 503 for the ports CHECK_LIVE_TEST_BOUNDARY_DOWN lists
 # and 000 when no readable --cert client identity is presented,
 # fails to connect for the names in CHECK_LIVE_TEST_DOWN, and hands any
@@ -328,10 +332,10 @@ chmod +x "$work/bin/railway"
 # and /rpc want the bearer CHECK_LIVE_TEST_AGENT_BEARER in the --config file,
 # and /rpc answers a program.discover of CHECK_LIVE_TEST_AGENT_PROGRAM with
 # CHECK_LIVE_TEST_AGENT_RPC_CODE and CHECK_LIVE_TEST_AGENT_RPC.
-# With CHECK_LIVE_TEST_GAS set, the chain name and the router's /rpc answer
+# With CHECK_LIVE_TEST_GAS set, the chain name and the node's root answer
 # from the files of that directory, as the gas cases below describe.
 # CHECK_LIVE_TEST_AGENT_RPC_CODE and CHECK_LIVE_TEST_AGENT_RPC. A process-group
-# .internal name answers /readyz ready to a request with a client certificate.
+# private network host answers /readyz ready to a request with a client certificate.
 # CHECK_LIVE_TEST_AGENT_RPC_CODE and CHECK_LIVE_TEST_AGENT_RPC. The public
 # wallet name walletfx and the wallet gateway's fixture app answer as the
 # gateway does: /healthz, /readyz with every component up, and /v1/wallet/me
@@ -349,6 +353,15 @@ done
 [ -n "$url" ] || exec "$CHECK_LIVE_TEST_REAL_CURL" "$@"
 name="${url#https://}"
 name="${name%%.*}"
+if [ "${CHECK_LIVE_TEST_EDGE_CURRENT:-}" = 1 ]; then
+	case "$url" in
+	*/readyz)
+		case " ${CHECK_LIVE_TEST_DOWN:-} " in *" $name "*) exit 7 ;; esac
+		[ "$name" != missing ] || exit 7
+		if [[ " $* " == *' --connect-to '* ]] && [[ " ${CHECK_LIVE_TEST_DIFFER:-} " == *" $name "* ]]; then printf '{"status":"starting"}'; else printf '{"status":"ready"}'; fi
+		exit 0 ;;
+	esac
+fi
 printf '%s curl\n' "$name" >>"$CHECK_LIVE_TEST_CALLS"
 case " ${CHECK_LIVE_TEST_DOWN:-} " in
 *" $name "*) exit 7 ;;
@@ -357,7 +370,7 @@ esac
 # fixture file named after the request's method and /readyz from
 # readyz-<fly-force-instance-id>, whose first line is the status code the -w
 # format appends.
-if [ -n "${CHECK_LIVE_TEST_ROUTER:-}" ] && [ "$name" = api-mainnet-beta ]; then
+if [ -n "${CHECK_LIVE_TEST_ROUTER:-}" ] && [ "$name" = layerx-gateway ]; then
 	data=""
 	instance=""
 	write=0
@@ -379,7 +392,7 @@ if [ -n "${CHECK_LIVE_TEST_ROUTER:-}" ] && [ "$name" = api-mainnet-beta ]; then
 	esac
 	exit 0
 fi
-if [ -n "${CHECK_LIVE_TEST_GAS:-}" ] && { [ "$name" = chain ] || [ "$url" = https://api-mainnet-beta.paxeer.network/rpc ]; }; then
+if [ -n "${CHECK_LIVE_TEST_GAS:-}" ] && { [ "$name" = chain ] || [ "$url" = https://api-mainnet-beta.paxeer.network ]; }; then
 	out=/dev/stdout
 	data=""
 	wout=""
@@ -612,6 +625,7 @@ RPC_HOSTS="up-rpc-1 up-rpc-2 up-rpc-3"
 OLD_WALLET_HOST=up-old-wallet
 KERNEL_HOST=up-box-kernel
 REGISTRY_HOST=up-box-registry
+PROGRAM_REGISTRY_HOST=up-box-registry
 ENV
 grep -v '^KERNEL_HOST=' "$work/hosts-good.env" >"$work/hosts-no-kernel-box.env"
 grep -v '^REGISTRY_HOST=' "$work/hosts-good.env" >"$work/hosts-no-registry-box.env"
@@ -643,7 +657,7 @@ cat >"$work/hosts-rpc-good.env" <<'ENV'
 EDGE_HOST=up-edge
 ARCHIVE_HOST=up-archive
 VALIDATOR_HOSTS="up-validator-a up-validator-b"
-RPC_HOSTS="up-rpc-1 up-rpc-2 up-rpc-3 up-rpc-4 up-rpc-5 up-rpc-6 up-rpc-7 up-rpc-8 up-rpc-9 up-rpc-10 up-rpc-11 up-rpc-12 up-rpc-13 up-rpc-14 up-rpc-15 up-rpc-16"
+RPC_HOSTS="up-rpc-1 up-rpc-2 up-rpc-3 up-rpc-4 up-rpc-5 up-rpc-6 up-rpc-7 up-rpc-8 up-rpc-9 up-rpc-10 up-rpc-11 up-rpc-12 up-rpc-13 up-rpc-14 "
 OLD_WALLET_HOST=up-old-wallet
 ENV
 
@@ -651,7 +665,7 @@ cat >"$work/hosts-rpc-bad.env" <<'ENV'
 EDGE_HOST=up-edge
 ARCHIVE_HOST=up-archive
 VALIDATOR_HOSTS="up-validator-a up-validator-b"
-RPC_HOSTS="up-rpc-1 up-rpc-2 up-rpc-3 up-rpc-4 up-rpc-5 up-rpc-6 up-rpc-7 up-rpc-8 up-rpc-9-fresh up-rpc-10-dead up-rpc-11 up-rpc-13 up-rpc-14 up-rpc-15 down-rpc-16"
+RPC_HOSTS="up-rpc-1 up-rpc-2 up-rpc-3 up-rpc-4 up-rpc-5 up-rpc-6 up-rpc-7 up-rpc-8 up-rpc-9-fresh up-rpc-10-dead up-rpc-11 up-rpc-14 down-rpc-13"
 OLD_WALLET_HOST=up-old-wallet
 ENV
 
@@ -659,11 +673,11 @@ cat >"$work/hosts-placement-bad.env" <<'ENV'
 EDGE_HOST=up-edge
 ARCHIVE_HOST=up-archive
 VALIDATOR_HOSTS="up-validator-a-node up-validator-b-web down-validator-c"
-RPC_HOSTS="up-validator-a-node up-rpc-2 up-rpc-3 up-rpc-4 up-rpc-5 up-rpc-6 up-rpc-7 up-rpc-8 up-rpc-9 up-rpc-10 up-rpc-11 up-rpc-12 up-rpc-13 up-rpc-14 up-rpc-15"
+RPC_HOSTS="up-validator-a-node up-rpc-2 up-rpc-3 up-rpc-4 up-rpc-5 up-rpc-6 up-rpc-7 up-rpc-8 up-rpc-9 up-rpc-10 up-rpc-11 up-rpc-12 up-rpc-13"
 OLD_WALLET_HOST=up-old-wallet
 ENV
 
-rpc_rest="up-rpc-2 up-rpc-3 up-rpc-4 up-rpc-5 up-rpc-6 up-rpc-7 up-rpc-8 up-rpc-9 up-rpc-10 up-rpc-11 up-rpc-12 up-rpc-13 up-rpc-14 up-rpc-15 up-rpc-16"
+rpc_rest="up-rpc-2 up-rpc-3 up-rpc-4 up-rpc-5 up-rpc-6 up-rpc-7 up-rpc-8 up-rpc-9 up-rpc-10 up-rpc-11 up-rpc-12 up-rpc-13 up-rpc-14 "
 cat >"$work/hosts-placement-unretained.env" <<ENV
 EDGE_HOST=up-edge
 ARCHIVE_HOST=up-archive
@@ -805,11 +819,13 @@ CHECK_LIVE_TEST_TIMEOUT=1 expect check_live_hosts_timeout "$work/hosts-hang.env"
 fx="$work/repo"
 mkdir -p "$fx/tools/bringup" "$fx/deploy"
 cp "$root/deploy/rollout.kvx" "$fx/deploy/"
-cp "$root/tools/bringup/check-live.sh" "$root/tools/bringup/ca.sh" "$root/tools/bringup/human-state-preserve.sh" "$root/tools/bringup/railway-names.env" "$fx/tools/bringup/"
+cp "$root/tools/bringup/check-live.sh" "$root/tools/bringup/ca.sh" "$root/tools/bringup/human-state-preserve.sh" "$root/tools/bringup/railway-names.env" "$root/tools/bringup/ca-services.tsv" "$fx/tools/bringup/"
 ca="$fx/tools/bringup/ca.sh"
 mkdir -p "$fx/tools/qualification/paxeer-x"
 cp "$root/tools/qualification/paxeer-x/registry-router-bootstrap.py" "$fx/tools/qualification/paxeer-x/"
 fx_checker="$fx/tools/bringup/check-live.sh"
+mkdir -p "$fx/docs/site/docs/reference"
+cp "$root/docs/site/docs/reference/public-rpc.md" "$fx/docs/site/docs/reference/"
 fx_app() {
 	local app="${1%.toml}"
 	app="${app//\//-}"
@@ -889,11 +905,13 @@ fi
 
 shm_before="$(ls /dev/shm)"
 : >"$CHECK_LIVE_TEST_STDIN"
-CHECK_LIVE_TEST_PROGRAM="$ca" expect ca_issue_receipt_authority_on_the_volume "$work/hosts-good.env" 0 issue receipt-authority -- \
-	"issued receipt-authority target=box:KERNEL_HOST custody=volume fingerprint=" \
+CHECK_LIVE_TEST_PROGRAM="$ca" expect ca_issue_retired_receipt_authority_refused "$work/hosts-good.env" 2 issue receipt-authority -- \
+	"ca: unknown service receipt-authority"
+CHECK_LIVE_TEST_PROGRAM="$ca" expect ca_issue_agentd_on_the_volume "$work/hosts-good.env" 0 issue agentd -- \
+	"issued agentd target=box:KERNEL_HOST custody=volume fingerprint=" \
 	"expires_in=39"
 
-tls="$fly/$kernel/app/data/tls/receipt-authority"
+tls="$fly/$kernel/app/data/tls/agentd"
 san="$(openssl x509 -in "$tls/cert.pem" -noout -ext subjectAltName 2>/dev/null || true)"
 if [ "$(stat -c %a "$tls")" = 700 ] &&
 	[ "$(stat -c %a "$tls/key.pem")$(stat -c %a "$tls/key.der")$(stat -c %a "$tls/identity.p12")$(stat -c %a "$tls/password")" = 600600600600 ] &&
@@ -903,14 +921,14 @@ if [ "$(stat -c %a "$tls")" = 700 ] &&
 	[ "$(openssl pkey -in "$tls/key.pem" -pubout 2>/dev/null)" = "$(openssl x509 -in "$tls/cert.pem" -noout -pubkey)" ] &&
 	[ "$(openssl pkey -inform DER -in "$tls/key.der" -pubout 2>/dev/null)" = "$(openssl x509 -inform DER -in "$tls/cert.der" -noout -pubkey)" ] &&
 	openssl pkcs12 -in "$tls/identity.p12" -passin "file:$tls/password" -noout >/dev/null 2>&1 &&
-	grep -q 'DNS:layerx-receipt-authority' <<<"$san" && grep -q 'DNS:authority' <<<"$san" &&
+	grep -q 'DNS:layerx-agentd' <<<"$san" && grep -q 'DNS:machine.paxeer.network' <<<"$san" &&
 	grep -q 'DNS:kernel.paxeer.network' <<<"$san" &&
 	grep -q 'DNS:localhost' <<<"$san" && grep -q 'IP Address:127.0.0.1' <<<"$san" &&
 	[ "$(grep -o 'DNS:\|IP Address:' <<<"$san" | wc -l)" -eq 5 ] &&
 	openssl x509 -in "$tls/cert.pem" -noout -ext extendedKeyUsage | grep -q 'TLS Web Server Authentication'; then
 	echo "ok   ca_issue_lands_the_material_on_the_volume"
 else
-	echo "FAIL ca_issue_lands_the_material_on_the_volume: want 0600 key, der, p12 and password files in a 0700 directory, no .new leftovers, the CA copied, a chained certificate on the box's key with exactly the receipt authority SANs, the kernel box's public name, localhost and the loopback address"
+	echo "FAIL ca_issue_lands_the_material_on_the_volume: want 0600 key, der, p12 and password files in a 0700 directory, no .new leftovers, the CA copied, a chained certificate on the box's key with exactly the agentd SANs, the kernel box's public name, localhost and the loopback address"
 	ls -la "$tls" 2>&1 || true
 	printf '%s\n' "$san"
 	failures=$((failures + 1))
@@ -934,34 +952,35 @@ output="$(CHECK_LIVE_TIMEOUT=5 "$ca" issue gateway-redis 2>&1)" || status=$?
 sec="$work/redis-secrets"
 mkdir -p "$sec"
 for name in CA CA_DER CERT CERT_DER KEY KEY_DER P12 PASSWORD; do
-	rv redis-router "REDIS_TLS_$name" >"$sec/REDIS_TLS_$name" 2>/dev/null || true
+	rv redis-gateway "REDIS_TLS_$name" >"$sec/REDIS_TLS_$name" 2>/dev/null || true
 done
 san="$(openssl x509 -in "$sec/REDIS_TLS_CERT" -noout -ext subjectAltName 2>/dev/null || true)"
 if [ "$status" -eq 0 ] && [ "$(wc -l <<<"$output")" -eq 1 ] &&
-	[[ "$output" =~ ^issued\ gateway-redis\ target=railway:redis-router\ custody=secrets\ fingerprint=([0-9A-F]{2}:){31}[0-9A-F]{2}\ expires_in=39[0-9]d$ ]] &&
-	[ "$(sort "$CHECK_LIVE_TEST_IMPORTS" | tr '\n' ' ')" = "redis-router REDIS_TLS_CA redis-router REDIS_TLS_CA_DER redis-router REDIS_TLS_CERT redis-router REDIS_TLS_CERT_DER redis-router REDIS_TLS_KEY redis-router REDIS_TLS_KEY_DER redis-router REDIS_TLS_P12 redis-router REDIS_TLS_PASSWORD " ] &&
-	[ "$(wc -l <"$CHECK_LIVE_TEST_CALLS")" -eq 9 ] && [ "$(grep -c '^railway redis-router variable list $' "$CHECK_LIVE_TEST_CALLS")" -eq 1 ] &&
-	[ "$(grep -c '^railway redis-router variable set REDIS_TLS_' "$CHECK_LIVE_TEST_CALLS")" -eq 8 ] &&
+	[[ "$output" =~ ^issued\ gateway-redis\ target=railway:redis-gateway\ custody=secrets\ fingerprint=([0-9A-F]{2}:){31}[0-9A-F]{2}\ expires_in=39[0-9]d$ ]] &&
+	[ "$(sort "$CHECK_LIVE_TEST_IMPORTS" | tr '\n' ' ')" = "redis-gateway REDIS_TLS_CA redis-gateway REDIS_TLS_CA_DER redis-gateway REDIS_TLS_CERT redis-gateway REDIS_TLS_CERT_DER redis-gateway REDIS_TLS_KEY redis-gateway REDIS_TLS_KEY_DER redis-gateway REDIS_TLS_P12 redis-gateway REDIS_TLS_PASSWORD " ] &&
+	[ "$(wc -l <"$CHECK_LIVE_TEST_CALLS")" -eq 9 ] && [ "$(grep -c '^railway redis-gateway variable list $' "$CHECK_LIVE_TEST_CALLS")" -eq 1 ] &&
+	[ "$(grep -c '^railway redis-gateway variable set REDIS_TLS_' "$CHECK_LIVE_TEST_CALLS")" -eq 8 ] &&
 	cmp -s "$sec/REDIS_TLS_CA" "$work/ca/ca.pem" && cmp -s "$sec/REDIS_TLS_CA_DER" "$work/ca/ca.der" &&
 	openssl verify -CAfile "$work/ca/ca.pem" "$sec/REDIS_TLS_CERT" >/dev/null 2>&1 &&
 	[ "$(openssl pkey -in "$sec/REDIS_TLS_KEY" -pubout 2>/dev/null)" = "$(openssl x509 -in "$sec/REDIS_TLS_CERT" -noout -pubkey)" ] &&
 	[ "$(openssl pkey -inform DER -in "$sec/REDIS_TLS_KEY_DER" -pubout 2>/dev/null)" = "$(openssl x509 -inform DER -in "$sec/REDIS_TLS_CERT_DER" -noout -pubkey)" ] &&
 	openssl pkcs12 -in "$sec/REDIS_TLS_P12" -passin "file:$sec/REDIS_TLS_PASSWORD" -noout >/dev/null 2>&1 &&
-	grep -q 'DNS:layerx-gateway-redis' <<<"$san" && grep -q 'DNS:redis-router.railway.internal' <<<"$san" &&
+	grep -q 'DNS:layerx-gateway-redis' <<<"$san" && grep -q 'DNS:redis-gateway.railway.internal' <<<"$san" &&
 	[ "$(ls /dev/shm)" = "$shm_before" ]; then
 	echo "ok   ca_issue_gateway_redis_as_railway_variables"
 else
-	echo "FAIL ca_issue_gateway_redis_as_railway_variables: want one issued line with the fingerprint only, the eight REDIS_TLS variables of the redis-router service holding a chained identity with its Railway private name, one variable list and eight variable set calls and no directory left in /dev/shm, got exit $status"
+	echo "FAIL ca_issue_gateway_redis_as_railway_variables: want one issued line with the fingerprint only, the eight REDIS_TLS variables of the redis-gateway service holding a chained identity with its Railway private name, one variable list and eight variable set calls and no directory left in /dev/shm, got exit $status"
 	printf '%s\n' "$output"
 	cat "$CHECK_LIVE_TEST_CALLS" "$CHECK_LIVE_TEST_IMPORTS"
 	failures=$((failures + 1))
 fi
 
-expected_ca_services=(pending-core pending-core-admin receipt-authority agent-boundary agentd agentd-client
-	paxeer-boundary-loopback paxeer-boundary-public guarantor human human-event-client human-attestor-client
-	human-kms human-kms-client human-kms-executor relay-archive gateway-redis gateway-client identity
+expected_ca_services=(pending-core pending-core-admin agent-boundary agentd agentd-client
+	paxeer-boundary-loopback paxeer-boundary-public human human-event-client human-attestor-client
+	human-kms human-kms-client human-kms-executor gateway-redis gateway-client identity
 	internal-kms internal-journeys internal-payments internal-approvals internal-programs internal-redis
 	registry registry-event-client indexer interop-client developer developer-client dashboard-client ramp-client)
+approved_ca_set="$(awk '{print $1}' "$root/tools/bringup/tests/fixtures/repair_m794/approved-roster.tsv" | sort)"
 expected_ca_set="$(printf '%s\n' "${expected_ca_services[@]}" | sort)"
 want="${#expected_ca_services[@]}"
 LAYERX_CA_DIR="$work/attestor-ca" "$ca" init >/dev/null
@@ -970,7 +989,7 @@ output="$("$ca" services | while read -r service _; do
 	BRINGUP_HOSTS_FILE="$work/hosts-good.env" CHECK_LIVE_TIMEOUT=5 LAYERX_ATTESTOR_CA_DIR="$work/attestor-ca" "$ca" issue "$service" </dev/null || exit 1
 done 2>&1)" || status=$?
 attestor_client="$fly/$kernel/app/data/tls/human-attestor-client"
-if [ "$status" -eq 0 ] && [ "$(grep -c '^\(issued\|reused\) ' <<<"$output")" -eq "$want" ] && [ "$(sort -u <<<"$expected_ca_set" | wc -l)" -eq "$want" ] &&
+if [ "$status" -eq 0 ] && [ "$(grep -c '^\(issued\|reused\) ' <<<"$output")" -eq "$want" ] && [ "$(sort -u <<<"$expected_ca_set" | wc -l)" -eq "$want" ] && [ "$expected_ca_set" = "$approved_ca_set" ] &&
 	[ "$("$ca" services | awk '{print $1}' | sort)" = "$expected_ca_set" ] &&
 	[ "$(sed -n 's/^\(issued\|reused\) \([^ ]*\) .*/\2/p' <<<"$output" | sort)" = "$expected_ca_set" ] &&
 	openssl verify -CAfile "$work/attestor-ca/ca.pem" "$attestor_client/cert.pem" >/dev/null 2>&1 &&
@@ -981,7 +1000,7 @@ if [ "$status" -eq 0 ] && [ "$(grep -c '^\(issued\|reused\) ' <<<"$output")" -eq
 	grep -q "DNS:internal-programs.railway.internal" <<<"$(rv internal-programs INTERNAL_TLS_CERT | openssl x509 -noout -ext subjectAltName)" &&
 	grep -q "DNS:webhooks-ingress.railway.internal" <<<"$(rv webhooks-ingress WEBHOOKS_INGRESS_TLS_CERT | openssl x509 -noout -ext subjectAltName)" &&
 	cmp -s "$rw/webhooks-ingress/WEBHOOKS_INGRESS_TLS_CERT" "$rw/webhooks-public/WEBHOOKS_INGRESS_TLS_CERT" &&
-	[ -s "$rw/router/ENDPOINT_CLIENT_P12" ] && [ -s "$rw/interop/INTEROP_CLIENT_P12" ] && [ -s "$rw/ramp/RAMP_CLIENT_P12" ] &&
+	[ -s "$rw/gateway/ENDPOINT_CLIENT_P12" ] && [ -s "$rw/interop/INTEROP_CLIENT_P12" ] && [ -s "$rw/ramp/RAMP_CLIENT_P12" ] &&
 	[ -s "$CHECK_LIVE_TEST_BOXES/up-box-registry/data/tls/registry/cert.pem" ]; then
 	echo "ok   ca_issue_every_service"
 else
@@ -996,14 +1015,14 @@ rv indexer INDEXER_TLS_CA >"$fly/$(fx_app services/platform/hosted/indexer/fly.t
 
 CHECK_LIVE_TEST_PROGRAM="$fx_checker" LAYERX_ATTESTOR_CA_DIR="$work/attestor-ca" expect check_live_ca_passing "$work/hosts-good.env" 0 ca -- \
 	"pass ca ca expires_in=36" \
-	"pass receipt-authority target=box:KERNEL_HOST chain=ok san=5/5 expires_in=39" \
+	"pass pending-core target=box:KERNEL_HOST chain=ok san=4/4 expires_in=39" \
 	"pass human-attestor-client target=box:KERNEL_HOST chain=ok san=0/0 expires_in=39" \
 	"pass agentd-client target=box:KERNEL_HOST chain=ok san=0/0 expires_in=39" \
 	"pass agentd target=box:KERNEL_HOST chain=ok san=5/5 expires_in=39" \
 	"pass registry target=box:REGISTRY_HOST chain=ok san=4/4 expires_in=39" \
 	"pass internal-kms target=railway:internal-kms chain=ok san=4/4 expires_in=39" \
-	"pass gateway-redis target=railway:redis-router chain=ok san=4/4 expires_in=39" \
-	"pass gateway-client target=railway:router chain=ok san=1/1 expires_in=39" \
+	"pass gateway-redis target=railway:redis-gateway chain=ok san=4/4 expires_in=39" \
+	"pass gateway-client target=railway:gateway chain=ok san=1/1 expires_in=39" \
 	"pass developer target=railway:webhooks-public,webhooks-ingress chain=ok san=5/5 expires_in=39" \
 	"check-live: all checks passed"
 
@@ -1024,7 +1043,7 @@ fi
 # archive.paxeer.network ending at its own fixture ISRG Root X1; a copy of bash
 # named layerx-indexer carries the indexer environment and a real SQLite
 # database with the cursor tables; and a curl wrapper ahead on PATH answers
-# the indexer's .internal /healthz to the internal CA the ca cases left on its
+# the indexer's private network host /healthz to the internal CA the ca cases left on its
 # volume, the /comet location and the router's history methods.
 indexer=indexer
 ix="$work/indexer"
@@ -1090,7 +1109,7 @@ https://api7.mainnet-beta.paxeer.network/comet)
 	[ -n "$data" ] || reply "${CHECK_LIVE_TEST_COMET_GET:-403}" '<html>403 Forbidden</html>'
 	reply 200 '{"jsonrpc":"2.0","id":1,"result":{"sync_info":{"earliest_block_height":"25000000"}}}'
 	;;
-https://api-mainnet-beta.paxeer.network/rpc)
+https://layerx-gateway.layerx-testnet.svc.cluster.local/rpc)
 	method="$(python3 -c 'import json, sys; r = json.loads(sys.argv[1]); print(r["method"], r["params"][0])' "$data")"
 	case "$method" in
 	"px_getUnifiedHistory 0x00000000000000000000000000000000000000aa")
@@ -1148,6 +1167,7 @@ rm "$fx/services/platform/hosted/indexer/fly.toml"
 export CHECK_LIVE_TEST_OUTER_CURL="$work/bin/curl"
 export CHECK_LIVE_TEST_INDEXER_METHODS="$ix/methods.log"
 export CHECK_LIVE_TEST_LAYERX=1111111111111111111111111111111111111111111111111111111111111111
+export CHECK_LIVE_INDEXER_RPC=https://layerx-gateway.layerx-testnet.svc.cluster.local/rpc
 export CHECK_LIVE_INDEXER_CONNECT="127.0.0.1:$archive_port"
 export CHECK_LIVE_TEST_MACHINES='[{"state":"started","config":{"mounts":[{"path":"/data","volume":"vol_fixture"}]}}]'
 sqlite3 "$ix/state/indexer.sqlite" "CREATE TABLE cursors(chain TEXT PRIMARY KEY, position INTEGER NOT NULL, hash TEXT NOT NULL, finalized_position INTEGER, finalized_boundary INTEGER, updated_at INTEGER NOT NULL);
@@ -1278,7 +1298,7 @@ check_live_indexer_failing() {
 		"check-live: 6 check(s) failed"
 }
 check_live_indexer_failing
-unset CHECK_LIVE_TEST_INDEXER_PUBLIC CHECK_LIVE_TEST_IPS CHECK_LIVE_TEST_MACHINES CHECK_LIVE_INDEXER_ACCOUNT CHECK_LIVE_INDEXER_CONNECT CHECK_LIVE_TEST_OUTER_CURL CHECK_LIVE_TEST_LAYERX CHECK_LIVE_TEST_INDEXER_METHODS
+unset CHECK_LIVE_INDEXER_RPC CHECK_LIVE_TEST_INDEXER_PUBLIC CHECK_LIVE_TEST_IPS CHECK_LIVE_TEST_MACHINES CHECK_LIVE_INDEXER_ACCOUNT CHECK_LIVE_INDEXER_CONNECT CHECK_LIVE_TEST_OUTER_CURL CHECK_LIVE_TEST_LAYERX CHECK_LIVE_TEST_INDEXER_METHODS
 
 # Seven ways a certificate fails: absent on the box, signed by another CA,
 # short of its SANs, inside thirty days of expiry, its box unassigned in the
@@ -1295,21 +1315,21 @@ openssl req -new -key "$sec/REDIS_TLS_KEY" -subj '/CN=layerx-gateway-redis' -out
 printf 'subjectAltName=DNS:localhost\n' >"$work/redis.cnf"
 openssl x509 -req -in "$work/redis.csr" -CA "$work/ca/ca.pem" -CAkey "$work/ca/ca.key" -CAcreateserial \
 	-days 397 -sha256 -extfile "$work/redis.cnf" -out "$work/redis.pem" 2>/dev/null
-base64 -w 0 "$work/redis.pem" >"$rw/redis-router/REDIS_TLS_CERT"
-relay="$fly/$kernel/app/data/tls/relay-archive"
-openssl req -new -key "$relay/key.pem" -subj '/CN=layerx-relay-archive' -out "$work/relay.csr" 2>/dev/null
-printf 'subjectAltName=%s\n' "$("$ca" services | awk '$1 == "relay-archive" {print $6}')" >"$work/relay.cnf"
-openssl x509 -req -in "$work/relay.csr" -CA "$work/ca/ca.pem" -CAkey "$work/ca/ca.key" -CAcreateserial \
-	-days 10 -sha256 -extfile "$work/relay.cnf" -out "$relay/cert.pem" 2>/dev/null
+base64 -w 0 "$work/redis.pem" >"$rw/redis-gateway/REDIS_TLS_CERT"
+short_lived="$CHECK_LIVE_TEST_BOXES/up-box-kernel/data/tls/human-kms"
+openssl req -new -key "$short_lived/key.pem" -subj '/CN=layerx-human-kms' -out "$work/short-lived.csr" 2>/dev/null
+printf 'subjectAltName=%s\n' "$("$ca" services | awk '$1 == "human-kms" {print $6}')" >"$work/short-lived.cnf"
+openssl x509 -req -in "$work/short-lived.csr" -CA "$work/ca/ca.pem" -CAkey "$work/ca/ca.key" -CAcreateserial \
+	-days 10 -sha256 -extfile "$work/short-lived.cnf" -out "$short_lived/cert.pem" 2>/dev/null
 rm "${rw:?}/interop/INTEROP_CLIENT_CERT"
 
 CHECK_LIVE_TEST_PROGRAM="$fx_checker" expect check_live_ca_failing "$work/hosts-no-registry-box.env" 1 ca -- \
 	"pass ca ca expires_in=36" \
-	"pass receipt-authority target=box:KERNEL_HOST chain=ok san=5/5 expires_in=39" \
+	"pass pending-core target=box:KERNEL_HOST chain=ok san=4/4 expires_in=39" \
 	"fail human target=box:KERNEL_HOST cert=absent" \
 	"fail identity target=railway:identity chain=untrusted san=5/5 expires_in=39" \
-	"fail gateway-redis target=railway:redis-router chain=ok san=1/4 missing=DNS:layerx-gateway-redis,IP:127.0.0.1,DNS:redis-router.railway.internal expires_in=39" \
-	"fail relay-archive target=box:KERNEL_HOST chain=ok san=4/4 expires_in=" \
+	"fail gateway-redis target=railway:redis-gateway chain=ok san=1/4 missing=DNS:layerx-gateway-redis,IP:127.0.0.1,DNS:redis-gateway.railway.internal expires_in=39" \
+	"fail human-kms target=box:KERNEL_HOST chain=ok san=4/4 expires_in=" \
 	"fail registry target=box:REGISTRY_HOST host=absent" \
 	"fail registry-event-client target=box:REGISTRY_HOST host=absent" \
 	"fail interop-client target=railway:interop cert=absent" \
@@ -1358,14 +1378,14 @@ unset CHECK_LIVE_TEST_MACHINES
 expect check_live_rpc_nodes_passing "$work/hosts-rpc-good.env" 0 rpc-nodes -- \
 	"pass api1 head=26400000 lag=0 unit=active active=7200s" \
 	"pass api12 head=26400000 lag=0 unit=active active=7200s" \
-	"pass api16 head=26400000 lag=0 unit=active active=7200s" \
+	"pass api14 head=26400000 lag=0 unit=active active=7200s" \
 	"check-live: all checks passed"
 
-if [ "$(grep -c ' curl$' "$CHECK_LIVE_TEST_CALLS")" -eq 16 ] && [ "$(grep -c 'systemctl' "$CHECK_LIVE_TEST_CALLS")" -eq 16 ] &&
-	[ "$(grep -c '^pass api' <<<"$(BRINGUP_HOSTS_FILE="$work/hosts-rpc-good.env" "$checker" rpc-nodes)")" -eq 16 ]; then
+if [ "$(grep -c ' curl$' "$CHECK_LIVE_TEST_CALLS")" -eq 14 ] && [ "$(grep -c 'systemctl' "$CHECK_LIVE_TEST_CALLS")" -eq 14 ] &&
+	[ "$(grep -c '^pass api' <<<"$(BRINGUP_HOSTS_FILE="$work/hosts-rpc-good.env" "$checker" rpc-nodes)")" -eq 14 ]; then
 	echo "ok   check_live_rpc_nodes_one_request_per_name_and_destination"
 else
-	echo "FAIL check_live_rpc_nodes_one_request_per_name_and_destination: want sixteen curl calls, sixteen ssh unit calls and sixteen pass lines"
+	echo "FAIL check_live_rpc_nodes_one_request_per_name_and_destination: want fourteen numbered node calls and fourteen pass lines"
 	cat "$CHECK_LIVE_TEST_CALLS"
 	failures=$((failures + 1))
 fi
@@ -1379,14 +1399,14 @@ expect check_live_rpc_nodes_failing "$work/hosts-rpc-bad.env" 1 rpc-nodes -- \
 	"fail api10 head=26400000 lag=0 unit=failed active=0s" \
 	"fail api12 head=26400000 lag=0 unit=unmapped active=none" \
 	"fail api14 head=26399989 lag=11 unit=active active=7200s" \
-	"fail RPC_HOSTS[14] ssh=255" \
-	"fail api16 head=26400000 lag=0 unit=unmapped active=none" \
+	"fail RPC_HOSTS[12] ssh=255" \
+	"fail api13 head=26400000 lag=0 unit=unmapped active=none" \
 	"check-live: 7 check(s) failed"
 unset CHECK_LIVE_TEST_LAG CHECK_LIVE_TEST_DOWN
 
 expect check_live_rpc_placement_passing "$work/hosts-rpc-good.env" 0 rpc-placement -- \
 	"pass api1 host=RPC_HOSTS[0] validator=no head=26400000 lag=0" \
-	"pass api16 host=RPC_HOSTS[15] validator=no head=26400000 lag=0" \
+	"pass api14 host=RPC_HOSTS[13] validator=no head=26400000 lag=0" \
 	"pass VALIDATOR_HOSTS[0] paxd=inactive listen=none" \
 	"pass VALIDATOR_HOSTS[1] paxd=inactive listen=none" \
 	"check-live: all checks passed"
@@ -1398,7 +1418,7 @@ expect check_live_rpc_placement_failing "$work/hosts-placement-bad.env" 1 rpc-pl
 	"fail api4 host=none validator=no head=26400000 lag=0" \
 	"fail api5 host=VALIDATOR_HOSTS[1] validator=yes head=26400000 lag=0" \
 	"fail api7 host=RPC_HOSTS[6] validator=no head=26399989 lag=11" \
-	"fail api16 host=none validator=no head=26400000 lag=0" \
+	"fail api14 host=none validator=no head=26400000 lag=0" \
 	"fail VALIDATOR_HOSTS[0] paxd=active listen=none" \
 	"fail VALIDATOR_HOSTS[1] paxd=inactive listen=80,443" \
 	"fail VALIDATOR_HOSTS[2] ssh=255" \
@@ -1535,39 +1555,54 @@ CHECK_LIVE_HPX_ORIGIN="$origin/local" CHECK_LIVE_HPX_APP_ORIGIN="$origin/good" e
 expect check_live_hpx_hosts_file_lacks_role "$work/hosts-missing.env" 2 hpx -- \
 	"check-live: BRINGUP_HOSTS_FILE lacks ARCHIVE_HOST"
 
-# The edge cases read the manifest and rendered sites that the ssh stand-in
-# answers from CHECK_LIVE_TEST_EDGE; the registered names resolve to the edge
-# fixture destination through CHECK_LIVE_TEST_DNS.
+# Renderer -> six-field manifest -> real contract decoder and route selection.
+edge_fixture() {
+	local dir="$work/edge-current"
+	rm -rf "$dir"
+	mkdir -p "$dir/live"
+	cat >"$dir/map"
+	printf 'EDGE_APP=map\n' >"$dir/edge.env"
+	while IFS=$'\t' read -r name _; do
+		name="${name%%:*}"
+		mkdir -p "$dir/live/$name"
+		cp "$work/ca/ca.pem" "$dir/live/$name/fullchain.pem"
+	done <"$dir/map"
+	EDGE_LOCAL=1 EDGE_NGINX_DIR="$dir/nginx" EDGE_CERT_DIR="$dir/live" "$root/tools/bringup/edge.sh" set "$dir/edge.env" --render-only >/dev/null
+	cat "$dir/nginx/edge/manifest" >"$CHECK_LIVE_TEST_EDGE"
+	echo @@sites >>"$CHECK_LIVE_TEST_EDGE"
+	for file in "$dir/nginx"/sites-available/*.conf "$dir/nginx"/edge/stream/*.conf; do
+		[ ! -f "$file" ] || cat "$file" >>"$CHECK_LIVE_TEST_EDGE"
+	done
+}
+export CHECK_LIVE_TEST_EDGE_CURRENT=1
 printf '@@sites\n' >"$CHECK_LIVE_TEST_EDGE"
 expect check_live_edge_empty_manifest "$work/hosts-good.env" 1 edge -- \
-	"fail manifest names=0" \
+	"fail manifest contract=invalid" \
 	"check-live: 1 check(s) failed"
-
-printf '%s\n' "api-mainnet-beta.paxeer.network http paxeer-wallet-gateway 443" @@sites \
-	"# rendered by tools/bringup/edge.sh; edit the manifest through it, not this file" \
-	"proxy_pass https://\$edge_upstream;" >"$CHECK_LIVE_TEST_EDGE"
+printf 'api-mainnet-beta.paxeer.network\trailway\tgateway.example.net:443\t-\n' | edge_fixture
 export CHECK_LIVE_TEST_DNS="api-mainnet-beta:up-edge up-edge:up-edge search:up-edge machine:up-edge"
 expect check_live_edge_passing "$work/hosts-good.env" 0 edge -- \
 	"pass manifest names=1" \
 	"pass sites validator=0" \
-	"pass api-mainnet-beta.paxeer.network mode=http app=paxeer-wallet-gateway edge=yes tls=verified route=/readyz http=200 fly-request-id=present body=match" \
+	"pass api-mainnet-beta.paxeer.network mode=http kind=railway edge=yes tls=verified body=match" \
 	"check-live: all checks passed"
-
-printf '%s\n' "api-mainnet-beta.paxeer.network http paxeer-wallet-gateway 443" \
-	"search.paxeer.network http paxeer-search-front 443" \
-	"hooks.paxeer.network http paxeer-no-such-app 443" \
-	"machine.paxeer.network stream fx-stream-app 9454" @@sites \
-	"	server up-validator-a:443;" >"$CHECK_LIVE_TEST_EDGE"
+{
+	printf 'api-mainnet-beta.paxeer.network\trailway\tgateway.example.net:443\t-\n'
+	printf 'search.paxeer.network\trailway\tsearch.example.net:443\t-\n'
+	printf 'hooks.paxeer.network\trailway\tmissing.example.net:443\t-\n'
+	printf 'machine.paxeer.network\tstream\tstream.box.test:9454\t-\n'
+} | edge_fixture
+printf '\tserver up-validator-a:443;\n' >>"$CHECK_LIVE_TEST_EDGE"
 export CHECK_LIVE_TEST_DNS="api-mainnet-beta:up-rpc-1 up-edge:up-edge search:up-edge machine:up-edge hooks:up-edge" CHECK_LIVE_TEST_DIFFER="search"
 expect check_live_edge_failing "$work/hosts-good.env" 1 edge -- \
 	"pass manifest names=4" \
 	"fail sites validator=1" \
-	"fail api-mainnet-beta.paxeer.network mode=http app=paxeer-wallet-gateway edge=no tls=verified route=/readyz http=200 fly-request-id=present body=match" \
-	"fail search.paxeer.network mode=http app=paxeer-search-front edge=yes tls=verified route=/healthz http=200 fly-request-id=present body=differ" \
-	"fail hooks.paxeer.network mode=http app=paxeer-no-such-app edge=yes route=unknown" \
-	"fail machine.paxeer.network mode=stream app=fx-stream-app port=9454 edge=yes presented=none" \
+	"fail api-mainnet-beta.paxeer.network mode=http edge=no" \
+	"fail search.paxeer.network mode=http kind=railway upstream=differ" \
+	"fail hooks.paxeer.network mode=http kind=railway upstream=differ" \
+	"fail machine.paxeer.network mode=stream certificate=differ" \
 	"check-live: 5 check(s) failed"
-unset CHECK_LIVE_TEST_DNS CHECK_LIVE_TEST_DIFFER
+unset CHECK_LIVE_TEST_DNS CHECK_LIVE_TEST_DIFFER CHECK_LIVE_TEST_EDGE_CURRENT
 
 # The paxeer-boundary case reads the kernel machine through the flyctl
 # stand-in, which runs no layerx-paxeer-boundary process and no hop, and the
@@ -1653,6 +1688,7 @@ unset CHECK_LIVE_TEST_IPS CHECK_LIVE_TEST_AGENT_RPC CHECK_LIVE_TEST_AGENT_RPC_CO
 # the fixture volume and run directories with each row's owner and mode.
 kinit_root="$CHECK_LIVE_TEST_FLY/$kernel/app"
 kinit="$kinit_root/run/layerx/init"
+export CHECK_LIVE_PAXD_HOME=/data/paxd
 kernel_rows="$(bash -c 'source "$1" && kernel_roster' bash "$fx_checker")"
 while read -r _ _ _ material; do
 	[ "$material" != - ] || continue
@@ -1726,16 +1762,16 @@ CHECK_LIVE_TEST_PROGRAM="$fx_checker" expect check_live_kernel_app_passing "$wor
 	"pass role human-owner uid=4021 state=running" \
 	"pass role human uid=4020 state=running" \
 	"pass role human-tls uid=4020 state=running" \
-	"pass role layerxd uid=4020 state=running" \
-	"pass roster app=$kernel candidate=$kernel_candidate roles=25 running=25 operational=yes" \
+	"pass role paxd uid=4020 state=running" \
+	"pass roster app=$kernel candidate=$kernel_candidate roles=19 running=19 operational=yes" \
 	"check-live: all checks passed"
 kernel_fixture "$work/kernel-plan-genesis"
 CHECK_LIVE_TEST_PROGRAM="$fx_checker" expect check_live_kernel_app_pre_genesis "$work/hosts-good.env" 3 kernel-app -- \
 	"pass role human uid=4020 state=running" \
-	"wait role layerxd uid=4020 state=waiting-genesis candidate=$kernel_candidate" \
+	"pass role paxd uid=4020 state=running" \
 	"wait role human-kms uid=4026 state=waiting-genesis candidate=$kernel_candidate" \
-	"bootstrap app=$kernel candidate=$kernel_candidate state=pre-genesis roles=25 running=7 waiting-genesis=18 operational=no" \
-	"check-live: pre-genesis bootstrap, 18 role(s) waiting on the genesis; not operational"
+	"bootstrap app=$kernel candidate=$kernel_candidate state=pre-genesis roles=19 running=8 waiting-genesis=11 operational=no" \
+	"check-live: pre-genesis bootstrap, 11 role(s) waiting on the genesis; not operational"
 kernel_fixture "$work/kernel-plan-failing"
 chmod 0755 "$kinit_root/run/human-private/movement"
 CHECK_LIVE_TEST_PROGRAM="$fx_checker" expect check_live_kernel_app_failing "$work/hosts-good.env" 1 kernel-app -- \
@@ -1758,7 +1794,7 @@ kill -TERM -- "-$kernel_init_pgid" 2>/dev/null || true
 # The gas cases run the probe of the fixture tree against the gas station
 # app's fixture machine, whose volume holds the rendered station.json, with a
 # real cast keystore as the check account; the curl stand-in answers the
-# chain name's /quote and /submit and the router's JSON-RPC from the files of
+# chain name's /quote and /submit and the node's JSON-RPC from the files of
 # CHECK_LIVE_TEST_GAS, and keeps each request the station received.
 gas="$(fx_app services/interop/deploy/gas-station/fly.toml)"
 gas_sid=0x21f7b20a555199fa73A238B1a91FD0f549068fEe
@@ -1783,7 +1819,7 @@ CHECK_LIVE_TEST_PROGRAM="$fx_checker" expect check_live_gas_toml_absent "$work/h
 
 mkdir -p "$fx/services/interop/deploy/gas-station" "$work/fly/$gas/app/data/gas-station"
 printf 'app = "%s"\n' "$gas" >"$fx/services/interop/deploy/gas-station/fly.toml"
-printf '{"listen":"[::]:8080","chain_id":125,"endpoints":["https://api-mainnet-beta.paxeer.network/rpc","https://api4.mainnet-beta.paxeer.network","https://api5.mainnet-beta.paxeer.network"],"paymaster":"%s","token":"%s","decimals":6,"gas_limit":200000,"max_priority_fee_per_gas":1000000000,"max_rate_age":300}\n' \
+printf '{"listen":"[::]:8080","chain_id":125,"endpoints":["https://api-mainnet-beta.paxeer.network","https://api4.mainnet-beta.paxeer.network","https://api5.mainnet-beta.paxeer.network"],"paymaster":"%s","token":"%s","decimals":6,"gas_limit":200000,"max_priority_fee_per_gas":1000000000,"max_rate_age":300}\n' \
 	"$gas_paymaster" "$gas_sid" >"$work/fly/$gas/app/data/gas-station/station.json"
 export CHECK_LIVE_TEST_MACHINES='[{"state":"started","config":{"mounts":[{"volume":"vol_fixture"}]}}]'
 printf '"0xef0100%s"' "${gas_paymaster#0x}" >"$CHECK_LIVE_TEST_GAS/eth_getCode"
@@ -1808,7 +1844,7 @@ printf '{"status":"0x1","logs":[{"address":"%s","topics":["0xddf252ad1be2c89b69c
 : >"$CHECK_LIVE_TEST_STDIN"
 CHECK_LIVE_TEST_PROGRAM="$fx_checker" expect check_live_gas_passing "$work/hosts-good.env" 0 gas -- \
 	"pass machines app=$gas machines=1 started=1 volumes=1" \
-	"pass config app=$gas chain_id=125 token=SID endpoints=3 first=router paymaster=$gas_paymaster" \
+	"pass config app=$gas chain_id=125 token=SID endpoints=3 first=node paymaster=$gas_paymaster" \
 	"pass rate-age paymaster=$gas_paymaster updated_at=1899999880 age=120 max_rate_age=300" \
 	"pass delegation account=$gas_account delegate=$gas_paymaster" \
 	"pass quote https://chain.paxeer.network/quote http=200 rate=3114000 token_amount=1869 expected=1869 max=5000 sponsor=$gas_sponsor" \
@@ -1882,6 +1918,43 @@ CHECK_LIVE_TEST_PROGRAM="$fx_checker" expect check_live_gas_undelegated "$work/h
 	"check-live: 2 check(s) failed"
 unset CHECK_LIVE_TEST_GAS CHECK_LIVE_TEST_MACHINES CHECK_LIVE_GAS_ACCOUNT_KEYSTORE CHECK_LIVE_GAS_ACCOUNT_PASSWORD_FILE CHECK_LIVE_GAS_MAX_TOKEN_AMOUNT CHECK_LIVE_GAS_RECEIPT_ATTEMPTS
 
+# Current role services keep their own deployment records. The kernel box
+# owns the real issued Human client; TLS peers require it at each role's name.
+role_bin="$work/role-bin"
+mkdir -p "$role_bin" "$work/roles"
+cp "$root/tools/bringup/tests/fixtures/repair_m794/railway.sh" "$role_bin/railway"
+chmod +x "$role_bin/railway"
+export CHECK_LIVE_TEST_ROLE_ROOTS="$work/roles"
+for service in internal-kms internal-journeys internal-payments internal-approvals internal-programs redis-internal webhooks-ingress router ramp; do
+	mkdir -p "$work/roles/$service"
+	python3 - "$service" "$work/roles/$service/status.json" <<'PYROLE'
+import json, sys
+name, path = sys.argv[1:]
+json.dump({"domains":{"serviceDomains":[],"customDomains":[]},"latestDeployment":{"id":"deploy-"+name,"status":"SUCCESS","instances":[{"id":name+"-one","status":"RUNNING"}],"meta":{"serviceManifest":{"deploy":{"numReplicas":1}},"volumeMounts":[{"mountPath":"/data"}]}}}, open(path,"w"))
+PYROLE
+done
+start_role_peer() {
+	local mode="$1" state_dir="$2" identity="$3" kind="${4:-}"
+	mkdir -p "$state_dir"
+	python3 "$root/tools/bringup/tests/fixtures/repair_m794/peers.py" "$mode" "$state_dir" "$identity" "$kind" >"$state_dir/server.log" 2>&1 &
+	internal_pids="$internal_pids $!"
+	for _ in $(seq 50); do [ ! -s "$state_dir/port" ] || return 0; sleep 0.1; done
+	cat "$state_dir/server.log" >&2
+	return 1
+}
+for group in kms journeys payments approvals programs; do
+	identity="$work/roles/internal-$group/tls"
+	mkdir -p "$identity"
+	for pair in cert.pem:CERT key.pem:KEY ca.pem:CA cert.der:CERT_DER key.der:KEY_DER ca.der:CA_DER identity.p12:P12 password:PASSWORD; do
+		rv "internal-$group" "INTERNAL_TLS_${pair#*:}" >"$identity/${pair%%:*}"
+		chmod 0600 "$identity/${pair%%:*}"
+	done
+	start_role_peer internal "$work/roles/internal-$group" "$identity"
+	printf -v "CHECK_LIVE_INTERNAL_CONNECT_${group^^}" '127.0.0.1:%s' "$(cat "$work/roles/internal-$group/port")"
+	export "CHECK_LIVE_INTERNAL_CONNECT_${group^^}"
+done
+export LAYERX_RAILWAY_BIN="$role_bin/railway"
+
 # The internal cases serve a fixture chain for the router name from a local
 # openssl s_server whose last issuer is a fixture root named ISRG Root X1, run
 # copies of sleep named layerx-event-source with the payments and programs
@@ -1912,12 +1985,12 @@ done
 export CHECK_LIVE_ROUTER_CONNECT="127.0.0.1:$router_port"
 
 CHECK_LIVE_TEST_PROGRAM="$fx_checker" expect check_live_internal_nothing_running "$work/hosts-good.env" 1 internal -- \
-	"pass public-ips app=$internal count=0" \
-	"pass public-ips app=$(fx_app services/platform/hosted/internal/redis.toml) count=0" \
-	"pass router-root host=api-mainnet-beta.paxeer.network root=X1" \
+	"pass public-domains service=internal-kms count=0" \
+	"pass public-domains service=redis-internal count=0" \
+	"pass node-root host=api-mainnet-beta.paxeer.network root=X1" \
 	"fail upstream-ca group=payments process=none" \
 	"fail upstream-ca group=programs process=none" \
-	"pass readiness group=kms url=https://kms.process.$internal.internal:9443/readyz from=$kernel http=200 ready=true" \
+	"pass readiness group=kms url=https://internal-kms.railway.internal:9443/readyz from=KERNEL_HOST http=200 ready=true" \
 	"check-live: 2 check(s) failed"
 
 cp "$(command -v bash)" "$work/internal/layerx-event-source"
@@ -1928,48 +2001,66 @@ for group in payments programs; do
 done
 : >"$CHECK_LIVE_TEST_STDIN"
 CHECK_LIVE_TEST_PROGRAM="$fx_checker" expect check_live_internal_passing "$work/hosts-good.env" 0 internal -- \
-	"pass router-root host=api-mainnet-beta.paxeer.network root=X1" \
+	"pass node-root host=api-mainnet-beta.paxeer.network root=X1" \
 	"pass upstream-ca group=payments url=https://api-mainnet-beta.paxeer.network root=X1 verifies=yes" \
 	"pass upstream-ca group=programs url=https://api-mainnet-beta.paxeer.network root=X1 verifies=yes" \
-	"pass readiness group=kms url=https://kms.process.$internal.internal:9443/readyz from=$kernel http=200 ready=true" \
-	"pass readiness group=journeys url=https://journeys.process.$internal.internal:9443/readyz from=$kernel http=200 ready=true" \
-	"pass readiness group=payments url=https://payments.process.$internal.internal:9443/readyz from=$kernel http=200 ready=true" \
-	"pass readiness group=approvals url=https://approvals.process.$internal.internal:9443/readyz from=$kernel http=200 ready=true" \
-	"pass readiness group=programs url=https://programs.process.$internal.internal:9443/readyz from=$kernel http=200 ready=true" \
+	"pass readiness group=kms url=https://internal-kms.railway.internal:9443/readyz from=KERNEL_HOST http=200 ready=true" \
+	"pass readiness group=journeys url=https://internal-journeys.railway.internal:9443/readyz from=KERNEL_HOST http=200 ready=true" \
+	"pass readiness group=payments url=https://internal-payments.railway.internal:9443/readyz from=KERNEL_HOST http=200 ready=true" \
+	"pass readiness group=approvals url=https://internal-approvals.railway.internal:9443/readyz from=KERNEL_HOST http=200 ready=true" \
+	"pass readiness group=programs url=https://internal-programs.railway.internal:9443/readyz from=KERNEL_HOST http=200 ready=true" \
 	"check-live: all checks passed"
-if [ "$(grep -c "^$kernel app ssh console sh -c 'tls=/data/tls/human-event-client app=$internal limit=5 sh -s'$" "$CHECK_LIVE_TEST_CALLS")" -eq 1 ] &&
-	[ "$(grep -c "^$internal payments ssh console sh -c 'kind=payments sh -s'$" "$CHECK_LIVE_TEST_CALLS")" -eq 1 ] &&
-	[ "$(grep -c "^$internal programs ssh console sh -c 'kind=programs sh -s'$" "$CHECK_LIVE_TEST_CALLS")" -eq 1 ] &&
+if [ "$(grep -c '^up-box-kernel .*internal-readiness ' "$CHECK_LIVE_TEST_CALLS")" -eq 5 ] &&
+	[ "$(grep -c '^railway ssh --service internal-payments ' "$CHECK_LIVE_TEST_CALLS")" -eq 1 ] &&
+	[ "$(grep -c '^railway ssh --service internal-programs ' "$CHECK_LIVE_TEST_CALLS")" -eq 1 ] &&
 	! grep -q 'PRIVATE KEY' "$CHECK_LIVE_TEST_STDIN"; then
 	echo "ok   check_live_internal_reads_each_machine_once"
 else
-	echo "FAIL check_live_internal_reads_each_machine_once: want one sh -s call on $kernel with the event client identity path and one on each pinned group, and no key on the console input"
+	echo "FAIL check_live_internal_reads_each_machine_once: want five kernel-box mTLS probes and one pin inspection per deployed source role"
 	cat "$CHECK_LIVE_TEST_CALLS"
 	failures=$((failures + 1))
 fi
+client="$CHECK_LIVE_TEST_BOXES/up-box-kernel/data/tls/human-event-client"
+mv "$client/identity.p12" "$client/identity.p12.saved"
+CHECK_LIVE_TEST_PROGRAM="$fx_checker" expect check_live_internal_absent_credentials "$work/hosts-good.env" 1 internal -- \
+	"fail readiness group=kms url=https://internal-kms.railway.internal:9443/readyz from=KERNEL_HOST curl=1 http=000" \
+	"fail readiness group=programs url=https://internal-programs.railway.internal:9443/readyz from=KERNEL_HOST curl=1 http=000" \
+	"check-live: 5 check(s) failed"
+mv "$client/identity.p12.saved" "$client/identity.p12"
 
 kill "${internal_pids##* }" 2>/dev/null || true
 wait "${internal_pids##* }" 2>/dev/null || true
 LAYERX_EVENTS_KIND=programs LAYERX_EVENTS_UPSTREAM_URL=https://api-mainnet-beta.paxeer.network LAYERX_EVENTS_UPSTREAM_CA_DER="$chain/root-X2.der" \
 	"$work/internal/layerx-event-source" -c 'sleep 600; wait' &
 internal_pids="$internal_pids $!"
-export CHECK_LIVE_TEST_IPS='[{"Type":"v6"}]'
+for service in internal-kms internal-journeys internal-payments internal-approvals internal-programs redis-internal; do
+	cp "$work/roles/$service/status.json" "$work/roles/$service/status.good"
+	python3 - "$work/roles/$service/status.json" <<'PYPUBLIC'
+import json, sys
+path=sys.argv[1]; d=json.load(open(path)); d['domains']['customDomains']=[{'domain':'unexpected.example.test'}]; json.dump(d,open(path,'w'))
+PYPUBLIC
+done
+printf 'false\n' >"$work/roles/internal-approvals/ready"
 CHECK_LIVE_TEST_DOWN="approvals" CHECK_LIVE_TEST_PROGRAM="$fx_checker" expect check_live_internal_failing "$work/hosts-good.env" 1 internal -- \
-	"fail public-ips app=$internal count=1" \
-	"fail public-ips app=$(fx_app services/platform/hosted/internal/redis.toml) count=1" \
+	"fail public-domains service=internal-kms count=1" \
+	"fail public-domains service=redis-internal count=1" \
 	"pass upstream-ca group=payments url=https://api-mainnet-beta.paxeer.network root=X1 verifies=yes" \
 	"fail upstream-ca group=programs url=https://api-mainnet-beta.paxeer.network pin=ISRG-Root-X2 served=X1" \
-	"fail readiness group=approvals url=https://approvals.process.$internal.internal:9443/readyz from=$kernel curl=7" \
-	"pass readiness group=kms url=https://kms.process.$internal.internal:9443/readyz from=$kernel http=200 ready=true" \
-	"check-live: 4 check(s) failed"
-unset CHECK_LIVE_TEST_IPS
+	"fail readiness group=approvals url=https://internal-approvals.railway.internal:9443/readyz from=KERNEL_HOST curl=1 http=000" \
+	"pass readiness group=kms url=https://internal-kms.railway.internal:9443/readyz from=KERNEL_HOST http=200 ready=true" \
+	"check-live: 8 check(s) failed"
+for service in internal-kms internal-journeys internal-payments internal-approvals internal-programs redis-internal; do mv "$work/roles/$service/status.good" "$work/roles/$service/status.json"; done
+printf 'true\n' >"$work/roles/internal-approvals/ready"
 
 export CHECK_LIVE_ROUTER_CONNECT="127.0.0.1:1"
 CHECK_LIVE_TEST_PROGRAM="$fx_checker" expect check_live_internal_router_unreadable "$work/hosts-good.env" 1 internal -- \
-	"fail router-root host=api-mainnet-beta.paxeer.network root=unreadable" \
+	"fail node-root host=api-mainnet-beta.paxeer.network root=unreadable" \
 	"fail upstream-ca group=payments url=https://api-mainnet-beta.paxeer.network pin=ISRG-Root-X1 served=unreadable" \
 	"check-live: 3 check(s) failed"
 unset CHECK_LIVE_ROUTER_CONNECT
+
+for group in kms journeys payments approvals programs; do unset "CHECK_LIVE_INTERNAL_CONNECT_${group^^}"; done
+export LAYERX_RAILWAY_BIN="$work/bin/railway"
 
 # The bridge cases read the five relayer apps' fixture machines: the fixture tree
 # carries two chains and a checklist stand-in that passes a record holding
@@ -2069,13 +2160,13 @@ bridge_pids=""
 # The wallet cases run the probe of the fixture tree, which carries the
 # wallet gates of scripts/wallet/check-live.sh and a gateway toml naming its
 # fixture app; the public wallet name comes from the spec's wallet_endpoint.
-mkdir -p "$fx/scripts/wallet" "$fx/spec/paxeer-x-bringup"
+mkdir -p "$fx/scripts/wallet" "$fx/spec/layerx-merge"
 cp "$root/scripts/wallet/check-live.sh" "$fx/scripts/wallet/"
 gateway="$(fx_app services/wallet/deploy/gateway.toml)"
 printf 'app = "%s"\n' "$gateway" >"$fx/services/wallet/deploy/gateway.toml"
 CHECK_LIVE_TEST_WALLET_TOKEN="fixture-wallet-token-$(openssl rand -hex 16)"
 export CHECK_LIVE_TEST_WALLET_TOKEN
-printf '[decision.public_names]\nwallet_endpoint = "walletfx.example.com"\n\n[design]\n' >"$fx/spec/paxeer-x-bringup/spec.kvx"
+printf '[contract_context.108.decision.public_names]\nwallet_endpoint = "walletfx.example.com"\n\n[design]\n' >"$fx/spec/layerx-merge/spec.kvx"
 export CHECK_LIVE_TEST_MACHINES='[{"state":"started","region":"ams"},{"state":"started","region":"iad"},{"state":"stopped","region":"ams"}]'
 
 CHECK_LIVE_TEST_PROGRAM="$fx_checker" expect check_live_wallet_requires_the_gateway_token "$work/hosts-good.env" 2 wallet -- \
@@ -2098,7 +2189,7 @@ else
 	failures=$((failures + 1))
 fi
 
-printf '[decision.public_names]\nwallet = "walletfx.example.com"\n\n[design]\nwallet_endpoint = "walletfx.example.com"\n' >"$fx/spec/paxeer-x-bringup/spec.kvx"
+printf '[contract_context.108.decision.public_names]\nwallet = "walletfx.example.com"\n\n[design]\nwallet_endpoint = "walletfx.example.com"\n' >"$fx/spec/layerx-merge/spec.kvx"
 export CHECK_LIVE_TEST_MACHINES='[{"state":"started","region":"ams"},{"state":"started","region":"ams"}]'
 CHECK_LIVE_GATEWAY_TOKEN=wrong-token CHECK_LIVE_TEST_PROGRAM="$fx_checker" expect check_live_wallet_spec_name_unset_one_region "$work/hosts-good.env" 1 wallet -- \
 	"fail endpoint source=spec name=unset" \
@@ -2113,7 +2204,7 @@ else
 	echo "ok   check_live_wallet_skips_cutover_without_a_name"
 fi
 
-printf '[decision.public_names]\nwallet_endpoint = "walletfx.example.com"\n\n[design]\n' >"$fx/spec/paxeer-x-bringup/spec.kvx"
+printf '[contract_context.108.decision.public_names]\nwallet_endpoint = "walletfx.example.com"\n\n[design]\n' >"$fx/spec/layerx-merge/spec.kvx"
 export CHECK_LIVE_TEST_MACHINES='[{"state":"started","region":"ams"},{"state":"started","region":"iad"}]'
 CHECK_LIVE_TEST_WALLET_SERVED_BY=- CHECK_LIVE_GATEWAY_TOKEN="$CHECK_LIVE_TEST_WALLET_TOKEN" CHECK_LIVE_TEST_PROGRAM="$fx_checker" expect check_live_wallet_spec_name_old_proxy "$work/hosts-good.env" 1 wallet -- \
 	"pass endpoint name=walletfx.example.com source=spec" \
@@ -2129,7 +2220,7 @@ CHECK_LIVE_TEST_DOWN="walletfx" CHECK_LIVE_GATEWAY_TOKEN="$CHECK_LIVE_TEST_WALLE
 	"fail readiness transport" \
 	"pass me http=200" \
 	"check-live: 1 check(s) failed"
-rm "$fx/spec/paxeer-x-bringup/spec.kvx"
+rm "$fx/spec/layerx-merge/spec.kvx"
 unset CHECK_LIVE_TEST_MACHINES
 
 # retire.sh container mode: stand-ins for curl and docker answer the public
@@ -2171,7 +2262,7 @@ esac
 SH
 chmod +x "$work/retire/bin/curl" "$work/retire/bin/docker"
 export RETIRE_TEST_STATE="$work/retire/container"
-echo "$(($(date -u +%s) - 120)) paxeer-wallet-gateway.fly.dev" >"$work/retire/state/applied-at"
+echo "$(($(date -u +%s) - 120)) paxeer-wallet-gateway.example.net" >"$work/retire/state/applied-at"
 retire="$root/services/wallet/deploy/cutover/retire.sh"
 
 echo "true unless-stopped" >"$RETIRE_TEST_STATE"
@@ -2215,7 +2306,7 @@ else
 fi
 
 echo "true unless-stopped" >"$RETIRE_TEST_STATE"
-echo "$(date -u +%s) paxeer-wallet-gateway.fly.dev" >"$work/retire/state/applied-at"
+echo "$(date -u +%s) paxeer-wallet-gateway.example.net" >"$work/retire/state/applied-at"
 CUTOVER_CONTAINER=legacy-wallet CUTOVER_PUBLIC_HOST=walletfx.example.com CUTOVER_STATE_DIR="$work/retire/state" \
 	CUTOVER_SOAK_SECONDS=600 PATH="$work/retire/bin:$PATH" CHECK_LIVE_TEST_PROGRAM="$retire" \
 	expect retire_container_soak_not_over - 1 -- \
@@ -2526,42 +2617,53 @@ CHECK_LIVE_TEST_PROGRAM="$fx_checker" expect check_live_ramp_inputs_unset "$work
 export LAYERX_RAMP_CUSTOMER_TOKEN=fixture-customer LAYERX_RAMP_OPERATOR_URL="https://$ramp.fly.dev" LAYERX_RAMP_OPERATOR_TOKEN=fixture-operator
 export LAYERX_RAMP_ON_QUOTE_ID=on-quote LAYERX_RAMP_OFF_QUOTE_ID=off-quote LAYERX_RAMP_OFF_GRANT_JSON='{"grant":1}'
 export LAYERX_RAMP_ON_ACCOUNT_SEQUENCE=4 LAYERX_RAMP_OFF_RECEIVER_SEQUENCE=5
-mv "$fx/services/platform/ramps/fly.toml" "$work/ramp-fly.toml"
+cp "$fx/deploy/rollout.kvx" "$work/ramp-rollout.kvx"
+python3 - "$fx/deploy/rollout.kvx" <<'PYRAMP'
+import re,sys
+p=sys.argv[1];s=open(p).read();open(p,"w").write(re.sub(r"(?ms)^\[service\.ramp\]\n.*?(?=^\[|\Z)","",s))
+PYRAMP
 CHECK_LIVE_TEST_PROGRAM="$fx_checker" expect check_live_ramp_toml_absent "$work/hosts-good.env" 1 ramp -- \
-	"fail ramp toml=absent" \
+	"fail ramp rollout=absent" \
 	"check-live: 1 check(s) failed"
-mv "$work/ramp-fly.toml" "$fx/services/platform/ramps/fly.toml"
+mv "$work/ramp-rollout.kvx" "$fx/deploy/rollout.kvx"
 
 cp "$root/services/platform/ramps/sandbox-journey.sh" "$fx/services/platform/ramps/"
 export CHECK_LIVE_TEST_MACHINES='[{"state":"started","config":{"mounts":[{"volume":"vol_fixture"}]}}]'
-printf '%s\n' "api-mainnet-beta.paxeer.network http paxeer-shared-endpoint 443" "ramp.paxeer.network http $ramp 443" @@sites \
-	"# rendered by tools/bringup/edge.sh; edit the manifest through it, not this file" >"$CHECK_LIVE_TEST_EDGE"
+printf 'ramp.paxeer.network\trailway\tramp.example.net:443\t-\n' | edge_fixture
+export CHECK_LIVE_TEST_EDGE_CURRENT=1 LAYERX_RAILWAY_BIN="$role_bin/railway"
 export CHECK_LIVE_TEST_DNS="ramp:up-edge up-edge:up-edge"
 PATH="$work/ramp-bin:$PATH" CHECK_LIVE_TEST_PROGRAM="$fx_checker" expect check_live_ramp_passing "$work/hosts-good.env" 0 ramp -- \
-	"pass machines app=$ramp machines=1 started=1 volumes=1" \
-	"pass edge ramp.paxeer.network mode=http app=$ramp edge=yes" \
-	"pass readyz https://ramp.paxeer.network/readyz tls=verified http=200 fly-request-id=present body=match" \
+	"pass deployment service=ramp status=SUCCESS replicas=1 regions=none volume=/data" \
+	"pass ramp.paxeer.network mode=http kind=railway edge=yes tls=verified body=match" \
 	"pass journey https://ramp.paxeer.network on-ramp=done off-ramp=done" \
 	"check-live: all checks passed"
 
 rm -f "$work/ramp-state"/*
-printf '%s\n' "ramp.paxeer.network http paxeer-other-app 443" @@sites >"$CHECK_LIVE_TEST_EDGE"
+printf 'ramp.paxeer.network\trailway\tramp.example.net:443\t-\n' | edge_fixture
+cp "$work/roles/ramp/status.json" "$work/roles/ramp/status.good"
+python3 - "$work/roles/ramp/status.json" <<'PYRAMPBAD'
+import json,sys
+p=sys.argv[1];d=json.load(open(p));d["latestDeployment"]["status"]="FAILED";json.dump(d,open(p,"w"))
+PYRAMPBAD
 export CHECK_LIVE_TEST_DNS="ramp:up-rpc-1 up-edge:up-edge" CHECK_LIVE_TEST_DIFFER="ramp"
 export CHECK_LIVE_TEST_MACHINES='[{"state":"started","config":{"mounts":[]}},{"state":"stopped","config":{"mounts":[]}}]'
 CHECK_LIVE_TEST_PROGRAM="$fx_checker" expect check_live_ramp_failing "$work/hosts-good.env" 1 ramp -- \
-	"fail machines app=$ramp machines=2 started=1 volumes=0" \
-	"fail edge ramp.paxeer.network mode=http app=paxeer-other-app want=$ramp edge=no" \
-	"fail readyz https://ramp.paxeer.network/readyz tls=verified http=200 fly-request-id=present body=differ" \
+	"fail deployment service=ramp status=FAILED replicas=1 regions=none volume=/data" \
+	"fail ramp.paxeer.network mode=http edge=no" \
 	"fail journey https://ramp.paxeer.network exit=" \
-	"check-live: 4 check(s) failed"
+	"check-live: 3 check(s) failed"
 
 export CHECK_LIVE_TEST_DOWN="ramp"
 CHECK_LIVE_TEST_PROGRAM="$fx_checker" expect check_live_ramp_down "$work/hosts-good.env" 1 ramp -- \
-	"fail readyz https://ramp.paxeer.network/readyz curl=7" \
-	"check-live: 4 check(s) failed"
+	"fail ramp.paxeer.network mode=http edge=no" \
+	"check-live: 3 check(s) failed"
 unset CHECK_LIVE_TEST_DOWN CHECK_LIVE_TEST_DNS CHECK_LIVE_TEST_DIFFER CHECK_LIVE_TEST_MACHINES
 unset LAYERX_RAMP_CUSTOMER_TOKEN LAYERX_RAMP_OPERATOR_URL LAYERX_RAMP_OPERATOR_TOKEN LAYERX_RAMP_ON_QUOTE_ID
 unset LAYERX_RAMP_OFF_QUOTE_ID LAYERX_RAMP_OFF_GRANT_JSON LAYERX_RAMP_ON_ACCOUNT_SEQUENCE LAYERX_RAMP_OFF_RECEIVER_SEQUENCE
+
+mv "$work/roles/ramp/status.good" "$work/roles/ramp/status.json"
+unset CHECK_LIVE_TEST_EDGE_CURRENT
+export LAYERX_RAILWAY_BIN="$work/bin/railway"
 
 # The developers cases put a curl stand-in for the three developer names in
 # front of the one above: /healthz answers ready unless the name is in
@@ -2703,17 +2805,19 @@ CHECK_LIVE_TEST_DEV_BEARER=another-token CHECK_LIVE_DEVELOPERS_DELIVERY_ATTEMPTS
 	"check-live: 3 check(s) failed"
 unset CHECK_LIVE_TEST_BIN CHECK_LIVE_TEST_DEV_BEARER CHECK_LIVE_DEVELOPERS_RECEIVER CHECK_LIVE_DEVELOPERS_TOKEN_FILE
 
+export CHECK_LIVE_GATEWAY_RPC=https://layerx-gateway.layerx-testnet.svc.cluster.local
+
 # The router cases run the fixture tree's checker: the endpoint app's machines
 # come from the flyctl stand-in, /rpc and /readyz from the curl stand-in's
 # router fixtures and the wallet gateway's readiness from the node stand-in.
 mkdir -p "$CHECK_LIVE_TEST_FLY/$endpoint" "$work/router-good" "$work/router-bad"
-router_ready='{"status":"degraded","backends":{"durable_store":{"state":"ready","reason":"ready"},"event_producer":{"state":"unavailable","reason":"not_configured"},"paxeer_chain":{"state":"ready","reason":"ready"},"core_agent_boundary":{"state":"ready","reason":"ready"},"independent_receipt_authority":{"state":"ready","reason":"ready"},"program_registry":{"state":"ready","reason":"ready"}}}'
+router_ready="$(python3 -c 'import json,time; now=int(time.time()*1000); print(json.dumps({"readiness_version":1,"service":"layerx-gateway","status":"ready","observed_at_ms":now,"valid_until_ms":now+30000,"backends":{name:{"state":"ready","reason":"ready"} for name in ("durable_store","paxeer_chain","consensus","program_registry")}}))')"
 printf '%s\n' '{"jsonrpc":"2.0","id":1,"result":"0x7d"}' >"$work/router-good/eth_chainId"
-printf '%s\n' '{"jsonrpc":"2.0","id":1,"result":{"network_id":"local","paxeer":{"chain_id":"0x7d","latest_block":"0x10"},"consensus":{"latest_height":"9","catching_up":false}}}' >"$work/router-good/px_getNetwork"
-printf '%s\n' '{"jsonrpc":"2.0","id":1,"result":{"account":"fixture","sequence":"0"}}' >"$work/router-good/lx_getAccount"
+printf '%s\n' '{"jsonrpc":"2.0","id":1,"result":{"network_id":"local","paxeer":{"chain_id":"0x7d","latest_block":"0x10"},"consensus":{"latest_height":"9","latest_block_hash":"aa","latest_app_hash":"bb","catching_up":false}}}' >"$work/router-good/px_getNetwork"
+printf '%s\n' '{"jsonrpc":"2.0","id":1,"result":{"account":{"evm_address":"0x1111111111111111111111111111111111111111","bound":false},"paxeer":{"address":"0x1111111111111111111111111111111111111111","balance":"0x0","nonce":"0x0","height":16}}}' >"$work/router-good/px_getAccount"
 printf '200\n%s\n' "$router_ready" >"$work/router-good/readyz-m-ams-1"
 printf '200\n%s\n' "$router_ready" >"$work/router-good/readyz-m-fra-1"
-printf '%s\n' '{"ready":true,"components":{"rpc_pool":{"state":"up","healthy":3,"endpoints":[{"url":"https://api-mainnet-beta.paxeer.network","state":"healthy"},{"url":"https://api1.mainnet-beta.paxeer.network","state":"healthy"}]}}}' >"$work/router-good/wallet-readyz"
+printf '%s\n' '{"ready":true,"components":{"rpc_pool":{"state":"up","healthy":2,"endpoints":[{"url":"https://api-mainnet-beta.paxeer.network","state":"healthy"},{"url":"https://api1.mainnet-beta.paxeer.network","state":"healthy"}]}}}' >"$work/router-good/wallet-readyz"
 printf '%s\n' '[{"id":"m-ams-1","region":"ams","state":"started"},{"id":"m-ams-2","region":"ams","state":"started"},{"id":"m-fra-1","region":"fra","state":"started"},{"id":"m-fra-0","region":"fra","state":"stopped"}]' >"$CHECK_LIVE_TEST_FLY/$endpoint/machines.json"
 mkdir -p -m 0700 "$work/stages-passed"
 : "${CHECK_LIVE_TEST_STAGE_DIR:?real retained material and registry-bootstrap records required}"
@@ -2723,15 +2827,14 @@ mkdir -p -m 0700 "$work/stages-passed"
 export CHECK_LIVE_CANDIDATE_REVISION CHECK_LIVE_CANDIDATE_IMAGE CHECK_LIVE_MATERIAL_GENERATION
 cp "$CHECK_LIVE_TEST_STAGE_DIR/material.json" "$CHECK_LIVE_TEST_STAGE_DIR/registry-bootstrap.json" "$work/stages-passed/"
 python3 "$root/tools/qualification/paxeer-x/registry-router-bootstrap.py" --check-stage registry-bootstrap --stage-dir "$work/stages-passed"
-CHECK_LIVE_STAGE_DIR="$work/stages-passed" CHECK_LIVE_TEST_ROUTER="$work/router-good" CHECK_LIVE_ROUTER_ACCOUNT="$(printf 'ab%.0s' $(seq 32))" CHECK_LIVE_TEST_PROGRAM="$fx_checker" \
+CHECK_LIVE_STAGE_DIR="$work/stages-passed" CHECK_LIVE_TEST_ROUTER="$work/router-good" CHECK_LIVE_ROUTER_ACCOUNT=0x1111111111111111111111111111111111111111 CHECK_LIVE_TEST_PROGRAM="$fx_checker" \
 	expect check_live_router_passing "$work/hosts-good.env" 0 router -- \
-	"pass eth_chainId result=0x7d" \
-	"pass px_getNetwork consensus.latest_height=9 catching_up=false" \
-	"pass lx_getAccount read=answered" \
-	"pass machines started=3 regions=ams,fra app=$endpoint" \
-	"pass readyz app=$endpoint region=ams http=200 durable_store=ready configured=5/5" \
-	"pass readyz app=$endpoint region=fra http=200 durable_store=ready configured=5/5" \
-	"pass wallet-gateway app=$gateway rpc_pool=up healthy=3 first=router" \
+	"pass eth_chainId route=node" \
+	"pass px_getNetwork route=hosted-gateway" \
+	"pass px_getAccount route=hosted-gateway" \
+	"pass deployment service=gateway status=SUCCESS replicas=3 regions=ams,fra volume=none" \
+	"pass readyz service=layerx-gateway backends=ready" \
+	"pass rpc_pool=up first=node endpoints=declared app=$gateway" \
 	"check-live: all checks passed"
 
 printf '%s\n' '{"jsonrpc":"2.0","id":1,"result":"0x1"}' >"$work/router-bad/eth_chainId"
@@ -2741,14 +2844,13 @@ printf '%s\n' '{"ready":true,"components":{"rpc_pool":{"state":"up","healthy":1,
 printf '%s\n' '[{"id":"m-ams-1","region":"ams","state":"started"},{"id":"m-ams-2","region":"ams","state":"started"}]' >"$CHECK_LIVE_TEST_FLY/$endpoint/machines.json"
 CHECK_LIVE_STAGE_DIR="$work/stages-passed" CHECK_LIVE_TEST_ROUTER="$work/router-bad" CHECK_LIVE_TEST_PROGRAM="$fx_checker" \
 	expect check_live_router_failing "$work/hosts-good.env" 1 router -- \
-	"fail eth_chainId result=0x1" \
-	"fail px_getNetwork consensus=null reason=consensus_unavailable" \
-	"fail lx_getAccount account=unset" \
-	"fail machines started=2 regions=ams app=$endpoint" \
-	"fail readyz app=$endpoint region=ams http=503 durable_store=unavailable configured=1/2 unready=durable_store" \
-	"fail readyz app=$endpoint region=ams http=503 durable_store=unavailable configured=1/2 unready=durable_store missing=program_registry" \
-	"fail wallet-gateway app=$gateway rpc_pool=up healthy=1 first=other" \
-	"check-live: 6 check(s) failed"
+	"fail eth_chainId answer=invalid" \
+	"fail px_getNetwork answer=invalid" \
+	"bringup-inspect: account must be an EVM address or explicit DID" \
+	"fail deployment service=gateway status=SUCCESS replicas=2 regions=ams volume=none" \
+	"fail readyz service=hosted-gateway" \
+	"fail wallet-gateway app=$gateway rpc_pool=invalid-node-endpoints" \
+	"check-live: 4 check(s) failed"
 
 # Router activation requires the registry bootstrap's stage record: without
 # CHECK_LIVE_STAGE_DIR the check is a usage error, and without a passed
@@ -2936,148 +3038,78 @@ CHECK_LIVE_SEARCH_PAYER_DID="" PATH="$work/search-bin:$PATH" expect check_live_s
 PATH="$work/search-bin:$PATH" expect check_live_search_unmapped "$work/hosts-down.env" 1 search -- \
 	"fail names names=unreadable" \
 	"check-live: 1 check(s) failed"
-unset CHECK_LIVE_SEARCH_PAYER_KEY_FILE CHECK_LIVE_SEARCH_PAYER_DID
+unset CHECK_LIVE_ROUTER_URL CHECK_LIVE_SEARCH_PAYER_KEY_FILE CHECK_LIVE_SEARCH_PAYER_DID
 
-# The registry cases put a curl of their own ahead of the stand-in: the
-# registry's private app ingress answers /healthz ready to a request with a client
-# certificate and refuses one without (admits it with
-# CHECK_LIVE_TEST_REGISTRY_ANON=1); the fixture router routerfx answers
-# lx_getProgramEvents from $work/registry-rpc/from-<from_sequence>.json and
-# /readyz with CHECK_LIVE_TEST_REGISTRY_READYZ; anything else goes on to the
-# stand-in.
-registry="$(fx_app services/platform/hosted/registry/fly.toml)"
-mkdir -p "$work/registry-bin" "$work/registry-rpc"
-cat >"$work/registry-bin/curl" <<'SH'
-#!/usr/bin/env bash
-set -eu
-url=""
-data=""
-wout=""
-out=/dev/stdout
-cert=0
-prev=""
-for arg in "$@"; do
-	case "$prev" in
-	-d) data="$arg" ;;
-	-w) wout="$arg" ;;
-	-o) out="$arg" ;;
-	esac
-	case "$arg" in
-	https://*) url="$arg" ;;
-	--cert) cert=1 ;;
-	esac
-	prev="$arg"
-done
-case "$url" in
-https://*.internal:9420/*)
-	printf 'index curl\n' >>"$CHECK_LIVE_TEST_CALLS"
-	if [ "$cert" -eq 0 ] && [ "${CHECK_LIVE_TEST_REGISTRY_ANON:-0}" != 1 ]; then
-		echo "curl: (56) OpenSSL SSL_read: tlsv13 alert certificate required" >&2
-		exit 56
-	fi
-	printf '{"status":"ready","service":"program-registry"}' >"$out"
-	[ -z "$wout" ] || printf '%b' "${wout//%\{http_code\}/200}"
-	exit 0
-	;;
-https://routerfx.example.com/rpc)
-	from="$(sed -n 's/.*"from_sequence":\([0-9]*\).*/\1/p' <<<"$data")"
-	printf 'routerfx curl %s\n' "$from" >>"$CHECK_LIVE_TEST_CALLS"
-	cat "$CHECK_LIVE_TEST_REGISTRY_RPC/from-$from.json"
-	exit 0
-	;;
-https://routerfx.example.com/readyz)
-	printf 'routerfx curl readyz\n' >>"$CHECK_LIVE_TEST_CALLS"
-	printf '%s' "$CHECK_LIVE_TEST_REGISTRY_READYZ"
-	[ -z "$wout" ] || printf '%b' "${wout//%\{http_code\}/200}"
-	exit 0
-	;;
-esac
-PATH="${PATH#*registry-bin:}" exec curl "$@"
-SH
-chmod +x "$work/registry-bin/curl"
-export CHECK_LIVE_TEST_REGISTRY_RPC="$work/registry-rpc"
+# The registry is the rollout's box service. Its real process environment,
+# mTLS custody, request authority and canonical paginated log transport all
+# feed the production inspector; no Fly registry or router namespace is used.
 registry_program="$(printf 'c%.0s' $(seq 64))"
-registry_other="$(printf 'd%.0s' $(seq 64))"
-registry_topic=6c782e7265662e657363726f772e637573746f6479
-printf '{"jsonrpc":"2.0","id":1,"result":{"events":[{"sequence":3,"program_id":"%s","topic":"%s","data":"00"}],"next_sequence":9}}\n' "$registry_other" "$registry_topic" >"$work/registry-rpc/from-0.json"
-printf '{"jsonrpc":"2.0","id":2,"result":{"events":[{"sequence":12,"program_id":"%s","topic":"%s","data":"01"}],"next_sequence":13}}\n' "$registry_program" "$registry_topic" >"$work/registry-rpc/from-9.json"
-printf '{"jsonrpc":"2.0","id":3,"result":{"events":[],"next_sequence":13}}\n' >"$work/registry-rpc/from-13.json"
-registry_ready='{"status":"ready","service":"layerx-gateway","components":{"durable_store":"ready","core_agent_boundary":"ready","independent_receipt_authority":"ready","program_registry":"ready","principal_state_boundary":"unavailable"},"backends":{}}'
-registry_unready="$(sed 's/"program_registry":"ready"/"program_registry":"unavailable"/' <<<"$registry_ready")"
-
+registry_state="$work/registry-current"
+mkdir -p "$registry_state" "$work/registry-bin"
+printf 'registry-read-fixture\n' >"$registry_state/token"
+start_role_peer registry "$registry_state" "$CHECK_LIVE_TEST_BOXES/up-box-registry/data/tls/registry"
+for _ in $(seq 50); do [ ! -s "$registry_state/chain-port" ] || break; sleep 0.1; done
+cp "$(command -v bash)" "$registry_state/layerx-program-registry"
+LAYERX_REGISTRY_LISTEN="127.0.0.1:$(cat "$registry_state/port")" \
+LAYERX_REGISTRY_CHAIN_RPC_URL="http://127.0.0.1:$(cat "$registry_state/chain-port")" \
+LAYERX_REGISTRY_REQUEST_TOKEN_FILE="$registry_state/token" \
+	"$registry_state/layerx-program-registry" -c 'sleep 600; wait' &
+registry_pid=$!
+internal_pids="$internal_pids $registry_pid"
+cat >"$work/registry-bin/systemctl" <<'SHREGISTRY'
+#!/bin/sh
+[ "$*" = 'is-active --quiet layerx-registry.service' ]
+SHREGISTRY
+chmod +x "$work/registry-bin/systemctl"
+export CHECK_LIVE_REGISTRY_CURSOR_DIR="$registry_state/cursors"
+cp "$fx/deploy/rollout.kvx" "$registry_state/rollout.kvx"
+python3 - "$fx/deploy/rollout.kvx" <<'PYREGISTRY'
+import re,sys
+path=sys.argv[1];s=open(path).read();open(path,'w').write(re.sub(r'(?ms)^\[service\.program-registry\]\n.*?(?=^\[|\Z)','',s))
+PYREGISTRY
 PATH="$work/registry-bin:$PATH" CHECK_LIVE_TEST_PROGRAM="$fx_checker" expect check_live_registry_toml_absent "$work/hosts-good.env" 1 registry -- \
-	"fail registry toml=absent" \
+	"fail registry rollout=absent" \
 	"check-live: 1 check(s) failed"
-
-printf 'app = "%s"\n[env]\nLAYERX_REGISTRY_LISTEN = "[::]:9420"\n[[services]]\ninternal_port = 9420\n[[services.ports]]\nport = 443\n' "$registry" >"$fx/services/platform/hosted/registry/fly.toml"
-PATH="$work/registry-bin:$PATH" CHECK_LIVE_ROUTER_URL=https://routerfx.example.com CHECK_LIVE_TEST_REGISTRY_ANON=1 \
-	CHECK_LIVE_TEST_REGISTRY_READYZ="$registry_unready" \
-	CHECK_LIVE_TEST_MACHINES='[{"state":"stopped","config":{"mounts":[{"path":"/data","volume":"vol_1"}]}}]' \
-	CHECK_LIVE_TEST_IPS='[{"Type":"shared_v4"},{"Type":"v6"}]' \
-	CHECK_LIVE_TEST_PROGRAM="$fx_checker" expect check_live_registry_failing "$work/hosts-good.env" 1 registry -- \
-	"fail machines app=$registry machines=1 started=0 volumes=1" \
-	"fail private-ingress app=$registry public-service=present" \
-	"fail healthz url=https://$registry.internal:9420/healthz from=$kernel curl=0 http=200 anonymous=admitted" \
-	"fail serving app=$registry serving=absent transport=absent" \
-	"fail program-events program=unset want=CHECK_LIVE_REGISTRY_PROGRAM_ID" \
-	"fail router-readyz url=https://routerfx.example.com/readyz http=200 program_registry=unavailable" \
-	"check-live: 6 check(s) failed"
-
-printf 'app = "%s"\n[env]\nLAYERX_REGISTRY_LISTEN = "[::]:9420"\n' "$registry" >"$fx/services/platform/hosted/registry/fly.toml"
-
-PATH="$work/registry-bin:$PATH" CHECK_LIVE_ROUTER_URL=https://routerfx.example.com CHECK_LIVE_REGISTRY_PROGRAM_ID="$(printf 'e%.0s' $(seq 64))" \
-	CHECK_LIVE_TEST_REGISTRY_READYZ="$registry_ready" \
-	CHECK_LIVE_TEST_MACHINES='[{"state":"started","config":{"mounts":[{"path":"/data","volume":"vol_1"}]},"checks":[{"name":"serving","status":"passing"},{"name":"servicecheck-00-tcp-9420","status":"passing"}]}]' \
-	CHECK_LIVE_TEST_IPS='[{"Type":"v4"},{"Type":"v6"}]' \
+mv "$registry_state/rollout.kvx" "$fx/deploy/rollout.kvx"
+printf 'false\n' >"$registry_state/ready"
+PATH="$work/registry-bin:$PATH" CHECK_LIVE_REGISTRY_PROGRAM_ID="$registry_program" CHECK_LIVE_TEST_PROGRAM="$fx_checker" expect check_live_registry_failing "$work/hosts-good.env" 1 registry -- \
+	"fail registry observation=refused" \
+	"check-live: 1 check(s) failed"
+printf 'true\n' >"$registry_state/ready"
+PATH="$work/registry-bin:$PATH" CHECK_LIVE_REGISTRY_PROGRAM_ID="$(printf 'e%.0s' $(seq 64))" \
 	CHECK_LIVE_TEST_PROGRAM="$fx_checker" expect check_live_registry_no_event_of_the_program "$work/hosts-good.env" 1 registry -- \
-	"pass machines app=$registry machines=1 started=1 volumes=1" \
-	"pass private-ingress app=$registry url=https://$registry.internal:9420/healthz" \
-	"pass healthz url=https://$registry.internal:9420/healthz from=$kernel http=200 status=ready anonymous=refused" \
-	"pass serving app=$registry serving=passing transport=passing" \
-	"fail program-events program=$(printf 'e%.0s' $(seq 64)) events=none next_sequence=13" \
-	"pass router-readyz url=https://routerfx.example.com/readyz http=200 program_registry=ready" \
+	"fail registry observation=refused" \
 	"check-live: 1 check(s) failed"
-
-PATH="$work/registry-bin:$PATH" CHECK_LIVE_ROUTER_URL=https://routerfx.example.com CHECK_LIVE_REGISTRY_PROGRAM_ID="$registry_program" \
-	CHECK_LIVE_TEST_REGISTRY_READYZ="$registry_ready" \
-	CHECK_LIVE_TEST_MACHINES='[{"state":"started","config":{"mounts":[{"path":"/data","volume":"vol_1"}]},"checks":[{"name":"serving","status":"passing"},{"name":"servicecheck-00-tcp-9420","status":"passing"}]}]' \
-	CHECK_LIVE_TEST_IPS='[{"Type":"v4"},{"Type":"v6"}]' \
+PATH="$work/registry-bin:$PATH" CHECK_LIVE_REGISTRY_PROGRAM_ID="$registry_program" \
 	CHECK_LIVE_TEST_PROGRAM="$fx_checker" expect check_live_registry_passing "$work/hosts-good.env" 0 registry -- \
-	"pass machines app=$registry machines=1 started=1 volumes=1" \
-	"pass private-ingress app=$registry url=https://$registry.internal:9420/healthz" \
-	"pass healthz url=https://$registry.internal:9420/healthz from=$kernel http=200 status=ready anonymous=refused" \
-	"pass serving app=$registry serving=passing transport=passing" \
-	"pass program-events program=$registry_program sequence=12" \
-	"pass router-readyz url=https://routerfx.example.com/readyz http=200 program_registry=ready" \
+	"pass registry publication=verified program=$registry_program committed-block=257 cursor=durable" \
 	"check-live: all checks passed"
-if [ "$(grep -c "^$kernel app ssh console " "$CHECK_LIVE_TEST_CALLS")" -eq 1 ] && [ "$(grep -c '^index curl$' "$CHECK_LIVE_TEST_CALLS")" -eq 2 ] &&
-	grep -qx 'routerfx curl 0' "$CHECK_LIVE_TEST_CALLS" && grep -qx 'routerfx curl 9' "$CHECK_LIVE_TEST_CALLS" &&
-	grep -q "^$registry app machines list" "$CHECK_LIVE_TEST_CALLS" && ! grep -q "^$registry app ips list" "$CHECK_LIVE_TEST_CALLS"; then
+if [ "$(grep -c '^up-box-registry .*registry-observe ' "$CHECK_LIVE_TEST_CALLS")" -eq 1 ] &&
+	python3 - "$registry_state/chain-calls" "$registry_program" <<'PYPAGES'
+import json, sys
+calls=[json.loads(line) for line in open(sys.argv[1])]
+pages=[r['params'][0]['fromBlock'] for r in calls if r['method']=='eth_getLogs' and r['params'][0]['topics'][1]=='0x'+sys.argv[2]]
+assert pages == ['0x0','0x100'], pages
+assert all(not r['method'].startswith('lx_') for r in calls)
+PYPAGES
+then
 	echo "ok   check_live_registry_asks_the_kernel_machine_once_and_pages_the_events"
 else
-	echo "FAIL check_live_registry_asks_the_kernel_machine_once_and_pages_the_events: want one kernel ssh call, two healthz requests, pages from 0 and 9, registry machines and no public IP dependency"
-	cat "$CHECK_LIVE_TEST_CALLS"
+	echo "FAIL check_live_registry_asks_the_kernel_machine_once_and_pages_the_events: want one rollout-selected registry box call and canonical pages from 0 and 256"
 	failures=$((failures + 1))
 fi
-
-# registry-bootstrap runs the registry's own checks with no router: it passes
-# with the router name never asked.
-PATH="$work/registry-bin:$PATH" CHECK_LIVE_ROUTER_URL=https://routerfx.example.com \
-	CHECK_LIVE_TEST_MACHINES='[{"state":"started","config":{"mounts":[{"path":"/data","volume":"vol_1"}]},"checks":[{"name":"serving","status":"passing"},{"name":"servicecheck-00-tcp-9420","status":"passing"}]}]' \
-	CHECK_LIVE_TEST_IPS='[{"Type":"v4"},{"Type":"v6"}]' \
-	CHECK_LIVE_TEST_PROGRAM="$fx_checker" expect check_live_registry_bootstrap_needs_no_router "$work/hosts-good.env" 0 registry-bootstrap -- \
-	"pass machines app=$registry machines=1 started=1 volumes=1" \
-	"pass private-ingress app=$registry url=https://$registry.internal:9420/healthz" \
-	"pass healthz url=https://$registry.internal:9420/healthz from=$kernel http=200 status=ready anonymous=refused" \
-	"pass serving app=$registry serving=passing transport=passing" \
+PATH="$work/registry-bin:$PATH" CHECK_LIVE_TEST_PROGRAM="$fx_checker" expect check_live_registry_bootstrap_needs_no_router "$work/hosts-good.env" 0 registry-bootstrap -- \
+	"pass registry healthz=ready anonymous=refused" \
 	"check-live: all checks passed"
-if grep -q routerfx "$CHECK_LIVE_TEST_CALLS"; then
-	echo "FAIL check_live_registry_bootstrap_asks_no_router: the bootstrap asked the router"
-	cat "$CHECK_LIVE_TEST_CALLS"
+if grep -qE 'router|flyctl|registry-observe' "$CHECK_LIVE_TEST_CALLS"; then
+	echo "FAIL check_live_registry_bootstrap_asks_no_router: bootstrap used a hosted or chain-event path"
 	failures=$((failures + 1))
 else
 	echo "ok   check_live_registry_bootstrap_asks_no_router"
 fi
+kill "$registry_pid" 2>/dev/null || true
+wait "$registry_pid" 2>/dev/null || true
+unset CHECK_LIVE_REGISTRY_CURSOR_DIR
 
 # The rendered plan of this checkout: four stages in order, each requiring
 # only the one before it, read with no host map and no request.
@@ -3487,36 +3519,93 @@ kill "$livez_pid" 2>/dev/null || true
 wait "$livez_pid" 2>/dev/null || true
 export CHECK_LIVE_TEST_FLY="$fly"
 
-# The events-upstream case: the internal fixture app's journeys and
-# approvals volumes hold a producer token, the webhooks and registry fixture
-# apps exist, and the kernel, webhooks, endpoint and registry fixture apps
-# hold their event-token and trigger secrets. Taking any one away fails it,
-# and every value starts with up- so a printed value fails the no-destination
-# check.
-for group in journeys approvals; do
-	mkdir -p "$fly/$internal/$group/data/run"
-	printf 'up-token-%s' "$group" >"$fly/$internal/$group/data/run/producer-token"
+# Real producer custody is shared through the actual credential files emitted
+# by ca.sh above. The four source and webhook peers speak the committed
+# admission API; each producer's process environment names those exact files.
+for pid in $internal_pids; do kill "$pid" 2>/dev/null || true; wait "$pid" 2>/dev/null || true; done
+internal_pids=""
+events="$work/events-current"
+mkdir -p "$events/bin" "$events/gateway" "$events/trigger"
+for pair in cert.pem:CERT key.pem:KEY ca.pem:CA cert.der:CERT_DER key.der:KEY_DER ca.der:CA_DER identity.p12:P12 password:PASSWORD; do
+	rv gateway "ENDPOINT_CLIENT_${pair#*:}" >"$events/gateway/${pair%%:*}"
+	rv webhooks-ingress "WEBHOOKS_INGRESS_TLS_${pair#*:}" >"$events/trigger/${pair%%:*}"
+	chmod 0600 "$events/gateway/${pair%%:*}" "$events/trigger/${pair%%:*}"
 done
-for row in "$kernel HUMAN_EVENTS_JOURNEY_TOKEN HUMAN_EVENTS_APPROVAL_TOKEN HUMAN_EVENTS_WEBHOOKS_TOKEN" \
-	"$webhooks WEBHOOKS_SOURCE_TRIGGER_TOKEN" "$endpoint ENDPOINT_EVENTS_WEBHOOKS_TOKEN" "$registry REGISTRY_WEBHOOKS_EVENTS_TOKEN"; do
-	read -r app rest <<<"$row"
-	mkdir -p "$fly/$app/secrets"
-	for name in $rest; do
-		printf 'up-secret-%s' "$name" >"$fly/$app/secrets/$name"
-	done
+printf 'fixture-trigger-token\n' >"$events/trigger/token"
+start_role_peer trigger "$events/trigger" "$events/trigger"
+trigger_origin="https://127.0.0.1:$(cat "$events/trigger/port")"
+for executable in layerx-human layerx-gateway layerx-program-registry layerx-event-source layerx-webhooks; do cp "$(command -v bash)" "$events/bin/$executable"; done
+for kind in journey approval payment program; do
+	case "$kind" in
+	journey) role=journeys ;;
+	approval) role=approvals ;;
+	payment) role=payments ;;
+	program) role=programs ;;
+	esac
+	dir="$events/$kind"
+	mkdir -p "$dir"
+	printf 'fixture-%s-producer\n' "$kind" >"$dir/producer-token"
+	start_role_peer source "$dir" "$work/roles/internal-$role/tls" "$kind"
+	printf -v "events_${kind}_origin" 'https://127.0.0.1:%s' "$(cat "$dir/port")"
+	printf '[{"token_file":"%s","allow_principal_digest":%s}]\n' "$dir/producer-token" "$([ "$kind" = journey ] || [ "$kind" = approval ] && echo false || echo true)" >"$dir/producers.json"
+	printf 'fixture-source-token\n' >"$dir/token"
+	printf '{"version":1,"generation":1,"principals":[],"mac":"fixture"}\n' >"$dir/credentials.json"
+	printf 'fixture-enrollment-key\n' >"$dir/enrollment-key"
+	LAYERX_EVENTS_KIND="$role" LAYERX_EVENTS_UPSTREAM_URL=https://api-mainnet-beta.paxeer.network \
+	LAYERX_EVENTS_UPSTREAM_CA_DER="$work/roles/internal-$role/tls/ca.der" \
+	LAYERX_EVENTS_TLS_CERT_DER="$work/roles/internal-$role/tls/cert.der" \
+	LAYERX_EVENTS_TLS_KEY_DER="$work/roles/internal-$role/tls/key.der" \
+	LAYERX_EVENTS_CLIENT_CA_DER="$work/roles/internal-$role/tls/ca.der" \
+	LAYERX_EVENTS_PRODUCERS_FILE="$dir/producers.json" LAYERX_EVENTS_TOKEN_FILE="$dir/token" \
+	LAYERX_EVENTS_CREDENTIALS_FILE="$dir/credentials.json" LAYERX_EVENTS_ENROLLMENT_KEY_FILE="$dir/enrollment-key" \
+		"$events/bin/layerx-event-source" -c 'sleep 600; wait' &
+	internal_pids="$internal_pids $!"
 done
-CHECK_LIVE_TEST_PROGRAM="$fx_checker" expect check_live_events_upstream_passing "$work/hosts-good.env" 0 events-upstream -- \
-	"pass producer-token app=$internal group=journeys bytes=17" \
-	"pass producer-token app=$internal group=approvals bytes=18" \
-	"pass app app=$webhooks exists=yes" \
-	"pass app app=$registry exists=yes" \
-	"pass secret app=$kernel name=HUMAN_EVENTS_JOURNEY_TOKEN listed=yes" \
-	"pass secret app=$kernel name=HUMAN_EVENTS_APPROVAL_TOKEN listed=yes" \
-	"pass secret app=$kernel name=HUMAN_EVENTS_WEBHOOKS_TOKEN listed=yes" \
-	"pass secret app=$webhooks name=WEBHOOKS_SOURCE_TRIGGER_TOKEN listed=yes" \
-	"pass secret app=$endpoint name=ENDPOINT_EVENTS_WEBHOOKS_TOKEN listed=yes" \
-	"pass secret app=$registry name=REGISTRY_WEBHOOKS_EVENTS_TOKEN listed=yes" \
+producer_environment() {
+	local kind="$1" identity="$2" variable="events_${1}_origin" prefix="LAYERX_EVENTS_${1^^}"
+	printf '%s\0' "${prefix}_UPSTREAM_URL=${!variable}" "${prefix}_UPSTREAM_CA_DER=$identity/ca.der" \
+		"${prefix}_UPSTREAM_CLIENT_IDENTITY_PKCS12=$identity/identity.p12" "${prefix}_UPSTREAM_CLIENT_IDENTITY_PASSWORD_FILE=$identity/password" \
+		"${prefix}_UPSTREAM_TOKEN_FILE=$events/$kind/producer-token"
+}
+start_producer() {
+	local executable="$1" identity="$2"
+	shift 2
+	local -a config=()
+	mapfile -d '' -t config < <(for kind in "$@"; do producer_environment "$kind" "$identity"; done)
+	env "${config[@]}" LAYERX_EVENTS_WEBHOOKS_UPSTREAM_URL="$trigger_origin" \
+		LAYERX_EVENTS_WEBHOOKS_UPSTREAM_CA_DER="$identity/ca.der" \
+		LAYERX_EVENTS_WEBHOOKS_UPSTREAM_CLIENT_IDENTITY_PKCS12="$identity/identity.p12" \
+		LAYERX_EVENTS_WEBHOOKS_UPSTREAM_CLIENT_IDENTITY_PASSWORD_FILE="$identity/password" \
+		LAYERX_EVENTS_WEBHOOKS_UPSTREAM_TOKEN_FILE="$events/trigger/token" \
+		"$events/bin/$executable" -c 'sleep 600; wait' &
+	internal_pids="$internal_pids $!"
+}
+start_producer layerx-human "$CHECK_LIVE_TEST_BOXES/up-box-kernel/data/tls/human-event-client" journey approval
+start_producer layerx-gateway "$events/gateway" payment
+start_producer layerx-program-registry "$CHECK_LIVE_TEST_BOXES/up-box-registry/data/tls/registry-event-client" program
+LAYERX_WEBHOOKS_ROLE=ingress LAYERX_WEBHOOKS_SOURCE_TRIGGER_TOKEN_FILE="$events/trigger/token" \
+	"$events/bin/layerx-webhooks" -c 'sleep 600; wait' &
+internal_pids="$internal_pids $!"
+LAYERX_RAILWAY_BIN="$role_bin/railway" CHECK_LIVE_TEST_PROGRAM="$fx_checker" expect check_live_events_upstream_passing "$work/hosts-good.env" 0 events-upstream -- \
+	"pass producer-handoff kind=journey source=admitted trigger=admitted" \
+	"pass producer-handoff kind=approval source=admitted trigger=admitted" \
+	"pass producer-handoff kind=program source=admitted trigger=admitted" \
+	"pass producer-handoff kind=payment source=admitted trigger=admitted instance=router-one" \
+	"pass event-role kind=journey material=present role=matched service=internal-journeys instance=internal-journeys-one" \
+	"pass event-role kind=approval material=present role=matched service=internal-approvals instance=internal-approvals-one" \
+	"pass event-role kind=payment material=present role=matched service=internal-payments instance=internal-payments-one" \
+	"pass event-role kind=program material=present role=matched service=internal-programs instance=internal-programs-one" \
+	"pass event-trigger role=ingress material=present service=webhooks-ingress instance=webhooks-ingress-one" \
 	"check-live: all checks passed"
+mv "$events/trigger/token" "$events/trigger/token.saved"
+LAYERX_RAILWAY_BIN="$role_bin/railway" CHECK_LIVE_TEST_PROGRAM="$fx_checker" expect check_live_events_upstream_absent_trigger "$work/hosts-good.env" 1 events-upstream -- \
+	"fail producer-handoff kind=journey" \
+	"fail producer-handoff kind=approval" \
+	"fail producer-handoff kind=program" \
+	"fail producer-handoff kind=payment instance=router-one" \
+	"fail event-role service=webhooks-ingress instance=webhooks-ingress-one" \
+	"check-live: 5 check(s) failed"
+mv "$events/trigger/token.saved" "$events/trigger/token"
 
 # A local human service stand-in on a loopback port: under good/ it answers
 # the wallet checks, /readyz ready and a registration ceremony naming
@@ -3596,6 +3685,7 @@ CHECK_LIVE_HUMAN_BASE="$origin/good" CHECK_LIVE_HUMAN_PROBE_EMAIL=probe@example.
 	"pass live http=200 live=true service=layerx-human-service" \
 	"pass preflight http=204 allow-origin=https://paxportwallet.com" \
 	"pass plan http=401 code=unauthenticated trace=present" \
+	"pass human-evidence checks=live,preflight,plan" \
 	"pass readyz http=200 ready=true" \
 	"pass rp-id http=201 rp.id=paxportwallet.com" \
 	"check-live: all checks passed"

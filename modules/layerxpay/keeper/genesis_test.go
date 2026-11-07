@@ -135,7 +135,8 @@ func TestPayGenesisRoundTrip(t *testing.T) {
 		require.Equal(t, types.DefaultParams(), exported.Params)
 		require.Equal(t, recordsBefore, exported.KernelRecords)
 		require.NoError(t, exported.Validate())
-		require.Len(t, payStoreSnapshot(h.ctx, h.storeKey), 1)
+		require.Len(t, payStoreSnapshot(h.ctx, h.storeKey), 2)
+		require.Equal(t, []byte{1}, h.ctx.KVStore(h.storeKey).Get([]byte(serviceIndexVersionKey)))
 	})
 
 	t.Run("records", func(t *testing.T) {
@@ -149,6 +150,16 @@ func TestPayGenesisRoundTrip(t *testing.T) {
 		}
 		for moduleID := uint16(1); moduleID <= 11; moduleID++ {
 			for _, key := range [][]byte{{0xff, 0x00}, {0x00, 0xff}} {
+				if moduleID == types.ServiceModuleID {
+					// Service bytes are now owned and must pass their real record decoder.
+					fixture := serviceViewFixtures(t)[0]
+					id := fixture.id
+					id[31] = key[0]
+					wire := bytes.Clone(fixture.wire)
+					copy(wire[1:33], id[:])
+					gs.KernelRecords = append(gs.KernelRecords, kv.Pair{Key: serviceKey(fixture.prefix, id), Value: wire})
+					continue
+				}
 				record := kv.Pair{Key: types.KernelKVKey(moduleID, key), Value: []byte{byte(moduleID), key[0], key[1]}}
 				require.Equal(t, append([]byte{0x01, 0x00, byte(moduleID)}, key...), record.Key)
 				gs.KernelRecords = append(gs.KernelRecords, record)
@@ -157,7 +168,7 @@ func TestPayGenesisRoundTrip(t *testing.T) {
 		gs.KernelRecords = append(gs.KernelRecords,
 			kv.Pair{Key: types.KernelKVKey(types.StreamModuleID, bytes.Repeat([]byte{0xa5}, types.MaxKernelKeyBytes)), Value: bytes.Repeat([]byte{0x5a}, types.MaxKernelValueBytes)},
 			kv.Pair{Key: types.KernelKVKey(types.BudgetModuleID, []byte("empty")), Value: []byte{}},
-			kv.Pair{Key: types.KernelKVKey(types.ServiceModuleID, []byte("nil"))},
+			kv.Pair{Key: types.KernelKVKey(types.BudgetModuleID, []byte("nil"))},
 		)
 		sort.Slice(gs.KernelRecords, func(i, j int) bool { return bytes.Compare(gs.KernelRecords[i].Key, gs.KernelRecords[j].Key) > 0 })
 		hostWant := payStoreSnapshot(h.ctx, h.hostKey)
@@ -175,7 +186,8 @@ func TestPayGenesisRoundTrip(t *testing.T) {
 		require.Equal(t, gs.Params, h.keeper.GetParams(h.ctx))
 		require.Equal(t, hostWant, payStoreSnapshot(h.ctx, h.hostKey))
 		moduleBefore := payStoreSnapshot(h.ctx, h.storeKey)
-		require.Len(t, moduleBefore, 1)
+		require.Len(t, moduleBefore, 2)
+		require.Equal(t, []byte{1}, moduleBefore[serviceIndexVersionKey])
 		require.Contains(t, moduleBefore, string(types.ParamsKey))
 		for _, method := range []string{"escrowOpen", "budgetCreate", "streamOpen", "serviceOfferPublish"} {
 			require.Contains(t, types.MethodActivity, method)
@@ -241,19 +253,20 @@ func TestPayGenesisRefusesGateDrift(t *testing.T) {
 		}
 	}
 
-	t.Run("record_limit", func(t *testing.T) {
+	t.Run("per_record_bounds", func(t *testing.T) {
 		gs := types.GenesisState{Params: types.Params{}, KernelRecords: make([]kv.Pair, types.MaxKernelRecords+1)}
 		for i := range gs.KernelRecords {
 			gs.KernelRecords[i] = kv.Pair{Key: types.KernelKVKey(types.EscrowModuleID, []byte(fmt.Sprintf("record-%03d", i))), Value: []byte{1}}
 		}
 		moduleBefore := payStoreSnapshot(h.ctx, h.storeKey)
 		hostBefore := payStoreSnapshot(h.ctx, h.hostKey)
+		gs.KernelRecords[len(gs.KernelRecords)-1].Value = make([]byte, types.MaxKernelValueBytes+1)
 		err := h.keeper.InitGenesis(h.ctx, gs)
 		require.ErrorIs(t, err, types.ErrInvalidGenesis)
-		require.Contains(t, err.Error(), "kernel record count 513 exceeds 512")
+		require.Contains(t, err.Error(), "kernel record 512 value exceeds 1024 bytes")
 		require.Equal(t, moduleBefore, payStoreSnapshot(h.ctx, h.storeKey))
 		require.Equal(t, hostBefore, payStoreSnapshot(h.ctx, h.hostKey))
-		gs.KernelRecords = gs.KernelRecords[:types.MaxKernelRecords]
+		gs.KernelRecords[len(gs.KernelRecords)-1].Value = []byte{1}
 		require.NoError(t, h.keeper.InitGenesis(h.ctx, gs))
 		require.Equal(t, gs.Params, h.keeper.GetParams(h.ctx))
 		for _, record := range gs.KernelRecords {

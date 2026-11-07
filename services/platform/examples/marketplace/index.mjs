@@ -129,11 +129,24 @@ const signingKeyDid = async () => {
   return did;
 };
 
-const anchor = async () => readLifecycleAnchor({
-  endpoint: config.endpoint,
-  token,
-  did: await signingKeyDid(),
-});
+const anchor = async () => {
+  const did = await signingKeyDid();
+  let key;
+  try {
+    key = exactObject(JSON.parse(await readFile(requiredEnvironment("LAYERX_EVM_KEY_FILE"), "utf8")));
+  } catch {
+    throw new LayerXApplicationStateError("refused", "marketplace_evm_key_file_required");
+  }
+  if (key.did !== did) {
+    throw new LayerXApplicationStateError("refused", "marketplace_evm_key_did_mismatch");
+  }
+  return readLifecycleAnchor({
+    endpoint: config.rpcUrl,
+    token,
+    did,
+    evmAddress: key.evm_address,
+  });
+};
 
 const deploy = async () => {
   const manifest = resolve(config.directory, "program/Cargo.toml");

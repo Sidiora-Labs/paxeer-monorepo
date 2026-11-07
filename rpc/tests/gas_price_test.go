@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	tmproto "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/proto/tendermint/types"
-	"github.com/Sidiora-Labs/Paxeer-X-Network/node"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/rpc"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 	testkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/tests/testutil/keeper"
@@ -57,12 +56,7 @@ func TestGasPriceCongestionThreshold(t *testing.T) {
 func TestGasPriceInvokesFeeHistoryMedian(t *testing.T) {
 	// Single empty block is sufficient; FeeHistory will still execute and return zeros
 	// and GasPrice will compute based on baseFee without error.
-	SetupMockPacificTestServer(t, func(app *app.App, _ *MockClient) sdk.Context {
-		// height can be any valid block height
-		ctx := app.RPCContextProvider(evmrpc.LatestCtxHeight).WithClosestUpgradeName("pacific-1")
-		cp := &tmproto.ConsensusParams{Block: &tmproto.BlockParams{MaxGas: 10_000_000}}
-		return ctx.WithConsensusParams(cp)
-	}).Run(func(port int) {
+	SetupTestServer(t, nil).Run(func(port int) {
 		res := sendRequestWithNamespace("eth", port, "gasPrice")
 
 		// Ensure no top-level error is returned by the RPC

@@ -1,0 +1,16 @@
+[repair.22.33.1079]
+finding = "first-batch-wal-crash"
+proving_tests = ["TestRepairM_1079_FirstBatchPersistenceInterruption", "TestRepairM_1079_UncertifiedTailReconciliation", "TestRepairM_1079_CertificateLossStillRejected"]
+change = "Fsync the batch's certificates before persisting any dependent blocks; retain corruption rejection when certificates are actually lost."
+recovery = "Stop and reopen at the first certificate and block durability boundaries; assert the retained prefix across repeated reopenings, refetch the missing tail, execute through PushAppHash, and reopen after a subsequent batch."
+baseline = "Not run: the task's gate-only order requires complete implementation before hf-build and hf-done and forbids invoking verify_cmd directly; no baseline failure is claimed."
+evidence = "The hf-done receipt in the runner's private gates.jsonl records the exact verified candidate revision, command, exit code and qualification log; /tmp/repair-m1079.log contains the focused test output."
+wiring_requests = []
+
+[gotcha.timestamp-fixtures]
+observed = "The first focused gate failed full structural equality because producer timestamps contained process-local monotonic clock and location data absent after WAL decoding."
+repair = "Round-trip generated fixtures through the production codecs before persistence and retain every complete equality assertion."
+revision = "80a49c18f32b059d6c661763d80c28f415d54ab7"
+command = "cg spec done 22.33.1079 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"

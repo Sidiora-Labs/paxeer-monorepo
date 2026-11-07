@@ -1,0 +1,6 @@
+[repair.go-launchpad-modules.7]
+target = "services/launchpad/notifications"
+command = "cd services/launchpad/notifications && go vet ./... && go test -count=1 ./..."
+revision = "c69af8b6706e55a243bc0f3a0e184b872b900e14"
+result = "already-passing"
+change = "none"

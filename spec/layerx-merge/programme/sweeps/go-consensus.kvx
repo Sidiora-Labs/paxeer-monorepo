@@ -1,5 +1,5 @@
 [sweep.go-consensus]
-revision = "1fea7069e58b649760bb1afcabdb9c4caec5ea4c"
+revision = "5903ffbb1db92c2e133ddd0fa7f87c058af7b5ed"
 command = "CGO_ENABLED=1 go vet ./TARGET/ && CGO_ENABLED=1 go test -count=1 ./TARGET/"
 targets_total = 162
 targets_passed = 161
@@ -98,11 +98,10 @@ exit_code = 0
 
 [target.go-consensus.19]
 target = "consensus/internal/autobahn/consensus/persist"
-result = "passed"
-exit_code = 0
-revision = "dc536768d721172fccc140834f48de6a9106c249"
-observed = "TestPersistWriteErrorReturnsError replaces the state directory with a regular file and asserts that Persist returns a path error."
-assumption = "The revision identifies the unchanged test source from the previous attempt; private gate evidence records the qualification candidate including this report."
+result = "failed"
+exit_code = 1
+observed = "TestPersistWriteErrorDoesNotAdvanceSeq fails at consensus/internal/autobahn/consensus/persist/persist_test.go:181 because an error is expected but got nil."
+assumption = "The sandbox runs as root and can bypass chmod 0000 permissions, likely causing both this test and TestLoadPersistedOSErrorPropagates to receive nil instead of the expected filesystem errors."
 
 [target.go-consensus.20]
 target = "consensus/internal/autobahn/data"

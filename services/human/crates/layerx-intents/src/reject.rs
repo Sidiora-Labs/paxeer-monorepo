@@ -146,6 +146,23 @@ mod tests {
     }
 
     #[test]
+    fn retired_shapes_preserve_v1_and_v2_input_without_allocation() {
+        for version in [1_u16, 2] {
+            for tag in [4_u16, 11, 12, 16] {
+                let version = version.to_be_bytes();
+                let tag = tag.to_be_bytes();
+                let input = [version[0], version[1], tag[0], tag[1], 0xde, 0xad];
+                for bytes in [&input[..4], input.as_slice()] {
+                    let rejected = inspect_intent(bytes).expect_err("retired shape accepted");
+                    assert_eq!(rejected.reason(), RejectReason::RetiredShape);
+                    assert_eq!(rejected.input(), bytes);
+                    assert_eq!(rejected.input().as_ptr(), bytes.as_ptr());
+                }
+            }
+        }
+    }
+
+    #[test]
     fn recognised_header_is_classification_not_execution() {
         assert_eq!(
             inspect_intent(&[0, 1, 0, 17, 0xde, 0xad]),

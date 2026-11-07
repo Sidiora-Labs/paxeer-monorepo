@@ -1,9 +1,13 @@
 import { createServer } from 'node:http';
 import { once } from 'node:events';
 import { expect, test } from 'vitest';
+import { assertHealthRpcChainReadiness } from './health-test-fixture';
 
 async function health_route_checks_the_gateway_healthz() {
   let gatewayStatus = 200;
+  let gatewayVersion: unknown = '0.1.0';
+  let gatewayChainId = 125;
+  let gatewayService = 'paxeer-wallet-api';
   const requests: Array<{ method: string | undefined; path: string | undefined }> = [];
   const server = createServer((request, response) => {
     requests.push({ method: request.method, path: request.url });
@@ -13,9 +17,9 @@ async function health_route_checks_the_gateway_healthz() {
       response.end(
         JSON.stringify({
           ok: true,
-          service: 'paxeer-wallet-api',
-          version: '0.1.0',
-          chain_id: 125,
+          service: gatewayService,
+          version: gatewayVersion,
+          chain_id: gatewayChainId,
         })
       );
     } else {
@@ -63,7 +67,12 @@ async function health_route_checks_the_gateway_healthz() {
         latencyMs: expect.any(Number),
       });
       expect(body.checks.embeddedWallet.latencyMs).toBeGreaterThanOrEqual(0);
-      expect(Object.keys(body).sort()).toEqual(['check', 'checks', 'status', 'timestamp']);
+      expect(body.apiVersion).toBe(status === 200 ? '0.1.0' : undefined);
+      expect(Object.keys(body).sort()).toEqual(
+        status === 200
+          ? ['apiVersion', 'check', 'checks', 'status', 'timestamp']
+          : ['check', 'checks', 'status', 'timestamp']
+      );
       expect(Object.keys(body.checks).sort()).toEqual([
         'embeddedWallet',
         'indexer',
@@ -77,6 +86,53 @@ async function health_route_checks_the_gateway_healthz() {
       expect(new Date(body.timestamp).toISOString()).toBe(body.timestamp);
       expect(response.headers.get('cache-control')).toBe('no-store');
     }
+
+    for (const version of ['1.4.2', '2.0.0-rc.1+build.42']) {
+      gatewayVersion = version;
+      const response = await GET(new Request(`${origin}/api/health`));
+      const body = await response.json();
+
+      expect(body.checks.embeddedWallet).toEqual({
+        status: 'ok',
+        latencyMs: expect.any(Number),
+      });
+      expect(body.apiVersion).toBe(version);
+    }
+
+    for (const version of ['', ' ', '1.4', 'v1.4.2', '01.4.2', '1.4.2-01', '1.4.2\n', 142, null]) {
+      gatewayVersion = version;
+      const response = await GET(new Request(`${origin}/api/health`));
+      const body = await response.json();
+
+      expect(body.checks.embeddedWallet).toEqual({
+        status: 'degraded',
+        latencyMs: expect.any(Number),
+      });
+      expect(body.apiVersion).toBeUndefined();
+      expect(response.status).toBe(503);
+    }
+
+    gatewayVersion = '1.4.2';
+    gatewayChainId = 124;
+    const foreignChainResponse = await GET(new Request(`${origin}/api/health`));
+    const foreignChainBody = await foreignChainResponse.json();
+    expect(foreignChainBody.checks.embeddedWallet).toEqual({
+      status: 'degraded',
+      latencyMs: expect.any(Number),
+    });
+    expect(foreignChainBody.apiVersion).toBeUndefined();
+    expect(foreignChainResponse.status).toBe(503);
+
+    gatewayChainId = 125;
+    gatewayService = 'another-service';
+    const wrongServiceResponse = await GET(new Request(`${origin}/api/health`));
+    const wrongServiceBody = await wrongServiceResponse.json();
+    expect(wrongServiceBody.checks.embeddedWallet).toEqual({
+      status: 'degraded',
+      latencyMs: expect.any(Number),
+    });
+    expect(wrongServiceBody.apiVersion).toBeUndefined();
+    expect(wrongServiceResponse.status).toBe(503);
   } finally {
     for (const [name, value] of originalEnv) {
       if (value === undefined) delete process.env[name];
@@ -90,3 +146,9 @@ async function health_route_checks_the_gateway_healthz() {
 }
 
 test(health_route_checks_the_gateway_healthz, health_route_checks_the_gateway_healthz);
+
+async function health_route_rejects_a_healthy_foreign_chain() {
+  await assertHealthRpcChainReadiness([{ chainId: '0x1', status: 'degraded' }]);
+}
+
+test(health_route_rejects_a_healthy_foreign_chain, health_route_rejects_a_healthy_foreign_chain);

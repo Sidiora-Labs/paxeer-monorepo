@@ -111,6 +111,12 @@ type Price struct {
 	Low       *float64 `json:"low"`
 }
 
+// Stats is the shared REST /stats, /perp_stats and socket stats body.
+// Volume24h and OpenInterest are USD notionals. LastFundingRateHourly is
+// the exact signed fraction per hour from the latest FundingSettled (null
+// before the first settlement); LastFundingRate is its nullable float copy.
+// Reference estimates and the frontend's volume_24h_usd/oi_usd aliases are
+// not fields of this wire record; see docs/perps/data-api.md, Symbol Service.
 type Stats struct {
 	Symbol                string   `json:"symbol"`
 	Volume24h             float64  `json:"volume_24h"`

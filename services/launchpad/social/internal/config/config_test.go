@@ -1,11 +1,25 @@
 package config
 
 import (
+	"os"
+	"reflect"
+	"strings"
 	"testing"
 )
 
 func baseEnv(t *testing.T) {
 	t.Helper()
+	fields := reflect.TypeOf(Config{})
+	for i := 0; i < fields.NumField(); i++ {
+		name := strings.Split(fields.Field(i).Tag.Get("env"), ",")[0]
+		if name == "" {
+			continue
+		}
+		t.Setenv(name, "")
+		if err := os.Unsetenv(name); err != nil {
+			t.Fatal(err)
+		}
+	}
 	t.Setenv("DATABASE_URL", "postgres://kl:kl@localhost:5432/social?sslmode=disable")
 	t.Setenv("REDIS_URL", "redis://localhost:6379")
 }

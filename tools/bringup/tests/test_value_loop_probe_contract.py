@@ -58,12 +58,18 @@ def test_probe_calls_use_rpc():
     assert "latest_sealed_batch" not in script
     assert "handshake_sealed" not in script
     assert "committed_height=$(handshake_committed)" in script
-    assert 'echo "batch id=$batch committed_height=$committed_height"' in script
+    assert 'echo "block hash=$block committed_height=$committed_height"' in script
+    assert '"$SSL_CERT_FILE" "$network_id" <"$state/send.bin"' in script
 
     session = re.search(r"fn rpc_session\(.*?\n\}", probe, re.DOTALL)
     assert session
     assert 'let url = required(parsed, "rpc")?;' in session.group(0)
     assert 'required(parsed, "socket")' not in session.group(0)
-    assert '[ -S "$lni" ] || precondition kernel-node' in script
-    for command in ("submit", "read-state"):
-        assert f'layerxctl {command} --socket "$lni"' in script
+    for retired in ("layerxd.lni.sock", "--socket", "receipt-authority", "LAYERX_AUTHORITY_LNI_SOCKET"):
+        assert retired not in script
+    assert 'committed-transaction "$rpc" "0x$activity"' in script
+    assert '"$committed_height" -ge "$((inclusion_height))"' in script
+    assert 'send_journal reconcile' in script
+    assert 'eth_sendRawTransaction' in script
+    assert 'eth_getTransactionByHash' in script
+    assert 'SSL_CERT_FILE' in script

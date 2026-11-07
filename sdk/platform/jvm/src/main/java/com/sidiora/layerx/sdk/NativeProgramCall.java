@@ -14,7 +14,7 @@ public record NativeProgramCall(byte[] programId, int guestAbi, String entrypoin
                 || responseCapacity < 0 || responseCapacity > 1048576 || resources.length != 7)
             throw new IllegalArgumentException("invalid native program call");
         byte[] entry = entrypoint.getBytes(StandardCharsets.US_ASCII);
-        ByteBuffer out = ByteBuffer.allocate(106 + entry.length + calldata.length + capabilities.length + accessDeclaration.length);
+        ByteBuffer out = ByteBuffer.allocate(NativeProgramPayload.size(106L + entry.length + calldata.length + capabilities.length + accessDeclaration.length));
         out.put(programId).putShort((short)guestAbi).putShort((short)entry.length).putInt(calldata.length)
             .putShort((short)capabilities.length).putInt(accessDeclaration.length).putInt(responseCapacity);
         for (long resource : resources) out.putLong(resource);
@@ -76,7 +76,7 @@ public record NativeProgramCall(byte[] programId, int guestAbi, String entrypoin
     }
 
     public static NativeProgramCall decode(byte[] payload) {
-        if (payload.length < 106) throw new IllegalArgumentException("invalid native program call");
+        if (payload.length < 106 || payload.length > NativeProgramPayload.MAX_BYTES) throw new IllegalArgumentException("invalid native program call");
         ByteBuffer input = ByteBuffer.wrap(payload);
         byte[] program = new byte[32]; input.get(program);
         int abi = Short.toUnsignedInt(input.getShort());

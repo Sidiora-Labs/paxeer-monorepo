@@ -186,3 +186,17 @@ fn grant_issue_targets_the_ledger_precompile() {
     )
     .is_err());
 }
+
+#[path = "support/native_alias.rs"]
+mod native_exchange;
+
+#[test]
+fn daemon_alias_accepts_producer_calls_and_external_signatures() {
+    native_exchange::native_unsigned_call_prepare_disclose_sign_and_submit_binding();
+}
+
+#[test]
+fn daemon_alias_refuses_altered_call_and_disclosure_fields() {
+    native_exchange::native_call_rejects_every_changed_response_and_intent_field();
+    native_exchange::native_legacy_owner_contract_remains_refused();
+}

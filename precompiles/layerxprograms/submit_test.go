@@ -27,13 +27,17 @@ func TestProgramsSubmitCarriesFeeLimitAndKey(t *testing.T) {
 	require.Equal(t, []byte(evmtypes.LayerXDid(h.publicKey)), did)
 	actorID, err := lxphost.DIDID(did)
 	require.NoError(t, err)
-	require.Equal(t, lxphost.KernelAuthority{Bound: true, Actor: actorID, Principal: actorID, VerifiedKey: h.publicKey}, authority)
+	authorityHash, err := lxphost.AuthorityHash(lxphost.AuthorityKindOwner, [32]byte{}, h.publicKey)
+	require.NoError(t, err)
+	require.NotEqual(t, [32]byte{}, authorityHash)
+	require.Equal(t, lxphost.KernelAuthority{Kind: lxphost.AuthorityKindOwner, AuthorityHash: authorityHash, Bound: true, Actor: actorID, Principal: actorID, VerifiedKey: h.publicKey}, authority)
 
 	for _, limit := range [][16]byte{{15: 9}, {0: 1}, {7: 1}, {8: 1}} {
 		branch, _ := ctx.CacheContext()
 		before := h.dump(branch)
 		receipt, err := lp.Submit(branch, h.executor, call, 0x00090004, payload, limit)
-		require.ErrorIs(t, err, lxphost.Code(-602))
+		t.Logf("submit fee limit=%x authority key=%x receipt=%+v error=%v", limit, authority.VerifiedKey, receipt, err)
+		require.ErrorIs(t, err, lxphost.Code(-602), "fee limit %x, receipt %+v", limit, receipt)
 		require.Equal(t, lxphost.Receipt{}, receipt)
 		require.Equal(t, before, h.dump(branch))
 	}
@@ -56,7 +60,7 @@ func TestProgramsSubmitCarriesFeeLimitAndKey(t *testing.T) {
 		require.Zero(t, expected.ResultCode)
 		receipt, err := lp.Submit(ctx, h.executor, call, 0x00090004, payload, [16]byte{})
 		require.NoError(t, err)
-		require.Equal(t, expected, receipt)
+		require.Equal(t, expected, receipt, "ordinal %d, selector %x, key %x", ordinal, selector, key)
 		require.Zero(t, receipt.ResultCode)
 		require.Equal(t, uint64(ordinal)+1, receipt.GlobalSequence)
 		require.Equal(t, uint64(ctx.BlockTime().UnixMilli()), receipt.Timestamp)

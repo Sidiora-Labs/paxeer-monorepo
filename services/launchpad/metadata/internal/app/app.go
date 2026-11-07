@@ -70,6 +70,13 @@ const (
 	rateLimitWindow = 60 * time.Second
 )
 
+func (d developmentChainReceipts) ChainID(ctx context.Context) (*big.Int, error) {
+	if d.client == nil {
+		return nil, metadata.ErrChainUnavailable
+	}
+	return d.client.ChainID(ctx)
+}
+
 // App is a fully-wired, ready-to-serve metadata service.
 type App struct {
 	secretStop              context.CancelFunc
@@ -346,13 +353,22 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 					rpc.Close()
 				}
 			}()
-			receipts = rpc
+			if err = requireMetadataChain(ctx, rpc); err != nil {
+				return nil, startupStage("rpc_connect", err)
+			}
+			receipts = developmentChainReceipts{client: rpc}
 		}
 		devStore, err = storage.New(ctx, storage.Config{Endpoint: cfg.S3Endpoint, Region: cfg.S3Region, AccessKeyID: cfg.S3AccessKeyID, SecretAccessKey: cfg.S3SecretAccessKey, Bucket: cfg.S3Bucket})
 		if err != nil {
 			return nil, err
 		}
 		devReads = metadata.NewDevelopmentV2Reads(pool, receipts, time.Now)
+		checks["media_rpc"] = devReads.CheckChain
+		if cfg.RPCURL != "" {
+			if err := devReads.CheckChain(ctx); err != nil {
+				return nil, startupStage("rpc_connect", fmt.Errorf("metadata_chain_authority_unavailable"))
+			}
+		}
 		devMedia, err = newDevelopmentMedia(ctx, cfg, logger, devReads, chain)
 		if err != nil {
 			return nil, err
@@ -540,19 +556,33 @@ func runMediaMaintenance(ctx context.Context, pool *pgxpool.Pool, schema string,
 			connection.Conn().Close(cleanup)
 		}
 	}()
-	if e = scanPendingMedia(ctx, connection, media); e != nil {
-		return e
+	// Each class owns its deadline, so a blocked object read cannot spend
+	// the account, publication or retention budget. Keep every failure visible.
+	type workClass struct {
+		budget time.Duration
+		run    func(context.Context) error
 	}
-	if e = media.MaintainAccountAssets(ctx, expire); e != nil {
-		return e
-	}
-	if _, e = publication.RunPublicationBatch(ctx, 1); e != nil {
-		return e
+	classes := []workClass{
+		{12 * time.Second, func(c context.Context) error { return scanPendingMedia(c, connection, media) }},
+		{12 * time.Second, func(c context.Context) error { return media.MaintainAccountAssets(c, expire) }},
+		{15 * time.Second, func(c context.Context) error { _, err := publication.RunPublicationBatch(c, 1); return err }},
 	}
 	if expire {
-		return media.ExpireRejected(ctx)
+		classes = append(classes, workClass{4 * time.Second, media.ExpireRejected})
 	}
-	return nil
+	results := make(chan error, len(classes))
+	for _, class := range classes {
+		go func(class workClass) {
+			bounded, cancel := context.WithTimeout(ctx, class.budget)
+			defer cancel()
+			results <- class.run(bounded)
+		}(class)
+	}
+	var failures []error
+	for range classes {
+		failures = append(failures, <-results)
+	}
+	return errors.Join(failures...)
 }
 func (a *App) stopMediaWorkers(ctx context.Context) error {
 	if a.mediaStop != nil {
@@ -791,7 +821,7 @@ func scanPendingMedia(ctx context.Context, connection *pgxpool.Conn, media metad
 		return fmt.Errorf("metadata_scan_store_unavailable")
 	}
 	table := func(name string) string { return pgx.Identifier{store.Schema, name}.Sanitize() }
-	rows, e := store.Pool.Query(ctx, "SELECT a.id,a.pool,a.hash,a.size,a.object_key,a.state,d.mime FROM "+table("assets")+" a JOIN "+table("asset_details_v2")+" d ON d.asset_id=a.id WHERE a.state IN('UPLOADING','QUARANTINED','VALIDATING') OR(a.state='APPROVED' AND d.variants='{}'::jsonb) ORDER BY d.created_at LIMIT 10")
+	rows, e := store.Pool.Query(ctx, "SELECT a.id,a.pool,a.hash,a.size,a.object_key,a.state,d.mime FROM "+table("assets")+" a JOIN "+table("asset_details_v2")+" d ON d.asset_id=a.id WHERE (a.state IN('UPLOADING','QUARANTINED','VALIDATING') OR(a.state='APPROVED' AND d.variants='{}'::jsonb)) AND (d.rejected_until IS NULL OR d.rejected_until<=clock_timestamp()) ORDER BY d.rejected_until NULLS FIRST,d.created_at,a.id LIMIT 10")
 	if e != nil {
 		return e
 	}
@@ -813,7 +843,11 @@ func scanPendingMedia(ctx context.Context, connection *pgxpool.Conn, media metad
 	if e != nil {
 		return e
 	}
+	var failures []error
 	for _, asset := range items {
+		if ctx.Err() != nil {
+			return errors.Join(append(failures, ctx.Err())...)
+		}
 		lock := store.Schema + ":" + asset.id
 		var locked bool
 		if e = connection.QueryRow(ctx, "SELECT pg_try_advisory_lock(hashtextextended($1,0))", lock).Scan(&locked); e != nil {
@@ -823,6 +857,8 @@ func scanPendingMedia(ctx context.Context, connection *pgxpool.Conn, media metad
 			continue
 		}
 		e = func() error {
+			ctx, cancel := context.WithTimeout(ctx, 6*time.Second)
+			defer cancel()
 			defer func() {
 				cleanup, cancel := context.WithTimeout(context.Background(), time.Second)
 				defer cancel()
@@ -830,6 +866,16 @@ func scanPendingMedia(ctx context.Context, connection *pgxpool.Conn, media metad
 					connection.Conn().Close(cleanup)
 				}
 			}()
+			// Pending assets use the private-until timestamp as their retry
+			// deadline; rejected assets use it for the retention TTL. Claim
+			// before IO so timeout or process loss also defers this item.
+			tag, e := store.Pool.Exec(ctx, "UPDATE "+table("asset_details_v2")+" SET rejected_until=clock_timestamp()+interval '30 seconds' WHERE asset_id=$1 AND (rejected_until IS NULL OR rejected_until<=clock_timestamp())", asset.id)
+			if e != nil {
+				return e
+			}
+			if tag.RowsAffected() != 1 {
+				return nil
+			}
 			visibility, e := media.Moderation.Read(ctx, asset.pool)
 			if e != nil {
 				return fmt.Errorf("metadata_scan_moderation_unavailable")
@@ -853,12 +899,22 @@ func scanPendingMedia(ctx context.Context, connection *pgxpool.Conn, media metad
 				}
 				current = "VALIDATING"
 			}
+			reject := func(engine, revision string) error {
+				tag, err := store.Pool.Exec(ctx, "WITH rejected AS(UPDATE "+table("assets")+" SET state='REJECTED',scanner_engine=$2,scanner_revision=$3 WHERE id=$1 AND state=$4 RETURNING id) UPDATE "+table("asset_details_v2")+" SET rejected_until=clock_timestamp()+interval '24 hours' WHERE asset_id IN(SELECT id FROM rejected)", asset.id, engine, revision, current)
+				if err != nil {
+					return err
+				}
+				if tag.RowsAffected() != 1 {
+					return fmt.Errorf("metadata_rejection_conflict")
+				}
+				return nil
+			}
 			key := asset.key
 			if current == "APPROVED" {
 				key = "quarantine/" + asset.id
 			}
 			if key != "quarantine/"+asset.id {
-				return fmt.Errorf("metadata_quarantine_identity_invalid")
+				return reject("", "")
 			}
 			object, e := media.Objects.Client.GetObject(ctx, &s3.GetObjectInput{Bucket: aws.String(media.Objects.QuarantineBucket), Key: aws.String(key)})
 			if e != nil {
@@ -871,14 +927,20 @@ func scanPendingMedia(ctx context.Context, connection *pgxpool.Conn, media metad
 			original, e := raster.ReadBounded(object.Body)
 			object.Body.Close()
 			if e != nil {
+				if errors.Is(e, raster.ErrLimit) {
+					return reject("", "")
+				}
 				return e
 			}
 			digest := sha256.Sum256(original)
 			if int64(len(original)) != asset.size || hex.EncodeToString(digest[:]) != asset.hash || http.DetectContentType(original) != asset.mime {
-				return fmt.Errorf("metadata_quarantine_integrity_failed")
+				return reject("", "")
 			}
 			decoded, e := media.Worker.Decode(ctx, original)
 			if e != nil {
+				if errors.Is(e, raster.ErrInvalid) || errors.Is(e, raster.ErrLimit) {
+					return reject("", "")
+				}
 				return e
 			}
 			if current == "UPLOADING" {
@@ -892,17 +954,7 @@ func scanPendingMedia(ctx context.Context, connection *pgxpool.Conn, media metad
 			}
 			scan := sharedhttp.ScanVerifiedBuffer(ctx, original, media.Scanner)
 			if scan.Verdict == sharedhttp.ScanInfected {
-				if current != "VALIDATING" {
-					return fmt.Errorf("approved_asset_scan_rejected")
-				}
-				tag, e := store.Pool.Exec(ctx, "WITH rejected AS(UPDATE "+table("assets")+" SET state='REJECTED',scanner_engine=$2,scanner_revision=$3 WHERE id=$1 AND state='VALIDATING' RETURNING id) UPDATE "+table("asset_details_v2")+" SET rejected_until=clock_timestamp()+interval '24 hours' WHERE asset_id IN(SELECT id FROM rejected)", asset.id, scan.Engine, scan.SignatureRevision)
-				if e != nil {
-					return e
-				}
-				if tag.RowsAffected() != 1 {
-					return fmt.Errorf("metadata_rejection_conflict")
-				}
-				return nil
+				return reject(scan.Engine, scan.SignatureRevision)
 			}
 			if scan.Verdict != sharedhttp.ScanClean {
 				return fmt.Errorf("metadata_scanner_unavailable")
@@ -918,7 +970,7 @@ func scanPendingMedia(ctx context.Context, connection *pgxpool.Conn, media metad
 				variants[strconv.Itoa(size)] = fmt.Sprintf("approved/%s/%d/%s.png", asset.hash, size, hex.EncodeToString(hash[:]))
 			}
 			raw, _ := json.Marshal(variants)
-			tag, e := store.Pool.Exec(ctx, "UPDATE "+table("asset_details_v2")+" SET variants=$2::jsonb WHERE asset_id=$1 AND mime=$3 AND width=$4 AND height=$5", asset.id, string(raw), asset.mime, decoded.Width, decoded.Height)
+			tag, e = store.Pool.Exec(ctx, "UPDATE "+table("asset_details_v2")+" SET variants=$2::jsonb,rejected_until=NULL WHERE asset_id=$1 AND mime=$3 AND width=$4 AND height=$5", asset.id, string(raw), asset.mime, decoded.Width, decoded.Height)
 			if e != nil {
 				return e
 			}
@@ -928,10 +980,10 @@ func scanPendingMedia(ctx context.Context, connection *pgxpool.Conn, media metad
 			return nil
 		}()
 		if e != nil {
-			return e
+			failures = append(failures, e)
 		}
 	}
-	return nil
+	return errors.Join(failures...)
 }
 
 func metadataAccountChannel(cfg config.Config) func(http.Handler) http.Handler {

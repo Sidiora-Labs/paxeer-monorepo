@@ -2,6 +2,7 @@ package layerxprograms
 
 import (
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"math"
 
@@ -80,6 +81,10 @@ func simulateHandler(ctx sdk.Context, p *PrecompileExecutor, call callContext, a
 		Payload:         payload,
 	}, authority)
 	if err != nil {
+		var code lxphost.Code
+		if errors.As(err, &code) {
+			return nil, kernelError(code, call.method.Name)
+		}
 		return nil, err
 	}
 	if err := kernelError(receipt.ResultCode, call.method.Name); err != nil {
@@ -89,6 +94,8 @@ func simulateHandler(ctx sdk.Context, p *PrecompileExecutor, call callContext, a
 		return nil, fmt.Errorf("LXP_FATAL_INVARIANT: missing simulation program outcome")
 	}
 	outcome := receipt.ProgramOutcome
+	// Simulation shares call's terminal-frame contract, including evidence;
+	// responseCapacity applies to nested guest bytes (response.md).
 	return call.method.Outputs.Pack(outcome.Status, outcome.Kind, outcome.Response)
 }
 

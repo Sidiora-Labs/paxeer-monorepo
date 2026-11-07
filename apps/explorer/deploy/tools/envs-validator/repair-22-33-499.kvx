@@ -1,0 +1,10 @@
+[repair.22.33.499]
+finding = "env-schema-duplicate-key"
+change = "Retain the single Yup boolean declaration under Paxeer X Network in schema.ts."
+tests = ["envSchemaDuplicateKeyCompilesValidatorTarget", "envSchemaDuplicateKeyPreservesAcceptedBooleans", "envSchemaDuplicateKeyRejectsInvalidValues"]
+proof = "The regression compiles the existing validator tsconfig in-process and validates environment records with the production schema and CLI validation options. The original duplicate produces TS1117 in the compilation test."
+baseline = "Not run: the ordered gate instructions prohibit testing before implementation and prohibit running verify_cmd by hand; no baseline test failures are claimed."
+continuation = "The previous implementation is retained. Its reported build at 48917611fa805be433a839d07b0b6c6a85f33f55 stopped at ERR_PNPM_OTHER_PM_EXPECTED before compilation; qualification now uses the declared Yarn build and verify commands."
+qualification_repair = "At 87c4961bf196d751a9551ac0d81a3a28533b36e6 the explorer build passed, but verification exited 1 before tests because the explorer-only install resolved transitive Yup 0.32, which has no array.json method (/out/logs/verify-1.log). Install the validator's existing frozen lockfile to use its declared Yup 1.x dependency; keep all production code and test assertions intact."
+wiring_requests = ["apps/explorer/package.json — owning domain 14: ensure explorer qualification also installs deploy/tools/envs-validator's committed dependencies so validator tests use its declared Yup version in a fresh checkout."]
+evidence = "The bounded hf-build/hf-done ledger at /out/run/gates.jsonl records the exact candidate revision, command, exit code and private log location; qualification depends on that evidence."

@@ -1,0 +1,28 @@
+[repair.22.31.331]
+audit = "22.30.184"
+base_revision = "9281fc5367df30f54e8f83e9b7bedc920d9382db"
+qualification = "The runner's hf-done evidence binds the repaired candidate revision, exact verify command, exit code and private log; no gate is claimed by this implementation record."
+baseline = "Not run: the explicit implementation-first and hf-done-only order overrides do_6's baseline run; the test module did not exist and the initial gate ledger had zero build and verify runs. No baseline failure is claimed."
+wiring_requests = []
+
+[finding.validator-signing-rewind]
+proofs = ["test_validator_signing_rewind_refused_before_any_move", "test_forward_recovery_reopens_journal_without_rewinding", "test_isolated_fork_rewind_requires_fresh_keys_and_network", "test_isolated_flag_cannot_authorize_same_chain_rewind"]
+repair = "Snapshot restore compares signing height/round/step and refuses same-chain restores; a destructive restore needs explicit isolated-fork input, a distinct consensus chain ID, fresh validator keys relative to source genesis, loopback listeners/peers and disabled discovery. All homes are checked before any move."
+forward = "Stage a state-compatible recovery paxd outside BIN_DIR/paxd and BIN_DIR/paxd.new, set RECOVERY_BIN and RECOVERY_SHA256, then run rollback.sh --env-file FILE --local --forward --execute (or omit --local for the fleet). Never select the previous binary merely because it predates the upgrade."
+recovery = "Forward recovery stops the node, journals its signing high-water mark before the atomic executable switch, retains the entire live data directory including committed stores and upgrade metadata, clears the configured halt and starts the selected binary. Run --forward --verify to require advancing consensus and the selected executable checksum."
+resume = "After interruption, rerun --forward --execute, or --forward --execute --phase restore followed by --phase start. A durable completed journal is reused; an unpublished interrupted staging journal is rebuilt from stopped live state. A regressed signer state or changed recovery checksum is refused."
+proof_boundary = "Tests run the real snapshot producer and separate rollback processes over persisted signing files and a reopened SQLite committed-history store; real ELF loader/checksum checks run without substituting a fake paxd. Binary/application compatibility and production network execution are not claimed by this focused gate."
+
+[finding.rehearsal-receipt-cycle]
+proofs = ["test_fresh_rehearsal_driver_handoff_consumer_and_final_receipt", "test_handoff_cannot_replace_production_rollback_evidence", "test_handoff_binds_candidate_inventory_and_pool_height"]
+repair = "The driver's shared producer writes an internal handoff from the measured halt-height pool-parity record, candidate checksum, consensus chain ID, halt height and inventory digest. Only isolated loopback markets accept it. The handoff has no success or rollback flags and cannot qualify full/post rollout."
+publication = "The actual final receipt producer is shared with the fresh-directory path test and defaults to WORK/receipts/rehearsal.json. Full/post require a completed successful rollback rehearsal receipt even if --no-rehearsal is requested."
+proof_boundary = "The test drives the real pool recorder and market client through HTTP JSON-RPC and ABI codecs, then final receipt publication and production configuration consumption. It seeds no prerequisite success receipt; it does not run the four-node binary upgrade or certify oracle/precompile values."
+
+[gotcha.task_order]
+observed = "The task's baseline-run step conflicts with its explicit gate ordering; the gate ledger starts empty."
+action = "Honor the explicit bounded gate order, report the baseline as unrun, and retain evidence only from hf-build and hf-done."
+
+[gotcha.environment]
+observed = "The sandbox initially lacks zstd, which the real snapshot producer and rollback consumer require."
+action = "Install the zstd runtime package before qualification; do not substitute a fake compressor or snapshot implementation."

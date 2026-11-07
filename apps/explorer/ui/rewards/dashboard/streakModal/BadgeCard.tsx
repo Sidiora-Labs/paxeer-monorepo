@@ -6,7 +6,7 @@ import { Image } from 'toolkit/chakra/image';
 import { Link } from 'toolkit/chakra/link';
 import { Progress } from 'toolkit/chakra/progress';
 
-const BADGE_BG_COLORS = [ '#DFE8F5', '#D2E5FE', '#EFE1FF' ];
+const BADGE_BG_COLORS = [ 'rewards.badge.first', 'rewards.badge.second', 'rewards.badge.third' ];
 
 const BADGES = [
   '/explorer/static/merits/streak_30.png',

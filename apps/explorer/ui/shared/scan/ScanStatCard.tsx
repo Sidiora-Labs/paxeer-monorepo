@@ -1,7 +1,8 @@
-import { chakra, Stat } from '@chakra-ui/react';
+import { chakra } from '@chakra-ui/react';
 import React from 'react';
 
 import { Skeleton } from 'toolkit/chakra/skeleton';
+import { Stat } from 'toolkit/chakra/stat';
 import { Hint } from 'toolkit/components/Hint/Hint';
 
 export type ScanStatDeltaDirection = 'up' | 'down';

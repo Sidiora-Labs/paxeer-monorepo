@@ -1,0 +1,199 @@
+// This offline recorder runs as an overlay in core/indexer/internal so Go's
+// internal import boundary remains intact. It is not invoked by the test gate.
+// Inputs are amounts and identities in the committed real-market indexer rows;
+// the historical EventEmitter ABI encodes them as legacy Swap logs. Production
+// Decoder -> Processor.ProcessBatch -> Store -> Publisher emits the saved bytes.
+package main
+
+import (
+	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"flag"
+	"fmt"
+	"io"
+	"log/slog"
+	"math/big"
+	"net/http"
+	"net/http/httptest"
+	"net/url"
+	"os"
+	"path/filepath"
+	"strconv"
+	"strings"
+	"time"
+
+	"github.com/ethereum/go-ethereum/common"
+	ethtypes "github.com/ethereum/go-ethereum/core/types"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/decode"
+	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/migrate"
+	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/processor"
+	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/publisher"
+	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/source"
+	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/store"
+	"github.com/Sidiora-Technologies/KindleLaunch/protocol"
+	"github.com/Sidiora-Technologies/KindleLaunch/protocol/bindings"
+	"github.com/Sidiora-Technologies/KindleLaunch/shared/auth"
+)
+
+type indexedSwap struct {
+	PoolID         string `json:"pool_id"`
+	Sender         string `json:"sender"`
+	IsBuy          bool   `json:"is_buy"`
+	AmountIn       string `json:"amount_in"`
+	AmountOut      string `json:"amount_out"`
+	Fee            string `json:"fee"`
+	Price          string `json:"price"`
+	BlockNumber    int64  `json:"block_number"`
+	BlockTimestamp int64  `json:"block_timestamp"`
+	TxHash         string `json:"tx_hash"`
+	LogIndex       uint   `json:"log_index"`
+}
+
+type fixtureSource struct {
+	log       ethtypes.Log
+	timestamp int64
+}
+
+func (s fixtureSource) Name() string { return "committed-legacy-abi-fixture" }
+func (s fixtureSource) Close() error { return nil }
+func (s fixtureSource) FetchLogs(_ context.Context, opts source.FetchOptions) (source.FetchResult, error) {
+	if opts.FromBlock != int64(s.log.BlockNumber) || opts.ToBlock != opts.FromBlock || len(opts.MonitoredAddresses) != 1 || opts.MonitoredAddresses[0] != strings.ToLower(s.log.Address.Hex()) {
+		return source.FetchResult{}, fmt.Errorf("unexpected source bounds: %+v", opts)
+	}
+	return source.FetchResult{Logs: []ethtypes.Log{s.log}, BlockTimestamps: map[uint64]int64{s.log.BlockNumber: s.timestamp}}, nil
+}
+
+func must(err error) {
+	if err != nil {
+		panic(err)
+	}
+}
+func integer(text string) *big.Int {
+	n, ok := new(big.Int).SetString(text, 10)
+	if !ok {
+		panic("invalid recorded integer")
+	}
+	return n
+}
+
+func main() {
+	input := flag.String("input", "", "committed indexer traded.json")
+	out := flag.String("out", "", "fixture output directory")
+	revision := flag.String("revision", "", "producer source revision")
+	flag.Parse()
+	if *input == "" || *out == "" || *revision == "" {
+		panic("-input, -out and -revision are required")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	defer cancel()
+	adminDSN := os.Getenv("PNL_TEST_POSTGRES_DSN")
+	if adminDSN == "" {
+		panic("offline recorder needs an ephemeral PostgreSQL server")
+	}
+	admin, err := pgx.Connect(ctx, adminDSN)
+	must(err)
+	defer admin.Close(context.Background())
+	database := fmt.Sprintf("record_m1015_%d", time.Now().UnixNano())
+	_, err = admin.Exec(ctx, "CREATE DATABASE "+pgx.Identifier{database}.Sanitize())
+	must(err)
+	defer func() {
+		_, err := admin.Exec(context.Background(), "DROP DATABASE "+pgx.Identifier{database}.Sanitize()+" WITH (FORCE)")
+		must(err)
+	}()
+	u, err := url.Parse(adminDSN)
+	must(err)
+	u.Path = "/" + database
+	dsn := u.String()
+	must(migrate.Up(ctx, dsn))
+	pool, err := pgxpool.New(ctx, dsn)
+	must(err)
+	defer pool.Close()
+	raw, err := os.ReadFile(*input)
+	must(err)
+	var indexed struct {
+		Swaps []indexedSwap     `json:"indexer.swaps"`
+		Pools []json.RawMessage `json:"indexer.pools"`
+	}
+	must(json.Unmarshal(raw, &indexed))
+	if len(indexed.Swaps) != 2 || len(indexed.Pools) != 1 {
+		panic("wrong committed producer stage")
+	}
+	_, err = pool.Exec(ctx, `INSERT INTO indexer.pools SELECT * FROM json_populate_record(NULL::indexer.pools, $1::json)`, string(indexed.Pools[0]))
+	must(err)
+	abi, err := bindings.EventEmitterMetaData.GetAbi()
+	must(err)
+	event := abi.Events["Swap"]
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	must(os.MkdirAll(*out, 0755))
+	hashes := map[string]string{}
+	for _, swap := range indexed.Swaps {
+		data, err := event.Inputs.NonIndexed().Pack(swap.IsBuy, integer(swap.AmountIn), integer(swap.AmountOut), integer(swap.Fee), integer(swap.Price), big.NewInt(swap.BlockTimestamp), big.NewInt(swap.BlockNumber))
+		must(err)
+		log := ethtypes.Log{
+			Address: common.HexToAddress(protocol.EventEmitterHex),
+			Topics:  []common.Hash{event.ID, common.HexToHash(swap.PoolID), common.BytesToHash(common.HexToAddress(swap.Sender).Bytes())},
+			Data:    data, BlockNumber: uint64(swap.BlockNumber), TxHash: common.HexToHash(swap.TxHash), Index: swap.LogIndex,
+		}
+		captured := make(chan []byte, 1)
+		secret := "offline-producer-fixture"
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			body, err := io.ReadAll(r.Body)
+			if err != nil {
+				http.Error(w, err.Error(), 500)
+				return
+			}
+			if err = auth.VerifyWebhook(secret, r.Header.Get("X-Sidiora-Timestamp"), string(body), r.Header.Get("X-Sidiora-Signature"), time.Now(), 0); err != nil {
+				http.Error(w, err.Error(), 401)
+				return
+			}
+			captured <- body
+			w.WriteHeader(http.StatusOK)
+		}))
+		pub := publisher.New(publisher.Options{Targets: []publisher.Target{{URL: server.URL, Secret: secret}}, Logger: logger, Attempts: 1})
+		p := processor.New(processor.Deps{Source: fixtureSource{log, swap.BlockTimestamp}, Store: store.New(pool), Decoder: decode.NewDecoder(), Publisher: pub, EventEmitterAddress: protocol.EventEmitterHex, ChainID: 125, Logger: logger})
+		must(p.ProcessBatch(ctx, swap.BlockNumber, swap.BlockNumber))
+		pub.Disconnect()
+		server.Close()
+		var body []byte
+		select {
+		case body = <-captured:
+		case <-ctx.Done():
+			panic("producer did not emit its webhook")
+		}
+		metrics := pub.Snapshot()
+		if metrics.TotalDeliveries != 1 || metrics.TotalFailures != 0 {
+			panic(fmt.Sprintf("publisher failed: %+v", metrics))
+		}
+		var count int
+		must(pool.QueryRow(ctx, "SELECT count(*) FROM indexer.swaps WHERE id=$1", swap.TxHash+"-"+strconv.FormatUint(uint64(swap.LogIndex), 10)).Scan(&count))
+		if count != 1 {
+			panic("producer webhook lacks its committed swap")
+		}
+		name := "sell.json"
+		if swap.IsBuy {
+			name = "buy.json"
+		}
+		must(os.WriteFile(filepath.Join(*out, name), body, 0644))
+		digest := sha256.Sum256(body)
+		hashes[name] = hex.EncodeToString(digest[:])
+		logBytes, err := json.MarshalIndent(log, "", "  ")
+		must(err)
+		must(os.WriteFile(filepath.Join(*out, strings.TrimSuffix(name, ".json")+"-log.json"), append(logBytes, '\n'), 0644))
+	}
+	manifest, err := json.MarshalIndent(map[string]any{
+		"revision":  *revision,
+		"input":     "services/launchpad/pnl-tracker/internal/production/l16/testdata/indexer_real_market/traded.json",
+		"producer":  "core/indexer: decode.Decoder -> processor.Processor.ProcessBatch -> store.Store -> publisher.Publisher.PublishBatch",
+		"transport": "HMAC-signed HTTP webhook, raw request bodies captured on loopback",
+		"source":    "Historical EventEmitter ABI encoding of the committed market's buy/sell identities and exact amounts; these legacy ABI logs are fixture inputs, not claims of historical EventEmitter emissions for these transactions.",
+		"sha256":    hashes,
+	}, "", "  ")
+	must(err)
+	must(os.WriteFile(filepath.Join(*out, "provenance.json"), append(manifest, '\n'), 0644))
+	fmt.Println("recorded production indexer buy and sell webhook bodies")
+}

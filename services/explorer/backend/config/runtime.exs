@@ -294,8 +294,51 @@ config :ethereum_jsonrpc, EthereumJSONRPC.PaxeerX,
   cosmos_transaction_type: ConfigHelper.parse_integer_env_var("PAXEER_X_COSMOS_TRANSACTION_TYPE", 127),
   native_coin_decimals: ConfigHelper.parse_integer_env_var("PAXEER_X_NATIVE_COIN_DECIMALS", 18)
 
+# Governed authority is loaded from an operator-managed file on every application boot.
+# RPC discovery never writes this file or supplies a replacement trust anchor.
+paxeer_x_receipt_authority =
+  case System.get_env("PAXEER_X_RECEIPT_AUTHORITY_FILE") do
+    nil ->
+      [chain_id: nil, receipt_keys: [], validator_checkpoints: %{}, validator_history: []]
+
+    path ->
+      authority = path |> File.read!() |> Jason.decode!()
+      %{"chain_id" => chain_id, "receipt_keys" => keys, "validator_checkpoints" => checkpoints} = authority
+      unless is_binary(chain_id) and chain_id != "", do: raise(ArgumentError, "receipt authority requires chain_id")
+
+      hash32 = fn text ->
+        bytes = Base.decode16!(String.replace_prefix(text, "0x", ""), case: :mixed)
+        <<_::256>> = bytes
+        bytes
+      end
+
+      pins = Explorer.Chain.PaxeerX.ReceiptKeysConfig.parse(keys)
+
+      checkpoints =
+        Map.new(checkpoints, fn {height, checkpoint} ->
+          {height, ""} = Integer.parse(height)
+          unless height > 0, do: raise(ArgumentError, "invalid validator checkpoint height")
+
+          {height,
+           %{block_hash: hash32.(checkpoint["block_hash"]), validators_hash: hash32.(checkpoint["validators_hash"])}}
+        end)
+
+      [
+        chain_id: chain_id,
+        receipt_keys: pins,
+        validator_checkpoints: checkpoints,
+        validator_history: Map.get(authority, "validator_history", [])
+      ]
+  end
+
 config :explorer, Explorer.Chain.PaxeerX.SequencerReceipt,
-  router_url: ConfigHelper.parse_url_env_var("PAXEER_X_ROUTER_URL")
+  node_rpc_url: ConfigHelper.parse_url_env_var("PAXEER_X_NODE_RPC_URL"),
+  gateway_url: ConfigHelper.parse_url_env_var("PAXEER_X_GATEWAY_URL"),
+  router_url: ConfigHelper.parse_url_env_var("PAXEER_X_GATEWAY_URL"),
+  chain_id: paxeer_x_receipt_authority[:chain_id],
+  receipt_keys: paxeer_x_receipt_authority[:receipt_keys],
+  validator_checkpoints: paxeer_x_receipt_authority[:validator_checkpoints],
+  validator_history: paxeer_x_receipt_authority[:validator_history]
 
 config :ethereum_jsonrpc, EthereumJSONRPC.PendingTransaction,
   type: System.get_env("ETHEREUM_JSONRPC_PENDING_TRANSACTIONS_TYPE", "default")

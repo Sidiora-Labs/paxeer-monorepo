@@ -1,0 +1,74 @@
+{
+  "description": "Command-peer contract fixture; directory payloads are opaque test bytes, not a PostgreSQL PITR qualification dataset.",
+  "versions": [
+    "3Lg_AbC+/=",
+    "9DIGIT_first.Version",
+    "UPPER_case-Version",
+    "é-version",
+    "é-version"
+  ],
+  "kms": "arn:aws:kms:region-one:123456789012:key/qualification-key",
+  "policy": {
+    "get-bucket-versioning": {
+      "Status": "Enabled"
+    },
+    "get-object-lock-configuration": {
+      "ObjectLockConfiguration": {
+        "ObjectLockEnabled": "Enabled"
+      }
+    },
+    "get-bucket-encryption": {
+      "ServerSideEncryptionConfiguration": {
+        "Rules": [
+          {
+            "ApplyServerSideEncryptionByDefault": {
+              "SSEAlgorithm": "aws:kms",
+              "KMSMasterKeyID": "arn:aws:kms:region-one:123456789012:key/qualification-key"
+            }
+          }
+        ]
+      }
+    }
+  },
+  "plain_directory": {
+    "PG_VERSION": "17\n",
+    "backup_manifest": "{\"fixture\":\"plain-directory-adapter-contract\",\"system_identifier\":\"12345\"}\n",
+    "global/pg_control": "opaque-control-file\n",
+    "base/16384/16385": "committed-marker-amount-outbox-inbox-watermark\n",
+    "pg_wal/000000010000000000000001": "opaque-streamed-wal-file\n"
+  },
+  "controldata": "pg_control version number:            1700\nDatabase system identifier:           12345\n",
+  "postgres_commands": [
+    [
+      "pg_basebackup",
+      "--format=plain",
+      "--wal-method=stream",
+      "--checkpoint=spread",
+      "--manifest-checksums=SHA256",
+      "--no-password",
+      "--pgdata=<backup>"
+    ],
+    [
+      "pg_verifybackup",
+      "--exit-on-error",
+      "<backup>"
+    ],
+    [
+      "pg_verifybackup",
+      "--exit-on-error",
+      "<backup>"
+    ],
+    [
+      "pg_controldata",
+      "<backup>"
+    ],
+    [
+      "pg_ctl",
+      "--pgdata=<restored>",
+      "--wait",
+      "--timeout=60",
+      "--log=<restored>/recovery.log",
+      "start"
+    ]
+  ]
+}

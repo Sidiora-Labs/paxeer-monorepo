@@ -26,6 +26,9 @@ use std::sync::Arc;
 #[cfg_attr(feature = "mockall", automock)]
 #[async_trait]
 pub trait TransactionsApi: Send + Sync {
+    /// Scope subsequent paginated calls to the producer's validated next-page cursor.
+    fn with_cursor(&self, cursor: super::pagination::PageCursor) -> Box<dyn TransactionsApi>;
+
     /// GET /api/v2/transactions/{transaction_hash}/internal-transactions
     ///
     ///
@@ -102,11 +105,15 @@ pub trait TransactionsApi: Send + Sync {
 
 pub struct TransactionsApiClient {
     configuration: Arc<configuration::Configuration>,
+    cursor: Option<super::pagination::PageCursor>,
 }
 
 impl TransactionsApiClient {
     pub fn new(configuration: Arc<configuration::Configuration>) -> Self {
-        Self { configuration }
+        Self {
+            configuration,
+            cursor: None,
+        }
     }
 }
 
@@ -116,6 +123,9 @@ impl TransactionsApiClient {
 pub struct GetTransactionInternalTxsParams {
     /// Transaction hash
     pub transaction_hash: String,
+
+    /// Continuation returned by this route; overrides the client-scoped cursor.
+    pub cursor: Option<super::pagination::PageCursor>,
 }
 
 /// struct for passing parameters to the method [`get_transaction_logs`]
@@ -124,6 +134,9 @@ pub struct GetTransactionInternalTxsParams {
 pub struct GetTransactionLogsParams {
     /// Transaction hash
     pub transaction_hash: String,
+
+    /// Continuation returned by this route; overrides the client-scoped cursor.
+    pub cursor: Option<super::pagination::PageCursor>,
 }
 
 /// struct for passing parameters to the method [`get_transaction_raw_trace`]
@@ -140,6 +153,9 @@ pub struct GetTransactionRawTraceParams {
 pub struct GetTransactionStateChangesParams {
     /// Transaction hash
     pub transaction_hash: String,
+
+    /// Continuation returned by this route; overrides the client-scoped cursor.
+    pub cursor: Option<super::pagination::PageCursor>,
 }
 
 /// struct for passing parameters to the method [`get_transaction_summary`]
@@ -158,6 +174,9 @@ pub struct GetTransactionTokenTransfersParams {
     pub transaction_hash: String,
 
     pub r#type: Option<String>,
+
+    /// Continuation returned by this route; overrides the client-scoped cursor.
+    pub cursor: Option<super::pagination::PageCursor>,
 }
 
 /// struct for passing parameters to the method [`get_tx`]
@@ -177,10 +196,20 @@ pub struct GetTxsParams {
     pub r#type: Option<String>,
 
     pub method: Option<String>,
+
+    /// Continuation returned by this route; overrides the client-scoped cursor.
+    pub cursor: Option<super::pagination::PageCursor>,
 }
 
 #[async_trait]
 impl TransactionsApi for TransactionsApiClient {
+    fn with_cursor(&self, cursor: super::pagination::PageCursor) -> Box<dyn TransactionsApi> {
+        Box::new(Self {
+            configuration: self.configuration.clone(),
+            cursor: Some(cursor),
+        })
+    }
+
     async fn get_transaction_internal_txs(
         &self,
         params: GetTransactionInternalTxsParams,
@@ -188,7 +217,10 @@ impl TransactionsApi for TransactionsApiClient {
         ResponseContent<GetTransactionInternalTxsSuccess>,
         Error<GetTransactionInternalTxsError>,
     > {
-        let GetTransactionInternalTxsParams { transaction_hash } = params;
+        let GetTransactionInternalTxsParams {
+            transaction_hash,
+            cursor,
+        } = params;
 
         let local_var_configuration = &self.configuration;
 
@@ -196,7 +228,7 @@ impl TransactionsApi for TransactionsApiClient {
 
         let local_var_uri_str = format!(
             "{}/api/v2/transactions/{transaction_hash}/internal-transactions",
-            local_var_configuration.base_path,
+            local_var_configuration.rest_origin()?,
             transaction_hash = crate::apis::urlencode(transaction_hash)
         );
         let mut local_var_req_builder =
@@ -207,38 +239,34 @@ impl TransactionsApi for TransactionsApiClient {
                 .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
         }
 
-        let local_var_req = local_var_req_builder.build()?;
+        let mut local_var_req = local_var_req_builder
+            .timeout(local_var_configuration.request_timeout)
+            .build()?;
+        if let Some(cursor) = cursor.as_ref().or(self.cursor.as_ref()) {
+            cursor.apply(&mut local_var_req)?;
+        }
         let local_var_resp = local_var_client.execute(local_var_req).await?;
 
         let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
+        let local_var_content =
+            super::read_bounded(local_var_resp, local_var_configuration.max_response_bytes).await?;
 
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            let local_var_entity: Option<GetTransactionInternalTxsSuccess> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_result = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Ok(local_var_result)
-        } else {
-            let local_var_entity: Option<GetTransactionInternalTxsError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        super::decode_success(
+            local_var_status,
+            local_var_content,
+            "/api/v2/transactions/{transaction_hash}/internal-transactions",
+            GetTransactionInternalTxsSuccess::Status200,
+        )
     }
 
     async fn get_transaction_logs(
         &self,
         params: GetTransactionLogsParams,
     ) -> Result<ResponseContent<GetTransactionLogsSuccess>, Error<GetTransactionLogsError>> {
-        let GetTransactionLogsParams { transaction_hash } = params;
+        let GetTransactionLogsParams {
+            transaction_hash,
+            cursor,
+        } = params;
 
         let local_var_configuration = &self.configuration;
 
@@ -246,7 +274,7 @@ impl TransactionsApi for TransactionsApiClient {
 
         let local_var_uri_str = format!(
             "{}/api/v2/transactions/{transaction_hash}/logs",
-            local_var_configuration.base_path,
+            local_var_configuration.rest_origin()?,
             transaction_hash = crate::apis::urlencode(transaction_hash)
         );
         let mut local_var_req_builder =
@@ -257,31 +285,24 @@ impl TransactionsApi for TransactionsApiClient {
                 .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
         }
 
-        let local_var_req = local_var_req_builder.build()?;
+        let mut local_var_req = local_var_req_builder
+            .timeout(local_var_configuration.request_timeout)
+            .build()?;
+        if let Some(cursor) = cursor.as_ref().or(self.cursor.as_ref()) {
+            cursor.apply(&mut local_var_req)?;
+        }
         let local_var_resp = local_var_client.execute(local_var_req).await?;
 
         let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
+        let local_var_content =
+            super::read_bounded(local_var_resp, local_var_configuration.max_response_bytes).await?;
 
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            let local_var_entity: Option<GetTransactionLogsSuccess> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_result = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Ok(local_var_result)
-        } else {
-            let local_var_entity: Option<GetTransactionLogsError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        super::decode_success(
+            local_var_status,
+            local_var_content,
+            "/api/v2/transactions/{transaction_hash}/logs",
+            GetTransactionLogsSuccess::Status200,
+        )
     }
 
     async fn get_transaction_raw_trace(
@@ -297,7 +318,7 @@ impl TransactionsApi for TransactionsApiClient {
 
         let local_var_uri_str = format!(
             "{}/api/v2/transactions/{transaction_hash}/raw-trace",
-            local_var_configuration.base_path,
+            local_var_configuration.rest_origin()?,
             transaction_hash = crate::apis::urlencode(transaction_hash)
         );
         let mut local_var_req_builder =
@@ -308,31 +329,21 @@ impl TransactionsApi for TransactionsApiClient {
                 .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
         }
 
-        let local_var_req = local_var_req_builder.build()?;
+        let local_var_req = local_var_req_builder
+            .timeout(local_var_configuration.request_timeout)
+            .build()?;
         let local_var_resp = local_var_client.execute(local_var_req).await?;
 
         let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
+        let local_var_content =
+            super::read_bounded(local_var_resp, local_var_configuration.max_response_bytes).await?;
 
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            let local_var_entity: Option<GetTransactionRawTraceSuccess> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_result = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Ok(local_var_result)
-        } else {
-            let local_var_entity: Option<GetTransactionRawTraceError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        super::decode_success(
+            local_var_status,
+            local_var_content,
+            "/api/v2/transactions/{transaction_hash}/raw-trace",
+            GetTransactionRawTraceSuccess::Status200,
+        )
     }
 
     async fn get_transaction_state_changes(
@@ -342,7 +353,10 @@ impl TransactionsApi for TransactionsApiClient {
         ResponseContent<GetTransactionStateChangesSuccess>,
         Error<GetTransactionStateChangesError>,
     > {
-        let GetTransactionStateChangesParams { transaction_hash } = params;
+        let GetTransactionStateChangesParams {
+            transaction_hash,
+            cursor,
+        } = params;
 
         let local_var_configuration = &self.configuration;
 
@@ -350,7 +364,7 @@ impl TransactionsApi for TransactionsApiClient {
 
         let local_var_uri_str = format!(
             "{}/api/v2/transactions/{transaction_hash}/state-changes",
-            local_var_configuration.base_path,
+            local_var_configuration.rest_origin()?,
             transaction_hash = crate::apis::urlencode(transaction_hash)
         );
         let mut local_var_req_builder =
@@ -361,31 +375,24 @@ impl TransactionsApi for TransactionsApiClient {
                 .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
         }
 
-        let local_var_req = local_var_req_builder.build()?;
+        let mut local_var_req = local_var_req_builder
+            .timeout(local_var_configuration.request_timeout)
+            .build()?;
+        if let Some(cursor) = cursor.as_ref().or(self.cursor.as_ref()) {
+            cursor.apply(&mut local_var_req)?;
+        }
         let local_var_resp = local_var_client.execute(local_var_req).await?;
 
         let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
+        let local_var_content =
+            super::read_bounded(local_var_resp, local_var_configuration.max_response_bytes).await?;
 
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            let local_var_entity: Option<GetTransactionStateChangesSuccess> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_result = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Ok(local_var_result)
-        } else {
-            let local_var_entity: Option<GetTransactionStateChangesError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        super::decode_success(
+            local_var_status,
+            local_var_content,
+            "/api/v2/transactions/{transaction_hash}/state-changes",
+            GetTransactionStateChangesSuccess::Status200,
+        )
     }
 
     async fn get_transaction_summary(
@@ -401,7 +408,7 @@ impl TransactionsApi for TransactionsApiClient {
 
         let local_var_uri_str = format!(
             "{}/api/v2/transactions/{transaction_hash}/summary",
-            local_var_configuration.base_path,
+            local_var_configuration.rest_origin()?,
             transaction_hash = crate::apis::urlencode(transaction_hash)
         );
         let mut local_var_req_builder =
@@ -412,31 +419,21 @@ impl TransactionsApi for TransactionsApiClient {
                 .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
         }
 
-        let local_var_req = local_var_req_builder.build()?;
+        let local_var_req = local_var_req_builder
+            .timeout(local_var_configuration.request_timeout)
+            .build()?;
         let local_var_resp = local_var_client.execute(local_var_req).await?;
 
         let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
+        let local_var_content =
+            super::read_bounded(local_var_resp, local_var_configuration.max_response_bytes).await?;
 
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            let local_var_entity: Option<GetTransactionSummarySuccess> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_result = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Ok(local_var_result)
-        } else {
-            let local_var_entity: Option<GetTransactionSummaryError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        super::decode_success(
+            local_var_status,
+            local_var_content,
+            "/api/v2/transactions/{transaction_hash}/summary",
+            GetTransactionSummarySuccess::Status200,
+        )
     }
 
     async fn get_transaction_token_transfers(
@@ -449,6 +446,7 @@ impl TransactionsApi for TransactionsApiClient {
         let GetTransactionTokenTransfersParams {
             transaction_hash,
             r#type,
+            cursor,
         } = params;
 
         let local_var_configuration = &self.configuration;
@@ -457,7 +455,7 @@ impl TransactionsApi for TransactionsApiClient {
 
         let local_var_uri_str = format!(
             "{}/api/v2/transactions/{transaction_hash}/token-transfers",
-            local_var_configuration.base_path,
+            local_var_configuration.rest_origin()?,
             transaction_hash = crate::apis::urlencode(transaction_hash)
         );
         let mut local_var_req_builder =
@@ -473,31 +471,24 @@ impl TransactionsApi for TransactionsApiClient {
                 .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
         }
 
-        let local_var_req = local_var_req_builder.build()?;
+        let mut local_var_req = local_var_req_builder
+            .timeout(local_var_configuration.request_timeout)
+            .build()?;
+        if let Some(cursor) = cursor.as_ref().or(self.cursor.as_ref()) {
+            cursor.apply(&mut local_var_req)?;
+        }
         let local_var_resp = local_var_client.execute(local_var_req).await?;
 
         let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
+        let local_var_content =
+            super::read_bounded(local_var_resp, local_var_configuration.max_response_bytes).await?;
 
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            let local_var_entity: Option<GetTransactionTokenTransfersSuccess> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_result = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Ok(local_var_result)
-        } else {
-            let local_var_entity: Option<GetTransactionTokenTransfersError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        super::decode_success(
+            local_var_status,
+            local_var_content,
+            "/api/v2/transactions/{transaction_hash}/token-transfers",
+            GetTransactionTokenTransfersSuccess::Status200,
+        )
     }
 
     async fn get_tx(
@@ -512,7 +503,7 @@ impl TransactionsApi for TransactionsApiClient {
 
         let local_var_uri_str = format!(
             "{}/api/v2/transactions/{transaction_hash}",
-            local_var_configuration.base_path,
+            local_var_configuration.rest_origin()?,
             transaction_hash = crate::apis::urlencode(transaction_hash)
         );
         let mut local_var_req_builder =
@@ -523,31 +514,21 @@ impl TransactionsApi for TransactionsApiClient {
                 .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
         }
 
-        let local_var_req = local_var_req_builder.build()?;
+        let local_var_req = local_var_req_builder
+            .timeout(local_var_configuration.request_timeout)
+            .build()?;
         let local_var_resp = local_var_client.execute(local_var_req).await?;
 
         let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
+        let local_var_content =
+            super::read_bounded(local_var_resp, local_var_configuration.max_response_bytes).await?;
 
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            let local_var_entity: Option<GetTxSuccess> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_result = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Ok(local_var_result)
-        } else {
-            let local_var_entity: Option<GetTxError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        super::decode_success(
+            local_var_status,
+            local_var_content,
+            "/api/v2/transactions/{transaction_hash}",
+            GetTxSuccess::Status200,
+        )
     }
 
     async fn get_txs(
@@ -558,14 +539,17 @@ impl TransactionsApi for TransactionsApiClient {
             filter,
             r#type,
             method,
+            cursor,
         } = params;
 
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
 
-        let local_var_uri_str =
-            format!("{}/api/v2/transactions", local_var_configuration.base_path);
+        let local_var_uri_str = format!(
+            "{}/api/v2/transactions",
+            local_var_configuration.rest_origin()?
+        );
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::GET, local_var_uri_str.as_str());
 
@@ -589,31 +573,24 @@ impl TransactionsApi for TransactionsApiClient {
                 .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
         }
 
-        let local_var_req = local_var_req_builder.build()?;
+        let mut local_var_req = local_var_req_builder
+            .timeout(local_var_configuration.request_timeout)
+            .build()?;
+        if let Some(cursor) = cursor.as_ref().or(self.cursor.as_ref()) {
+            cursor.apply(&mut local_var_req)?;
+        }
         let local_var_resp = local_var_client.execute(local_var_req).await?;
 
         let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
+        let local_var_content =
+            super::read_bounded(local_var_resp, local_var_configuration.max_response_bytes).await?;
 
-        if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
-            let local_var_entity: Option<GetTxsSuccess> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_result = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Ok(local_var_result)
-        } else {
-            let local_var_entity: Option<GetTxsError> =
-                serde_json::from_str(&local_var_content).ok();
-            let local_var_error = ResponseContent {
-                status: local_var_status,
-                content: local_var_content,
-                entity: local_var_entity,
-            };
-            Err(Error::ResponseError(local_var_error))
-        }
+        super::decode_success(
+            local_var_status,
+            local_var_content,
+            "/api/v2/transactions",
+            GetTxsSuccess::Status200,
+        )
     }
 }
 
@@ -798,14 +775,14 @@ impl ResponseContent<GetTxSuccess> {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum GetTxsSuccess {
-    Status200(Box<models::GetTxs200Response>),
+    Status200(Box<super::feed::TransactionFeedPage>),
 
     UnknownValue(serde_json::Value),
 }
 
 // changed
 impl ResponseContent<GetTxsSuccess> {
-    pub fn try_as_success(&self) -> Option<&models::GetTxs200Response> {
+    pub fn try_as_success(&self) -> Option<&super::feed::TransactionFeedPage> {
         match &self.entity {
             Some(GetTxsSuccess::Status200(data)) => Some(data),
             _ => None,
@@ -814,7 +791,7 @@ impl ResponseContent<GetTxsSuccess> {
 
     pub fn try_parse_as_success_model(
         &self,
-    ) -> Result<models::GetTxs200Response, serde_json_path_to_error::Error> {
+    ) -> Result<super::feed::TransactionFeedPage, serde_json_path_to_error::Error> {
         serde_json_path_to_error::from_str(&self.content)
     }
 }

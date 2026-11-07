@@ -1,123 +1,100 @@
-<h1 align="center">LayerX Network</h1>
+<h1 align="center">Paxeer X Network — LayerX</h1>
 
-LayerX Network является детерминированной сетью исполнения и учёта для автономных агентов.
+Paxeer X Network объединяет платежи, исполнение программ и операции автономных агентов в одной сети.
 
 [English](https://github.com/Sidiora-Labs/Paxeer-X-Network/blob/main/README.md) · [Español](es.md) · [日本語](ja.md) · Русский · [简体中文](zh-cn.md) · [Português](pt-br.md) · [Deutsch](de.md) · [Français](fr.md)
 
-*Если перевод расходится с английской README, эталонной считается английская версия.*
-
-[![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://github.com/Sidiora-Labs/Paxeer-X-Network/blob/main/LICENSE)
-[![CI](https://github.com/Sidiora-Labs/Paxeer-X-Network/actions/workflows/ci.yml/badge.svg)](https://github.com/Sidiora-Labs/Paxeer-X-Network/blob/main/.github/workflows/ci.yml)
-
 ## Что такое LayerX Network
 
-LayerX Network является детерминированной сетью исполнения и учёта для автономных агентов. Каждая операция, изменяющая состояние, поступает как подписанный, канонически закодированный `Activity`. Протокол проверяет субъекта и его полномочия, потребляет последовательность счёта, упорядочивает активность в одной глобальной последовательности, применяет детерминированный переход состояния и возвращает подписанную квитанцию, привязанную к получившемуся корню состояния.
+LayerX — ядро, встроенное в Paxeer X Network. Узел `paxd` исполняет единую BFT-цепочку с EVM chain ID `125` (`0x7d`). Ядро входит в состав узла и участвует в исполнении и формировании предложений блоков. Операции, изменяющие состояние, являются транзакциями этой же сети; квитанция становится окончательной после фиксации её блока консенсусом.
 
-Журнал активностей только для дополнения является источником истины. Индексы базы данных являются отбрасываемыми проекциями и могут быть пересобраны повторным проигрыванием этого журнала. Исполнение, критичное для консенсуса, исключает числа с плавающей точкой, решения по локальным часам, порядок итерации базы данных и другие источники недетерминизма. `402LXP` является единственным компонентом, которому разрешено записывать балансы. Модули протокола выпускают проверенные наборы переводов, а не изменяют средства самостоятельно.
+Хост `modules/lxphost` связывает ядро C17 и среду исполнения программ Rust с узлом Go. `node/app.go` регистрирует нативные модули и проверяет порядок транзакций в предложениях блоков. Сохранённое состояние цепочки определяет балансы, полномочия, платежи и программы. Подцепочки — это домены арендаторов: пространства имён в базе данных, которые создаются без инфраструктуры новой сети.
 
-Обычная активность агента исполняется и упорядочивается внутри LayerX. Периодические контрольные точки рассчитываются в Paxeer, который ведёт кастодиальное хранение, регистрацию контрольных точек, гарантийные депозиты, оспаривания, выводы, споры и аварийные выходы. Обычное действие LayerX не требует транзакции Paxeer.
+Монорепозиторий Sidiora Labs содержит узел, ядро, контракты, сервисы, приложения и SDK. Спецификация интеграции находится в [`spec/layerx-merge/spec.kvx`](https://github.com/Sidiora-Labs/Paxeer-X-Network/blob/main/spec/layerx-merge/spec.kvx).
 
-Этот репозиторий является монорепозиторием Sidiora Labs для LayerX Network и Paxeer Network. Совместное размещение делает протокол, сеть расчётов, контракты и поверхности разработчика проверяемыми в одном месте. Каждая подсистема сохраняет собственную сборку, выпуск, развёртывание и границу доверия. См. [`spec/layerx-protocol/design.md`](https://github.com/Sidiora-Labs/Paxeer-X-Network/blob/main/spec/layerx-protocol/design.md).
+### Модули и прекомпилированные контракты
 
-## Попробовать тестовую сеть
+EVM-контракты обращаются к нативным модулям через прекомпилированные контракты. Таблица в `precompiles/setup.go` объявляет следующие адреса; их активация зависит от плана `v7.0` и настроенной на узле высоты обновления. Ниже приведены сокращённые 20-байтовые EVM-адреса с опущенными ведущими нулями.
 
-Полный путь описан в [`docs/wiki/Quickstart.md`](../quickstart.md): установите CLI `layerx` из `tools/platform/cli`, поднимите кластер, выполните source `build/beta-cluster/env`, затем создайте учётные данные, запросите средства из faucet, отправьте активность, проверьте квитанцию и разверните программу.
+| Прекомпилированный контракт | Адрес |
+| --- | --- |
+| `layerxledger` | `0x101A` |
+| `layerxpay` | `0x101B` |
+| `layerxauth` | `0x101C` |
+| `layerxprograms` | `0x101D` |
+| `layerxchains` | `0x101E` |
 
-```sh
-layerx key create quickstart
-```
+Каталог также включает функции агентов по адресам от `0x0901` до `0x0908`. При подготовке транзакций учитывайте ABI контракта и настройки обновления выбранной сети. Развёртывание и вызов программ выполняет нативный модуль программ; см. [Программы](../../programs/index.md).
 
-```sh
-jq -n --arg did "$LAYERX_TEST_SOURCE_DID" --arg public_key "$LAYERX_TEST_SOURCE_PUBLIC_KEY" \
-  '{did:$did, public_key:$public_key}' > faucet-request.json
-curl --fail --silent --show-error --max-time 30 --cacert "$LAYERX_TEST_CA_FILE" \
-  --header "Authorization: Bearer $(tr -d '\r\n' < "$LAYERX_TEST_AUTH_TOKEN_FILE")" \
-  --request POST "$LAYERX_FAUCET_URL/v1/faucet/claims" \
-  --header "Idempotency-Key: faucet-quickstart-01" \
-  --header 'Content-Type: application/json' --data-binary @faucet-request.json
-```
+## Подключение к сети
 
-```sh
-layerx --json payment test \
-  --from "$LAYERX_TEST_SOURCE_DID" \
-  --to "$LAYERX_TEST_DESTINATION_DID" \
-  --currency "$LAYERX_TEST_ASSET" \
-  --amount "$LAYERX_TEST_AMOUNT" \
-  --idempotency-key paymentquickstart1
-```
+Публичный JSON-RPC обслуживается по корневому пути на узлах от `https://api1.mainnet-beta.paxeer.network` до `https://api14.mainnet-beta.paxeer.network`, а также по адресу `https://api-mainnet-beta.paxeer.network`. См. [Публичные адреса](../../reference/public-rpc.md). `node.hyperpaxeer.com` — зеркало библиотек hpx (mirror) для сборки, а не адрес для отправки транзакций.
+
+С помощью `curl` проверьте chain ID до подписания транзакций и запросите высоту узла. Первый вызов должен вернуть `result: "0x7d"`, второй — высоту в шестнадцатеричном виде.
 
 ```sh
-layerx --json receipt verify \
-  --receipt receipt.hex \
-  --batch-id "$batch_id" \
-  --asset "$asset" \
-  --previous-state-root "$previous_root" \
-  --resulting-state-root "$resulting_root" \
-  --sequencer-public-key "$sequencer_key"
+RPC_URL=https://api1.mainnet-beta.paxeer.network
+curl --fail --silent --show-error --max-time 30 "$RPC_URL" \
+  --header 'Content-Type: application/json' \
+  --data '{"jsonrpc":"2.0","id":1,"method":"eth_chainId","params":[]}'
+curl --fail --silent --show-error --max-time 30 "$RPC_URL" \
+  --header 'Content-Type: application/json' \
+  --data '{"jsonrpc":"2.0","id":2,"method":"eth_blockNumber","params":[]}'
 ```
 
+Чтобы изменить состояние, подпишите EVM-транзакцию для цепочки `125` своим кошельком и отправьте подписанные байты через `eth_sendRawTransaction`. Полученный хеш идентифицирует транзакцию, но сам по себе не подтверждает фиксацию блока. Для запроса существующей транзакции задайте `TX_HASH` равным её полному 32-байтовому хешу в шестнадцатеричном виде и используйте `jq` и `curl`:
+
 ```sh
-layerx --json program deploy \
-  quickstart-program/target/wasm32-unknown-unknown/release/quickstart_program.wasm \
-  --program-id <program_id> \
-  --idempotency-key <idempotency_key> \
-  --key quickstart \
-  --account-sequence 0 \
-  --not-before-ms <not_before_ms> \
-  --expires-at-ms <expires_at_ms> \
-  --previous-state-root <previous_state_root>
+jq -n --arg hash "${TX_HASH:?}" \
+  '{jsonrpc:"2.0",id:3,method:"eth_getTransactionReceipt",params:[$hash]}' |
+  curl --fail --silent --show-error --max-time 30 "$RPC_URL" \
+    --header 'Content-Type: application/json' --data-binary @-
 ```
+
+Ответ `result: null` означает, что узел пока не предоставляет квитанцию для этого хеша. В полученной квитанции проверьте `transactionHash`, `blockHash`, `blockNumber` и `status`: `0x1` означает успешное исполнение, `0x0` — неудачное. Окончательность определяется фиксацией блока BFT-консенсусом. При тайм-ауте отправки сначала запросите исходный хеш, прежде чем повторять операцию.
+
+Настройте несколько узлов и сравнивайте `eth_blockNumber`: их высоты могут различаться. Публичные пространства имён — `debug`, `echo`, `eth`, `net`, `pax`, `px`, `test` и `txpool`; доступность зависит от конфигурации узла. Пространство имён `px` отвечает из состояния узла; `px_register` и `px_requestFunds` — операции размещённых сервисов, контракт которых описан в `services/platform/hosted/gateway/openrpc.json`; см. [JSON-RPC шлюза](../../platform/gateway-rpc.md).
 
 ## Сборка из исходников
 
-Ядро среды исполнения написано на C17 (`-std=c17` в корневом `Makefile`). Рабочие пространства agent, human и platform используют Rust 1.91.1 (`rust-toolchain.toml`). Контракты расчётов LayerX используют Solidity 0.8.27 (`foundry.toml`). Квалификация повторного проигрывания требует GCC 13, Clang 18, Docker, amd64 musl runner и кросс-компилятор AArch64 плюс QEMU; см. [`docs/QUALIFICATION.md`](../../operators/qualification.md).
+Узел использует Go 1.25.8 (`go.mod`), ядро — C17 (`Makefile`), рабочие пространства Rust — 1.91.1 (`rust-toolchain.toml`). Корневая конфигурация Foundry фиксирует Solidity 0.8.27 (`foundry.toml`). Установив зависимости сборки, выполните в корне репозитория:
 
 ```sh
-make build
-make test
-make test-contracts
-make ci
+make paxd-build
 ```
 
-Ограниченные цели Paxeer, без смены каталогов:
+Эта цель собирает `build/liblayerx.a`, среду исполнения программ в режиме release и `build/paxd`, а также задаёт версию из `tools/release/version.json`. `make build` собирает библиотеку и инструменты ядра; цель сборки узла — `make paxd-build`. `make paxeer-build` вызывает `chain.mk`, который также подготавливает нативные библиотеки. Цели узла используют `GOPROXY=off`, поэтому зависимости Go должны быть доступны локально.
 
-```sh
-make paxeer-build
-make paxeer-lint
-make paxeer-test
-make paxeer-ci
-```
-
-`make ci` запускает `public-audit`, нативные тесты, сравнение архивов двух сборок, проверки символов консенсуса и наборы санитайзеров. `make monorepo-ci` является отдельным межподсистемным шлюзом. Локальный проход не является разрешением развёртывать контракты, перемещать кастоди или работать с реальными активами.
+Для сервисов предусмотрены отдельные цели: `make agent-build`, `make human-build`, `make interop-build`, `make platform-build-all` и `make programs-build`. Выполняйте проверки изменяемого компонента; см. [Квалификационные проверки](../../operators/qualification.md).
 
 ## Структура репозитория
 
-| Path | Назначение |
+| Путь | Назначение |
 | --- | --- |
-| `src/`, `include/` | Среда исполнения протокола на C17, машина состояний, хранилище, упорядочивание, повторное проигрывание и интеграция расчётов |
-| `cmd/` | Нативные демоны и инструменты (`layerxd`, `layerxctl`, genesis, verify) |
-| `agent/` | Интерфейс агента на Rust, SDK, демон, MCP-сервер, кодирование, криптография и проверка доказательств |
-| `human/` | Плоскость управления человеком, компилятор типизированных намерений, клиент кастодиальной границы, индекс обозревателя и веб-приложение |
-| `services/platform/` | Платформа разработчика, хостинг-сервисы, промежуточное ПО, SDK, эмулятор, CLI и инструменты выпуска |
-| `programs/` | Программируемая среда исполнения LayerX и инструменты программ |
-| `interop/` | Поверхности агентской коммерции и межсетевой совместимости |
-| `contracts/` | Контракты Solidity для кастоди Paxeer, контрольных точек, гарантийных депозитов, требований, споров и выходов |
-| `go.mod`, `chain.mk`, `daemon/`, `node/`, `modules/`, `consensus/`, `sdk/`, `rpc/`, `precompiles/`, `storage/`, `wasm/`, `docker/` | Узел Paxeer Network, совместимость EVM/RPC, движки хранения, модули, контракты и локальные сборки подсистемы |
-| `spec/` | Нормативные спецификации KVX, сгенерированные проекты, требования и графы задач |
-| `tests/`, `test/`, `tests/fuzz/` | Наборы нативных, контрактных, replay, инвариантных, fault и fuzz тестов |
-| `migrations/` | Работы по genesis, миграции, сверке и теневому повторному проигрыванию |
-| `docs/` | Wiki, заметки по монорепозиторию и документация квалификации |
+| `daemon/paxd/`, `node/`, `consensus/` | Исполняемый файл узла, приложение и BFT-консенсус |
+| `src/`, `include/`, `modules/lxphost/` | Ядро C17 и его хост внутри узла |
+| `modules/`, `precompiles/`, `rpc/` | Нативные модули, доступ из EVM и серверы JSON-RPC |
+| `services/agent/` | SDK, демон агента и MCP-сервер |
+| `services/human/`, `apps/web/` | Плоскость управления человеком и веб-приложение |
+| `services/platform/`, `tools/platform/` | Размещённые сервисы, промежуточное ПО и инструменты разработчика |
+| `programs/` | Среда исполнения программ и инструменты компиляции |
+| `services/interop/` | Коммерция между агентами и межсетевое взаимодействие |
+| `contracts/` | Контракты и интерфейсы Solidity, включая bridge и launchpad |
+| `sdk/`, `apps/` | Клиентские SDK и приложения |
+| `spec/`, `tests/`, `migrations/` | Спецификации, тесты и миграции |
+| `docs/` | Wiki, сайт и документация квалификации |
 
 ## Документация
 
-- Индекс wiki: [`docs/wiki/Home.md`](../../index.md)
-- Структура монорепозитория и теги выпуска: [`docs/MONOREPO.md`](../monorepo.md)
-- Квалификационные шлюзы: [`docs/QUALIFICATION.md`](../../operators/qualification.md)
-- Спецификации: [`spec/`](https://github.com/Sidiora-Labs/Paxeer-X-Network/blob/main/spec/)
+- [Главная страница сайта](../../index.md)
+- [Публичные адреса JSON-RPC](../../reference/public-rpc.md)
+- [Структура монорепозитория](../monorepo.md)
+- [Квалификационные проверки](../../operators/qualification.md)
+- [Спецификации](https://github.com/Sidiora-Labs/Paxeer-X-Network/blob/main/spec/)
 
 ## SDK и интеграции
 
-| Язык | Path |
+| Язык | Путь |
 | --- | --- |
 | Rust | `services/agent/crates/layerx-sdk` |
 | Python | `services/agent/sdk/python` |
@@ -127,7 +104,7 @@ make paxeer-ci
 | .NET | `sdk/platform/dotnet` |
 | Swift | `sdk/platform/swift` |
 
-`layerx-agentd` находится в `services/agent/crates/layerx-agentd`. MCP-сервер находится в `services/agent/crates/layerx-mcp`. CLI разработчика в `tools/platform/cli` устанавливает эти транспорты командами `layerx install mcp` и `layerx install a2a`.
+`layerx-agentd` находится в `services/agent/crates/layerx-agentd` и является сервисом агента вне узла. MCP-сервер расположен в `services/agent/crates/layerx-mcp`. CLI разработчика в `tools/platform/cli` предоставляет команды `layerx install mcp` и `layerx install a2a`; установка требует настроенного окружения шлюза beta или production и соответствующих учётных данных.
 
 ## Участие
 
@@ -141,4 +118,4 @@ make paxeer-ci
 
 Лицензировано на условиях Apache License, Version 2.0. См. [`LICENSE`](https://github.com/Sidiora-Labs/Paxeer-X-Network/blob/main/LICENSE) и [`NOTICE`](https://github.com/Sidiora-Labs/Paxeer-X-Network/blob/main/NOTICE).
 
-LayerX Network разрабатывается Sidiora Labs.
+Paxeer X Network разрабатывается Sidiora Labs.

@@ -53,7 +53,9 @@ use crate::abi::{
 use crate::attestation::{
     assemble_signatures, recover_signer, OutboundAttestation, SignatureError,
 };
-use crate::attestation_api::AttestationView;
+use crate::attestation_api::{
+    AttestationSnapshot, AttestationView, AuthenticatedPolicy, PolicyDestination,
+};
 use crate::cosign::CosignDirectory;
 use crate::hex;
 use crate::journal::{
@@ -419,7 +421,7 @@ pub struct Relayer {
     release: Option<SolanaRelease>,
     failures: Vec<ItemFailure>,
     journal_failure: Option<JournalError>,
-    thresholds: BTreeMap<u64, usize>,
+    policies: BTreeMap<PolicyDestination, AuthenticatedPolicy>,
 }
 
 fn malformed() -> RelayerError {
@@ -565,7 +567,7 @@ impl Relayer {
             release,
             failures: Vec::new(),
             journal_failure: None,
-            thresholds: BTreeMap::new(),
+            policies: BTreeMap::new(),
         })
     }
 
@@ -583,42 +585,78 @@ impl Relayer {
 
     #[must_use]
     pub fn attestation_view(&self) -> AttestationView {
-        let mut view = AttestationView {
-            items: self.journal.state().items.clone(),
-            signatures: BTreeMap::new(),
-            thresholds: self.thresholds.clone(),
-        };
-        for item in view.items.values() {
-            let (Observation::Inbound { chain_id, .. } | Observation::Outbound { chain_id, .. }) =
-                &item.observation;
-            view.thresholds.entry(*chain_id).or_insert(1);
-            let digest = item
-                .observation
-                .inbound_attestation()
-                .map(|attestation| attestation.digest())
-                .or_else(|| {
-                    item.observation
-                        .outbound_attestation()
-                        .map(|attestation| attestation.digest())
-                });
-            if let Some(digest) = digest {
-                let mut by_signer = BTreeMap::new();
-                let collected = self
-                    .cosign
-                    .as_ref()
-                    .map(|cosign| cosign.collect(&digest))
-                    .into_iter()
-                    .flatten();
-                for signature in item.signature.iter().copied().chain(collected) {
-                    if let Ok(signer) = recover_signer(&digest, &signature) {
-                        by_signer.entry(signer).or_insert(signature);
-                    }
-                }
-                view.signatures
-                    .insert(digest, by_signer.into_values().collect());
-            }
+        AttestationView::from_journal(&self.journal, self.cosign.as_ref(), &self.policies)
+    }
+
+    pub fn attestation_snapshot(&self) -> AttestationSnapshot {
+        AttestationSnapshot::from_journal(&self.journal, self.cosign.as_ref(), &self.policies)
+    }
+
+    fn evm_policy_destinations(&self, side: Side) -> Vec<PolicyDestination> {
+        match side {
+            Side::Paxeer => self
+                .chains
+                .iter()
+                .map(|link| (link.settings.chain_id, link.settings.vault))
+                .chain(
+                    self.solana
+                        .iter()
+                        .map(|link| (link.settings.chain_id, link.settings.vault)),
+                )
+                .map(
+                    |(source_chain_id, source_vault)| PolicyDestination::Inbound {
+                        chain_id: self.paxeer.settings.chain_id,
+                        bridge: LAYERX_BRIDGE_PRECOMPILE,
+                        source_chain_id,
+                        source_vault,
+                    },
+                )
+                .collect(),
+            Side::Chain(index) => vec![PolicyDestination::EvmRelease {
+                chain_id: self.chains[index].settings.chain_id,
+                vault: self.chains[index].settings.vault,
+            }],
         }
-        view
+    }
+
+    /// Refreshes serving policies independently of journal progress, including
+    /// completed items and failed scans. A failed read withdraws its old policy.
+    pub fn refresh_attestation_policies(&mut self) -> Vec<Result<(), RelayerError>> {
+        self.policies.clear();
+        let mut results = vec![self.attestor_policy(Side::Paxeer).map(|_| ())];
+        for index in 0..self.chains.len() {
+            results.push(self.attestor_policy(Side::Chain(index)).map(|_| ()));
+        }
+        if self.release.is_some() {
+            results.push(self.refresh_solana_policy());
+        }
+        results
+    }
+
+    fn refresh_solana_policy(&mut self) -> Result<(), RelayerError> {
+        let settings = self.solana_link()?.settings;
+        let (_, config) = self.custody_config()?;
+        let vault =
+            vault_authority(&settings.program_id, config.vault_bump).ok_or_else(no_address)?;
+        if handle(&vault) != settings.vault {
+            return Err(RelayerError::Configuration(
+                "the custody program's vault authority is not the registered vault".to_owned(),
+            ));
+        }
+        let destination = PolicyDestination::SolanaRelease {
+            chain_id: settings.chain_id,
+            program: settings.program_id,
+            vault: settings.vault,
+        };
+        self.policies.insert(
+            destination,
+            AuthenticatedPolicy {
+                destination,
+                threshold: usize::from(config.threshold),
+                attestors: config.attestors,
+            },
+        );
+        Ok(())
     }
 
     /// One pass of every loop: inbound for each chain, inbound from Solana
@@ -907,12 +945,7 @@ impl Relayer {
 
     fn observe(&mut self, observation: Observation) -> Result<bool, RelayerError> {
         let key = observation.key();
-        let known = self
-            .journal
-            .state()
-            .items
-            .get(&key)
-            .map(|item| item.observation);
+        let known = self.journal.lookup(&key)?.map(|item| item.observation);
         if known == Some(observation) {
             return Ok(false);
         }
@@ -1137,11 +1170,11 @@ impl Relayer {
     }
 
     /// The destination's current attestor set and threshold.
-    fn attestor_policy(
-        &mut self,
-        side: Side,
-        chain_id: u64,
-    ) -> Result<(Vec<[u8; 20]>, usize), RelayerError> {
+    fn attestor_policy(&mut self, side: Side) -> Result<(Vec<[u8; 20]>, usize), RelayerError> {
+        let destinations = self.evm_policy_destinations(side);
+        for destination in &destinations {
+            self.policies.remove(destination);
+        }
         let rpc = self.rpc(side);
         let (signers, threshold) = match side {
             Side::Paxeer => {
@@ -1162,7 +1195,16 @@ impl Relayer {
             }
         };
         let threshold = usize::try_from(threshold).map_err(|_| AbiError::OutOfRange)?;
-        self.thresholds.insert(chain_id, threshold);
+        for destination in destinations {
+            self.policies.insert(
+                destination,
+                AuthenticatedPolicy {
+                    destination,
+                    threshold,
+                    attestors: signers.clone(),
+                },
+            );
+        }
         Ok((signers, threshold))
     }
 
@@ -1223,9 +1265,7 @@ impl Relayer {
             })?;
             return Ok(Progress::Refused);
         }
-        let (Observation::Inbound { chain_id, .. } | Observation::Outbound { chain_id, .. }) =
-            observation;
-        let (attestors, threshold) = self.attestor_policy(side, chain_id)?;
+        let (attestors, threshold) = self.attestor_policy(side)?;
         if !attestors.contains(&self.attestor.address()) {
             return Err(RelayerError::NotAttestor);
         }
@@ -1765,7 +1805,19 @@ impl Relayer {
             candidates.extend(cosign.collect(&digest));
         }
         let threshold = usize::from(config.threshold);
-        self.thresholds.insert(attestation.chain_id, threshold);
+        let destination = PolicyDestination::SolanaRelease {
+            chain_id: attestation.chain_id,
+            program: accounts.program_id,
+            vault: attestation.vault,
+        };
+        self.policies.insert(
+            destination,
+            AuthenticatedPolicy {
+                destination,
+                threshold,
+                attestors: config.attestors.clone(),
+            },
+        );
         let signatures =
             match assemble_signatures(&digest, candidates, &config.attestors, threshold) {
                 Ok(signatures) => signatures,

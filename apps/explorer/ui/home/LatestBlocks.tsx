@@ -1,12 +1,10 @@
-import { Box, chakra, Flex, Text } from '@chakra-ui/react';
+import { Box, chakra, Text } from '@chakra-ui/react';
 import { useQueryClient } from '@tanstack/react-query';
 import { upperFirst } from 'es-toolkit';
 import React from 'react';
 
 import type { SocketMessage } from 'lib/socket/types';
 import type { Block } from 'types/api/block';
-
-import { route } from 'nextjs-routes';
 
 import config from 'configs/app';
 import useApiQuery, { getResourceKey } from 'lib/api/useApiQuery';
@@ -18,16 +16,16 @@ import useSocketChannel from 'lib/socket/useSocketChannel';
 import useSocketMessage from 'lib/socket/useSocketMessage';
 import { BLOCK } from 'stubs/block';
 import { HOMEPAGE_STATS } from 'stubs/stats';
-import { Link } from 'toolkit/chakra/link';
 import { Skeleton } from 'toolkit/chakra/skeleton';
+import { TableBody } from 'toolkit/chakra/table';
 import { Tooltip } from 'toolkit/chakra/tooltip';
 import { nbsp } from 'toolkit/utils/htmlEntities';
 import FallbackRpcIcon from 'ui/shared/fallbacks/FallbackRpcIcon';
-import IconSvg from 'ui/shared/IconSvg';
-import { ScanTableCard } from 'ui/shared/scan';
 
 import LatestBlocksDegraded from './fallbacks/LatestBlocksDegraded';
 import { useHomeRpcDataContext } from './fallbacks/rpcDataContext';
+import HomeTable from './HomeTable';
+import HomeTableSection from './HomeTableSection';
 import LatestBlocksItem from './LatestBlocksItem';
 
 const BLOCKS_MAX_COUNT_DESKTOP = 6;
@@ -129,18 +127,19 @@ const LatestBlocks = () => {
   const dataToShow = React.useMemo(() => data?.slice(0, blocksMaxCount) ?? [], [ data, blocksMaxCount ]);
   const durations = React.useMemo(() => isPlaceholderData ? [] : getBlockDurations(dataToShow), [ dataToShow, isPlaceholderData ]);
 
-  const networkUtilization = getNetworkUtilizationParams(statsQueryResult.data?.network_utilization_percentage ?? 0);
+  const utilization = statsQueryResult.data?.network_utilization_percentage;
+  const networkUtilization = typeof utilization === 'number' ? getNetworkUtilizationParams(utilization) : undefined;
 
   const note = (
     <>
-      { statsQueryResult.data?.network_utilization_percentage !== undefined && (
+      { typeof utilization === 'number' && networkUtilization && (
         <Skeleton loading={ statsQueryResult.isPlaceholderData } display="inline-block" textStyle="xs">
           <Text as="span" color="text.muted">
             Network utilization:{ nbsp }
           </Text>
           <Tooltip content={ `${ upperFirst(networkUtilization.load) } load` }>
             <Text as="span" color={ networkUtilization.color } fontWeight="700">
-              { statsQueryResult.data?.network_utilization_percentage.toFixed(2) }%
+              { utilization.toFixed(2) }%
             </Text>
           </Tooltip>
         </Skeleton>
@@ -161,30 +160,39 @@ const LatestBlocks = () => {
 
     if (dataToShow.length > 0) {
       return (
-        <>
-          <Box data-label="latest-blocks-rows" { ...hoverProps }>
-            { dataToShow.map(((block, index) => (
-              <LatestBlocksItem
-                key={ String(block.height) + (isPlaceholderData ? String(index) : '') }
-                block={ block }
-                duration={ durations[index] }
-                isLoading={ isPlaceholderData }
-              />
-            ))) }
-          </Box>
-          <Flex data-label="view-all-blocks" justifyContent="center" px={ 4 } py={ 3 } borderTopWidth="1px" borderStyle="solid" borderColor="border.divider">
-            <Link
-              textStyle="xs"
-              fontWeight="600"
-              textTransform="uppercase"
-              letterSpacing="wide"
-              href={ route({ pathname: '/blocks' }) }
-              loading={ isPlaceholderData }
-            >
-              View all blocks<IconSvg name="arrows/east-mini" boxSize={ 4 } ml={ 1 }/>
-            </Link>
-          </Flex>
-        </>
+        <Box data-label="latest-blocks-rows" { ...hoverProps }>
+          { isMobile ? (
+            <Box>
+              { dataToShow.map((block, index) => (
+                <LatestBlocksItem
+                  key={ String(block.height) + (isPlaceholderData ? String(index) : '') }
+                  block={ block }
+                  duration={ durations[index] }
+                  isLoading={ isPlaceholderData }
+                />
+              )) }
+            </Box>
+          ) : (
+            <Box>
+              <HomeTable
+                label="Latest blocks"
+                columns={ [ { label: 'Block', width: '28%' }, { label: 'Hash / Transactions' }, { label: 'Reward', numeric: true, width: '25%' } ] }
+              >
+                <TableBody data-label="latest-blocks-table-rows">
+                  { dataToShow.map((block, index) => (
+                    <LatestBlocksItem
+                      key={ String(block.height) + (isPlaceholderData ? String(index) : '') }
+                      block={ block }
+                      duration={ durations[index] }
+                      isLoading={ isPlaceholderData }
+                      view="table"
+                    />
+                  )) }
+                </TableBody>
+              </HomeTable>
+            </Box>
+          ) }
+        </Box>
       );
     }
 
@@ -192,13 +200,14 @@ const LatestBlocks = () => {
   })();
 
   return (
-    <ScanTableCard
+    <HomeTableSection
       title="Latest blocks"
+      href={{ pathname: '/blocks' }}
       note={ note }
       actions={ isRpcData ? <FallbackRpcIcon/> : undefined }
     >
       { content }
-    </ScanTableCard>
+    </HomeTableSection>
   );
 };
 

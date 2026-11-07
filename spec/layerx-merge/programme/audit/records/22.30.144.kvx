@@ -1,0 +1,622 @@
+[audit.22.30.144]
+task = "22.30.144"
+revision = "2b99f88520e4e809ad5593f3bee2df74fe355d7b"
+files_reviewed = 46
+findings = 24
+docs_reviewed = 17
+upgrade_ready = false
+blocking = ["status-committed-inclusion", "signature-self-supplied-authority", "pax-identity-not-imported"]
+
+[file.1]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/rpc/address_controller_test.exs"
+lines = 5205
+verdict = "vendored"
+note = "Unchanged vendored Blockscout v10.2.6 test from upstream 90f7dd8e9348123b74dfd23f69ab7da76191a820, documented in services/explorer/UPSTREAM.md. Whole-file bytes match import commit f72f4cee4 at explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/rpc/address_controller_test.exs; vendored exception used instead of a new merged-network source qualification. Other-chain routes remain upstream compatibility coverage, not evidence of their deployment on paxeer_x."
+
+[file.2]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/rpc/block_controller_test.exs"
+lines = 472
+verdict = "vendored"
+note = "Unchanged vendored Blockscout v10.2.6 test from upstream 90f7dd8e9348123b74dfd23f69ab7da76191a820, documented in services/explorer/UPSTREAM.md. Whole-file bytes match import commit f72f4cee4 at explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/rpc/block_controller_test.exs; vendored exception used instead of a new merged-network source qualification. Other-chain routes remain upstream compatibility coverage, not evidence of their deployment on paxeer_x."
+
+[file.3]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/rpc/contract_controller_test.exs"
+lines = 1438
+verdict = "vendored"
+note = "Unchanged vendored Blockscout v10.2.6 test from upstream 90f7dd8e9348123b74dfd23f69ab7da76191a820, documented in services/explorer/UPSTREAM.md. Whole-file bytes match import commit f72f4cee4 at explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/rpc/contract_controller_test.exs; vendored exception used instead of a new merged-network source qualification. Other-chain routes remain upstream compatibility coverage, not evidence of their deployment on paxeer_x."
+
+[file.4]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/rpc/eth_controller_test.exs"
+lines = 751
+verdict = "vendored"
+note = "Unchanged vendored Blockscout v10.2.6 test from upstream 90f7dd8e9348123b74dfd23f69ab7da76191a820, documented in services/explorer/UPSTREAM.md. Whole-file bytes match import commit f72f4cee4 at explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/rpc/eth_controller_test.exs; vendored exception used instead of a new merged-network source qualification. Other-chain routes remain upstream compatibility coverage, not evidence of their deployment on paxeer_x."
+
+[file.5]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/rpc/logs_controller_test.exs"
+lines = 885
+verdict = "vendored"
+note = "Unchanged vendored Blockscout v10.2.6 test from upstream 90f7dd8e9348123b74dfd23f69ab7da76191a820, documented in services/explorer/UPSTREAM.md. Whole-file bytes match import commit f72f4cee4 at explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/rpc/logs_controller_test.exs; vendored exception used instead of a new merged-network source qualification. Other-chain routes remain upstream compatibility coverage, not evidence of their deployment on paxeer_x."
+
+[file.6]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/rpc/rpc_translator_test.exs"
+lines = 89
+verdict = "vendored"
+note = "Unchanged vendored Blockscout v10.2.6 test from upstream 90f7dd8e9348123b74dfd23f69ab7da76191a820, documented in services/explorer/UPSTREAM.md. Whole-file bytes match import commit f72f4cee4 at explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/rpc/rpc_translator_test.exs; vendored exception used instead of a new merged-network source qualification. Other-chain routes remain upstream compatibility coverage, not evidence of their deployment on paxeer_x."
+
+[file.7]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/rpc/stats_controller_test.exs"
+lines = 312
+verdict = "vendored"
+note = "Unchanged vendored Blockscout v10.2.6 test from upstream 90f7dd8e9348123b74dfd23f69ab7da76191a820, documented in services/explorer/UPSTREAM.md. Whole-file bytes match import commit f72f4cee4 at explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/rpc/stats_controller_test.exs; vendored exception used instead of a new merged-network source qualification. Other-chain routes remain upstream compatibility coverage, not evidence of their deployment on paxeer_x."
+
+[file.8]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/rpc/token_controller_test.exs"
+lines = 109
+verdict = "vendored"
+note = "Unchanged vendored Blockscout v10.2.6 test from upstream 90f7dd8e9348123b74dfd23f69ab7da76191a820, documented in services/explorer/UPSTREAM.md. Whole-file bytes match import commit f72f4cee4 at explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/rpc/token_controller_test.exs; vendored exception used instead of a new merged-network source qualification. Other-chain routes remain upstream compatibility coverage, not evidence of their deployment on paxeer_x."
+
+[file.9]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/rpc/transaction_controller_test.exs"
+lines = 871
+verdict = "vendored"
+note = "Unchanged vendored Blockscout v10.2.6 test from upstream 90f7dd8e9348123b74dfd23f69ab7da76191a820, documented in services/explorer/UPSTREAM.md. Whole-file bytes match import commit f72f4cee4 at explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/rpc/transaction_controller_test.exs; vendored exception used instead of a new merged-network source qualification. Other-chain routes remain upstream compatibility coverage, not evidence of their deployment on paxeer_x."
+
+[file.10]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v1/health_controller_test.exs"
+lines = 159
+verdict = "vendored"
+note = "Unchanged vendored Blockscout v10.2.6 test from upstream 90f7dd8e9348123b74dfd23f69ab7da76191a820, documented in services/explorer/UPSTREAM.md. Whole-file bytes match import commit f72f4cee4 at explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v1/health_controller_test.exs; vendored exception used instead of a new merged-network source qualification. Other-chain routes remain upstream compatibility coverage, not evidence of their deployment on paxeer_x."
+
+[file.11]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v1/supply_controller_test.exs"
+lines = 17
+verdict = "vendored"
+note = "Unchanged vendored Blockscout v10.2.6 test from upstream 90f7dd8e9348123b74dfd23f69ab7da76191a820, documented in services/explorer/UPSTREAM.md. Whole-file bytes match import commit f72f4cee4 at explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v1/supply_controller_test.exs; vendored exception used instead of a new merged-network source qualification. Other-chain routes remain upstream compatibility coverage, not evidence of their deployment on paxeer_x."
+
+[file.12]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v1/verified_smart_contract_controller_test.exs"
+lines = 80
+verdict = "vendored"
+note = "Unchanged vendored Blockscout v10.2.6 test from upstream 90f7dd8e9348123b74dfd23f69ab7da76191a820, documented in services/explorer/UPSTREAM.md. Whole-file bytes match import commit f72f4cee4 at explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v1/verified_smart_contract_controller_test.exs; vendored exception used instead of a new merged-network source qualification. Other-chain routes remain upstream compatibility coverage, not evidence of their deployment on paxeer_x."
+
+[file.13]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/address_controller_test.exs"
+lines = 5906
+verdict = "vendored"
+note = "Unchanged vendored Blockscout v10.2.6 test from upstream 90f7dd8e9348123b74dfd23f69ab7da76191a820, documented in services/explorer/UPSTREAM.md. Whole-file bytes match import commit f72f4cee4 at explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/address_controller_test.exs; vendored exception used instead of a new merged-network source qualification. Other-chain routes remain upstream compatibility coverage, not evidence of their deployment on paxeer_x."
+
+[file.14]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/advanced_filter_controller_test.exs"
+lines = 1495
+verdict = "vendored"
+note = "Unchanged vendored Blockscout v10.2.6 test from upstream 90f7dd8e9348123b74dfd23f69ab7da76191a820, documented in services/explorer/UPSTREAM.md. Whole-file bytes match import commit f72f4cee4 at explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/advanced_filter_controller_test.exs; vendored exception used instead of a new merged-network source qualification. Other-chain routes remain upstream compatibility coverage, not evidence of their deployment on paxeer_x."
+
+[file.15]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/block_controller_test.exs"
+lines = 1116
+verdict = "clean"
+note = "Read in full. Native detail adds persisted price_update_count to transactions_count; EVM listing, hashes, malformed inputs and consensus handling agree with block rendering. Live producer and recovery evidence is discussed in feed-producer-restart-proof."
+
+[file.16]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/config_controller_test.exs"
+lines = 141
+verdict = "vendored"
+note = "Unchanged vendored Blockscout v10.2.6 test from upstream 90f7dd8e9348123b74dfd23f69ab7da76191a820, documented in services/explorer/UPSTREAM.md. Whole-file bytes match import commit f72f4cee4 at explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/config_controller_test.exs; vendored exception used instead of a new merged-network source qualification. Other-chain routes remain upstream compatibility coverage, not evidence of their deployment on paxeer_x."
+
+[file.17]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/csv_export_controller_test.exs"
+lines = 556
+verdict = "vendored"
+note = "Unchanged vendored Blockscout v10.2.6 test from upstream 90f7dd8e9348123b74dfd23f69ab7da76191a820, documented in services/explorer/UPSTREAM.md. Whole-file bytes match import commit f72f4cee4 at explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/csv_export_controller_test.exs; vendored exception used instead of a new merged-network source qualification. Other-chain routes remain upstream compatibility coverage, not evidence of their deployment on paxeer_x."
+
+[file.18]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/ethereum/deposit_controller_test.exs"
+lines = 55
+verdict = "vendored"
+note = "Unchanged vendored Blockscout v10.2.6 test from upstream 90f7dd8e9348123b74dfd23f69ab7da76191a820, documented in services/explorer/UPSTREAM.md. Whole-file bytes match import commit f72f4cee4 at explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/ethereum/deposit_controller_test.exs; vendored exception used instead of a new merged-network source qualification. Other-chain routes remain upstream compatibility coverage, not evidence of their deployment on paxeer_x."
+
+[file.19]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/import_controller_test.exs"
+lines = 166
+verdict = "vendored"
+note = "Unchanged vendored Blockscout v10.2.6 test from upstream 90f7dd8e9348123b74dfd23f69ab7da76191a820, documented in services/explorer/UPSTREAM.md. Whole-file bytes match import commit f72f4cee4 at explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/import_controller_test.exs; vendored exception used instead of a new merged-network source qualification. Other-chain routes remain upstream compatibility coverage, not evidence of their deployment on paxeer_x."
+
+[file.20]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/internal_transaction_controller_test.exs"
+lines = 200
+verdict = "vendored"
+note = "Unchanged vendored Blockscout v10.2.6 test from upstream 90f7dd8e9348123b74dfd23f69ab7da76191a820, documented in services/explorer/UPSTREAM.md. Whole-file bytes match import commit f72f4cee4 at explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/internal_transaction_controller_test.exs; vendored exception used instead of a new merged-network source qualification. Other-chain routes remain upstream compatibility coverage, not evidence of their deployment on paxeer_x."
+
+[file.21]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/main_page_controller_test.exs"
+lines = 255
+verdict = "issues"
+note = "Read in full. Existing six-slot interleave and three-EVM reservation assertions agree with rendering. Scarcity fallback lacks coverage; observation omission of accepted uses the migration default true and is not an insertion failure."
+
+[file.22]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/optimism_controller_test.exs"
+lines = 78
+verdict = "vendored"
+note = "Unchanged vendored Blockscout v10.2.6 test from upstream 90f7dd8e9348123b74dfd23f69ab7da76191a820, documented in services/explorer/UPSTREAM.md. Whole-file bytes match import commit f72f4cee4 at explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/optimism_controller_test.exs; vendored exception used instead of a new merged-network source qualification. Other-chain routes remain upstream compatibility coverage, not evidence of their deployment on paxeer_x."
+
+[file.23]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/paxeer_x/archive_controller_test.exs"
+lines = 210
+verdict = "clean"
+note = "Read in full. Frozen anchor/receipt SQL fixtures use local schema casting, deterministic paging, ordering and 404 behavior. These are historical archive assertions, not live calls to retired custody/anchor services; req.14251 and req.181010 agree."
+
+[file.24]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/paxeer_x/capabilities_controller_test.exs"
+lines = 171
+verdict = "issues"
+note = "Read in full. Exchange/bridge view selectors, one-height probing and the optional price_feed 1000-block rule agree with implementation. The addr positive answer is not canonical producer ABI."
+
+[file.25]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/paxeer_x/capabilities_shape_test.exs"
+lines = 73
+verdict = "clean"
+note = "Read in full. Four booleans plus checked_at and optional price_feed agree with strict OpenAPI rendering; additional custody/anchor fields are rejected. Probe correctness is the separate capability finding."
+
+[file.26]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/paxeer_x/feed_controller_test.exs"
+lines = 453
+verdict = "issues"
+note = "Read in full. Database-to-HTTP paging, consensus hiding, transaction/search embedding, 18-decimal price strings, hash errors and optional capabilities agree. Mixed refused observations and the actual producer/restart path remain unproven."
+
+[file.27]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/paxeer_x/identity_search_test.exs"
+lines = 95
+verdict = "issues"
+note = "Read in full. DID/key/account normalization and newest unbind are exercised, but direct fixtures populate pax_address absent from the live decoder/importer; native Pax lookup cannot reproduce that setup."
+
+[file.28]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/paxeer_x/openapi_spec_test.exs"
+lines = 224
+verdict = "clean"
+note = "Read all 224 lines. Native unified-account, status/signature, capabilities and historical archive paths agree with current schemas; retired live paths and keys are absent. Missing registry prose-contract targets are a separate documentation finding."
+
+[file.29]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/paxeer_x/retired_routes_test.exs"
+lines = 24
+verdict = "clean"
+note = "Read in full. Removed live anchors, receipts, kernels, accounts and custody routes are requested only to assert 404. These are intentional retirement refusals, not live dependencies."
+
+[file.30]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/paxeer_x/transaction_signature_committed_test.exs"
+lines = 239
+verdict = "issues"
+note = "Read all 239 lines. Root-path RPC, decimal heights, signedHeader, camelCase validator envelopes and batch byte length match chain_reads.rs. Self-supplied trust and independent commit/batch evidence do not prove authorized finality."
+
+[file.31]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/paxeer_x/transaction_signature_controller_test.exs"
+lines = 185
+verdict = "issues"
+note = "Read all 185 lines. Dynamic V1/V2 selection, 64-byte signature checks, call accounting and R1-R6 refusals preserve req.14248 and req.181574. Retired origin configuration remains; independent key authority is also needed."
+
+[file.32]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/paxeer_x/transaction_status_committed_test.exs"
+lines = 183
+verdict = "issues"
+note = "Read all 183 lines. Receipt-key wrapper, root-path RPC, decimal heights and fixed batch length match the gateway. The committed header is not bound to the generated batch proof."
+
+[file.33]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/paxeer_x/transaction_status_controller_test.exs"
+lines = 257
+verdict = "issues"
+note = "Read all 257 lines. Three rungs, required nullable fields, indexed/non-consensus cases and R1-R6 refusals agree with rendering. Router configuration remains retired; committed inclusion failures are recorded separately."
+
+[file.34]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/paxeer_x/transaction_status_schema_test.exs"
+lines = 18
+verdict = "clean"
+note = "Read in full. Exactly submitted, receipted and committed are admitted; rung, block_number and committed_height are required as in req.14298 and the current HTTP response."
+
+[file.35]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/paxeer_x/unified_account_controller_test.exs"
+lines = 452
+verdict = "issues"
+note = "Read all 452 lines. Native/ERC-20 balances exclude legacy custody rows; history rejects duplicates/non-consensus data; signed cursors bind account, snapshot, expiry and changed binding. Positive identity fixtures are richer and less canonical than the live producer."
+
+[file.36]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/proxy/account_abstraction_controller_test.exs"
+lines = 250
+verdict = "vendored"
+note = "Unchanged vendored Blockscout v10.2.6 test from upstream 90f7dd8e9348123b74dfd23f69ab7da76191a820, documented in services/explorer/UPSTREAM.md. Whole-file bytes match import commit f72f4cee4 at explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/proxy/account_abstraction_controller_test.exs; vendored exception used instead of a new merged-network source qualification. Other-chain routes remain upstream compatibility coverage, not evidence of their deployment on paxeer_x."
+
+[file.37]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/search_controller_test.exs"
+lines = 2769
+verdict = "vendored"
+note = "Unchanged vendored Blockscout v10.2.6 test from upstream 90f7dd8e9348123b74dfd23f69ab7da76191a820, documented in services/explorer/UPSTREAM.md. Whole-file bytes match import commit f72f4cee4 at explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/search_controller_test.exs; vendored exception used instead of a new merged-network source qualification. Other-chain routes remain upstream compatibility coverage, not evidence of their deployment on paxeer_x."
+
+[file.38]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/smart_contract_controller_test.exs"
+lines = 1945
+verdict = "vendored"
+note = "Unchanged vendored Blockscout v10.2.6 test from upstream 90f7dd8e9348123b74dfd23f69ab7da76191a820, documented in services/explorer/UPSTREAM.md. Whole-file bytes match import commit f72f4cee4 at explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/smart_contract_controller_test.exs; vendored exception used instead of a new merged-network source qualification. Other-chain routes remain upstream compatibility coverage, not evidence of their deployment on paxeer_x."
+
+[file.39]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/stats_controller_test.exs"
+lines = 368
+verdict = "clean"
+note = "Read in full. Price-feed submissions contribute to total/rate counters and cache-backed statistics without a live retired custody/anchor dependency. Live producer and recovery evidence is discussed in feed-producer-restart-proof."
+
+[file.40]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/token_controller_test.exs"
+lines = 2680
+verdict = "vendored"
+note = "Unchanged vendored Blockscout v10.2.6 test from upstream 90f7dd8e9348123b74dfd23f69ab7da76191a820, documented in services/explorer/UPSTREAM.md. Whole-file bytes match import commit f72f4cee4 at explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/token_controller_test.exs; vendored exception used instead of a new merged-network source qualification. Other-chain routes remain upstream compatibility coverage, not evidence of their deployment on paxeer_x."
+
+[file.41]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/token_transfer_controller_test.exs"
+lines = 303
+verdict = "vendored"
+note = "Unchanged vendored Blockscout v10.2.6 test from upstream 90f7dd8e9348123b74dfd23f69ab7da76191a820, documented in services/explorer/UPSTREAM.md. Whole-file bytes match import commit f72f4cee4 at explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/token_transfer_controller_test.exs; vendored exception used instead of a new merged-network source qualification. Other-chain routes remain upstream compatibility coverage, not evidence of their deployment on paxeer_x."
+
+[file.42]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/transaction_controller_test.exs"
+lines = 3218
+verdict = "vendored"
+note = "Unchanged vendored Blockscout v10.2.6 test from upstream 90f7dd8e9348123b74dfd23f69ab7da76191a820, documented in services/explorer/UPSTREAM.md. Whole-file bytes match import commit f72f4cee4 at explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/transaction_controller_test.exs; vendored exception used instead of a new merged-network source qualification. Other-chain routes remain upstream compatibility coverage, not evidence of their deployment on paxeer_x."
+
+[file.43]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/utils_controller_test.exs"
+lines = 80
+verdict = "vendored"
+note = "Unchanged vendored Blockscout v10.2.6 test from upstream 90f7dd8e9348123b74dfd23f69ab7da76191a820, documented in services/explorer/UPSTREAM.md. Whole-file bytes match import commit f72f4cee4 at explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/utils_controller_test.exs; vendored exception used instead of a new merged-network source qualification. Other-chain routes remain upstream compatibility coverage, not evidence of their deployment on paxeer_x."
+
+[file.44]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/validator_controller_test.exs"
+lines = 286
+verdict = "vendored"
+note = "Unchanged vendored Blockscout v10.2.6 test from upstream 90f7dd8e9348123b74dfd23f69ab7da76191a820, documented in services/explorer/UPSTREAM.md. Whole-file bytes match import commit f72f4cee4 at explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/validator_controller_test.exs; vendored exception used instead of a new merged-network source qualification. Other-chain routes remain upstream compatibility coverage, not evidence of their deployment on paxeer_x."
+
+[file.45]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/verification_controller_test.exs"
+lines = 539
+verdict = "vendored"
+note = "Unchanged vendored Blockscout v10.2.6 test from upstream 90f7dd8e9348123b74dfd23f69ab7da76191a820, documented in services/explorer/UPSTREAM.md. Whole-file bytes match import commit f72f4cee4 at explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/verification_controller_test.exs; vendored exception used instead of a new merged-network source qualification. Other-chain routes remain upstream compatibility coverage, not evidence of their deployment on paxeer_x."
+
+[file.46]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/withdrawal_controller_test.exs"
+lines = 66
+verdict = "vendored"
+note = "Unchanged vendored Blockscout v10.2.6 test from upstream 90f7dd8e9348123b74dfd23f69ab7da76191a820, documented in services/explorer/UPSTREAM.md. Whole-file bytes match import commit f72f4cee4 at explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/withdrawal_controller_test.exs; vendored exception used instead of a new merged-network source qualification. Other-chain routes remain upstream compatibility coverage, not evidence of their deployment on paxeer_x."
+
+[finding.status-committed-inclusion]
+file = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/paxeer_x/transaction_status_committed_test.exs"
+line = 131
+class = "security"
+severity = "high"
+observed = "gateway_batch re-signs an independently assembled 241-byte transaction with a one-leaf proof, while committed-ok imports a separate comet_commit.json header whose data_hash is 32 bytes of 04. Line 49 asserts committed without relating those evidence sets. TransactionStatusController.sequence_batch at lines 114-125 discards proof, four roots and the batch signature; SequencerReceipt.r7 at lines 765-783 checks a sequence range and unproven eth receipt fields. A valid commit at the height can therefore promote execution not proven in that block."
+expected = "Brief checks 1, 7 and 8, req.14246.1 and the SDK terminal verification contract require batch/transaction inclusion against execution_header.data_hash, result inclusion against the linked successor last_results_hash, and authorization of the batch signature and receipt roots before reporting committed."
+proposal = "In sequencer_receipt.ex and both domain-14 receipt controllers, verify batch, transaction and execution-result inclusion against authenticated linked headers and verify the batch signature and roots. Replace independent positive assembly in both committed suites with recorded daemon/committed-fixture/vectors/vector-v4-committed.json settlement evidence. Refuse missing/mutated proofs, roots, signatures and unrelated same-height headers."
+owner_domain = 14
+interface = "14.http-get-api-v2-transactions-transaction-hash-param-status"
+
+[finding.signature-self-supplied-authority]
+file = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/paxeer_x/transaction_signature_committed_test.exs"
+line = 35
+class = "security"
+severity = "high"
+observed = "committed_calls serves receipt keys, commit and validators from one fixture endpoint and the positive assertion trusts them. TransactionSignatureController.committed_options at lines 83-100 extracts chain_id from the returned header; SequencerReceipt.receipt_keys obtains its pins from the same endpoint. CometCommit.verify only matches returned validators to the returned header. Both receipt routes lack independently configured chain/validator authority and can accept an internally consistent unauthorized chain as the network."
+expected = "Brief check 8 and docs/site/docs/agents/sdk-verification.md lines 25-29 require receipt pins and chain authority independent of the answer being verified. A correctly signed but unauthorized key or validator set cannot authorize receipted or committed network execution."
+proposal = "Configure trusted chain identity, governed receipt-key pins and a validator checkpoint/history in the domain-14 receipt verifier and runtime configuration. Authenticate discovered keys and validator transitions against that authority. Extend both controller suites with correctly signed foreign-chain and unauthorized-validator evidence, key rotation and restart; require refusal rather than accepting the response as its own pin."
+owner_domain = 14
+interface = "8.rpc-gateway-px-getreceiptkeys"
+
+[finding.pax-identity-not-imported]
+file = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/paxeer_x/identity_search_test.exs"
+line = 74
+class = "interface-mismatch"
+severity = "high"
+observed = "insert_binding supplies pax_address and layerx_account directly. The actual PaxeerXLogs.row at lines 866-875 emits evm_address_hash, layerx_did, bound and nonce but no pax_address; block/fetcher.ex passes those rows to AccountBindings, whose importer inserts without enrichment. UnifiedAccount.resolve filters Pax lookups by binding.pax_address and identities returns that nullable column. A real imported binding therefore cannot reproduce the successful native Pax lookup or Pax identity fixture."
+expected = "Registry rows 14.http-get-api-v2-search and 14.http-get-api-v2-addresses-address-hash-param-unified must round-trip the native identities of an associated/bound account through addr events, indexer transport, persisted bindings and HTTP. Tests cannot manufacture a field absent from the live path."
+proposal = "In domain-14 binding ingestion/resolution, derive or query the Pax association at the indexed height and persist the searchable native identity, or resolve the spelling without requiring an unpopulated column. Backfill existing rows and make enrichment replay idempotent despite on_conflict: :nothing. Import real addr association/bind events, search every spelling, restart and replay, then verify unbind and reorg removal."
+owner_domain = 14
+interface = "14.http-get-api-v2-search"
+
+[finding.capability-nonproducer-abi]
+file = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/paxeer_x/capabilities_controller_test.exs"
+line = 29
+class = "test-gap"
+severity = "medium"
+observed = "@unified_account_answer contains 160 zero bytes and the addr helper accepts any calldata. precompiles/addr/addr.go getUnifiedAccount uses Outputs.Pack for four head words plus a string tail: even an empty paxAddr has offset 128 in the second head word, unlike this fixture. Capabilities.read_unified_account only checks a 128-byte minimum, so the positive test proves neither the actual ABI nor selector."
+expected = "Brief checks 1 and 7 and req.181017.1 require the addr capability to describe the interface actually served by the node. Positive evidence must use producer ABI, and malformed dynamic offsets/tails or wrong selectors must not establish capability availability."
+proposal = "Encode the positive answer from precompiles/addr/abi.json, assert selector 0x357feed6 with the zero address, and carry a real node response through the probe. Validate the four-word head and string tail in the capability decoder. Add wrong-selector, offset, truncation and refusal cases while retaining the exact exchange/bridge view-call assertions."
+owner_domain = 14
+interface = "14.http-get-api-v2-paxeer-x-capabilities"
+
+[finding.feed-refused-market-observations]
+file = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/paxeer_x/feed_controller_test.exs"
+line = 437
+class = "test-gap"
+severity = "medium"
+observed = "Every observation helper sets accepted: true. The status-zero case at lines 113-118 checks submission-list status only. Market latest/history cases never mix refused observations or failed submissions with accepted rows, so they do not assert the accepted-and-status-one filtering implemented by PriceFeed.latest_per_market and market_updates."
+expected = "Req.181173.1 requires refused observations and failed submissions to remain inspectable in detail while never advancing market latest or entering market history/live topics. REST and live consumers must agree under mixed acceptance and pagination."
+proposal = "Extend this suite with a newer refused observation, newer failed submission, and a successful submission with mixed accepted/refused markets. Assert unchanged latest values, filtered history/cursor boundaries, preserved detail accepted flags and parity with paxeer_x_feed:market:<id> publications from the same ingested rows."
+owner_domain = 14
+interface = "14.http-get-api-v2-paxeer-x-feed-markets-market-id-updates"
+
+[finding.feed-producer-restart-proof]
+file = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/paxeer_x/feed_controller_test.exs"
+line = 416
+class = "test-gap"
+severity = "medium"
+observed = "store calls PriceFeed.replace_block_updates directly with random hashes and factory blocks. These tests exercise persisted-data-to-HTTP behavior but never decode an actual submitPrices block, resume the fetcher checkpoint after restart, or compare replayed live publications with REST. Producer/transport mismatches and recovery duplication are outside these assertions."
+expected = "Brief fact 7 and checks 1 and 5 require the native block/event producer, fetcher transport, durable scan state, live feed and REST consumers to agree, including replay and restart. Direct insertion alone cannot establish that lifecycle."
+proposal = "Add a domain-14 integration scenario ingesting recorded or disposable-node submitPrices blocks through Indexer.Fetcher.PaxeerX.PriceUpdates. Subscribe to live topics, restart at a durable scan checkpoint and re-deliver the block. Compare detail, latest and market history with the events; assert no duplicated observations and correct reorg replacement."
+owner_domain = 14
+interface = "14.http-get-api-v2-paxeer-x-feed-updates"
+
+[finding.unified-impossible-did-fixture]
+file = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/paxeer_x/unified_account_controller_test.exs"
+line = 37
+class = "test-gap"
+severity = "medium"
+observed = "The bound-account success case injects did:lx:a and expects that DID, while insert_binding always supplies a different full did:layerx:<key> kernel_account. PaxeerXLogs constructs did:layerx: plus the emitted 32-byte key only. This fixture cannot be emitted by that producer and does not bind DID/account/key together. It also injects the Pax column missing from ingestion, covered by pax-identity-not-imported."
+expected = "Brief checks 1 and 7 require one canonical addr-produced identity binding throughout the unified response. Native balance and cursor checks must remain intact while positive fixtures use the identities the producer actually emits."
+proposal = "Use a real imported LayerXBound event with canonical did:layerx key, account derivation and Pax association in this suite. Assert all returned identities against that same producer data; preserve native-only balance, signed-cursor and legacy-row exclusion assertions, and verify persisted identity and cursor behavior after restart and unbind."
+owner_domain = 14
+interface = "14.http-get-api-v2-addresses-address-hash-param-unified"
+
+[finding.home-feed-scarcity-coverage]
+file = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/main_page_controller_test.exs"
+line = 81
+class = "test-gap"
+severity = "medium"
+observed = "The interleave case has five EVM transactions and two feed submissions; the saturation case has six of each. No case supplies zero, one or two EVM transactions with enough newer submissions to fill six slots. An unconditional three-feed cap would satisfy these assertions while leaving available page slots empty."
+expected = "Req.18731.1 reserves visibility for EVM transactions but permits feed submissions to fill all remaining slots when EVM supply is insufficient. Both reservation and scarcity fallback need assertions."
+proposal = "Extend this suite with 0, 1 and 2 EVM transactions and at least six feed submissions across blocks, including tied positions. Assert six items, preservation of every available EVM transaction and deterministic interleave order. Keep the existing three-EVM reservation assertion unchanged."
+owner_domain = 14
+interface = "14.http-get-api-v2-main-page-transactions"
+
+[finding.status-retired-router-config]
+file = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/paxeer_x/transaction_status_controller_test.exs"
+line = 51
+class = "retired-reference"
+severity = "low"
+observed = "The suite describes a missing router, injects router_url and calls serve_router. Its runtime counterpart reads PAXEER_X_ROUTER_URL into SequencerReceipt.router_url. Bypass correctly receives POST at the root, but configuration/test vocabulary still describes a retired router rather than explicit node and hosted gateway origins."
+expected = "Brief facts 2 and 3 and check 3 remove the router and unified /rpc surface. Node eth_/pax_ reads and hosted px_ discovery must have supported origin/configuration semantics."
+proposal = "Migrate the domain-14 runtime setting, deployment examples and receipt suites to explicitly named node/gateway origins, retaining root-path requests and JSON-RPC envelopes. Replace router vocabulary and test unavailable origins through the actual configuration loader instead of injecting only the retired key."
+owner_domain = 14
+interface = "14.cfg-explorer-explorer-chain-paxeerx-sequencerreceipt"
+
+[finding.signature-retired-router-config]
+file = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/paxeer_x/transaction_signature_controller_test.exs"
+line = 17
+class = "retired-reference"
+severity = "low"
+observed = "The signature suite directly injects SequencerReceipt.router_url, including the Bypass origin, without exercising runtime configuration. Its controller/runtime use the same router_url/PAXEER_X_ROUTER_URL contract as the status route, retaining retired router terminology in receipt setup."
+expected = "Brief facts 2 and 3 require receipt verification to use the merged node and hosted px_ contract at supported root-path origins. Signature/status routes must share explicit current configuration semantics."
+proposal = "Carry this controller and suite through the origin migration proposed by status-retired-router-config. Use actual node/gateway settings and assert exact root calls and missing-configuration behavior, preserving all R1-R6 mutation refusals and 64-byte signature checks."
+owner_domain = 14
+interface = "14.cfg-explorer-explorer-chain-paxeerx-sequencerreceipt"
+
+[finding.readme-two-domains]
+file = "README.md"
+line = 44
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 40-47 describe two execution domains, a separate C17 layerxd daemon and checkpoints settling through layerxAnchor. Line 181 calls the merge a draft and repeats separate-kernel settlement."
+expected = "Brief facts 1 and 2 specify one paxd BFT network, an integrated kernel participating in block proposal, and finality at block commitment. Separate daemon and anchor settlement are retired."
+proposal = "Rewrite README.md lines 40-47 and 181 around integrated paxd, chain id 125, root-path node RPC and signed execution receipts with committed-block finality. Clearly label any retained daemon build history as historical."
+owner_domain = 16
+
+[finding.monorepo-runtime-boundary]
+file = "docs/MONOREPO.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The introduction identifies the kernel as layerxd. Lines 70-72 retain custody, checkpoint registration, guarantor bonds and separate validator/deployment trust domains as the network runtime model."
+expected = "The merged kernel executes inside paxd and retires custody-credit and checkpoint/bond settlement. Source ownership and licence boundaries do not imply separate execution networks."
+proposal = "Update docs/MONOREPO.md introduction and trust section to distinguish source/licence boundaries from the single consensus network. Replace retired settlement responsibilities with native bank balances, committed headers and current precompile interfaces."
+owner_domain = 16
+
+[finding.quickstart-retired-ingress]
+file = "docs/site/docs/overview/quickstart.md"
+line = 167
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 167-168 and 214-217 direct public clients to /rpc and /rpc/ws. Lines 132 and 299-304 prescribe custody/anchor precompiles and custody-credit funding. Around line 576 the recipe verifies AuthorizedBatch evidence."
+expected = "Brief facts 1-3 and the retirement inventory require root-path node RPC, native funding, program EVM ingress and block-commit finality. There is no unified public router or custody-credit hop."
+proposal = "Rewrite quickstart commands, endpoint exports, funding and receipt sections as a disposable-node journey using chain id 125, root eth_/pax_ reads, documented hosted px_ calls, native bank funding and Programs 0x101D transactions. Replace old examples with captured producer responses and independent receipt/chain trust."
+owner_domain = 16
+
+[finding.paxeer-boundary-retired-client]
+file = "docs/site/docs/concepts/paxeer-boundary.md"
+line = 7
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 7, 19, 50 and 145 describe layerx-paxeer-client as the current custody client although that crate is retired. Lines 119-129 present deployment and bonding of the old settlement/custody suite as bootstrap."
+expected = "The merged network serves node RPC directly and retires the cross-domain custody client, relay and anchor/bond bootstrap. State and finality are native committed-chain facts."
+proposal = "Replace the client and settlement bootstrap sections with direct node root RPC, chain/genesis identity checks and committed-header proofs. Mark any retained compatibility harness as historical and link native bank/program funding instructions."
+owner_domain = 8
+
+[finding.beta-control-retired-funding]
+file = "docs/site/docs/operators/beta-control.md"
+line = 5
+class = "doc-drift"
+severity = "medium"
+observed = "The opening directs public users to custody credit submitted to the router. Journey/dependency sections retain separate pending-core and receipt-authority/LNI funding assumptions."
+expected = "Brief facts 1 and 2 and retired custody-credit replace cross-domain credits with native bank funding and integrated execution. Private/disposable faucet admission does not reinstate retired public funding."
+proposal = "Rewrite beta-control.md public funding and funding/receipt journey dependencies around the merged node, native transfers and committed receipts. Preserve private/disposable restrictions and applicable typed refusals while removing daemon and independent-authority prerequisites."
+owner_domain = 8
+
+[finding.beta-cluster-retired-topology]
+file = "docs/site/docs/operators/beta-cluster.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "Line 3 deploys a chain plus a LayerX daemon. Native custody and custody-profile sections prescribe 0x1013 deposits and layerxd --custody-profile; lines 86-90 provision the retired explorer-index read principal through custody credit and a separate core boundary."
+expected = "The finished network runs integrated paxd and native bank-funded derived accounts. The retired layerx-explorer-index and its separate read principal are not the native explorer ingestion path."
+proposal = "Rewrite beta-cluster.md topology, bootstrap, custody and explorer-principal sections for the integrated node and native explorer/indexer. Replace custody, bonds and LNI probes with native transfers and committed-node checks; describe retained-material recovery for that actual topology."
+owner_domain = 8
+
+[finding.faucet-public-custody]
+file = "docs/site/docs/platform/faucet.md"
+line = 5
+class = "doc-drift"
+severity = "medium"
+observed = "The private/disposable-only notice directs public accounts to custody credit submitted to the router. The public integration paragraph also advertises lx_requestFunds as the gateway method backing the faucet command."
+expected = "The retirement inventory replaces custody funding with bank sends to native derived accounts; brief fact 2 removes the unified router. Private faucet documentation cannot prescribe retired public funding."
+proposal = "Update faucet.md opening and public JSON-RPC/CLI references to supported native funding. Keep private/disposable behavior and quotas clearly scoped; remove public lx_requestFunds/router promises unless a current hosted contract explicitly serves them."
+owner_domain = 8
+
+[finding.cli-requires-rpc-path]
+file = "docs/site/docs/platform/cli.md"
+line = 8
+class = "doc-drift"
+severity = "medium"
+observed = "Line 8 requires --rpc URLs to end in /rpc; lines 131, 278 and 298 repeat that path restriction and transaction destination. Around line 335 receipt verification constructs retired AuthorizedBatch evidence."
+expected = "Brief facts 2 and 3 require root-path node RPC. Merged receipt verification uses signed receipts and committed header evidence instead of the retired kernel batch verifier stack."
+proposal = "Revise endpoint rules and wallet/token examples to supported node/gateway origins at actual paths. Replace AuthorizedBatch flags and old program lifecycle REST examples with maintained EVM/precompile operations and current offline receipt verification inputs."
+owner_domain = 16
+
+[finding.hosted-gateway-unified-router]
+file = "docs/site/docs/platform/hosted-gateway.md"
+line = 39
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 39-42 call a router the only unified endpoint and assign public RPC names an EVM-only domain. Lines 50-52 and 198-200 advertise /rpc, /rpc/schema and /rpc/ws. Receipt/readiness sections retain a separate kernel/receipt-authority runtime."
+expected = "Brief facts 1-3 define one chain, root RPC at api1 through api14 and api-mainnet-beta, and hosted px_ methods under gateway OpenRPC. The retired router and separate kernel service are not running components."
+proposal = "Rewrite ingress, method ownership, readiness and receipt sections against gateway/openrpc.json and the merged node. Remove /rpc paths, native program REST writes and authorized-batch authority dependencies; document the actual chain/gateway transport and error envelopes."
+owner_domain = 8
+
+[finding.registry-retired-authority]
+file = "docs/site/docs/platform/registry.md"
+line = 28
+class = "doc-drift"
+severity = "medium"
+observed = "Line 28 requires distinct node/receipt-authority origins and a replica identity. Line 86 describes recovery through an independent receipt authority; configuration lines 176-182 retain authority endpoints and sequencer trust-history topology."
+expected = "Finality-authority and protocol-adapter components are retired. Program state/balances come from the integrated chain and native proofs; recovered projections must be revalidated against current committed chain authority."
+proposal = "Update registry.md source-of-truth, credentials, synchronization, restart and configuration for the current chain event/proof producer and native program queries. Preserve valid journal/source-rebuild/isolation details, removing the retired authority service and documenting post-recovery revalidation."
+owner_domain = 8
+
+[finding.programs-lni-ingress]
+file = "docs/site/docs/programs/index.md"
+line = 117
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 117-126 describe simulate as LNI capability and lxp_daemon_lni_simulate as the live implementation, followed by hosted /v1/programs/call and /simulate transport. Calls and receipt reads also directs deployment/calls through native routes or lx_sendActivity."
+expected = "The retirement inventory removes LNI and program lifecycle REST ingress. Programs execute inside paxd; writes use EVM transactions to 0x101D and supported native views supply noncommitting reads."
+proposal = "Rewrite simulation, deployment and call transport sections for the integrated host and current 0x101D ABI, distinguishing internal implementation identifiers from public operations. Replace daemon/LNI and lx_sendActivity examples while retaining frozen guest ABI and accurate custody-retirement explanations."
+owner_domain = 13
+
+[finding.workspace-deleted-adapter]
+file = "docs/site/docs/programs/workspace.md"
+line = 15
+class = "doc-drift"
+severity = "medium"
+observed = "The workspace table lists layerx-programs-protocol-adapter and line 88 includes its ffi.rs in the unsafe exception inventory. The crate is explicitly retired and absent from programs/crates, so this is not the current workspace inventory."
+expected = "Brief check 9 requires workspace members and gate descriptions to match programs/Cargo.toml and the native program-state boundary. Deleted crates cannot be listed as current members."
+proposal = "Regenerate workspace.md crate/exception inventories from programs/Cargo.toml and current dependency policy, including current members and removing the deleted protocol adapter. Keep stored V1-V4 receipt provenance and independent-trust guidance, which describe the current receipt contract."
+owner_domain = 13
+
+[finding.missing-explorer-http-contract]
+file = "spec/layerx-merge/interfaces.kvx"
+line = 594943
+class = "doc-drift"
+severity = "medium"
+observed = "Consumed explorer HTTP registry rows, including 14.http-api-rpc-account-balance, cite contracts/explorer-http-api.md anchors, but that file is absent. Route signatures can be read in source; the declared prose contract for fields, errors and lifecycle cannot be read at its registry location."
+expected = "Brief checks 1 and 9 require an existing contract describing the producer/consumer shapes, retired routes, errors and lifecycle. A missing contract link cannot qualify an interface as documented."
+proposal = "Domain 14 should publish the explorer HTTP contract at the declared path or retarget every affected registry anchor to maintained OpenAPI/prose documentation. Cover three-rung status/signature evidence, native unified accounts, accepted-only market history and retired-route refusals."
+owner_domain = 14
+interface = "14.http-api-rpc-account-balance"
+
+[finding.capabilities-registry-description]
+file = "spec/layerx-merge/interfaces.kvx"
+line = 598242
+class = "doc-drift"
+severity = "medium"
+observed = "The capabilities registry note says capabilities.ex probes 0x1013/0x1014 and reports custody/anchor. Current code probes addr, exchange, bridge and launchpad; capabilities_shape_test explicitly rejects custody/anchor. The registry describes a producer shape that no longer exists."
+expected = "Req.14242.1-2 and req.181017.1 require four supported capabilities, checked_at and optional price_feed. Registry descriptions must agree with current code and strict OpenAPI consumers."
+proposal = "Reconcile 14.http-get-api-v2-paxeer-x-capabilities with the current producer/schema: remove the obsolete probe description, document the four booleans and price_feed recency rule, and update lifecycle status/source line. Preserve the strict retired-key rejection assertions."
+owner_domain = 14
+interface = "14.http-get-api-v2-paxeer-x-capabilities"
+
+[doc.1]
+path = "README.md"
+status = "stale"
+notes = "Stale at lines 40-47 and 181: two-domain runtime, separate daemon and anchor finality contradict the finished network."
+
+[doc.2]
+path = "docs/MONOREPO.md"
+status = "stale"
+notes = "Stale at lines 3 and 70-72; layout information remains useful but runtime/settlement descriptions need a merged-network rewrite."
+
+[doc.3]
+path = "docs/site/docs/overview/quickstart.md"
+status = "stale"
+notes = "Stale at lines 20, 132, 167-168, 214-217, 299-304, 497, 518 and 576: retired endpoints, funding and receipt evidence."
+
+[doc.4]
+path = "docs/site/docs/concepts/paxeer-boundary.md"
+status = "stale"
+notes = "Stale at lines 7, 19, 50, 119-129 and 145: retired custody client and settlement deployment are described as live."
+
+[doc.5]
+path = "docs/site/docs/operators/beta-control.md"
+status = "stale"
+notes = "Stale at lines 3-5 and funding/dependency sections. Private faucet scoping is correct; public router/custody instructions are retired."
+
+[doc.6]
+path = "docs/site/docs/operators/beta-cluster.md"
+status = "stale"
+notes = "Stale at lines 3-5, Native custody, Custody-profile input and Explorer read principal (86-90): obsolete topology and funding remain operational instructions."
+
+[doc.7]
+path = "docs/site/docs/platform/faucet.md"
+status = "stale"
+notes = "Stale at lines 3-5 and the public lx_requestFunds paragraph; the private/disposable-only availability restriction itself is accurate."
+
+[doc.8]
+path = "docs/site/docs/platform/cli.md"
+status = "stale"
+notes = "Stale at lines 8, 131, 278-298 and 335: mandatory /rpc and retired batch-verification recipe."
+
+[doc.9]
+path = "docs/site/docs/platform/hosted-gateway.md"
+status = "stale"
+notes = "Stale at lines 39-52, 198-213 and receipt/readiness sections: unified router, separate core and legacy program ingress."
+
+[doc.10]
+path = "docs/site/docs/platform/registry.md"
+status = "stale"
+notes = "Stale at lines 28, 86 and 176-182. Journal/build isolation details remain useful; authority/recovery topology is pre-merge."
+
+[doc.11]
+path = "docs/site/docs/programs/index.md"
+status = "stale"
+notes = "Stale at lines 117-126 and Calls and receipt reads ingress. The custody-retirement notice at lines 531-537 is accurate."
+
+[doc.12]
+path = "docs/site/docs/programs/workspace.md"
+status = "stale"
+notes = "Stale at lines 15 and 88: deleted adapter member/exception. Stored-vector and committed-proof guidance remains accurate."
+
+[doc.13]
+path = "services/explorer/README.md"
+status = "accurate"
+notes = "Read all 271 lines. Upstream provenance, process/licence separation, builder commands, fixture-profile scoping and scoped lint exemptions describe the package. This audit does not claim to have executed its broader gates."
+
+[doc.14]
+path = "services/explorer/UPSTREAM.md"
+status = "accurate"
+notes = "Read in full. Backend v10.2.6 at 90f7dd8e9348123b74dfd23f69ab7da76191a820 identifies provenance for 30 byte-identical imported tests; its later-local-commit qualification distinguishes the 16 fork-owned members."
+
+[doc.15]
+path = "docs/site/docs/agents/sdk-verification.md"
+status = "accurate"
+notes = "Read in full. Independent receipt/chain pins and V4 batch, transaction and result inclusion with linked execution/successor commits provide the current contract violated by explorer committed fixtures."
+
+[doc.16]
+path = "contracts/explorer-http-api.md"
+status = "missing"
+notes = "The explorer HTTP registry contract target does not exist at this revision. missing-explorer-http-contract proposes publication or retargeting to maintained documentation."
+
+[doc.17]
+path = "spec/layerx-merge/interfaces.kvx"
+status = "stale"
+notes = "Read the 175 consumed rows including signatures, configuration and lifecycle notes; the package declares no produced rows. Missing HTTP contracts and obsolete capability notes need reconciliation. Generic Solidity symbol matches in vendored tests do not create live dependencies on those specific contracts."
+

@@ -1,16 +1,20 @@
 //! KMS-backed custody for human and managed-agent signing keys.
 
 mod evm;
+mod export;
 mod gateway;
 mod provider;
 pub use evm::{
     EvmAcknowledgement, EvmAction, EvmExternalSignature, EvmPlanAuthorization, EvmTransaction,
-    SendPlanAuthorization,
+    SendPlanAuthorization, SignedBankTransfer,
 };
 mod sessions;
 pub mod signer;
 
-pub use gateway::{GatewayLimits, GatewayPolicy, GatewayTls, LxkpGateway, GATEWAY_FRAME_LIMIT};
+pub use gateway::{
+    GatewayChainSnapshot, GatewayLimits, GatewayPolicy, GatewayTls, LxkpGateway,
+    GATEWAY_FRAME_LIMIT,
+};
 pub use provider::{
     KmsProvider, NativeConsent, PrincipalKeyBinding, ProviderDeployment, ProviderKeyDescription,
     ProviderKeyReference, ProviderNativeSignRequest, ProviderSignRequest, RemoteCustodySigner,
@@ -21,8 +25,9 @@ pub use sessions::{
     ManagedAgentState, PlainTime, ProtocolIdentitySnapshot, ProvisionEvidence, RenewalOutcome,
     RevocationEvidence, RevocationOutcome, RevocationReason, RotationEvidence, RotationJourney,
     RotationJourneyState, RotationObservation, RotationSubject, RotationSubmission,
-    SessionEntropySource, SessionKeyEntropy, SessionKeyError, SessionKeyProvisioner, SessionLease,
-    SessionLeaseState, SessionPolicy, SessionTarget, SuspensionEvidence,
+    SessionAuthorityObservation, SessionEntropySource, SessionKeyEntropy, SessionKeyError,
+    SessionKeyProvisioner, SessionLease, SessionLeaseState, SessionLifecycleDriver,
+    SessionMaintainedComponents, SessionPolicy, SessionTarget, SuspensionEvidence,
 };
 
 pub(crate) use signer::attach_call_signature;
@@ -40,6 +45,8 @@ use std::sync::Arc;
 
 use layerx_crypto::keystore::{KeystoreEntropy, KeystoreError};
 use layerx_crypto::signer::SignError;
+use serde::{Deserialize, Serialize};
+use sha2::{Digest as _, Sha256};
 use zeroize::Zeroizing;
 
 use crate::audit::AuditError;
@@ -50,11 +57,14 @@ const RECORD_MAGIC: &[u8; 4] = b"LXCK";
 const RECORD_VERSION: u8 = 2;
 const LEGACY_RECORD_VERSION: u8 = 1;
 const SELF_CUSTODY_RECORD_VERSION: u8 = 3;
+const EXPORT_HANDOFF_RECORD_VERSION: u8 = 4;
+const LOCK_FILE_SUFFIX: &str = ".key.lock";
 const PRINCIPALS_DIR: &str = "principals";
 const KEY_FILE_SUFFIX: &str = ".key";
 const TEMP_FILE_SUFFIX: &str = ".key.tmp";
 const IDENTIFIER_LIMIT: usize = 128;
 const KEY_REFERENCE_LIMIT: usize = 256;
+const MAX_RECORD_BYTES: usize = 4 + 1 + 1 + 32 + 32 + 4 + 4096 + 1;
 const KMS_SECRET_MINIMUM: usize = 32;
 const KMS_SECRET_MAXIMUM: usize = 4096;
 
@@ -187,6 +197,8 @@ pub enum KmsError {
     DevelopmentOnly,
     /// The identity holds its own key and the provider no longer signs for it.
     SelfCustodied,
+    /// The provider cannot produce the native consent exposed by Human.
+    UnsupportedNativeConsent,
 }
 
 impl Display for KmsError {
@@ -204,6 +216,7 @@ impl Display for KmsError {
             Self::Conflict => "key-management service lifecycle operation conflicted",
             Self::Integrity => "key-management key reference integrity failed",
             Self::DevelopmentOnly => "operation is available only with the development provider",
+            Self::UnsupportedNativeConsent => "unsupported capability: native-consent",
             Self::SelfCustodied => {
                 "identity is self-custodied and the provider no longer signs for it"
             }
@@ -340,6 +353,7 @@ impl CustodyError {
             Self::Kms(KmsError::Integrity) => "kms-integrity",
             Self::Kms(KmsError::DevelopmentOnly) => "kms-development-only",
             Self::Kms(KmsError::SelfCustodied) => "kms-self-custodied",
+            Self::Kms(KmsError::UnsupportedNativeConsent) => "kms-unsupported-native-consent",
             Self::Sign(SignError::DisclosureMismatch(_)) => "disclosure-mismatch",
             Self::Sign(SignError::InvalidDisclosure) => "disclosure-invalid",
             Self::Sign(_) => "signer-refused",
@@ -491,6 +505,24 @@ struct KeyRecord {
     binding_digest: Option<[u8; 32]>,
     provider_reference: ProviderKeyReference,
     self_custodied: bool,
+    handoff: Option<ExportHandoff>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct ExportHandoff {
+    pub id: [u8; 32],
+    pub expires_at: u64,
+    pub authorization: Option<ExportAuthorization>,
+    pub acknowledged: bool,
+    pub delivery_digest: Option<[u8; 32]>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct ExportAuthorization {
+    pub at: u64,
+    pub ceremony_digest: [u8; 32],
 }
 
 /// The DID primary key handed to its owner exactly once by the key-export
@@ -525,10 +557,9 @@ impl std::fmt::Debug for ExportedPrimaryKey {
 }
 
 /// KMS-backed keystore holding only provider references and public key facts
-/// under principal-scoped subtrees. The one and only path by which private
-/// material leaves custody is [`Keystore::export_primary_once`], which hands
-/// the DID primary key to its owner a single time and leaves the identity
-/// self-custodied; every other method returns public facts alone.
+/// under principal-scoped subtrees. Production export uses a durable, authorized
+/// handoff that remains recoverable until delivery acknowledgement. The legacy
+/// one-shot export is restricted to the development envelope provider.
 #[derive(Debug)]
 pub struct Keystore {
     root: PathBuf,
@@ -584,6 +615,7 @@ impl Keystore {
     where
         P: KmsProvider + 'static,
     {
+        provider.admit_human_service()?;
         Self::open(root, network_id, provider)
     }
 
@@ -613,11 +645,13 @@ impl Keystore {
         fs::create_dir_all(&root)?;
         require_directory(&root, "custody root is not a directory")?;
         verify_custody_tree(&root)?;
-        Ok(Self {
+        let store = Self {
             root,
             network_id,
             provider,
-        })
+        };
+        store.recover_temporary_records()?;
+        Ok(store)
     }
 
     /// Returns the network every held key is bound to.
@@ -740,6 +774,7 @@ impl Keystore {
         principal: &PrincipalId,
         key: &KeyId,
     ) -> Result<KeyDescriptor, CustodyError> {
+        let _lock = self.export_lock(principal, key)?;
         let record = self.read_record(principal, key)?;
         if record.self_custodied {
             return Err(CustodyError::SelfCustodied);
@@ -782,7 +817,15 @@ impl Keystore {
     /// Returns typed provider, principal-binding and storage failures. A
     /// provider refusal never removes the local record.
     pub fn destroy(&self, principal: &PrincipalId, key: &KeyId) -> Result<(), CustodyError> {
+        let _lock = self.export_lock(principal, key)?;
         let record = self.read_record(principal, key)?;
+        if record
+            .handoff
+            .as_ref()
+            .is_some_and(|handoff| !handoff.acknowledged)
+        {
+            return Err(CustodyError::SelfCustodied);
+        }
         let binding = self.binding(principal, key, record.class)?;
         Self::require_record_binding(&binding, &record)?;
         self.provider
@@ -813,7 +856,7 @@ impl Keystore {
             let Some(name) = name.to_str() else {
                 return Err(CustodyError::CorruptRecord("foreign key entry"));
             };
-            if name.ends_with(TEMP_FILE_SUFFIX) {
+            if name.ends_with(TEMP_FILE_SUFFIX) || name.ends_with(LOCK_FILE_SUFFIX) {
                 continue;
             }
             let Some(stem) = name.strip_suffix(KEY_FILE_SUFFIX) else {
@@ -877,6 +920,10 @@ impl Keystore {
         principal: &PrincipalId,
         key: &KeyId,
     ) -> Result<ExportedPrimaryKey, CustodyError> {
+        let _lock = self.export_lock(principal, key)?;
+        if self.provider.deployment() == ProviderDeployment::Production {
+            return Err(CustodyError::Kms(KmsError::Refused));
+        }
         let record = self.read_record(principal, key)?;
         if record.self_custodied {
             return Err(CustodyError::SelfCustodied);
@@ -909,6 +956,222 @@ impl Keystore {
             &bytes,
         )?;
         Ok(ExportedPrimaryKey { secret, public_key })
+    }
+
+    fn export_lock(&self, principal: &PrincipalId, key: &KeyId) -> Result<fs::File, CustodyError> {
+        let directory = self.principal_directory(principal);
+        let lock = fs::OpenOptions::new()
+            .create(true)
+            .truncate(false)
+            .write(true)
+            .open(directory.join(format!("{}{LOCK_FILE_SUFFIX}", key.as_str())))?;
+        lock.lock()?;
+        // Only the lock owner can discard a staging file left by a stopped writer.
+        match fs::remove_file(directory.join(format!("{}{TEMP_FILE_SUFFIX}", key.as_str()))) {
+            Ok(()) => {}
+            Err(error) if error.kind() == io::ErrorKind::NotFound => {}
+            Err(error) => return Err(error.into()),
+        }
+        Ok(lock)
+    }
+
+    fn write_handoff(
+        &self,
+        principal: &PrincipalId,
+        key: &KeyId,
+        record: &KeyRecord,
+    ) -> Result<(), CustodyError> {
+        let binding = self.binding(principal, key, record.class)?;
+        Self::require_record_binding(&binding, record)?;
+        let mut bytes = encode_record_parts(
+            record.class,
+            record.public_key,
+            binding.digest(),
+            record.provider_reference.as_bytes(),
+            false,
+        )?;
+        bytes[4] = EXPORT_HANDOFF_RECORD_VERSION;
+        bytes.push(u8::from(record.self_custodied));
+        let state = serde_json::to_vec(&record.handoff)
+            .map_err(|_| CustodyError::CorruptRecord("invalid export handoff"))?;
+        let length = u32::try_from(state.len()).map_err(|_| CustodyError::InvalidEvidence)?;
+        bytes.extend_from_slice(&length.to_be_bytes());
+        bytes.extend_from_slice(&state);
+        replace_atomic(
+            &self.principal_directory(principal),
+            &format!("{}{KEY_FILE_SUFFIX}", key.as_str()),
+            &format!("{}{TEMP_FILE_SUFFIX}", key.as_str()),
+            &bytes,
+        )
+    }
+
+    pub(crate) fn begin_primary_export(
+        &self,
+        principal: &PrincipalId,
+        key: &KeyId,
+        now: u64,
+        window: u64,
+    ) -> Result<ExportHandoff, CustodyError> {
+        let _lock = self.export_lock(principal, key)?;
+        let mut record = self.read_record(principal, key)?;
+        let binding = self.binding(principal, key, record.class)?;
+        Self::require_record_binding(&binding, &record)?;
+        if record.class != KeyClass::HumanPrimary {
+            return Err(CustodyError::Kms(KmsError::Refused));
+        }
+        if let Some(handoff) = &record.handoff {
+            if handoff.acknowledged {
+                return Err(CustodyError::SelfCustodied);
+            }
+            if handoff.authorization.is_some() || handoff.expires_at > now {
+                return Ok(handoff.clone());
+            }
+        } else if record.self_custodied {
+            return Err(CustodyError::SelfCustodied);
+        }
+        self.provider
+            .check_export_handoff(&binding, &record.provider_reference)?;
+        let mut id = [0; 32];
+        getrandom::fill(&mut id).map_err(|_| CustodyError::InvalidEntropy)?;
+        let handoff = ExportHandoff {
+            id,
+            expires_at: now.checked_add(window).ok_or(CustodyError::InvalidLimits)?,
+            authorization: None,
+            acknowledged: false,
+            delivery_digest: None,
+        };
+        record.handoff = Some(handoff.clone());
+        self.write_handoff(principal, key, &record)?;
+        Ok(handoff)
+    }
+
+    pub(crate) fn authorize_primary_export(
+        &self,
+        principal: &PrincipalId,
+        key: &KeyId,
+        id: [u8; 32],
+        ceremony_digest: [u8; 32],
+        now: u64,
+    ) -> Result<ExportHandoff, CustodyError> {
+        let _lock = self.export_lock(principal, key)?;
+        let mut record = self.read_record(principal, key)?;
+        let binding = self.binding(principal, key, record.class)?;
+        Self::require_record_binding(&binding, &record)?;
+        let handoff = record
+            .handoff
+            .as_mut()
+            .ok_or(CustodyError::InvalidEvidence)?;
+        if handoff.id != id {
+            return Err(CustodyError::InvalidEvidence);
+        }
+        if handoff.acknowledged {
+            return Err(CustodyError::SelfCustodied);
+        }
+        if handoff.authorization.is_none() {
+            if now >= handoff.expires_at {
+                return Err(CustodyError::StepUpExpired);
+            }
+            handoff.authorization = Some(ExportAuthorization {
+                at: now,
+                ceremony_digest,
+            });
+            record.self_custodied = true;
+            self.write_handoff(principal, key, &record)?;
+        }
+        record.handoff.ok_or(CustodyError::InvalidEvidence)
+    }
+
+    pub(crate) fn recover_primary_export(
+        &self,
+        principal: &PrincipalId,
+        key: &KeyId,
+        id: [u8; 32],
+    ) -> Result<ExportedPrimaryKey, CustodyError> {
+        let _lock = self.export_lock(principal, key)?;
+        let mut record = self.read_record(principal, key)?;
+        let handoff = record
+            .handoff
+            .as_ref()
+            .ok_or(CustodyError::InvalidEvidence)?;
+        if handoff.id != id || handoff.authorization.is_none() {
+            return Err(CustodyError::InvalidEvidence);
+        }
+        if handoff.acknowledged {
+            return Err(CustodyError::SelfCustodied);
+        }
+        let binding = self.binding(principal, key, record.class)?;
+        Self::require_record_binding(&binding, &record)?;
+        let secret =
+            self.provider
+                .recover_export_handoff(&binding, &record.provider_reference, id)?;
+        let public_key = layerx_crypto::signer::Signer::public_key(
+            &layerx_crypto::local::LocalSigner::new(*secret),
+        );
+        if !layerx_crypto::ct::eq_fixed(&public_key, &record.public_key) {
+            return Err(CustodyError::Kms(KmsError::Integrity));
+        }
+        let token = export_delivery_token(&secret, id);
+        let delivery_digest: [u8; 32] = Sha256::digest(token).into();
+        if let Some(handoff) = record.handoff.as_mut() {
+            if let Some(expected) = handoff.delivery_digest {
+                if !layerx_crypto::ct::eq_fixed(&expected, &delivery_digest) {
+                    return Err(CustodyError::Kms(KmsError::Integrity));
+                }
+            } else {
+                handoff.delivery_digest = Some(delivery_digest);
+                self.write_handoff(principal, key, &record)?;
+            }
+        }
+        Ok(ExportedPrimaryKey { secret, public_key })
+    }
+
+    pub(crate) fn verify_primary_export_delivery(
+        &self,
+        principal: &PrincipalId,
+        key: &KeyId,
+        id: [u8; 32],
+        token: [u8; 32],
+    ) -> Result<ExportHandoff, CustodyError> {
+        let record = self.read_record(principal, key)?;
+        let binding = self.binding(principal, key, record.class)?;
+        Self::require_record_binding(&binding, &record)?;
+        let handoff = record.handoff.ok_or(CustodyError::InvalidEvidence)?;
+        if handoff.id != id
+            || handoff.authorization.is_none()
+            || !handoff.delivery_digest.is_some_and(|expected| {
+                layerx_crypto::ct::eq_fixed(&expected, &Sha256::digest(token).into())
+            })
+        {
+            return Err(CustodyError::InvalidEvidence);
+        }
+        Ok(handoff)
+    }
+
+    pub(crate) fn acknowledge_primary_handoff(
+        &self,
+        principal: &PrincipalId,
+        key: &KeyId,
+        id: [u8; 32],
+        token: [u8; 32],
+    ) -> Result<(), CustodyError> {
+        let _lock = self.export_lock(principal, key)?;
+        self.verify_primary_export_delivery(principal, key, id, token)?;
+        let mut record = self.read_record(principal, key)?;
+        let handoff = record
+            .handoff
+            .as_ref()
+            .ok_or(CustodyError::InvalidEvidence)?;
+        if handoff.acknowledged {
+            return Ok(());
+        }
+        let binding = self.binding(principal, key, record.class)?;
+        Self::require_record_binding(&binding, &record)?;
+        self.provider
+            .acknowledge_export_handoff(&binding, &record.provider_reference, id)?;
+        if let Some(handoff) = record.handoff.as_mut() {
+            handoff.acknowledged = true;
+        }
+        self.write_handoff(principal, key, &record)
     }
 
     pub(crate) fn remote_signer(
@@ -995,7 +1258,7 @@ impl Keystore {
                     integrity = KeyReferenceIntegrity::Failed;
                     continue;
                 };
-                if key_name.ends_with(TEMP_FILE_SUFFIX) {
+                if key_name.ends_with(TEMP_FILE_SUFFIX) || key_name.ends_with(LOCK_FILE_SUFFIX) {
                     continue;
                 }
                 let Some(stem) = key_name.strip_suffix(KEY_FILE_SUFFIX) else {
@@ -1059,25 +1322,107 @@ impl Keystore {
 
     fn read_record(&self, principal: &PrincipalId, key: &KeyId) -> Result<KeyRecord, CustodyError> {
         let path = self.key_path(principal, key);
-        let metadata = match fs::symlink_metadata(&path) {
-            Ok(metadata) if metadata.file_type().is_file() => metadata,
-            Ok(_) => return Err(CustodyError::CorruptRecord("foreign key entry")),
-            Err(error) if error.kind() == io::ErrorKind::NotFound => {
-                return Err(CustodyError::KeyNotFound);
-            }
-            Err(error) => return Err(CustodyError::Io(error)),
-        };
-        if metadata.len() == 0 {
-            return Err(CustodyError::CorruptRecord("empty key record"));
-        }
-        let bytes = match fs::read(path) {
-            Ok(bytes) => bytes,
-            Err(error) if error.kind() == io::ErrorKind::NotFound => {
-                return Err(CustodyError::KeyNotFound)
-            }
-            Err(error) => return Err(CustodyError::Io(error)),
-        };
+        let (bytes, _) = read_protected_record(&path, false)?;
         decode_record(&bytes)
+    }
+
+    fn recover_temporary_records(&self) -> Result<(), CustodyError> {
+        let principals = self.root.join(PRINCIPALS_DIR);
+        if !principals.try_exists()? {
+            return Ok(());
+        }
+        for entry in fs::read_dir(principals)? {
+            let entry = entry?;
+            let principal = PrincipalId::new(entry.file_name().to_string_lossy().as_ref())
+                .map_err(|_| CustodyError::CorruptRecord("foreign principal"))?;
+            for temporary in fs::read_dir(entry.path())? {
+                let temporary = temporary?;
+                let name = temporary.file_name();
+                let Some(stem) = name
+                    .to_str()
+                    .and_then(|name| name.strip_suffix(TEMP_FILE_SUFFIX))
+                else {
+                    continue;
+                };
+                let key = KeyId::new(stem)?;
+                let temp_path = temporary.path();
+                let (bytes, metadata) = read_protected_record(&temp_path, true)?;
+                let final_path = self.key_path(&principal, &key);
+                use std::os::unix::fs::MetadataExt as _;
+                if let Ok(committed) = fs::symlink_metadata(&final_path) {
+                    if metadata.dev() == committed.dev() && metadata.ino() == committed.ino() {
+                        let record = decode_record(&bytes)?;
+                        let binding = self.binding(&principal, &key, record.class)?;
+                        Self::require_record_binding(&binding, &record)?;
+                        let description = self
+                            .provider
+                            .describe_key(&binding, &record.provider_reference)?;
+                        require_description(
+                            &binding,
+                            record.class,
+                            Some(record.public_key),
+                            &description,
+                        )?;
+                        remove_verified_temp(&temp_path, &metadata)?;
+                        fs::File::open(entry.path())?.sync_all()?;
+                        continue;
+                    }
+                }
+                if metadata.nlink() != 1 {
+                    return Err(CustodyError::CorruptRecord("linked temporary record"));
+                }
+                let record = match decode_record(&bytes) {
+                    Ok(record) => record,
+                    Err(_) => {
+                        // A crash during the bounded write left no publishable record.
+                        remove_verified_temp(&temp_path, &metadata)?;
+                        fs::File::open(entry.path())?.sync_all()?;
+                        continue;
+                    }
+                };
+                let binding = self.binding(&principal, &key, record.class)?;
+                Self::require_record_binding(&binding, &record)?;
+                match self
+                    .provider
+                    .describe_key(&binding, &record.provider_reference)
+                {
+                    Ok(description) => {
+                        require_description(
+                            &binding,
+                            record.class,
+                            Some(record.public_key),
+                            &description,
+                        )?;
+                        if description.reference() != &record.provider_reference {
+                            return Err(KmsError::Integrity.into());
+                        }
+                        match self.read_record(&principal, &key) {
+                            Ok(committed) => {
+                                Self::require_record_binding(&binding, &committed)?;
+                                if committed.class != record.class {
+                                    return Err(KmsError::Integrity.into());
+                                }
+                                verify_temp_inode(&temp_path, &metadata)?;
+                                fs::rename(&temp_path, &final_path)?;
+                            }
+                            Err(CustodyError::KeyNotFound) => {
+                                verify_temp_inode(&temp_path, &metadata)?;
+                                fs::hard_link(&temp_path, &final_path)?;
+                                remove_verified_temp(&temp_path, &metadata)?;
+                            }
+                            Err(error) => return Err(error),
+                        }
+                    }
+                    Err(KmsError::KeyNotFound) => {
+                        // The provider proves that this exact pending handle has no authority.
+                        remove_verified_temp(&temp_path, &metadata)?;
+                    }
+                    Err(error) => return Err(error.into()),
+                }
+                fs::File::open(entry.path())?.sync_all()?;
+            }
+        }
+        Ok(())
     }
 
     fn create_principal_directory(&self, principal: &PrincipalId) -> Result<PathBuf, CustodyError> {
@@ -1097,6 +1442,14 @@ impl Keystore {
         require_directory(&directory, "principal key path is not a directory")?;
         Ok(directory)
     }
+}
+
+pub(crate) fn export_delivery_token(seed: &[u8; 32], id: [u8; 32]) -> [u8; 32] {
+    let mut digest = Sha256::new();
+    digest.update(b"layerx-human-export-delivery/v1\0");
+    digest.update(id);
+    digest.update(seed);
+    digest.finalize().into()
 }
 
 fn identity_bytes(principal: &PrincipalId, key: &KeyId, class: KeyClass) -> Vec<u8> {
@@ -1192,7 +1545,10 @@ fn decode_record(bytes: &[u8]) -> Result<KeyRecord, CustodyError> {
     let version = reader.byte()?;
     if !matches!(
         version,
-        LEGACY_RECORD_VERSION | RECORD_VERSION | SELF_CUSTODY_RECORD_VERSION
+        LEGACY_RECORD_VERSION
+            | RECORD_VERSION
+            | SELF_CUSTODY_RECORD_VERSION
+            | EXPORT_HANDOFF_RECORD_VERSION
     ) {
         return Err(CustodyError::CorruptRecord("unknown record version"));
     }
@@ -1214,13 +1570,39 @@ fn decode_record(bytes: &[u8]) -> Result<KeyRecord, CustodyError> {
     let reference_length = reader.length()?;
     let provider_reference = ProviderKeyReference::new(reader.take(reference_length)?.to_vec())
         .map_err(CustodyError::Kms)?;
-    let self_custodied = if version == SELF_CUSTODY_RECORD_VERSION {
-        if reader.byte()? != 1 {
-            return Err(CustodyError::CorruptRecord("invalid self-custody marker"));
+    let self_custodied =
+        if version == SELF_CUSTODY_RECORD_VERSION || version == EXPORT_HANDOFF_RECORD_VERSION {
+            match reader.byte()? {
+                0 if version == EXPORT_HANDOFF_RECORD_VERSION => false,
+                1 => true,
+                _ => return Err(CustodyError::CorruptRecord("invalid self-custody marker")),
+            }
+        } else {
+            false
+        };
+    let handoff: Option<ExportHandoff> = if version == EXPORT_HANDOFF_RECORD_VERSION {
+        let length = reader.length()?;
+        if length > 4096 {
+            return Err(CustodyError::CorruptRecord("oversize export handoff"));
         }
-        true
+        let handoff: ExportHandoff =
+            serde_json::from_slice::<Option<ExportHandoff>>(reader.take(length)?)
+                .map_err(|_| CustodyError::CorruptRecord("invalid export handoff"))?
+                .ok_or(CustodyError::CorruptRecord("missing export handoff"))?;
+        if handoff.authorization.is_some() != self_custodied
+            || handoff
+                .authorization
+                .as_ref()
+                .is_some_and(|authorization| authorization.at >= handoff.expires_at)
+            || (handoff.delivery_digest.is_some() && !self_custodied)
+            || (handoff.acknowledged && handoff.delivery_digest.is_none())
+            || class != KeyClass::HumanPrimary
+        {
+            return Err(CustodyError::CorruptRecord("inconsistent export handoff"));
+        }
+        Some(handoff)
     } else {
-        false
+        None
     };
     reader.finish()?;
     Ok(KeyRecord {
@@ -1229,6 +1611,7 @@ fn decode_record(bytes: &[u8]) -> Result<KeyRecord, CustodyError> {
         binding_digest,
         provider_reference,
         self_custodied,
+        handoff,
     })
 }
 
@@ -1303,6 +1686,7 @@ fn verify_custody_tree(root: &Path) -> Result<(), CustodyError> {
             };
             let stem = key_name
                 .strip_suffix(TEMP_FILE_SUFFIX)
+                .or_else(|| key_name.strip_suffix(LOCK_FILE_SUFFIX))
                 .or_else(|| key_name.strip_suffix(KEY_FILE_SUFFIX));
             let valid = stem.is_some_and(valid_identifier);
             if !valid {
@@ -1329,10 +1713,12 @@ fn write_atomic(
     bytes: &[u8],
 ) -> Result<(), CustodyError> {
     use std::io::Write as _;
+    use std::os::unix::fs::OpenOptionsExt as _;
 
     let temp_path = directory.join(temp_name);
     let mut file = fs::OpenOptions::new()
         .create_new(true)
+        .mode(0o600)
         .write(true)
         .open(&temp_path)?;
     if let Err(error) = file.write_all(bytes).and_then(|()| file.sync_all()) {
@@ -1362,10 +1748,12 @@ fn replace_atomic(
     bytes: &[u8],
 ) -> Result<(), CustodyError> {
     use std::io::Write as _;
+    use std::os::unix::fs::OpenOptionsExt as _;
 
     let temp_path = directory.join(temp_name);
     let mut file = fs::OpenOptions::new()
         .create_new(true)
+        .mode(0o600)
         .write(true)
         .open(&temp_path)?;
     if let Err(error) = file.write_all(bytes).and_then(|()| file.sync_all()) {
@@ -1379,5 +1767,68 @@ fn replace_atomic(
         return Err(CustodyError::Io(error));
     }
     fs::File::open(directory)?.sync_all()?;
+    Ok(())
+}
+
+fn read_protected_record(
+    path: &Path,
+    recovery: bool,
+) -> Result<(Vec<u8>, fs::Metadata), CustodyError> {
+    use rustix::fs::{Mode, OFlags};
+    use std::os::unix::fs::MetadataExt as _;
+    let descriptor = rustix::fs::open(
+        path,
+        OFlags::RDONLY | OFlags::NOFOLLOW | OFlags::NONBLOCK | OFlags::CLOEXEC,
+        Mode::empty(),
+    )
+    .map_err(|error| {
+        if error == rustix::io::Errno::NOENT {
+            CustodyError::KeyNotFound
+        } else {
+            CustodyError::CorruptRecord("key descriptor refused")
+        }
+    })?;
+    let mut file = fs::File::from(descriptor);
+    let metadata = file.metadata()?;
+    if !metadata.is_file()
+        || metadata.uid() != rustix::process::geteuid().as_raw()
+        || metadata.mode() & 0o077 != 0
+        || metadata.nlink() == 0
+        || metadata.nlink() > if recovery { 2 } else { 1 }
+    {
+        return Err(CustodyError::CorruptRecord(
+            "key ownership, permissions or links",
+        ));
+    }
+    if metadata.len() > MAX_RECORD_BYTES as u64 || (!recovery && metadata.len() == 0) {
+        return Err(CustodyError::CorruptRecord("key record size"));
+    }
+    let mut bytes = Vec::new();
+    file.by_ref()
+        .take(MAX_RECORD_BYTES as u64 + 1)
+        .read_to_end(&mut bytes)?;
+    if bytes.len() > MAX_RECORD_BYTES {
+        return Err(CustodyError::CorruptRecord("key record size"));
+    }
+    Ok((bytes, metadata))
+}
+
+fn verify_temp_inode(path: &Path, expected: &fs::Metadata) -> Result<(), CustodyError> {
+    use std::os::unix::fs::MetadataExt as _;
+    let observed = fs::symlink_metadata(path)?;
+    if !observed.is_file()
+        || observed.dev() != expected.dev()
+        || observed.ino() != expected.ino()
+        || observed.uid() != expected.uid()
+        || observed.mode() != expected.mode()
+    {
+        return Err(CustodyError::CorruptRecord("temporary inode changed"));
+    }
+    Ok(())
+}
+
+fn remove_verified_temp(path: &Path, expected: &fs::Metadata) -> Result<(), CustodyError> {
+    verify_temp_inode(path, expected)?;
+    fs::remove_file(path)?;
     Ok(())
 }

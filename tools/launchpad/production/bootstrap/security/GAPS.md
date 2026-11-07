@@ -1,28 +1,117 @@
 # Existing security regression prerequisite map
 
-`manifest.json` enumerates actual existing Go tests, source hashes, working directories and executable commands. Regenerate with `python3 tools/production/bootstrap/security/build_manifest.py`. This inventory does not qualify task 0.1 or certify production security. Preserve command exits and Go JSON test events; skips and zero-case execution must fail qualification.
+[manifest.json](manifest.json) inventories Go test names, source hashes, module
+working directories and executable commands. From the repository root, inspect a
+fresh inventory with:
+
+```sh
+python3 tools/launchpad/production/bootstrap/security/build_manifest.py
+```
+
+The generator prints JSON to stdout; it does not update the checked-in manifest
+or execute tests. Capture stdout as a candidate and compare it with
+`tools/launchpad/production/bootstrap/security/manifest.json`. Before replacing
+that checked-in destination, review each row's module working directory, command,
+source paths, SHA-256 hashes, test names and dependency prerequisites against the
+current tree. Keep `execution_status` as `not_executed_by_inventory`; registry
+admission requires this reconciliation and separate execution evidence. This
+inventory does not qualify bootstrap task `0.1`
+or certify production security. Preserve command exits and Go JSON test events;
+skips and zero-case execution must fail qualification.
 
 ## Coverage and limits
 
-- `shared/auth`: EIP-191 valid/address-case/invalid inputs and webhook HMAC golden vectors, timestamp-window checks, missing signature, bad scheme, wrong secret and tampered payload. No durable duplicate-delivery assertion: the HMAC window is freshness checking, not replay deduplication.
-- `shared/http`: API-key rejection, CORS response, in-memory/Redis throttling, client-IP resolution, 5xx detail masking and scanner wire-response handling. The Redis test starts a real `redis:7-alpine` container. Do not silently omit it from complete qualification.
-- Gateway auth: signed-wallet login, single-use nonce, unknown nonce, bad wallet/signature, missing session, JWT mint/verify/expiry. Login tests require Redis through the gateway internal test helper. JWT-only tests do not establish Redis atomicity under simultaneous login.
-- Gateway upload/image: MIME allowlist, unsafe SVG, oversize uploads, invalid address, infected-file rejection and upstream failure. Upload tests inject a scanner function and HTTP upstream; infected-file rejection does not prove live malware scanning. Serve tests include invalid object-key rejection. Proxy tests include client-supplied identity-header stripping and unauthenticated socket rejection.
-- Stats, PNL and chart webhook handlers: missing/bad authentication and dispatch/invalid payload handling. Their fixture dispatch tests are not evidence of distributed replay deduplication, provider delivery, queue durability or restart recovery.
-- Metadata/user handlers: existing service tests exercise signed write workflows with their package fixtures. These broad service cases require inspection of each subtest before treating them as a complete authorization matrix.
-- `shared/secrets`: environment provider, cache expiry/error propagation and unsupported cloud-provider fallback. Existing fallback assertions do not prove managed secret-store integration.
+Paths below are relative to the repository root. The generator's module paths,
+not the historical Go import names, determine command working directories.
+
+- `sdk/launchpad/shared/auth`: EIP-191 valid/address-case/invalid inputs and
+  webhook HMAC vectors, timestamp windows, missing signature, bad scheme, wrong
+  secret and tampered payload. Freshness checks alone do not establish durable
+  delivery deduplication.
+- `sdk/launchpad/shared/http`: API-key rejection, CORS, in-memory/Redis throttling,
+  client-IP resolution, 5xx detail masking and scanner responses. The Redis case
+  starts a real `redis:7-alpine` container; complete qualification must retain it.
+- `services/launchpad/gateway/internal/auth`: wallet login, nonce reuse and
+  invalid inputs, missing session, and JWT mint/verify/expiry. Login tests require
+  Redis through the gateway helper; JWT-only results cannot prove Redis atomicity.
+- Gateway `internal/upload` and `internal/image`: MIME/SVG/size/address handling,
+  infected-file rejection and upstream failure. Some tests inject scanners or
+  HTTP upstreams; inspect their dependencies before claiming live scanning.
+  `internal/serve` covers invalid object keys; `internal/proxy` covers identity
+  header stripping and unauthenticated socket rejection.
+- `services/launchpad/api/internal/ratelimit`: the generator includes a separate
+  API rate-limit group; shared HTTP tests do not substitute for this package.
+- `services/launchpad/{stats-workers,pnl-tracker,trading-charts}/internal/httpapi`:
+  webhook authentication and dispatch/invalid payload handling. Fixture dispatch
+  does not establish provider delivery, queue durability or restart recovery.
+- `services/launchpad/{metadata,user}`: signed write workflows with internal
+  package fixtures. Inspect each subtest before claiming a route authorization
+  matrix.
+- `sdk/launchpad/shared/secrets`: environment retrieval, cache expiry/error
+  propagation and provider selection. The legacy `New` constructor can fall back
+  to environment values for explicit unsupported providers. Production startup
+  must use `NewChecked`, which rejects unsupported configured providers; neither
+  path demonstrates a managed secret-store integration.
+
+## Scanner behavior and remaining proof
+
+`ScanBuffer` in `sdk/launchpad/shared/http/virusscan.go` fails closed. Host selection
+uses `ScanOptions.Host`, then `CLAMAV_HOST`; if both are empty it returns
+`UNAVAILABLE` with `clamav-not-configured`. An unreachable
+scanner returns `UNAVAILABLE` with `clamav-unreachable`. Port selection uses
+`ScanOptions.Port`, then `CLAMAV_PORT`, then 3310. Invalid ports return `ERROR`.
+Scans are bounded to 6 MiB and at most five seconds. Only the complete ClamAV
+`stream: OK` verdict sets `Clean: true`; infected, interrupted, timed-out and
+malformed results never become clean.
+
+`TestScanBufferNotConfigured` and `TestScanBufferUnreachable` assert `Clean: false`,
+`UNAVAILABLE`, the specific reason, an empty content hash and zero size.
+The gateway upload regression `TestUpload_ScannerUnavailableFailsClosed503`
+checks HTTP 503, masked client errors, logged reasons and no forwarding to
+media/metadata on unavailable scanning. `TestScanBufferClean` and
+`TestScanBufferInfected` use fixed protocol responses from a local server; they
+do not execute live ClamAV/EICAR scanning.
+
+`ScanVerifiedBuffer` obtains scanner engine/signature revision before scanning.
+Only after a `CLEAN` result does it query the version again; a failed initial
+query returns `UNAVAILABLE` with `clamav-version-unavailable`, and a failed
+recheck or changed engine/signature revision returns `UNAVAILABLE` with
+`clamav-version-changed`. Neither result is clean. To qualify a deployment,
+retain real-scanner version and EICAR evidence, timeout/malformed-response and
+failed-dependency evidence, and failed-scan storage-denial evidence from the
+deployed path, including no object-store writes or metadata side effects.
+The forwarding assertion alone does not prove these storage-side-effect bounds.
 
 ## Deferred security qualification gaps
 
-1. **Scanner fails open:** `shared/http/virusscan.go` returns `Clean: true` when unconfigured, unreachable or timed out. `TestScanBufferNotConfigured` and `TestScanBufferUnreachable` explicitly preserve permissive behavior. Existing clean/infected scanner tests use a local protocol stub, not ClamAV. Required future proof: configured real scanner and EICAR fixture, unavailable scanner rejection/quarantine, timeout/malformed-response behavior and prevention of downstream storage on failed scan. No behavior changed here.
-2. **Session binding/concurrency:** add independently specified domain, chain, issued-at/expiry binding and concurrent nonce consumption cases before accepting a complete wallet-login security claim. Current nonce tests cover sequential reuse only.
-3. **Webhook replay/key rotation:** current signature tests do not establish durable event replay suppression, exact replay-window boundaries/future timestamps or overlapping key rotation and revocation. Handler success is distinct from committed-once effects.
-4. **Trust boundaries:** proxy header-stripping unit tests do not establish hosted ingress isolation, direct backend reachability restrictions, trusted-proxy correctness, private socket authorization or cross-service credential rotation.
-5. **Upload adversarial content:** current MIME/SVG examples do not establish parser differential resistance, decompression-bomb limits, polyglot rejection or object-store quarantine lifecycle.
-6. **Authorization breadth:** no claim of a complete route-by-role/object-owner matrix, cross-wallet denial, admin compromise boundary or CSRF/browser session analysis follows from these tests.
-7. **Frontend and infrastructure:** no security-focused frontend/browser suites or dependency/container scanner execution are registered here; source inventories alone cannot prove XSS/CSP, dependency advisories or deployment hardening.
-8. **Coverage scope:** contract security regressions belong to the separate contracts owner; these commands concern existing offchain Go sources only. Private fixture/runner and full application compilation remain coordinator responsibilities.
+The inventory alone cannot establish the following obligations, even where newer
+source tests or adapters implement part of them:
+
+1. **Session binding/concurrency:** domain, chain, issued-at/expiry binding and
+   simultaneous nonce consumption need execution evidence from the real session
+   store; sequential reuse checks are insufficient.
+2. **Webhook replay/key rotation:** prove durable committed-once effects, exact
+   replay-window boundaries/future timestamps, overlapping keys and revocation.
+3. **Trust boundaries:** prove ingress isolation, direct backend restrictions,
+   trusted-proxy behavior, private socket authorization and credential rotation.
+4. **Upload adversarial content:** prove parser behavior, decompression limits,
+   polyglot handling and object-store quarantine lifecycle.
+5. **Authorization breadth:** prove route-by-role/object-owner coverage,
+   cross-wallet denial, admin boundaries and browser session/CSRF behavior.
+6. **Frontend and infrastructure:** this Go inventory cannot establish browser
+   XSS/CSP protection, dependency/container advisories or deployment hardening.
+7. **Coverage scope:** contract security checks are separate; private fixture
+   admission and full application qualification remain coordinator obligations.
 
 ## Integration
 
-Register each manifest check with the central runner after source hashes are reconciled. Retain per-case JSON events and enforce nonzero exit on skips, unavailable fixture, missing dependencies, stale source hashes and zero matching tests. `-run ^TestWebhook` restricts the three webhook groups; the broad full-package groups intentionally include their existing non-security tests. Container-backed groups must run under the centrally coordinated fixture/container budget. All inventory rows begin `not_executed_by_inventory`; independent execution evidence must not be inferred from their presence.
+Register reviewed manifest checks with the central runner only after reconciling
+source hashes. Retain per-case JSON events and reject skips, unavailable fixtures,
+missing dependencies, stale hashes and zero matching tests. The generator uses
+`-run ^TestWebhook` for its webhook groups; full-package groups also include
+non-security tests. Container-backed groups share the coordinator's resource
+budget. Every inventory row starts `not_executed_by_inventory`.
+
+See the [bootstrap gate](../README.md), [dispatcher](../../dispatcher/README.md),
+[integration phases](../../integration/README.md) and
+[load evidence limits](../../load/README.md) for the distinct execution paths.

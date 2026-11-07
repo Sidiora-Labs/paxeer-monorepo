@@ -115,6 +115,7 @@ const OUTPUTS: [(&str, &str, &str, Option<&[&str]>); 12] = [
     (
         "agent-compatibility",
         "markdown",
+        // SDK output is separate from the daemon matrix in docs/agent/COMPATIBILITY.md.
         "services/agent/sdk",
         Some(&["COMPATIBILITY.md"]),
     ),
@@ -1541,6 +1542,186 @@ fn jvm_verification_status_contract(repo_root: &Path, write: bool) -> Result<(),
     }
 }
 
+fn generate_jvm_pom() -> &'static str {
+    r#"<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>com.sidiora.layerx</groupId>
+  <artifactId>layerx-sdk</artifactId>
+  <version>0.1.0</version>
+  <name>LayerX JVM SDK</name>
+  <description>Production Java and Kotlin SDK for the LayerX agent and human APIs</description>
+  <url>https://github.com/sidiora/layerx-protocol/tree/main/sdk/platform/jvm</url>
+  <licenses>
+    <license><name>LayerX Protocol License</name><url>https://github.com/sidiora/layerx-protocol/blob/main/LICENSE</url></license>
+  </licenses>
+  <developers><developer><organization>Sidiora Labs</organization></developer></developers>
+  <scm>
+    <connection>scm:git:https://github.com/sidiora/layerx-protocol.git</connection>
+    <developerConnection>scm:git:ssh://git@github.com/sidiora/layerx-protocol.git</developerConnection>
+    <url>https://github.com/sidiora/layerx-protocol</url>
+    <tag>HEAD</tag>
+  </scm>
+  <properties>
+    <maven.compiler.release>21</maven.compiler.release>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <kotlin.version>2.0.20</kotlin.version>
+    <jackson.version>2.18.11</jackson.version>
+    <bouncycastle.version>1.85</bouncycastle.version>
+    <layerx.conformance.reportDirectory>${project.build.directory}/surefire-reports</layerx.conformance.reportDirectory>
+  </properties>
+  <dependencyManagement>
+    <dependencies>
+      <dependency>
+        <groupId>com.fasterxml.jackson.core</groupId>
+        <artifactId>jackson-databind</artifactId>
+        <version>${jackson.version}</version>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
+  <dependencies>
+    <dependency>
+      <groupId>com.fasterxml.jackson.core</groupId>
+      <artifactId>jackson-databind</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.bouncycastle</groupId>
+      <artifactId>bcprov-jdk18on</artifactId>
+      <version>${bouncycastle.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.jetbrains.kotlin</groupId>
+      <artifactId>kotlin-stdlib</artifactId>
+      <version>${kotlin.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter</artifactId>
+      <version>5.10.3</version>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.jetbrains.kotlin</groupId>
+        <artifactId>kotlin-maven-plugin</artifactId>
+        <version>${kotlin.version}</version>
+        <executions>
+          <execution>
+            <id>compile-kotlin</id>
+            <phase>process-sources</phase>
+            <goals><goal>compile</goal></goals>
+            <configuration><jvmTarget>21</jvmTarget></configuration>
+          </execution>
+          <execution>
+            <id>test-compile-kotlin</id>
+            <phase>test-compile</phase>
+            <goals><goal>test-compile</goal></goals>
+            <configuration>
+              <jvmTarget>21</jvmTarget>
+              <sourceDirs><sourceDir>${project.basedir}/src/test/kotlin</sourceDir></sourceDirs>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <version>3.13.0</version>
+        <executions>
+          <execution>
+            <id>default-testCompile</id>
+            <phase>none</phase>
+          </execution>
+          <execution>
+            <id>java-test-compile</id>
+            <phase>test-compile</phase>
+            <goals><goal>testCompile</goal></goals>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-jar-plugin</artifactId>
+        <version>3.4.2</version>
+        <configuration>
+          <outputTimestamp>2024-01-01T00:00:00Z</outputTimestamp>
+          <archive><manifestEntries><Automatic-Module-Name>com.sidiora.layerx.sdk</Automatic-Module-Name></manifestEntries></archive>
+        </configuration>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-source-plugin</artifactId>
+        <version>3.3.1</version>
+        <executions><execution><id>attach-sources</id><goals><goal>jar-no-fork</goal></goals></execution></executions>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-javadoc-plugin</artifactId>
+        <version>3.8.0</version>
+        <executions><execution><id>attach-javadocs</id><goals><goal>jar</goal></goals></execution></executions>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <version>3.3.1</version>
+        <configuration><reportsDirectory>${layerx.conformance.reportDirectory}</reportsDirectory></configuration>
+      </plugin>
+    </plugins>
+  </build>
+  <profiles>
+    <profile>
+      <id>conformance</id>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.codehaus.mojo</groupId>
+            <artifactId>build-helper-maven-plugin</artifactId>
+            <version>3.6.0</version>
+            <executions>
+              <execution>
+                <id>add-conformance-source</id>
+                <phase>generate-test-sources</phase>
+                <goals><goal>add-test-source</goal></goals>
+                <configuration><sources><source>src/conformance/java</source></sources></configuration>
+              </execution>
+            </executions>
+          </plugin>
+          <plugin>
+            <groupId>org.codehaus.mojo</groupId>
+            <artifactId>exec-maven-plugin</artifactId>
+            <version>3.4.1</version>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+  </profiles>
+</project>
+"#
+}
+
+fn check_jvm_pom(repo_root: &Path) -> Result<(), String> {
+    let path = repo_root.join("sdk/platform/jvm/pom.xml");
+    let actual =
+        fs::read_to_string(&path).map_err(|error| format!("read {}: {error}", path.display()))?;
+    if actual != generate_jvm_pom() {
+        return Err(format!(
+            "generated JVM file {} is stale or hand-edited; run make platform-sdk-generate",
+            path.display()
+        ));
+    }
+    Ok(())
+}
+
+fn write_jvm_pom(repo_root: &Path) -> Result<(), String> {
+    let path = repo_root.join("sdk/platform/jvm/pom.xml");
+    fs::write(&path, generate_jvm_pom())
+        .map_err(|error| format!("write {}: {error}", path.display()))
+}
+
 fn generate_jvm_conformance(repo_root: &Path) -> Result<String, String> {
     let operation_count = |root: &Path| -> Result<usize, String> {
         Ok(schema_sections(root)?
@@ -1922,7 +2103,7 @@ pub fn drift_gate(committed: &Pipeline, live: &Pipeline) -> Result<(), String> {
         for relative in &live_output.handwritten {
             if !committed_output.handwritten.contains(relative) {
                 return Err(format!(
-                    "untracked file in generated {} root: {}/{relative}; generate it or declare it under [handwritten.{}] in the pipeline lock",
+                    "unclassified file in generated {} root: {}/{relative}; generate it or declare it under [handwritten.{}] in the pipeline lock",
                     live_output.language, live_output.root, live_output.name
                 ));
             }
@@ -1956,6 +2137,7 @@ pub fn check(repo_root: &Path, lock_path: &Path) -> Result<(), String> {
     drift_gate(&committed, &live)?;
     check_rust_operation_catalog(repo_root)?;
     check_go(repo_root)?;
+    check_jvm_pom(repo_root)?;
     check_jvm_conformance(repo_root)?;
     jvm_verification_status_contract(repo_root, false)?;
     check_receipt_contracts(repo_root)
@@ -1971,6 +2153,7 @@ pub fn check(repo_root: &Path, lock_path: &Path) -> Result<(), String> {
 pub fn write_lock(repo_root: &Path, lock_path: &Path) -> Result<(), String> {
     write_rust_operation_catalog(repo_root)?;
     write_go(repo_root)?;
+    write_jvm_pom(repo_root)?;
     write_jvm_conformance(repo_root)?;
     jvm_verification_status_contract(repo_root, true)?;
     write_receipt_contracts(repo_root)?;

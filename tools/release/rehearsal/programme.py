@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Programme checks of the v6.12.0 rehearsal.
+"""Programme checks of the release rehearsal.
 
 Each check_* function runs the programme scenario of one head acceptance against the four
 rehearsal nodes after the first upgraded height: it sends the scenario's calls over EVM JSON-RPC
@@ -15,17 +15,34 @@ registered feed key of the first validator, whose sidecar is the first --sidecar
 import argparse
 import base64
 import hashlib
-import importlib.util
 import json
 import os
 import signal
 import sys
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[3]
+sys.path.insert(0, str(ROOT / "services/agent/sdk/python"))
+
+from layerx_sdk import account_derivation as accounts
+from layerx_sdk import evm_transaction as transactions
+from layerx_sdk.agent_http import (
+    AgentEnvelopeTransport,
+    AgentSessionCredential,
+    LayerXKeyCredential,
+)
+from layerx_sdk.ai_market import _decode_programs_call
+from layerx_sdk.committed import verify_committed_transaction
+from layerx_sdk.generated.receipt import PROGRAM_ABI_V5
+from layerx_sdk.production import PlatformSdkError, SdkErrorCode, SecretBytes
+from layerx_sdk.program_lifecycle import decode_lifecycle_calldata
+from layerx_sdk.verifier import verify_sequencer_receipt
+from layerx_sdk.x402_rpc import decode_receipt_keys
+from layerx_sdk.xweb_api import decode_xweb_api_payload
 
 E18 = 10**18
 UINT256 = 2**256
@@ -45,7 +62,9 @@ SPOT_UNUSED = (
 )
 USDL = "0x85fcd13735f4309833a503ee804ea32395851479"
 USDL_DENOM = "uusdl"
-UPGRADE = "v6.12.0"
+RELEASE_IDENTITY = json.loads((ROOT / "tools/release/version.json").read_text())
+UPGRADE = RELEASE_IDENTITY["upgrade"]
+RELEASE_VERSION = RELEASE_IDENTITY["version"]
 ZERO_ADDRESS = "0x" + "00" * 20
 
 # Generation 2 role addresses that serve every market after the upgrade (contracts/launchpad.md section 1).
@@ -660,19 +679,87 @@ def module_address(name):
     return "0x" + hashlib.sha256(name.encode()).digest()[:20].hex()
 
 
-# --- secp256k1 signing (services/platform/hosted/paxeer/evm.py) -----------------------------------------
+# --- release signing over the supported client codecs -----------------------------------------
 
 
-def _load_evm():
-    spec = importlib.util.spec_from_file_location(
-        "paxeer_evm", ROOT / "services/platform/hosted/paxeer/evm.py"
-    )
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
+class ReleaseSigning:
+    """Signing shared by rehearsal wallets and price submissions, without a relay runtime."""
+
+    keccak = staticmethod(accounts.keccak256)
+
+    @staticmethod
+    def read_key(path):
+        text = Path(path).read_text(encoding="ascii").strip()
+        raw = bytes.fromhex(text.removeprefix("0x").removeprefix("0X"))
+        secret = int.from_bytes(raw, "big")
+        if len(raw) != 32 or not 0 < secret < accounts._N:
+            raise ValueError("key file does not hold a secp256k1 secret")
+        return secret
+
+    @staticmethod
+    def public_point(secret):
+        from cryptography.hazmat.primitives.asymmetric import ec
+
+        public = ec.derive_private_key(secret, ec.SECP256K1()).public_key()
+        numbers = public.public_numbers()
+        return numbers.x, numbers.y
+
+    @classmethod
+    def compressed_public_key(cls, secret):
+        x, y = cls.public_point(secret)
+        return bytes([2 + (y & 1)]) + x.to_bytes(32, "big")
+
+    @classmethod
+    def address_of(cls, secret):
+        x, y = cls.public_point(secret)
+        return cls.keccak(x.to_bytes(32, "big") + y.to_bytes(32, "big"))[-20:]
+
+    @staticmethod
+    def recover(digest, r, s, parity):
+        public = accounts._recover(digest, r, s, parity)
+        return int.from_bytes(public[:32], "big"), int.from_bytes(public[32:], "big")
+
+    @classmethod
+    def sign_digest(cls, secret, digest):
+        from cryptography.hazmat.primitives import hashes
+        from cryptography.hazmat.primitives.asymmetric import ec, utils
+
+        if len(digest) != 32:
+            raise ValueError("signing digest must be 32 bytes")
+        key = ec.derive_private_key(secret, ec.SECP256K1())
+        signature = key.sign(digest, ec.ECDSA(utils.Prehashed(hashes.SHA256())))
+        r, s = utils.decode_dss_signature(signature)
+        s = min(s, accounts._N - s)
+        for parity in (0, 1):
+            if cls.recover(digest, r, s, parity) == cls.public_point(secret):
+                return parity, r, s
+        raise ValueError("signature does not recover to the signing key")
+
+    @staticmethod
+    def rlp(value):
+        def fields(item):
+            if isinstance(item, int):
+                return transactions._rlp_integer(item)
+            if isinstance(item, (list, tuple)):
+                return tuple(fields(entry) for entry in item)
+            return bytes(item)
+
+        return transactions._rlp(fields(value))
+
+    @classmethod
+    def sign_transaction(cls, secret, chain_id, nonce, gas_price, gas, to, value, data):
+        transaction = transactions.LegacyTransaction(
+            chain_id, nonce, gas_price, gas, bytes(to), value, bytes(data)
+        )
+        parity, r, s = cls.sign_digest(secret, transaction.signing_digest())
+        raw = cls.rlp([nonce, gas_price, gas, to, value, data, chain_id * 2 + 35 + parity, r, s])
+        decoded, signature = transactions.decode_signed_transaction(raw)
+        require(decoded.recover_signer(signature).lower() == "0x" + cls.address_of(secret).hex(),
+                "signed transaction recovered another sender")
+        return raw
 
 
-evm = _load_evm()
+evm = ReleaseSigning()
 
 
 # --- JSON-RPC ---------------------------------------------------------------------------------
@@ -2963,16 +3050,378 @@ def check_price_submission_bounds(net):
 
 
 def check_plan_and_version(net):
-    """7.2: the plan v6.12.0 is applied at HR+1 and every node reports version v6.12.0."""
+    """The selected plan is applied at HR+1 on every node running the release version."""
+    plan = net.args.plan_name
+    expected_version = net.args.release_version
     for node in net.nodes:
-        height = applied_plan_height(node, UPGRADE)
+        height = applied_plan_height(node, plan)
         require(
             height == net.h1,
-            f"node {node.index} applied {UPGRADE} at {height}, expected {net.h1}",
+            f"node {node.index} applied {plan} at {height}, expected {net.h1}",
         )
         version = node.comet("abci_info")["response"].get("version")
-        require(version == UPGRADE, f"node {node.index} reports version {version}")
-    print(f"plan {UPGRADE} applied at {net.h1} on four nodes reporting {UPGRADE}")
+        require(
+            version == expected_version,
+            f"node {node.index} reports version {version}, expected {expected_version}",
+        )
+        if plan == "v7.0":
+            require(node.eth("eth_chainId") == "0x7d", "merge requires chain id 0x7d")
+            try:
+                node.call("0x0000000000000000000000000000000000001013", selector("depositCount()"))
+            except Revert as err:
+                require(
+                    b"LXP_MODULE_DISABLED" in err.data or "LXP_MODULE_DISABLED" in str(err),
+                    f"depositCount refused for another reason: {err}",
+                )
+            else:
+                raise CheckFailed("retired custody depositCount succeeded after merge")
+            endpoint = urllib.parse.urlsplit(node.evm_url)
+            root_url = urllib.parse.urlunsplit(endpoint._replace(path="/", query="", fragment=""))
+            network = rpc(root_url, "px_getNetwork", [])
+            require(
+                isinstance(network, dict) and bool(network.get("network_id"))
+                and network.get("paxeer", {}).get("chain_id") == "0x7d",
+                f"node {node.index} root px_getNetwork returned {network}",
+            )
+    print(f"plan {plan} applied at {net.h1} on four nodes reporting {expected_version}")
+
+
+# --- merged transaction, program, web, tenant and restart scenarios ---------------------------
+
+PROGRAMS = "0x000000000000000000000000000000000000101d"
+XWEB = "0x0000000000000000000000000000000000001019"
+
+
+def _hex_bytes(value):
+    require(isinstance(value, str) and value.startswith("0x"), "expected 0x-prefixed bytes")
+    return bytes.fromhex(value[2:])
+
+
+def bind_comet_transaction(encoded, raw):
+    """Bind the Cosmos TxRaw/MsgEVMTransaction wrapper to the exact signed EVM bytes."""
+    body = pb_fields(pb_get(pb_fields(encoded), 1, b""))
+    messages = pb_all(body, 1)
+    require(len(messages) == 1, "expected one wrapped EVM transaction")
+    message = pb_fields(messages[0])
+    require(pb_get(message, 1) == b"/paxprotocol.paxchain.evm.MsgEVMTransaction",
+            "wrong Cosmos EVM message type")
+    data = pb_fields(pb_get(pb_fields(pb_get(message, 2, b"")), 1, b""))
+    kind = pb_get(data, 1)
+    fields = pb_fields(pb_get(data, 2, b""))
+
+    def integer(number):
+        return int(pb_get(fields, number, b"0").decode())
+
+    def binary(number):
+        return pb_get(fields, number, b"")
+
+    if kind == b"/paxprotocol.paxchain.eth.LegacyTx":
+        expected = evm.rlp([
+            pb_get(fields, 1, 0), integer(2), pb_get(fields, 3, 0),
+            address_bytes(binary(4).decode()), integer(5), binary(6),
+            *(int.from_bytes(binary(i), "big") for i in (7, 8, 9)),
+        ])
+    elif kind == b"/paxprotocol.paxchain.eth.DynamicFeeTx":
+        require(not pb_all(fields, 9), "rehearsal expects an empty EVM access list")
+        expected = b"\x02" + evm.rlp([
+            integer(1), pb_get(fields, 2, 0), integer(3), integer(4),
+            pb_get(fields, 5, 0), address_bytes(binary(6).decode()), integer(7),
+            binary(8), [], *(int.from_bytes(binary(i), "big") for i in (10, 11, 12)),
+        ])
+    else:
+        raise CheckFailed("unsupported wrapped EVM transaction type")
+    require(expected == raw, "Comet transaction does not contain the submitted EVM transaction")
+
+
+def _private_json(path, document):
+    path = Path(path)
+    temporary = path.with_name(path.name + ".pending")
+    descriptor = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    try:
+        with os.fdopen(descriptor, "w") as handle:
+            json.dump(document, handle, sort_keys=True)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temporary, path)
+        directory = os.open(path.parent, os.O_RDONLY | os.O_DIRECTORY)
+        try:
+            os.fsync(directory)
+        finally:
+            os.close(directory)
+    finally:
+        if temporary.exists():
+            temporary.unlink()
+
+
+class MergedProgramme:
+    """Scenario inputs are signed candidate transactions and independently pinned validators.
+
+    A driver supplies its candidate identity and exact Cosmos wrappers; the node's tx proof
+    and validator-signed commit, rather than an advertised height, qualify each transaction.
+    Restart runs use the same manifest and private evidence file before and after node restart.
+    """
+
+    def __init__(self, net):
+        self.net = net
+        require(net.args.merged_scenario, "--merged-scenario is required")
+        self.source = Path(net.args.merged_scenario).read_bytes()
+        self.scenario = json.loads(self.source)
+        self.candidate = self.scenario["candidate"]
+        require(self.candidate == {
+            "revision": net.args.candidate_revision,
+            "binary_sha256": net.args.candidate_sha256,
+            "version": net.args.candidate_version,
+        }, "scenario candidate identity differs from the driver")
+        for key, length in (("revision", 40), ("binary_sha256", 64)):
+            value = self.candidate[key]
+            require(isinstance(value, str) and len(value) == length
+                    and all(c in "0123456789abcdef" for c in value),
+                    f"invalid candidate {key}")
+        require(bool(self.candidate["version"]), "candidate version is required")
+        self.records = []
+        for node in net.nodes:
+            require(int(node.eth("eth_chainId"), 16) == 125, "merged rehearsal requires chain 125")
+            info = node.comet("abci_info")["response"]
+            require(info["version"] == self.candidate["version"], "node candidate version mismatch")
+
+    def transaction(self, name):
+        entry = self.scenario["transactions"][name]
+        raw = _hex_bytes(entry["raw_transaction"])
+        transaction, signature = transactions.decode_signed_transaction(raw)
+        require(transaction.chain_id == 125, "scenario transaction is for another chain")
+        transaction.recover_signer(signature)
+        return entry, raw, transaction
+
+    def committed(self, name, *, submit=True, sequencer=False):
+        entry, raw, transaction = self.transaction(name)
+        wrapped = base64.b64decode(entry["comet_transaction"], validate=True)
+        bind_comet_transaction(wrapped, raw)
+        height = entry["height"]
+        require(type(height) is int and height >= self.net.h1, "scenario predates the candidate upgrade")
+        expected_hash = "0x" + evm.keccak(raw).hex()
+        if submit:
+            require(self.net.node.eth("eth_sendRawTransaction", "0x" + raw.hex()) == expected_hash,
+                    "endpoint returned another transaction hash")
+        self.net.wait_height(height)
+        results = []
+        for node in self.net.nodes:
+            receipt = node.eth("eth_getTransactionReceipt", expected_hash)
+            require(receipt is not None, "committed transaction receipt is missing")
+            _, signature = transactions.decode_signed_transaction(raw)
+            sender = transaction.recover_signer(signature)
+            require(same_address(receipt["from"], sender)
+                    and same_address(receipt["to"], "0x" + transaction.to.hex()),
+                    "committed receipt sender or destination mismatch")
+            require(receipt["transactionHash"].lower() == expected_hash
+                    and int(receipt["blockNumber"], 16) == height
+                    and int(receipt["status"], 16) == 1,
+                    "committed transaction identity, height or status mismatch")
+            found = node.comet("tx", hash="0x" + hashlib.sha256(wrapped).hexdigest(), prove=True)
+            require(base64.b64decode(found["tx"], validate=True) == wrapped
+                    and int(found["height"]) == height and int(found["tx_result"].get("code", 0)) == 0,
+                    "Comet inclusion result differs from the submitted transaction")
+            signed = node.comet("commit", height=str(height))["signed_header"]
+            commit = dict(signed["commit"])
+            commit["height"] = int(commit["height"])
+            commit["round"] = int(commit["round"])
+            commit["signatures"] = [
+                {**signature, "signature": base64.b64decode(signature["signature"] or "", validate=True).hex()}
+                for signature in commit["signatures"]
+            ]
+            proof = found["proof"]["proof"]
+            verified = verify_committed_transaction(
+                wrapped, height, header=signed["header"], commit=commit,
+                trusted_validators=tuple(self.scenario["validators"]),
+                chain_id=self.scenario["consensus_chain_id"],
+                proof={"data": wrapped.hex(), "index": int(proof["index"]),
+                       "total": int(proof["total"]),
+                       "aunts": [base64.b64decode(aunt, validate=True).hex() for aunt in proof["aunts"]]},
+            )
+            require(verified.height == height and _hex_bytes(receipt["blockHash"]) == verified.block_hash,
+                    "receipt is not bound to the verified committed block")
+            results.append({"transaction_hash": expected_hash, "height": height,
+                            "block_hash": verified.block_hash.hex(), "app_hash": verified.app_hash.hex()})
+            if sequencer:
+                response = node.eth("pax_sequencerReceipt", expected_hash)
+                verified_receipt = verify_sequencer_receipt(
+                    _hex_bytes(response["receipt"]), raw, decode_receipt_keys(self.scenario["receipt_keys"])
+                )
+                require(verified_receipt.height == height and verified_receipt.receipt.result_code == 0,
+                        "sequencer receipt is not bound to the committed success")
+        require(all(result == results[0] for result in results), "nodes disagree on committed scenario evidence")
+        self.records.append(results[0])
+        return transaction, receipt
+
+    def snapshot(self, height):
+        queries = self.scenario["state_queries"]
+        require(bool(queries), "restart requires persisted state queries")
+        values = []
+        for query in queries:
+            target = query["to"]
+            require(target.lower() in (PROGRAMS, XWEB), "restart query is not native program/web state")
+            kind, data = self.net.call_raw(target, _hex_bytes(query["data"]), block=height)
+            require(kind == "ok" and data == _hex_bytes(query["expected"]), "persisted native state changed")
+            values.append("0x" + data.hex())
+        return values
+
+    def evidence(self, check, **extra):
+        require(bool(self.records), "scenario has no committed transaction")
+        return {"check": check, "candidate": self.candidate,
+                "scenario_sha256": hashlib.sha256(self.source).hexdigest(),
+                "committed": self.records, **extra}
+
+
+def check_merged_transaction(net):
+    run = MergedProgramme(net)
+    _, _, tx = run.transaction("transfer")
+    require(tx.value > 0 and tx.data == b"", "merged transfer must move native PAX")
+    transaction, receipt = run.committed("transfer", sequencer=True)
+    height = int(receipt["blockNumber"], 16)
+    recipient = "0x" + transaction.to.hex()
+    for node in net.nodes:
+        require(node.balance(recipient, height) - node.balance(recipient, height - 1) == tx.value,
+                "committed native transfer did not credit its recipient")
+    return run.evidence("check_merged_transaction")
+
+
+def check_current_guest_deployment(net):
+    run = MergedProgramme(net)
+    _, _, tx = run.transaction("deploy")
+    require("0x" + tx.to.hex() == PROGRAMS, "deployment targets another precompile")
+    deploy = decode_lifecycle_calldata(tx.data, 1)
+    require(deploy.guest_abi == PROGRAM_ABI_V5, "deployment does not use the current guest ABI")
+    _, deployed_receipt = run.committed("deploy")
+    _, _, call_tx = run.transaction("call")
+    require("0x" + call_tx.to.hex() == PROGRAMS, "guest call targets another precompile")
+    call, _ = _decode_programs_call(call_tx.data)
+    require(call.program_id == deploy.program_id and call.guest_abi == PROGRAM_ABI_V5,
+            "guest call is not bound to the deployed current ABI program")
+    _, receipt = run.committed("call")
+    height = int(receipt["blockNumber"], 16)
+    require(height >= int(deployed_receipt["blockNumber"], 16), "guest call predates deployment")
+    get_program = Abi.load("precompiles/layerxprograms/abi.json").fn("getProgram")
+    record = net.call(PROGRAMS, get_program, deploy.program_id, block=height)
+    require(record == (deploy.policy, deploy.authority, deploy.new_hash, PROGRAM_ABI_V5, 1, True),
+            "committed program registry differs from the deployment")
+    head = net.one(PROGRAMS, Abi.load("precompiles/layerxprograms/abi.json").fn("getStateHead"),
+                   deploy.program_id, block=height)
+    require(bool(head) and head == _hex_bytes(run.scenario["expected_state_head"]),
+            "guest call did not produce the expected native state head")
+    return run.evidence("check_current_guest_deployment", program_id=deploy.program_id.hex())
+
+
+def check_native_xweb(net):
+    run = MergedProgramme(net)
+    web = Abi.load("precompiles/xweb/abi.json")
+    _, _, tx = run.transaction("request")
+    request = web.fn("request")
+    require("0x" + tx.to.hex() == XWEB and tx.data[:4] == request.selector and tx.value > 0,
+            "native xweb request target, selector or funding mismatch")
+    kind, payload, callback_gas = decode_values(request.inputs, tx.data[4:])
+    require(kind == 3, "native xweb scenario requires an API request")
+    decode_xweb_api_payload(payload)
+    _, signature = transactions.decode_signed_transaction(_hex_bytes(run.scenario["transactions"]["request"]["raw_transaction"]))
+    requester = tx.recover_signer(signature)
+    _, receipt = run.committed("request")
+    emitted = one_event(receipt, XWEB, web.events["XWebRequested"], requester=requester, kind=kind, payload=payload,
+                        callbackGas=callback_gas, paid=tx.value)
+    request_id = emitted["requestId"]
+    _, _, fulfil = run.transaction("fulfil")
+    fn = web.fn("fulfil")
+    require("0x" + fulfil.to.hex() == XWEB and fulfil.data[:4] == fn.selector,
+            "native xweb fulfilment target or selector mismatch")
+    args = decode_values(fn.inputs, fulfil.data[4:])
+    require(args[0] == request_id, "xweb fulfilment belongs to another request")
+    _, receipt = run.committed("fulfil")
+    one_event(receipt, XWEB, web.events["XWebFulfilled"], requestId=request_id,
+              contentDigest=args[2], fullLength=args[3])
+    height = int(receipt["blockNumber"], 16)
+    result = net.one(XWEB, web.fn("getResult"), request_id, block=height)
+    require(result[:4] == (request_id, args[1], args[2], args[3]) and result[5] == height,
+            "committed xweb result differs from the fulfilment")
+    require(bool(result[4]), "native xweb fulfilment has no attestor signers")
+    request_state = net.one(XWEB, web.fn("getRequest"), request_id, block=height)
+    require(request_state[:6] == (request_id, requester.lower(), kind, keccak256(payload), callback_gas, tx.value)
+            and request_state[6] == emitted["timeoutHeight"] - run.scenario["xweb_timeout_blocks"]
+            and request_state[7] == emitted["timeoutHeight"] and request_state[8] == 1,
+            "native xweb request state is not the funded fulfilled request")
+    preimage = (b"PAXEERX_WEB_V1" + b"\x01" + (125).to_bytes(32, "big")
+                + bytes(12) + address_bytes(requester) + request_id.to_bytes(8, "big")
+                + bytes([kind]) + keccak256(payload) + args[2] + keccak256(args[1])
+                + args[3].to_bytes(4, "big"))
+    signers = []
+    for signature in args[4]:
+        normalized = accounts.normalize_wallet_signature(signature)
+        require(normalized == signature, "native xweb signature is not canonical")
+        public = accounts._recover(keccak256(preimage), int.from_bytes(normalized[:32], "big"),
+                                   int.from_bytes(normalized[32:64], "big"), normalized[64] - 27)
+        signers.append("0x" + keccak256(public)[-20:].hex())
+    require(len(set(signers)) == len(signers) and sorted(signers) == sorted(result[4]),
+            "native xweb attestors are not bound to the request and response")
+    return run.evidence("check_native_xweb", request_id=request_id)
+
+
+def check_tenant_isolation(net):
+    run = MergedProgramme(net)
+    run.committed("anchor")
+    tenants = run.scenario["tenants"]
+    require(len(tenants) == 2 and tenants[0]["tenant"] != tenants[1]["tenant"],
+            "tenant isolation requires two distinct tenants")
+    require(net.args.agent_endpoint and net.args.gateway_key_file,
+            "tenant check requires --agent-endpoint and --gateway-key-file")
+    gateway = json.loads(Path(net.args.gateway_key_file).read_bytes())
+    gateway_key = LayerXKeyCredential(gateway["key_id"], SecretBytes(gateway["secret"].encode("ascii")))
+    seen = []
+    for tenant in tenants:
+        credential = AgentSessionCredential(tenant["tenant"], tenant["session_id"],
+                                            tenant["token_id"], tenant["generation"])
+        client = AgentEnvelopeTransport(
+            net.args.agent_endpoint, gateway_key=gateway_key, session=credential)
+        response = client.call("agent", "session.list", {"context": tenant["context"]}, None)
+        require(response.value == tenant["expected_sessions"], "tenant read exposed unexpected sessions")
+        sessions = response.value["sessions"]
+        require(bool(sessions) and all(row["agent_did"] == tenant["context"]["agent_did"] for row in sessions),
+                "tenant isolation requires its own retained sessions")
+        seen.append({row["session_id"] for row in sessions})
+        other = tenants[1] if tenant is tenants[0] else tenants[0]
+        crossed = AgentEnvelopeTransport(
+            net.args.agent_endpoint, gateway_key=gateway_key,
+            session=AgentSessionCredential(other["tenant"], tenant["session_id"],
+                                           tenant["token_id"], tenant["generation"]))
+        for transport, context in ((crossed, tenant["context"]), (client, other["context"])):
+            try:
+                transport.call("agent", "session.list", {"context": context}, None)
+            except PlatformSdkError as error:
+                require(error.code is SdkErrorCode.POLICY_REFUSAL and error.retry == "never",
+                        "cross-tenant request failed for a reason other than authorization")
+            else:
+                raise CheckFailed("cross-tenant session was accepted")
+    require(seen[0].isdisjoint(seen[1]), "distinct tenants exposed shared session identities")
+    return run.evidence("check_tenant_isolation")
+
+
+def check_persisted_restart(net):
+    run = MergedProgramme(net)
+    require(net.args.restart_evidence and net.args.restart_phase in ("before", "after"),
+            "restart requires --restart-evidence and --restart-phase before|after")
+    path = Path(net.args.restart_evidence)
+    before = net.args.restart_phase == "before"
+    require(path.exists() != before, "restart evidence must be new before restart and retained afterwards")
+    ordered = sorted(
+        run.scenario["transactions"],
+        key=lambda name: (run.scenario["transactions"][name]["height"], run.transaction(name)[2].nonce),
+    )
+    for name in ordered:
+        run.committed(name, submit=before)
+    height = max(record["height"] for record in run.records)
+    snapshots = run.snapshot(height)
+    evidence = run.evidence("check_persisted_restart", state=snapshots)
+    if before:
+        _private_json(path, evidence)
+    else:
+        require(json.loads(path.read_bytes()) == evidence, "restart lost or changed retained candidate state")
+        run.snapshot(net.settled())
+    return evidence
 
 
 CHECKS = {
@@ -2994,6 +3443,11 @@ CHECKS = {
         check_price_freshness,
         check_price_submission_bounds,
         check_plan_and_version,
+        check_merged_transaction,
+        check_current_guest_deployment,
+        check_native_xweb,
+        check_tenant_isolation,
+        check_persisted_restart,
     )
 }
 
@@ -3004,10 +3458,20 @@ def parse_args(argv):
     parser.add_argument("--evm", action="append", default=[])
     parser.add_argument("--comet", action="append", default=[])
     parser.add_argument("--halt-height", type=int, required=True)
+    parser.add_argument("--plan-name", default=UPGRADE)
+    parser.add_argument("--release-version", default=RELEASE_VERSION)
     parser.add_argument("--trader-key")
     parser.add_argument("--maker-key")
     parser.add_argument("--feed-key")
     parser.add_argument("--sidecar-pid", action="append", type=int)
+    parser.add_argument("--merged-scenario")
+    parser.add_argument("--candidate-revision")
+    parser.add_argument("--candidate-sha256")
+    parser.add_argument("--candidate-version")
+    parser.add_argument("--agent-endpoint")
+    parser.add_argument("--gateway-key-file")
+    parser.add_argument("--restart-evidence")
+    parser.add_argument("--restart-phase", choices=("before", "after"))
     args = parser.parse_args(argv)
     if args.halt_height < 1:
         parser.error("--halt-height must be a positive height")
@@ -3017,8 +3481,10 @@ def parse_args(argv):
 def main(argv):
     args = parse_args(argv)
     try:
-        CHECKS[args.check](Net(args))
-    except (CheckFailed, Revert, RpcError, KeyError, ValueError, OSError) as err:
+        evidence = CHECKS[args.check](Net(args))
+        if evidence is not None:
+            print(json.dumps(evidence, sort_keys=True))
+    except (CheckFailed, Revert, RpcError, PlatformSdkError, KeyError, ValueError, OSError) as err:
         print(f"{args.check}: {err}", file=sys.stderr)
         return 1
     return 0

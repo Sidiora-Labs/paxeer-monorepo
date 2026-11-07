@@ -277,7 +277,7 @@
         "cmd/layerxd/lxp_daemon_lni.c",
         "cmd/layerxd"
       ],
-      "replacement": "writes are eth_sendRawTransaction through the unified router and reads are eth_call on the precompile views or gRPC queries at a height"
+      "replacement": "Submit writes with eth_sendRawTransaction directly to the public node root JSON-RPC on the one Paxeer network (chain ID 125); read precompile views with eth_call or gRPC queries pinned to a committed block height. Block commitment is final."
     },
     "paxeer-verifier": {
       "req": "11022",
@@ -828,6 +828,30 @@
         "|| body.contains(\"lni::abi::Handle\")"
       ],
       "citation": "spec/layerx-merge/spec.kvx [task.11.5.92] do_1/do_2: direct-core-connection refusal rules only scan source text"
+    },
+    {
+      "path": "services/agent/tools/boundary-check/src/main.rs",
+      "lines": [
+        "fn lni_reference(body: &str) -> bool {",
+        "body.contains(\"layerx_client::lni\")",
+        "if lni_reference(&body) {"
+      ],
+      "citation": "spec/layerx-merge/spec.kvx [task.16.90.1], decision 2606: direct-core-connection refusal rules name the retired client module they reject"
+    },
+    {
+      "path": "services/agent/crates/layerx-agentd/README.md",
+      "lines": [
+        "independently authenticated Human authority registry. No LNI connection is"
+      ],
+      "citation": "spec/layerx-merge/spec.kvx [task.16.90.1], decision 2608: the daemon README explicitly states that no retired transport connection is required"
+    },
+    {
+      "path": "services/agent/crates/layerx-client/src/repair_22_33_1541.kvx",
+      "lines": [
+        "baseline = \"No baseline verify executed: explicit user gate order requires implementation first and hf-done alone runs verification. The new test target did not exist at the start. Existing code already retains account height and removes the lni export; no baseline failures are claimed.\"",
+        "repair = \"The starting tree already removed public lni and migrated callers. Crate documentation now distinguishes merged paxd node JSON-RPC, hosted gateway joins and generic frame codec/transport; a real TCP codec round trip proves the generic boundary.\""
+      ],
+      "citation": "spec/layerx-merge/spec.kvx [task.16.90.1], decision 2608: the repair record documents removal of the retired public client module"
     },
     {
       "path": "include/layerx/lxp_result.h",

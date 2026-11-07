@@ -44,10 +44,14 @@ func NewEventSink(connStr, chainID string) (*EventSink, error) {
 		return nil, err
 	}
 
-	return &EventSink{
-		store:   db,
-		chainID: chainID,
-	}, nil
+	return NewEventSinkWithDB(db, chainID), nil
+}
+
+// NewEventSinkWithDB constructs a sink with an already-open SQL connection.
+// The sink owns the connection and closes it on Stop. This also lets embedded
+// database fixtures exercise the production writes and schema without a service.
+func NewEventSinkWithDB(db *sql.DB, chainID string) *EventSink {
+	return &EventSink{store: db, chainID: chainID}
 }
 
 // DB returns the underlying Postgres connection used by the sink.
@@ -76,8 +80,8 @@ func runInTransaction(db *sql.DB, query func(*sql.Tx) error) error {
 // queryWithID executes the specified SQL query with the given arguments,
 // expecting a single-row, single-column result containing an ID. If the query
 // succeeds, the ID from the result is returned.
-func queryWithID(tx *sql.Tx, query string, args ...interface{}) (uint32, error) {
-	var id uint32
+func queryWithID(tx *sql.Tx, query string, args ...interface{}) (int64, error) {
+	var id int64
 	if err := tx.QueryRow(query, args...).Scan(&id); err != nil {
 		return 0, err
 	}
@@ -89,7 +93,7 @@ func queryWithID(tx *sql.Tx, query string, args ...interface{}) (uint32, error) 
 //
 // If txID > 0, the event is attributed to the Tendermint transaction with that
 // ID; otherwise it is recorded as a block event.
-func insertEvents(dbtx *sql.Tx, blockID, txID uint32, evts []abci.Event) error {
+func insertEvents(dbtx *sql.Tx, blockID, txID int64, evts []abci.Event) error {
 	// Populate the transaction ID field iff one is defined (> 0).
 	var txIDArg interface{}
 	if txID > 0 {
@@ -113,15 +117,15 @@ INSERT INTO `+tableEvents+` (block_id, tx_id, type) VALUES ($1, $2, $3)
 		}
 
 		// Add any attributes flagged for indexing.
-		for _, attr := range evt.Attributes {
+		for ordinal, attr := range evt.Attributes {
 			if !attr.Index {
 				continue
 			}
 			compositeKey := evt.Type + "." + string(attr.Key)
 			if _, err := dbtx.Exec(`
-INSERT INTO `+tableAttributes+` (event_id, key, composite_key, value)
-  VALUES ($1, $2, $3, $4);
-`, eid, attr.Key, compositeKey, attr.Value); err != nil {
+INSERT INTO `+tableAttributes+` (event_id, ordinal, key, composite_key, value)
+  VALUES ($1, $2, $3, $4, $5);
+`, eid, ordinal, attr.Key, compositeKey, attr.Value); err != nil {
 				return err
 			}
 		}

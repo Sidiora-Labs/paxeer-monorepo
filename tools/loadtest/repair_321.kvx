@@ -1,0 +1,26 @@
+[repair.22.31.321]
+audit = "22.30.179"
+base_revision = "7fc896febbb27d599c34aa9b6e0a81d4a7905759"
+implementation = "Initialize missing optional settings with a fresh zero Settings; merge profile bounds before LoadSettings and ResolveSettings so Viper defaults and explicit flags retain precedence."
+baseline = "No baseline verification ran: the explicit gate order forbids testing before complete implementation and forbids running verify_cmd by hand. No pre-change failure is claimed."
+evidence = "The runner's private hf-build/hf-done ledger identifies the candidate revision, exact command, exit and log; the final response copies its last evidence line."
+shutdown = "The successful CLI proof exposed expected dispatcher cancellation after a shutdown signal as a nonzero exit. The command accepts only context.Canceled after an acknowledged signal with an uncanceled caller; operational errors and performance violations remain errors."
+wiring_request = "None; both findings and the successful CLI exit prerequisite are within tools/loadtest."
+prior_attempt = "Attempt 1 failed the successful profile, settings/flag precedence and optional-settings CLI exit assertions with dispatcher: context canceled; the existing assertions are preserved and strengthened."
+
+[finding.profile-bounds-unwired]
+tests = ["TestRepair_321_ProfileBounds", "TestRepair_321_Precedence"]
+proof = "LoadConfig JSON producer to real main/Cobra handler, generator, dry-run sender, collector, JSON report and process exit; independent TPS, exact uint64 total and latency violations, passing bounds, settings precedence, flag precedence and explicit zero flags."
+
+[finding.optional-settings-refused]
+tests = ["TestRepair_321_OptionalSettings"]
+proof = "The real producer omits settings; the CLI executes signed EVM transfers through dry-run workers, reports actual samples, resolves defaults and flags, and enforces bounds even without settings. Empty settings use the same defaults."
+
+[gotcha.gate-order]
+observed = "The baseline-verification step conflicts with the explicit implementation-before-gates order; that order takes precedence. Root GOTCHA.kvx and spec files are outside the task's allowed scope."
+
+[gotcha.inspection]
+observed = "Gate wrappers live under /out/run/bin; tools/loadtest/profiles/evm_transfer.json is the existing EVM transfer profile. Large workflow and audit files require targeted section reads to avoid truncated output."
+
+[gotcha.cli-proof]
+observed = "The already compiled Go test executable isolates CLI globals and process exit handling; arguments select its child mode, with no environment variable, subprocess toolchain or additional binary needed."

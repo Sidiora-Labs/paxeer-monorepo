@@ -1,0 +1,50 @@
+[repair.22.35.3]
+decision = "2587, 2604"
+brief = "spec/layerx-merge/programme/docs/explorer-ui/design-brief.md section 5"
+base_revision = "9fabf7eb3550782c7227a438e34fea2a20e4e26f"
+implementation = "640 by 52px hero prompt, 320px compact pill, raised suggestion panel, uppercase ordered groups, dense rows and mono identifiers, theme-based recent searches and backdrop."
+shortcut = "A shared registry focuses the visible search nearest the active DOM context; Cmd-K and Ctrl-K work on every page, mobile opens and focuses the drawer, and the slash shortcut remains available."
+data = "Keep the current search hooks and result types; fold NFT and confidential tokens into TOKENS, public tags and names into ADDRESSES, and user and TAC operations into TRANSACTIONS. Preserve dedicated blob and cross-chain categories and category filtering."
+proof = "In-process jsdom tests exercise real fields, shortcuts, lifecycle cleanup, mobile drawer and both desktop entry points through existing query hooks with committed search and marketplace response fixtures. Both colour modes resolve the semantic roles. All search stories opt into dark-color-mode as well as their default light run."
+gotcha_2962 = "No external services, credentials, RPC endpoints, devices or subprocesses in the proof."
+
+[qualification]
+policy = "Only hf-build followed by hf-done. The runner records exact results outside the source tree so writing a receipt cannot change the revision under qualification."
+verified_revision = "revision field in the final verify row of /out/run/gates.jsonl, copied verbatim into the final response"
+gate_results = "exit fields in the build and verify rows of /out/run/gates.jsonl; no pass is claimed by this source record"
+ledger = "/out/run/gates.jsonl"
+build_command = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json"
+build_log = "/out/logs/build-1.log (repair reruns increment the suffix)"
+verify_command = "cg spec done 22.35.3 -f layerx-merge --root /work/paxeer-monorepo"
+verify_target = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json && yarn vitest run apps/explorer/ui/snippets/searchBar/repair-22-35-3.spec.tsx"
+verify_log = "/out/logs/verify-1.log (repair reruns increment the suffix)"
+
+[gotcha]
+semantic_backdrop = "The theme has no dialog.backdrop.bg token. Use the canvas semantic role with opacity for the search backdrop."
+formatter = "The existing ESLint layout formatter was applied to touched TypeScript after installing dependencies. Its older Vitest plugin cannot recognize declared function handlers or computed names; keep those real assertions and registrations intact, without disabling checks."
+
+working_directory = "A formatting preparation used repository-relative paths from the app directory; rerun the preparation from the repository root. No source file was modified by that failed preparation."
+
+dependency_snapshot = "The first hf-build wrapper was stopped before the build command or any ledger row because candidate preparation walked ignored packages with one git subprocess per file. Keep installed packages in /out/explorer-22-35-3-deps/node_modules behind the app node_modules symlink, preserving Node and TypeScript sibling resolution. Source dependencies and versions are unchanged."
+
+[repair_cycle.1]
+revision = "f46f2bcbb82e95b8c3a2eb2603e2f20e30d274f8"
+command = "cg spec done 22.35.3 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Both TypeScript checks passed; four tests passed, mobile drawer focus timed out, and both suggestion proofs lacked APPS because the fixture matcher expected hyphens while the real asset path uses marketplace_config.json."
+repair = "Resolve the marketplace fixture path with the real config helper, focus the mobile form in its mounting ref callback, and dispatch the mobile shortcut through the testing library so React commits the drawer; retain every assertion and timeout bound."
+
+[continuation]
+follows = "22.35.2; decision 2604 and gotcha 3147"
+integration = "Keep the compact prop and top-bar accessible label alongside the hero prompt, semantic surfaces, dimensions and shared shortcut registry. Explicit compact stories and tests exercise the header entry point in light and dark modes."
+qualification = "The final build and verify rows of /out/run/gates.jsonl name the qualified revision, commands, exits and private logs; no source file is amended after these gates."
+merge_gotcha = "The seeded mobile button carried a duplicate aria-label from the two implementations; retain one identical accessible label."
+
+[continuation_repair.1]
+revision = "a2dc4597bad202e62edf536182083e6efbb06b00"
+command = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json"
+exit = 2
+log = "/out/logs/build-1.log"
+observed = "The new colour-mode test supplied a custom wrapper to the shared render helper, whose options intentionally omit wrapper."
+repair = "Use Testing Library's render for the new test's real colour-mode and app providers, retaining the shared helper and every assertion in the existing tests."

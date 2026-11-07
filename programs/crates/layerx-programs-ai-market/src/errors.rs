@@ -1,7 +1,9 @@
 //! Frozen application and independent offchain error spaces. Native errors are untouched.
+#[cfg(not(target_arch = "wasm32"))]
 use core::fmt;
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct ApplicationError(u16);
 pub type CodecResult<T> = Result<T, ApplicationError>;
 impl ApplicationError {
@@ -10,7 +12,7 @@ impl ApplicationError {
     /// # Errors
     /// Returns `NON_CANONICAL` when the code is not registered.
     pub fn from_code(code: u16) -> CodecResult<Self> {
-        if APPLICATION_ERRORS.iter().any(|e| e.code == code) {
+        if APPLICATION_ERROR_CODES.contains(&code) {
             Ok(Self(code))
         } else {
             Err(NON_CANONICAL)
@@ -33,17 +35,32 @@ impl ApplicationError {
             .ok_or(NON_CANONICAL)
     }
 }
+#[cfg(not(target_arch = "wasm32"))]
 impl fmt::Display for ApplicationError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "PAXAI application error {:04x}", self.0)
     }
 }
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct ErrorEntry {
     pub feature: &'static str,
     pub name: &'static str,
     pub code: u16,
 }
+
+// Keep the numeric decoder independent of diagnostic names in the guest. Derive
+// this projection at compile time so the published error registry stays the only
+// source of accepted codes, including its gaps and aliases.
+const APPLICATION_ERROR_CODES: [u16; APPLICATION_ERRORS.len()] = {
+    let mut codes = [0; APPLICATION_ERRORS.len()];
+    let mut i = 0;
+    while i < codes.len() {
+        codes[i] = APPLICATION_ERRORS[i].code;
+        i += 1;
+    }
+    codes
+};
 pub const BAD_VERSION: ApplicationError = ApplicationError(0x0001);
 pub const NON_CANONICAL: ApplicationError = ApplicationError(0x0002);
 pub const WRONG_DOMAIN: ApplicationError = ApplicationError(0x0003);
@@ -186,7 +203,67 @@ pub const F08_RESOURCE_EXHAUSTED: ApplicationError = ApplicationError(0x0815);
 pub const F09_EVIDENCE_TASK_SET_UNSEALED: ApplicationError = ApplicationError(0x0901);
 pub const F09_EVIDENCE_SEAL_CONFLICT: ApplicationError = ApplicationError(0x0902);
 pub const F07_IDEMPOTENCY_CONFLICT: ApplicationError = ApplicationError(0x0709);
+pub const F11_ROOM_UNKNOWN: ApplicationError = ApplicationError(0x0B01);
+pub const F11_ROOM_CLOSED: ApplicationError = ApplicationError(0x0B02);
+pub const F11_ASK_UNFUNDED: ApplicationError = ApplicationError(0x0B03);
+pub const F11_BID_BELOW_FLOOR: ApplicationError = ApplicationError(0x0B04);
+pub const F11_ROSTER_DIGEST_MISMATCH: ApplicationError = ApplicationError(0x0B05);
+pub const F11_BATCH_UNSEALED: ApplicationError = ApplicationError(0x0B06);
+pub const F11_CHALLENGE_WINDOW_CLOSED: ApplicationError = ApplicationError(0x0B07);
+pub const F11_BOND_LOCKED: ApplicationError = ApplicationError(0x0B08);
+pub const F11_BOND_INSUFFICIENT: ApplicationError = ApplicationError(0x0B09);
+pub const F11_SPLIT_EXCEEDS_SETTLED: ApplicationError = ApplicationError(0x0B0A);
 pub const APPLICATION_ERRORS: &[ErrorEntry] = &[
+    ErrorEntry {
+        feature: "F11",
+        name: "RoomUnknown",
+        code: F11_ROOM_UNKNOWN.code(),
+    },
+    ErrorEntry {
+        feature: "F11",
+        name: "RoomClosed",
+        code: F11_ROOM_CLOSED.code(),
+    },
+    ErrorEntry {
+        feature: "F11",
+        name: "AskUnfunded",
+        code: F11_ASK_UNFUNDED.code(),
+    },
+    ErrorEntry {
+        feature: "F11",
+        name: "BidBelowFloor",
+        code: F11_BID_BELOW_FLOOR.code(),
+    },
+    ErrorEntry {
+        feature: "F11",
+        name: "RosterDigestMismatch",
+        code: F11_ROSTER_DIGEST_MISMATCH.code(),
+    },
+    ErrorEntry {
+        feature: "F11",
+        name: "BatchUnsealed",
+        code: F11_BATCH_UNSEALED.code(),
+    },
+    ErrorEntry {
+        feature: "F11",
+        name: "ChallengeWindowClosed",
+        code: F11_CHALLENGE_WINDOW_CLOSED.code(),
+    },
+    ErrorEntry {
+        feature: "F11",
+        name: "BondLocked",
+        code: F11_BOND_LOCKED.code(),
+    },
+    ErrorEntry {
+        feature: "F11",
+        name: "BondInsufficient",
+        code: F11_BOND_INSUFFICIENT.code(),
+    },
+    ErrorEntry {
+        feature: "F11",
+        name: "SplitExceedsSettled",
+        code: F11_SPLIT_EXCEEDS_SETTLED.code(),
+    },
     ErrorEntry {
         feature: "F07",
         name: "IdempotencyConflict",
@@ -1025,7 +1102,8 @@ pub const APPLICATION_ALIASES: &[ErrorEntry] = &[
         code: 0x001c,
     },
 ];
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub enum OffchainSpace {
     WorkerService,
     ArtifactService,

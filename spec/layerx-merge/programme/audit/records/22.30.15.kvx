@@ -1,0 +1,920 @@
+# Pre-upgrade markets audit: product findings and repair proposals.
+
+[audit.22.30.15]
+task = "22.30.15"
+revision = "6d2c32a65a1c7989a6a37abf5965929de9769ae4"
+files_reviewed = 124
+findings = 13
+docs_reviewed = 5
+upgrade_ready = false
+blocking = ["listing-share-pointer", "retained-token-decimals", "expiry-head-starvation"]
+lines_reviewed = 24822
+produces_reviewed = 400
+consumes_reviewed = 400
+note = "Full member-file review against the listed requirements and interface rows, including node/ABCI wiring, SDK/proto and Query/CLI transport, ABI tuples, errors and logs, native shares, custody and persistent recovery. Package arrays list 400 producer ids and 400 consumer ids; produces_total 561 and consumes_total 441 do not match those arrays. No source repair or source-test execution is claimed."
+
+[file.001]
+path = "apps/perps/deploy/README.md"
+lines = 342
+verdict = "issues"
+note = "Full deployment page reviewed; app-service and runtime-environment instructions disagree with the supplied deployment."
+
+[file.002]
+path = "apps/perps/deploy/docker-compose.yml"
+lines = 120
+verdict = "issues"
+note = "Only nginx is active; the documented application service and proxy environment are commented out."
+
+[file.003]
+path = "apps/perps/ecosystem.config.js"
+lines = 56
+verdict = "issues"
+note = "PM2 process lifecycle and worker limits are explicit, but cwd targets a fixed unrelated checkout path."
+
+[file.004]
+path = "modules/pricefeed/abci.go"
+lines = 12
+verdict = "clean"
+note = "Mid-block aggregation reaches the pricefeed keeper on the node path; no standalone feed worker is required."
+
+[file.005]
+path = "modules/pricefeed/ante.go"
+lines = 133
+verdict = "clean"
+note = "Gasless admission, isolated feed submissions and bounded striped locking preserve feeder and per-height eligibility checks."
+
+[file.006]
+path = "modules/pricefeed/ante_locks_test.go"
+lines = 133
+verdict = "clean"
+note = "Whole-file review of assertions and fixtures: TestMarkLocksAreBounded, TestMarkSubmissionSerialisesOneOperator."
+
+[file.007]
+path = "modules/pricefeed/ante_test.go"
+lines = 339
+verdict = "clean"
+note = "Whole-file review of assertions and fixtures: TestSubmissionIsGasless, TestSubmissionIsGaslessRefuses, TestSubmissionAlone, TestSubmissionMark, TestSubmissionCheckBounds, TestSubmissionTargetHeight, TestSubmissionIsSubmissionTx, TestSubmissionTypesImports."
+
+[file.008]
+path = "modules/pricefeed/client/cli/completion_gate_test.go"
+lines = 131
+verdict = "clean"
+note = "Whole-file review of assertions and fixtures: TestMarketsCompletionRetiredSurfacesAbsent."
+
+[file.009]
+path = "modules/pricefeed/client/cli/query.go"
+lines = 78
+verdict = "clean"
+note = "Query root registers the current commands; market-id parsing and generated request values agree with the read-only server."
+
+[file.010]
+path = "modules/pricefeed/client/cli/query_feeds.go"
+lines = 96
+verdict = "clean"
+note = "Feed and observation commands check valoper/account address kinds and issue the matching query requests."
+
+[file.011]
+path = "modules/pricefeed/client/cli/query_feeds_test.go"
+lines = 176
+verdict = "clean"
+note = "Whole-file review of assertions and fixtures: TestFeedKeyCmdParsesValoper, TestObservationCmdParsesArgs."
+
+[file.012]
+path = "modules/pricefeed/client/cli/query_prices.go"
+lines = 46
+verdict = "clean"
+note = "Comma-separated market ids preserve request order and enforce the 64-id batch bound."
+
+[file.013]
+path = "modules/pricefeed/client/cli/query_prices_test.go"
+lines = 163
+verdict = "clean"
+note = "Whole-file review of assertions and fixtures: TestPricesCmdParsesIdList."
+
+[file.014]
+path = "modules/pricefeed/client/cli/query_test.go"
+lines = 172
+verdict = "clean"
+note = "Whole-file review of assertions and fixtures: TestQueryCmdHasPricefeedSubcommands, TestPriceCmdParsesMarketId."
+
+[file.015]
+path = "modules/pricefeed/gateway_test.go"
+lines = 114
+verdict = "clean"
+note = "Whole-file review of assertions and fixtures: TestGatewayServesPricefeedPrice."
+
+[file.016]
+path = "modules/pricefeed/gov_appended_market_test.go"
+lines = 156
+verdict = "clean"
+note = "Whole-file review of assertions and fixtures: TestGovernedAppendedMarketAggregates."
+
+[file.017]
+path = "modules/pricefeed/gov_disabled_market_test.go"
+lines = 173
+verdict = "clean"
+note = "Whole-file review of assertions and fixtures: TestGovernedDisabledMarketStalesPrice."
+
+[file.018]
+path = "modules/pricefeed/gov_mark_ema_test.go"
+lines = 150
+verdict = "clean"
+note = "Whole-file review of assertions and fixtures: TestGovernedMarkEmaTauChangesMark."
+
+[file.019]
+path = "modules/pricefeed/gov_max_observations_test.go"
+lines = 81
+verdict = "clean"
+note = "Whole-file review of assertions and fixtures: TestGovernedMaxObservationsRefusedAtAnte."
+
+[file.020]
+path = "modules/pricefeed/gov_min_sources_test.go"
+lines = 124
+verdict = "clean"
+note = "Whole-file review of assertions and fixtures: TestGovernedMinSourcesSkipsAggregation."
+
+[file.021]
+path = "modules/pricefeed/gov_route_test.go"
+lines = 88
+verdict = "clean"
+note = "Whole-file review of assertions and fixtures: TestLayerXProposalRoutesPricefeedSetParams."
+
+[file.022]
+path = "modules/pricefeed/keeper/aggregate.go"
+lines = 178
+verdict = "clean"
+note = "Aggregation separates MinSources from strict bonded-power quorum, filters divergence and persists integer index/mark state."
+
+[file.023]
+path = "modules/pricefeed/keeper/aggregate_test.go"
+lines = 454
+verdict = "clean"
+note = "Whole-file review of assertions and fixtures: TestAggregateBondedSetOnly, TestAggregateStalenessFilter, TestAggregateQuorum, TestAggregateQuorumByPower, TestAggregateMedianOddEven, TestAggregateDivergenceFilter, TestAggregateRecord, TestAggregateOrderIndependent, TestAggregateEventShape."
+
+[file.024]
+path = "modules/pricefeed/keeper/export_test.go"
+lines = 10
+verdict = "clean"
+note = "PM2 process lifecycle and worker limits are explicit, but cwd targets a fixed unrelated checkout path."
+
+[file.025]
+path = "modules/pricefeed/keeper/genesis.go"
+lines = 174
+verdict = "clean"
+note = "Import validates markets, feed reverse mappings, observations and aggregates before restoring persistent records."
+
+[file.026]
+path = "modules/pricefeed/keeper/grpc_query.go"
+lines = 61
+verdict = "clean"
+note = "Params and Price adapters preserve keeper values, validate requests and map missing markets to explicit errors."
+
+[file.027]
+path = "modules/pricefeed/keeper/grpc_query_feeds.go"
+lines = 62
+verdict = "clean"
+note = "Feed-key, reverse-account and observation queries distinguish malformed addresses from absent records."
+
+[file.028]
+path = "modules/pricefeed/keeper/grpc_query_feeds_test.go"
+lines = 185
+verdict = "clean"
+note = "Whole-file review of assertions and fixtures: TestQueryServerFeedKey, TestQueryServerValidatorByFeedAccount, TestQueryServerObservation."
+
+[file.029]
+path = "modules/pricefeed/keeper/grpc_query_prices.go"
+lines = 36
+verdict = "clean"
+note = "Prices returns values in caller order and refuses batches over 64 without partial answers."
+
+[file.030]
+path = "modules/pricefeed/keeper/grpc_query_prices_test.go"
+lines = 111
+verdict = "clean"
+note = "Whole-file review of assertions and fixtures: TestQueryServerPricesBatch, TestQueryServerPricesRefusesOver64."
+
+[file.031]
+path = "modules/pricefeed/keeper/grpc_query_test.go"
+lines = 141
+verdict = "clean"
+note = "Whole-file review of assertions and fixtures: TestQueryServerParams, TestQueryServerPrice."
+
+[file.032]
+path = "modules/pricefeed/keeper/init_v6120.go"
+lines = 19
+verdict = "clean"
+note = "Activation installs the opening market sheet and refuses to overwrite initialized feed state."
+
+[file.033]
+path = "modules/pricefeed/keeper/init_v6120_test.go"
+lines = 181
+verdict = "clean"
+note = "Whole-file review of assertions and fixtures: TestInitV6120Seeds, TestInitV6120KeepsParams, TestInitV6120StartsNotFresh, TestInitV6120GenesisRoundTrip, TestProofPricefeedErrorsExportInvalidState."
+
+[file.034]
+path = "modules/pricefeed/keeper/integration_test.go"
+lines = 458
+verdict = "clean"
+note = "Whole-file review of assertions and fixtures: TestPriceFeedEndToEnd, TestPriceFeedMinorityGoesStale, TestPriceFeedPrecompileMatchesKeeper."
+
+[file.035]
+path = "modules/pricefeed/keeper/keeper.go"
+lines = 44
+verdict = "clean"
+note = "Store, staking, account and EVM dependencies match the concrete keeper instances wired by the node."
+
+[file.036]
+path = "modules/pricefeed/keeper/keeper_test.go"
+lines = 46
+verdict = "clean"
+note = "Whole-file review of assertions and fixtures: TestKeeper."
+
+[file.037]
+path = "modules/pricefeed/keeper/mark.go"
+lines = 35
+verdict = "clean"
+note = "EMA elapsed time and mark-basis clipping use integer arithmetic and the persisted prior aggregate."
+
+[file.038]
+path = "modules/pricefeed/keeper/mark_test.go"
+lines = 77
+verdict = "clean"
+note = "Whole-file review of assertions and fixtures: TestMarkFirstAggregate, TestMarkBasisAverage, TestMarkMedianOfThree, TestMarkClamp, TestMarkBasisPersists."
+
+[file.039]
+path = "modules/pricefeed/keeper/market_symbol_test.go"
+lines = 58
+verdict = "clean"
+note = "Whole-file review of assertions and fixtures: TestMarketSymbolOfListedMarket, TestMarketSymbolOfUnlistedMarket."
+
+[file.040]
+path = "modules/pricefeed/keeper/msg_server.go"
+lines = 114
+verdict = "clean"
+note = "Authority-gated parameter updates and authenticated feeder submissions validate before storing; submission height persists."
+
+[file.041]
+path = "modules/pricefeed/keeper/observation.go"
+lines = 108
+verdict = "clean"
+note = "Sequence, freshness, clock skew, market enablement and price bounds agree with the feeder message domain."
+
+[file.042]
+path = "modules/pricefeed/keeper/observation_test.go"
+lines = 472
+verdict = "clean"
+note = "Whole-file review of assertions and fixtures: TestSubmitPricesStructuralRefusals, TestSubmitPricesAccepts, TestSubmitPricesRefusesUnlistedAndDisabled, TestSubmitPricesRefusesSequence, TestSubmitPricesRefusesTimestamps, TestSubmitPricesRefusesBounds, TestSubmitPricesDeviationAndRecovery, TestSubmitPricesRefusalReasons, TestSubmitPricesOncePerHeight."
+
+[file.043]
+path = "modules/pricefeed/keeper/params.go"
+lines = 58
+verdict = "clean"
+note = "Governance preserves existing market identities and appends dense ids while enforcing parameter bounds."
+
+[file.044]
+path = "modules/pricefeed/keeper/params_test.go"
+lines = 128
+verdict = "clean"
+note = "Whole-file review of assertions and fixtures: TestSetParamsAuthority, TestSetParamsStores, TestSetParamsListingKeepsIds."
+
+[file.045]
+path = "modules/pricefeed/keeper/price.go"
+lines = 81
+verdict = "clean"
+note = "Integer index/mark and symbol lookups preserve fixed market ids and derive freshness from enablement and age."
+
+[file.046]
+path = "modules/pricefeed/keeper/price_test.go"
+lines = 162
+verdict = "clean"
+note = "Whole-file review of assertions and fixtures: TestGetPriceFresh, TestGetPriceAges, TestGetPriceDisabledAndEmpty, TestGetPriceUnknownMarket, TestGetPriceBySymbol, TestGetPriceFreshAtContextBlockTime."
+
+[file.047]
+path = "modules/pricefeed/keeper/registry.go"
+lines = 119
+verdict = "clean"
+note = "Compressed-key registration enforces bonded operators and unique reverse mappings; rotation removes the prior feed account."
+
+[file.048]
+path = "modules/pricefeed/keeper/registry_test.go"
+lines = 193
+verdict = "clean"
+note = "Whole-file review of assertions and fixtures: TestRegistryCreatesFeedAccount, TestRegistryEvents, TestRegistryReplacesKey, TestRegistryRefusals."
+
+[file.049]
+path = "modules/pricefeed/module.go"
+lines = 149
+verdict = "clean"
+note = "Message, Query, REST and CLI registration reach the implemented services; genesis uses keeper-level validation."
+
+[file.050]
+path = "modules/pricefeed/module_genesis_test.go"
+lines = 68
+verdict = "clean"
+note = "Whole-file review of assertions and fixtures: TestAppModuleValidateGenesisRunsKeeperChecks."
+
+[file.051]
+path = "modules/pricefeed/module_query_test.go"
+lines = 73
+verdict = "clean"
+note = "Whole-file review of assertions and fixtures: TestAppModuleRegistersQueryServer."
+
+[file.052]
+path = "modules/pricefeed/module_test.go"
+lines = 238
+verdict = "issues"
+note = "Whole-file review of assertions and fixtures: TestAppModule, TestAppModuleNoParams, TestAppModuleInitGenesis, TestAppModuleValidateGenesis, TestProofPricefeedErrorsMalformedGenesisPanic. Its event threshold uses the old headcount rule; see aggregate-event-test-threshold."
+
+[file.053]
+path = "modules/pricefeed/proof_pricefeed_0x1020_test.go"
+lines = 276
+verdict = "clean"
+note = "Whole-file review of assertions and fixtures: TestProofPricefeed0x1020ProducerTransportConsumer, TestProofPricefeed0x1020MixedSubmissionRefused, TestProofPricefeed0x1020MalformedProducerResultRefused."
+
+[file.054]
+path = "modules/pricefeed/testutil/store.go"
+lines = 68
+verdict = "clean"
+note = "The isolated feed-store wrapper preserves delegated access to the application stores used by integration fixtures."
+
+[file.055]
+path = "modules/pricefeed/types/ante.go"
+lines = 45
+verdict = "clean"
+note = "Submission identification enforces one feed message alone and chooses the same target height used at admission."
+
+[file.056]
+path = "modules/pricefeed/types/codec.go"
+lines = 24
+verdict = "clean"
+note = "SDK legacy/interface codec registration exposes the implemented feed message types to transport."
+
+[file.057]
+path = "modules/pricefeed/types/errors.go"
+lines = 65
+verdict = "clean"
+note = "SDK codes 2-16 and wrapped-error LXP names match the current Go precompile revert registry."
+
+[file.058]
+path = "modules/pricefeed/types/errors_test.go"
+lines = 70
+verdict = "clean"
+note = "Whole-file review of assertions and fixtures: TestLXPName."
+
+[file.059]
+path = "modules/pricefeed/types/events.go"
+lines = 35
+verdict = "clean"
+note = "Attribute names agree with observation, aggregate, registration and parameter event producers."
+
+[file.060]
+path = "modules/pricefeed/types/expected_keepers.go"
+lines = 32
+verdict = "clean"
+note = "Staking, account and EVM method types match the node dependencies used for feeder eligibility and address mapping."
+
+[file.061]
+path = "modules/pricefeed/types/lxp_codes_test.go"
+lines = 70
+verdict = "clean"
+note = "Whole-file review of assertions and fixtures: TestLXPCodesCoverCodes2To16, TestLXPNameRefusesForeignError."
+
+[file.062]
+path = "modules/pricefeed/types/market.go"
+lines = 61
+verdict = "clean"
+note = "The opening sheet has dense fixed market ids, explicit 18-decimal bounds and matching display/feed symbols."
+
+[file.063]
+path = "modules/pricefeed/types/market_test.go"
+lines = 70
+verdict = "clean"
+note = "Whole-file review of assertions and fixtures: TestMarketTable, TestMarketChainflowForms."
+
+[file.064]
+path = "modules/pricefeed/types/msgs.go"
+lines = 102
+verdict = "clean"
+note = "Signer extraction, observation payloads and authority parameter validation agree with SDK/proto transport."
+
+[file.065]
+path = "modules/pricefeed/types/msgs_test.go"
+lines = 125
+verdict = "clean"
+note = "Whole-file review of assertions and fixtures: TestValidateBasicRefusesInvalid, TestValidateBasicBounds, TestValidateBasicMessagesRegistered."
+
+[file.066]
+path = "modules/pricefeed/types/params.go"
+lines = 139
+verdict = "clean"
+note = "Quorum, time, deviation and submission bounds reject invalid domains and keep existing market identity immutable."
+
+[file.067]
+path = "modules/pricefeed/types/params_test.go"
+lines = 128
+verdict = "clean"
+note = "Whole-file review of assertions and fixtures: TestParamsDefault, TestParamsValidate, TestParamsStoreKeys."
+
+[file.068]
+path = "modules/pricefeed/types/proof_pricefeed_errors_test.go"
+lines = 348
+verdict = "clean"
+note = "Whole-file review of assertions and fixtures: TestProofPricefeedErrorsRegisteredProducers, TestProofPricefeedErrorsGenesisConsumers, TestProofPricefeedErrorsRejectMalformedIdentity, TestProofPricefeedErrorsPrecompileTransport."
+
+[file.069]
+path = "modules/pricefeed/types/query_test.go"
+lines = 114
+verdict = "clean"
+note = "Whole-file review of assertions and fixtures: TestQueryRequestsRoundTrip."
+
+[file.070]
+path = "modules/pricefeed/types/sidecar_vector_test.go"
+lines = 127
+verdict = "clean"
+note = "Whole-file review of assertions and fixtures: TestSidecarTxVector."
+
+[file.071]
+path = "modules/pricefeed/types/state.go"
+lines = 106
+verdict = "clean"
+note = "Persistent key encodings, JSON state and genesis record types agree with import/export and query readers."
+
+[file.072]
+path = "modules/pricefeed/types/tx_test.go"
+lines = 55
+verdict = "clean"
+note = "Whole-file review of assertions and fixtures: TestTxWireRoundTrip."
+
+[file.073]
+path = "modules/spot/abci.go"
+lines = 29
+verdict = "clean"
+note = "End-block execution emits explicit work or failure events and returns errors to node handling."
+
+[file.074]
+path = "modules/spot/keeper/custody.go"
+lines = 451
+verdict = "clean"
+note = "Bank/native and ERC20 custody enforce exact balance deltas, guarded calls and unsupported-transfer refusals."
+
+[file.075]
+path = "modules/spot/keeper/custody_export_test.go"
+lines = 37
+verdict = "clean"
+note = "PM2 process lifecycle and worker limits are explicit, but cwd targets a fixed unrelated checkout path."
+
+[file.076]
+path = "modules/spot/keeper/custody_test.go"
+lines = 500
+verdict = "clean"
+note = "Whole-file review of assertions and fixtures: TestCustodyAddressIsModuleAccount, TestERC20PullNeedsAllowanceToRail, TestPayoutIsExact, TestFailedTransferRevertsAtomically, TestPayoutOutsideTransactionUsesCallEVM, TestNativeValueIsUhpx, TestModuleAccountReceivesNative, TestNestedSpotCallIsRefused."
+
+[file.077]
+path = "modules/spot/keeper/execute.go"
+lines = 538
+verdict = "issues"
+note = "Persistent fill/activation cursors bound work, but the expiry head can indefinitely starve healthy refunds; see expiry-head-starvation."
+
+[file.078]
+path = "modules/spot/keeper/execute_test.go"
+lines = 463
+verdict = "clean"
+note = "Whole-file review of assertions and fixtures: TestEndBlockFillsLimitOrder, TestEndBlockSkipsUnpricedToken, TestEndBlockOrder, TestEndBlockSkipsFailingFill, TestEndBlockFillCap, TestEndBlockLogsAreQueryable, TestTransactionFillPrecedesEndBlock, TestFillQualityRule, TestEndBlockCostIndependentOfBookSize, TestEndBlockBoundedWork."
+
+[file.079]
+path = "modules/spot/keeper/fees.go"
+lines = 478
+verdict = "clean"
+note = "Tiered fees, utilization, conversion and impact enforce integer bounds and explicit refusals; retained token metadata must stay pinned."
+
+[file.080]
+path = "modules/spot/keeper/fees_test.go"
+lines = 408
+verdict = "clean"
+note = "Whole-file review of assertions and fixtures: TestTieredFeeStack, TestPriceImpactDeduction, TestFeesAccrueReserved, TestMakerFeeOnRestingFills, TestExactOutTierInverse."
+
+[file.081]
+path = "modules/spot/keeper/genesis.go"
+lines = 333
+verdict = "clean"
+note = "Import/export carries books, orders, indexes, TWAP and retry state; dense positions rebuild in the exported active-list order."
+
+[file.082]
+path = "modules/spot/keeper/genesis_test.go"
+lines = 39
+verdict = "clean"
+note = "Whole-file review of assertions and fixtures: TestInitGenesisWritesActiveIndex."
+
+[file.083]
+path = "modules/spot/keeper/gov_route_test.go"
+lines = 130
+verdict = "clean"
+note = "Whole-file review of assertions and fixtures: TestLayerXProposalRoutesSpotUpdateParams, TestLayerXProposalRoutesSpotSyncReserves."
+
+[file.084]
+path = "modules/spot/keeper/init_v6120.go"
+lines = 260
+verdict = "clean"
+note = "Opening activation validates token metadata, creates share pointers and emits registration evidence atomically and once."
+
+[file.085]
+path = "modules/spot/keeper/init_v6120_test.go"
+lines = 414
+verdict = "clean"
+note = "Whole-file review of assertions and fixtures: TestInitV6120Order, TestInitV6120RegistersOpeningPairs, TestInitV6120Logs, TestInitV6120RefusesDenomWithoutPointer, TestInitV6120RefusesWrongDecimals, TestInitV6120Once."
+
+[file.086]
+path = "modules/spot/keeper/invariants.go"
+lines = 387
+verdict = "clean"
+note = "Solvency, share backing, escrow and inverse active-index checks compare actual balances and persisted liabilities."
+
+[file.087]
+path = "modules/spot/keeper/invariants_test.go"
+lines = 699
+verdict = "clean"
+note = "Whole-file review of assertions and fixtures: TestSolvencyInvariant, TestShareBackingInvariant, TestEscrowInvariant, TestActiveIndexInvariant, TestCrossPoolConservation."
+
+[file.088]
+path = "modules/spot/keeper/keeper.go"
+lines = 110
+verdict = "clean"
+note = "Store, custody and pricefeed dependencies support cached atomic execution and governance authority checks."
+
+[file.089]
+path = "modules/spot/keeper/migrations.go"
+lines = 58
+verdict = "clean"
+note = "Version-one active ids migrate to inverse positions and lengths; malformed migration data aborts before branch publication."
+
+[file.090]
+path = "modules/spot/keeper/migrations_test.go"
+lines = 181
+verdict = "clean"
+note = "Whole-file review of assertions and fixtures: TestMigrate1to2BuildsActiveLength, TestMigrate1to2ExportRoundTrip."
+
+[file.091]
+path = "modules/spot/keeper/msg_server.go"
+lines = 172
+verdict = "issues"
+note = "Governance authority, price-market checks and cache publication exist; new listings omit the required share-pointer lifecycle."
+
+[file.092]
+path = "modules/spot/keeper/msg_server_test.go"
+lines = 343
+verdict = "issues"
+note = "Whole-file review of assertions and fixtures: TestUpdateParamsRegistersNewToken, TestUpdateParamsRefusesUnknownMarket, TestUpdateParamsRefusesDelistWithReserves, TestParamChangeEmitsPauseLogs, TestMsgSyncReserves. New-listing coverage ends before public funding/share-pointer use; see listing-test-incomplete-lifecycle."
+
+[file.093]
+path = "modules/spot/keeper/orders.go"
+lines = 835
+verdict = "clean"
+note = "Limit order ownership, cancellation, expiry and escrow bookkeeping preserve dense active indexes and cached settlement."
+
+[file.094]
+path = "modules/spot/keeper/orders_test.go"
+lines = 607
+verdict = "clean"
+note = "Whole-file review of assertions and fixtures: TestPlaceLimitEscrows, TestLimitStatusTransitions, TestEscrowIsReserved, TestActiveListSwapAndPop, TestActiveIndexCostIndependentOfBookSize, TestMinOrderNotional, TestMaxActiveOrdersPerUser, TestOrderMinOutput, TestLimitExpire."
+
+[file.095]
+path = "modules/spot/keeper/pricing.go"
+lines = 105
+verdict = "clean"
+note = "Market lookup and exact-in/out conversions enforce freshness, explicit units, rounding direction and overflow limits."
+
+[file.096]
+path = "modules/spot/keeper/pricing_test.go"
+lines = 354
+verdict = "clean"
+note = "Whole-file review of assertions and fixtures: TestIndexPriceFromPricefeed, TestStablecoinPricesAtOne, TestStalePriceRefusesTrades, TestTokenWithoutMarketIsRefused, TestValidatePriceMarketRefusesUnknownMarket, TestGrossOutputConversion."
+
+[file.097]
+path = "modules/spot/keeper/proof_go_exported_modules_spot_keeper_test.go"
+lines = 250
+verdict = "clean"
+note = "Whole-file review of assertions and fixtures: TestProofGoExportedModulesSpotKeeper."
+
+[file.098]
+path = "modules/spot/keeper/proof_spot_storage_test.go"
+lines = 227
+verdict = "clean"
+note = "Whole-file review of assertions and fixtures: TestProofSpotStorage."
+
+[file.099]
+path = "modules/spot/keeper/quote.go"
+lines = 286
+verdict = "clean"
+note = "The 23-field quote tuple agrees with the public quoter adapter, including declared no-write simulation and stale-result behavior."
+
+[file.100]
+path = "modules/spot/keeper/quote_test.go"
+lines = 50
+verdict = "clean"
+note = "Whole-file review of assertions and fixtures: TestQuoteUtilizationFields."
+
+[file.101]
+path = "modules/spot/keeper/shares.go"
+lines = 164
+verdict = "clean"
+note = "Share mint/burn uses bank supply and pointer Transfer logs; an absent share pointer is explicitly refused."
+
+[file.102]
+path = "modules/spot/keeper/shares_test.go"
+lines = 328
+verdict = "clean"
+note = "Whole-file review of assertions and fixtures: TestShareDenomAndPointer, TestShareSupplyIsBankSupply, TestTransferredSharesWithdraw, TestShareMintScope."
+
+[file.103]
+path = "modules/spot/keeper/stoporders.go"
+lines = 864
+verdict = "clean"
+note = "Stop-loss and stop-limit checks enforce ownership, trigger direction, escrow and active-list membership before cached settlement."
+
+[file.104]
+path = "modules/spot/keeper/stoporders_test.go"
+lines = 518
+verdict = "clean"
+note = "Whole-file review of assertions and fixtures: TestStopActiveIndexCostIndependentOfBookSize, TestStopLimitActivatesThenFills, TestActivatedWaitsForLimit, TestStopLimitPriceRange, TestStopLossRecord, TestStopLossFillsAtTrigger, TestStopLossExpiry."
+
+[file.105]
+path = "modules/spot/keeper/swap.go"
+lines = 439
+verdict = "clean"
+note = "Trade settlement checks custody, liquidity and fees; failed transfers roll back cached state and success logs."
+
+[file.106]
+path = "modules/spot/keeper/swap_test.go"
+lines = 250
+verdict = "clean"
+note = "Whole-file review of assertions and fixtures: TestSwapLiquidityCheckedOnGross, TestSwapImpactRoundedToZeroDoesNotEmitEvent, TestSwapRefusalsAreAtomic."
+
+[file.107]
+path = "modules/spot/keeper/twap.go"
+lines = 197
+verdict = "clean"
+note = "The persisted fixed-depth ring supports chronological lookup and sanity guards; genesis must supply its logical slots."
+
+[file.108]
+path = "modules/spot/keeper/twap_test.go"
+lines = 204
+verdict = "clean"
+note = "Whole-file review of assertions and fixtures: TestSampleRing, TestTWAPWindow, TestTwapSanity."
+
+[file.109]
+path = "modules/spot/keeper/vault.go"
+lines = 843
+verdict = "issues"
+note = "Deposits, withdrawals and sync use actual custody, but retained metadata is not revalidated and governance listing does not provision shares."
+
+[file.110]
+path = "modules/spot/keeper/vault_test.go"
+lines = 698
+verdict = "clean"
+note = "Whole-file review of assertions and fixtures: TestNAV, TestShareMint, TestShareBurn, TestTradeUpdatesReserves, TestDepositRefusedAtZeroNAV, TestDonationDoesNotInflateShares, TestTokenParamsEmitLogs, TestListNewTokensRegistersBook, TestDelistRefusesTokenWithReserves."
+
+[file.111]
+path = "modules/spot/module.go"
+lines = 150
+verdict = "clean"
+note = "Messages, version-two migration and four invariant routes are registered; genesis and end-block hooks reach keeper logic."
+
+[file.112]
+path = "modules/spot/module_test.go"
+lines = 169
+verdict = "clean"
+note = "Whole-file review of assertions and fixtures: TestMain, TestModuleRegistersInvariants, TestModuleBasics, TestGenesisRoundTrip, TestEndBlockerEmitsRestingEvent, TestEndBlockerEmitsFailureEvent."
+
+[file.113]
+path = "modules/spot/types/errors.go"
+lines = 183
+verdict = "clean"
+note = "Typed ABI errors preserve custom selectors and arguments consumed by spot executors; SDK registration codes are unique."
+
+[file.114]
+path = "modules/spot/types/errors_test.go"
+lines = 39
+verdict = "clean"
+note = "Whole-file review of assertions and fixtures: TestAbiErrorABCIInfo."
+
+[file.115]
+path = "modules/spot/types/events.go"
+lines = 12
+verdict = "clean"
+note = "Event names, indexed topics and argument order match rail-specific keeper producers and ABI consumers."
+
+[file.116]
+path = "modules/spot/types/genesis.go"
+lines = 415
+verdict = "issues"
+note = "Order, escrow and count checks cover persistent state, but accepted TWAP samples need not occupy readable chronological slots."
+
+[file.117]
+path = "modules/spot/types/genesis_test.go"
+lines = 138
+verdict = "clean"
+note = "Whole-file review of assertions and fixtures: TestGenesisValidate."
+
+[file.118]
+path = "modules/spot/types/keys.go"
+lines = 65
+verdict = "clean"
+note = "Store prefixes and active-list key encodings separate order classes, cursor state and retry state without collisions."
+
+[file.119]
+path = "modules/spot/types/keys_test.go"
+lines = 68
+verdict = "clean"
+note = "Whole-file review of assertions and fixtures: TestActiveIndexKeysAreDisjoint."
+
+[file.120]
+path = "modules/spot/types/msgs.go"
+lines = 156
+verdict = "clean"
+note = "Governance signers and Params serialization preserve SDK/proto payloads and explicitly reject malformed input."
+
+[file.121]
+path = "modules/spot/types/orders.go"
+lines = 192
+verdict = "clean"
+note = "Order enums, active states, ownership and escrow-token selection agree with keeper lifecycle and ABI adapters."
+
+[file.122]
+path = "modules/spot/types/params.go"
+lines = 289
+verdict = "clean"
+note = "Fee, scan, token-count and market-id bounds match acceptance; cross-update physical metadata consistency belongs in the keeper."
+
+[file.123]
+path = "modules/spot/types/params_test.go"
+lines = 238
+verdict = "clean"
+note = "Whole-file review of assertions and fixtures: TestParamsValidate, TestParamsValidateBounds, TestParamsValidateBoundsBudgets, TestParamsValidateRequiresMarketID, TestParamsValidateBoundsTokenCount."
+
+[file.124]
+path = "modules/spot/types/proof_spot_params_test.go"
+lines = 223
+verdict = "clean"
+note = "Whole-file review of assertions and fixtures: TestProofSpotParams."
+
+[finding.listing-share-pointer]
+file = "modules/spot/keeper/msg_server.go"
+line = 129
+class = "wiring-gap"
+severity = "high"
+observed = "MsgUpdateParams calls ListTokens and publishes a newly registered pool after RegisterToken writes its book, but neither path creates the share-denom metadata or ERC20 native pointer. CreateShareToken has a production caller only in opening activation. A later governance-listed pool appears in getRegisteredTokens while shareTokens returns zero and Deposit reaches MintShares/sharePointer and fails with TokenNotRegistered."
+expected = "A governance-listed pool must be usable through the public vault. Registry 3.msg-spot-updateparams must lead to the share-token lifecycle consumed by 0x1025 deposits and withdrawals, with pointer balances and bank supply agreeing after restart."
+proposal = "In modules/spot/keeper/msg_server.go and vault.go provision new-pool share metadata and its native pointer in the same cached governance transaction before publishing registration, and emit ShareTokenCreated. Reuse symbol/decimal validation from activation and shares.go. Prove listing, deposit, pointer balance/supply, withdrawal and restart without a manual CreateShareToken call."
+owner_domain = 3
+interface = "3.msg-spot-updateparams"
+
+[finding.retained-token-decimals]
+file = "modules/spot/keeper/vault.go"
+line = 832
+class = "runtime-risk"
+severity = "high"
+observed = "ListTokens skips every retained address without comparing physical metadata. MsgUpdateParams accepts a different Decimals value up to 36 without rereading tokenDecimals or reconciling the existing book/share pointer. For a funded six-decimal token changed to eighteen, fees.go Convert prices trades in eighteen-decimal units while the underlying token and existing shares still use six; public token-info views advertise the changed value."
+expected = "Spot pricing, custody and share accounting must use the actual token units consistently. Routine governance parameter updates must not reinterpret funded balances or expose exchange rates that can exhaust the opposite pool."
+proposal = "In modules/spot/keeper/vault.go reject changes to registered decimals and custody kind on retained addresses, and compare retained metadata with the existing book and actual token. Any supported metadata change needs an explicit liability-safe migration. Add a funded real-token governance regression checking quotes, swaps and share metadata remain in the original units."
+owner_domain = 3
+interface = "3.gen-spot-params-tokens-j26"
+
+[finding.expiry-head-starvation]
+file = "modules/spot/keeper/execute.go"
+line = 169
+class = "runtime-risk"
+severity = "high"
+observed = "restingExpiries takes the first MaxExpiriesPerBlock due index entries before checking FillBackoff. Failed refund transfers retain their expiry keys. If that leading window consists of persistently failing refunds, every later healthy expired order is excluded on every block, including blocks when all leading entries are in backoff; healthy users never receive automatic escrow refunds."
+expected = "Bounded resting execution must progress for independent healthy orders when a different token or recipient cannot be refunded. Backoff must preserve work bounds without letting the same failing expiry window monopolize execution indefinitely."
+proposal = "In modules/spot/keeper/execute.go and types/keys.go persist a fair expiry scan position or bounded retry schedule so failed entries do not always precede unexamined due entries. Preserve atomic refunds and the work budget. Prove a full leading window of failing refunds cannot starve a later healthy refund across repeated blocks and export/import."
+owner_domain = 3
+interface = "3.go-spot-keeper-executeresting-j64"
+
+[finding.twap-genesis-logical-slots]
+file = "modules/spot/types/genesis.go"
+line = 392
+class = "restart-recovery"
+severity = "medium"
+observed = "validatePools checks unique slots, ring bounds and sample count but not the slots implied by Head/Count or chronological times. Head 2, Count 2 and samples only at slots 7 and 8 pass these checks; keeper/twap.go reads slots 0 and 1 and fails after import. Out-of-order times also violate the binary-search assumption."
+expected = "Accepted genesis TWAP history must be readable in logical chronological order immediately after recovery and preserve the live price window. Malformed imported state must be refused before becoming live state."
+proposal = "In modules/spot/types/genesis.go require exactly the occupied logical slots derived from Head/Count, matching token/slot identities and nondecreasing times. Validate sample prices against the live producer domain. Add rejected sparse/out-of-order rings and a valid wrapped-ring export/import TWAP comparison."
+owner_domain = 3
+interface = "3.go-spot-keeper-initgenesis-j64"
+
+[finding.aggregate-event-test-threshold]
+file = "modules/pricefeed/module_test.go"
+line = 116
+class = "test-gap"
+severity = "medium"
+observed = "TestAppModule derives the required event attribute as len(operators)/2+1 for aggregate and skipped events. keeper/aggregate.go emits params.MinSources and separately requires strictly more than two thirds of bonded voting power. The fixture adds a validator to the application set, so the old majority-headcount expectation does not describe the producer."
+expected = "Tests of pricefeed_aggregate and pricefeed_aggregate_skipped must assert the producer required attribute and distinguish configured minimum sources from the bonded-power quorum without weakening quorum assertions."
+proposal = "In modules/pricefeed/module_test.go assert required from configured MinSources and prove success/refusal using explicit unequal-power validators at and above the two-thirds boundary. Keep event and state assertions and add a governed MinSources change demonstrating that source count and voting power are independent conditions."
+owner_domain = 3
+interface = "3.evt-pricefeed-pricefeed-aggregate"
+
+[finding.listing-test-incomplete-lifecycle]
+file = "modules/spot/keeper/msg_server_test.go"
+line = 85
+class = "test-gap"
+severity = "medium"
+observed = "TestUpdateParamsRegistersNewToken checks params, an empty book and registration logs but never deposits through the new pool or checks its share pointer. The wider precompiles/spot/listing_test.go path manually calls CreateShareToken after the proposal and before funding, adding state the governance producer does not create and hiding listing-share-pointer."
+expected = "A new pool must be proven usable from the real governance registration output. A fixture must not add an unpublished share pointer between registration and public vault funding and claim that the registration-to-trade lifecycle works."
+proposal = "Extend modules/spot/keeper/msg_server_test.go and precompiles/spot/listing_test.go to fund the production governance-created pool without manually provisioning its pointer. Assert ShareTokenCreated, live pointer code, deposit/withdrawal, pointer balances and supply, and recovery before claiming the full listing lifecycle."
+owner_domain = 3
+interface = "3.msg-spot-updateparams"
+
+[finding.compose-app-service-absent]
+file = "apps/perps/deploy/docker-compose.yml"
+line = 21
+class = "config-drift"
+severity = "medium"
+observed = "The production stack comments promise an app service on a private network, but the whole app definition including build inputs, runtime MARKET_PROXY_ORIGIN and container name is commented out. Only nginx is configured. The README instructs operators to start this stack, inspect hyperpax-app and proxy to app:3000, although this compose file cannot start that application."
+expected = "The documented production deployment must start the frontend and supply its server proxy configuration. Operators need a consistent supported process model with reproducible health, upgrade and rollback commands."
+proposal = "In apps/perps/deploy/docker-compose.yml and deploy/README.md implement the selected model: restore a complete app service with correct build context/runtime environment, or provision and document a host-managed app with matching nginx upstream. Align start, health and rollback commands and prove the running candle proxy receives MARKET_PROXY_ORIGIN."
+owner_domain = 3
+
+[finding.pm2-checkout-path]
+file = "apps/perps/ecosystem.config.js"
+line = 7
+class = "config-drift"
+severity = "medium"
+observed = "PM2 fixes the frontend cwd to /root/Hyperpax-UI and resolves its Next.js entry point there. The monorepo app lives under apps/perps, while deploy/README.md uses a deployment-user checkout. Starting this configuration from either layout can target a nonexistent or stale unrelated application tree."
+expected = "The process manager must start the app version selected by deployment. Relocating a checkout or deploying as a non-root user must not depend on a second hard-coded checkout."
+proposal = "In apps/perps/ecosystem.config.js derive cwd from the configuration directory or an explicit validated deployment root, and resolve the Next.js entry point from the same app. Update apps/perps/deploy/README.md with the invocation and verify build identity and health from a deployment-user checkout."
+owner_domain = 3
+
+[finding.runtime-env-restart-instructions]
+file = "apps/perps/deploy/README.md"
+line = 238
+class = "doc-drift"
+severity = "medium"
+observed = "The restart example runs docker compose --env-file .env.production restart and says this picks up server-only environment changes. Restart preserves a container existing environment; --env-file interpolation does not recreate it. The current compose file also comments out the app environment block."
+expected = "Changing MARKET_PROXY_ORIGIN or MARKET_PROXY_HOST must update the actual frontend process environment. Operator instructions must distinguish container recreation from process restart and client-bundle rebuilds."
+proposal = "Rewrite apps/perps/deploy/README.md lines 140 and 234-241 to recreate the configured app service with the changed environment, or provide the PM2 environment-update procedure for the chosen model. Include a proxy-origin health check and retain the separate rebuild requirement for NEXT_PUBLIC variables."
+owner_domain = 3
+
+[finding.root-readme-retired-daemon]
+file = "README.md"
+line = 47
+class = "doc-drift"
+severity = "medium"
+observed = "README.md describes layerxd from cmd/layerxd as the running kernel daemon settling checkpoints through layerxAnchor, advertises local kernel clusters and make layerxd, and states at lines 79 and 181 that integration is a draft and the current kernel runs separately. This describes the retired pre-merge network."
+expected = "The finished network runs one paxd BFT chain with the kernel integrated into block proposal and receipts final at block commit. Its public entry point must not direct operators to a retired daemon or checkpoint settlement lifecycle."
+proposal = "Rewrite README.md architecture, quick-start, build and status sections around integrated paxd, chain id 125 and commit finality. Remove active daemon/cluster/checkpoint instructions and link current operator instructions and root-path public RPC names. Preserve historical context only when explicitly marked retired."
+owner_domain = 5
+
+[finding.spot-doc-address-map]
+file = "docs/system/precompiles.md"
+line = 49
+class = "doc-drift"
+severity = "medium"
+observed = "The generated summary and spot sections assign every ABI to all five rails 0x1021-0x1025, including share.json at lines 52 and 2018. The introduction calls share pointers dynamic, but Address cells neither select the rail accepting each ABI nor identify a share pointer, advertising methods at endpoints that do not serve them."
+expected = "Integrators need the callable endpoint per interface: PECOR 0x1021, orders 0x1022, stop orders 0x1023, quoter 0x1024, vault 0x1025 and share ERC20 methods at the dynamic pointer returned by the vault."
+proposal = "Update tools/docs/gen-system-docs.sh address resolution to use the served ABI-to-rail mapping in precompiles/spot, and label share methods with the dynamic pointer obtained through shareTokens. Regenerate docs/system/precompiles.md so each summary row and section identifies the actual callable endpoint."
+owner_domain = 3
+interface = "3.pc-0x1025-evt-sharetokencreated"
+
+[finding.precompile-doc-retired-settlement]
+file = "docs/system/precompiles.md"
+line = 1170
+class = "doc-drift"
+severity = "medium"
+observed = "The catalog lists layerxanchor submitCheckpoint, finalize, finalizedReceiptRoot and sequencer authorization as unqualified functions, followed by the old layerxcustody withdrawal lifecycle. Legacy layerxexchange and perps both appear at 0x1015 without explaining the version handoff, obscuring the active surface and receipt finality."
+expected = "The merged-network catalog must distinguish live, historical and refused methods at activation. Committed receipts require no separate checkpoint or guarantor finalization, and handoff addresses must identify the surface active at the caller height."
+proposal = "In tools/docs/gen-system-docs.sh incorporate retirement inventory and versioned registration metadata, then regenerate docs/system/precompiles.md with explicit retirement/refusal and activation notes for anchor, custody and the 0x1015 handoff. Describe current commit finality and direct readers to live receipt interfaces."
+owner_domain = 5
+
+[finding.module-doc-retired-sequencer]
+file = "docs/system/chain-modules.md"
+line = 390
+class = "doc-drift"
+severity = "medium"
+observed = "The generated module catalog presents sequencer MsgSequenceBatch as an ordinary message and lists legacy anchor and custody parameters without retirement/refusal context. It inventories declarations without identifying which operations remain usable in the merged network."
+expected = "Governance clients and operators need the active paxd module/message surface and the lifecycle of retired operations. There is no separate sequencer service or checkpoint settlement configuration to operate."
+proposal = "Update tools/docs/gen-system-docs.sh to combine module declarations with node registration and retirement policy, then regenerate docs/system/chain-modules.md. Mark MsgSequenceBatch and retired anchor/custody operations with exact refusal/removal lifecycle and point readers to integrated blocks and commit-final receipts."
+owner_domain = 5
+
+[doc.root]
+path = "README.md"
+status = "stale"
+notes = "Read in full. Lines 47, 56, 79, 141-145 and 181 describe a standalone daemon, clusters and checkpoint settlement instead of integrated paxd and commit finality; see root-readme-retired-daemon."
+
+[doc.precompiles]
+path = "docs/system/precompiles.md"
+status = "misleading"
+notes = "Read in full. Lines 49-54 and 1798-2260 do not select the served spot ABI and assign dynamic share methods to fixed rails. Lines 1170-1350 give retired settlement/custody and legacy exchange without activation/refusal context; see the two precompile documentation findings."
+
+[doc.modules]
+path = "docs/system/chain-modules.md"
+status = "stale"
+notes = "Read in full. Lines 132-159 and 197-226 list legacy anchor/custody configuration without lifecycle context; lines 390-394 present MsgSequenceBatch as a normal message. Current pricefeed and spot parameter declarations otherwise match their types."
+
+[doc.deployment]
+path = "apps/perps/deploy/README.md"
+status = "misleading"
+notes = "Read in full as both a member and a documentation page. Lines 59-79, 190, 238-241 and 282 assume an app container absent from compose or promise environment changes from restart; see compose-app-service-absent and runtime-env-restart-instructions."
+
+[doc.markets-contract]
+path = "spec/layerx-merge/contracts/markets.md"
+status = "accurate"
+notes = "Reviewed the scope, pricefeed and spot sections and relevant integration wiring. This page explicitly freezes revision 2a1033aa2 and labels planned changes; historical no-query and missing-LXP notes describe that baseline. Five rails, native shares, governance bounds, persistent indexes and error/event contracts provide the review baseline; implementation departures are recorded as findings."

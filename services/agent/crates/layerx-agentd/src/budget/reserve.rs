@@ -721,7 +721,8 @@ fn reserve_into(
     core_deadline: Option<CoreTimestampMs>,
     program: bool,
 ) -> Result<BudgetReservation, LimitRefusal> {
-    if request.amount == 0
+    if request.id == [0; 32]
+        || request.amount == 0
         || request.expiry_sequence <= request.current_sequence
         || request.applicable_limits.is_empty()
     {

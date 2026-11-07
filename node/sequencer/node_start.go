@@ -1,7 +1,6 @@
 package sequencer
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -10,7 +9,9 @@ import (
 	"time"
 
 	tmconfig "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/config"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/privval"
 	tmproto "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/proto/tendermint/types"
+	app "github.com/Sidiora-Labs/Paxeer-X-Network/node"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/node/sequencer/wal"
 	evmrpc "github.com/Sidiora-Labs/Paxeer-X-Network/rpc"
 	"github.com/holiman/uint256"
@@ -23,6 +24,8 @@ func (n *Node) Start(ctx context.Context) (err error) {
 	if n == nil || n.App == nil {
 		return errors.New("sequencer: start needs an assembled node")
 	}
+	n.lifecycle.Lock()
+	defer n.lifecycle.Unlock()
 	if n.Standby != nil {
 		return nil
 	}
@@ -64,15 +67,8 @@ func (n *Node) Start(ctx context.Context) (err error) {
 	if err != nil {
 		return err
 	}
-	if committed := n.WAL.LastCommitted(); committed != nil {
-		lastSeq, err := n.App.SequencerKeeper.LastSeq(state)
-		if err != nil {
-			return err
-		}
-		if committed.Height != uint64(height) || committed.LastSeq != lastSeq ||
-			!bytes.Equal(committed.AppHash[:], n.App.CommitMultiStore().LastCommitID().Hash) {
-			return errors.New("sequencer: WAL committed tip differs from app")
-		}
+	if err := n.reconcileWALTip(ctx, height); err != nil {
+		return err
 	}
 	*n.ReceiptKey = *key
 	defer func() {
@@ -81,44 +77,63 @@ func (n *Node) Start(ctx context.Context) (err error) {
 			_ = n.Executor.Fence()
 		}
 	}()
+	if err := n.ReceiptSource.restoreCommitted(ctx, n.WAL); err != nil {
+		return fmt.Errorf("sequencer: start receipt source rebuild: %w", err)
+	}
 	replayer := &nodeStartReplayer{AppReplayer: NewAppReplayer(n.Executor, n.Receipter), ctx: ctx}
 	replayer.src = n.ReceiptSource
 	result, err := n.WAL.Replay(replayer)
 	if err != nil {
 		return fmt.Errorf("sequencer: start WAL replay: %w", err)
 	}
+	pv, err := privval.LoadFilePVEmptyState(consensus.KeyFile(), "")
+	if err != nil {
+		return err
+	}
+	seq := baseSequential(n.FeeFloor.Executor)
+	seq.mu.Lock()
+	seq.proposer = append([]byte(nil), pv.Key.PubKey.Address()...)
+	seq.mu.Unlock()
 	if err := ctx.Err(); err != nil {
 		return err
 	}
 	if _, err := n.Executor.Snapshot(); errors.Is(err, ErrLayerNotOpen) {
 		if replayer.sealed {
-			return errors.New("sequencer: WAL ends in an uncommitted sealed block")
-		}
-		openTime := time.Now().UnixMilli()
-		if err := n.Executor.Open(height+1, openTime); err != nil {
-			return err
-		}
-		baseFee, err := n.FeeFloor.BaseFeePerGas()
-		if err != nil {
-			return err
-		}
-		if baseFee.IsNegative() {
-			return errors.New("sequencer: negative open base fee")
-		}
-		fee, overflow := uint256.FromBig(baseFee.TruncateInt().BigInt())
-		if overflow {
-			return errors.New("sequencer: open base fee exceeds uint256")
-		}
-		ack, err := n.Replicator.Release(ctx, &wal.Open{
-			Height: uint64(height + 1), OpenTimeMs: uint64(openTime), BaseFee: fee,
-		})
-		if err != nil {
-			return err
-		}
-		if ack.Status != AckOK {
-			return fmt.Errorf("%w: OPEN status %d", ErrStandbyRefused, ack.Status)
+			if replayer.batch == nil || replayer.batch.Height != height+1 {
+				return errors.New("sequencer: sealed WAL tail differs from application tip")
+			}
+			n.ConsensusSource.pending = replayer.batch
+		} else {
+			openTime := time.Now().UnixMilli()
+			if err := n.Executor.Open(height+1, openTime); err != nil {
+				return err
+			}
+			baseFee, err := n.FeeFloor.BaseFeePerGas()
+			if err != nil {
+				return err
+			}
+			if baseFee.IsNegative() {
+				return errors.New("sequencer: negative open base fee")
+			}
+			fee, overflow := uint256.FromBig(baseFee.TruncateInt().BigInt())
+			if overflow {
+				return errors.New("sequencer: open base fee exceeds uint256")
+			}
+			ack, err := n.Replicator.Release(ctx, &wal.Open{
+				Height: uint64(height + 1), OpenTimeMs: uint64(openTime), BaseFee: fee,
+				ProposerAddress: baseSequential(n.FeeFloor.Executor).proposer,
+			})
+			if err != nil {
+				return err
+			}
+			if ack.Status != AckOK {
+				return fmt.Errorf("%w: OPEN status %d", ErrStandbyRefused, ack.Status)
+			}
 		}
 	} else if err != nil {
+		return err
+	}
+	if err := n.startLease(ctx, result); err != nil {
 		return err
 	}
 	if result.LastAccept != nil {
@@ -126,7 +141,7 @@ func (n *Node) Start(ctx context.Context) (err error) {
 	}
 	n.App.SetOpenBlock(n.Executor)
 	n.App.SetSequencerSource(n.ConsensusSource)
-	n.App.SetSequencerRPC(evmrpc.NewSequencerOption(n.Accepter, n.ReceiptLogFeed),
+	n.App.SetSequencerRPC(evmrpc.NewSequencerOption(n, n.ReceiptLogFeed),
 		evmrpc.SequencerReceiptOption{Source: n.ReceiptSource, Keeper: &n.App.SequencerKeeper})
 	n.App.SetCommitListener(func(height int64, appHash []byte) error {
 		if err := n.Driver.OnCommit(height, appHash); err != nil {
@@ -168,5 +183,58 @@ func (r *nodeStartReplayer) Execute(a *wal.Accept) ([]byte, error) {
 	if err := r.ctx.Err(); err != nil {
 		return nil, err
 	}
-	return r.AppReplayer.Execute(a)
+	return (&standbyRoleReplay{AppReplayer: r.AppReplayer, allowLocal: true, source: &standbyRoleSource{app: r.r.host.(*app.App)}}).Execute(a)
+}
+
+// A crash can leave SEAL durable after the application committed but before
+// Driver wrote COMMITTED. Only the exact sequence/hash tip can reconcile it.
+func (n *Node) reconcileWALTip(ctx context.Context, height int64) error {
+	state := n.App.GetCheckCtx()
+	lastSeq, err := n.App.SequencerKeeper.LastSeq(state)
+	if err != nil {
+		return err
+	}
+	lastHash, err := n.App.SequencerKeeper.LastSeqHash(state)
+	if err != nil {
+		return err
+	}
+	committed := n.WAL.LastCommitted()
+	if committed != nil {
+		if committed.Height > uint64(height) {
+			return errors.New("sequencer: WAL committed tip is ahead of app")
+		}
+		if committed.Height == uint64(height) {
+			if committed.LastSeq != lastSeq {
+				return errors.New("sequencer: WAL committed tip differs from app")
+			}
+			if err := n.App.CheckCommittedAppHash(height, committed.AppHash[:]); err != nil {
+				return fmt.Errorf("sequencer: WAL committed tip differs from app: %w", err)
+			}
+			return nil
+		}
+	}
+	var seal *wal.Seal
+	if err := n.WAL.Scan(func(e wal.Entry) error {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		if v, ok := e.(*wal.Seal); ok && v.Height <= uint64(height) {
+			seal = v
+		}
+		return nil
+	}); err != nil {
+		return err
+	}
+	if seal == nil && committed == nil {
+		return nil
+	}
+	if seal == nil || seal.Height != uint64(height) || seal.ToSeq != lastSeq || seal.LastSeqHash != lastHash {
+		return errors.New("sequencer: sealed WAL tip differs from committed app")
+	}
+	hash, err := n.App.CommittedAppHash(height)
+	if err != nil {
+		return err
+	}
+	_, err = n.Replicator.Release(ctx, &wal.Committed{Height: uint64(height), LastSeq: lastSeq, AppHash: [32]byte(hash)})
+	return err
 }

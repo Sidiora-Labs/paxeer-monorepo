@@ -1,632 +1,422 @@
 # Hosted gateway
 
-Exact public JSON-RPC requests and responses captured from the real hosted
-services and a disposable native node are in
-[Public payment API](PublicAPI.md).
+`layerx-gateway` is the hosted HTTP and receipt-verification boundary for
+Paxeer X Network. The crate is `layerx-platform-gateway`, with its binary in
+[`src/main.rs`](../../services/platform/hosted/gateway/src/main.rs).
+The kernel runs inside the network and proposes blocks. A receipt is final
+once its block is committed. Hosted identity, indexing and product APIs do
+not form another execution or settlement network. Sub-chains are tenant
+domains in the database, launchable without new infrastructure.
 
-`layerx-gateway` is the receipt-verifying public ingress for hosted
-LayerX Network (`services/platform/hosted/gateway/src/lib.rs:1`;
-`services/platform/hosted/gateway/Cargo.toml:8-10`;
-`services/platform/hosted/gateway/src/lib.rs:885-887`). The crate is
-`layerx-platform-gateway`; the binary path is `src/main.rs`. The
-platform string is `tls-receipt-verifying-multi-instance-hosted-gateway`
-(`services/platform/hosted/gateway/src/lib.rs:885-887`).
+## Public nodes and hosted gateway
 
-It is the only hosted surface serving public `/v1` routes to humans and SDKs.
-The Human HTTPS API is a separate in-cluster Service, `layerx-human`,
-selecting the node pod's `human` container on port `9447` and forwarded
-on host `19453` (`services/platform/hosted/human/deployment.yaml:1-12`;
-`services/platform/hosted/tests/beta-cluster.sh:1850, 1900`). Qualification binds
-that Human origin as `LAYERX_QUALIFICATION_HUMAN_URL`
-(`services/platform/hosted/tests/beta-cluster.sh:1681`). See
-[Hosted Human](HostedHuman.md).
+The public node JSON-RPC endpoints are the root paths of
+`https://api-mainnet-beta.paxeer.network` and `https://api1.mainnet-beta.paxeer.network`
+through `https://api14.mainnet-beta.paxeer.network`. EVM chain ID is `125`
+(`0x7d`). Node namespaces are `debug`, `echo`, `eth`, `net`, `pax`, `px`, `test` and
+`txpool`. The `px` namespace answers from node state; `px_register` and
+`px_requestFunds` are operations of the hosted identity and faucet
+services declared in `services/platform/hosted/gateway/openrpc.json`.
+Obtain the gateway origin and enabled product routes from its operator.
+The checked-in Ingress names the public node hostname; that manifest alone
+does not establish a deployed public gateway there.
 
-The image is `ghcr.io/sidiora-labs/layerx-gateway:0.1.0`, user
-`4020:4020`, entrypoint `/usr/local/bin/layerx-gateway`
-(`docker/platform-gateway/Dockerfile:5-11`;
-`services/platform/hosted/gateway/deployment.yaml:67-69`). The Deployment has
-three replicas, listens on `0.0.0.0:9443`, exposes Service port `443`
-to container `9443`, and is reached as Ingress host
-`api-mainnet-beta.paxeer.network`
-(`services/platform/hosted/gateway/deployment.yaml:60`;
-`services/platform/hosted/gateway/deployment.yaml:70-72`;
-`services/platform/hosted/gateway/deployment.yaml:123-126`;
-`services/platform/hosted/gateway/deployment.yaml:187-193`). PDB
-`minAvailable` is `2`; HPA scales `3`–`30` on 65% CPU
-(`services/platform/hosted/gateway/deployment.yaml:131`;
-`services/platform/hosted/gateway/deployment.yaml:138-143`).
+The unified router and its `/rpc`, `/rpc/schema` and `/rpc/ws` endpoints are retired.
+There is no separate LayerX interface or sequencer service in the merged network.
+`node.hyperpaxeer.com` is the build-time library mirror, not a JSON-RPC endpoint.
 
-The router URL `https://api-mainnet-beta.paxeer.network` is the
-network's only unified endpoint: `eth_*`, `lx_*` and `px_*` methods answer
-there. The block explorer is `paxscan.io` and the wallet is
-`paxportwallet.com`; the sixteen public RPC names serve the EVM domain alone.
+The current gateway dispatcher serves JSON-RPC at `POST /` with
+`Content-Type: application/json`. It accepts one request or a batch of 1–32
+requests. JSON-RPC replies and errors use HTTP 200; notifications produce no
+reply, and an all-notification request returns HTTP 204. Invalid JSON is
+`-32700`; an invalid request or batch is `-32600`. All `lx_*` names now answer
+`-32601 Method not found`. The removed `/rpc/schema` route is unavailable;
+read the checked-in OpenRPC file instead.
 
-This page covers that binary, its Redis, and the tests in
-`services/platform/hosted/gateway/`. It does not document the emulator
-administration surface. `production_route` never accepts emulator
-paths (`services/platform/hosted/gateway/src/lib.rs:804-808`;
-`services/platform/hosted/gateway/src/lib.rs:880-881`).
+Use this request against a public node to identify the network:
 
-The gateway serves public JSON-RPC at `POST /rpc`, `GET /rpc/schema`, and
-`GET /rpc/ws`. The exact 18-method contract, authenticated submission rules,
-result shapes, and WebSocket behavior are in [Public JSON-RPC](PublicRpc.md).
+```sh
+curl https://api1.mainnet-beta.paxeer.network/ \
+  -H 'Content-Type: application/json' \
+  --data '{"jsonrpc":"2.0","id":1,"method":"eth_chainId","params":[]}'
+```
 
----
+For hosted methods, send the request to the operator-provided gateway root:
+
+```sh
+curl "${LAYERX_GATEWAY_URL%/}/" \
+  -H 'Content-Type: application/json' \
+  --data '{"jsonrpc":"2.0","id":1,"method":"px_getReceiptKeys","params":[]}'
+```
+
+See the [OpenRPC contract](../../services/platform/hosted/gateway/openrpc.json)
+and [`src/rpc.rs`](../../services/platform/hosted/gateway/src/rpc.rs) for the
+current request contract. [Public JSON-RPC](PublicRpc.md) and
+[Public payment API](PublicAPI.md) provide related background; older examples
+of activity submission there do not restore the removed methods on this gateway.
+
+## Hosted JSON-RPC methods
+
+OpenRPC and `ROUTER_METHODS` in
+[`src/lib.rs`](../../services/platform/hosted/gateway/src/lib.rs) declare
+17 method names: the following 16 `px_*` methods and `pax_sequencerReceipt`.
+This count excludes the EVM methods relayed to a configured node.
+Parameters are positional; use `[]` explicitly for methods without arguments.
+
+| Method | Parameters | Result or dependency |
+| --- | --- | --- |
+| `px_register` | `[signer_public_key, registration_signature]` | Self-service identity principal after Ed25519 proof of key possession; both arguments are lowercase hex, 32 and 64 bytes respectively |
+| `px_requestFunds` | `[did, signer_public_key]` | Authenticated starter-credit claim through identity and faucet; requires a Bearer session that authorizes the signer |
+| `px_resolveAccount` | `[account]` | EVM address or `did:layerx:<64 hex>` resolution through the address precompile; unbound fields are null |
+| `px_getAccount` | `[account]` | Resolution and EVM balance, nonce and height from one chain snapshot |
+| `px_getBalances` | `[account]` | Bank balances at one height; amounts are exact decimal strings in base units |
+| `px_listAssets` | `[]` | Up to 16 indexer assets, sorted by asset ID, with chain metadata at the returned height; unavailable metadata remains null |
+| `px_getNetwork` | `[]` | Network identifier, EVM chain ID and head, plus consensus head; missing consensus yields null with `consensus_unavailable` |
+| `px_getCommit` | `[height]` | Consensus `signedHeader` at a positive decimal-string height |
+| `px_getValidators` | `[height]` | Full validator set collected across consensus pages |
+| `px_getReceiptKeys` | `[]` | Configured receipt signing keys and inclusive height ranges; absent configuration is `-32003 receipt_keys_unavailable` |
+| `px_getSequenceBatch` | `[height]` | Transaction zero of the consensus block, checked as a sequence batch, with verified Merkle inclusion proof |
+| `px_getHistory` | `[account, cursor, limit, kind]` | Indexed transfer history of an EVM address, including asset metadata and indexer freshness |
+| `px_getUnifiedHistory` | `[account, cursor, limit, kind]` | Account resolution and merged indexed history for its bound account references |
+| `px_listHolderRecords` | `[address, kind, cursor, limit]` | Indexed `budget` or `grant` records held by an EVM address |
+| `px_getCapabilities` | `[]` | Seven precompile availability flags, their addresses, probe time and chain height |
+| `px_getRouteCatalogue` | `[]` | Authenticated product route catalogue with dependency readiness; requires `LayerX-Key` |
+| `pax_sequencerReceipt` | `[txHash]` | Node response relayed unchanged for a `0x`-prefixed 32-byte hash; unknown hashes return null |
+
+History cursors are opaque indexer cursors. Holder-record cursors are 32
+lowercase hex characters; holder page size defaults to 50 and is bounded at
+100. Use the OpenRPC schemas for optional argument types and result fields.
+A native account ID is not a DID public key: retain the original EVM address
+or explicit DID selector for repeated resolution, balance and history reads.
+
+The gateway relays permitted `eth_*`, `net_*` and `web3_*` methods through its
+configured node pool. Node-side signing methods are refused; ordinary HTTP
+relay does not implement `eth_subscribe` or `eth_unsubscribe`. Submit signed
+transactions using `eth_sendRawTransaction` or `eth_sendRawTransactionSync`.
+The `submitted`, `receipted` and `committed` rungs of `pax_sequencerReceipt`
+describe progress within this one network. A signed receipt before block
+commit is not finality evidence. See [Commitment levels](CommitmentLevels.md).
+
+Capability probes use `eth_call` at one height, rather than `eth_getCode`,
+since native precompiles need not carry bytecode. The probed surfaces are
+exchange `0x1015`, bridge `0x1016`, launchpad `0x1017`, ledger `0x101a`, pay
+`0x101b`, auth `0x101c` and Programs `0x101d` (20-byte addresses padded with
+leading zeros). Account resolution uses `0x1004`; bank reads use `0x1001`.
+A transaction addressed to an unavailable probed surface is refused with
+`-32003 Surface unavailable` and `data.code=surface_unavailable`. Reads and
+history are not gated by those flags. The probe cache defaults to 15 seconds.
 
 ## TLS
 
-Inbound TLS is rustls with no client authentication. The certificate
-is `LAYERX_GATEWAY_TLS_CERT_DER`; the PKCS#8 key is
-`LAYERX_GATEWAY_TLS_KEY_DER`
-(`services/platform/hosted/gateway/src/main.rs:461-480`). Each accepted TCP
-connection becomes a rustls `ServerConnection`
-(`services/platform/hosted/gateway/src/main.rs:1817-1828`). At most 256
-connections are live; further accepts are shut down
-(`services/platform/hosted/gateway/src/main.rs:41`;
-`services/platform/hosted/gateway/src/main.rs:1836-1839`). Request bodies are
-bounded at 8 MiB (`services/platform/hosted/gateway/src/main.rs:40`;
-`services/platform/hosted/gateway/src/main.rs:1825-1826`).
+The default listener uses rustls without client-certificate authentication.
+`LAYERX_GATEWAY_TLS_CERT_DER` supplies the server certificate and
+`LAYERX_GATEWAY_TLS_KEY_DER` supplies the PKCS#8 private key. Explicit
+`LAYERX_GATEWAY_LISTENER=plain` selects a plain listener and refuses either
+certificate variable being set. The hosted manifest uses HTTPS. The binary
+bounds requests at 8 MiB, live connections at 256, and requests per connection
+at 128; the checked-in nginx Ingress has a smaller `512k` body limit.
 
-Outbound HTTPS uses `native_tls` `TlsConnector` with
-`LAYERX_GATEWAY_OUTBOUND_CA_DER`, a PKCS#12 client identity, and a
-minimum protocol of TLS 1.2
-(`services/platform/hosted/gateway/src/main.rs:486-503`;
-`services/platform/hosted/gateway/src/http.rs:161-165`). Endpoints must be
-`https://` with a DNS host, not a literal IP
-(`services/platform/hosted/gateway/src/http.rs:23-26`;
-`services/platform/hosted/gateway/src/http.rs:46-47`). The client writes
-`Authorization`, optional `Idempotency-Key`, and optional `X-Trace-Id`
-(`services/platform/hosted/gateway/src/http.rs:182-193`). Connect timeout is 3s;
-I/O timeout is 8s (`services/platform/hosted/gateway/src/http.rs:8-9`).
+Outbound HTTPS uses `native_tls`, TLS 1.2 or later and
+`LAYERX_GATEWAY_OUTBOUND_CA_DER`. Configured HTTPS endpoints must use DNS
+hosts rather than literal IP addresses. Kernel backend configuration requires
+a PKCS#12 client identity. Without it, a paired service client identity may
+be configured for other HTTPS backends; it cannot coexist with the kernel
+client identity. Connect and I/O timeouts are 3 and 8 seconds.
 
-Redis is `rediss://` only, TLS 1.2, the same outbound CA, then `AUTH`
-username and password (`services/platform/hosted/gateway/src/store.rs:54-56`;
-`services/platform/hosted/gateway/src/store.rs:741-767`). The Redis server
-manifest sets `tls-auth-clients no`
-(`services/platform/hosted/gateway/deployment.yaml:8-12`). Those two TLS client
-auth settings differ: HTTPS upstreams present a PKCS#12 identity;
-Redis does not require a client certificate.
-
-Ingress nginx uses backend protocol HTTPS, body size `512k`, connect
-timeout `3`, read timeout `10`
-(`services/platform/hosted/gateway/deployment.yaml:181-184`).
-
----
+Redis requires `rediss://`, the outbound CA and ACL username/password
+files. Its checked-in server configuration has `tls-auth-clients no`;
+Redis authentication uses `AUTH`. See
+[`src/http.rs`](../../services/platform/hosted/gateway/src/http.rs),
+[`src/store.rs`](../../services/platform/hosted/gateway/src/store.rs) and the
+[deployment manifest](../../services/platform/hosted/gateway/deployment.yaml).
 
 ## Tokens
 
-The gateway accepts two inbound schemes and four outbound Bearer
-tokens. It never forwards a caller `LayerX-Key` or a caller session
-Bearer as the upstream `Authorization` value.
+| Credential | Accepted use |
+| --- | --- |
+| `Authorization: LayerX-Key {id}:{secret}` | Durable key authentication for protected gateway HTTP routes and the product catalogue |
+| `Authorization: Bearer {session}` | Issue, list, revoke or rotate keys; authenticated `px_requestFunds` |
+| Component, authority, identity and registry token files | Outbound Bearer authorization to the configured backend; caller credentials are not substituted for these tokens |
+| PKCS#12 identity and password file | Outbound HTTPS client identity |
+| Redis username and password files | Redis ACL authentication |
 
-| Credential | Accepted from | Used as | Never |
-| --- | --- | --- | --- |
-| `LayerX-Key {id}:{secret}` | Production `/v1` routes and `GET /internal/v1/principal` (`services/platform/hosted/gateway/src/main.rs:1162-1173`; `services/platform/hosted/gateway/src/main.rs:1726-1738`; `services/platform/hosted/gateway/src/main.rs:1768`) | Local digest check against Redis (`services/platform/hosted/gateway/src/lib.rs:45-75`) | Sent to component, authority, identity, or registry. `Client::request` always prefixes its argument with `Bearer ` (`services/platform/hosted/gateway/src/http.rs:90-104`) |
-| `Bearer` session | `/v1/keys` only (`services/platform/hosted/gateway/src/main.rs:972-981`; `services/platform/hosted/gateway/src/main.rs:1101-1108`) | JSON body `{"token": …}` to identity `POST /v1/sessions/introspect` (`services/platform/hosted/gateway/src/main.rs:982-993`) | Upstream `Authorization`. That header carries `LAYERX_GATEWAY_IDENTITY_TOKEN_FILE` |
-| Component token | File `LAYERX_GATEWAY_COMPONENT_TOKEN_FILE` (`services/platform/hosted/gateway/src/main.rs:516`) | `Authorization: Bearer` to the agent-boundary URL | Presented by humans |
-| Authority token | File `LAYERX_GATEWAY_AUTHORITY_TOKEN_FILE` (`services/platform/hosted/gateway/src/main.rs:521`) | `Authorization: Bearer` to the receipt-authority URL | Presented by humans |
-| Identity token | File `LAYERX_GATEWAY_IDENTITY_TOKEN_FILE` (`services/platform/hosted/gateway/src/main.rs:526`) | `Authorization: Bearer` to the identity URL | Presented by humans |
-| Registry token | File `LAYERX_GATEWAY_PROGRAM_REGISTRY_TOKEN_FILE` (`services/platform/hosted/gateway/src/main.rs:576`) | `Authorization: Bearer` to the program-registry URL | Presented by humans |
-| Redis username and password | `LAYERX_GATEWAY_REDIS_USERNAME_FILE`, `LAYERX_GATEWAY_REDIS_PASSWORD_FILE` (`services/platform/hosted/gateway/src/main.rs:583-584`) | Redis `AUTH` (`services/platform/hosted/gateway/src/store.rs:761-767`) | HTTP |
-| PKCS#12 client identity | `LAYERX_GATEWAY_CLIENT_IDENTITY_PKCS12` plus password file (`services/platform/hosted/gateway/src/main.rs:494-502`) | Outbound HTTPS mTLS | Inbound TLS (`with_no_client_auth` at `services/platform/hosted/gateway/src/main.rs:479`) |
+`authenticate_gateway_key` looks up the key in Redis and checks a
+length-prefixed SHA-256 digest over `gateway-key-v1`, the stored salt and the
+presented secret using a constant-time comparison. Issued secrets have the
+`lxp_live_` prefix followed by 64 hex characters derived by the issuance
+path. Revoked keys and digest mismatches are authentication failures;
+a store failure remains a persistence error.
 
-`authenticate_gateway_key` requires prefix `LayerX-Key `, an id of at
-most 64 `[A-Za-z0-9_-]` characters, and a secret `lxp_live_` plus 64
-hex characters (`services/platform/hosted/gateway/src/lib.rs:25-26`;
-`services/platform/hosted/gateway/src/lib.rs:49-59`;
-`services/platform/hosted/gateway/src/lib.rs:111-117`). The store digest is
-SHA-256 over length-prefixed `gateway-key-v1`, salt, and secret
-(`services/platform/hosted/gateway/src/lib.rs:64`;
-`services/platform/hosted/gateway/src/main.rs:1026-1034`). A disabled key or
-digest mismatch is `AccessError::Unauthenticated`; a store error is
-`AccessError::PersistenceUnavailable`
-(`services/platform/hosted/gateway/src/lib.rs:33-36`;
-`services/platform/hosted/gateway/src/lib.rs:60-73`). Persistence failure is
-deliberately not an authentication refusal
-(`services/platform/hosted/gateway/src/lib.rs:28-31`).
-
-`Bearer` on a production route is `401 api_key_required`
-(`services/platform/hosted/gateway/tests/hosted-boundary.sh:37`;
-`services/platform/hosted/gateway/tests/tap_nonce.rs:290-291`).
-
-Headers `x-layerx-principal` and `x-layerx-api-key` are refused as
-`400 untrusted_identity_header` before authentication
-(`services/platform/hosted/gateway/src/main.rs:1716-1724`;
-`services/platform/hosted/gateway/tests/hosted-boundary.sh:44`). Incoming
-headers and bodies are zeroized on drop
-(`services/platform/hosted/gateway/src/http.rs:215-221`). Audit events hash
-principal digest, action, subject, and outcome; payloads and
-credentials never enter the audit stream
-(`services/platform/hosted/gateway/src/lib.rs:90-92`;
-`services/platform/hosted/gateway/src/main.rs:1090-1098`).
-
-`Client::request_authorized` exists so another hosted ingress can
-present an already validated `LayerX-Key` value to this gateway
-(`services/platform/hosted/gateway/src/http.rs:107-120`). The gateway binary
-itself calls `Client::request` with the four service tokens
-(`services/platform/hosted/gateway/src/main.rs:947-969`).
-
----
+Key management introspects the caller's session through
+`POST /v1/sessions/introspect`, sending the session token in the JSON body
+and the configured identity service token in the outbound Authorization
+header. Issue and rotation require that the session authorize the requested
+signer. Secrets are derived for replayable issuance; Redis stores their
+digests. Caller-supplied `x-layerx-principal` and `x-layerx-api-key` headers
+are refused as `400 untrusted_identity_header` before normal authentication.
 
 ## Scopes
 
-Issued keys carry a sorted, non-empty list of at most six scopes
-(`services/platform/hosted/gateway/src/main.rs:1045-1065`):
+Key issuance accepts a sorted, non-empty list of at most six scope strings:
+`activity:write`, `program:call`, `program:read`, `program:simulate`,
+`receipt:read` and `state:read`. Acceptance of a scope does not enable a
+removed route. The current `ProductionRoute` permission mapping is:
 
 | Scope | Routes |
 | --- | --- |
-| `activity:write` | `POST /v1/activities` |
-| `program:call` | `POST /v1/programs/call`, `/deploy`, `/upgrade`, `/wind-down` |
-| `program:simulate` | `POST /v1/programs/simulate` |
-| `program:read` | `GET /v1/programs/registry/{id}`, `/interface`, `/activities/{id}`, `/receipts/by-idempotency/{key}` |
-| `receipt:read` | `GET /v1/receipts/{id}` |
+| `receipt:read` | `POST /v1/settle`, `GET /v1/receipts/{id}` |
 | `state:read` | `GET /v1/state` |
 
-`permits` is exact string match on the comma-joined record
-(`services/platform/hosted/gateway/src/main.rs:1072-1088`). Missing scope is
-`403 insufficient_scope` (`services/platform/hosted/gateway/src/main.rs:1778-1784`).
-
-Quota is a finite fixed window: requests `1..=1_000_000`, window
-`1..=2_592_000` seconds (`services/platform/hosted/gateway/src/lib.rs:164-171`).
-Writes consume quota inside Redis `reserve`; reads consume it in
-`consume_read` (`services/platform/hosted/gateway/src/store.rs:816-850`).
-
----
+Missing scope is `403 insufficient_scope`. Key quotas use finite fixed
+windows: 1–1,000,000 requests over 1–2,592,000 seconds. Protected state,
+receipt and settlement reads consume the Redis-backed quota. Public chain
+reads use a separate in-process budget of 120 reads/second overall and 30
+per client. One hosted request can perform several metered upstream reads.
+Forwarded client addresses are trusted only from configured trusted proxies.
 
 ## Public routes
 
-`production_route` is the production path set shared with the emulator
-(`services/platform/hosted/gateway/src/lib.rs:809-881`). Program identifiers in
-that parser are 64 lowercase hex characters; `GET /v1/receipts/{id}`
-allows any ASCII hex digit, including `A-F`
-(`services/platform/hosted/gateway/src/lib.rs:825-828`;
-`services/platform/hosted/gateway/src/lib.rs:874`). Those two identifier
-alphabets differ.
+The route order in `route_with_peer` is authoritative. The old
+`/v1/activities` and `/v1/programs` families are removed and return 404,
+including requests with query strings. The production parser admits only
+settlement, state and receipt routes; emulator administration is excluded.
+Additional product proxies use the checked-in
+[route catalogue](../../tools/paxeer-x/route-catalogue.json) and operator
+bindings in [`src/routes.rs`](../../services/platform/hosted/gateway/src/routes.rs).
+Their catalogue entries describe request contracts, not proof that a feature
+is deployed or has completed an end-to-end operation.
 
-Unauthenticated and key-management routes are dispatched before
-`production_route` (`services/platform/hosted/gateway/src/main.rs:1713-1759`).
+| Method and path | Authentication and behavior |
+| --- | --- |
+| `POST /` | JSON-RPC; public reads, with method-specific authentication for catalogue and funding |
+| `GET /livez` | No credential; `status=live`, `service=layerx-gateway`, package version |
+| `GET /readyz` | No credential; backend readiness and product dependency report |
+| `GET /readyz/core` | No credential; backend readiness with product route report omitted |
+| `GET /v1/status` | No credential; service availability summary |
+| `GET /metrics` | Event producer failure and overflow counters |
+| `POST /v1/keys` | Bearer session, `Idempotency-Key`; JSON signer, scopes and quota settings |
+| `GET /v1/keys` | Bearer session; principal's key metadata |
+| `DELETE /v1/keys/{id}` | Bearer session; revoke an owned key |
+| `POST /v1/keys/{id}/rotate` | Bearer session and `Idempotency-Key`; replace an owned key |
+| `GET /internal/v1/principal` | `LayerX-Key`; durable principal digest |
+| `GET /v1/routes` | `LayerX-Key`; catalogue plus dependency readiness |
+| `GET /v1/routes/{service}` | `LayerX-Key`; service routes and health; private services are refused |
+| `GET /v1/receipts/{id}` | `LayerX-Key`, `receipt:read`, configured component; owner-scoped receipt verification |
+| `GET /v1/state` | `LayerX-Key`, `state:read`, configured component; verified current head evidence |
+| `POST /v1/settle` | `LayerX-Key`, `receipt:read`, configured component; JSON merchant evidence checked against chain commitment |
 
-| Method and path | Inputs | Upstream |
-| --- | --- | --- |
-| `GET /livez` | none | none. Body `status=live`, `service=layerx-gateway`, `package_semver` (`services/platform/hosted/gateway/src/main.rs:1741-1749`) |
-| `GET /readyz` | none | Redis `PING`; component, authority `GET /readyz`; registry `GET /healthz` (`services/platform/hosted/gateway/src/main.rs:1660-1711`; `services/platform/hosted/gateway/src/main.rs:2799-2831`) |
-| `GET /v1/status` | none | same Redis/component/authority probes, no registry (`services/platform/hosted/gateway/src/main.rs:2834-2861`) |
-| `POST /v1/keys` | `Authorization: Bearer`, `Idempotency-Key`, JSON `signer_public_key`, `scopes`, `quota_requests`, `quota_window_seconds` (`services/platform/hosted/gateway/src/main.rs:78-84`; `services/platform/hosted/gateway/src/main.rs:2294-2320`) | identity `POST /v1/sessions/introspect`; Redis `issue_key`. Secret is derived, not stored (`services/platform/hosted/gateway/src/lib.rs:220-228`; `services/platform/hosted/gateway/src/main.rs:2321-2368`) |
-| `GET /v1/keys` | Bearer session | identity introspect; Redis `list_keys` (`services/platform/hosted/gateway/src/main.rs:1110-1111`; `services/platform/hosted/gateway/src/main.rs:2371-2402`) |
-| `DELETE /v1/keys/{id}` | Bearer session | identity introspect; Redis `revoke_key` (`services/platform/hosted/gateway/src/main.rs:1134-1146`) |
-| `POST /v1/keys/{id}/rotate` | Bearer session, `Idempotency-Key` | identity introspect; Redis `rotate_key` (`services/platform/hosted/gateway/src/main.rs:1148-1157`; `services/platform/hosted/gateway/src/main.rs:2405-2474`) |
-| `POST /rpc` | JSON-RPC 2.0; reads are unauthenticated, submission requires `LayerX-Key` | public-core reads or the existing authenticated activity/Programs routes |
-| `GET /rpc/schema` | none | embedded `openrpc.json` |
-| `GET /rpc/ws` | WebSocket upgrade and `LayerX-Key`; `receipt:read` or `state:read` by topic | live authenticated receipt/account/checkpoint wakes |
-| `GET /internal/v1/principal` | `LayerX-Key` | Redis key lookup. Body `principal_digest` only (`services/platform/hosted/gateway/src/main.rs:1726-1738`) |
-| `POST /v1/activities` | `LayerX-Key`, `Idempotency-Key`, `application/json` `{activity}` or `application/octet-stream` signed bytes (`services/platform/hosted/gateway/src/main.rs:3088-3137`) | agent-boundary `POST /v1/activities` as `application/octet-stream` with the component token and protocol idempotency key (`services/platform/hosted/gateway/src/main.rs:3213-3226`). Then authority `GET /v1/authorized-batches/by-activity/{id}` (`services/platform/hosted/gateway/src/main.rs:1176-1206`) |
-| `GET /v1/state` | `LayerX-Key` and `state:read` | none. Always `503 principal_state_proof_unavailable` before quota (`services/platform/hosted/gateway/src/main.rs:1592-1593`; `services/platform/hosted/gateway/src/main.rs:1631`) |
-| `GET /v1/receipts/{id}` | `LayerX-Key`, `receipt:read` | Redis `activity_owner`; agent-boundary `GET /v1/receipts/{id}`; authority by-activity (`services/platform/hosted/gateway/src/main.rs:2477-2533`) |
-| `POST /v1/programs/call` | `LayerX-Key`, `program:call`, `Idempotency-Key` hex32, JSON or octet-stream Programs CALL (`services/platform/hosted/gateway/src/main.rs:305-392`; `services/platform/hosted/gateway/src/main.rs:1786-1791`) | registry `GET /v1/programs/registry/{program}`; agent-boundary `POST /v1/programs/call`; authority by-activity |
-| `POST /v1/programs/simulate` | same call body, `program:simulate` | registry head; agent-boundary `POST /v1/programs/simulate` (`services/platform/hosted/gateway/src/main.rs:1270-1349`) |
-| `POST /v1/programs/deploy` | `program:call`, octet-stream only, Programs ordinal 1 (`services/platform/hosted/gateway/src/program_lifecycle.rs:7-13`; `services/platform/hosted/gateway/src/main.rs:3104-3121`) | agent-boundary `POST /v1/programs/deploy`; authority by-activity |
-| `POST /v1/programs/upgrade` | ordinal 2, octet-stream | agent-boundary `POST /v1/programs/upgrade`; authority |
-| `POST /v1/programs/wind-down` | ordinal 7, octet-stream | agent-boundary `POST /v1/programs/wind-down`; authority |
-| `GET /v1/programs/registry/{id}` | `program:read`, JSON selector `program_id` plus `requested_verification_level=sequencer-signed` (`services/platform/hosted/gateway/src/main.rs:867-881`) | registry `GET /v1/programs/registry/{id}` (`services/platform/hosted/gateway/src/main.rs:395-431`; `services/platform/hosted/gateway/src/main.rs:2536-2568`) |
-| `GET /v1/programs/registry/{id}/interface` | same selector | registry head and `GET …/interface` (`services/platform/hosted/gateway/src/main.rs:2571-2601`) |
-| `GET /v1/programs/activities/{id}` | JSON selector `activity_id` plus `sequencer-signed` (`services/platform/hosted/gateway/src/main.rs:906-921`) | Redis owner and operation; pending calls agent-boundary `GET /v1/programs/activities/{id}` (`services/platform/hosted/gateway/src/main.rs:2658-2708`; `services/platform/hosted/gateway/src/main.rs:3588-3592`) |
-| `GET /v1/programs/receipts/by-idempotency/{key}` | JSON selector `idempotency_key`, `expected_activity_id`, `sequencer-signed` (`services/platform/hosted/gateway/src/main.rs:884-903`) | Redis operation; pending lifecycle uses agent-boundary `GET /v1/programs/receipts/by-idempotency/{key}` (`services/platform/hosted/gateway/src/main.rs:1480-1487`; `services/platform/hosted/gateway/src/main.rs:2604-2655`) |
-
-The component URL in the hosted manifest is the agent boundary, not
-the core Service (`services/platform/hosted/gateway/deployment.yaml:78`):
-
-`https://layerx-agent-boundary.layerx-testnet.svc.cluster.local:9443`
-
-Authority is
-`https://layerx-receipt-authority.layerx-testnet.svc.cluster.local:9443`
-(`services/platform/hosted/gateway/deployment.yaml:80`). Identity is
-`https://layerx-identity.layerx-testnet.svc.cluster.local:9443`
-(`services/platform/hosted/gateway/deployment.yaml:82`). Registry is
-`https://layerx-program-registry.layerx-testnet.svc.cluster.local:9420`
-(`services/platform/hosted/gateway/deployment.yaml:84`). Readiness labels the
-component probe `core_agent_boundary`
-(`services/platform/hosted/gateway/src/main.rs:2825`).
-`LAYERX_GATEWAY_PUBLIC_CORE_URL` is the separate authenticated source for
-public account, proof, Asset, fee, and node-info reads. Activity submission
-continues to use the agent-boundary path.
-
-Program GET/simulate/error responses are wrapped in the agent envelope
-unless the request is a successful `POST` call or lifecycle mutation
-(`services/platform/hosted/gateway/src/main.rs:769-845`;
-`services/platform/hosted/gateway/src/main.rs:1797-1805`).
-
-Unknown `production_route` values are `404 not_found`
-(`services/platform/hosted/gateway/src/main.rs:1760-1766`).
-`GET /__emulator/reset` is 404
-(`services/platform/hosted/gateway/tests/hosted-boundary.sh:36`).
-
----
+Receipt path identifiers are exactly 64 ASCII hex characters, including
+uppercase. Settlement consumes the seller's existing evidence; it does not
+submit another execution. Its `settled`, `pending` and `refused` outcomes
+must be read from the response body: HTTP 200 alone does not mean settlement
+succeeded. Pending chain inclusion returns HTTP 202.
 
 ## Config keys
 
+The following keys are read by the current binary. A backend variable or a
+checked-in service hostname does not establish a public network endpoint.
+
 | Key | Role |
 | --- | --- |
-| `LAYERX_GATEWAY_LISTEN` | Bind address; default `0.0.0.0:9443` (`services/platform/hosted/gateway/src/main.rs:567-570`; `services/platform/hosted/gateway/deployment.yaml:72`) |
-| `LAYERX_GATEWAY_TLS_CERT_DER` | Inbound server certificate DER |
-| `LAYERX_GATEWAY_TLS_KEY_DER` | Inbound PKCS#8 key DER |
-| `LAYERX_GATEWAY_PUBLIC_CORE_URL` | HTTPS source for public committed reads; hosted uses `layerx-pending-core` |
-| `LAYERX_GATEWAY_OUTBOUND_CA_DER` | Trust bundle for HTTPS and Redis |
-| `LAYERX_GATEWAY_CLIENT_IDENTITY_PKCS12` | Outbound client identity |
-| `LAYERX_GATEWAY_CLIENT_IDENTITY_PASSWORD_FILE` | PKCS#12 password |
-| `LAYERX_GATEWAY_COMPONENT_URL` | Agent-boundary HTTPS origin |
-| `LAYERX_GATEWAY_COMPONENT_TOKEN_FILE` | Bearer to the agent boundary |
-| `LAYERX_GATEWAY_AUTHORITY_URL` | Receipt-authority HTTPS origin |
-| `LAYERX_GATEWAY_AUTHORITY_TOKEN_FILE` | Bearer to authority |
-| `LAYERX_GATEWAY_IDENTITY_URL` | Identity HTTPS origin |
-| `LAYERX_GATEWAY_IDENTITY_TOKEN_FILE` | Bearer to identity |
-| `LAYERX_GATEWAY_PROGRAM_REGISTRY_URL` | Program-registry HTTPS origin |
-| `LAYERX_GATEWAY_PROGRAM_REGISTRY_TOKEN_FILE` | Bearer to registry |
-| `LAYERX_GATEWAY_REDIS_URL` | `rediss://` origin |
-| `LAYERX_GATEWAY_REDIS_USERNAME_FILE` | Redis ACL user |
-| `LAYERX_GATEWAY_REDIS_PASSWORD_FILE` | Redis ACL password |
-| `LAYERX_GATEWAY_SEQUENCER_PUBLIC_KEY_FILE` | Pinned 32-byte hex sequencer key (`services/platform/hosted/gateway/src/main.rs:504-505`) |
-| `LAYERX_GATEWAY_KEY_PROVISIONING_KEY_FILE` | 32-byte hex used to derive issued secrets (`services/platform/hosted/gateway/src/main.rs:539-540`; `services/platform/hosted/gateway/src/lib.rs:220-228`) |
-| `LAYERX_GATEWAY_NETWORK_ID` | Hosted network identifier; must match authority facts (`services/platform/hosted/gateway/src/main.rs:548-553`; `services/platform/hosted/gateway/src/main.rs:1191-1195`) |
-| `LAYERX_GATEWAY_LXP_WIRE_VERSION` | Numeric wire version; must equal `STATE_COMMITMENT_PROTOCOL_VERSION` (`services/platform/hosted/gateway/src/main.rs:550-559`) |
-| `LAYERX_GATEWAY_PROTOCOL_NETWORK_ID` | `u32` checked on signed activities (`services/platform/hosted/gateway/src/main.rs:561-564`) |
-| `LAYERX_GATEWAY_MODULE_REGISTRY_FILE` | JSON module ordinals (`services/platform/hosted/gateway/src/main.rs:2251-2291`) |
-| `LAYERX_GATEWAY_IDEMPOTENCY_SECONDS` | Retention `3600..=2592000`; default `604800` (`services/platform/hosted/gateway/src/main.rs:42`; `services/platform/hosted/gateway/src/main.rs:541-546`; `services/platform/hosted/gateway/deployment.yaml:95`) |
+| `LAYERX_GATEWAY_LISTEN` | Socket address; otherwise `PORT` selects `[::]:{port}`, then default `[::]:9443` |
+| `LAYERX_GATEWAY_LISTENER` | `tls` (default) or `plain` |
+| `LAYERX_GATEWAY_TLS_CERT_DER`, `LAYERX_GATEWAY_TLS_KEY_DER` | TLS server certificate and PKCS#8 key |
+| `LAYERX_GATEWAY_OUTBOUND_CA_DER` | Required HTTPS and Redis trust certificate |
+| `LAYERX_GATEWAY_REDIS_URL` | Required Redis TLS origin |
+| `LAYERX_GATEWAY_REDIS_USERNAME_FILE`, `LAYERX_GATEWAY_REDIS_PASSWORD_FILE` | Required Redis credentials |
+| `LAYERX_GATEWAY_NETWORK_ID` | Required bounded network label |
+| `LAYERX_GATEWAY_LXP_WIRE_VERSION` | Required numeric current state-commitment protocol version |
+| `LAYERX_GATEWAY_PROTOCOL_NETWORK_ID` | Required signed-activity protocol network number; distinct from EVM chain ID |
+| `LAYERX_GATEWAY_PAXEER_RPC_URLS` | Optional JSON array of 2–8 distinct HTTPS node endpoints |
+| `LAYERX_GATEWAY_CONSENSUS_RPC_URL` | Optional consensus JSON-RPC endpoint for commits, validators, batch inclusion and head |
+| `LAYERX_GATEWAY_INDEXER_URL` | Optional history and asset indexer origin |
+| `LAYERX_GATEWAY_RECEIPT_KEYS_FILE` | Optional pinned receipt-key list; required for receipt verification and publication |
+| `LAYERX_GATEWAY_CAPABILITIES_TTL_SECONDS` | Probe cache lifetime, 1–300 seconds; default 15 |
+| `LAYERX_GATEWAY_ROUTE_BINDINGS_FILE` | Optional product upstream bindings; catalogue presence alone is insufficient |
+| `LAYERX_GATEWAY_TRUSTED_PROXIES` | Trusted proxy CIDRs for client-address attribution |
+| `LAYERX_GATEWAY_IDENTITY_PROVISIONING_TOKEN_FILE` | Self-service registration authorization |
+| `LAYERX_GATEWAY_FAUCET_URL`, `LAYERX_GATEWAY_FAUCET_SERVICE_TOKEN_FILE`, `LAYERX_GATEWAY_FAUCET_CLAIM_AMOUNT` | Faucet integration and expected starter-credit amount |
+| `LAYERX_GATEWAY_IDEMPOTENCY_SECONDS` | Retention 3,600–2,592,000 seconds; default 604,800 |
 
-The public registry admits Asset register (1), account_open (4), send (5),
-receive (6), grant_issue (7), grant_revoke (8), mint (10), and burn (11), plus
-Programs deploy (1), upgrade (2), call (3), transfer (5), account registration
-(6), and wind-down (7). Asset pause/unpause (2/3) are excluded and ordinal 9 is
-reserved. `lx_sendActivity` applies the same authenticated signer and fee path
-to every admitted type. `lx_estimateFee` strictly decodes that same set and
-prices canonical envelope bytes with the authenticated committed schedule;
-runtime-metered schedules fail closed when the request cannot supply the
-required execution or storage units.
+Optional kernel backend integration is selected by
+`LAYERX_GATEWAY_COMPONENT_URL`. Its group comprises component, authority,
+identity and program-registry URLs and their respective `*_TOKEN_FILE`
+variables, `LAYERX_GATEWAY_PUBLIC_CORE_URL`,
+`LAYERX_GATEWAY_CLIENT_IDENTITY_PKCS12`,
+`LAYERX_GATEWAY_CLIENT_IDENTITY_PASSWORD_FILE`,
+`LAYERX_GATEWAY_KEY_PROVISIONING_KEY_FILE` and
+`LAYERX_GATEWAY_MODULE_REGISTRY_FILE`. Setting members of this group without
+the component URL is a startup error. These are hosted backend configuration
+names retained in the implementation, not a second network topology.
 
-The testnet Deployment pins `LAYERX_GATEWAY_NETWORK_ID=layerx-testnet`,
-`LAYERX_GATEWAY_LXP_WIRE_VERSION=3`,
-`LAYERX_GATEWAY_PROTOCOL_NETWORK_ID=402`
-(`services/platform/hosted/gateway/deployment.yaml:91-93`).
+Without that group, outbound service mTLS may use the paired
+`LAYERX_GATEWAY_SERVICE_CLIENT_IDENTITY_PKCS12` and
+`LAYERX_GATEWAY_SERVICE_CLIENT_IDENTITY_PASSWORD_FILE` variables.
 
----
+`capabilities::chain_rpc` sends upstream node calls to the root path: a
+bare node origin gets the base path `/`. The checked-in testnet manifest
+supplies only one node-pool entry, while the current parser requires at least
+two.
 
 ## Redis state and ACL
 
-The gateway owns StatefulSet `layerx-gateway-redis`: Redis 8.2.1,
-TLS port 6379, `appendonly yes`, `appendfsync always`,
-`maxmemory-policy noeviction`, `protected-mode yes`, ACL file
-`/run/layerx/auth/users.acl` (`services/platform/hosted/gateway/deployment.yaml:5-17`;
-`services/platform/hosted/gateway/deployment.yaml:20-49`). NetworkPolicy admits
-TCP 6379 only from pods `app=layerx-gateway` and allows no egress
-(`services/platform/hosted/gateway/deployment.yaml:147-154`).
+The checked-in deployment runs Redis 8.2.1 with TLS port 6379, a 50 GiB
+persistent volume, `appendonly yes`, `appendfsync always`,
+`maxmemory-policy noeviction`, `protected-mode yes` and an ACL file.
+The gateway shares durable authentication, quota and operation state across
+replicas; do not clear that state to recover an uncertain operation.
 
-Cluster bring-up writes ACL `user default off` and one enabled user
-`layerx-gateway` with `~* &* +@all`
-(`services/platform/hosted/tests/beta-cluster.sh:473-475`;
-`services/platform/hosted/tests/beta-cluster.sh:497-499`). The TAP portable
-test uses the same `default off` plus one enabled user shape
-(`services/platform/hosted/gateway/tests/tap_nonce.rs:76-80`).
-
-| Key | Contents |
+| Key family | Purpose |
 | --- | --- |
-| `gateway:key:{id}` | Hash: `principal`, `salt`, `secret_digest`, `signer_public_key`, `scopes`, `quota_requests`, `quota_window_seconds`, `epoch`, `disabled` (`services/platform/hosted/gateway/src/store.rs:186`; `services/platform/hosted/gateway/src/store.rs:781-790`) |
-| `gateway:principal:{digest}:keys` | Set of key ids, cap 128 (`services/platform/hosted/gateway/src/store.rs:41`; `services/platform/hosted/gateway/src/store.rs:251-268`; `services/platform/hosted/gateway/src/store.rs:785`) |
-| `gateway:quota:{key_id}:{window}` | INCR usage with EXPIRE remaining window (`services/platform/hosted/gateway/src/store.rs:373-374`; `services/platform/hosted/gateway/src/store.rs:831`) |
-| `gateway:idem:{scope}` | Operation hash: digest, state, response, receipt, principal, activity_id, idempotency_key, continuation chunks (`services/platform/hosted/gateway/src/store.rs:375`; `services/platform/hosted/gateway/src/store.rs:832-834`) |
-| `gateway:pending` | Set of pending idempotency keys (`services/platform/hosted/gateway/src/store.rs:835`) |
-| `gateway:activity:{activity_id}` | Owner principal digest (`services/platform/hosted/gateway/src/store.rs:376`; `services/platform/hosted/gateway/src/store.rs:566-574`) |
-| `gateway:activity-operation:{activity_id}` | Pointer into `gateway:idem:…` (`services/platform/hosted/gateway/src/store.rs:377`; `services/platform/hosted/gateway/src/store.rs:579-610`) |
-| `gateway:audit` / `gateway:audit:head` | Hash-chained `XADD` stream (`services/platform/hosted/gateway/src/store.rs:724-737`; `services/platform/hosted/gateway/src/store.rs:788`) |
-| `gateway:tap:nonce:{scope}` | One-use TAP nonce (`services/platform/hosted/gateway/src/store.rs:635`; `services/platform/hosted/gateway/src/store.rs:868-890`) |
-| `gateway:tap:binding:{digest}` | TAP credential binding (`services/platform/hosted/gateway/src/store.rs:636`; `services/platform/hosted/gateway/src/store.rs:686-721`) |
+| `gateway:key:{id}` | Principal digest, signer, salted credential digest, scopes, quota, epoch and disabled flag |
+| `gateway:principal:{digest}:keys` | Principal's key IDs, bounded at 128 |
+| `gateway:quota:{key_id}:{window}` | Fixed-window usage |
+| `gateway:idem:{scope}` | Durable operation digest, state, response, receipt and continuation |
+| `gateway:pending` | Pending operation references |
+| `gateway:activity:{id}`, `gateway:activity-operation:{id}` | Activity owner and operation pointer |
+| `gateway:audit`, `gateway:audit:head` | Hash-chained audit stream and head |
+| `gateway:tap:nonce:{scope}`, `gateway:tap:binding:{digest}` | TAP replay protection and credential binding |
+| `gateway:events:*` | Durable event outbox, observations and sequence tracking |
 
-Continuation of a signed program activity is stored in 128 KiB chunks,
-at most 16 chunks / 2 MiB (`services/platform/hosted/gateway/src/store.rs:37-39`;
-`services/platform/hosted/gateway/src/store.rs:1143-1184`).
-
----
+Stored continuations are bounded at 2 MiB in at most 16 chunks. The presence
+of operation storage does not make the removed public submission routes
+available. Retain the original signed transaction and lookup selector while
+its outcome is uncertain; resolve chain progress through the receipt APIs.
 
 ## Callers the NetworkPolicy admits
 
-`topology-check.sh` includes `services/platform/hosted/gateway/deployment.yaml`
-(`services/platform/hosted/tests/topology-check.sh:22`;
-`services/platform/hosted/tests/topology-check.sh:86`). Gateway ingress admits
-TCP 9443 from namespace `ingress-nginx` or from pods
-`app=layerx-testnet-control`
-(`services/platform/hosted/gateway/deployment.yaml:162-164`). Egress is Redis
-6379, program-registry 9420, `layerx-plane: trusted-boundary` on 9443 /
-9445 / 9446, and DNS 53 (`services/platform/hosted/gateway/deployment.yaml:165-173`).
+The [manifest](../../services/platform/hosted/gateway/deployment.yaml)
+configures three gateway replicas, HTTPS container port 9443 and Service
+port 443, with a PDB minimum of two available replicas. The HPA spans 3–30
+replicas at 65% CPU utilization. These are deployment settings, not measured
+service availability.
 
----
+Gateway ingress admits nginx, testnet control, selected internal payment and
+Programs pods, node and registry pods. Egress permits Redis, the Paxeer
+boundary, registry, trusted-boundary services, faucet and DNS; a separate
+policy admits event delivery to payments and webhooks. Redis ingress admits
+gateway pods and the developer dashboard API. Review these policies when
+binding additional product upstreams.
 
 ## Typed refusals
 
-HTTP refusals use `{"ok": false, "error": {"code": …}}`
-(`services/platform/hosted/gateway/src/main.rs:597-605`). Library errors are
-`GatewayError` and `AccessError`.
+Ordinary HTTP refusals carry `{"ok":false,"error":{"code":...}}`.
+JSON-RPC refusals instead use `error.code`, `error.message` and, where
+provided, machine-readable `error.data`. Inspect both transport status and
+the response envelope.
 
-| HTTP | Code | Condition |
+| Surface | Refusal | Meaning |
 | --- | --- | --- |
-| 400 | `untrusted_identity_header` | `x-layerx-principal` or `x-layerx-api-key` present (`services/platform/hosted/gateway/src/main.rs:1716-1719`) |
-| 400 | `invalid_http_request` | Request framing failed (`services/platform/hosted/gateway/src/main.rs:1825-1826`) |
-| 400 | `idempotency_key_required` | Missing or malformed `Idempotency-Key` on key issue, rotation, or activity (`services/platform/hosted/gateway/src/main.rs:2301-2304`; `services/platform/hosted/gateway/src/main.rs:3088-3098`) |
-| 400 | `invalid_key_request` | `IssueRequest` JSON rejected (`services/platform/hosted/gateway/src/main.rs:2305-2306`) |
-| 400 | `invalid_quota` | `Quota::new` rejected (`services/platform/hosted/gateway/src/main.rs:2315-2316`) |
-| 400 | `invalid_scopes` | Empty, unsorted, unknown, or more than six scopes (`services/platform/hosted/gateway/src/main.rs:2318-2319`; `services/platform/hosted/gateway/src/main.rs:1045-1065`) |
-| 400 | `invalid_activity` | JSON activity hex failed (`services/platform/hosted/gateway/src/main.rs:3131-3136`) |
-| 400 | `invalid_program_call` | Program call body or signed CALL failed (`services/platform/hosted/gateway/src/main.rs:1276-1277`; `services/platform/hosted/gateway/src/main.rs:3123-3126`) |
-| 400 | `invalid_program_lifecycle` | Lifecycle validate failed (`services/platform/hosted/gateway/src/main.rs:3119-3120`) |
-| 400 | `invalid_program_selector` | Discovery GET body failed (`services/platform/hosted/gateway/src/main.rs:1597-1598`) |
-| 400 | `invalid_program_receipt_selector` | Receipt GET body failed (`services/platform/hosted/gateway/src/main.rs:1604-1605`) |
-| 400 | `invalid_program_activity_selector` | Activity GET body failed (`services/platform/hosted/gateway/src/main.rs:1609-1610`) |
-| 400 | `invalid_program_id` | Path program id is not 32-byte hex (`services/platform/hosted/gateway/src/main.rs:2537-2538`) |
-| 401 | `session_required` | Missing/inactive Bearer session or identity non-200 (`services/platform/hosted/gateway/src/main.rs:981`; `services/platform/hosted/gateway/src/main.rs:995-1009`) |
-| 401 | `api_key_required` | Missing `LayerX-Key`, format failure, digest mismatch, disabled key, or Redis `Reservation::Revoked` (`services/platform/hosted/gateway/src/main.rs:1168-1172`; `services/platform/hosted/gateway/src/main.rs:3296`) |
-| 403 | `insufficient_scope` | Authenticated key lacks the route scope (`services/platform/hosted/gateway/src/main.rs:1778-1779`) |
-| 403 | `signer_not_owned` | Issue/rotate signer is not in the session allow-list (`services/platform/hosted/gateway/src/main.rs:2308-2313`; `services/platform/hosted/gateway/src/main.rs:2414-2419`) |
-| 403 | `activity_authorization_refused` | `verify_submission` failed (`services/platform/hosted/gateway/src/main.rs:1282-1289`; `services/platform/hosted/gateway/src/main.rs:3143-3150`) |
-| 404 | `not_found` | Unknown path, unknown key id for this principal, or write route reached via `read_route` (`services/platform/hosted/gateway/src/main.rs:1114`; `services/platform/hosted/gateway/src/main.rs:1651-1656`; `services/platform/hosted/gateway/src/main.rs:1760-1761`) |
-| 404 | `receipt_not_found` | No owner, owner mismatch, or component 404 (`services/platform/hosted/gateway/src/main.rs:2487-2513`) |
-| 404 | `unknown_program` | Registry 404 (`services/platform/hosted/gateway/src/main.rs:414-415`) |
-| 404 | `program_interface_absent` | Registry interface 404 (`services/platform/hosted/gateway/src/main.rs:2592-2593`) |
-| 404 | `program_receipt_not_found` | No matching idempotency operation for this principal (`services/platform/hosted/gateway/src/main.rs:2624-2628`) |
-| 404 | `program_activity_not_found` | No owner or operation for this principal (`services/platform/hosted/gateway/src/main.rs:2666-2681`) |
-| 409 | `idempotency_conflict` | Same idempotency, different request digest, or key-issue collision (`services/platform/hosted/gateway/src/main.rs:2348-2350`; `services/platform/hosted/gateway/src/main.rs:3306-3312`) |
-| 409 | `rotation_conflict` | Rotate neither wrote nor replayed (`services/platform/hosted/gateway/src/main.rs:2472-2473`) |
-| 409 | `protocol_idempotency_mismatch` | Header key ≠ signed activity idempotency (`services/platform/hosted/gateway/src/main.rs:3152-3153`) |
-| 409 | `program_not_active` | Registry lifecycle is not `active` (`services/platform/hosted/gateway/src/main.rs:1295-1296`; `services/platform/hosted/gateway/src/main.rs:3157-3158`) |
-| 409 | `program_receipt_selector_mismatch` | Selector `expected_activity_id` ≠ stored activity (`services/platform/hosted/gateway/src/main.rs:2630-2631`) |
-| 409 | `program_call_refused` | Stored operation state is not `pending` or `completed` (`services/platform/hosted/gateway/src/main.rs:2636-2637`; `services/platform/hosted/gateway/src/main.rs:2696-2697`) |
-| 409 | `activity_refused` | Non-program activity verified with `result_code != 0` (`services/platform/hosted/gateway/src/main.rs:3505-3518`) |
-| 415 | `activity_content_type_required` | Missing/unsupported type or empty body (`services/platform/hosted/gateway/src/main.rs:3115-3116`) |
-| 429 | `quota_exceeded` | Redis `rate_limited` (`services/platform/hosted/gateway/src/main.rs:1314`; `services/platform/hosted/gateway/src/main.rs:1627`; `services/platform/hosted/gateway/src/main.rs:3297-3299`) |
-| 502 | `lifecycle_binding_invalid` | Pending lifecycle continuation does not re-verify (`services/platform/hosted/gateway/src/main.rs:1478`; `services/platform/hosted/gateway/src/main.rs:1507-1508`; `services/platform/hosted/gateway/src/main.rs:1576-1577`) |
-| 502 | `receipt_verification_failed` | Lifecycle receipt/authority mismatch (`services/platform/hosted/gateway/src/main.rs:1517-1521`; `services/platform/hosted/gateway/src/main.rs:3447-3461`) |
-| 502 | `component_invalid` | Pending lifecycle component status/body invalid (`services/platform/hosted/gateway/src/main.rs:1499-1503`) |
-| 503 | `persistence_unavailable` | Redis error (`services/platform/hosted/gateway/src/main.rs:1172`; `services/platform/hosted/gateway/src/main.rs:1628`) |
-| 503 | `identity_unavailable` | Introspect encode/decode failure (`services/platform/hosted/gateway/src/main.rs:984`; `services/platform/hosted/gateway/src/main.rs:998`) |
-| 503 | `component_unavailable` | Outbound request to the agent boundary failed (`services/platform/hosted/gateway/src/main.rs:969`; `services/platform/hosted/gateway/src/main.rs:1327-1328`) |
-| 503 | `component_invalid` | Component status/body/activity mismatch (`services/platform/hosted/gateway/src/main.rs:1330-1334`; `services/platform/hosted/gateway/src/main.rs:3381-3396`) |
-| 503 | `authority_unavailable` | Authority non-200 (`services/platform/hosted/gateway/src/main.rs:1186-1187`) |
-| 503 | `authority_invalid` | Authority JSON/hex failed (`services/platform/hosted/gateway/src/main.rs:1189-1205`) |
-| 503 | `authority_mismatch` | Activity id, network id, or wire version mismatch (`services/platform/hosted/gateway/src/main.rs:1191-1195`) |
-| 503 | `receipt_verification_failed` | `verify_activity_operation` failed (`services/platform/hosted/gateway/src/main.rs:1219-1225`) |
-| 503 | `program_receipt_verification_failed` | `verify_program_operation` failed (`services/platform/hosted/gateway/src/main.rs:1251-1262`) |
-| 503 | `program_simulation_unverified` | Simulation receipt or evidence failed (`services/platform/hosted/gateway/src/main.rs:2927-2928`; `services/platform/hosted/gateway/src/main.rs:2947-3021`) |
-| 503 | `program_registry_unavailable` | Registry transport failed (`services/platform/hosted/gateway/src/main.rs:413`; `services/platform/hosted/gateway/src/main.rs:2589-2590`) |
-| 503 | `program_registry_invalid` | Registry JSON/head failed (`services/platform/hosted/gateway/src/main.rs:417-420`; `services/platform/hosted/gateway/src/main.rs:2169-2207`) |
-| 503 | `program_registry_unverified` | Missing `receipt-verified` or interface digest mismatch (`services/platform/hosted/gateway/src/main.rs:423-429`; `services/platform/hosted/gateway/src/main.rs:2749-2773`) |
-| 503 | `program_state_unverified` | Head clock/state fields missing or stale (`services/platform/hosted/gateway/src/main.rs:2226-2235`) |
-| 503 | `program_simulation_head_unavailable` | Active program lacks state root/sequence (`services/platform/hosted/gateway/src/main.rs:1298-1301`) |
-| 503 | `principal_state_proof_unavailable` | `GET /v1/state` (`services/platform/hosted/gateway/src/main.rs:1592-1593`) |
-| 503 | `operation_state_unknown` | Existing reservation state is not pending/completed/refused_* (`services/platform/hosted/gateway/src/main.rs:3344-3345`) |
-| 503 | `receipt_encoding_failed` | Verified JSON could not be stored (`services/platform/hosted/gateway/src/main.rs:3543-3553`) |
-
-`502 receipt_verification_failed` (lifecycle) and
-`503 receipt_verification_failed` (ordinary activity) are different
-status codes for the same code string
-(`services/platform/hosted/gateway/src/main.rs:1225`;
-`services/platform/hosted/gateway/src/main.rs:3455`).
-
-Library `GatewayError` (`services/platform/hosted/gateway/src/lib.rs:921-935`):
-
-| Variant | Raised when |
-| --- | --- |
-| `Unauthenticated` | Display string only; HTTP uses `AccessError` instead (`services/platform/hosted/gateway/src/lib.rs:939-940`) |
-| `Forbidden` | Submission Ed25519 verifier is not the key's signer (`services/platform/hosted/gateway/src/lib.rs:450`) |
-| `InvalidRequest` | Canonical decode, protocol/network, encoding, or transfer disclosure failed (`services/platform/hosted/gateway/src/lib.rs:431-436`; `services/platform/hosted/gateway/src/lib.rs:388-414`) |
-| `InvalidRoute` | `production_route` miss (`services/platform/hosted/gateway/src/lib.rs:808`; `services/platform/hosted/gateway/src/lib.rs:880-881`) |
-| `IdempotencyConflict` | Display string; HTTP uses `409 idempotency_conflict` |
-| `VerificationRequired` | Missing receipt digest or program verify failed (`services/platform/hosted/gateway/src/lib.rs:538`; `services/platform/hosted/gateway/src/lib.rs:604`) |
-| `UntrustedSequencer` | Authority sequencer key ≠ pinned key (`services/platform/hosted/gateway/src/lib.rs:518-524`; `services/platform/hosted/gateway/src/lib.rs:585-591`) |
-| `ActivityMismatch` | Receipt activity id ≠ expected (`services/platform/hosted/gateway/src/lib.rs:532-533`) |
-| `Receipt(ReceiptCheck)` | `verify_outcome` failed (`services/platform/hosted/gateway/src/lib.rs:526-527`) |
-| `Encoding` | JSON render failed (`services/platform/hosted/gateway/src/lib.rs:547`) |
-| `Entropy` | `getrandom` failed during `IssuedKey::generate` (`services/platform/hosted/gateway/src/lib.rs:209-210`) |
-| `Unavailable` | Display string for a missing dependency |
-
-`verify_submission` returns `Forbidden` for a wrong signer and
-`InvalidRequest` for wire/protocol failures
-(`services/platform/hosted/gateway/src/lib.rs:424-456`). HTTP maps both to
-`403 activity_authorization_refused`
-(`services/platform/hosted/gateway/src/main.rs:3143-3150`).
-
----
+| HTTP | `401 api_key_required` | Missing, invalid or revoked durable gateway key |
+| HTTP | `401 session_required` | Missing or inactive Bearer session |
+| HTTP | `403 insufficient_scope` | Authenticated key lacks route permission |
+| HTTP | `403 signer_not_owned` | Session does not authorize the signer requested for key issuance/rotation |
+| HTTP | `404 receipt_not_found` | Receipt absent or not owned by this principal |
+| HTTP | `409 idempotency_conflict` | Key issuance collides with different retained key material |
+| HTTP | `429 quota_exceeded` | Protected read quota exhausted |
+| HTTP | `503 persistence_unavailable` | Redis failure; not an authentication refusal |
+| HTTP | `503 principal_state_proof_unavailable` | Upstream state head unavailable or not current |
+| HTTP | `502 state_proof_unverified` | State proof cannot be verified |
+| JSON-RPC | `-32601 Method not found` | Unknown or removed method, including all `lx_*` names |
+| JSON-RPC | `-32602 Invalid params` | Method's argument contract not met |
+| JSON-RPC | `-32001` | Chain/history/funding read unavailable; inspect message and data |
+| JSON-RPC | `-32002 Authentication required` | Product catalogue key authentication failed |
+| JSON-RPC | `-32003 Chain read unavailable` | Missing receipt keys, consensus evidence or invalid consensus response |
+| JSON-RPC | `-32003 Surface unavailable` | Submission target failed its precompile capability probe |
+| JSON-RPC | `-32005 Read unavailable` | Public read budget exhausted |
+| JSON-RPC | `-32010 Kernel unavailable` | Required hosted backend absent or unreachable; data names backend and reason |
 
 ## Receipt verification before success
 
-A `VerifiedOperation` cannot be constructed from a status word and
-bytes (`services/platform/hosted/gateway/src/lib.rs:292-294`). Public activity
-JSON is rendered only from verified receipt fields
-(`services/platform/hosted/gateway/src/lib.rs:506-508`;
-`services/platform/hosted/gateway/src/lib.rs:539-547`).
+`verify_live_receipt` selects a pinned authorization for the authority facts
+and its inclusive batch-height range, verifies the receipt and binds the
+expected activity ID. Receipt HTTP reads also check the durable principal
+owner and match component bytes to the authority evidence before returning
+them. A backend status word cannot construct a `VerifiedOperation`.
 
-Ordinary activities: decode receipt hex, load `AuthorityFacts` from
-authority, require the authority sequencer key to match
-`LAYERX_GATEWAY_SEQUENCER_PUBLIC_KEY_FILE`, run `verify_outcome` on
-the authorized batch, require the receipt activity id, then complete
-Redis as `receipt_verified` (`services/platform/hosted/gateway/src/main.rs:1209-1230`;
-`services/platform/hosted/gateway/src/lib.rs:512-555`;
-`services/platform/hosted/gateway/src/main.rs:3555-3574`). Non-zero
-`result_code` on a non-program activity is stored as `refused_409`
-with the verified receipt still present
-(`services/platform/hosted/gateway/src/main.rs:3505-3540`).
+`LAYERX_GATEWAY_RECEIPT_KEYS_FILE` is a JSON array whose entries contain
+`keyId`, `publicKey`, `firstHeight` and `lastHeight` (snake-case aliases are
+accepted). The file's key ID and public key are base64-encoded 32-byte values;
+`px_getReceiptKeys` publishes them as `0x`-prefixed hex. Empty lists, duplicate
+IDs and invalid or reversed ranges are refused. Do not substitute a key from
+an untrusted receipt for this operator-pinned authorization.
 
-Program CALL: `verify_program_operation` checks authorized program
-execution against the registry head's program id and guest ABI, plus
-terminal payload and call graph
-(`services/platform/hosted/gateway/src/lib.rs:572-613`;
-`services/platform/hosted/gateway/src/main.rs:1233-1267`).
-
-Program simulation: `verify_program_simulation_operation` against the
-pinned previous state root, then Ed25519 over
-`LayerX/agent/program-simulation-evidence/v1` with
-`committed: false` (`services/platform/hosted/gateway/src/lib.rs:623-657`;
-`services/platform/hosted/gateway/src/main.rs:2916-3021`).
-
-Lifecycle deploy/upgrade/wind-down: `program_lifecycle::verify_receipt`
-checks sequencer signature, protocol 3, module 9, module version 4,
-operation 0, absent program outcome, and on `result_code == 0` a
-program state proof (`services/platform/hosted/gateway/src/program_lifecycle.rs:69-94`;
-`services/platform/hosted/gateway/src/main.rs:3443-3455`).
-
-Component HTTP 202 or transport failure returns `202` with
-`state: unknown` and `retained_signed_activity`; that is not a
-verified success (`services/platform/hosted/gateway/src/main.rs:1403-1421`;
-`services/platform/hosted/gateway/src/main.rs:3227-3241`).
-
----
+State reads verify a signed batch header, receipt inclusion, digest, root,
+sequence and timestamp. They publish verified head facts, not an account or
+cell listing. Settlement first binds the merchant request, digest and
+idempotency evidence to its receipt, then requires committed
+`pax_sequencerReceipt` evidence and a matching `eth_getTransactionReceipt`
+before returning a successful settled result. The name of that HTTP route
+does not imply a separate settlement chain.
 
 ## Readiness
 
-A gateway with no kernel backend configured reports a chain-only readiness
-document: `backends` lists only configured backends plus `paxeer_chain`
-(`services/platform/hosted/gateway/src/main.rs:3575-3592`). Its `status` is
-`ready` when every listed backend and `chain_serving` are ready
-(`services/platform/hosted/gateway/src/main.rs:3718-3719`). Its `components`
-contains only `durable_store`; it omits the five kernel components and
-`principal_state_boundary`
-(`services/platform/hosted/gateway/src/main.rs:3732-3740`; decision.1982).
+`GET /livez` only reports process liveness. `GET /readyz` and
+`GET /readyz/core` return HTTP 200 when every configured backend is ready,
+otherwise 503; an unavailable clock also returns 503. The product variant
+includes a route dependency report, while the core variant omits it.
+Current readiness computes completeness from backend serving status; it does
+not certify successful execution of every product route.
 
-When any `KernelBackend` is configured, `backends` gains all five kernel
-entries: `core_agent_boundary`, `public_core`, `independent_receipt_authority`,
-`identity` and `program_registry`
-(`services/platform/hosted/gateway/src/main.rs:138-144`,
-`services/platform/hosted/gateway/src/main.rs:3593-3609`). In this case,
-`components` gains those same five entries and `principal_state_boundary`
-with the string `unavailable`; that field is present only when a kernel
-backend is configured
-(`services/platform/hosted/gateway/src/main.rs:3735-3740`). Redis readiness
-requires `PING` to return `PONG`. The agent-boundary `/readyz` must be 200
-JSON with `ready`, matching `network_id` and `wire_version`, and
-`synchronous_receipts` plus `state_snapshot`; the authority `/readyz` must
-be 200 JSON with `ready` and matching network/wire (route flags not
-required); registry `GET /healthz` must be 200 JSON `status=ready`,
-`service=program-registry`
-(`services/platform/hosted/gateway/src/main.rs:3101-3129`,
-`services/platform/hosted/gateway/src/main.rs:461-472`,
-`services/platform/hosted/gateway/src/main.rs:3189-3219`).
+Redis readiness requires `PING` → `PONG`. Chain readiness requires
+`eth_chainId` → `0x7d`. Configured consensus readiness requires a valid
+`status` response with `catching_up=false`. With no hosted kernel backends,
+the report omits their components, retains chain and consensus availability,
+and includes configured durable store/event producer dependencies. An
+unconfigured backend is not a serving failure, so HTTP 200 alone does not
+prove chain serving; inspect `capabilities.chain_serving` and `backends`.
 
-`GET /readyz` (`services/platform/hosted/gateway/src/main.rs:3292-3293`)
-answers HTTP 200 when every configured backend is ready.
-`GET /readyz/core` (`services/platform/hosted/gateway/src/main.rs:3295-3296`)
-answers HTTP 200 only when its readiness document is complete; otherwise
-these routes answer HTTP 503
-(`services/platform/hosted/gateway/src/main.rs:3742-3747`). A 200 response
-from `/readyz` can still have `status` set to `degraded`: completeness
-requires every listed backend to be ready and, with a kernel configured
-in product scope, `product_routes.complete` to be true
-(`services/platform/hosted/gateway/src/main.rs:3710-3725`).
+When kernel backends are configured, the report names
+`core_agent_boundary`, `public_core`, `independent_receipt_authority`,
+`identity` and `program_registry`. Those are implementation backend labels.
+`components.principal_state_boundary` remains `unavailable` in this report;
+use the verified state route's response to assess an actual state read.
 
-Probes: Deployment `readinessProbe` HTTPS `/readyz` every 5s,
-`livenessProbe` HTTPS `/livez` every 15s
-(`services/platform/hosted/gateway/deployment.yaml:96-97`).
-
-Testnet-control probes the gateway with unauthenticated `GET /readyz`
-and requires HTTP 200 (`services/platform/hosted/testnet/src/main.rs:1032-1037`;
-`services/platform/hosted/testnet/src/main.rs:1104`). Payment, receipt
-inspection, and programs journeys list `Dependency::Gateway`
-(`services/platform/hosted/testnet/src/main.rs:251-267`). Funding does not.
-
-`GET /v1/status` reports `hosted_gateway` as `degraded` when Redis is
-ready and `unavailable` when it is not; it never reports
-`available` for that field (`services/platform/hosted/gateway/src/main.rs:2834-2855`).
-The public status names the gateway as one of four components
-`testnet`, `gateway`, `core`, `paxeer`
-(`services/platform/hosted/testnet/src/main.rs:1647`). Those two status shapes
-differ.
-
----
+The deployment probes HTTPS `/readyz` every 5 seconds and `/livez` every
+15 seconds. `GET /v1/status` is a different summary: `hosted_gateway` is
+`degraded` when Redis is ready and `unavailable` otherwise; it is never an
+`available` verdict for all gateway capabilities.
 
 ## Tests
 
-Portable crate tests (no cluster):
+The current source contains the following focused checks. They describe test
+coverage, not a claim that a hosted deployment has passed them.
 
-| Test | Proves |
+| Source | Test or coverage |
 | --- | --- |
-| `issued_key_debug_redacts_the_credential` | `IssuedKey` debug prints `[REDACTED]`, not the secret (`services/platform/hosted/gateway/src/lib.rs:962-969`) |
-| `production_program_routes_are_exact_and_bounded` | Exact nine program routes; uppercase and `..` path ids are `InvalidRoute` (`services/platform/hosted/gateway/src/lib.rs:972-1033`) |
-| `continuation_tests` | 2 MiB activity hex chunks and rejects one extra byte (`services/platform/hosted/gateway/src/store.rs:1211-1232`) |
-| `agent_program_error_envelope_is_exact` | `409 idempotency_conflict` → class `IdempotencyConflict`, `retriability=Terminal` (`services/platform/hosted/gateway/src/main.rs:2057-2073`) |
-| `program_error_classes_are_stable_for_provider_parity` | `quota_exceeded`→`RateLimit`; `activity_authorization_refused`→`PolicyRefusal`; `program_receipt_verification_failed`→`VerificationFailure`; `404 program_interface_absent`→`UnavailableCapability`; `LXP_ERR_*`→`CoreRejection`; 503→`TransportFailure` (`services/platform/hosted/gateway/src/main.rs:2076-2094`; `services/platform/hosted/gateway/src/main.rs:631-662`) |
-| `program_get_selectors_bind_every_identity_field` | Selector identity fields are exact (`services/platform/hosted/gateway/src/main.rs:2126-2161`) |
-| `exact_native_json_and_scope_bindings` | Native JSON must match the signed payload field-for-field (`services/platform/hosted/gateway/src/native_call.rs:153-187`) |
-| `lifecycle_signed_activity_binds_exact_route_protocol_and_payload` | Wrong signer, network, ordinal, hash, or trailing byte is refused (`services/platform/hosted/gateway/src/program_lifecycle.rs:150-204`) |
-| `exact_pending_retry_survives_reconstruction_but_altered_nonce_reuse_is_replay` | Real Redis TAP nonce: identical retry is `AlreadyConsumed`; altered operation/path is `Replay` (`services/platform/hosted/gateway/tests/tap_nonce.rs:159-247`) |
-| `principal_binding_comes_only_from_the_authenticated_durable_key_record` | Empty, `Bearer`, wrong secret, and revoked key are `authenticate_gateway_key` errors; principal digest is the stored record (`services/platform/hosted/gateway/tests/tap_nonce.rs:250-305`) |
+| `src/lib.rs` | `production_route_refuses_every_program_and_activity_route`; `issued_key_debug_redacts_the_credential`; receipt-key loading and authorization checks |
+| `src/rpc.rs` | `lx_names_answer_method_not_found` checks refusal with and without configured backends |
+| `src/main.rs` | `receipt_keys_list_loads_and_accepts_primary_and_standby_inclusive_ranges`; `settlement_pending_before_commit_and_before_committed_transaction`; `settlement_refuses_tampered_commit_and_execution_fields` |
+| `src/state.rs` | `state_reads_publish_only_the_sequencer_signed_head_facts`; `tampered_or_unpinned_head_documents_are_refused` |
+| `src/store.rs` | Durable key state, bounded quotas and continuation storage checks |
+| `tests/tap_nonce.rs` | Redis-backed principal binding and exact-retry versus changed-request replay protection |
 
-Hosted boundary script, against a real gateway URL
-(`services/platform/hosted/gateway/tests/hosted-boundary.sh`):
-
-- `POST /v1/activities` with `LayerX-Key` returns `ok` and a receipt
-  that `LAYERX_RECEIPT_VERIFY_BIN` accepts
-  (`services/platform/hosted/gateway/tests/hosted-boundary.sh:18-34`)
-- `GET /__emulator/reset` is 404 (`:36`)
-- `Authorization: Bearer {secret}` on `/v1/state` is 401 (`:37`)
-- Conflicting activity under the same idempotency key is 409 (`:38`)
-- `GET /internal/v1/principal` is 200 with a 64-hex digest; missing
-  auth is 401; `X-LayerX-Principal` is 400 (`:40-44`)
-
-Lifecycle boundary script
-(`services/platform/hosted/gateway/tests/lifecycle-boundary.sh`):
-
-- Unauthorized POST is 401 (`:25-26`)
-- JSON content type is 415 (`:27-28`)
-- Missing idempotency key is 400 (`:29-30`)
-- Flipped signature byte is 403 (`:31-40`)
-- First submit and replay compare equal JSON results; receipt verifies
-  offline (`:41-51`)
-
-`tests/local/lifecycle.rs` runs that script against real
-`layerx-gateway`, identity, receipt-authority, TLS Redis, and core
-boundary processes. Unrelated signer issue is 403; exact issuance
-replay is 200 with byte-identical key JSON; an unrelated TLS root
-cannot complete `/livez`
-(`services/platform/hosted/gateway/tests/local/lifecycle.rs:463-496`;
-`services/platform/hosted/gateway/tests/local/README.md:8-9`). The offline
-verifier requires protocol 3, module 9 version 4, operation 0, success,
-absent call outcome (`services/platform/hosted/gateway/tests/local/verifier.rs:24-34`;
-`services/platform/hosted/gateway/tests/local/README.md:40-41`).
-
-`tests/load.js` issues a key with a Bearer session and submits the
-signed corpus to `POST /v1/activities`, requiring status 200 and a
-receipt (`services/platform/hosted/gateway/tests/load.js:37-72`).
-
----
+All source paths in this table are relative to
+[`services/platform/hosted/gateway`](../../services/platform/hosted/gateway).
+Historical lifecycle and hosted-boundary scripts that submit removed routes
+are not current public API examples.
 
 ## Make targets
 
-`services/platform/Makefile.inc` has no `platform-test-gateway` target. Gateway
-inputs appear here:
-
-| Target | Gateway use |
-| --- | --- |
-| `platform-test` | `cargo test` of the platform workspace, including `layerx-platform-gateway` (`services/platform/Makefile.inc:112-113`) |
-| `platform-build` | workspace build (`services/platform/Makefile.inc:90-91`) |
-| `platform-hosted-smoke` | requires `LAYERX_GATEWAY_URL` (`services/platform/Makefile.inc:161-173`) |
-| `platform-hosted-topology-check` | `topology-check.sh`, default manifests include the gateway (`services/platform/Makefile.inc:177-178`; `services/platform/hosted/tests/topology-check.sh:22`) |
-| `platform-test-agent-install` | requires `LAYERX_GATEWAY_URL` (`services/platform/Makefile.inc:190-201`) |
-
-The gateway also serves `/rpc` as documented on
-[Public JSON-RPC](PublicRpc.md). Commitment names for
-`lx_sendActivity` are on [Commitment levels](CommitmentLevels.md).
-
-[Home](Home.md)
+[`services/platform/Makefile.inc`](../../services/platform/Makefile.inc)
+defines `platform-build` for platform workspaces and SDK/release checks,
+`platform-test` for workspace suites through the runtime-clock wrapper,
+`platform-hosted-smoke`, `platform-hosted-topology-check` and
+`platform-test-agent-install` for their respective integration workflows.
+These broader targets have additional prerequisites; they are not gates
+for this documentation rewrite.
 
 ## Version-2 module registry
 
-`beta-cluster.sh` runs `/usr/local/bin/layerx-module-registry generate` from the
-node image with networking disabled and a read-only filesystem. It
-reads `ASSET_SYMBOL`, `ASSET_CURRENCY`, and `ASSET_DECIMALS` from
-`services/platform/hosted/node/bootstrap.sh`, supplies the node network and asset id,
-and passes `--custody-profile` when configured. The producer links the daemon's
-actual Asset and Programs interfaces and includes Bridge only for a validated
-custody profile. It refuses malformed metadata and noncanonical declarations.
-The generated schema-version-2 bytes are published as `registry.json` in
-`layerx-core-module-registry`, shared by gateway and receipt authority. The authority init container installs
-those same canonical bytes into its private `registry.json` file.
+When the optional kernel backend group is enabled, startup reads
+`LAYERX_GATEWAY_MODULE_REGISTRY_FILE` and validates schema version 2,
+1–256 unique nonzero lowercase-hex asset IDs, bounded currency/symbol
+metadata and decimals no greater than 38. It validates module IDs and
+ordinals, rejects duplicate registrations and includes Programs lifecycle
+ordinals 1, 2 and 7 in that module's registration.
 
-After node readiness, `layerx-module-registry read-node` requests an authenticated
-LNI preparation snapshot through the node socket as UID 4021. Bring-up compares
-its module ids and ordinals with the published ConfigMap and refuses disagreement.
-Assets are not compared: preparation snapshots carry no asset metadata.
-The node image must install `/usr/local/bin/layerx-module-registry` for this gate.
+This validation does not enable removed HTTP activity or Programs routes.
+The old daemon socket/preparation procedure is retired; it is not a
+prerequisite for the merged network's public node RPC.
+
+[Home](Home.md)

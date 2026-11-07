@@ -206,18 +206,115 @@ pub fn agent_qualify_fuzz_gate(repository: &Path, minimized_root: &Path) -> Resu
     ))
 }
 
-fn unsafe_exception_count(repository: &Path) -> Result<usize, String> {
-    let path = repository.join("services/agent/unsafe-allowlist.toml");
+// Compile the actual scanner into this consumer so focused qualification needs
+// neither a subprocess toolchain nor a separately installed scanner binary.
+#[allow(dead_code)]
+mod boundary_scanner {
+    include!("../../tools/boundary-check/src/main.rs");
+
+    pub(super) fn inspect(root: &Path) -> (i32, String, String) {
+        match agent_boundary_purity_check(root) {
+            Ok(()) => (
+                0,
+                "agent boundary purity passed\n".to_owned(),
+                String::new(),
+            ),
+            Err(violations) => {
+                let log = violations
+                    .into_iter()
+                    .map(|violation| format!("{}: {}\n", violation.rule, violation.path.display()))
+                    .collect();
+                (1, String::new(), log)
+            }
+        }
+    }
+}
+
+/// Version 1 of the maintained agent policy permits no unsafe exceptions.
+/// Reject unknown fields, duplicate declarations and attempted path grants;
+/// merely counting table headers would admit malformed or unapproved policy.
+pub fn unsafe_policy_exception_count(agent_root: &Path) -> Result<usize, String> {
+    let path = agent_root.join("unsafe-allowlist.toml");
     let source = fs::read_to_string(&path)
         .map_err(|error| format!("could not read {}: {error}", path.display()))?;
-    let exceptions = source
-        .lines()
-        .filter(|line| line.trim() == "[[exceptions]]")
-        .count();
-    if exceptions == 0 {
-        return Err("unsafe allowlist contains no justified exception".to_owned());
+    let mut version_seen = false;
+    let mut exceptions_seen = false;
+    for line in source.lines() {
+        let line = line.split('#').next().unwrap_or("").trim();
+        if line.is_empty() {
+            continue;
+        }
+        let (key, value) = line
+            .split_once('=')
+            .ok_or_else(|| format!("invalid no-exceptions policy: {}", path.display()))?;
+        match (key.trim(), value.trim()) {
+            ("version", "1") if !version_seen => version_seen = true,
+            ("exceptions", "[]") if !exceptions_seen => exceptions_seen = true,
+            _ => {
+                return Err(format!(
+                    "unsupported or unapproved unsafe policy: {}",
+                    path.display()
+                ))
+            }
+        }
     }
-    Ok(exceptions)
+    if !version_seen {
+        return Err(format!("missing unsafe policy version: {}", path.display()));
+    }
+    Ok(0)
+}
+
+#[derive(Debug)]
+pub struct BoundaryEvidence {
+    pub agent_root: PathBuf,
+    pub exit: i32,
+    pub stdout: String,
+    pub stderr: String,
+    pub stdout_log: PathBuf,
+    pub stderr_log: PathBuf,
+    pub exceptions: usize,
+}
+
+impl BoundaryEvidence {
+    pub fn require_success(&self) -> Result<usize, String> {
+        if self.exit != 0 {
+            return Err(format!(
+                "unsafe-allowlist failed: root={} exit={} stdout_log={} stderr_log={} stdout={} stderr={}",
+                self.agent_root.display(), self.exit, self.stdout_log.display(), self.stderr_log.display(),
+                self.stdout.trim(), self.stderr.trim(),
+            ));
+        }
+        if self.stdout != "agent boundary purity passed\n" || !self.stderr.is_empty() {
+            return Err("unsafe checker omitted its success evidence".to_owned());
+        }
+        Ok(self.exceptions)
+    }
+}
+
+pub fn scan_agent_root(agent_root: &Path, log_root: &Path) -> Result<BoundaryEvidence, String> {
+    let agent_root = agent_root
+        .canonicalize()
+        .map_err(|error| format!("could not canonicalize {}: {error}", agent_root.display()))?;
+    let exceptions = unsafe_policy_exception_count(&agent_root)?;
+    let (exit, stdout, stderr) = boundary_scanner::inspect(&agent_root);
+    fs::create_dir_all(log_root).map_err(|error| format!("create scanner logs: {error}"))?;
+    let stdout_log = log_root.join("unsafe-allowlist.stdout.log");
+    let stderr_log = log_root.join("unsafe-allowlist.stderr.log");
+    fs::write(&stdout_log, &stdout).map_err(|error| format!("write scanner stdout: {error}"))?;
+    fs::write(&stderr_log, &stderr).map_err(|error| format!("write scanner stderr: {error}"))?;
+    Ok(BoundaryEvidence {
+        agent_root,
+        exit,
+        stdout,
+        stderr,
+        stdout_log,
+        stderr_log,
+        exceptions,
+    })
+}
+
+pub fn agent_boundary_scan(repository: &Path, log_root: &Path) -> Result<BoundaryEvidence, String> {
+    scan_agent_root(&repository.join("services/agent"), log_root)
 }
 
 /// Runs the workspace under supported sanitizers and enforces the unsafe allowlist.
@@ -241,24 +338,9 @@ pub fn agent_qualify_sanitizer_gate(repository: &Path) -> Result<String, String>
         "passed"
     };
 
-    let mut boundary = Command::new("cargo");
-    boundary.args([
-        "run",
-        "--manifest-path",
-        "services/agent/tools/boundary-check/Cargo.toml",
-        "--locked",
-        "--quiet",
-        "--",
-        "agent",
-    ]);
-    let boundary_evidence = run_logged(repository, "unsafe-allowlist", &mut boundary)?;
-    if !boundary_evidence
-        .stdout
-        .contains("agent boundary purity passed")
-    {
-        return Err("unsafe checker omitted its success evidence".to_owned());
-    }
-    let exceptions = unsafe_exception_count(repository)?;
+    let boundary_evidence =
+        agent_boundary_scan(repository, &repository.join("build/qualification/fuzz"))?;
+    let exceptions = boundary_evidence.require_success()?;
     Ok(format!(
         "agent_qualify_sanitizer_gate passed address=passed thread={thread} unsafe_allowlist=passed justified_exceptions={exceptions}"
     ))

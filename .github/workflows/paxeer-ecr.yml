@@ -64,7 +64,6 @@ on:
       - 'docs/paxeer-network.md'
       - 'docs/paxeer-chain-docs.md'
       - 'scripts/**'
-      - '!scripts/PaxeerBetaDeploy.s.sol'
       - '!scripts/qualify-mirror-live.sh'
       - '!scripts/qualify-mirror-verification-live.sh'
       - '.github/workflows/paxeer-ecr.yml'
@@ -79,7 +78,7 @@ on:
         required: false
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}-${{ inputs.ref }}-${{ inputs.tag }}
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event_name == 'push' && github.sha || github.ref }}
   cancel-in-progress: true
 
 permissions:
@@ -113,6 +112,7 @@ jobs:
         uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
         with:
           context: .
+          file: docker/layerx/Dockerfile
           cache-from: type=registry,ref=${{ steps.login-ecr.outputs.registry }}/pax/build-cache:shared
           cache-to: type=registry,ref=${{ steps.login-ecr.outputs.registry }}/pax/build-cache:shared,mode=max
           platforms: linux/amd64
@@ -125,6 +125,7 @@ jobs:
         uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
         with:
           context: .
+          file: docker/layerx/Dockerfile
           cache-from: type=registry,ref=${{ steps.login-ecr.outputs.registry }}/pax/build-cache:shared
           cache-to: type=registry,ref=${{ steps.login-ecr.outputs.registry }}/pax/build-cache:shared,mode=max
           platforms: linux/amd64
@@ -137,6 +138,7 @@ jobs:
         uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
         with:
           context: .
+          file: docker/layerx/Dockerfile
           cache-from: type=registry,ref=${{ steps.login-ecr.outputs.registry }}/pax/build-cache:shared
           cache-to: type=registry,ref=${{ steps.login-ecr.outputs.registry }}/pax/build-cache:shared,mode=max
           platforms: linux/amd64
@@ -149,6 +151,7 @@ jobs:
         uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
         with:
           context: .
+          file: docker/layerx/Dockerfile
           cache-from: type=registry,ref=${{ steps.login-ecr.outputs.registry }}/pax/build-cache:shared
           cache-to: type=registry,ref=${{ steps.login-ecr.outputs.registry }}/pax/build-cache:shared,mode=max
           platforms: linux/amd64

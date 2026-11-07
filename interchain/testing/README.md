@@ -1,117 +1,87 @@
-# IBC Testing Package 
+# IBC Testing Package
+
+This package exercises IBC clients, connections, channels and packets against SDK
+applications in process. Its chains are test fixtures. Paxeer runs one network
+through `paxd`, with the kernel participating in block proposal and finality at
+block commit. Creating two `TestChain` instances does not provision production
+networks or tenant domains.
+
+The default application is [simapp](simapp/README.md); the [mock application](mock/README.md)
+supports core IBC and middleware tests without depending on the transfer application.
 
 ## Components
 
-The testing package comprises of four parts constructed as a stack.
-- coordinator
-- chain
-- path
-- endpoint
+The testing package has four cooperating components:
 
-A coordinator sits at the highest level and contains all the chains which have been initialized.
-It also stores and updates the current global time. The time is manually incremented by a `TimeIncrement`. 
-This allows all the chains to remain in synchrony avoiding the issue of a counterparty being perceived to
-be in the future. The coordinator also contains functions to do basic setup of clients, connections, and channels
-between two chains. 
+- `Coordinator` owns the test chains and their shared clock. `TimeIncrement`
+  defaults to five seconds. Use its commit and time helpers to keep chain headers
+  synchronized when creating proofs and updating clients.
+- `TestChain` wraps a `TestingApp`, validator set, headers and funded sender
+  accounts. `NewTestChain` creates four validators; `NewTestChainWithValSet`
+  accepts a supplied validator set and matching, correctly ordered signers.
+  `SendMsgs` signs and delivers SDK messages, commits successful execution and
+  advances the headers and coordinator time.
+- `Path` connects two endpoints. `NewPath(chainA, chainB)` creates `EndpointA` and
+  `EndpointB` and sets their counterparty pointers. `RelayPacket` receives and
+  acknowledges an already sent packet using its commitment and emitted acknowledgement.
+- `Endpoint` holds one chain's client, connection and channel identifiers and
+  configuration. Its methods perform handshakes, client updates and packet
+  operations on that side of the path.
 
-A chain is an SDK application (as represented by an app.go file). Inside the chain is an `TestingApp` which allows
-the chain to simulate block production and transaction processing. The chain contains by default a single tendermint
-validator. A chain is used to process SDK messages.
-
-A path connects two channel endpoints. It contains all the information needed to relay between two endpoints. 
-
-An endpoint represents a channel (and its associated client and connections) on some specific chain. It contains
-references to the chain it is on and the counterparty endpoint it is connected to. The endpoint contains functions
-to interact with initialization and updates of its associated clients, connections, and channels. It can send, receive, 
-and acknowledge packets.
-
-In general:
-- endpoints are used for initialization and execution of IBC logic on one side of an IBC connection
-- paths are used to relay packets
-- chains are used to commit SDK messages
-- coordinator is used to setup a path between two chains 
+See [coordinator.go](coordinator.go), [chain.go](chain.go), [path.go](path.go) and
+[endpoint.go](endpoint.go) for the implementations.
 
 ## Integration
 
-To integrate the testing package into your tests, you will need to define:
-- a testing application
-- a function to initialize the testing application
-
 ### TestingApp
 
-Your project will likely already have an application defined. This application
-will need to be extended to fulfill the `TestingApp` interface.
+[app.go](app.go) declares the application interface:
 
 ```go
 type TestingApp interface {
 	abci.Application
 
-	// ibc-go additions
 	GetBaseApp() *baseapp.BaseApp
 	GetStakingKeeper() stakingkeeper.Keeper
 	GetIBCKeeper() *keeper.Keeper
 	GetScopedIBCKeeper() capabilitykeeper.ScopedKeeper
 	GetTxConfig() client.TxConfig
-
-	// Implemented by SimApp
 	AppCodec() codec.Codec
-
-	// Implemented by BaseApp
 	LastCommitID() sdk.CommitID
 	LastBlockHeight() int64
 }
 ```
 
-To begin, you will need to extend your application by adding the following functions:
+Here `abci` comes from `consensus/abci/types`, `keeper` from
+`interchain/modules/core/keeper`, and the remaining types from the corresponding
+packages under `sdk/`. Use this repository's types when implementing the interface.
+
+[`SimApp`](simapp/app.go) embeds `BaseApp` and implements the keeper, codec and
+transaction-configuration accessors. For example:
 
 ```go
-// TestingApp functions
-// Example using SimApp to implement TestingApp
-
-// GetBaseApp implements the TestingApp interface.
-func (app *SimApp) GetBaseApp() *baseapp.BaseApp {
-	return app.BaseApp
-}
-
-// GetStakingKeeper implements the TestingApp interface.
-func (app *SimApp) GetStakingKeeper() stakingkeeper.Keeper {
-	return app.StakingKeeper
-}
-
-// GetIBCKeeper implements the TestingApp interface.
 func (app *SimApp) GetIBCKeeper() *ibckeeper.Keeper {
 	return app.IBCKeeper
 }
 
-// GetScopedIBCKeeper implements the TestingApp interface.
 func (app *SimApp) GetScopedIBCKeeper() capabilitykeeper.ScopedKeeper {
 	return app.ScopedIBCKeeper
 }
 
-// GetTxConfig implements the TestingApp interface.
 func (app *SimApp) GetTxConfig() client.TxConfig {
 	return MakeTestEncodingConfig().TxConfig
 }
-
 ```
 
-Your application may need to define `AppCodec()` if it does not already exist:
-
-```go
-// AppCodec returns SimApp's app codec.
-//
-// NOTE: This is solely to be used for testing purposes as it may be desirable
-// for modules to register their own custom testing types.
-func (app *SimApp) AppCodec() codec.Codec {
-	return app.appCodec
-}
-```
-
-It is assumed your application contains an embedded BaseApp and thus implements the abci.Application interface, `LastCommitID()` and `LastBlockHeight()`
+The current harness also uses `TestingAppDecorator` in [chain.go](chain.go) to
+expose simapp-specific test support. In particular, `SendMsgs` asserts that
+`chain.App` is a `*TestingAppDecorator`. Implementing `TestingApp` alone does not
+make an arbitrary application compatible with every harness helper.
 
 ### Initialize TestingApp
 
-The testing package requires that you provide a function to initialize your TestingApp. This is how this package implements the initialize function with its `SimApp` (see `app.go`):
+The standalone `SetupTestingApp` helper in [app.go](app.go) constructs an
+application and returns its default module genesis state:
 
 ```go
 func SetupTestingApp() (TestingApp, map[string]json.RawMessage) {
@@ -122,198 +92,162 @@ func SetupTestingApp() (TestingApp, map[string]json.RawMessage) {
 }
 ```
 
-This function returns the TestingApp and the default genesis state used to initialize the testing app.
+This snippet uses `encoding/json`, `github.com/tendermint/tm-db` as `dbm`, and
+`github.com/Sidiora-Labs/Paxeer-X-Network/interchain/testing/simapp` as `simapp`.
+The returned genesis map still needs to be passed to application initialization.
 
-Change the value of `DefaultTestingAppInit` to use your function:
-```go
-func init() {
-    ibctesting.DefaultTestingAppInit = MySetupTestingAppFunction
-}
-
-```
+`DefaultTestingAppInit` is declared with `SetupTestingApp` as its initial value,
+but the current `NewCoordinator` → `NewTestChain` → `NewTestChainWithValSet` path
+does not call it. Instead, the constructor calls `simapp.SetupWithGenesisValSet`
+and wraps the result with `NewTestingAppDecorator`. Reassigning
+`DefaultTestingAppInit` therefore does not replace the coordinator's application.
+For the supplied harness, use its constructors and configure the resulting simapp;
+a different application needs construction and delivery code that supports it.
 
 ## Example
 
-Here is an example of how to setup your testing environment in every package you are testing:
-```go
-// KeeperTestSuite is a testing suite to test keeper functions.
-type KeeperTestSuite struct {
-	suite.Suite
-
-	coordinator *ibctesting.Coordinator
-
-	// testing chains used for convenience and readability
-	chainA *ibctesting.TestChain
-	chainB *ibctesting.TestChain
-}
-
-// TestKeeperTestSuite runs all the tests within this package.
-func TestKeeperTestSuite(t *testing.T) {
-	suite.Run(t, new(KeeperTestSuite))
-}
-
-// SetupTest creates a coordinator with 2 test chains.
-func (suite *KeeperTestSuite) SetupTest() {
-	suite.coordinator = ibctesting.NewCoordinator(suite.T(), 2) // initializes 2 test chains
-	suite.chainA = suite.coordinator.GetChain(ibctesting.GetChainID(1)) // convenience and readability
-	suite.chainB = suite.coordinator.GetChain(ibctesting.GetChainID(2)) // convenience and readability
-}
-
-```
-
-To create interaction between chainA and chainB, we need to contruct a `Path` these chains will use. 
-A path contains two endpoints, `EndpointA` and `EndpointB` (corresponding to the order of the chains passed
-into the `NewPath` function). A path is a pointer and its values will be filled in as necessary during the 
-setup portion of testing. 
-
-Endpoint Struct:
-```go
-// Endpoint is a which represents a channel endpoint and its associated
-// client and connections. It contains client, connection, and channel
-// configuration parameters. Endpoint functions will utilize the parameters
-// set in the configuration structs when executing IBC messages.
-type Endpoint struct {
-	Chain        *TestChain
-	Counterparty *Endpoint
-	ClientID     string
-	ConnectionID string
-	ChannelID    string
-
-	ClientConfig     ClientConfig
-	ConnectionConfig *ConnectionConfig
-	ChannelConfig    *ChannelConfig
-}
-```
-
-The fields empty after `NewPath` is called are `ClientID`, `ConnectionID` and
-`ChannelID` as the clients, connections, and channels for these endpoints have not yet been created. The
-`ClientConfig`, `ConnectionConfig` and `ChannelConfig` contain all the necessary information for clients, 
-connections, and channels to be initialized. If you would like to use endpoints which are intitialized to
-use your Port IDs, you might add a helper function similar to the one found in transfer:
+This complete test creates a default mock path and relays a packet:
 
 ```go
-func NewTransferPath(chainA, chainB *ibctesting.TestChain) *ibctesting.Path {
+package ibctesting_test
+
+import (
+	"testing"
+
+	channeltypes "github.com/Sidiora-Labs/Paxeer-X-Network/interchain/modules/core/04-channel/types"
+	ibctesting "github.com/Sidiora-Labs/Paxeer-X-Network/interchain/testing"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/interchain/testing/mock"
+	"github.com/stretchr/testify/require"
+)
+
+func TestMockPacketRelay(t *testing.T) {
+	coord := ibctesting.NewCoordinator(t, 2)
+	chainA := coord.GetChain(ibctesting.GetChainID(1))
+	chainB := coord.GetChain(ibctesting.GetChainID(2))
 	path := ibctesting.NewPath(chainA, chainB)
-	path.EndpointA.ChannelConfig.PortID = ibctesting.TransferPort
-	path.EndpointB.ChannelConfig.PortID = ibctesting.TransferPort
 
-	return path
+	// NewPath leaves all three identifiers empty until the handshakes run.
+	coord.Setup(path)
+	require.Equal(t, "07-tendermint-0", path.EndpointA.ClientID)
+	require.Equal(t, "connection-0", path.EndpointA.ConnectionID)
+	require.Equal(t, "channel-0", path.EndpointA.ChannelID)
+
+	packet := channeltypes.NewPacket(
+		mock.MockPacketData, 1,
+		path.EndpointA.ChannelConfig.PortID, path.EndpointA.ChannelID,
+		path.EndpointB.ChannelConfig.PortID, path.EndpointB.ChannelID,
+		chainB.GetTimeoutHeight(), 0,
+	)
+	require.NoError(t, path.EndpointA.SendPacket(packet))
+	require.NoError(t, path.RelayPacket(packet))
 }
-
 ```
 
-Path configurations should be set to the desired values before calling any `Setup` coordinator functions.
+The literal identifiers above apply to the first client, connection and channel
+on fresh chains. They belong to three different fields and may differ when a
+chain already has IBC state. `TestRepairM_1276_ReadmeIdentifiers` in
+[repair_m1276_test.go](repair_m1276_test.go) executes these assertions and relays
+the example packet against the coordinator and real keepers.
 
-To initialize the clients, connections, and channels for a path we can call the Setup functions of the coordinator:
-- Setup() -> setup clients, connections, channels
-- SetupClients() -> setup clients only
-- SetupConnections() -> setup clients and connections only
+Configure the endpoints before starting their handshakes. The defaults in
+[config.go](config.go) select Tendermint clients, the mock port, `mock-version` and
+an unordered channel. `ClientID`, `ConnectionID` and `ChannelID` begin empty;
+`ClientConfig`, `ConnectionConfig` and `ChannelConfig` are already populated.
 
+The coordinator offers the following setup levels:
 
-Here is a basic example of the testing package being used to simulate IBC functionality:
+- `SetupClients(path)` creates clients on both endpoints.
+- `SetupConnections(path)` creates clients and completes the connection handshake.
+- `Setup(path)` creates clients, connections and channels using the path's configuration.
+
+These helpers require success. To assert a handshake failure, call individual
+endpoint methods and check the returned error instead.
+
+For separate receive and acknowledgement steps, replace `RelayPacket` with:
 
 ```go
-    path := ibctesting.NewPath(suite.chainA, suite.chainB) // clientID, connectionID, channelID empty
-    suite.coordinator.Setup(path) // clientID, connectionID, channelID filled
-    suite.Require().Equal("07-tendermint-0", path.EndpointA.ClientID)
-    suite.Require().Equal("connection-0", path.EndpointA.ClientID)
-    suite.Require().Equal("channel-0", path.EndpointA.ClientID)
-
-    // create packet 1 
-    packet1 := NewPacket() // NewPacket would construct your packet
-
-    // send on endpointA
-    path.EndpointA.SendPacket(packet1)
-
-    // receive on endpointB
-    path.EndpointB.RecvPacket(packet1)
-
-    // acknowledge the receipt of the packet
-    path.EndpointA.AcknowledgePacket(packet1, ack)
-
-    // we can also relay
-    packet2 := NewPacket()
-
-    path.EndpointA.SendPacket(packet2)
-
-    path.Relay(packet2, expectedAck)
-
-    // if needed we can update our clients
-    path.EndpointB.UpdateClient()    
+result, err := path.EndpointB.RecvPacketWithResult(packet)
+require.NoError(t, err)
+ack, err := ibctesting.ParseAckFromEvents(result.GetEvents())
+require.NoError(t, err)
+require.NoError(t, path.EndpointA.AcknowledgePacket(packet, ack))
 ```
+
+`RelayPacket` expects a synchronous acknowledgement event. For asynchronous
+receipt, use the endpoint methods and call `WriteAcknowledgement` on the
+receiving endpoint when the application is ready, then `AcknowledgePacket` on the
+sending endpoint. Client updates can also be requested explicitly with
+`Endpoint.UpdateClient()`.
 
 ### Transfer Testing Example
 
-An ICS 20 test package built on this package's simapp might include a `testing/app.go` file with the following contents:
+The default simapp already includes the ICS 20 transfer application. A transfer
+path must set both the port and version on both endpoints before `Setup`:
 
 ```go
-package transfertesting
-
-import (
-	"encoding/json"
-
-	dbm "github.com/tendermint/tm-db"
-
-	"github.com/Sidiora-Labs/Paxeer-X-Network/interchain/testing/simapp"
-	ibctesting "github.com/Sidiora-Labs/Paxeer-X-Network/interchain/testing"
-)
-
-func SetupTransferTestingApp() (ibctesting.TestingApp, map[string]json.RawMessage) {
-	db := dbm.NewMemDB()
-	encCdc := simapp.MakeTestEncodingConfig()
-	app := simapp.NewSimApp(db, nil, true, map[int64]bool{}, simapp.DefaultNodeHome, 5, nil, encCdc, simapp.EmptyAppOptions{})
-	return app, simapp.NewDefaultGenesisState(encCdc.Marshaler)
-}
-
-func init() {
-	ibctesting.DefaultTestingAppInit = SetupTransferTestingApp
-}
-
 func NewTransferPath(chainA, chainB *ibctesting.TestChain) *ibctesting.Path {
 	path := ibctesting.NewPath(chainA, chainB)
 	path.EndpointA.ChannelConfig.PortID = ibctesting.TransferPort
 	path.EndpointB.ChannelConfig.PortID = ibctesting.TransferPort
-
+	path.EndpointA.ChannelConfig.Version = transfertypes.Version
+	path.EndpointB.ChannelConfig.Version = transfertypes.Version
 	return path
 }
-
-func GetTransferSimApp(chain *ibctesting.TestChain) *simapp.SimApp {
-	app, ok := chain.App.(*simapp.SimApp)
-	if !ok {
-		panic("not transfer app")
-	}
-
-	return app
-}
 ```
+
+Here `transfertypes` is
+`github.com/Sidiora-Labs/Paxeer-X-Network/interchain/modules/apps/transfer/types`,
+whose `Version` is `ics20-1`. Use transfer messages and transfer packet data for
+this path. The mock packet payload in the preceding example is specific to the
+mock application.
+
+Use `chain.GetSimApp()` to access the underlying simapp's public keepers and
+modules. The current constructor stores a decorator in `chain.App`, so a direct
+`chain.App.(*simapp.SimApp)` assertion is incorrect.
 
 ### Middleware Testing
 
-When writing IBC applications acting as middleware, it might be desirable to test integration points. 
-This can be done by wiring a middleware stack in the app.go file using existing applications as middleware and IBC base applications.
-The mock module may also be leveraged to act as a base application in the instance that such an application is not available for testing or causes dependency concerns. 
+Wire a middleware stack in the application and expose its base application when
+tests need to change callbacks. The [mock module](mock/README.md) supplies
+`MockIBCApp`, with an optional function field for each IBC callback. Configure
+its port and scoped capability keeper before registering it with
+`mock.NewIBCModule`.
 
-The mock IBC module contains a `MockIBCApp`. This struct contains a function field for every IBC App Module callback. 
-Each of these functions can be individually set to mock expected behaviour of a base application. 
-The portID and scoped keeper for the `MockIBCApp` should be set within `MockIBCApp` before calling `NewIBCModule`.
+The simapp exposes `ICAAuthModule`, the mock authentication application under
+the interchain accounts controller middleware. For example, a test can inject a
+channel-open-try callback using the current signature:
 
-For example, if one wanted to test that the base application cannot affect the outcome of the `OnChanOpenTry` callback, the mock module base application callback could be updated as such:
 ```go
-    mockModule.IBCApp.OnChanOpenTry = func(ctx sdk.Context, portID, channelID, version string) error {
-			return fmt.Errorf("mock base app must not be called for OnChanOpenTry")
-	}
+called := false
+chainA.GetSimApp().ICAAuthModule.IBCApp.OnChanOpenTry = func(
+	ctx sdk.Context,
+	order channeltypes.Order,
+	connectionHops []string,
+	portID, channelID string,
+	chanCap *capabilitytypes.Capability,
+	counterparty channeltypes.Counterparty,
+	counterpartyVersion string,
+) (string, error) {
+	called = true
+	return "", fmt.Errorf("mock authentication application rejected OnChanOpenTry")
+}
 ```
 
-Using a mock module as a base application in a middleware stack may require adding the module to your `SimApp`. 
-This is because IBC will route to the top level IBC module of a middleware stack, so a module which never
-sits at the top of middleware stack will need to be accessed via a public field in `SimApp`
+This snippet uses `fmt`, `sdk/types` as `sdk`, `sdk/x/capability/types` as
+`capabilitytypes`, and the `channeltypes` import from the packet example.
+An `OnChanOpenInit` override receives the same arguments but ends with
+`version string` and returns only `error`.
 
-This might look like:
-```go
-    suite.chainA.GetSimApp().ICAAuthModule.IBCApp.OnChanOpenInit = func(ctx sdk.Context, order channeltypes.Order, connectionHops []string,
-		portID, channelID string, chanCap *capabilitytypes.Capability,
-		counterparty channeltypes.Counterparty, version string,
-	) error {
-		return fmt.Errorf("mock ica auth fails")
-	}
-```
+The controller rejects open-try before calling the authentication application:
+its handshake must begin on the controller with open-init. Through the real
+controller route, assert `called == false` and `icatypes.ErrInvalidChannelFlow`.
+Calling `chainA.GetSimApp().ICAAuthModule.OnChanOpenTry` directly with those same
+arguments invokes the base callback, sets `called` and returns its version and
+error. `TestRepairM_1276_ReadmeCallback` compiles this example and exercises both
+calls with a channel and capability created by the real controller keeper.
+
+Install an override before the operation under test, then assert the outcome
+through the middleware path being exercised. A non-nil callback replaces the
+mock's default handling, including its default channel-capability claim for
+open-init and open-try; a successful override must perform any capability work
+its test needs.

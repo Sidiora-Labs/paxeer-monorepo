@@ -1,0 +1,8 @@
+[repair.22.33.1349]
+finding = "22.30.73/cgo-test-selection"
+change = "Align secp256_test.go with the production !gofuzz && cgo constraint."
+tests = ["TestRepairM_1349_BuildSelection", "TestRepairM_1349_PureGoCryptoSelection", "TestRepairM_1349_CgoSignRecoverVerify"]
+baseline_revision = "5f6b5f0aad35a415da93671f70183d5e5688bda0"
+baseline = "No baseline gate ran: the explicit implementation-first order and hf-build/hf-done-only budget take precedence over do_5; no pre-change test failure is claimed."
+evidence = "The hf-done private ledger records the verified candidate revision, exact command, exit code and log path."
+wiring_request = "Domain 15 (SDK crypto): qualify CGO_ENABLED=0 go test ./sdk/crypto/... in the owning aggregate gate; this task checks every crypto package's pure-Go source/test selection in process, and the allowed gate runs the real cgo wrapper."

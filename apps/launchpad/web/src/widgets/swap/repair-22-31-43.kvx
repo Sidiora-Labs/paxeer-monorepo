@@ -1,0 +1,29 @@
+[repair.22.31.43]
+audit = "22.30.30"
+finding = "swap-quote-amount"
+tests = ["swapQuoteAmountEditsInvalidateDuringDebounce", "swapHighImpactConfirmationBindsExactQuote", "swapConfirmationRejectsPairRefetchAndWalletChanges"]
+proof = "Real Quoter and Router contracts execute in a local EVM through the production wagmi quote and transaction hooks; assertions inspect router calldata, successful receipts, token balances, immediate debounce invalidation, and stale high-impact confirmations."
+baseline = "Not run: the explicit task order permits only hf-build followed by hf-done after the complete implementation; no pre-change failure is claimed."
+prior_attempt = "Candidate 830f879b308c45984ed56e3731965b5cd4377fd8 failed swapQuoteAmountEditsInvalidateDuringDebounce and swapHighImpactConfirmationBindsExactQuote at the successful-receipt assertion; swapConfirmationRejectsPairRefetchAndWalletChanges passed. Continued that implementation without removing or weakening any assertions."
+wiring_requests = []
+evidence = "The runner records the exact candidate revision, commands, exits and private logs in its gate ledger."
+
+[gotcha.candidate-dependencies]
+observed = "The gate candidate walker descends into ignored node_modules directories under an allowed directory; the first wrapper invocation was interrupted before compilation or ledger evidence."
+resolution = "Keep the local EVM installation outside the source tree with an ignored node_modules symlink; publish its package manifest and npm shrinkwrap."
+
+[gotcha.fixture-lock]
+observed = "Generating an npm lock from pnpm dependency symlinks records machine-local paths; the wrapper was interrupted while replacing that lock before a gate result was recorded."
+resolution = "Generate the npm shrinkwrap from the fixture manifest in an empty directory, so every dependency is resolved from its registry with integrity metadata."
+
+[gotcha.wallet-hydration]
+observed = "WagmiProvider with reconnectOnMount=false clears connections from a persisted config at render, so the EVM harness timed out waiting for a connected quote; failed mounts also left React roots active during DOM teardown."
+resolution = "Use an unpersisted config with the real connector, close every failed mount, and drain React work before removing the browser globals; retain all original assertions and time bounds."
+
+[gotcha.injected-wallet-gas]
+observed = "Ganache defaults eth_sendTransaction without gas to 90000 gas, whereas injected-wallet writes from the production transaction hook omit gas; the real multihop router needs more gas."
+resolution = "Configure Ganache's documented defaultTransactionGasLimit=estimate so the real EVM estimates the transaction; retain successful receipt, exact calldata and token balance assertions, and report used versus supplied gas on failure."
+
+[gotcha.dependency-directory-name]
+observed = "Candidate fba1530fdaba434b0f5ca61c49cd71ff38ed03f0 passed hf-build but hf-done exited 1 before collecting tests because relocating dependencies to a directory not named node_modules breaks Node's resolution of solc's installed memorystream dependency; evidence: /out/logs/verify-1.log."
+resolution = "Retain the node_modules basename under the external dependency directory and point the ignored in-scope symlink at it; rerun the declared build and verification together on the repaired candidate."

@@ -1,0 +1,45 @@
+[meta]
+task = "22.31.383"
+base = "7f80bc77d69d432a30797265253debe7936b8dfb"
+status = "implemented-pending-bounded-qualification; out-of-path owner wiring requested below"
+baseline = "UNRUN: the ordered implementation-first and hf-build/hf-done-only gate instructions prohibit the contradictory step 6 unchanged-tree verify."
+previous_attempt = "Attempt 1 already ran the declared verification: explorer_retired_transport_native_http, native_unified_shape_http_to_page, native_unified_cursor_reopen_and_refusal and native_unified_expiry_and_reorg_refusal failed on missing PAXEER_X_EXPLORER_BASE_URL before the loopback fixture repair; the validation test passed."
+
+[finding.explorer-retired-transport]
+test = "explorer_retired_transport_native_http"
+status = "Native address and frozen EVM/kernel archive readers use registered native paths; the test drives their real HTTP client and codecs, asserts origin and credential isolation and 404, and proves undeclared legacy/program/naming capabilities explicitly refuse instead of inventing facts. Out-of-path program/naming reads require the owner wiring below."
+
+[finding.native-unified-shape]
+tests = ["native_unified_shape_http_to_page", "native_unified_cursor_reopen_and_refusal", "native_unified_expiry_and_reorg_refusal"]
+status = "Native codec, opaque-cursor transport, page model and rendered presentation implemented; committed native response fixtures exercise all stages over loopback HTTP, including 50-row pagination, exact continuation replay after listener restart, account binding refusal, expiry/reorg refusal and explicit snapshot reset. Application route wiring remains an out-of-path owner request."
+
+[wiring.native-routing]
+request = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/api_router.ex — domain 14 native explorer: declare and implement authenticated-as-required public program and naming reads backed by registered program interfaces; provide real HTTP proof, not restored explorer-index routes."
+
+[wiring.account-page]
+request = "apps/web/src/app/explorer/accounts/[accountId]/page.tsx — domain 14 web explorer: wire loadNativeAccountPage and NativeAccountPage, accept only cursor, remove numeric/split-settlement projection, and render cursor-refused resetHref without automatic retry."
+
+[wiring.receipt-page]
+request = "apps/web/src/app/explorer/receipts/[receiptId]/page.tsx — domain 14 web explorer: consume archiveReceiptRecord with frozen provenance and genuine 404; the native archive does not supply canonical receipt bytes or index freshness."
+
+[wiring.program-page]
+request = "apps/web/src/app/explorer/programs/[programId]/page.tsx and apps/web/src/app/explorer/lookup/route.ts — domain 14 web explorer: consume the native routing owner's declared program/naming models after they exist."
+
+[wiring.contracts]
+request = "spec/layerx-merge/spec.kvx req.14041/14042 and spec/layerx-merge/contracts/web-client.md — spec owner: replace frozen retired /v1 index paths with registered native address/archive/program read contracts and opaque cursor refusal semantics."
+
+[proof.native-http]
+fixture = "apps/web/src/explorer/fixtures/repair-22-31-383-native-http.json"
+provenance = "Native HTTP contract response snapshots transcribed from unified_account_controller.ex, unified_account_controller_test.exs, archive_controller_test.exs and archive_view.ex; source paths and the opaque fixture cursor boundary are included in the fixture."
+path = "Each test starts a loopback HTTP listener, sets the production explorer origin to its bound port, validates fixture documents with production codecs and drives the real client, page loader and React renderer without replacing fetch. Every request must match an explicit native response entry; unexpected paths or credentials fail."
+restart = "The test retains only the native continuation URL, closes all HTTP connections and the listener, starts a new listener on the same port and reloads the second page and the original snapshot through the production page loader."
+boundary = "The web test replays native expiry and reorg refusal documents and asserts the consumer's explicit reset state; it does not claim to exercise Phoenix signing, advance the native expiry clock or reorganize native consensus. Those algorithms belong to the native controller's existing tests."
+
+[gotcha.attempt-1]
+symptom = "Four repair tests required live producer environment variables and stopped before reaching the production web client."
+repair = "All five tests provision their own loopback peer and configuration; no credential, inherited environment value, external endpoint, subprocess or native toolchain is required. GOTCHA.kvx is outside the task scope, so this task-local entry records the encounter."
+
+[qualification]
+evidence_source = "/out/run/gates.jsonl (private runner ledger: exact candidate revision, command, exit code and log for each bounded gate)"
+claim = "The private bounded gate ledger names the exact verified candidate revision, command, exit and log; hf-build and hf-done must name the same revision. No result is claimed until hf-done passes, and no source is changed after the final gate. The final response copies its evidence exactly."
+formatter = "No TypeScript formatter is configured for apps/web; touched TypeScript follows the existing two-space and double-quote style."

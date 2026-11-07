@@ -1,0 +1,120 @@
+package contracts_test
+
+import (
+	"bytes"
+	"encoding/json"
+	"math/big"
+	"os"
+	"path/filepath"
+	"testing"
+
+	b "github.com/Sidiora-Technologies/KindleLaunch/protocol/bindings"
+	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/crypto"
+)
+
+func TestRepair_61_real_producer(t *testing.T) {
+	s := newChain(t)
+	mine := s.miner(t)
+	load := func(name string) (abi.ABI, []byte) {
+		raw, err := os.ReadFile(filepath.Join(os.Getenv("REPAIR61_ARTIFACTS"), name+".json"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		var artifact struct {
+			ABI      json.RawMessage
+			Bytecode string
+		}
+		if err = json.Unmarshal(raw, &artifact); err != nil {
+			t.Fatal(err)
+		}
+		parsed, err := abi.JSON(bytes.NewReader(artifact.ABI))
+		if err != nil {
+			t.Fatal(err)
+		}
+		return parsed, common.FromHex(artifact.Bytecode)
+	}
+	deploy := func(name string, args ...any) common.Address {
+		parsed, code := load(name)
+		address, tx, _, err := bind.DeployContract(s.auth[0], parsed, code, s.client, args...)
+		mine(tx, err)
+		return address
+	}
+	proxy := func(name string, args ...any) common.Address {
+		implementation := deploy(name)
+		parsed, _ := load(name)
+		data, err := parsed.Pack("initialize", args...)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return deploy("ERC1967Proxy", implementation, data)
+	}
+	owner := s.auth[0].From
+	nftAddress := proxy("SidioraNFT", "Fee Rights", "FEE", common.Address{}, owner)
+	routerAddress := proxy("FeesRouter", nftAddress, owner, owner, owner)
+	nft, err := b.NewSidioraNFT(nftAddress, s.client)
+	if err != nil {
+		t.Fatal(err)
+	}
+	router, err := b.NewFeesRouter(routerAddress, s.client)
+	if err != nil {
+		t.Fatal(err)
+	}
+	mine(nft.GrantRole(s.auth[0], crypto.Keccak256Hash([]byte("MINTER_ROLE")), owner))
+	mine(nft.GrantRole(s.auth[0], crypto.Keccak256Hash([]byte("STRATEGY_SETTER_ROLE")), routerAddress))
+	mine(nft.Mint(s.auth[0], owner, s.auth[1].From, 0))
+	direct := mine(nft.SetFeeStrategy(s.auth[0], big.NewInt(1), 1))
+	routed := mine(router.SetFeeStrategy(s.auth[0], big.NewInt(1), 3))
+	if len(direct.Logs) != 1 || len(routed.Logs) != 2 {
+		t.Fatalf("unexpected producer logs: %d, %d", len(direct.Logs), len(routed.Logs))
+	}
+	observations := []struct {
+		Role     string
+		Log      types.Log
+		Old, New uint8
+	}{}
+	for i, log := range []*types.Log{direct.Logs[0], routed.Logs[0], routed.Logs[1]} {
+		role := "SidioraNFT"
+		old, next := uint8(0), uint8(1)
+		if i > 0 {
+			old, next = 1, 3
+		}
+		if i == 2 {
+			role = "FeesRouter"
+			parsed, err := router.ParseFeeStrategyChanged(*log)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if log.Address != routerAddress || parsed.NftId.Cmp(big.NewInt(1)) != 0 || parsed.OldStrategy != old || parsed.NewStrategy != next {
+				t.Fatalf("router producer mismatch: %+v", parsed)
+			}
+		} else {
+			parsed, err := nft.ParseFeeStrategyChanged(*log)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if log.Address != nftAddress || parsed.TokenId.Cmp(big.NewInt(1)) != 0 || parsed.OldStrategy != old || parsed.NewStrategy != next {
+				t.Fatalf("NFT producer mismatch: %+v", parsed)
+			}
+		}
+		observations = append(observations, struct {
+			Role     string
+			Log      types.Log
+			Old, New uint8
+		}{role, *log, old, next})
+	}
+	strategy, err := nft.GetFeeStrategy(nil, big.NewInt(1))
+	if err != nil || strategy != 3 {
+		t.Fatalf("real producer state = %d, %v", strategy, err)
+	}
+	raw, err := json.Marshal(observations)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = os.WriteFile(os.Getenv("REPAIR61_LOGS"), raw, 0600); err != nil {
+		t.Fatal(err)
+	}
+}

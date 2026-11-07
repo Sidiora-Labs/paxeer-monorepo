@@ -94,8 +94,12 @@ func TestProjectionSeeds(t *testing.T) {
 	state.orders["105"] = orderRecord{OrderId: big.NewInt(105), User: xAlice, MarketId: big.NewInt(1), IsLong: true, OrderType: 0, TimeInForce: 0,
 		Status: 1, LimitPrice: big.NewInt(2000), TriggerPrice: new(big.Int), AcceptablePrice: new(big.Int), SizeUsd: big.NewInt(8_000_000),
 		SizeBase: big.NewInt(4_000), FilledBase: big.NewInt(1_000), Leverage: big.NewInt(5), Cloid: [16]byte{7}}
-	state.positions["77"] = positionRecord{User: xBob, MarketId: big.NewInt(1), IsLong: false, SizeUsd: big.NewInt(9_000_000),
-		CollateralUsd: big.NewInt(3_000_000), CollateralToken: store.USDL, CollateralAmount: big.NewInt(3), EntryPrice: big.NewInt(2100),
+	sizeUSD, entryPrice := big.NewInt(9_000_000), big.NewInt(2100)
+	sizeBase := new(big.Int).Mul(sizeUSD, big.NewInt(1_000_000_000_000_000_000))
+	// Round base size up so its entry notional rounds down to the recorded cost basis.
+	sizeBase.Add(sizeBase, new(big.Int).Sub(entryPrice, big.NewInt(1))).Quo(sizeBase, entryPrice)
+	state.positions["77"] = positionRecord{User: xBob, MarketId: big.NewInt(1), IsLong: false, SizeBase: sizeBase, SizeUsd: sizeUSD,
+		CollateralUsd: big.NewInt(3_000_000), CollateralToken: store.USDL, CollateralAmount: big.NewInt(3), EntryPrice: entryPrice,
 		Leverage: big.NewInt(3), TakeProfitPrice: big.NewInt(1900), StopLossPrice: new(big.Int)}
 	r := registry(t, state)
 

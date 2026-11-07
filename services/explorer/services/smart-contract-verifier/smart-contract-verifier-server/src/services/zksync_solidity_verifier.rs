@@ -23,6 +23,18 @@ use tokio::sync::Semaphore;
 use tonic::{Request, Response, Status};
 use verification_common::verifier_alliance;
 
+// Keep the boundary with this source: another integration target includes this
+// service outside the server module tree. Every server route shares this instance.
+pub(crate) mod verification_metrics {
+    // In the server, resolve its self alias; standalone include targets resolve
+    // the linked server crate. Both must use that crate's single collector.
+    use super::super::*;
+    include!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/src/services/verification_metrics.rs"
+    ));
+}
+
 pub struct Service {
     compilers: ZkSyncCompilers<ZkSolcCompiler>,
 }
@@ -77,29 +89,39 @@ impl ZkSyncSolidityVerifier for Service {
         &self,
         request: Request<VerifyStandardJsonRequest>,
     ) -> Result<Response<VerifyResponse>, Status> {
-        let request: VerifyStandardJsonRequestWrapper = request.into_inner().into();
+        let chain_ids = vec![None];
+        verification_metrics::track_verification(
+            chain_ids,
+            "solidity",
+            "zksync-standard-json",
+            async {
+                let request: VerifyStandardJsonRequestWrapper = request.into_inner().into();
 
-        let verification_request: zksync::VerificationRequest = {
-            let request: Result<_, StandardJsonParseError> = request.try_into();
-            if let Err(err) = request {
-                return match err {
-                    StandardJsonParseError::InvalidContent(_) => {
-                        let response = compilation_failure(format!("Invalid standard json: {err}"));
-                        Ok(Response::new(response))
+                let verification_request: zksync::VerificationRequest = {
+                    let request: Result<_, StandardJsonParseError> = request.try_into();
+                    if let Err(err) = request {
+                        return match err {
+                            StandardJsonParseError::InvalidContent(_) => {
+                                let response =
+                                    compilation_failure(format!("Invalid standard json: {err}"));
+                                Ok(Response::new(response))
+                            }
+                            StandardJsonParseError::BadRequest(_) => {
+                                tracing::info!(err=%err, "Bad request");
+                                Err(Status::invalid_argument(err.to_string()))
+                            }
+                        };
                     }
-                    StandardJsonParseError::BadRequest(_) => {
-                        tracing::info!(err=%err, "Bad request");
-                        Err(Status::invalid_argument(err.to_string()))
-                    }
+                    request.unwrap()
                 };
-            }
-            request.unwrap()
-        };
 
-        let result = zksync::verify(&self.compilers, verification_request).await;
+                let result = zksync::verify(&self.compilers, verification_request).await;
 
-        let response = process_verification_result(result)?;
-        Ok(Response::new(response))
+                let response = process_verification_result(result)?;
+                Ok(Response::new(response))
+            },
+        )
+        .await
     }
 
     async fn list_compilers(

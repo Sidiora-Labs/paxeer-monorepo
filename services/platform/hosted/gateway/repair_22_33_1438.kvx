@@ -1,0 +1,28 @@
+[repair.22.33.1438]
+task = "22.33.1438"
+audit = "22.30.80"
+requirement = "22998.1"
+base_revision = "49ef6dc0bbf4c9a9baf2cee2a4d87781f303f9b4"
+finding_ids = ["doc-gateway"]
+test_path = "services/platform/hosted/gateway/tests/repair_22_33_1438.rs"
+scope = "Preserve the inherited README, Cargo test registration and integration tests; this continuation adds only the missing task record required by gotcha 3027."
+
+[finding.doc-gateway]
+class = "doc-drift"
+severity = "medium"
+file = "services/platform/hosted/gateway/README.md"
+repair = "Document chain 125 node POST / separately from the hosted px_ OpenRPC contract, replace retired execution and WebSocket ingress, and require authenticated block-commit evidence for finality."
+proving_tests = ["doc_gateway_node_root_and_native_balance_example", "doc_gateway_hosted_openrpc_is_a_separate_contract", "doc_gateway_finality_requires_authenticated_block_commit"]
+node_path = "README JSON examples pass through the production gateway HTTP client and codecs over loopback TLS; native calldata and decoded balances match committed ABI producer vectors."
+hosted_path = "The gateway-owned OpenRPC method inventory matches the production router; relay policy and precompile addresses match the production EVM module and committed ABI vectors."
+finality_path = "Committed receipt and consensus transcripts pass through the production HTTP transport, receipt signature verifier, validator-commit verifier and receipt-coverage consumer; tampered receipt signatures, validator signatures and inclusion proofs are refused."
+wiring_requests = []
+
+[qualification]
+build_command = "cargo build --locked --manifest-path services/platform/hosted/gateway/Cargo.toml --tests"
+verify_command = "cargo test --locked --manifest-path services/platform/hosted/gateway/Cargo.toml --test repair_22_33_1438"
+gate_order = "hf-build, then hf-done on the unchanged final candidate; the private gate ledger records the exact verified revision, commands, exit codes and log locations."
+evidence_ledger = "/out/run/gates.jsonl"
+baseline = "No pre-change test failures were observed: attempt 1 could not compile because the hosted paxeer manifest was absent, so none of these cases executed; no additional baseline run is claimed."
+prior_attempt = "The supplied attempt-4 handoff reports all three proving tests passed; completion failed only because this declared task record was missing."
+external_repairs = "Workspace manifest restoration belongs to 22.31.465; the handle_connection test migration belongs to 22.31.483. This documentation proposal needs no out-of-path wiring."

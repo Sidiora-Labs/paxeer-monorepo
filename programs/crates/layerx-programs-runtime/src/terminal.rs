@@ -1,8 +1,16 @@
 //! Canonical decoding for the terminal availability bytes produced by the Programs call bridge.
+#![doc = include_str!("runtime_contract.md")]
+
+mod failure;
+mod sandbox;
+pub use failure::encode_failure_payload;
+pub use sandbox::{
+    attach_sandbox_settlement, SandboxReceiptBinding, SandboxSettlement, SANDBOX_SETTLEMENT_DOMAIN,
+};
 
 use crate::{
     BudgetMeterRefusal, BudgetResourceKind, MeteredUsage, ProgramFailure, TransferLawError,
-    DEFAULT_MAX_CALL_GRAPH_EDGES, MAX_CALL_RESPONSE_BYTES, MAX_TRACE_COMMITMENTS,
+    DEFAULT_MAX_CALL_GRAPH_EDGES, MAX_CALL_RESPONSE_BYTES,
 };
 
 const EXECUTION_V2: &[u8] = b"LXP/program-execution/v2\0";
@@ -18,7 +26,16 @@ pub const PRE_RUNTIME_FAILURE: &[u8] =
     b"LXP/v1/context-hash\0LXP/programs/pre-runtime-failure/v1\0";
 pub const EMPTY_CALL_GRAPH: &[u8] = b"LXP/v1/context-hash\0LXP/programs/empty-call-graph/v1\0";
 const CALLBACK: &[u8] = b"LXP/programs/callback-failure/v1\0";
-const MAX_TRACE_EVIDENCE_BYTES: usize = 34 + MAX_TRACE_COMMITMENTS * 52;
+fn validate_trace_evidence(bytes: &[u8]) -> Result<(), TerminalDecodeError> {
+    match bytes.get(..2) {
+        Some([0, 1]) if bytes.len() <= 34 + crate::MAX_TRACE_COMMITMENTS * 52 => Ok(()),
+        Some([0, 2]) if bytes.len() <= crate::commit::MAX_CANONICAL_ARBITRATION_TRACE_BYTES => {
+            crate::ExecutionTrace::verify_canonical_arbitration_bytes(bytes)
+                .map_err(|_| TerminalDecodeError::Malformed)
+        }
+        _ => Err(TerminalDecodeError::Malformed),
+    }
+}
 const MAX_GRAPH_EVIDENCE_BYTES: usize = b"LayerX/programs/call-graph/v1\0".len()
     + 32
     + 16
@@ -179,9 +196,15 @@ pub struct DecodedTerminal {
     pub detail: TerminalDetail,
     pub attachments: Vec<TerminalAttachment>,
     execution_encoding_version: Option<u8>,
+    sandbox_settlement: Option<SandboxSettlement>,
 }
 
 impl DecodedTerminal {
+    #[must_use]
+    pub fn sandbox_settlement(&self) -> Option<&SandboxSettlement> {
+        self.sandbox_settlement.as_ref()
+    }
+
     #[must_use]
     pub const fn execution_encoding_version(&self) -> Option<u8> {
         self.execution_encoding_version
@@ -204,7 +227,7 @@ pub fn decode_terminal_payload(
     abi: u16,
     encoded: &[u8],
 ) -> Result<DecodedTerminal, TerminalDecodeError> {
-    let (inner, attachments) = unwrap(encoded)?;
+    let (inner, attachments, sandbox_settlement) = unwrap(encoded)?;
     let detail = if inner.starts_with(PRE_RUNTIME_FAILURE) {
         if kind != 2 || !attachments.is_empty() {
             return Err(TerminalDecodeError::MismatchedKind);
@@ -275,6 +298,31 @@ pub fn decode_terminal_payload(
     } else {
         return Err(TerminalDecodeError::Malformed);
     };
+    if let Some(settlement) = sandbox_settlement.as_ref() {
+        if settlement.kind != kind {
+            return Err(TerminalDecodeError::MismatchedKind);
+        }
+        if let TerminalDetail::Execution(execution) = &detail {
+            let (usage, program, fee_version) = match execution {
+                ExecutionTerminal::Legacy { usage, .. } => (*usage, None, None),
+                ExecutionTerminal::CandidateV4 {
+                    usage,
+                    program,
+                    fee_schedule_version,
+                    ..
+                } => (*usage, Some(*program), Some(*fee_schedule_version)),
+            };
+            let mut expected = settlement.usage;
+            expected.occupancy_byte_batches = usage.occupancy_byte_batches;
+            expected.occupancy_fee_units = usage.occupancy_fee_units;
+            if usage != expected
+                || program.is_some_and(|p| p != settlement.program)
+                || fee_version.is_some_and(|v| v != settlement.fees.version())
+            {
+                return Err(TerminalDecodeError::Malformed);
+            }
+        }
+    }
     Ok(DecodedTerminal {
         execution_encoding_version: if inner.starts_with(EXECUTION_V5) {
             Some(5)
@@ -289,6 +337,7 @@ pub fn decode_terminal_payload(
         },
         detail,
         attachments,
+        sandbox_settlement,
     })
 }
 
@@ -322,7 +371,9 @@ fn decode_pre_runtime(encoded: &[u8]) -> Result<PreRuntimeFailure, TerminalDecod
     })
 }
 
-fn unwrap(encoded: &[u8]) -> Result<(&[u8], Vec<TerminalAttachment>), TerminalDecodeError> {
+fn unwrap(
+    encoded: &[u8],
+) -> Result<(&[u8], Vec<TerminalAttachment>, Option<SandboxSettlement>), TerminalDecodeError> {
     let mut inner = encoded;
     let mut attachments = Vec::new();
     if inner.starts_with(AUTHORITY) {
@@ -337,6 +388,20 @@ fn unwrap(encoded: &[u8]) -> Result<(&[u8], Vec<TerminalAttachment>), TerminalDe
         });
         inner = execution;
     }
+    let sandbox_settlement = if inner.starts_with(SANDBOX_SETTLEMENT_DOMAIN) {
+        let mut cursor = Cursor::new(&inner[SANDBOX_SETTLEMENT_DOMAIN.len()..]);
+        let execution = cursor.sized_u32()?;
+        let receipt = cursor.sized_u32()?;
+        if receipt.len() > sandbox::MAX_SANDBOX_USAGE_RECEIPT_BYTES {
+            return Err(TerminalDecodeError::Malformed);
+        }
+        let transfer_root = cursor.array()?;
+        cursor.end()?;
+        inner = execution;
+        Some(SandboxSettlement::decode(receipt, transfer_root)?)
+    } else {
+        None
+    };
     if inner.starts_with(OCCUPANCY) {
         let mut cursor = Cursor::new(&inner[OCCUPANCY.len()..]);
         let execution = cursor.sized_u32()?;
@@ -345,10 +410,13 @@ fn unwrap(encoded: &[u8]) -> Result<(&[u8], Vec<TerminalAttachment>), TerminalDe
         attachments.push(TerminalAttachment::Occupancy(occupancy));
         inner = execution;
     }
-    if inner.starts_with(AUTHORITY) || inner.starts_with(OCCUPANCY) {
+    if inner.starts_with(AUTHORITY)
+        || inner.starts_with(OCCUPANCY)
+        || inner.starts_with(SANDBOX_SETTLEMENT_DOMAIN)
+    {
         return Err(TerminalDecodeError::Malformed);
     }
-    Ok((inner, attachments))
+    Ok((inner, attachments, sandbox_settlement))
 }
 
 fn decode_legacy(
@@ -394,9 +462,7 @@ fn decode_legacy(
             return Err(TerminalDecodeError::Malformed);
         }
         let bytes = c.sized_u64()?;
-        if bytes.len() > MAX_TRACE_EVIDENCE_BYTES {
-            return Err(TerminalDecodeError::Malformed);
-        }
+        validate_trace_evidence(bytes)?;
         Some(bytes.to_vec())
     } else {
         None
@@ -445,9 +511,7 @@ fn decode_v4(encoded: &[u8], expected_abi: u16) -> Result<ExecutionTerminal, Ter
         0 => None,
         1 => {
             let bytes = c.sized_u64()?;
-            if bytes.len() > MAX_TRACE_EVIDENCE_BYTES {
-                return Err(TerminalDecodeError::Malformed);
-            }
+            validate_trace_evidence(bytes)?;
             Some(bytes.to_vec())
         }
         _ => return Err(TerminalDecodeError::Malformed),
@@ -535,9 +599,7 @@ fn decode_v5(encoded: &[u8], expected_abi: u16) -> Result<ExecutionTerminal, Ter
         0 => None,
         1 => {
             let bytes = c.sized_u64()?;
-            if bytes.len() > MAX_TRACE_EVIDENCE_BYTES {
-                return Err(TerminalDecodeError::Malformed);
-            }
+            validate_trace_evidence(bytes)?;
             Some(bytes.to_vec())
         }
         _ => return Err(TerminalDecodeError::Malformed),
@@ -627,7 +689,9 @@ fn decode_composition(payload: &[u8]) -> Result<(u8, FailureFields), TerminalDec
         2 => {
             let expected = c.byte()?;
             let actual = c.byte()?;
-            if !matches!(expected, 1 | 2) || !matches!(actual, 1 | 2) {
+            if crate::abi_policy::abi_revision(u16::from(expected)).is_err()
+                || crate::abi_policy::abi_revision(u16::from(actual)).is_err()
+            {
                 return Err(TerminalDecodeError::Malformed);
             }
             FailureFields::Revisions { expected, actual }

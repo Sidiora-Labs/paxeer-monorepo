@@ -1,0 +1,21 @@
+[repair.22.31.579]
+acceptance = "22998.1"
+gotcha = 3297
+decision = 2701
+files = ["services/human/crates/layerx-human-service/src/server/agent_runtime.rs", "services/human/crates/layerx-human-test-support/src/lib.rs", "services/human/crates/layerx-human-service/tests/agent_runtime_rungs.rs", "services/human/crates/layerx-human-service/tests/support/agent_runtime_peer.rs", "services/human/crates/layerx-human-service/tests/repair_22_31_579.rs", "services/human/crates/layerx-human-service/tests/repair_22_31_579.kvx"]
+implementation = "decode_tracked reads fixed 32-byte submission and receipt identifiers and renders lowercase hex references. It accepts only the daemon state codes, including Committed at 9 and the signed Failed result code at 7. Rung, evidence, transitions, decode_state_without_data, decode_observation, request writers and the daemon remain unchanged. Both existing rung fixtures use the daemon identifier layout; their assertions are retained."
+
+[tests]
+producer = "daemon_track_observation calls the real daemon write_submission on SubmissionStatus without receipt, with the activity id first and the zero receipt-presence byte last; the shared Unix Peer harness delivers these bytes through the runtime TRACK request and response framing."
+states = "Prepared, Signed, Queued, Submitted, Unknown, Expired and Failed (-1) each assert the complete TrackedSubmission, including lowercase reference, state, submitted rung, empty evidence and empty transitions, plus activity id and absent receipt."
+receipts = "Hand-encoded code-6 Executed and code-9 Committed answers carry fixed receipt digests and one sequencer_receipt evidence item; assertions cover every tracked field and the existing optional-receipt rule. The Executed answer includes an encoded ReceiptLookupFrame, preserving decode_observation."
+refusals = "Length-prefixed text submission references and every undefined state code are refused as CorruptResponse; the original test still exercises every rung byte."
+environment = "Gotcha 2962: disposable local Unix socket, real daemon writer and runtime decoder; no credentials or live endpoint."
+
+[qualification]
+ledger = "/out/run/gates.jsonl"
+revision = "Read the exact candidate revision from the final build and verify ledger rows; both must name the same revision."
+build_command = "cargo build --locked --manifest-path services/human/crates/layerx-human-service/Cargo.toml --tests"
+verify_command = "cg spec done 22.31.579 -f layerx-merge --root /work/paxeer-monorepo"
+verify_test_command = "cargo test --locked --manifest-path services/human/crates/layerx-human-service/Cargo.toml --test repair_22_31_579 --test agent_runtime_rungs"
+results = "The final build and verify ledger rows record the exact revision, command, exit code and private evidence log by reference. No result is claimed before execution; this record remains unchanged after qualification."

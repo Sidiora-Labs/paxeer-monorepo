@@ -1,0 +1,10 @@
+[repair.22.33.1355]
+audit = "22.30.74"
+finding = "historical-migration-validation"
+base_revision = "72c91077cb966f1c4c640ded61b4b259f41cad90"
+implementation = "Validate every proposal envelope with explicit ValueError before mutating proposals or any other genesis state."
+tests = ["test_rejects_unsupported_proposals_before_any_mutation", "test_json_cli_rejects_unsupported_proposals_without_output", "test_supported_genesis_json_preserves_proposal_facts", "test_supported_governance_migrates_in_place"]
+proof = "Production migration compiled in-process at optimization levels 0, 1 and 2; real argparse file input, JSON decoder, migration and JSON stdout encoder; committed genesis and rejection fixtures."
+baseline = "Not run: explicit task gate order forbids verification before complete implementation and permits verification only through hf-done; no baseline failures claimed."
+verified_revision_record = "Exact candidate revision, command, exit and private log are recorded by the hf-done receipt and gate ledger."
+wiring_request = "spec/layerx-merge/spec.kvx task.22.33.1355, owning domain 15 (fm-cosmos-fork): attach this finding-to-test mapping and exact verified revision from the hf-done receipt; spec edits are outside this task scope."

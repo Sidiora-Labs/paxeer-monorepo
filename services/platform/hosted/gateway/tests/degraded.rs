@@ -155,9 +155,16 @@ impl Drop for Gateway {
 impl Gateway {
     fn rpc(&self, method: &str, params: &Value) -> Value {
         let request = json!({"jsonrpc": "2.0", "id": 7, "method": method, "params": params});
+        assert_eq!(
+            self.client
+                .post("/rpc", request.to_string().as_bytes())
+                .expect("retired RPC refusal")
+                .status,
+            404
+        );
         let answer = self
             .client
-            .post("/rpc", request.to_string().as_bytes())
+            .post("/", request.to_string().as_bytes())
             .unwrap_or_else(|error| panic!("{method} must be answered: {error:?}"));
         assert_eq!(answer.status, 200, "{method}");
         let document: Value = serde_json::from_slice(&answer.body)
@@ -234,7 +241,7 @@ impl PlainGateway {
     fn rpc(&self, method: &str, params: &Value) -> Value {
         let request = json!({"jsonrpc": "2.0", "id": 7, "method": method, "params": params});
         let (status, body) = self
-            .exchange("POST", "/rpc", request.to_string().as_bytes())
+            .exchange("POST", "/", request.to_string().as_bytes())
             .unwrap_or_else(|error| panic!("{method} must be answered over plain HTTP: {error}"));
         assert_eq!(status, 200, "{method}");
         let document: Value = serde_json::from_slice(&body)
@@ -352,13 +359,17 @@ fn secret(directory: &Path, name: &str, value: &str) -> String {
     path(&file).to_owned()
 }
 
-const KERNEL_SIDE_VARIABLES: [&str; 8] = [
+const KERNEL_SIDE_VARIABLES: [&str; 12] = [
+    "LAYERX_GATEWAY_COMPONENT_TOKEN_FILE",
+    "LAYERX_GATEWAY_PUBLIC_CORE_URL",
+    "LAYERX_GATEWAY_AUTHORITY_URL",
+    "LAYERX_GATEWAY_AUTHORITY_TOKEN_FILE",
+    "LAYERX_GATEWAY_IDENTITY_URL",
+    "LAYERX_GATEWAY_IDENTITY_TOKEN_FILE",
+    "LAYERX_GATEWAY_PROGRAM_REGISTRY_URL",
+    "LAYERX_GATEWAY_PROGRAM_REGISTRY_TOKEN_FILE",
     "LAYERX_GATEWAY_CLIENT_IDENTITY_PKCS12",
     "LAYERX_GATEWAY_CLIENT_IDENTITY_PASSWORD_FILE",
-    "LAYERX_GATEWAY_SEQUENCER_PUBLIC_KEY_FILE",
-    "LAYERX_GATEWAY_SEQUENCER_ID_FILE",
-    "LAYERX_GATEWAY_SEQUENCER_FIRST_BATCH_FILE",
-    "LAYERX_GATEWAY_SEQUENCER_LAST_BATCH_FILE",
     "LAYERX_GATEWAY_KEY_PROVISIONING_KEY_FILE",
     "LAYERX_GATEWAY_MODULE_REGISTRY_FILE",
 ];
@@ -627,7 +638,8 @@ fn degraded_endpoint_serves_the_chain_and_refuses_kernel_methods_without_the_ker
         readiness["backends"],
         json!({
             "paxeer_chain": {"state": "ready", "reason": "ready"},
-            "durable_store": {"state": "ready", "reason": "ready"}
+            "durable_store": {"state": "ready", "reason": "ready"},
+            "consensus": {"state": "unavailable", "reason": "not_configured"}
         }),
         "{readiness}"
     );

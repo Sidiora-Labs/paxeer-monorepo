@@ -85,20 +85,25 @@ func (bA *CompactBitArray) SetIndex(i int, v bool) bool {
 // NumTrueBitsBefore returns the number of bits set to true before the
 // given index. e.g. if bA = _XX__XX, NumOfTrueBitsBefore(4) = 2, since
 // there are two bits set to true before index 4.
+// Non-positive indices count no bits; indices beyond Count count all bits.
 func (bA *CompactBitArray) NumTrueBitsBefore(index int) int {
-	onesCount := 0
 	max := bA.Count()
 	if index > max {
 		index = max
 	}
-	// below we iterate over the bytes then over bits (in low endian) and count bits set to 1
-	for elem := 0; ; elem++ {
-		if elem*8+7 >= index {
-			onesCount += bits.OnesCount8(bA.Elems[elem] >> (7 - (index % 8) + 1))
-			return onesCount
-		}
+	if index <= 0 {
+		return 0
+	}
+
+	onesCount := 0
+	fullBytes := index / 8
+	for elem := 0; elem < fullBytes; elem++ {
 		onesCount += bits.OnesCount8(bA.Elems[elem])
 	}
+	if remaining := index % 8; remaining != 0 {
+		onesCount += bits.OnesCount8(bA.Elems[fullBytes] >> (8 - remaining))
+	}
+	return onesCount
 }
 
 // Copy returns a copy of the provided bit array.
@@ -174,7 +179,8 @@ func (bA *CompactBitArray) StringIndented(indent string) string {
 }
 
 // MarshalJSON implements json.Marshaler interface by marshaling bit array
-// using a custom format: a string of '-' or 'x' where 'x' denotes the 1 bit.
+// using a custom format: a string of '_' or 'x' where 'x' denotes the 1 bit.
+// Nil arrays encode as null; nonnil empty arrays encode as an empty string.
 func (bA *CompactBitArray) MarshalJSON() ([]byte, error) {
 	if bA == nil {
 		return []byte("null"), nil
@@ -219,6 +225,10 @@ func (bA *CompactBitArray) UnmarshalJSON(bz []byte) error {
 
 	// Construct new CompactBitArray and copy over.
 	numBits := len(bits)
+	if numBits == 0 {
+		*bA = CompactBitArray{}
+		return nil
+	}
 	bA2 := NewCompactBitArray(numBits)
 	for i := 0; i < numBits; i++ {
 		if bits[i] == 'x' {

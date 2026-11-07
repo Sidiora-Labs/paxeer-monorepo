@@ -1,197 +1,216 @@
 # Programs workspace gates
 
-The `programs/` tree is a Cargo workspace for the LayerX Network programs surface: a deterministic WASM runtime, the registry that proves what a program deployed and what it holds, the C↔Rust bridge into the protocol kernel, developer SDKs, porting kits, and the adversarial test corpus (`programs/README.md:5-7`). Guest execution is dispatched under kernel module ID `9` (`LXP_MODULE_PROGRAMS`); a program is not a ninth economic module and writes no balances of its own (`programs/README.md:9-17`).
+The `programs/` Cargo workspace contains the deterministic WASM runtime, receipt-bound registry, guest SDKs, programs, porting kits and qualification corpus. Guest execution is kernel module `0x09` in the merged Paxeer network. The node invokes the C kernel and Rust runtime through `modules/lxphost/`; the Programs EVM precompile lives in `precompiles/layerxprograms/` at `0x000000000000000000000000000000000000101D`. See [Protocol](../protocol/index.md) and [Modules](../protocol/modules.md).
+
+The recipes below describe available repository checks. Select the checks declared by the task being qualified; this catalogue is not a requirement to run every tier for a documentation change.
 
 ## Workspace and crate layout
 
-`programs/Cargo.toml` declares a Cargo workspace with `resolver = "2"` (`programs/Cargo.toml:1-26`). Workspace package metadata pins `edition = "2021"`, `rust-version = "1.91.1"`, `version = "0.1.0"` (`programs/Cargo.toml:35-39`). `programs/clippy.toml` sets `msrv = "1.91.1"` and `avoid-breaking-exported-api = false` (`programs/clippy.toml:1-2`). Workspace lints deny `unsafe_code`, Clippy `all` and `pedantic`, `unwrap_used`, `expect_used`, `float_arithmetic`, and `lossy_float_literal` (`programs/Cargo.toml:52-61`).
+`programs/Cargo.toml` uses resolver 2 and workspace package metadata `edition = "2021"`, `rust-version = "1.91.1"`, `version = "0.1.0"`, license `Apache-2.0`. `programs/clippy.toml` uses the same MSRV. Workspace lints deny unsafe code, Clippy `all` and `pedantic`, `unwrap_used`, `expect_used`, floating-point arithmetic and lossy float literals.
 
-Members under `programs/crates/` (`programs/Cargo.toml:4-9`):
+Members under `programs/crates/`:
 
-| Crate | One line |
+| Crate | Role |
 | --- | --- |
-| `layerx-programs-runtime` | Deterministic WASM runtime foundation for LayerX guest programs (`programs/crates/layerx-programs-runtime/src/lib.rs:1`). |
-| `layerx-programs-registry` | Receipt-bound registry: deployment journal, program value-account bindings, real-balance proofs, and wind-down/deprecation (`programs/README.md:48`). `src/lib.rs` has no crate-level documentation comment (`programs/crates/layerx-programs-registry/src/lib.rs:1`). |
-| `layerx-programs-protocol-adapter` | Thin C↔Rust adapter exposing receipt-verified program state reads to the rest of the protocol (`programs/README.md:49`). `src/lib.rs` has no crate-level documentation comment (`programs/crates/layerx-programs-protocol-adapter/src/lib.rs:1`). |
-| `layerx-programs-interpreter` | A bounded deterministic scripting program for the LayerX Programs ABI (`programs/crates/layerx-programs-interpreter/src/lib.rs:1`). |
-| `layerx-programs-market` | Workspace member (`programs/Cargo.toml:7`). The crate `Cargo.toml` has no `description` (`programs/crates/layerx-programs-market/Cargo.toml:1-16`). `src/lib.rs` has no crate-level documentation comment (`programs/crates/layerx-programs-market/src/lib.rs:1`). |
-| `layerx-programs-sandbox` | Protocol-state models for bounded, ephemeral program sandboxes (`programs/crates/layerx-programs-sandbox/src/lib.rs:1`). |
+| `layerx-programs-runtime` | WASM validation, execution, metering, host ABI, composition and runtime FFI. |
+| `layerx-programs-registry` | Deployment journal, program accounts, verified balance views, lifecycle and wind-down state. |
+| `layerx-programs-interpreter` | Bounded deterministic scripting guest. |
+| `layerx-programs-market` | Market program types and transitions. |
+| `layerx-programs-ai-market` | AI-market guest and its authenticated state transitions, domain binding and host integration. |
+| `layerx-programs-arbiter` | Verified replay, chain proofs, boundary and market adjudication evidence. |
+| `layerx-programs-sandbox` | Protocol-state models for bounded ephemeral sandboxes and the native host FFI static library. |
 
-`programs/README.md` names three crates in its layout table (`programs/README.md:47-49`) and a section titled "The three crates" (`programs/README.md:57-89`). The workspace member list also includes `layerx-programs-interpreter`, `layerx-programs-market`, and `layerx-programs-sandbox` (`programs/Cargo.toml:6-9`). `porting/cosmwasm`, `porting/cosmwasm/guest`, `porting/evm`, `porting/evm/guest`, `porting/solana`, and `porting/solana/guest` are workspace members (`programs/Cargo.toml:11-16`); see [Porting](../operators/porting.md).
+Other members are `benches/compiled-equivalent`, `fuzz`, `sdk/rust`, `sdk/rust/lint`, and the host/guest pairs under `porting/cosmwasm`, `porting/evm` and `porting/solana`. Standalone Rust examples and fixtures listed in the workspace's `exclude` array use their own manifests. See [Porting](../operators/porting.md).
+
+The workspace release profile defaults to optimization level 3, LTO, one codegen unit, aborting panics and stripping. AI-market deployment has a stricter size requirement and uses an explicit size-optimization override; see [AI-market deployment qualification](#ai-market-deployment-qualification).
 
 ## Frozen ABI
 
-`programs/abi-frozen.sha256` stores SHA-256 checksums for frozen ABI vector files. Comment lines start with `#` (`programs/abi-frozen.sha256:1-2`, `scripts/programs/generate-abi-vectors.py:94-95`). The pinned rows are (`programs/abi-frozen.sha256:3-4`):
+Guest ABI and protocol wire version are separate. Runtime crate-root `ABI_VERSION` selects SDK policy `ABI_V4_VERSION`; ABI 1 through 5 remain allocated and frozen. `programs/sdk/rust/src/abi_policy.rs` owns the version numbers, and the runtime reexports them.
 
-```
+| ABI | Cumulative surface |
+| --- | --- |
+| 1 | Original `layerx_v1` storage, event, call, transfer and receipt imports. |
+| 2 | Adds `layerx_v2` responses, scoped storage and scans, program-account transfers, context, balance, crypto and bigint imports. |
+| 3 | Adds `layerx_v3.oracle_read`. |
+| 4 | Adds `layerx_v4.web_read`; this is the runtime default. |
+| 5 | Adds `layerx_v5.market_step_adjudicate`; AI market requires the v5 host route. |
+
+`programs/abi-frozen.sha256` pins the exact bytes of `programs/tests/vectors/abi-v{version}.hex`:
+
+```text
 1 09fcad46aeea9659d7d555a4a09ec151bd36d60b85bfd052d1f7a43cf71d58a3
 2 8827869bf1324c3e82c60baf7360b1c3e2baa84d8591e49eb6b73c2cea6c8b69
+3 0d1c2505bb16c52cbac38f966359fafd4e930949f968484250ec96520a7de0b2
+4 733f27cbf903eaceab532424d13e321f6dd8939afb1f85511c7a5a12c0289aef
+5 07d573becee2e920b7bacb3f7d712ff017070681d46337f62e9b6987c58a2e87
 ```
 
-Those digests are compared against `hashlib.sha256(path.read_bytes()).hexdigest()` of `programs/tests/vectors/abi-v{version}.hex` (`scripts/programs/generate-abi-vectors.py:11-12`, `scripts/programs/generate-abi-vectors.py:93-107`). The file comment states it is reviewed and updated separately only when a newly allocated ABI version is frozen (`programs/abi-frozen.sha256:1-2`).
-
-`make programs-abi-drift` runs `tests/programs/check-abi-drift.sh`, then `cargo test --locked -p layerx-programs-runtime --test abi_linker` inside `programs/` (`Makefile:2887-2889`). `check-abi-drift.sh` execs `python3 scripts/programs/generate-abi-vectors.py --check` (`tests/programs/check-abi-drift.sh:1-4`).
+These are SHA-256 digests of the vector files, including their textual hex encoding and trailing newline. They are independently reviewed baselines, not hashes regenerated to match a changed linker.
 
 ### `generate-abi-vectors.py`
 
-The generator audits canonical sources under `programs/crates/layerx-programs-runtime/src` (`abi/manifest.rs`, `abi/mod.rs`, `lib.rs`) and `programs/sdk/rust/src/abi.rs` (`scripts/programs/generate-abi-vectors.py:5-12`). It requires crate-root `ABI_VERSION` to equal `2` (`scripts/programs/generate-abi-vectors.py:45-46`). It rebuilds the v1 and v2 manifests and fails (stderr `ABI surface drift: …`, return `1`) if the v1 table and v1 manifest diverge, if the v1+v2 tables and the composite v2 manifest diverge, if v2 function types and signatures diverge, if the validator allowlist is not derived from the frozen table, or if the Rust SDK v2 manifest or table diverges (`scripts/programs/generate-abi-vectors.py:42-84`, `scripts/programs/generate-abi-vectors.py:90-92`).
+`scripts/programs/generate-abi-vectors.py` audits the runtime's `abi/manifest.rs`, `abi/mod.rs` and `lib.rs`, and the SDK's `abi.rs` and `abi_policy.rs`. It checks allocated version numbers, policy reexports, the v4 default, cumulative host tables, function types and signatures, the validator allowlist and SDK agreement for ABI 2 through 5. ABI v4's manifest is owned by crate-root `ABI_MANIFEST`.
 
-For each audited version it forms `generated` as the hex encoding of a 2-byte big-endian version prefix plus the manifest bytes, plus a trailing newline, destined for `programs/tests/vectors/abi-v{version}.hex` (`scripts/programs/generate-abi-vectors.py:98-100`).
+For each version the vector is the hex encoding of `u16be(version) || manifest`, followed by a newline. The generator's frozen-vector behavior is fail-closed:
 
-Write and check behaviour (`scripts/programs/generate-abi-vectors.py:101-114`):
+- A missing frozen file is refused and cannot be recreated by the generator.
+- A frozen file must match both its independent checksum and the generated surface. Drift requires allocating a new ABI version.
+- An existing unfrozen vector requires review and a checksum baseline; it is not silently overwritten.
+- `--check` refuses a new version with no vector. Without `--check`, a missing unfrozen vector can be written.
 
-- Frozen version, missing vector file: stderr `frozen ABI v{version} vector is missing and cannot be recreated`; return `1`. The generator does not create that file.
-- Frozen version, checksum mismatch against `abi-frozen.sha256`: stderr `frozen ABI v{version} checksum differs from independent baseline`; return `1`.
-- Frozen version, file bytes differ from `generated`: stderr `immutable ABI v{version} surface drift; allocate a new ABI version`; return `1`.
-- Unfrozen version whose vector file already exists: stderr `unfrozen ABI v{version} vector exists; review and add its checksum baseline`; return `1`.
-- Unfrozen version, `--check`, no vector file: stderr `new ABI v{version} has no generated vector`; return `1`.
-- Unfrozen version, no `--check`, no vector file: `path.write_text(generated)` writes `programs/tests/vectors/abi-v{version}.hex`.
+`make programs-abi-drift` runs `tests/programs/check-abi-drift.sh` (the generator with `--check`), then the runtime's `abi_linker` integration test. A frozen surface is not upgraded by changing the default ABI constant.
 
-`--check` is a boolean flag (`scripts/programs/generate-abi-vectors.py:88-89`). `check-abi-drift.sh` passes `--check`, so the Makefile drift gate does not write vectors (`tests/programs/check-abi-drift.sh:4`).
+The merged host selects `programs_module_registration_v5()` when configured for guest ABI 5 and the v4 storage-retirement registration otherwise (`modules/lxphost/host.go`). Registration, deployment metadata, validator and runtime must agree; merely compiling v5 imports does not enable them on a v4 host.
 
 ## Dependency policy
 
-`make programs-lint` depends on `programs-module-boundaries`, then runs Clippy,
-`sh scripts/programs/dependency-policy.sh`,
-`cd programs && cargo deny check advisories sources`, and
-`cd programs && cargo deny --exclude-dev check bans`
-(`Makefile:2970-2974`). `programs/deny.toml` is the cargo-deny config the last
-two commands consume (`programs/deny.toml:1-57`). The shell script requires
-that file to be readable before it prints success
-(`scripts/programs/dependency-policy.sh:163-164`).
+`make programs-lint` depends on `programs-module-boundaries`, runs workspace Clippy with sandbox `host-ffi` and `-D warnings`, then runs:
 
-### Banned crates (graph-wide, including dev)
+```sh
+sh scripts/programs/dependency-policy.sh
+cd programs
+cargo deny check advisories sources
+cargo deny --exclude-dev check bans
+```
 
-`dependency-policy.sh` runs `cargo metadata --manifest-path programs/Cargo.toml --locked --format-version 1` (`scripts/programs/dependency-policy.sh:11-12`) and matches every `.packages[].name` against (`scripts/programs/dependency-policy.sh:14-18`):
+`programs/deny.toml` supplies cargo-deny policy. The shell policy obtains locked Cargo metadata and checks every package, including development dependencies. Its banned package names are:
 
-`bindgen`, `libsqlite3-sys`, `rusqlite`, `sqlx-sqlite`, `ctor`, `inventory`, `getrandom`, `rand`, `chrono`, `time`, `instant`, `tokio`, `mio`, `socket2`, `wasi`, `wasmtime`.
+```text
+bindgen libsqlite3-sys rusqlite sqlx-sqlite ctor inventory getrandom rand
+chrono time instant tokio mio socket2 wasi wasmtime
+```
 
-The name check reads every `.packages[].name` and does not filter on dependency kind (`scripts/programs/dependency-policy.sh:15`).
+`rand_core` itself is permitted, but resolved `getrandom` or `std` features on it are refused. The cargo-deny bans invocation excludes development dependencies; the shell check does not.
 
-`programs/deny.toml` `[bans].deny` lists the same sixteen crate names (`programs/deny.toml:32-49`). `[graph] all-features = true` (`programs/deny.toml:1-2`). The Makefile bans check passes `--exclude-dev` before `check bans` (`Makefile:2974`), so cargo-deny bans omit dev-only packages. The shell script does not omit them.
+### License, vendoring and code boundaries
 
-`rand_core` is not in the banned-name list. If any `rand_core` node in `resolve.nodes` enables feature `getrandom` or `std`, the script prints `programs dependency policy: rand_core entropy features are forbidden` and exits `1` (`scripts/programs/dependency-policy.sh:19-28`).
+The shell license check applies to sourced packages and requires an allowed SPDX expression. Its allowed tokens are `Apache-2.0`, `BSD-1-Clause`, `BSD-2-Clause`, `BSD-3-Clause`, `CC0-1.0`, `ISC`, `MIT`, `Unicode-3.0`, `Zlib` and `LLVM-exception`. It checks all operands of an `AND` expression and accepts a fully allowed alternative for `OR` expressions. `programs/deny.toml` has its own allowlist; in particular it does not include the shell policy's `BSD-1-Clause` allowance.
 
-### Exact exit behaviour (`dependency-policy.sh`)
+Every sourced package/version must have a vendored `Cargo.toml` and `.cargo-checksum.json`. The engine remains pinned to `vendor/wasmi-0.31.2`, version `=0.31.2`, and `programs/.cargo/config.toml` replaces crates.io with `vendored-sources` and enables offline resolution.
 
-The script uses `set -eu` (`scripts/programs/dependency-policy.sh:2`). Failures write one line to stderr and `exit 1`:
+Under `programs/crates/`, unsafe code is restricted to the runtime's `src/ffi*.rs` and sandbox's `src/host_ffi.rs` boundary files. The policy also rejects `f32` and `f64` tokens. These boundaries keep clock, randomness, network and database dependencies out of consensus-adjacent guest execution.
 
-| Condition | Stderr | Lines |
-| --- | --- | --- |
-| Banned package name in metadata | `programs dependency policy: forbidden boundary, clock, randomness or network crate` | `scripts/programs/dependency-policy.sh:15-18` |
-| `rand_core` with `getrandom` or `std` | `programs dependency policy: rand_core entropy features are forbidden` | `scripts/programs/dependency-policy.sh:19-28` |
-| Sourced package with empty license | `programs dependency policy: $package has no SPDX license` | `scripts/programs/dependency-policy.sh:44-47` |
-| License tokens outside the script allowlist | `programs dependency policy: $package uses non-allowlisted license $license` | `scripts/programs/dependency-policy.sh:48-79` |
-| Sourced package/version lacking a vendored `Cargo.toml` plus `.cargo-checksum.json` | `programs vendoring policy: $package $version is not vendored with a checksum` | `scripts/programs/dependency-policy.sh:106-114` |
-| Workspace `wasmi` pin is not `path = "vendor/wasmi-0.31.2"` and `version = "=0.31.2"` | `programs vendoring policy: the WASM engine must stay pinned to an exact revision` | `scripts/programs/dependency-policy.sh:116-125` |
-| `programs/.cargo/config.toml` lacks `replace-with = "vendored-sources"` | `programs vendoring policy: builds must resolve the engine from programs/vendor` | `scripts/programs/dependency-policy.sh:126-130` |
-| `unsafe fn` / `unsafe trait` / `unsafe impl` / `unsafe extern` / `unsafe {` under `programs/crates`, except `layerx-programs-runtime/src/ffi*.rs`, `layerx-programs-sandbox/src/host_ffi.rs`, and `layerx-programs-protocol-adapter/src/ffi.rs` | `programs unsafe policy: unsafe code is forbidden` | `scripts/programs/dependency-policy.sh:132-150` |
-| `f32` or `f64` under `programs/crates` | `programs integer-only policy: floating-point types are forbidden in consensus-adjacent code` | `scripts/programs/dependency-policy.sh:152-161` |
+### Failure reporting
 
-On success it prints `programs dependency, vendoring, unsafe and integer-only policies passed` (`scripts/programs/dependency-policy.sh:164`).
+The script uses `set -eu`; explicit policy refusals print a diagnostic to stderr and exit 1. Useful prefixes are:
 
-The script license allowlist tokens are `Apache-2.0`, `BSD-1-Clause`, `BSD-2-Clause`, `BSD-3-Clause`, `CC0-1.0`, `ISC`, `MIT`, `Unicode-3.0`, `Zlib`, `LLVM-exception` (`scripts/programs/dependency-policy.sh:30-38`). `programs/deny.toml` `[licenses].allow` lists `Apache-2.0`, `Apache-2.0 WITH LLVM-exception`, `BSD-2-Clause`, `BSD-3-Clause`, `CC0-1.0`, `ISC`, `MIT`, `Unicode-3.0`, `Zlib` (`programs/deny.toml:15-25`). `BSD-1-Clause` is in the script allowlist and absent from `deny.toml`.
+| Diagnostic | Meaning |
+| --- | --- |
+| `programs dependency policy:` | Forbidden dependency, entropy feature or license. |
+| `programs vendoring policy:` | Missing vendored package/checksum, changed engine pin or source replacement. |
+| `programs unsafe policy:` | Unsafe code outside permitted FFI boundaries. |
+| `programs integer-only policy:` | Floating-point type in the checked crate tree. |
+
+Success prints `programs dependency, vendoring, unsafe and integer-only policies passed`. Consult the script and `deny.toml` for the exact current rule rather than treating one check as a substitute for the other.
 
 ## Module-boundary check
 
-`make programs-module-boundaries` runs `sh tests/programs/runtime-module-boundaries.sh` (`Makefile:2884-2885`). With no argument the script checks `programs/crates/layerx-programs-runtime/src` (`tests/programs/runtime-module-boundaries.sh:4`). After `check_root` it re-executes itself with `--self-test` (`tests/programs/runtime-module-boundaries.sh:223-224`).
+`make programs-module-boundaries` runs `sh tests/programs/runtime-module-boundaries.sh`. Its default root is `programs/crates/layerx-programs-runtime/src`; it checks that layout and then runs its own `--self-test` against temporary layouts.
 
-`check_root` fails (non-zero return, stderr as below) when (`tests/programs/runtime-module-boundaries.sh:43-137`):
+The required split is:
 
-- A required file is missing: `budget.rs`; `abi/{mod,balance,capability,codec,context,event_tests,host_state,manifest,response,storage_ops}.rs`; `host/{mod,balance,context,memory,storage,events,calls,transfer,scan,crypto,signature}.rs` (`tests/programs/runtime-module-boundaries.sh:47-58`). Stderr: `runtime module boundary: missing $path`.
-- Legacy `abi.rs` or `host.rs` exists (`tests/programs/runtime-module-boundaries.sh:60-66`). Stderr: `runtime module boundary: legacy $legacy remains`.
-- Any `ffi*.rs` or `lifecycle.rs` matches `_for_qualification` (`tests/programs/runtime-module-boundaries.sh:68-75`). Stderr: `runtime module boundary: production transition reaches qualification-only API`.
-- The `abi/` `*.rs` basename set is not exactly `balance.rs capability.rs codec.rs context.rs event_tests.rs host_state.rs manifest.rs mod.rs response.rs storage_ops.rs` (`tests/programs/runtime-module-boundaries.sh:77-89`). Stderr: `runtime module boundary: unexpected ABI module inventory`.
-- The `host/` `*.rs` basename set is not exactly `balance.rs calls.rs context.rs crypto.rs events.rs memory.rs mod.rs scan.rs signature.rs storage.rs transfer.rs` (`tests/programs/runtime-module-boundaries.sh:90-103`). Stderr: `runtime module boundary: unexpected host module inventory`.
-- Host families `storage`, `events`, `calls`, `transfer`, `scan`, `crypto`, `signature` import a sibling family, name or alias a forbidden parent (`crate::host`, `use crate as`, `use super as`, grouped `self as`, `extern crate self as`), or mention `Abi` / `Composition` / `Storage` / `Meter` / `RuntimeState` as code tokens (`tests/programs/runtime-module-boundaries.sh:104-135`). Stderr: `runtime module boundary: $family imports a sibling host family`, `runtime module boundary: $family names or aliases a forbidden parent`, or `runtime module boundary: $family reaches state outside RuntimeState`.
+```text
+budget.rs
+abi/{mod,balance,capability,codec,context,event_tests,host_state,manifest,response,storage_ops}.rs
+host/{mod,balance,context,memory,storage,events,calls,transfer,scan,crypto,signature,oracle,web}.rs
+```
 
-`--self-test` builds a temporary layout, asserts the valid layout is accepted, and asserts missing `budget.rs`, qualification-API leakage, sibling imports, parent aliases, and direct state access are rejected (`tests/programs/runtime-module-boundaries.sh:140-220`).
+The script rejects missing files, unexpected ABI/host module inventory, legacy `abi.rs` or `host.rs`, and `_for_qualification` calls in production `ffi*.rs` or `lifecycle.rs`. Host families `storage`, `events`, `calls`, `transfer`, `scan`, `crypto`, `signature`, `oracle` and `web` must not import siblings, reach forbidden parents through aliases, or directly reach the private state types checked by the script. Diagnostics begin `runtime module boundary:`. The self-test exercises accepted layout and refusal cases including missing budget code, qualification API leakage, sibling imports, parent aliases and direct state access.
 
 ## Fixture recipes
 
-`PROGRAMS_CARGO` defaults to `cargo` (`Makefile:2861`). Capability recipes run the `layerx-programs-runtime` example `capability_fixture` (`Makefile:2893-2901`). Lifecycle recipes depend on `$(BUILD_DIR)/tests/programs_call_activity`, built from `tests/programs/test_call_activity.c` plus `$(LIBRARY)` and `$(PROGRAMS_RUNTIME_LIB)` after `programs-build` (`Makefile:2921-2925`, `Makefile:2872-2876`).
+`PROGRAMS_CARGO` defaults to `cargo`. Capability fixtures are generated by the runtime's `capability_fixture` example. Lifecycle fixtures are encoded by `$(BUILD_DIR)/tests/programs_call_activity`, built from the real C activity test and linked against the C kernel and sandbox static library.
 
-| Recipe | What it does | Files |
-| --- | --- | --- |
-| `programs-generate-capability-fixture` | Runs `cargo run --locked -p layerx-programs-runtime --example capability_fixture` in `programs/`, copies stdout onto the fixture path (`Makefile:2893-2896`). | Writes `sdk/platform/conformance/fixtures/native-program-capabilities-v2.json` (`Makefile:2896`). |
-| `programs-check-capability-fixture` | Same generator, then `cmp` against the committed fixture (`Makefile:2898-2901`). | Reads `sdk/platform/conformance/fixtures/native-program-capabilities-v2.json` (`Makefile:2901`). |
-| `programs-native-lifecycle-fixtures` | Runs `python3 sdk/platform/conformance/fixtures/generate_native_lifecycle_fixtures.py --encoder $<` (`Makefile:2928-2929`). `$<` is `$(BUILD_DIR)/tests/programs_call_activity`. The encoder is invoked as `--dump-native-lifecycle` (`sdk/platform/conformance/fixtures/generate_native_lifecycle_fixtures.py:12-16`). | Writes, next to the generator, `native-program-deploy-v3.json`, `native-program-upgrade-v3.json`, `native-program-wind-down-route-v3.json`, `native-program-wind-down-deprecate-v3.json`, `native-program-wind-down-tombstone-v3.json`, `native-program-wind-down-exit-v3.json` (`sdk/platform/conformance/fixtures/generate_native_lifecycle_fixtures.py:18-48`). |
-| `programs-check-native-lifecycle-fixtures` | Same generator with `--check` (`Makefile:2931-2932`). | Reads those six JSON files and compares them to encoder output (`sdk/platform/conformance/fixtures/generate_native_lifecycle_fixtures.py:44-46`). |
+| Recipe | Behavior and output |
+| --- | --- |
+| `programs-generate-capability-fixture` | Run the locked runtime example and copy its output to `sdk/platform/conformance/fixtures/native-program-capabilities-v2.json`. |
+| `programs-check-capability-fixture` | Run the same generator and compare its bytes with the committed JSON using `cmp`. |
+| `programs-native-lifecycle-fixtures` | Run `sdk/platform/conformance/fixtures/generate_native_lifecycle_fixtures.py --encoder …`; generate the native deploy, upgrade and wind-down route/deprecate/tombstone/exit v3 JSON files beside that script. |
+| `programs-check-native-lifecycle-fixtures` | Run the lifecycle generator with `--check` against those six committed files. |
 
-### Sequencer receipt verification
+### Stored receipt and commit verification
 
-SDK execution evidence uses the stored vectors in
-`daemon/committed-fixture/vectors/`. Verify the original signed bytes and
-provenance without regenerating receipts.
+Stored vectors in `daemon/committed-fixture/vectors/` remain verification authorities. Preserve their original signed bytes and provenance; regenerating signatures to match a consumer defeats their purpose. The directory name identifies fixture code, not an extra process required to run the merged network.
 
 | Vector | Verification |
 | --- | --- |
-| `vector-v1-receipted-positive.json` | Successful EIP-1559 contract creation with two logs; verify key pins, signature, raw transaction and RPC view. |
-| `vector-v2-receipted-revert.json` | Authenticated LayerXLedger revert; verify status, result code and the `LXP_INSUFFICIENT_BALANCE` return data. |
-| `vector-v3-receipt-refusals.json` | Refuse all six named key, height, transaction, sequence, log and canonical-encoding mutations. |
-| `vector-v4-committed.json` | Verify receipt inclusion, both inclusion-envelope refusals and the recorded `payExact` settlement proofs; refuse a commit with at most two thirds voting power. |
+| `vector-v1-receipted-positive.json` | Successful EIP-1559 contract creation with two logs: key pins, signature, raw transaction and JSON-RPC view. |
+| `vector-v2-receipted-revert.json` | Authenticated LayerXLedger revert: status, result code and `LXP_INSUFFICIENT_BALANCE` return data. |
+| `vector-v3-receipt-refusals.json` | Refuse the six named mutations of key, height, transaction, sequence, logs and canonical encoding. |
+| `vector-v4-committed.json` | Receipt inclusion, both inclusion-envelope refusals and recorded `payExact` proofs; refuse a consensus commit with at most two thirds voting power. |
 
-The daemon reference tests are
-`TestVectorV1ReceiptedPositiveVerifies`,
-`TestVectorV2ReceiptedRevertVerifies`,
-`TestVectorV3EveryRefusalIsRefused` and
-`TestVectorV4CommittedVerifies` in `daemon/committed-fixture/vector_v*_test.go`.
-A receipt signature authenticates execution; committed settlement also needs
-transaction, batch and result inclusion plus consensus commits under trusted
-chain authority. See [SDK terminal verification](../agents/sdk-verification.md) for the check order
-and `sdk/platform/conformance/README.md` for the SDK-adapted vector schemas.
+The V4 recording uses EIP-1559 type-2 transactions on EVM chain ID `125`.
+Its `payExact` transaction is `0x0825b6d3abe886f04d91e13108cb78adfbe18f8a28204de0bae9901f910c64e2` and its execution block is
+`0xa7c648246a5213d57d6a2f2aa7bdc8e0050249629e5e92a4b89f2bdb918e9108`. The daemon recording SHA-256 is
+`5013cd232ee94ece8d25fca4c802ca60c892f3a5f637a70962d9909dc71c4e7b`. These are private fixture identities; production consumers need their own trust anchors.
+
+Reference tests are `TestVectorV1ReceiptedPositiveVerifies`, `TestVectorV2ReceiptedRevertVerifies`, `TestVectorV3EveryRefusalIsRefused` and `TestVectorV4CommittedVerifies` in `daemon/committed-fixture/vector_v*_test.go`.
+
+An execution signature authenticates the signed result. Proving commitment additionally checks transaction, batch and result inclusion and consensus commits against trusted chain authority. These are proof components of the network's committed history, not a second settlement network. A receipt is final once its block is committed. The SDK-adapted vector schemas are documented in `sdk/platform/conformance/README.md`.
 
 ## Test tiers
 
-`PROGRAMS_RUNTIME_LIB` is `programs/target/debug/liblayerx_programs_sandbox.a` (`Makefile:2862`). `programs-build` is `cd programs && $(PROGRAMS_CARGO) build --locked --workspace --features layerx-programs-sandbox/host-ffi` (`Makefile:2875-2876`). Core C binaries list `| programs-build` as an order-only prerequisite (`Makefile:2903-2925`, `Makefile:2941-2969`).
+`programs-build` builds the locked workspace with `layerx-programs-sandbox/host-ffi` and fixes `CARGO_TARGET_DIR` to `programs/target`. `PROGRAMS_RUNTIME_LIB` is `programs/target/debug/liblayerx_programs_sandbox.a`. C activity binaries link that library and `$(LIBRARY)` or `$(TEST_LIBRARY)` after the `programs-build` prerequisite.
 
-| Recipe | Command | Prerequisites |
-| --- | --- | --- |
-| `programs-core-test` | `$(RUN_PREFIX)` on `$(BUILD_DIR)/tests/programs_{registration,lifecycle,monetary_law,call_activity,occupancy_batch,metering_schedule,fee_governance,accounts,winddown}` (`Makefile:2980-2988`). | Those nine binaries (`Makefile:2971-2979`). Each binary is compiled from the matching `tests/programs/test_*.c` against `$(LIBRARY)` or `$(TEST_LIBRARY)` and `$(PROGRAMS_RUNTIME_LIB)` (`Makefile:2903-2925`, `Makefile:2941-2969`). |
-| `programs-protocol-regression` | No recipe body (`Makefile:2990-2991`). Make runs the prerequisite targets. | `test-kernel`, `test-module-ctx`, `test-dispatch`, `test-receipts`, `test-state-root`, `test-snapshot`, `test-replay-golden-local` (`Makefile:2990-2991`). |
-| `programs-fuzz-smoke` | In `programs/`: `$(PROGRAMS_CARGO) run --locked -p layerx-programs-fuzz --bin programs-fuzz --` for `validation fuzz/corpus/validation`, `instantiation fuzz/corpus/instantiation`, and `execution fuzz/corpus/execution` (`Makefile:2993-2996`). | None declared on the target (`Makefile:2993`). |
-| `programs-adversarial` | In `programs/`: `$(PROGRAMS_CARGO) test --locked -p layerx-programs-runtime --test isolation --test composition --test monetary_law` (`Makefile:2998-2999`). | None declared on the target (`Makefile:2998`). |
-| `programs-conservation` | `programs/tests/conservation/run.sh` (`Makefile:3001-3002`). | None declared on the target (`Makefile:3001`). |
-| `programs-qualify` | `python3 tools/qualification/release_runner.py $@` (`Makefile:3004-3005`). `$@` is the target name `programs-qualify`. | None declared on the target (`Makefile:3004`). |
-| `programs-differential` | In `programs/`: `$(PROGRAMS_CARGO) test --locked -p layerx-programs-runtime --test replay --test determinism`, then `$(RUN_PREFIX) $(BUILD_DIR)/tests/programs_parallel_differential` (`Makefile:3017-3019`). | `$(BUILD_DIR)/tests/programs_parallel_differential`, compiled from `programs/tests/differential/parallel.c`, `tests/programs/test_call_activity.c`, `cmd/layerxd/lxp_daemon_batch_wal.c`, `$(LIBRARY)`, and `$(PROGRAMS_RUNTIME_LIB)` with `| programs-build` (`Makefile:3008-3015`). |
-| `programs-interpreter-conformance` | In `programs/`: `$(PROGRAMS_CARGO) build --locked --release --target wasm32-unknown-unknown -p layerx-programs-interpreter`, then `LAYERX_INTERPRETER_WASM=$(pwd)/target/wasm32-unknown-unknown/release/layerx_programs_interpreter.wasm $(PROGRAMS_CARGO) test --locked -p layerx-programs-runtime --test interpreter_program` (`Makefile:3021-3023`). | None declared on the target (`Makefile:3021`). |
-| `programs-bench` | No recipe body; Make runs `programs-interpreter-bench` (`Makefile:3025`). That target builds release `wasm32-unknown-unknown` packages `layerx-programs-interpreter` and `layerx-interpreter-compiled-equivalent`, then `$(PROGRAMS_CARGO) bench --locked -p layerx-programs-runtime --bench interpreter` with `LAYERX_INTERPRETER_WASM` and `LAYERX_COMPILED_EQUIVALENT_WASM` set to those two `.wasm` paths (`Makefile:3027-3030`). | `programs-interpreter-bench` (`Makefile:3025`). |
+The following targets are the current Makefile recipes, not additional gates run by this documentation task:
+
+| Recipe | Work performed |
+| --- | --- |
+| `programs-core-test` | Run ten C binaries: registration, lifecycle, monetary law, transfer principal, call escrow principal, call activity, metered call, metering schedule, accounts and wind-down. |
+| `programs-protocol-regression` | Depend on `test-kernel`, `test-module-ctx`, `test-dispatch`, `test-receipts`, `test-state-root`, `test-snapshot`; no separate recipe body. |
+| `programs-fuzz-smoke` | Run the locked `programs-fuzz` binary on validation, instantiation and execution corpora at absolute repository paths. |
+| `programs-adversarial` | Run runtime integration tests `isolation`, `composition` and `monetary_law`. |
+| `programs-conservation` | Run `programs/tests/conservation/run.sh`. |
+| `programs-qualify` | Invoke `python3 tools/qualification/release_runner.py programs-qualify`. |
+| `programs-differential` | Run runtime `replay` and `determinism` tests, then `$(BUILD_DIR)/tests/programs_parallel_differential`. |
+| `programs-interpreter-conformance` | Build the interpreter release WASM for `wasm32-unknown-unknown`, then run `interpreter_program` with `LAYERX_INTERPRETER_WASM` set. |
+| `programs-bench` | Depend on `programs-interpreter-bench`, which builds interpreter and compiled-equivalent release WASM, then runs the runtime's `interpreter` benchmark with both artifact paths. |
+
+The differential C binary is compiled from `programs/tests/differential/parallel.c`, which includes `tests/programs/test_call_activity.c`, against the kernel and sandbox libraries. It compares sequential and prepared execution: receipt/state roots, canonical receipt bytes and event bytes, including conflict and planning-refusal workloads. Its current Makefile inputs contain no daemon WAL source.
+
+For interpreter conformance and benchmarks, the recipes set artifact paths under `programs/target`; ensure any Cargo target-directory override agrees with those paths.
+
+## AI-market deployment qualification
+
+AI-market guest packaging must use a release build with size optimization (`opt-level = "z"`), a chain domain bound at build time, and a deployment payload within `LXP_MAX_PAYLOAD_BYTES = 524288` from `include/layerx/lxp_protocol.h`. A deployment with no interface descriptor has a 104-byte envelope, leaving at most **524184 bytes of WASM**. With an interface descriptor the header is 108 bytes plus the descriptor length, so its budget must be reduced accordingly (`precompiles/layerxprograms/payload_lifecycle.go`).
+
+`programs/crates/layerx-programs-ai-market/src/lib.rs` derives the merged chain domain as SHA-256 of `PAXAI/chain-domain/v1` followed by the 8-byte big-endian chain ID `125`. Its value is `62b6b14734fa769c3e0fbc94de495a3d038be49a2524b1c071d75d0a4eed71f6`. `PAXAI_CHAIN_DOMAIN` is read with `option_env!`, so it is a build input, not a runtime setting. An explicit value must be 64 lowercase hex characters and match that domain; malformed or foreign values return `WRONG_DOMAIN`. An unset setting selects the built-in merged-chain domain.
+
+For an explicit deployment build, run from `programs/`:
+
+```sh
+PAXAI_CHAIN_DOMAIN=62b6b14734fa769c3e0fbc94de495a3d038be49a2524b1c071d75d0a4eed71f6 \
+CARGO_PROFILE_RELEASE_OPT_LEVEL=z \
+CARGO_TARGET_DIR=target \
+cargo build --locked --release --target wasm32-unknown-unknown \
+  -p layerx-programs-ai-market
+```
+
+Measure the resulting `target/wasm32-unknown-unknown/release/layerx_programs_ai_market.wasm` and include the actual deployment framing in the payload budget. The workspace's default release optimization level 3 is not this size profile. `make paxai-host-boundary-build` builds and records a guest/host manifest, but its current default `PAXAI_CHAIN_DOMAIN` differs from the guest's chain-125 derivation; supply the domain above and the size-profile override explicitly when using that recipe.
+
+A size check alone does not qualify deployment. The guest must validate as ABI 5 under the selected metering schedule, be admitted by the ABI-v5 Programs registration, and execute through the real host boundary. Relevant authorities are `tests/programs/test_programs_abi5_admission.c`, `tests/programs/test_ai_host_boundary.c`, and the AI-market crate's `chain_domain`, `host_boundary` and `fuel_budget` integration tests. Preserve the artifact's domain, code hash, ABI, size and metering context with deployment evidence.
 
 ## Signature and storage test authorities
 
-`tests/vectors/signatures/sources.json` pins four fetched files by `file`, `url`, and `sha256` (`tests/vectors/signatures/sources.json:1-32`):
+`tests/vectors/signatures/sources.json` pins the fetched authorities by file, URL and SHA-256:
 
-| File | URL | SHA-256 |
+| File | Source | SHA-256 |
 | --- | --- | --- |
-| `rfc8032.txt` | `https://www.rfc-editor.org/rfc/rfc8032.txt` (`tests/vectors/signatures/sources.json:3-4`) | `ed63657ff389301282b169b0abde9b5dd2c7e4d524fdfa5da6ff3094fc93c4c3` (`tests/vectors/signatures/sources.json:5`) |
-| `wycheproof.json` | `https://raw.githubusercontent.com/C2SP/wycheproof/main/testvectors_v1/ecdsa_secp256k1_sha256_test.json` (`tests/vectors/signatures/sources.json:8-9`) | `43db761c0a2eae71fb0755d355d5130e28ce64a5b07846cf27e7072082597a81` (`tests/vectors/signatures/sources.json:10`) |
-| `secp256k1.h` | `https://raw.githubusercontent.com/bitcoin-core/secp256k1/v0.6.0/include/secp256k1.h` (`tests/vectors/signatures/sources.json:23-24`) | `0c3bbf04703f9a240a200a57fb75b3d7ef072464f24369d34bd9fc0848a66f3b` (`tests/vectors/signatures/sources.json:25`) |
-| `secp256k1_recovery.h` | `https://raw.githubusercontent.com/bitcoin-core/secp256k1/v0.6.0/include/secp256k1_recovery.h` (`tests/vectors/signatures/sources.json:28-29`) | `9ef005af267b04b2f4def6e7d3bc7a8ad42dad80063f939aab8eb46317c6212f` (`tests/vectors/signatures/sources.json:30`) |
+| `rfc8032.txt` | `https://www.rfc-editor.org/rfc/rfc8032.txt` | `ed63657ff389301282b169b0abde9b5dd2c7e4d524fdfa5da6ff3094fc93c4c3` |
+| `wycheproof.json` | `https://raw.githubusercontent.com/C2SP/wycheproof/main/testvectors_v1/ecdsa_secp256k1_sha256_test.json` | `43db761c0a2eae71fb0755d355d5130e28ce64a5b07846cf27e7072082597a81` |
+| `secp256k1.h` | `https://raw.githubusercontent.com/bitcoin-core/secp256k1/v0.6.0/include/secp256k1.h` | `0c3bbf04703f9a240a200a57fb75b3d7ef072464f24369d34bd9fc0848a66f3b` |
+| `secp256k1_recovery.h` | `https://raw.githubusercontent.com/bitcoin-core/secp256k1/v0.6.0/include/secp256k1_recovery.h` | `9ef005af267b04b2f4def6e7d3bc7a8ad42dad80063f939aab8eb46317c6212f` |
 
-The Wycheproof pin lists `cases`: `tcId` 3 purpose `Valid prehashed signature, compressed and uncompressed SEC1 key acceptance` (`tests/vectors/signatures/sources.json:12-15`); `tcId` 1 purpose `Existing genuine high-S refusal in signature_authority.rs` (`tests/vectors/signatures/sources.json:16-19`).
+`tests/vectors/signatures/check.py` independently checks these hashes and uses the OpenSSL cryptography backend to verify the published vectors against the Rust test bytes. The runtime's `signature_vectors.rs` and `signature_authority.rs` tests retain these distinctions:
 
-`tests/vectors/signatures/check.py` iterates those pins and asserts `hashlib.sha256((root / source['file']).read_bytes()).hexdigest() == source['sha256']` (`tests/vectors/signatures/check.py:11-12`). It prints `All authority source SHA256 values match` and `backend.openssl_version_text()` from the OpenSSL cryptography backend (`tests/vectors/signatures/check.py:5`, `tests/vectors/signatures/check.py:13-14`).
+- Wycheproof `tcId` 3 is a valid SHA-256-prehashed secp256k1 signature, tested with compressed and uncompressed SEC1 keys and compact `r || s` signatures. The independent check recomputes the digest and matches the Rust bytes before verifying the DER signature.
+- Wycheproof `tcId` 1 is a genuine high-S signature accepted by the reference verifier. The runtime's low-S policy refuses it with `VerificationFailed`; an all-zero signature is not an equivalent high-S vector.
+- The pinned secp256k1 compact parser permits zero scalar encodings but guarantees verification failure for them. The runtime tests classify the zero-signature cases as `MalformedSignature`, including recovery IDs 0 through 3.
+- RFC 8032 TEST 1 verifies the empty message. Adding the little-endian group order `L` to `S` must fail. The `[0x02; 32]` public key fails curve-point decoding and is classified `MalformedPublicKey`.
 
-It reads `programs/crates/layerx-programs-runtime/tests/signature_vectors.rs` (`tests/vectors/signatures/check.py:15`). From `wycheproof.json` it takes `testGroups[0]`, the test with `tcId == 3`, and asserts `result == 'valid'` (`tests/vectors/signatures/check.py:16-18`). It decodes the DER `sig` hex, splits `(r, s)` with `utils.decode_dss_signature`, recomputes `digest` as SHA-256 of the `msg` hex, loads `group['publicKey']['uncompressed']` as a `SECP256K1` point, and forms 32-byte big-endian `r || s` (`tests/vectors/signatures/check.py:19-23`). For `secp256k1_verify_accepts_compressed_public_key`, `secp256k1_verify_accepts_uncompressed_public_key`, and `secp256k1_verify_published_test_vector_1` it extracts every `hex::decode` hex string from the function body and asserts those bytes equal `[digest, key.public_bytes(X962, CompressedPoint|UncompressedPoint), raw]` (`tests/vectors/signatures/check.py:24-28`). It OpenSSL-verifies the original DER against that digest with `ECDSA(Prehashed(SHA256))` (`tests/vectors/signatures/check.py:29-30`).
+Storage-scan evidence lives in `programs/crates/layerx-programs-runtime/tests/storage_scan.rs`. `expected_page` encodes a big-endian u16 entry count, each entry's u16 key length and u32 value length, then cursor presence, u16 cursor length and cursor bytes. Independent arithmetic in the authority check gives 29 bytes for three one-byte key/value entries without a cursor, 101 bytes for two entries plus an 80-byte cursor, and 13 bytes for one terminal entry.
 
-For `(r, s)` in `(0, 0)` and `(0, 255)` it encodes DSS signatures and asserts OpenSSL raises `InvalidSignature` on the same tcId 3 key and digest (`tests/vectors/signatures/check.py:31-37`). For Wycheproof `tcId == 1` it decodes DER `s`, asserts `s > 0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141 // 2`, and OpenSSL-verifies the high-S DER (`tests/vectors/signatures/check.py:38-43`).
+The scan tests check deterministic pagination across insertion orders and activities, complete-page byte limits independently of entry limits, and cursor binding to scope, prefix and limits. `scan_status_guest` places the output sentinel separately from the cursor: with cursor memory starting at 32, a write to memory `64..68` corrupts cursor bytes `32..36`. That malformed-cursor case must return a negative status without overwriting the sentinel or charging successful read bytes. A subsequent guest trap must roll back same-activity storage writes and discard the response; the original valid cursor must still resume correctly. These checks establish storage and metering behavior, not merely a page's output length.
 
-For `malleable_signature_detection_ed25519` it decodes the three `hex::decode` values as `pk`, `sig`, and `order` (`tests/vectors/signatures/check.py:44-45`). It strips whitespace from `rfc8032.txt` and asserts `pk.hex()` and `sig.hex()` both occur in that text (`tests/vectors/signatures/check.py:46-47`). It asserts little-endian `order` equals `L = 2**252 + 27742317777372353535851937790883648493` (`tests/vectors/signatures/check.py:48-49`). OpenSSL Ed25519 verifies `sig` over `b''` and rejects `S + L` (`tests/vectors/signatures/check.py:50-58`). Independently it sets `p = 2**255 - 19`, `y` from 32 bytes of `0x02` little-endian, curve `d = -121665 * pow(121666, -1, p) % p`, and `x2 = (y*y - 1) * pow(d*y*y + 1, -1, p) % p`; it asserts `pow(x2, (p-1)//2, p) == p-1` (`tests/vectors/signatures/check.py:59-64`).
-
-It asserts `secp256k1.h` contains `R and S with value 0 are allowed in the encoding.` (`tests/vectors/signatures/check.py:65`, `tests/vectors/signatures/secp256k1.h:474`). It asserts `5 + 3 * 8 == 29`, `5 + 2 * 8 + 80 == 101`, and `5 + 8 == 13` (`tests/vectors/signatures/check.py:67`).
-
-`secp256k1_verify_accepts_compressed_public_key` and `secp256k1_verify_accepts_uncompressed_public_key` first call `verify_secp256k1` with all-zero digest, all-zero public key, and all-zero `SECP256K1_SIGNATURE_BYTES` signature and assert `Err(SignatureRefusal::MalformedSignature)` (`programs/crates/layerx-programs-runtime/tests/signature_vectors.rs:141-149`, `programs/crates/layerx-programs-runtime/tests/signature_vectors.rs:161-169`). `secp256k1_verify_zero_vector_fails` asserts the same compressed zero triple (`programs/crates/layerx-programs-runtime/tests/signature_vectors.rs:180-188`). `secp256k1_recover_zero_vector_fails` asserts `recover_secp256k1` of all-zero digest and signature returns `MalformedSignature` for every `recovery_id` in `0..=3` (`programs/crates/layerx-programs-runtime/tests/signature_vectors.rs:229-238`). The pinned compact parser allows R and S of value 0 and, when R or S are zero, guarantees verification failure for any message and public key (`tests/vectors/signatures/secp256k1.h:472-478`). OpenSSL rejects `(r, s) = (0, 0)` (`tests/vectors/signatures/check.py:31-37`). `malleable_signature_detection_secp256k1` uses an all-zero `SECP256K1_SIGNATURE_BYTES` signature with `signature[63] = 0xff` and asserts `MalformedSignature` (`programs/crates/layerx-programs-runtime/tests/signature_vectors.rs:338-348`).
-
-`malleable_signature_detection_ed25519` calls `verify_ed25519` with `public_key = [2u8; ED25519_PUBLIC_KEY_BYTES]` and asserts `Err(SignatureRefusal::MalformedPublicKey)` (`programs/crates/layerx-programs-runtime/tests/signature_vectors.rs:304-314`). `check.py` treats 32 bytes of `0x02` as a quadratic nonresidue (`tests/vectors/signatures/check.py:59-64`). RFC 8032 5.1.3 decoding fails when no square root exists (`tests/vectors/signatures/rfc8032.txt:596-597`). 5.1.7 splits the signature, decodes `R`, `S`, and public key `A`, and treats any failed decoding as an invalid signature (`tests/vectors/signatures/rfc8032.txt:750-754`). The same function then uses RFC 8032 TEST 1 (`programs/crates/layerx-programs-runtime/tests/signature_vectors.rs:316`, `tests/vectors/signatures/rfc8032.txt:1301-1320`): `verify_ed25519` of the empty message returns `Ok(())`; after adding little-endian `L` into `S` with carry 0 it returns `Err(SignatureRefusal::VerificationFailed)` (`programs/crates/layerx-programs-runtime/tests/signature_vectors.rs:317-334`).
-
-`wycheproof_secp256k1_sha256_tc1_rejects_high_s` asserts `verify_secp256k1` of the tcId 1 digest, uncompressed key, and compact signature returns `Err(SignatureRefusal::VerificationFailed)` (`programs/crates/layerx-programs-runtime/tests/signature_authority.rs:13-20`). Wycheproof records that vector as `result: valid` with flag `ValidSignature` (`tests/vectors/signatures/wycheproof.json:137-144`). `check.py` asserts the decoded `s` is above `n/2` and that OpenSSL accepts the DER (`tests/vectors/signatures/check.py:38-43`). The pin purpose names that refusal (`tests/vectors/signatures/sources.json:16-19`).
-
-Comments on `secp256k1_verify_accepts_compressed_public_key`, `secp256k1_verify_accepts_uncompressed_public_key`, and `secp256k1_verify_published_test_vector_1` cite `Wycheproof ecdsa_secp256k1_sha256 tcId 3; tests/vectors/signatures/sources.json` (`programs/crates/layerx-programs-runtime/tests/signature_vectors.rs:151`, `programs/crates/layerx-programs-runtime/tests/signature_vectors.rs:171`, `programs/crates/layerx-programs-runtime/tests/signature_vectors.rs:269`). Each asserts `verify_secp256k1(...) == Ok(())` for prehash `bb5a52f42f9c9261ed4361f59422a1e30036e7c32b270c8807a419feca605023`, compact `r || s`, and either the compressed or uncompressed SEC1 key (`programs/crates/layerx-programs-runtime/tests/signature_vectors.rs:152-157`, `programs/crates/layerx-programs-runtime/tests/signature_vectors.rs:172-176`, `programs/crates/layerx-programs-runtime/tests/signature_vectors.rs:270-274`). Wycheproof records `tcId` 3 as `result: valid` (`tests/vectors/signatures/wycheproof.json:157-164`). The pin purpose is compressed and uncompressed SEC1 acceptance (`tests/vectors/signatures/sources.json:12-15`). `check.py` matches those test bytes to the recomputed digest, encodings, and `r || s`, then OpenSSL-verifies the DER (`tests/vectors/signatures/check.py:16-30`).
-
-`scan_guest_selected` places prefix at offset 0, cursor at 32, and `keep` at 256 (`programs/crates/layerx-programs-runtime/tests/storage_scan.rs:201`). `scan_status_guest` places `keep` at 128 (`programs/crates/layerx-programs-runtime/tests/storage_scan.rs:260`) and stores the scan status i32 at memory 64 and the i32 at `sentinel_pointer` at memory 68, then `response_write`s 8 bytes from 64 (`programs/crates/layerx-programs-runtime/tests/storage_scan.rs:240-249`). `candidate_scan_paginates_across_activities_and_is_insertion_order_independent` overwrites `cursor[64 - 32..68 - 32]` with `b"keep"` (`programs/crates/layerx-programs-runtime/tests/storage_scan.rs:414-415`), executes `scan_status_guest` with that cursor and sentinel 128 (`programs/crates/layerx-programs-runtime/tests/storage_scan.rs:417-424`), and asserts `storage_read_bytes == 0`, response bytes `(-2_i32).to_le_bytes()` followed by `b"keep"`, and storage equal to the pre-call clone (`programs/crates/layerx-programs-runtime/tests/storage_scan.rs:425-429`). The uncorrupted cursor then resumes as a 13-byte page (`programs/crates/layerx-programs-runtime/tests/storage_scan.rs:430-445`). `check.py` records that guest cursor starts at 32 so a memory overwrite of `64..68` maps to `cursor[32..36]` (`tests/vectors/signatures/check.py:69`).
-
-`expected_page` encodes a big-endian u16 count, per entry a big-endian u16 key length plus key plus big-endian u32 value length plus value, a has-cursor byte, a big-endian u16 cursor length, and cursor bytes (`programs/crates/layerx-programs-runtime/tests/storage_scan.rs:283-296`). Three `(a, a) / (b, b) / (c, c)` entries with `None` cursor are 29 bytes (`programs/crates/layerx-programs-runtime/tests/storage_scan.rs:466-467`). The scan with `max_entries` 64, `max_bytes` 101, and 29-byte response capacity returns those 29 bytes and meters `storage_read_bytes` 29 (`programs/crates/layerx-programs-runtime/tests/storage_scan.rs:468-477`). After seeding `(d, d)` (`programs/crates/layerx-programs-runtime/tests/storage_scan.rs:478-479`), two entries plus `expected_cursor(owner, actor, 64, 101, b"b")` are 101 bytes (`programs/crates/layerx-programs-runtime/tests/storage_scan.rs:481-483`); the same 64/101 limits return that 101-byte page and meter 101 (`programs/crates/layerx-programs-runtime/tests/storage_scan.rs:484-499`). `check.py` asserts the independent sizes 29, 101, and 13 (`tests/vectors/signatures/check.py:67-68`).
-
-`write_then_scan_guest(12, true)` pushes `0x00` after the scan (`programs/crates/layerx-programs-runtime/tests/storage_scan.rs:105-106`, `programs/crates/layerx-programs-runtime/tests/storage_scan.rs:724`). `execute_authorized_candidate` returns a record whose `outcome()` is `V2ActivityOutcome::Failure` (`programs/crates/layerx-programs-runtime/tests/storage_scan.rs:726-743`). The failure `class()` is `RefusalClass::RuntimeFault`, `program()` equals the owner, `response()` is `None`, and storage equals the pre-call clone (`programs/crates/layerx-programs-runtime/tests/storage_scan.rs:744-750`).
-
-[Home](../index.md)
+[Home](../index.md) · [Protocol](../protocol/index.md) · [Modules](../protocol/modules.md)

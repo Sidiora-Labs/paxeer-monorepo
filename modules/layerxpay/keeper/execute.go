@@ -1,6 +1,7 @@
 package keeper
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"math"
@@ -60,6 +61,11 @@ func (k Keeper) Submit(ctx sdk.Context, caller common.Address, method string, pa
 	authority.Kernel.Bound = true
 	// HostExecute persists refused receipts too; publish its writes only on success.
 	branch, commit := ctx.CacheContext()
+	if mapping.Type>>16 == uint32(types.ServiceModuleID) && !bytes.Equal(branch.KVStore(k.storeKey).Get([]byte(serviceIndexVersionKey)), []byte{1}) {
+		if err := k.RebuildServiceIndexes(branch); err != nil {
+			return lxphost.Receipt{}, err
+		}
+	}
 	receipt, err := k.host.HostExecute(lxphost.WithSequence(branch, last+1), activity, authority.Kernel)
 	if err != nil {
 		var code lxphost.Code
@@ -70,6 +76,27 @@ func (k Keeper) Submit(ctx sdk.Context, caller common.Address, method string, pa
 	}
 	if receipt.ResultCode != 0 {
 		return receipt, submitCodeError(method, receipt.ResultCode)
+	}
+	if mapping.Type>>16 == uint32(types.EscrowModuleID) {
+		if err := k.bindEscrowReceipt(branch, &receipt); err != nil {
+			return lxphost.Receipt{}, err
+		}
+	}
+	if method == "serviceDeliver" || method == "serviceProgressReport" {
+		// Payload encoders put the owned record identifier first after the header.
+		if len(payload) < 34 {
+			return lxphost.Receipt{}, fmt.Errorf("%w: service writer payload", ErrServiceCorruptState)
+		}
+		id := [32]byte(payload[2:34])
+		var err error
+		if method == "serviceDeliver" {
+			err = k.updateServiceDeliveryIndex(branch, id)
+		} else {
+			err = k.updateServiceProgressIndex(branch, id)
+		}
+		if err != nil {
+			return lxphost.Receipt{}, err
+		}
 	}
 	commit()
 	return receipt, nil

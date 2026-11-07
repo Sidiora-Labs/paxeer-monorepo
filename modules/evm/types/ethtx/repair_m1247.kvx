@@ -1,0 +1,8 @@
+[task.22.33.1247]
+audit_record = "22.30.60"
+finding_025 = "TestRepairM_1247_025_SetCodeDestination; TestRepairM_1247_025_026_MandatoryUint256; TestRepairM_1247_025_026_ValidRoundTrip"
+finding_026 = "TestRepairM_1247_026_BlobDimensions; TestRepairM_1247_025_026_MandatoryUint256; TestRepairM_1247_025_026_ValidRoundTrip"
+proof = "Signed Ethereum transactions produced by geth, converted by NewTxDataFromTx, malformed at the protobuf boundary, serialized through MsgEVMTransaction and admitted through EvmStatelessChecks using the production SDK Tx."
+baseline = "Not run: the explicit gate order prohibits verification before implementation and allows verification only through hf-done after hf-build. No baseline test failures are claimed."
+wiring_requests = "None; production changes and tests are contained in modules/evm/types/ethtx."
+evidence = "The runner hf-done ledger and final JSON record the exact candidate revision, command, exit code and private log location."

@@ -62,8 +62,9 @@ jobs:
             exit 1
           fi
           upgrade=$(jq -er '.upgrade' tools/release/version.json)
-          if ! grep -qxF "const V6120Upgrade = \"$upgrade\"" node/upgrades_v6120.go; then
-            echo "Upgrade name $upgrade is not declared as V6120Upgrade in node/upgrades_v6120.go"
+          if ! grep -hE '^[[:space:]]*const (MergeUpgrade|AnchorStoreDeleteUpgrade|V6120Upgrade)[[:space:]]*=' \
+            node/upgrades.go precompiles/common/precompiles.go | grep -qF -- "= \"$upgrade\""; then
+            echo "Upgrade name $upgrade is not declared as MergeUpgrade, AnchorStoreDeleteUpgrade or V6120Upgrade in node/upgrades.go or precompiles/common/precompiles.go"
             exit 1
           fi
 
@@ -122,6 +123,4 @@ jobs:
       - name: Install pinned Rust toolchain
         run: rustup toolchain install 1.91.1 --profile minimal --no-self-update
       - name: Check reproducible release build
-        env:
-          PAXD_RELEASE_LAYERXD: '1'
         run: tools/release/reproducible-check.sh

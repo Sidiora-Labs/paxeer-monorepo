@@ -1,0 +1,81 @@
+# Product evidence read from main at 52c0e2d626dc404116922a63a8b0427845ff254f.
+
+[disposition.17.5.1]
+finding = "17.5.1"
+status = "resolved"
+evidence = "On main, tests/modules/test_asset_registry.c:241 initializes binding_authority to false, as landed in e1eb3f1898ae5f905453c51f83d2d58809ca329e for the remaining positional asset and send literals. The daemon process and guarantor runtime were subsequently retired by 05b1f8e8e and 42f6725de, respectively; neither cmd/layerxd/lxp_daemon_process.c nor cmd/layerx-guarantor/runtime.c exists on main."
+
+[disposition.17.5.1.1]
+finding = "17.5.1.1"
+status = "resolved"
+evidence = "On main, services/agent/crates/layerx-agentd/src/read/balance.rs:24 carries chain_head, value_height and relative_to freshness with achieved_rung at :35, following the daemon mirror-type port landed in 6b9420582. services/platform/hosted/webhooks/src/ai_market.rs:909 verifies block commits before admitting finalized events, following the webhook port landed in 60ba879e70c578b1725ee31352317ac3e43ba5e6."
+
+[disposition.17.5.1.14]
+finding = "17.5.1.14"
+status = "resolved"
+evidence = "On main, services/agent/sdk/typescript/package.json:16 gives both the root and browser exports types, import and default conditions targeting their dist files. Commit c6394aa5b9d72b6d121e1c7a54fb05ea2bdafadd landed these exports and the SDK build dependency now invoked before the web build at Makefile:1640."
+
+[disposition.17.5.5.1]
+finding = "17.5.5.1"
+status = "resolved"
+evidence = "On main, services/human/crates/layerx-human-service/src/server/production_components.rs:4424 reads the asset table and passes its resolved denomination to bank_send_calldata, replacing the balance-row lookup in 1b694a0c3 and refining denomination matching in 8677d280c. Commit f47608611 regenerated the web client whose IntentLeg now includes max_fee_per_gas at apps/web/src/api/generated/index.ts:2358; services/human/tools/api-gen/tests/generation.rs:315 retains the committed-client regeneration assertion."
+
+[disposition.17.5.5.2]
+finding = "17.5.5.2"
+status = "resolved"
+evidence = "On main, Makefile:1640 builds the agent TypeScript SDK before the human API and web builds, using the npm build recipe at Makefile:1626. Commit c6394aa5b9d72b6d121e1c7a54fb05ea2bdafadd landed that dependency and the browser export's default condition now present at services/agent/sdk/typescript/package.json:24."
+
+[disposition.17.5.5.3]
+finding = "17.5.5.3"
+status = "resolved"
+evidence = "On main, sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java:1 identifies generate_jvm.py as its source, and sdk/platform/generators/generate_jvm.py:105 derives program transports from the precompile ABI. Commit bb6dde2237ba7a09ee500f4019c38a0040ebf31a moved the required catalogue shape into that generator and regenerated both GeneratedSchema.java and GeneratedContract.java."
+
+[disposition.17.5.5.4]
+finding = "17.5.5.4"
+status = "resolved"
+evidence = "On main, sdk/platform/pipeline.kvx:10 records the human-api source at services/human/schema/human-api with its digest, and apps/web/src/api/generated/index.ts:4 declares schema minor 10. Commit 7d04cd251 regenerated the SDK outputs and resealed the pipeline after the human schema additions; later reseals retain the human-api source entry."
+
+[disposition.17.5.5.5]
+finding = "17.5.5.5"
+status = "environment"
+evidence = "On main, services/platform/Makefile.inc:30 requires Python, Go, Cargo, Maven, Swift and dotnet for platform samples. The platform-sample-install target at :38 installs the SDKs and resolves sample dependencies, while platform-sample-dependencies-ready at :58 checks the Python package versions and local JVM artifacts before platform-build-all."
+
+[disposition.17.5.5.6]
+finding = "17.5.5.6"
+status = "resolved"
+evidence = "On main, services/platform/Makefile.inc:41 installs the Python SDK from $(CURDIR)/services/agent/sdk/python alongside sdk/integrations/fastapi. Commit 3d8646fda landed the corrected SDK path, and the dependency readiness check at :60 requires both installed package versions to equal 0.1.0."
+
+[disposition.17.5.1.15]
+finding = "17.5.1.15"
+status = "resolved"
+evidence = "On main, services/platform/Makefile.inc:41 installs the Python SDK from its services/agent location, repaired by 3d8646fda. The sample preflight at :30 requires Maven, Swift and dotnet alongside Python, Go and Cargo, and the readiness target at :58 requires the installed SDK packages and JVM artifacts before platform-build-all."
+
+[disposition.17.5.1.16]
+finding = "17.5.1.16"
+status = "resolved"
+evidence = "On main, sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/SchemaErrors.java:6 checks enum parity against GeneratedContract, and sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/ReceiptFixtureTest.java:67 binds native program calls to signed EIP-1559 transactions. Commit 4673a54d910210ec1aafc1b622715a45cf6013cc landed the enum, lifecycle and program-contract repairs used by the Maven install at services/platform/Makefile.inc:70."
+
+[disposition.17.5.5.7]
+finding = "17.5.5.7"
+status = "resolved"
+evidence = "On main, sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/ReceiptFixtureTest.java:20 checks native lifecycle calldata and signed transaction binding, and sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/ProgramsContractTest.java:78 reads program interfaces through the precompile client. Commit 4673a54d910210ec1aafc1b622715a45cf6013cc landed these contract-aligned fixtures and the error-enum parity repair at sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/SchemaErrors.java:6."
+
+[disposition.17.5.5.8]
+finding = "17.5.5.8"
+status = "resolved"
+evidence = "On main, sdk/platform/pipeline.kvx:18 records the platform-sdkgen root and its generator digest alongside the generated output inventory. Commit b66eaa7db resealed that digest after the JVM generator repair; the later reseal in e66c4965e also carries the unified JVM VerificationStatus generation into the lock."
+
+[disposition.17.5.1.17]
+finding = "17.5.1.17"
+status = "resolved"
+evidence = "On main, sdk/platform/pipeline.kvx:18 seals sdk/platform/generators as platform-sdkgen, and services/platform/Makefile.inc:234 retains the SDK pipeline drift check. Commit b66eaa7db landed the reseal following the JVM generator change, with the unified JVM VerificationStatus generator and lock subsequently landed together in e66c4965e."
+
+[disposition.17.5.1.18]
+finding = "17.5.1.18"
+status = "resolved"
+evidence = "On main, services/platform/middleware/seller/src/rpc.ts:1 imports decodeRawEip1559, keccak256 and SequencerReceiptKey, and PaymentRpc.receipt at :95 reads pax_sequencerReceipt. Commit 39f0199fb2281a37102d9ebafdd5608bcfe4aac0 removed the retired MerkleProof import and kernel batch evidence reader."
+
+[disposition.17.5.5.9]
+finding = "17.5.5.9"
+status = "resolved"
+evidence = "On main, services/platform/middleware/seller/src/rpc.ts:113 verifies RPC payments using signed sequencer receipts and SequencerReceiptKey values rather than kernel batch proofs. Commit 39f0199fb2281a37102d9ebafdd5608bcfe4aac0 deleted RpcBatchEvidence, rpcBatchEvidence and their MerkleProof import from this seller surface."

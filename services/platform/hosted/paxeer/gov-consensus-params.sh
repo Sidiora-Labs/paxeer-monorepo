@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# Maintained owner: domain 8 paxd operators; relocation target ../node/gov-consensus-params.sh.
 # Submits the consensus-parameter change for the fork: timeout commit, bypass commit timeout and
 # timeout vote from the command line, with the same vote, tally and confirm flow as gov-upgrade.sh.
 #
@@ -211,7 +212,7 @@ SUBMIT=(gov submit-proposal param-change "$PROPOSAL_FILE")
 [ "$EXPEDITED" -eq 0 ] || SUBMIT+=(--is-expedited)
 
 vote_cmd() {
-    printf '%q tx gov vote %s yes --from %s --chain-id %q --node %q --fees %q -b sync -y\n' \
+    printf '%q tx gov vote %s yes --from %q --chain-id %q --node %q --fees %q -b sync -y\n' \
         "$PAXD_BIN" "$1" "$2" "$COSMOS_CHAIN_ID" "$RPC" "$FEES"
 }
 
@@ -236,7 +237,7 @@ if [ "$EXECUTE" -eq 0 ]; then
     if [ -z "$PROPOSAL_ID" ]; then
         echo "dry run: would submit (add --execute to broadcast)"
         print_cmd "$PAXD_BIN tx $(printf '%q ' "${SUBMIT[@]}")$(tx_flags)"
-        print_cmd "$PAXD_BIN q gov proposals --node $RPC -o json | jq '[.proposals[] | select(.content.changes[0].key == \"TimeoutParams\")] | last | {proposal_id, status, voting_end_time}'"
+        echo "read proposal_id from the committed submit_proposal event, then fetch and compare the exact proposal before voting"
         print_votes "<proposal_id>"
         echo "then wait for PROPOSAL_STATUS_PASSED and confirm the values:"
         print_cmd "$PAXD_BIN q gov proposal <proposal_id> --node $RPC -o json | jq -r .status"
@@ -251,11 +252,14 @@ fi
 
 if [ -z "$PROPOSAL_ID" ]; then
     log "submitting the TimeoutParams change with deposit $DEPOSIT ($PATH_NAME path)"
-    run_tx "${SUBMIT[@]}" >/dev/null
-    PROPOSAL_ID=$(paxd_query_optional proposals gov proposals \
-        | jq -r '[(.proposals // [])[] | select((.content.changes // [])[0].key == "TimeoutParams")] | last | .proposal_id // empty')
-    [[ "$PROPOSAL_ID" =~ ^[0-9]+$ ]] || fail "could not find the TimeoutParams proposal after submission"
-    log "proposal $PROPOSAL_ID submitted; voting ends $(paxd_query proposal gov proposal "$PROPOSAL_ID" | jq -r .voting_end_time)"
+    SUBMITTED_TX=$(run_tx "${SUBMIT[@]}")
+    PROPOSAL_ID=$(governance_json proposal-id <<<"$SUBMITTED_TX")
+fi
+# Resumed proposals are subject to the same content check before waiting or printing votes.
+PROPOSAL=$(paxd_query proposal gov proposal "$PROPOSAL_ID")
+governance_json check-parameters "$PROPOSAL_ID" "$NEW_VALUE" <<<"$PROPOSAL"
+if [ -n "${SUBMITTED_TX:-}" ]; then
+    log "proposal $PROPOSAL_ID submitted; voting ends $(jq -r .voting_end_time <<<"$PROPOSAL")"
     run_tx gov vote "$PROPOSAL_ID" yes >/dev/null
     log "voted yes from $KEY_NAME"
 fi

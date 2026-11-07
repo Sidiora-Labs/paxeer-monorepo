@@ -85,12 +85,13 @@ func connected(t *testing.T) *connectedFixture {
 		t.Fatal(e)
 	}
 	t.Cleanup(db.Close)
-	for _, path := range []string{"launchpad/spec/production-system/integration/migrations/330000.sql", "launchpad/spec/production-system/integration/migrations/350000.sql", "launchpad/spec/production-system/integration/migrations/360000.sql", "launchpad/spec/production-system/integration/migrations/370000.sql", "launchpad/spec/production-system/integration/migrations/380000.sql", "launchpad/spec/production-system/handoffs/L37/phase2/schema-proposal.sql"} {
+	for _, path := range []string{"launchpad/spec/production-system/integration/migrations/330000.sql", "launchpad/spec/production-system/integration/migrations/350000.sql", "launchpad/spec/production-system/integration/migrations/360000.sql", "launchpad/spec/production-system/integration/migrations/370000.sql", "launchpad/spec/production-system/integration/migrations/380000.sql", "launchpad/spec/production-system/integration/migrations/370001.sql"} {
 		raw, err := os.ReadFile(filepath.Join("../../../../..", path))
 		if err != nil {
 			t.Fatal(err)
 		}
 		ddl := regexp.MustCompile(`(?m)^SET LOCAL search_path[^\n]*\n`).ReplaceAllString(string(raw), "")
+		ddl = strings.ReplaceAll(ddl, "chat.", pgx.Identifier{schema}.Sanitize()+".")
 		if _, err = db.Exec(ctx, ddl); err != nil {
 			t.Fatalf("%s: %v", path, err)
 		}

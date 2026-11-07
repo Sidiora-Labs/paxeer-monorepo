@@ -2,8 +2,7 @@ use super::{
     fs, io, verify_principals_tree, AgentTenantId, BTreeSet, Path, PrincipalId, PrincipalStore,
     RetentionPolicy, StoreError, TenancyDigest, TenancyError, PRINCIPALS_DIR,
 };
-use std::io::Write as _;
-use std::os::unix::fs::{MetadataExt as _, OpenOptionsExt as _, PermissionsExt as _};
+use std::os::unix::fs::MetadataExt as _;
 use std::sync::Arc;
 
 pub trait PrincipalTenancyAuthority: std::fmt::Debug + Send + Sync {
@@ -25,9 +24,7 @@ impl PrincipalStore {
         if !root.is_absolute() || fs::canonicalize(root)? != root {
             return Err(StoreError::Tenancy(TenancyError::DigestMismatch));
         }
-        let lock = provider_lock(root)?;
         let mut store = Self::open(root, retention, tenancy_digest)?;
-        store.provider_lock = Some(lock);
         store.provider = Some(authority);
         for principal in store.known_principals()? {
             store.resolve_tenant(&principal)?;
@@ -38,17 +35,19 @@ impl PrincipalStore {
     /// # Errors
     /// Refuses invalid durable principal directories or unavailable provider state.
     pub fn known_principals(&self) -> Result<Vec<PrincipalId>, StoreError> {
+        self.verify_root()?;
         let mut principals: BTreeSet<_> = self.tenancy.principals().into_iter().collect();
         if self.provider.is_some() {
             verify_principals_tree(&self.root)?;
-            let directory = self.root.join(PRINCIPALS_DIR);
-            if directory.exists() {
-                for entry in fs::read_dir(directory)? {
-                    let entry = entry?;
-                    let name = entry.file_name();
-                    let name = name.to_str().ok_or(StoreError::InvalidPrincipal)?;
-                    principals.insert(PrincipalId::new(name)?);
+            match self.root.child(PRINCIPALS_DIR, false) {
+                Ok(directory) => {
+                    for name in directory.entries()? {
+                        let name = name.to_str().ok_or(StoreError::InvalidPrincipal)?;
+                        principals.insert(PrincipalId::new(name)?);
+                    }
                 }
+                Err(error) if error.kind() == io::ErrorKind::NotFound => (),
+                Err(error) => return Err(error.into()),
             }
         }
         Ok(principals.into_iter().collect())
@@ -58,90 +57,72 @@ impl PrincipalStore {
         &self,
         principal: &PrincipalId,
     ) -> Result<AgentTenantId, StoreError> {
+        self.verify_root()?;
+        let directory = self.principal_directory(principal)?;
+        self.resolve_tenant_in(principal, &directory)
+    }
+
+    pub(super) fn resolve_tenant_in(
+        &self,
+        principal: &PrincipalId,
+        directory: &super::codec::Directory,
+    ) -> Result<AgentTenantId, StoreError> {
         let configured = self.tenancy.tenant_for(principal);
         let Some(provider) = &self.provider else {
             return configured.cloned().map_err(StoreError::from);
         };
-        if self.provider_lock.is_none() {
-            return Err(StoreError::Tenancy(TenancyError::DigestMismatch));
-        }
         let tenant = provider.tenant_for(principal)?;
         if configured.is_ok_and(|value| value != &tenant) {
             return Err(StoreError::Tenancy(TenancyError::DigestMismatch));
         }
-        let directory = self.root.join(PRINCIPALS_DIR).join(principal.as_str());
-        let path = directory.join("provider-binding");
         let bytes = tenant.as_str().as_bytes();
-        fs::create_dir_all(&directory)?;
-        let metadata = fs::symlink_metadata(&directory)?;
-        if !metadata.is_dir() || metadata.uid() != rustix::process::geteuid().as_raw() {
-            return Err(StoreError::Tenancy(TenancyError::DigestMismatch));
-        }
-        fs::set_permissions(&directory, fs::Permissions::from_mode(0o700))?;
-        match fs::symlink_metadata(&path) {
-            Ok(_) => {
-                verify_binding_file(&path, bytes)?;
-                return Ok(tenant);
+        if let Some(file) = binding_file(directory, "provider-binding")? {
+            verify_binding_file(&file, bytes)?;
+        } else {
+            if let Some(file) = binding_file(directory, "provider-binding.pending")? {
+                verify_binding_file(&file, bytes)?;
             }
-            Err(error) if error.kind() == io::ErrorKind::NotFound => (),
-            Err(error) => return Err(error.into()),
-        }
-        {
-            let pending = directory.join("provider-binding.pending");
-            match fs::OpenOptions::new()
-                .write(true)
-                .create_new(true)
-                .mode(0o600)
-                .open(&pending)
-            {
-                Ok(mut file) => {
-                    file.write_all(bytes)?;
-                    file.sync_all()?;
-                }
-                Err(error) if error.kind() == io::ErrorKind::AlreadyExists => {
-                    verify_binding_file(&pending, bytes)?;
-                }
-                Err(error) => return Err(error.into()),
-            }
-            fs::rename(pending, path)?;
-            fs::File::open(&directory)?.sync_all()?;
-            fs::File::open(self.root.join(PRINCIPALS_DIR))?.sync_all()?;
+            super::codec::write_atomic(
+                directory,
+                "provider-binding",
+                "provider-binding.pending",
+                bytes,
+            )?;
         }
         Ok(tenant)
     }
 }
 
-fn verify_binding_file(path: &Path, expected: &[u8]) -> Result<(), StoreError> {
-    let metadata = fs::symlink_metadata(path)?;
-    if !metadata.is_file()
-        || metadata.nlink() != 1
-        || metadata.len() > 255
-        || metadata.uid() != rustix::process::geteuid().as_raw()
-        || metadata.mode() & 0o077 != 0
-        || fs::read(path)? != expected
-    {
+fn binding_file(
+    directory: &super::codec::Directory,
+    name: &str,
+) -> Result<Option<fs::File>, StoreError> {
+    match directory.open_file(name, rustix::fs::OFlags::RDONLY) {
+        Ok(file) => Ok(Some(file)),
+        Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(None),
+        Err(error) => Err(error.into()),
+    }
+}
+
+fn verify_binding_file(file: &fs::File, expected: &[u8]) -> Result<(), StoreError> {
+    let metadata = file.metadata()?;
+    if metadata.len() > 255 || metadata.mode() & 0o077 != 0 {
+        return Err(StoreError::Tenancy(TenancyError::DigestMismatch));
+    }
+    let mut bytes = Vec::new();
+    std::io::Read::read_to_end(&mut std::io::Read::take(file, 256), &mut bytes)?;
+    if bytes != expected {
         return Err(StoreError::Tenancy(TenancyError::DigestMismatch));
     }
     Ok(())
 }
 
-fn provider_lock(root: &Path) -> Result<fs::File, StoreError> {
-    let nofollow = i32::try_from(rustix::fs::OFlags::NOFOLLOW.bits())
-        .map_err(|_| io::Error::other("O_NOFOLLOW exceeds the native file option bound"))?;
-    let lock = fs::OpenOptions::new()
-        .read(true)
-        .write(true)
-        .create(true)
-        .truncate(false)
-        .mode(0o600)
-        .custom_flags(nofollow)
-        .open(root.join("provider.lock"))?;
-    let metadata = lock.metadata()?;
-    if !metadata.is_file()
-        || metadata.uid() != rustix::process::geteuid().as_raw()
-        || metadata.nlink() != 1
-        || metadata.mode() & 0o077 != 0
-    {
+pub(super) fn ownership_lock(root: &super::codec::Directory) -> Result<fs::File, StoreError> {
+    let lock = root.open_file(
+        "provider.lock",
+        rustix::fs::OFlags::RDWR | rustix::fs::OFlags::CREATE,
+    )?;
+    if lock.metadata()?.mode() & 0o077 != 0 {
         return Err(StoreError::Tenancy(TenancyError::DigestMismatch));
     }
     rustix::fs::flock(&lock, rustix::fs::FlockOperation::NonBlockingLockExclusive)

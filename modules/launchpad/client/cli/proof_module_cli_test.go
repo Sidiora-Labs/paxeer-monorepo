@@ -1,4 +1,4 @@
-// Proves: keeper.Keeper.CreateMarketFor/RecordFee/TriggerAirdrop/ClaimAirdropEpoch -> layerxd subprocess and Tendermint HTTP ABCI -> cli.GetQueryCmd/types.QueryClient and decoded query responses.
+// Proves: keeper.Keeper.CreateMarketFor/RecordFee/TriggerAirdrop/ClaimAirdropEpoch -> paxd subprocess and Tendermint HTTP ABCI -> cli.GetQueryCmd/types.QueryClient and decoded query responses.
 //
 // The daemon is built from daemon/paxd, with its production root command. Real
 // keeper and EVM operations produce the state; application Commit, Close and
@@ -6,11 +6,8 @@
 // RPC client, server or keeper is replaced. The subprocess output is consumed
 // through the application's protobuf JSON codec.
 //
-// The examples added to the six command files make these paths discoverable
-// through the binary's help. Outside this task's scope, daemon/paxd/cmd/root.go
-// NewRootCmd still names the command "paxd" although the module-cli contract
-// specifies "layerxd". The help assertion preserves that current behavior;
-// the expected eventual behavior is a layerxd usage prefix.
+// The merged paxd root registers these launchpad queries. Its generated help
+// documents the same command that sends the subprocess ABCI requests below.
 package cli_test
 
 import (
@@ -48,7 +45,7 @@ import (
 func TestProofModuleCli(t *testing.T) {
 	root, err := filepath.Abs("../../../..")
 	require.NoError(t, err)
-	binary := filepath.Join(t.TempDir(), "layerxd")
+	binary := proofModuleCliBinary(t)
 	// Building the shipping executable is part of this subprocess proof, not
 	// a second package gate or a generated replacement command implementation.
 	build := exec.CommandContext(t.Context(), "go", "build", "-o", binary, "./daemon/paxd")
@@ -57,39 +54,7 @@ func TestProofModuleCli(t *testing.T) {
 	require.NoError(t, err, "build daemon: %s", output)
 
 	genesis, market, epoch := proofModuleCliState(t)
-	cfg := network.DefaultConfig()
-	cfg.SigningAlgo = string(hd.Secp256k1Type)
-	cfg.GenesisState[types.ModuleName], err = json.Marshal(genesis)
-	require.NoError(t, err)
-	// Use the production app with the network's own storage options, as the
-	// existing CLI network tests do; query requests cross the real HTTP RPC.
-	cfg.AppConstructor = func(val sdknetwork.Validator) servertypes.Application {
-		opts := viper.New()
-		sc, ss := val.AppConfig.StateCommit, val.AppConfig.StateStore
-		for name, value := range map[string]interface{}{
-			"chain-id": cfg.ChainID, "evm.http_enabled": false, "evm.ws_enabled": false,
-			app.FlagSCEnable:                    sc.Enable,
-			app.FlagSCAsyncCommitBuffer:         sc.MemIAVLConfig.AsyncCommitBuffer,
-			app.FlagSCSnapshotKeepRecent:        sc.MemIAVLConfig.SnapshotKeepRecent,
-			app.FlagSCSnapshotInterval:          sc.MemIAVLConfig.SnapshotInterval,
-			app.FlagSCSnapshotMinTimeInterval:   sc.MemIAVLConfig.SnapshotMinTimeInterval,
-			app.FlagSCSnapshotWriterLimit:       sc.MemIAVLConfig.SnapshotWriterLimit,
-			app.FlagSCSnapshotPrefetchThreshold: sc.MemIAVLConfig.SnapshotPrefetchThreshold,
-			app.FlagSCSnapshotWriteRateMBps:     sc.MemIAVLConfig.SnapshotWriteRateMBps,
-			app.FlagSSEnable:                    ss.Enable, app.FlagSSBackend: ss.Backend,
-			app.FlagSSAsyncWriterBuffer: ss.AsyncWriteBuffer,
-			app.FlagSSKeepRecent:        ss.KeepRecent, app.FlagSSPruneInterval: ss.PruneIntervalSeconds,
-			app.FlagSSImportNumWorkers: ss.ImportNumWorkers,
-		} {
-			opts.Set(name, value)
-		}
-		return app.New(dbm.NewMemDB(), nil, true, map[int64]bool{}, val.Ctx.Config.RootDir,
-			0, false, val.Ctx.Config, app.MakeEncodingConfig(), wasm.EnableAllProposals,
-			opts, nil, app.EmptyAppOptions,
-			baseapp.SetPruning(storetypes.NewPruningOptionsFromString(val.AppConfig.Pruning)),
-			baseapp.SetMinGasPrices(val.AppConfig.MinGasPrices))
-	}
-	net := network.New(t, cfg)
+	cfg, net := proofModuleCliNetwork(t, genesis)
 	height, err := net.WaitForHeight(1)
 	require.NoError(t, err)
 	require.Len(t, net.Validators, 1)
@@ -115,6 +80,10 @@ func TestProofModuleCli(t *testing.T) {
 	pool := market.PoolAddress
 	claimedHolder := genesis.FeeAccounting.Claims[0].Holder
 	info := types.MarketInfoOf(market)
+	require.NotEmpty(t, genesis.FeeAccounting.Pools)
+	require.NotEmpty(t, genesis.FeeAccounting.Epochs)
+	require.NotEmpty(t, genesis.FeeAccounting.Claims)
+	wantAccounting := types.FeeAccountingInfoOf(genesis.FeeAccounting)
 	for pass := 0; pass < 2; pass++ {
 		// Each pass creates fresh OS processes and freshly decodes their stdout.
 		t.Run("read-"+strconv.Itoa(pass), func(t *testing.T) {
@@ -144,8 +113,7 @@ func TestProofModuleCli(t *testing.T) {
 			require.False(t, role.HasRole)
 			var accounting types.QueryFeeAccountingResponse
 			decode(&accounting, "fee-accounting")
-			require.Equal(t, types.FeeAccountingInfoOf(types.FeeAccounting{
-				PendingProtocolFees: sdk.ZeroInt(), TotalLiabilities: sdk.NewInt(30_000)}), accounting.Accounting)
+			require.Equal(t, wantAccounting, accounting.Accounting)
 			var gotEpoch types.QueryAirdropEpochResponse
 			decode(&gotEpoch, "airdrop-epoch", pool, "1")
 			require.True(t, gotEpoch.Found)
@@ -185,9 +153,54 @@ func TestProofModuleCli(t *testing.T) {
 		"fee-accounting", "airdrop-epoch", "airdrop-claimed"} {
 		stdout, stderr, err := run(name, "--help")
 		require.NoError(t, err, stderr)
-		require.Contains(t, stdout, "layerxd query launchpad "+name)
+		require.NotContains(t, stdout, "layerxd")
+		require.Contains(t, stdout, "Examples:\npaxd query launchpad "+name)
 		require.Contains(t, stdout, "paxd query launchpad "+name)
 	}
+}
+
+func proofModuleCliBinary(t *testing.T) string {
+	t.Helper()
+	return filepath.Join(t.TempDir(), "paxd")
+}
+
+func proofModuleCliNetwork(t *testing.T, genesis *types.GenesisState) (network.Config, *network.Network) {
+	t.Helper()
+	cfg := network.DefaultConfig()
+	cfg.SigningAlgo = string(hd.Secp256k1Type)
+	data, err := json.Marshal(genesis)
+	cfg.GenesisState[types.ModuleName] = data
+	require.NoError(t, err)
+	// Use the production app with the network's own storage options, as the
+	// existing CLI network tests do; query requests cross the real HTTP RPC.
+	cfg.AppConstructor = func(val sdknetwork.Validator) servertypes.Application {
+		opts := viper.New()
+		sc, ss := val.AppConfig.StateCommit, val.AppConfig.StateStore
+		for name, value := range map[string]interface{}{
+			"chain-id": cfg.ChainID, "evm.http_enabled": false, "evm.ws_enabled": false,
+			app.FlagSCEnable:                    sc.Enable,
+			app.FlagSCAsyncCommitBuffer:         sc.MemIAVLConfig.AsyncCommitBuffer,
+			app.FlagSCSnapshotKeepRecent:        sc.MemIAVLConfig.SnapshotKeepRecent,
+			app.FlagSCSnapshotInterval:          sc.MemIAVLConfig.SnapshotInterval,
+			app.FlagSCSnapshotMinTimeInterval:   sc.MemIAVLConfig.SnapshotMinTimeInterval,
+			app.FlagSCSnapshotWriterLimit:       sc.MemIAVLConfig.SnapshotWriterLimit,
+			app.FlagSCSnapshotPrefetchThreshold: sc.MemIAVLConfig.SnapshotPrefetchThreshold,
+			app.FlagSCSnapshotWriteRateMBps:     sc.MemIAVLConfig.SnapshotWriteRateMBps,
+			app.FlagSSEnable:                    ss.Enable, app.FlagSSBackend: ss.Backend,
+			app.FlagSSAsyncWriterBuffer: ss.AsyncWriteBuffer,
+			app.FlagSSKeepRecent:        ss.KeepRecent, app.FlagSSPruneInterval: ss.PruneIntervalSeconds,
+			app.FlagSSImportNumWorkers: ss.ImportNumWorkers,
+		} {
+			opts.Set(name, value)
+		}
+		return app.New(dbm.NewMemDB(), nil, true, map[int64]bool{}, val.Ctx.Config.RootDir,
+			0, false, val.Ctx.Config, app.MakeEncodingConfig(), wasm.EnableAllProposals,
+			opts, nil, app.EmptyAppOptions,
+			baseapp.SetPruning(storetypes.NewPruningOptionsFromString(val.AppConfig.Pruning)),
+			baseapp.SetMinGasPrices(val.AppConfig.MinGasPrices))
+	}
+	net := network.New(t, cfg)
+	return cfg, net
 }
 
 func proofModuleCliState(t *testing.T) (*types.GenesisState, types.Market, types.PoolAirdropEpoch) {
@@ -241,11 +254,18 @@ func proofModuleCliState(t *testing.T) (*types.GenesisState, types.Market, types
 		a.RefreshPrecompiles(ctx)
 		k := a.LaunchpadKeeper
 		var err error
+		previewCtx, _ := ctx.CacheContext()
+		_, preview, err := k.CreateMarketFor(previewCtx, k.ModuleCaller(), nil, creator, "CLI Quote", "CLIQ", types.FeeStrategyClaim, common.Address{})
+		require.NoError(t, err)
+		require.Zero(t, k.GetMarketCount(ctx))
+		require.Zero(t, k.FactoryNonce(ctx, creator))
+		require.Empty(t, a.EvmKeeper.GetCode(ctx, common.HexToAddress(preview.TokenAddress)))
+		params := k.GetParams(ctx)
+		params.QuoteToken = preview.TokenAddress
+		require.NoError(t, k.UpdateParams(ctx, k.Authority(), params))
 		ctx, quote, err = k.CreateMarketFor(ctx, k.ModuleCaller(), nil, creator, "CLI Quote", "CLIQ", types.FeeStrategyClaim, common.Address{})
 		require.NoError(t, err)
-		params := k.GetParams(ctx)
-		params.QuoteToken = quote.TokenAddress
-		require.NoError(t, k.UpdateParams(ctx, k.Authority(), params))
+		require.Equal(t, params.QuoteToken, quote.TokenAddress)
 		ctx, market, err = k.CreateMarketFor(ctx, k.ModuleCaller(), nil, creator, "CLI Airdrop", "CLIA", types.FeeStrategyAirdrop, common.Address{})
 		require.NoError(t, err)
 		pool, token := common.HexToAddress(market.PoolAddress), common.HexToAddress(market.TokenAddress)

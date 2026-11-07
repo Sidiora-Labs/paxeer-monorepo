@@ -1,5 +1,6 @@
 import { ethers } from 'ethers';
 import { expect } from 'chai';
+import assert from 'node:assert/strict';
 import { EvmAccount, abiOf, bytecodeOf, selfAuthorize } from './evmUtils';
 import { RuntimeState, claimPool } from './testUtils';
 import { generatePaxAddress } from './cosmosUtils';
@@ -898,16 +899,21 @@ export function expectedTransferGas(txInBlock: any): bigint {
 /** Rebuild a signed ethers Transaction from a block's full transaction object. */
 function reconstructTx(tx: any): ethers.Transaction {
     const type = Number(tx.type);
-    const yParity =
-        tx.yParity !== undefined && tx.yParity !== null
-            ? Number(tx.yParity)
-            : // legacy EIP-155: 35 is odd, +2*chainId is even, so v parity flips yParity.
-              Number(tx.v) % 2 === 1
-              ? 0
-              : 1;
+    const legacyV = type === 0 ? BigInt(tx.v) : 0n;
+    const chainId = tx.chainId !== undefined ? BigInt(tx.chainId)
+        : type === 0 && legacyV >= 35n ? (legacyV - 35n) / 2n : 0n;
+    const yParity = tx.yParity !== undefined && tx.yParity !== null ? Number(tx.yParity)
+        : type === 0 ? Number(legacyV >= 35n ? (legacyV - 35n) % 2n : legacyV - 27n) : Number(tx.v);
+    if (yParity !== 0 && yParity !== 1) throw new Error('invalid transaction signature parity');
+    if (type === 0) {
+        const expectedV = legacyV >= 35n ? 35n + 2n * chainId + BigInt(yParity) : 27n + BigInt(yParity);
+        assert.equal(legacyV, expectedV, 'legacy signature v agrees with chainId and parity');
+    } else if (tx.v !== undefined) {
+        assert.equal(Number(tx.v), yParity, 'typed signature v agrees with parity');
+    }
     return ethers.Transaction.from({
         type,
-        chainId: tx.chainId !== undefined ? BigInt(tx.chainId) : undefined,
+        chainId,
         nonce: Number(tx.nonce),
         gasLimit: BigInt(tx.gas),
         gasPrice: type === 0 || type === 1 ? BigInt(tx.gasPrice) : undefined,
@@ -917,44 +923,44 @@ function reconstructTx(tx: any): ethers.Transaction {
         value: BigInt(tx.value),
         data: tx.input,
         accessList: tx.accessList ?? undefined,
-        signature: ethers.Signature.from({ r: tx.r, s: tx.s, yParity: (yParity === 1 ? 1 : 0) as 0 | 1 }),
+        authorizationList: type === 4 ? tx.authorizationList.map((auth: any) => ({
+            address: auth.address,
+            chainId: BigInt(auth.chainId),
+            nonce: BigInt(auth.nonce),
+            signature: ethers.Signature.from({
+                r: auth.r,
+                s: auth.s,
+                yParity: Number(auth.yParity ?? auth.v) as 0 | 1,
+            }),
+        })) : undefined,
+        signature: ethers.Signature.from({ r: tx.r, s: tx.s, yParity: yParity as 0 | 1 }),
     } as ethers.TransactionLike);
 }
 
-/**
- * Verify the *actual bytes* the block reports. For every transaction whose type we
- * can re-encode (legacy / access-list / EIP-1559), rebuild it from the block's
- * reported fields, RLP-serialize it, and assert keccak256(bytes) == the reported
- * hash — proving the fields encode byte-for-byte to the real signed transaction.
- * Then assert block.size (the RLP byte length of the whole block) strictly exceeds
- * the summed transaction payload bytes, since the header + RLP framing add more.
- * Returns how many transactions were byte-verified.
- */
+/** Reconstruct every signed envelope, including EIP-7702 authorization signatures. */
 export function assertActualBytesAndSize(block: any): { verified: number; txBytes: number } {
     let txBytes = 0;
     let verified = 0;
     for (const tx of block.transactions as any[]) {
-        if (typeof tx === 'string') continue;
-        // Type-4 (set-code) authorization lists are not round-tripped by ethers here;
-        // skip them for the byte check (the size lower bound stays valid without them).
-        if (Number(tx.type) === 4) continue;
-        let rebuilt: ethers.Transaction | null = null;
-        try {
-            rebuilt = reconstructTx(tx);
-        } catch {
-            rebuilt = null;
+        if (!tx || typeof tx === 'string') throw new Error('byte proof requires full transactions');
+        if (![0, 1, 2, 4].includes(Number(tx.type))) {
+            throw new Error(`byte proof: unsupported transaction type ${tx.type}`);
         }
-        if (rebuilt && rebuilt.hash === tx.hash) {
-            verified++;
-            txBytes += ethers.dataLength(rebuilt.serialized);
+        // Decoding, signature and field errors must fail this transaction, not omit it.
+        const rebuilt = reconstructTx(tx);
+        assert.equal(rebuilt.hash, tx.hash, `signed bytes hash for ${tx.hash}`);
+        const decoded = ethers.Transaction.from(rebuilt.serialized);
+        assert.equal(decoded.serialized, rebuilt.serialized, `signed bytes round-trip for ${tx.hash}`);
+        assert.equal(decoded.hash, tx.hash, `decoded hash for ${tx.hash}`);
+        if (Number(tx.type) === 4) {
+            assert.deepEqual(decoded.authorizationList, rebuilt.authorizationList, 'type-4 signed authorization list');
         }
+        verified++;
+        txBytes += ethers.dataLength(rebuilt.serialized);
     }
     const sizeBytes = Number(BigInt(block.size));
-    expect(sizeBytes > 0, 'block.size is positive').to.equal(true);
-    expect(
-        sizeBytes > txBytes,
-        `block.size (${sizeBytes}) exceeds summed tx payload bytes (${txBytes})`,
-    ).to.equal(true);
+    assert.equal(sizeBytes > 0, true, 'block.size is positive');
+    assert.equal(sizeBytes > txBytes, true, `block.size (${sizeBytes}) exceeds summed tx payload bytes (${txBytes})`);
     return { verified, txBytes };
 }
 
@@ -1041,6 +1047,10 @@ export interface BurnGasBurstOpts {
  * The defaults bump the base fee; pass a tighter `gasLimit` to instead pack enough txs
  * into one block to cross the 80% gas-used congestion threshold (see sampleCongestedTip).
  */
+export type LoadOutcome =
+    | { kind: 'included'; round: number; signer: number; hash: string; block: number; gasUsed: bigint }
+    | { kind: 'failed'; round: number; signer: number; stage: 'balance' | 'send' | 'receipt'; reason: string };
+
 export async function burnGasBurst(
     provider: ethers.JsonRpcProvider,
     runtime: RuntimeState,
@@ -1054,52 +1064,62 @@ export async function burnGasBurst(
         tip = ethers.parseUnits('2', 'gwei'),
         onRound,
     } = opts;
+    if (!Number.isSafeInteger(rounds) || rounds < 1 || signers.length === 0 || gasLimit <= 0n || iterations <= 0n || tip < 0n) {
+        throw new Error('burnGasBurst: positive rounds, gas, iterations and funded signers are required');
+    }
     const burnerIface = new ethers.Interface(abiOf('GasBurner.sol', 'RealGasBurner'));
     const burner = runtime.contracts.gasBurner;
     const baseFee = async (): Promise<bigint> =>
-        BigInt((await provider.send('eth_getBlockByNumber', ['latest', false])).baseFeePerGas ?? '0x0');
-
+        BigInt((await provider.send('eth_getBlockByNumber', ['latest', false])).baseFeePerGas);
     const beforeBaseFee = await baseFee();
-    let minBlock = Number.MAX_SAFE_INTEGER;
-    let maxBlock = 0;
+    const outcomes: LoadOutcome[] = [];
     for (let round = 0; round < rounds; round++) {
-        const base = await baseFee();
-        const maxFee = base * 4n + tip;
-        const sends: Promise<void>[] = [];
-        for (let i = 0; i < signers.length; i++) {
-            const s = signers[i];
-            if ((await s.balance()) < gasLimit * maxFee) continue;
-            const data = burnerIface.encodeFunctionData('burnGasIterations', [
-                BigInt(round * 100 + i),
-                iterations,
-            ]);
-            sends.push(
-                s.wallet
-                    .sendTransaction({
-                        to: burner,
-                        data,
-                        gasLimit,
-                        maxFeePerGas: maxFee,
-                        maxPriorityFeePerGas: tip,
-                        type: 2,
-                    })
-                    .then(t => t.wait())
-                    .then(r => {
-                        if (r) {
-                            minBlock = Math.min(minBlock, r.blockNumber);
-                            maxBlock = Math.max(maxBlock, r.blockNumber);
-                        }
-                    })
-                    .catch(() => undefined),
-            );
-        }
-        if (sends.length === 0) break;
-        await Promise.all(sends);
-        // Optional per-round hook so callers can sample live chain state (e.g. eth_gasPrice)
-        // while the base fee is still elevated by the load just applied.
+        const maxFee = (await baseFee()) * 4n + tip;
+        const roundOutcomes = await Promise.all(signers.map(async (signer, index): Promise<LoadOutcome> => {
+            let stage: 'balance' | 'send' | 'receipt' = 'balance';
+            try {
+                if ((await signer.balance()) < gasLimit * maxFee) {
+                    return { kind: 'failed', round, signer: index, stage, reason: 'insufficient balance' };
+                }
+                const data = burnerIface.encodeFunctionData('burnGasIterations', [BigInt(round * 100 + index), iterations]);
+                stage = 'send';
+                const tx = await signer.wallet.sendTransaction({
+                    to: burner, data, gasLimit, maxFeePerGas: maxFee, maxPriorityFeePerGas: tip, type: 2,
+                });
+                stage = 'receipt';
+                const receipt = await tx.wait(1, 60_000);
+                if (!receipt || receipt.status !== 1 || receipt.hash.toLowerCase() !== tx.hash.toLowerCase() ||
+                    !Number.isSafeInteger(receipt.blockNumber) || receipt.blockNumber < 1 || receipt.gasUsed <= 0n) {
+                    return { kind: 'failed', round, signer: index, stage, reason: 'missing, mismatched or unsuccessful included execution' };
+                }
+                return { kind: 'included', round, signer: index, hash: receipt.hash, block: receipt.blockNumber, gasUsed: receipt.gasUsed };
+            } catch {
+                // Do not print provider errors: they may embed signed bytes or private RPC URLs.
+                return { kind: 'failed', round, signer: index, stage, reason: 'operation rejected' };
+            }
+        }));
+        outcomes.push(...roundOutcomes);
+        requireIncludedLoad(outcomes, (round + 1) * signers.length);
         if (onRound) await onRound(round);
     }
-    return { beforeBaseFee, minBlock, maxBlock };
+    return { beforeBaseFee, ...requireIncludedLoad(outcomes, rounds * signers.length) };
+}
+
+/** Every intended submission must have successful included execution. Diagnostics stay bounded. */
+export function requireIncludedLoad(outcomes: LoadOutcome[], intended: number): { minBlock: number; maxBlock: number } {
+    const included = outcomes.filter((outcome): outcome is Extract<LoadOutcome, { kind: 'included' }> => outcome.kind === 'included');
+    const failures = outcomes.filter(outcome => outcome.kind === 'failed');
+    const hashes = new Set(included.map(outcome => outcome.hash.toLowerCase()));
+    if (!Number.isSafeInteger(intended) || intended < 1 || failures.length || included.length !== intended || hashes.size !== intended ||
+        included.some(outcome => !Number.isSafeInteger(outcome.block) || outcome.block < 1 || outcome.gasUsed <= 0n)) {
+        const diagnostics = failures.slice(0, 8).map(outcome =>
+            `round=${outcome.round} signer=${outcome.signer} ${outcome.kind === 'failed' ? outcome.stage + ': ' + outcome.reason : ''}`);
+        throw new Error(`burnGasBurst: included ${included.length}/${intended}; failures=${failures.length}; ${diagnostics.join('; ')}`);
+    }
+    return {
+        minBlock: Math.min(...included.map(outcome => outcome.block)),
+        maxBlock: Math.max(...included.map(outcome => outcome.block)),
+    };
 }
 export const CORE_RECEIPT_FIELDS = [
     'blockHash',

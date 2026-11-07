@@ -111,6 +111,10 @@ defmodule Explorer.Account.Notifier.Notify do
 
   @doc """
   direction  = :incoming || :outgoing
+
+  ERC-7984 confidential fungible transfers share the ERC-20 input/output
+  preferences. Their summary amount is a storage placeholder; email presents
+  it as confidential rather than as a public balance change.
   """
   def build_watchlist_notification(%Explorer.Account.WatchlistAddress{} = address, summary, direction) do
     if watched?(address, summary, direction) do
@@ -143,6 +147,8 @@ defmodule Explorer.Account.Notifier.Notify do
       {"COIN", :outgoing} -> address.watch_coin_output
       {"ERC-20", :incoming} -> address.watch_erc_20_input
       {"ERC-20", :outgoing} -> address.watch_erc_20_output
+      {"ERC-7984", :incoming} -> address.watch_erc_20_input
+      {"ERC-7984", :outgoing} -> address.watch_erc_20_output
       {"ERC-721", :incoming} -> address.watch_erc_721_input
       {"ERC-721", :outgoing} -> address.watch_erc_721_output
       {"ERC-1155", :incoming} -> address.watch_erc_1155_input

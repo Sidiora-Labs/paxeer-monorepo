@@ -3,6 +3,7 @@ package keeper_test
 import (
 	"bytes"
 	"crypto/ed25519"
+	"encoding/binary"
 	"testing"
 	"time"
 
@@ -18,6 +19,8 @@ import (
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/authz"
 	authzkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/authz/keeper"
+	bankkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/bank/keeper"
+	banktypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/bank/types"
 	testkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/tests/testutil/keeper"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
@@ -28,11 +31,27 @@ func capabilityAuthz(t *testing.T, f *authViewFixture) (authzkeeper.Keeper, *sdk
 	registry := cdctypes.NewInterfaceRegistry()
 	authz.RegisterInterfaces(registry)
 	types.RegisterInterfaces(registry)
+	banktypes.RegisterInterfaces(registry)
 	key := sdk.NewKVStoreKey("capability_authz")
 	*f.Context() = withStore(*f.Context(), key)
-	k := authzkeeper.NewKeeper(key, sdkcodec.NewProtoCodec(registry), baseapp.NewMsgServiceRouter())
+	router := baseapp.NewMsgServiceRouter()
+	router.SetInterfaceRegistry(registry)
+	banktypes.RegisterMsgServer(router, bankkeeper.NewMsgServerImpl(testkeeper.EVMTestApp.BankKeeper))
+	k := authzkeeper.NewKeeper(key, sdkcodec.NewProtoCodec(registry), router)
 	*f.Keeper().TestAuthzKeeper() = k
 	return k, key
+}
+
+func executableCapabilityPayload(t *testing.T, f *authViewFixture) ([]byte, [32]byte) {
+	t.Helper()
+	payload, _ := authExecutePayload(t, f, "capability")
+	body := bytes.Clone(payload[8:])
+	binary.BigEndian.PutUint64(body[114:122], 1<<1)
+	id, err := codec.DomainHash(codec.DomainAuthorityHash, body)
+	require.NoError(t, err)
+	payload, err = types.EncodeCapabilityPayload(body)
+	require.NoError(t, err)
+	return payload, id
 }
 
 func bindCapabilityKey(t *testing.T, f *authViewFixture, private ed25519.PrivateKey) common.Address {
@@ -51,11 +70,13 @@ func bindCapabilityKey(t *testing.T, f *authViewFixture, private ed25519.Private
 }
 
 func TestGrantCapability(t *testing.T) {
+	t.Run("executable capability endpoint", TestRepairM_1421_CapabilityEndpoint)
+
 	t.Run("mirror", func(t *testing.T) {
 		f := newAuthViewFixture(t)
 		actor := authExecuteActor(t, f)
 		az, _ := capabilityAuthz(t, f)
-		payload, grantID := authExecutePayload(t, f, "capability")
+		payload, grantID := executableCapabilityPayload(t, f)
 		private := ed25519.NewKeyFromSeed(bytes.Repeat([]byte{74}, ed25519.SeedSize))
 		grantee := sdk.AccAddress(bindCapabilityKey(t, f, private).Bytes())
 		granter := sdk.AccAddress(common.Address{0x26, 0x64, 1}.Bytes())
@@ -74,14 +95,21 @@ func TestGrantCapability(t *testing.T) {
 		stored, expiry := az.GetCleanAuthorization(*f.Context(), grantee, granter, keeper.CapabilityAuthorizationTypeURL)
 		require.IsType(t, &types.LayerXScopeAuthorization{}, stored)
 		require.Equal(t, &types.LayerXScopeAuthorization{
-			ModuleMask: 1 << 9, OrdinalMin: 4, OrdinalMax: 5,
+			ModuleMask: 1 << 1, OrdinalMin: 4, OrdinalMax: 5,
 			AssetId: f.Asset()[:], MaxPerActivity: "10", MaxTotal: "20", SpentTotal: "0",
 			RevocationEpoch: 41, GrantId: grantID[:], MsgTypeUrl: keeper.CapabilityAuthorizationTypeURL,
 			Kind: 3, PeriodLength: 1000, MaxPerPeriod: "15", PurposeHash: f.Purpose()[:],
 			NotBefore: f.Timestamp() - 1000, NotAfter: f.Timestamp() + 1000,
 		}, stored)
 		require.Equal(t, time.UnixMilli(int64(f.Timestamp()+1000)).UTC(), expiry)
-		require.Len(t, az.GetAuthorizations(*f.Context(), grantee, granter), 1)
+		require.Len(t, az.GetAuthorizations(*f.Context(), grantee, granter), 2)
+		multi, multiExpiry := az.GetCleanAuthorization(*f.Context(), grantee, granter, sdk.MsgTypeURL(&banktypes.MsgMultiSend{}))
+		expectedMulti := *stored.(*types.LayerXScopeAuthorization)
+		expectedMulti.MsgTypeUrl = sdk.MsgTypeURL(&banktypes.MsgMultiSend{})
+		require.Equal(t, &expectedMulti, multi)
+		require.Equal(t, expiry, multiExpiry)
+		absent, _ := az.GetCleanAuthorization(*f.Context(), grantee, granter, "/paxprotocol.paxchain.layerxauth.LayerXScopeAuthorization")
+		require.Nil(t, absent)
 		require.Empty(t, az.GetAuthorizations(*f.Context(), granter, grantee))
 		require.Empty(t, az.GetAuthorizations(*f.Context(), granter, granter))
 		replayed, err := f.Keeper().GrantCapability(*f.Context(), actor, payload[8:], idempotency)
@@ -117,7 +145,7 @@ func TestGrantCapability(t *testing.T) {
 		f := newAuthViewFixture(t)
 		actor := authExecuteActor(t, f)
 		_, azKey := capabilityAuthz(t, f)
-		payload, _ := authExecutePayload(t, f, "capability")
+		payload, _ := executableCapabilityPayload(t, f)
 		before := authViewStores(*f.Context(), f.HostKey(), azKey)
 		_, err := f.Keeper().GrantCapability(*f.Context(), actor, payload[8:], [32]byte{2})
 		require.ErrorIs(t, err, types.ErrAuthScope)

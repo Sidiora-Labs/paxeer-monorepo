@@ -3,13 +3,17 @@ import { Box, Flex, useToken, Center } from '@chakra-ui/react';
 import type { EditorProps } from '@monaco-editor/react';
 import MonacoEditor from '@monaco-editor/react';
 import type * as monaco from 'monaco-editor/esm/vs/editor/editor.api';
+import { useRouter } from 'next/router';
 import React from 'react';
 
 import type { File, Monaco } from './types';
 import type { SmartContractExternalLibrary } from 'types/api/contract';
 
+import config from 'configs/app';
+import { useMultichainContext } from 'lib/contexts/multichain';
 import useIsMobile from 'lib/hooks/useIsMobile';
 import isMetaKey from 'lib/isMetaKey';
+import getQueryParamString from 'lib/router/getQueryParamString';
 import { useColorMode } from 'toolkit/chakra/color-mode';
 import { useClientRect } from 'toolkit/hooks/useClientRect';
 import ErrorBoundary from 'ui/shared/ErrorBoundary';
@@ -18,6 +22,7 @@ import CodeEditorBreadcrumbs from './CodeEditorBreadcrumbs';
 import CodeEditorLoading from './CodeEditorLoading';
 import CodeEditorSideBar, { CONTAINER_WIDTH as SIDE_BAR_WIDTH } from './CodeEditorSideBar';
 import CodeEditorTabs from './CodeEditorTabs';
+import useCodeEditorModels from './useCodeEditorModels';
 import addExternalLibraryWarningDecoration from './utils/addExternalLibraryWarningDecoration';
 import addFileImportDecorations from './utils/addFileImportDecorations';
 import addMainContractCodeDecoration from './utils/addMainContractCodeDecoration';
@@ -48,10 +53,19 @@ interface Props {
   contractName?: string;
 }
 
-const CodeEditor = ({ data, remappings, libraries, language, mainFile, contractName }: Props) => {
+const CodeEditor = (props: Props) => {
+  const router = useRouter();
+  const multichain = useMultichainContext();
+  const identity = JSON.stringify([ multichain?.chain.id ?? config.chain.id, getQueryParamString(router.query.hash) ]);
+
+  return <CodeEditorViewer key={ identity } { ...props } identity={ identity }/>;
+};
+
+const CodeEditorViewer = ({ data, remappings, libraries, language, mainFile, contractName, identity }: Props & { identity: string }) => {
   const [ instance, setInstance ] = React.useState<Monaco | undefined>();
   const [ editor, setEditor ] = React.useState<monaco.editor.IStandaloneCodeEditor | undefined>();
-  const [ index, setIndex ] = React.useState(0);
+  const [ selectedIndex, setIndex ] = React.useState(0);
+  const index = Math.min(selectedIndex, data.length - 1);
   const [ tabs, setTabs ] = React.useState([ data[index].file_path ]);
   const [ isMetaPressed, setIsMetaPressed ] = React.useState(false);
 
@@ -83,6 +97,25 @@ const CodeEditor = ({ data, remappings, libraries, language, mainFile, contractN
     }
   })();
 
+  const { models, modelPath, initialize } = useCodeEditorModels(data, editorLanguage, identity);
+
+  const handleEditorWillMount = React.useCallback((monaco: Monaco) => {
+    initialize({
+      createModel: (source, language, path) => monaco.editor.createModel(source, language, monaco.Uri.parse(path)),
+      setModelLanguage: monaco.editor.setModelLanguage,
+    });
+  }, [ initialize ]);
+
+  React.useEffect(() => {
+    if (language === 'solidity' && editor) {
+      models.forEach((model, path) => {
+        contractName && mainFile === path && addMainContractCodeDecoration(model, contractName, editor);
+        addFileImportDecorations(model);
+        libraries?.length && addExternalLibraryWarningDecoration(model, libraries);
+      });
+    }
+  }, [ contractName, editor, language, libraries, mainFile, models ]);
+
   React.useEffect(() => {
     instance?.editor.setTheme(colorMode === 'light' ? 'blockscout-light' : 'blockscout-dark');
   }, [ colorMode, instance?.editor ]);
@@ -107,40 +140,7 @@ const CodeEditor = ({ data, remappings, libraries, language, mainFile, contractN
       monaco.languages.setLanguageConfiguration(editorLanguage, configGeas);
     }
 
-    const loadedModels = monaco.editor.getModels();
-    const loadedModelsPaths = loadedModels.map((model) => model.uri.path);
-    const newModels = data.slice(1)
-      .filter((file) => !loadedModelsPaths.includes(file.file_path))
-      .map((file) => monaco.editor.createModel(file.source_code, editorLanguage, monaco.Uri.parse(file.file_path)));
-
-    if (language === 'solidity') {
-      loadedModels.concat(newModels)
-        .forEach((model) => {
-          contractName && mainFile === model.uri.path && addMainContractCodeDecoration(model, contractName, editor);
-          addFileImportDecorations(model);
-          libraries?.length && addExternalLibraryWarningDecoration(model, libraries);
-        });
-    }
-
-    editor.addAction({
-      id: 'close-tab',
-      label: 'Close current tab',
-      keybindings: [
-        monaco.KeyMod.Alt | monaco.KeyCode.KeyW,
-      ],
-      contextMenuGroupId: 'navigation',
-      contextMenuOrder: 1.7,
-      run: function(editor) {
-        const model = editor.getModel();
-        const path = model?.uri.path;
-        if (path) {
-          handleTabClose(path, true);
-        }
-      },
-    });
-  // componentDidMount
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ ]);
+  }, [ colorMode, editorLanguage ]);
 
   const handleSelectFile = React.useCallback((index: number, lineNumber?: number) => {
     setIndex(index);
@@ -177,6 +177,30 @@ const CodeEditor = ({ data, remappings, libraries, language, mainFile, contractN
       return prev;
     });
   }, [ data, index ]);
+
+  React.useEffect(() => {
+    if (!editor || !instance) {
+      return;
+    }
+
+    const action = editor.addAction({
+      id: 'close-tab',
+      label: 'Close current tab',
+      keybindings: [
+        instance.KeyMod.Alt | instance.KeyCode.KeyW,
+      ],
+      contextMenuGroupId: 'navigation',
+      contextMenuOrder: 1.7,
+      run: function(editor) {
+        const model = editor.getModel();
+        const path = model?.uri.path;
+        if (path) {
+          handleTabClose(path, true);
+        }
+      },
+    });
+    return () => action.dispose();
+  }, [ editor, handleTabClose, instance ]);
 
   const handleClick = React.useCallback((event: React.MouseEvent) => {
     if (!isMetaPressed && !isMobile) {
@@ -282,8 +306,10 @@ const CodeEditor = ({ data, remappings, libraries, language, mainFile, contractN
           <MonacoEditor
             className="editor-container"
             language={ editorLanguage }
-            path={ data[index].file_path }
-            defaultValue={ data[index].source_code }
+            path={ modelPath(data[index].file_path) }
+            value={ data[index].source_code }
+            beforeMount={ handleEditorWillMount }
+            keepCurrentModel
             options={ EDITOR_OPTIONS }
             onMount={ handleEditorDidMount }
             loading={ <CodeEditorLoading borderRadius="md"/> }
@@ -321,8 +347,10 @@ const CodeEditor = ({ data, remappings, libraries, language, mainFile, contractN
             className="editor-container"
             height={ `${ EDITOR_HEIGHT }px` }
             language={ editorLanguage }
-            path={ data[index].file_path }
-            defaultValue={ data[index].source_code }
+            path={ modelPath(data[index].file_path) }
+            value={ data[index].source_code }
+            beforeMount={ handleEditorWillMount }
+            keepCurrentModel
             options={ EDITOR_OPTIONS }
             onMount={ handleEditorDidMount }
             loading={ <CodeEditorLoading borderBottomLeftRadius="md"/> }
@@ -332,6 +360,7 @@ const CodeEditor = ({ data, remappings, libraries, language, mainFile, contractN
           data={ data }
           onFileSelect={ handleSelectFile }
           monaco={ instance }
+          models={ models }
           editor={ editor }
           selectedFile={ data[index].file_path }
           mainFile={ mainFile }

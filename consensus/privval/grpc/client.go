@@ -2,8 +2,11 @@ package grpc
 
 import (
 	"context"
+	"errors"
+	"sync"
 
 	grpc "google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/crypto"
@@ -15,9 +18,11 @@ import (
 // SignerClient implements PrivValidator.
 // Handles remote validator connections that provide signing services
 type SignerClient struct {
-	client  privvalproto.PrivValidatorAPIClient
-	conn    *grpc.ClientConn
-	chainID string
+	client    privvalproto.PrivValidatorAPIClient
+	conn      *grpc.ClientConn
+	chainID   string
+	closeOnce sync.Once
+	closeErr  error
 }
 
 var _ types.PrivValidator = (*SignerClient)(nil)
@@ -26,8 +31,12 @@ var _ types.PrivValidator = (*SignerClient)(nil)
 // it will start the endpoint (if not already started)
 func NewSignerClient(conn *grpc.ClientConn,
 	chainID string) (*SignerClient, error) {
+	if conn == nil {
+		return nil, errors.New("signer client requires a non-nil connection")
+	}
 
 	sc := &SignerClient{
+		conn:    conn,
 		chainID: chainID,
 		client:  privvalproto.NewPrivValidatorAPIClient(conn), // Create the Private Validator Client
 	}
@@ -38,10 +47,12 @@ func NewSignerClient(conn *grpc.ClientConn,
 // Close closes the underlying connection
 func (sc *SignerClient) Close() error {
 	logger.Info("Stopping service")
-	if sc.conn != nil {
-		return sc.conn.Close()
-	}
-	return nil
+	sc.closeOnce.Do(func() {
+		if sc.conn != nil {
+			sc.closeErr = sc.conn.Close()
+		}
+	})
+	return sc.closeErr
 }
 
 //--------------------------------------------------------
@@ -67,7 +78,10 @@ func (sc *SignerClient) GetPubKey(ctx context.Context) (crypto.PubKey, error) {
 
 // SignVote requests a remote signer to sign a vote
 func (sc *SignerClient) SignVote(ctx context.Context, chainID string, vote *tmproto.Vote) error {
-	resp, err := sc.client.SignVote(ctx, &privvalproto.SignVoteRequest{ChainId: sc.chainID, Vote: vote})
+	if chainID != sc.chainID {
+		return status.Errorf(codes.InvalidArgument, "chain ID mismatch: got %q, want %q", chainID, sc.chainID)
+	}
+	resp, err := sc.client.SignVote(ctx, &privvalproto.SignVoteRequest{ChainId: chainID, Vote: vote})
 	if err != nil {
 		errStatus, _ := status.FromError(err)
 		logger.Error("Client SignVote", "err", errStatus)
@@ -81,6 +95,9 @@ func (sc *SignerClient) SignVote(ctx context.Context, chainID string, vote *tmpr
 
 // SignProposal requests a remote signer to sign a proposal
 func (sc *SignerClient) SignProposal(ctx context.Context, chainID string, proposal *tmproto.Proposal) error {
+	if chainID != sc.chainID {
+		return status.Errorf(codes.InvalidArgument, "chain ID mismatch: got %q, want %q", chainID, sc.chainID)
+	}
 	resp, err := sc.client.SignProposal(
 		ctx, &privvalproto.SignProposalRequest{ChainId: chainID, Proposal: proposal})
 

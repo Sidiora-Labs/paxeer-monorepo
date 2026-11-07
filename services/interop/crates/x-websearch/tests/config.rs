@@ -176,10 +176,13 @@ fn committed_placeholder_example_refuses_every_placeholder_in_turn(
         ("/assets/USDL/asset_id", "assets.USDL.asset_id"),
         ("/assets/USDL/price", "assets.USDL.price"),
         ("/gateway/endpoint", "gateway.endpoint"),
-        ("/gateway/sequencer_id", "gateway.sequencer_id"),
         (
-            "/gateway/sequencer_public_key",
-            "gateway.sequencer_public_key",
+            "/gateway/receipt_keys/0/key_id",
+            "gateway.receipt_keys[0].key_id",
+        ),
+        (
+            "/gateway/receipt_keys/0/public_key",
+            "gateway.receipt_keys[0].public_key",
         ),
         ("/evm/endpoint", "evm.endpoint"),
         ("/evm/chain_id", "evm.chain_id"),
@@ -212,6 +215,16 @@ fn leaf_paths(value: &Value, pointer: &str, field: &str, into: &mut Vec<(String,
             };
             into.push((child_pointer.clone(), child_field.clone()));
             leaf_paths(child, &child_pointer, &child_field, into);
+            if let Value::Array(entries) = child {
+                for (index, entry) in entries.iter().enumerate() {
+                    leaf_paths(
+                        entry,
+                        &format!("{child_pointer}/{index}"),
+                        &format!("{child_field}[{index}]"),
+                        into,
+                    );
+                }
+            }
         }
     }
 }
@@ -221,7 +234,7 @@ fn every_missing_or_null_field_is_named() -> Result<(), Box<dyn std::error::Erro
     let valid = valid_json()?;
     let mut paths = Vec::new();
     leaf_paths(&valid, "", "", &mut paths);
-    assert_eq!(paths.len(), 37);
+    assert_eq!(paths.len(), 40);
     for (pointer, field) in paths {
         let (parent, name) = pointer.rsplit_once('/').ok_or("pointer")?;
         let mut removed = valid.clone();

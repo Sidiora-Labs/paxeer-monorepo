@@ -17,7 +17,7 @@ use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use serde_aux::prelude::*;
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize)]
 #[serde(untagged)]
 pub enum TokenTransferTotal {
     TotalErc20(models::TotalErc20),
@@ -30,5 +30,41 @@ pub enum TokenTransferTotal {
 impl Default for TokenTransferTotal {
     fn default() -> Self {
         Self::TotalErc20(Default::default())
+    }
+}
+
+impl<'de> Deserialize<'de> for TokenTransferTotal {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let value = serde_json::Value::deserialize(deserializer)?;
+        let object = value
+            .as_object()
+            .ok_or_else(|| serde::de::Error::custom("transfer total must be an object"))?;
+        if object.contains_key("token_id") {
+            if !object.contains_key("token_instance") {
+                return Err(serde::de::Error::missing_field("token_instance"));
+            }
+            if object.contains_key("value") || object.contains_key("decimals") {
+                for field in ["value", "decimals"] {
+                    if !object.contains_key(field) {
+                        return Err(serde::de::Error::missing_field(field));
+                    }
+                }
+                serde_json::from_value(value)
+                    .map(Self::TotalErc1155)
+                    .map_err(serde::de::Error::custom)
+            } else {
+                serde_json::from_value(value)
+                    .map(Self::TotalErc721)
+                    .map_err(serde::de::Error::custom)
+            }
+        } else if object.contains_key("value") && object.contains_key("decimals") {
+            serde_json::from_value(value)
+                .map(Self::TotalErc20)
+                .map_err(serde::de::Error::custom)
+        } else {
+            Err(serde::de::Error::custom(
+                "unrecognized transfer total structure",
+            ))
+        }
     }
 }

@@ -11,7 +11,9 @@ import (
 )
 
 func TestEpochKeeper(t *testing.T) {
+	t.Log("initializing application")
 	app := app.Setup(t, false, false, false) // Your setup function here
+	t.Log("application initialized; checking epoch storage")
 	ctx := app.BaseApp.NewContext(false, tmproto.Header{})
 
 	// Define an epoch
@@ -25,6 +27,7 @@ func TestEpochKeeper(t *testing.T) {
 	app.EpochKeeper.SetEpoch(ctx, epochIn)
 	epochOut := app.EpochKeeper.GetEpoch(ctx)
 	require.Equal(t, epochIn, epochOut)
+	t.Log("epoch round trip complete; checking invalid timestamp refusal")
 
 	// Test case: Should panic since ctx.Blocktime() is 0
 	lastEpoch := types.Epoch{

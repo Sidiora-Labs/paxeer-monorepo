@@ -1,0 +1,12 @@
+[repair.22.31.92]
+audit = "22.30.47"
+baseline = "No baseline verification was run: the task's ordered gate instructions prohibit verification before complete implementation and permit verification only through hf-done. No prior failing test is claimed."
+evidence = "The bounded hf-build and hf-done ledger records the candidate revision, exact command, exit code and private log location; completion requires hf-done passing on the build candidate."
+carried-app-state = "TestRepair_92_CarriedAppState: elected leader signatures, ConsensusReqConv, registered TCP Consensus stream, State.PushProposal, consensus restart and data WAL replay preserve exact certified application metadata."
+full-commit-header-limit = "TestRepair_92_FullCommitHeaderLimit: eleven busy lanes, rotating admission, 100-header certificates, FullCommitQCConv, registered sync service, data consumer and reopened WAL; 101-header input stays rejected."
+committee-wire-limit = "TestRepair_92_CommitteeWireLimit: largest supported committee, rejected larger configurations, serialized proposal and quorum certificates, persisted data replay."
+consensus-message-size = "TestRepair_92_ConsensusMessageSize: largest supported committee with every signature, fresh and timeout proposals, maximum admitted proposal body and certified reproposal traverse registered Consensus streams."
+future-consensus-time = "TestRepair_92_FutureConsensusTime: fresh proposals and their last block cannot exceed the validator's clock by one second; faulty future proposal is rejected before a vote, timeout advances the leader, recovered votes retain bounded time, verified PrepareQC preserves reproposal safety."
+wiring_availability = "consensus/internal/autobahn/avail/state.go — node-runtime availability owner: rotate WaitForLaneQCs priority by road index as well as enforcing its existing 100-header limit; types admission rotates offered lanes but cannot recover candidates omitted by availability."
+wiring_clock = "consensus/internal/autobahn/consensus/inner.go and state.go — node-runtime consensus owner: inject the consensus clock into VerifyAt and production timestamps, with the documented one-second honest-clock skew assumption; existing Verify already uses the local consensus wall clock and rejects future proposals before voting."
+wiring_docs = "consensus/spec/consensus/bft-time.md — consensus specification owner: document Autobahn's one-second fresh-proposal clock bound, 100-block timestamp spread and verified PrepareQC reproposal exception separately from classic weighted-median time."

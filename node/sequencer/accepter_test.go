@@ -70,6 +70,7 @@ type accepterHarness struct {
 	dir    string
 	sdir   string
 	l      net.Listener
+	auth   sequencer.ReplicationTLSConfig
 	a      *sequencer.Accepter
 	src    *sequencer.ReceiptSource
 	key    *sequencer.ReceiptKey
@@ -157,12 +158,12 @@ func newAccepterHarnessWithExecutor(t *testing.T, configure func(sequencer.Execu
 		CommittedHeight: uint64(committedTip), LastSeq: startSeq,
 	})
 	require.NoError(t, err)
-	l := listen(t)
+	l, auth := listenAuthenticated(t)
 	t.Cleanup(func() { _ = l.Close() })
 	m, reader := newSequencerMetricsReader(t)
 	synced := make(chan struct{}, 32)
 	rep, err := sequencer.NewReplicator(sequencer.ReplicatorConfig{
-		WAL: w, Dial: sequencer.DialStandby(l.Addr().String(), replicationTimeout),
+		WAL: w, Dial: sequencer.DialStandby(l.Addr().String(), replicationTimeout, auth),
 		ReplicationTimeout: replicationTimeout,
 		OnWALSync: func(d time.Duration) {
 			m.ObserveWALSync(d)
@@ -174,7 +175,7 @@ func newAccepterHarnessWithExecutor(t *testing.T, configure func(sequencer.Execu
 	src := sequencer.NewReceiptSource(32)
 	return &accepterHarness{
 		h: h, sh: sh, rep: rep, replay: replay, sb: sb, w: w, sw: sw, dir: dir, sdir: sdir, l: l,
-		a: sequencer.NewAccepter(r, rep, src, m), src: src, key: key, reader: reader, synced: synced,
+		auth: auth, a: sequencer.NewAccepter(r, rep, src, m), src: src, key: key, reader: reader, synced: synced,
 	}
 }
 
@@ -271,6 +272,13 @@ func TestAccepterReceiptsASendSealedBeforeItsReceipt(t *testing.T) {
 	verified, err := verify.ReceiptSignature(receipt.Receipt, h.key.PublicKey())
 	require.NoError(t, err)
 	require.Equal(t, startSeq+1, verified.Receipt.GlobalSequence)
+	funded := new(big.Int).Mul(big.NewInt(fundingUhpx), big.NewInt(weiPerUhpx))
+	fee := new(big.Int).Mul(big.NewInt(transferGas), big.NewInt(gasPriceWei))
+	after := new(big.Int).Sub(funded, new(big.Int).Add(big.NewInt(onePaxInWei), fee))
+	require.Equal(t, u128(funded), verified.Receipt.FromBalanceBefore)
+	require.Equal(t, u128(after), verified.Receipt.FromBalanceAfter)
+	require.Equal(t, u128(new(big.Int)), verified.Receipt.ToBalanceBefore)
+	require.Equal(t, u128(big.NewInt(onePaxInWei)), verified.Receipt.ToBalanceAfter)
 	send, err := h.src.SequencerSend(tx.Hash())
 	require.NoError(t, err)
 	require.NotNil(t, send)
@@ -310,6 +318,8 @@ func TestAccepterReceiptsASendSealedBeforeItsReceipt(t *testing.T) {
 	nextVerified, err := verify.ReceiptSignature(nextReceipt.Receipt, h.key.PublicKey())
 	require.NoError(t, err)
 	require.Equal(t, startSeq+2, nextVerified.Receipt.GlobalSequence)
+	require.Equal(t, u128(after), nextVerified.Receipt.FromBalanceBefore)
+	require.Equal(t, u128(big.NewInt(onePaxInWei)), nextVerified.Receipt.ToBalanceBefore)
 	require.Equal(t, startSeq+2, h.sb.LastSeq())
 	require.NoError(t, h.sb.Err())
 	nextSend, err := h.src.SequencerSend(nextTx.Hash())
@@ -368,6 +378,13 @@ func TestAccepterReceiptsASendAcrossASeal(t *testing.T) {
 	verified, err := verify.ReceiptSignature(result.receipt.Receipt, h.key.PublicKey())
 	require.NoError(t, err)
 	require.Equal(t, startSeq+1, verified.Receipt.GlobalSequence)
+	funded := new(big.Int).Mul(big.NewInt(fundingUhpx), big.NewInt(weiPerUhpx))
+	fee := new(big.Int).Mul(big.NewInt(transferGas), big.NewInt(gasPriceWei))
+	after := new(big.Int).Sub(funded, new(big.Int).Add(big.NewInt(onePaxInWei), fee))
+	require.Equal(t, u128(funded), verified.Receipt.FromBalanceBefore)
+	require.Equal(t, u128(after), verified.Receipt.FromBalanceAfter)
+	require.Equal(t, u128(new(big.Int)), verified.Receipt.ToBalanceBefore)
+	require.Equal(t, u128(big.NewInt(onePaxInWei)), verified.Receipt.ToBalanceAfter)
 	entries := accepterWALEntries(t, h.dir)
 	require.Len(t, entries, 2)
 	persisted, ok := entries[1].(*wal.Accept)
@@ -418,6 +435,8 @@ func TestAccepterReceiptsASendAcrossASeal(t *testing.T) {
 	nextVerified, err := verify.ReceiptSignature(nextReceipt.Receipt, h.key.PublicKey())
 	require.NoError(t, err)
 	require.Equal(t, startSeq+2, nextVerified.Receipt.GlobalSequence)
+	require.Equal(t, u128(after), nextVerified.Receipt.FromBalanceBefore)
+	require.Equal(t, u128(big.NewInt(onePaxInWei)), nextVerified.Receipt.ToBalanceBefore)
 	require.Equal(t, startSeq+2, h.sb.LastSeq())
 	require.NoError(t, h.sb.Err())
 	nextSend, err := h.src.SequencerSend(nextTx.Hash())

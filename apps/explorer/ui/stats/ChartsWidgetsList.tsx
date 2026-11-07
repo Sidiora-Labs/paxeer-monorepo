@@ -80,7 +80,7 @@ const ChartsWidgetsList = ({ isError, isPlaceholderData, charts, interval, initi
             <Box
               key={ section.id }
               data-stats-section={ section.id }
-              mb={{ base: 8, lg: 10 }}
+              mb={ 8 }
               _last={{
                 marginBottom: 0,
               }}
@@ -98,9 +98,8 @@ const ChartsWidgetsList = ({ isError, isPlaceholderData, charts, interval, initi
                   alignItems="center"
                   columnGap={ 2 }
                   scrollMarginTop={{ base: 20, lg: 24 }}
-                  textStyle="heading.sm"
-                  fontWeight="600"
-                  color="text.primary"
+                  textStyle="label"
+                  color="text.muted"
                 >
                   <chakra.span data-section-title>{ section.title }</chakra.span>
                   { isGasTrackerEnabled && section.id === 'gas' && homeStatsQuery.data && homeStatsQuery.data.gas_prices && (

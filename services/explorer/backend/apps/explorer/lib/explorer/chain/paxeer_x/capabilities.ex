@@ -11,14 +11,13 @@ defmodule Explorer.Chain.PaxeerX.Capabilities do
   height, issues
 
     * `eth_call` of `getMarginMode(address)` with the zero account for the
-      exchange (`0x…1015`) and `isPaused()` for the bridge (`0x…1016`) — a
-      surface is live when its view returns exactly one ABI word;
-    * `eth_getCode` for the launchpad (`0x…1017`) precompile — the surface is
-      live when the answer carries at least one byte of code;
+      exchange (`0x…1015`), `isPaused()` for the bridge (`0x…1016`) and
+      `getPoolCount()` for the launchpad (`0x…1017`) — a surface is live when
+      its view returns exactly one ABI word, regardless of stored EVM code;
     * one `eth_call` of `getUnifiedAccount(address)` (selector `0x357feed6`) at
       the addr precompile `0x…1004`, which exists before the upgrade but only
       answers that method after it — the capability is live when the call
-      returns the declared four-word head instead of reverting.
+      returns the declared four-word head and complete ABI string tail.
 
   The first probe runs from the process's own message loop, scheduled by
   `init/1` for immediately, and every following one after
@@ -67,24 +66,23 @@ defmodule Explorer.Chain.PaxeerX.Capabilities do
 
   @view_surfaces [
     exchange: @exchange_precompile,
-    bridge: @bridge_precompile
+    bridge: @bridge_precompile,
+    launchpad: @launchpad_precompile
   ]
 
-  @code_surfaces [launchpad: @launchpad_precompile]
-  @surface_addresses @view_surfaces ++ @code_surfaces
-  @view_surface_names Keyword.keys(@view_surfaces)
+  @surface_addresses @view_surfaces
   @surface_names Keyword.keys(@surface_addresses)
 
   @surfaces [:unified_account | @surface_names]
 
   @get_margin_mode_selector "0xb71d031c"
   @is_paused_selector "0xb187bd26"
+  @get_pool_count_selector "0x8eec5d70"
   @get_unified_account_selector "0x357feed6"
   @probed_account "0x0000000000000000000000000000000000000000"
 
   # `(address evm, string paxAddr, bytes32 didPublicKey, bytes32 layerxMainAccountId)`
-  # occupies four head words; a node that does not know the method answers
-  # shorter than that or refuses outright.
+  # occupies four head words followed by the string length and padded contents.
   @unified_account_head_bytes 128
 
   @unified_account_request_id length(@surface_addresses)
@@ -249,8 +247,6 @@ defmodule Explorer.Chain.PaxeerX.Capabilities do
   end
 
   defp probe_requests(block_number) do
-    block_quantity = EthereumJSONRPC.integer_to_quantity(block_number)
-
     view_requests =
       @view_surfaces
       |> Enum.with_index()
@@ -259,16 +255,10 @@ defmodule Explorer.Chain.PaxeerX.Capabilities do
           case surface do
             :exchange -> @get_margin_mode_selector <> address_argument(@probed_account)
             :bridge -> @is_paused_selector
+            :launchpad -> @get_pool_count_selector
           end
 
         Contract.eth_call_request(data, address, index, block_number, nil)
-      end)
-
-    code_requests =
-      @code_surfaces
-      |> Enum.with_index(length(@view_surfaces))
-      |> Enum.map(fn {{_surface, address}, index} ->
-        request(%{id: index, method: "eth_getCode", params: [address, block_quantity]})
       end)
 
     unified_account_request =
@@ -280,7 +270,7 @@ defmodule Explorer.Chain.PaxeerX.Capabilities do
         nil
       )
 
-    [unified_account_request | view_requests ++ code_requests]
+    [unified_account_request | view_requests]
   end
 
   defp address_argument("0x" <> digits),
@@ -304,26 +294,13 @@ defmodule Explorer.Chain.PaxeerX.Capabilities do
     |> Enum.with_index()
     |> Enum.reduce_while({:ok, %{}}, fn {{surface, _address}, index}, {:ok, acc} ->
       response = Map.get(by_id, index)
-      result = if surface in @view_surface_names, do: read_view(response), else: read_code(response)
 
-      case result do
+      case read_view(response) do
         {:ok, live?} -> {:cont, {:ok, Map.put(acc, surface, live?)}}
         {:error, reason} -> {:halt, {:error, {surface, reason}}}
       end
     end)
   end
-
-  defp read_code(%{result: "0x" <> digits}) do
-    if rem(String.length(digits), 2) == 0 and hexadecimal?(digits) do
-      {:ok, digits != ""}
-    else
-      {:error, {:unexpected_code, digits}}
-    end
-  end
-
-  defp read_code(%{error: error}), do: {:error, error}
-
-  defp read_code(other), do: {:error, {:unexpected_response, other}}
 
   defp read_view(%{result: "0x" <> digits} = response) do
     if byte_size(digits) == 64 and hexadecimal?(digits) do
@@ -333,25 +310,48 @@ defmodule Explorer.Chain.PaxeerX.Capabilities do
     end
   end
 
-  defp read_view(%{error: _error}), do: {:ok, false}
+  defp read_view(%{error: error}), do: read_call_error(error)
 
   defp read_view(other), do: {:error, {:unexpected_response, other}}
 
-  # A node without the method answers the `eth_call` with an error or with
+  # A node without the method answers the `eth_call` with a contract error or with
   # fewer bytes than the declared return layout; either way the capability is
   # absent rather than the probe being broken, so the surface reads as absent
   # and the rest of the snapshot still stands.
   defp read_unified_account(%{result: "0x" <> digits}) do
     live? =
-      hexadecimal?(digits) and rem(String.length(digits), 2) == 0 and
-        div(String.length(digits), 2) >= @unified_account_head_bytes
+      with {:ok,
+            <<0::96, _evm::160, @unified_account_head_bytes::256, _did::binary-size(32), _account::binary-size(32),
+              length::256, tail::binary>>} <- Base.decode16(digits, case: :mixed),
+           padded_length = div(length + 31, 32) * 32,
+           true <- byte_size(tail) == padded_length,
+           <<_pax_address::binary-size(length), padding::binary>> <- tail do
+        padding == :binary.copy(<<0>>, padded_length - length)
+      else
+        _ -> false
+      end
 
     {:ok, live?}
   end
 
-  defp read_unified_account(%{error: _error}), do: {:ok, false}
+  defp read_unified_account(%{error: error}), do: read_call_error(error)
 
   defp read_unified_account(other), do: {:error, {:unexpected_response, other}}
+
+  defp read_call_error(%{code: -32601}), do: {:ok, false}
+
+  defp read_call_error(%{code: code, message: message} = error)
+       when code in [3, -32000] and is_binary(message) do
+    message = String.downcase(message)
+
+    if message == "execution reverted" or String.starts_with?(message, "execution reverted:") do
+      {:ok, false}
+    else
+      {:error, {:rpc_error, error}}
+    end
+  end
+
+  defp read_call_error(error), do: {:error, {:rpc_error, error}}
 
   defp hexadecimal?(digits) do
     String.match?(digits, ~r/\A[0-9a-fA-F]*\z/)

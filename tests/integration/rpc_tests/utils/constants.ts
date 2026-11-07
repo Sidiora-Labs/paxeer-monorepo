@@ -22,8 +22,21 @@ export const ZERO_HASH = '0x' + '00'.repeat(32);
 /** The all-zero 8-byte block nonce. */
 export const ZERO_NONCE = '0x' + '00'.repeat(8);
 
-/** Default Pax EVM chain id on the local devnet. */
-export const DEFAULT_EVM_CHAIN_ID = 713714;
+/** The merged network has one EVM identity; historical devnets are explicit fixtures. */
+export const MERGED_EVM_CHAIN_ID = 125;
+export const DEFAULT_EVM_CHAIN_ID = MERGED_EVM_CHAIN_ID;
+export const HISTORICAL_DEVNET_EVM_CHAIN_ID = 713714;
+
+export function assertMergedEvmChainId(value: unknown): void {
+    if (
+        (typeof value !== 'string' && typeof value !== 'number' && typeof value !== 'bigint') ||
+        BigInt(value) !== BigInt(MERGED_EVM_CHAIN_ID)
+    ) {
+        throw new Error(
+            `Expected merged EVM chain id ${MERGED_EVM_CHAIN_ID}, received ${String(value)}`,
+        );
+    }
+}
 
 export const DOCKER_NODE = 'pax-node-0';
 export const PAXD_ENV = 'export PATH=$PATH:/root/go/bin:/root/.foundry/bin';
@@ -46,12 +59,10 @@ export const DOCKER_EVM_RPC = 'http://localhost:8545';
 export const CW20_WASM_PATH = path.resolve(__dirname, '..', 'contracts', 'cw20_base.wasm');
 
 /** Pinned SHA256 of CW20_WASM_PATH (matches contracts/wasm/cw20_base.wasm). */
-export const CW20_WASM_SHA256 =
-    '68c6a4bdbb3edfe61c1c08c84bbaa954ffcd25492fb6c60f3cd0107aa2ccc207';
+export const CW20_WASM_SHA256 = '68c6a4bdbb3edfe61c1c08c84bbaa954ffcd25492fb6c60f3cd0107aa2ccc207';
 
 /** Flat fee for the one-off CW20 store + instantiate (10M gas @ 3.5uhpx). */
 export const WASM_FEE = calculateFee(10_000_000, GasPrice.fromString('3.5uhpx'));
 
 /** Flat fee for a single CW20 execute, e.g. transfer (1.5M gas @ 3.5uhpx). */
 export const EXEC_FEE = calculateFee(1_500_000, GasPrice.fromString('3.5uhpx'));
-

@@ -1,77 +1,34 @@
-import hashlib
+from .account_derivation import keccak256
+from .evm_transaction import encode_call
+from .payment_transaction import decode_payment_transaction
+from .x402 import LAYERX_LEDGER_ADDRESS, LEDGER_DRAW_TYPES
+from .x402_receive import decode_receive
 
 
-def bind_receive_activity(
-    canonical: bytes, receive: bytes, actor: str, network: int, key: str
-) -> str:
-    offset = 0
-
-    def take(size):
-        nonlocal offset
-        if size < 0 or offset + size > len(canonical):
-            raise ValueError("invalid-activity")
-        value = canonical[offset : offset + size]
-        offset += size
-        return value
-
-    def integer(size):
-        return int.from_bytes(take(size), "big")
-
-    def field(tag):
-        if integer(1) != tag:
-            raise ValueError("invalid-activity-field")
-
-    def bounded(maximum):
-        size = integer(4)
-        if size > maximum:
-            raise ValueError("invalid-activity-length")
-        return take(size)
-
-    if (
-        type(canonical) is not bytes
-        or len(canonical) > 524288
-        or type(network) is not int
-    ):
-        raise ValueError("invalid-activity")
-    version = integer(2)
-    if version not in (1, 2, 3, 4) or integer(2) != 0x1001 or integer(1) != 12:
-        raise ValueError("invalid-activity-header")
-    field(1)
-    if integer(2) != version:
-        raise ValueError("invalid-activity-version")
-    field(2)
-    if integer(4) != network:
-        raise ValueError("activity-network-mismatch")
-    field(3)
-    if integer(4) != 0x10006:
-        raise ValueError("activity-type-mismatch")
-    field(4)
-    if bounded(255).decode("utf-8") != actor:
-        raise ValueError("activity-actor-mismatch")
-    field(5)
-    if not bounded(524288):
-        raise ValueError("missing-activity-authority")
-    field(6)
-    integer(8)
-    field(7)
-    before = integer(8)
-    if integer(8) < before:
-        raise ValueError("invalid-activity-time")
-    field(8)
-    if bounded(32).hex() != key:
-        raise ValueError("activity-key-mismatch")
-    field(9)
-    integer(16)
-    field(10)
-    payload_hash = bounded(32)
-    field(11)
-    payload = bounded(524288)
-    field(12)
-    if len(bounded(128)) != 64 or offset != len(canonical):
-        raise ValueError("invalid-activity-signature")
-    if (
-        payload != receive
-        or payload_hash != hashlib.sha256(b"LXP/v1/payload-hash\0" + payload).digest()
-    ):
-        raise ValueError("activity-payload-mismatch")
-    return hashlib.sha256(b"LXP/v1/activity-id\0" + canonical).hexdigest()
+def bind_receive_activity(canonical: bytes, receive: bytes, actor: str, network: int, key: str) -> str:
+    if (not isinstance(key, str) or len(key) != 64
+            or any(character not in "0123456789abcdef" for character in key)
+            or not isinstance(actor, str) or len(actor) != 42 or actor[:2] != "0x"
+            or any(character not in "0123456789abcdefABCDEF" for character in actor[2:])):
+        raise ValueError("grant draw transaction binding")
+    transaction = decode_payment_transaction(canonical)
+    value = decode_receive(receive)
+    grant = value["payer_grant"]
+    expected = encode_call(
+        "draw", LEDGER_DRAW_TYPES,
+        (bytes.fromhex(value["grant_id"]), bytes.fromhex(value["to"]), int(value["amount"]),
+         bytes.fromhex(key), int(value["receiver_sequence"]),
+         bytes.fromhex(grant["purpose_hash"]), bytes.fromhex(value["context_hash"])),
+    )
+    if (type(network) is not int or network != 125 or transaction.chain_id != network
+            or transaction.to != LAYERX_LEDGER_ADDRESS
+            or transaction.value or transaction.data != expected or value["idempotency_key"] != key
+            or "0x" + transaction.sender.hex() != actor.lower()
+            or value["grant_id"] != grant["grant_id"]
+            or value["from"] != grant["from"] or value["to"] != grant["recipient"]
+            or value["asset"] != grant["asset"]
+            or value["receiver_authorization"]["network_id"] != network
+            or value["receiver_authorization"]["controller"] != value["to"]
+            or value["receiver_authorization"]["signed_context_hash"] != value["context_hash"]):
+        raise ValueError("grant draw transaction binding")
+    return "0x" + keccak256(canonical).hex()

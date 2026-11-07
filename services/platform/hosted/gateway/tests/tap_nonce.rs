@@ -120,6 +120,31 @@ impl RedisProcess {
         redis_unreachable(process)
     }
 
+    fn restart(&mut self) {
+        self.child.kill().expect("stop Redis before recovery");
+        self.child.wait().expect("reap stopped Redis");
+        self.child = Command::new("redis-server")
+            .arg(self.directory.join("redis.conf"))
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .spawn()
+            .expect("reopen Redis on the original AOF directory");
+        for _ in 0..100 {
+            assert!(
+                self.child
+                    .try_wait()
+                    .expect("Redis process status")
+                    .is_none(),
+                "Redis refused recovery"
+            );
+            if self.store().ready() {
+                return;
+            }
+            thread::sleep(Duration::from_millis(20));
+        }
+        panic!("reopened Redis did not recover its persisted state");
+    }
+
     fn store(&self) -> RedisStore {
         RedisStore::new(
             self.endpoint.clone(),
@@ -158,7 +183,7 @@ fn path(value: &Path) -> &str {
 
 #[test]
 fn exact_pending_retry_survives_reconstruction_but_altered_nonce_reuse_is_replay() {
-    let redis = RedisProcess::start();
+    let mut redis = RedisProcess::start();
     let now = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default()
@@ -193,6 +218,7 @@ fn exact_pending_retry_survives_reconstruction_but_altered_nonce_reuse_is_replay
         panic!("first nonce consumption must not be a replay")
     };
 
+    redis.restart();
     let reconstructed = redis.store();
     assert_eq!(
         reconstructed
@@ -321,7 +347,7 @@ fn payment_outbox_commits_with_completion_and_retains_acknowledgements() {
     use layerx_platform_internal::producer::{event_id, Observation, Outbox, Pending};
     use layerx_platform_internal::secret::{hex, sha256_hex, unhex};
 
-    let redis = RedisProcess::start();
+    let mut redis = RedisProcess::start();
     let store = redis.store();
     let document: serde_json::Value =
         serde_json::from_str(include_str!("fixtures/maintained-authority.json"))
@@ -414,11 +440,12 @@ fn payment_outbox_commits_with_completion_and_retains_acknowledgements() {
         .complete_observed(completion, &pending)
         .unwrap_or_else(|error| panic!("atomic completion: {error}"));
     drop(store);
-    assert_payment_restart(&redis, &pending, completion, receipt_hex);
+    redis.restart();
+    assert_payment_restart(&mut redis, &pending, completion, receipt_hex);
 }
 
 fn assert_payment_restart(
-    redis: &RedisProcess,
+    redis: &mut RedisProcess,
     pending: &layerx_platform_internal::producer::Pending,
     completion: layerx_platform_gateway::store::Completion<'_>,
     receipt_hex: &str,
@@ -439,12 +466,21 @@ fn assert_payment_restart(
             .receipt,
         receipt_hex
     );
+    let recovered = store
+        .operation("payment-operation")
+        .expect("recovered completion")
+        .expect("completed operation");
+    assert_eq!(recovered.response, completion.response_hex);
+    assert_eq!(recovered.digest, completion.request_digest);
+    assert_eq!(recovered.state, completion.state);
+    assert_eq!(recovered.principal, completion.principal_digest);
     assert!(store.acknowledge(&pending.observation.id, false).is_err());
     assert!(store.acknowledge(&"00".repeat(32), true).is_err());
     store
         .acknowledge(&pending.observation.id, true)
         .unwrap_or_else(|error| panic!("sink acknowledgement: {error}"));
     drop(store);
+    redis.restart();
     let store = redis.store();
     let mut observed = pending.clone();
     observed.observed = true;
@@ -469,6 +505,26 @@ fn assert_payment_restart(
     let changed =
         Pending::new(changed).unwrap_or_else(|error| panic!("changed observation: {error}"));
     assert!(store.complete_observed(completion, &changed).is_err());
+    drop(store);
+    redis.restart();
+    let store = redis.store();
+    assert!(store
+        .pending()
+        .expect("acknowledged queue after restart")
+        .is_none());
+    store
+        .complete_observed(completion, pending)
+        .expect("exact retry after acknowledged restart");
+    assert!(store
+        .pending()
+        .expect("retry cannot duplicate acknowledged event")
+        .is_none());
+    let recovered = store
+        .operation("payment-operation")
+        .expect("completion after restart")
+        .expect("completed operation");
+    assert_eq!(recovered.response, completion.response_hex);
+    assert_eq!(recovered.receipt, receipt_hex);
 }
 
 #[path = "support/payment_events.rs"]

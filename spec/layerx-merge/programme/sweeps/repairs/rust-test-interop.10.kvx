@@ -1,0 +1,8 @@
+[repair.rust-test-interop.10]
+target = "layerx-migrate"
+command = "cargo test --locked --manifest-path services/interop/Cargo.toml -p layerx-migrate --no-fail-fast"
+revision = "c56bf8dab2a36860f56543433ebe85802b492d14"
+result = "already-passing"
+change = "services/interop/crates/layerx-migrate/README.md documents the producer inputs required by the connected tests; no product code changes."
+producer_input_tests = ["funded_operator_runs_real_gateway_source_and_independent_funded_receipts: LAYERX_MIGRATION_FUNDED_OPERATOR_FIXTURE must name an absolute path to a genuine protected funded-operator fixture", "migration_v2_connected_runs_authenticated_mapping_and_funded_settlement: LAYERX_MIGRATION_V2_FIXTURE must name an absolute path to a genuine protected migration V2 fixture"]
+verification_command = "cargo test --locked --manifest-path services/interop/Cargo.toml -p layerx-migrate --no-fail-fast -- --skip funded_operator_runs_real_gateway_source_and_independent_funded_receipts --skip migration_v2_connected_runs_authenticated_mapping_and_funded_settlement"

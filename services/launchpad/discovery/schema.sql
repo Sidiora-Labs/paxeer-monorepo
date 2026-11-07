@@ -12,3 +12,8 @@ CREATE TABLE IF NOT EXISTS narrative_discovery.callout_revisions(id text NOT NUL
 CREATE TABLE IF NOT EXISTS narrative_discovery.rules(id text PRIMARY KEY,account_id text NOT NULL,document jsonb NOT NULL,checkpoint jsonb NOT NULL,last_reason text NOT NULL DEFAULT '');
 CREATE TABLE IF NOT EXISTS narrative_discovery.triggers(id text PRIMARY KEY,rule_id text NOT NULL,rule_revision numeric(20,0) NOT NULL,metric_revision numeric(20,0) NOT NULL,document jsonb NOT NULL,UNIQUE(rule_id,rule_revision,metric_revision));
 CREATE TABLE IF NOT EXISTS narrative_discovery.outbox(id text PRIMARY KEY,kind text NOT NULL,document jsonb NOT NULL,published boolean NOT NULL DEFAULT false);
+
+CREATE TABLE IF NOT EXISTS narrative_discovery.invitation_deliveries(squad_id text NOT NULL,account_id text NOT NULL,document jsonb NOT NULL,PRIMARY KEY(squad_id,account_id));
+REVOKE ALL ON narrative_discovery.invitation_deliveries FROM PUBLIC;
+CREATE TABLE IF NOT EXISTS narrative_discovery.evaluation_cursor(id boolean PRIMARY KEY CHECK(id),last_rule_id text NOT NULL DEFAULT '');
+INSERT INTO narrative_discovery.evaluation_cursor(id) VALUES(true) ON CONFLICT DO NOTHING;

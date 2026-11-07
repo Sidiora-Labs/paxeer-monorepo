@@ -22,6 +22,14 @@ use std::time::{Duration, Instant};
 use layerx_ramp_toolkit::clients::{LayerxConfig, MutualTlsClient, MutualTlsFiles, SecretFile};
 use serde_json::{json, Value};
 
+#[path = "support/repair_22_33_1490.rs"]
+mod repair_1490;
+
+#[test]
+fn compact_signer_contract_preserves_wrong_key_refusal() {
+    repair_1490::signer_contract();
+}
+
 static NEXT_DIRECTORY: AtomicU64 = AtomicU64::new(0);
 
 struct ClientFiles(PathBuf);
@@ -387,7 +395,10 @@ fn signer(files: &ClientFiles, call: Eip1559Call, secret: [u8; 32]) -> (String, 
         let (_, signature) = decode_signed(&raw).expect("signed call");
         respond(
             &mut stream,
-            &json!({"signature": base64(signature.as_bytes())}),
+            &json!({
+                "signature": base64(&signature.as_bytes()[..64]),
+                "recovery_id": signature.as_bytes()[64] - 27
+            }),
         );
         stream.shutdown().expect("close TLS response");
     });

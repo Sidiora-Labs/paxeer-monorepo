@@ -19,12 +19,21 @@
 //! restoring retired public vocabulary. These are structural contract checks;
 //! signature, inclusion and commit authentication remain separate consumer duties.
 //!
-//! Corpus finding: sdk/platform/conformance/fixtures/vector-v5-portable.json,
+//! The additional committed_landing corpus below carries actual protobuf
+//! Comet headers/commits/validators and encoded EVM ABCI results from one node
+//! landing block. Its independent verifier checks receipt signatures,
+//! transaction/batch/result inclusion, commit power/signatures and the successor
+//! link. The original structural corpus and all malformed-field checks remain.
+//!
+//! Historical structural corpus: sdk/platform/conformance/fixtures/vector-v5-portable.json,
 //! bundles[1].{blockHeader,receiptInclusion,commit,validatorSet}, stores the native
 //! recorder's structured JSON rather than encoded protobuf/EVM proof strings.
 //! This structural API proof preserves those original producer bytes as opaque
 //! CanonicalBytes and asserts exact preservation; it does not claim that the
 //! independent Comet or EVM evidence verifier accepts that representation.
+
+#[path = "support/committed_landing.rs"]
+pub(crate) mod committed;
 
 use layerx_agent_api::export::{
     check_export_response, validate_export_request, FactRef, OfflineExport,
@@ -369,5 +378,104 @@ fn proof_agent_api_freshness_consumer_preserves_full_width_heights_and_refuses_l
     ] {
         assert_ne!(malformed, transport);
         assert!(Freshness::decode_json(&malformed).is_err());
+    }
+}
+
+#[test]
+fn proof_agent_api_encoded_node_evidence_refuses_tampering() {
+    let produced = committed::produced();
+    let wire = produced
+        .encode_json()
+        .expect("daemon shared response encoder");
+    let observed =
+        VerifiedRead::<ProofBundle>::decode_json(&wire).expect("SDK shared response decoder");
+    assert_eq!(observed, produced);
+    committed::verify(&observed).expect("independent authenticated committed evidence");
+    for field in 0..4 {
+        let mut changed = observed.clone();
+        let evidence = match field {
+            0 => &mut changed.value.block_header,
+            1 => &mut changed.value.receipt_inclusion,
+            2 => &mut changed.value.commit,
+            _ => &mut changed.value.validator_set,
+        };
+        let mut bytes = evidence.as_ref().unwrap().as_bytes().to_vec();
+        let last = bytes.len() - 1;
+        bytes[last] ^= 1;
+        *evidence = Some(CanonicalBytes::new(bytes).unwrap());
+        // Structural opacity must never be mistaken for authentication.
+        let crossed = changed.encode_json().unwrap();
+        let crossed = VerifiedRead::<ProofBundle>::decode_json(&crossed).unwrap();
+        assert!(
+            committed::verify(&crossed).is_err(),
+            "tampered committed field {field}"
+        );
+    }
+    let inclusion = std::str::from_utf8(
+        observed
+            .value
+            .receipt_inclusion
+            .as_ref()
+            .unwrap()
+            .as_bytes(),
+    )
+    .unwrap();
+    for (from, to) in [
+        ("\"index\":1", "\"index\":0"),
+        ("\"height\":10", "\"height\":9"),
+        ("\"total\":2", "\"total\":3"),
+        ("\"result\":\"12", "\"result\":\"13"),
+        ("comet-abci-results-v1", "comet-abci-results-v0"),
+    ] {
+        let changed = inclusion.replacen(from, to, 1);
+        assert_ne!(changed, inclusion);
+        let mut bad_inclusion = observed.clone();
+        bad_inclusion.value.receipt_inclusion =
+            Some(CanonicalBytes::new(changed.into_bytes()).unwrap());
+        assert!(committed::verify(&bad_inclusion).is_err());
+    }
+    let mut insufficient = observed.clone();
+    insufficient.value.commit = Some(
+        CanonicalBytes::new(committed::document().hex_at("insufficientCommit").unwrap()).unwrap(),
+    );
+    assert!(
+        committed::verify(&insufficient).is_err(),
+        "absent voting power cannot establish commitment"
+    );
+    let mut bad_receipt = observed.clone();
+    let mut bytes = bad_receipt.value.signed_receipt.as_bytes().to_vec();
+    let last = bytes.len() - 1;
+    bytes[last] ^= 1;
+    bad_receipt.value.signed_receipt = CanonicalBytes::new(bytes).unwrap();
+    assert!(committed::verify(&bad_receipt).is_err());
+    let mut bad_digest = observed.clone();
+    bad_digest.value.receipt_digest[0] ^= 1;
+    assert!(committed::verify(&bad_digest).is_err());
+    let mut bad_key = observed.clone();
+    bad_key.value.receipt_key.public_key[0] ^= 1;
+    assert!(committed::verify(&bad_key).is_err());
+    let mut bad_raw = observed.clone();
+    let mut raw = bad_raw.value.raw_transaction.as_bytes().to_vec();
+    raw[4] ^= 1;
+    bad_raw.value.raw_transaction = CanonicalBytes::new(raw).unwrap();
+    assert!(committed::verify(&bad_raw).is_err());
+    let mut bad_freshness = observed.clone();
+    bad_freshness.freshness.value_height += 1;
+    assert!(committed::verify(&bad_freshness).is_err());
+    let mut bad_hash = observed.clone();
+    let RelativeTo::Block { hash, .. } = &mut bad_hash.freshness.relative_to;
+    hash[0] ^= 1;
+    assert!(committed::verify(&bad_hash).is_err());
+    for (from, to) in [
+        ("\"commit\":", "\"unknownCommit\":"),
+        (
+            "\"achieved_verification_level\":\"committed\"",
+            "\"achieved_verification_level\":\"receipted\"",
+        ),
+        ("\"chain_head\":", "\"chain_head\":\"0\",\"chain_head\":"),
+    ] {
+        let malformed = wire.replacen(from, to, 1);
+        assert_ne!(malformed, wire);
+        assert!(VerifiedRead::<ProofBundle>::decode_json(&malformed).is_err());
     }
 }

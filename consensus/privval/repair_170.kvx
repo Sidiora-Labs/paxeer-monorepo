@@ -1,0 +1,20 @@
+[task.22.31.170]
+finding = "sign-state-after-save-error"
+implementation = "Keep an uncommitted signature separate from LastSignState; persist pending state before any vote or proposal proceeds, and promote it only after the atomic write succeeds. Save also commits pending state; unsafe Reset explicitly discards it."
+proof = ["TestRepair_170_RetryReopen", "TestRepair_170_PendingConflictReopen", "TestRepair_170_SavePendingReopen", "TestRepair_170_RestartBeforeRetry"]
+coverage = "Real signer client, Unix socket, protobuf codec, request handler and FilePV; filesystem create and rename failures, identical and timestamp retries, cross-kind advancement refusal, persistence before release, stop/reopen, signature verification and conflicting-vote/proposal refusal."
+baseline = "Not run: the ordered task instructions prohibit verification before implementation and prohibit running verify_cmd outside hf-done. No pre-change test failure is claimed."
+wiring_requests = []
+evidence = "The runner records the exact candidate revision, command, exit and private log in its gate ledger; hf-done is the only completion authority."
+
+[gotcha.1]
+observed = "The task step asks for a pre-change verification, but the ordered gate instructions prohibit it."
+resolution = "Follow the ordered gate instructions; record the omitted baseline here without editing out-of-scope spec or GOTCHA files."
+
+[gotcha.2]
+observed = "Proposal.ToProto serializes a zero-value fixed-size signature as 64 zero bytes, so the unsigned-request fixture initially failed the empty-signature assertion."
+resolution = "Explicitly clear the public protobuf signature before sending an unsigned proposal; retain the empty-signature assertion unchanged."
+revision = "d8295641c66c3b3761f51bc5cb63992205001a17"
+command = "cg spec done 22.31.170 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"

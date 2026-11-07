@@ -1,0 +1,8 @@
+[repair.go-modules.76]
+target = "modules/layerxpay/integration"
+command = "make -s paxd-native-libs && CGO_ENABLED=1 go vet ./modules/layerxpay/integration/ && CGO_ENABLED=1 go test -count=1 -timeout 35m ./modules/layerxpay/integration/"
+revision = "cea04b0a20fed9621b2f2580398024b38b76ff2e"
+result = "already-passing"
+change = "No product change; modules/layerxpay/integration/genesis_test.go and modules/layerxpay/integration/gov_test.go log application lifecycle phases to identify waits in verbose test output."
+producer_input_tests = []
+wall_time = "The verification evidence reports the measured package wall time in the go test result."

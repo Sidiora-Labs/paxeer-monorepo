@@ -1,0 +1,1130 @@
+# Pre-upgrade audit of launchpad gateway, API cache and PnL image rendering.
+# Source revision is the audited base; proposals do not repair runtime files.
+
+[audit.22.30.32]
+task = "22.30.32"
+revision = "6d2c32a65a1c7989a6a37abf5965929de9769ae4"
+files_reviewed = 112
+findings = 37
+docs_reviewed = 13
+upgrade_ready = false
+blocking = ["export_capability","deletion_receipt","v2_recovery","ingest_response","ticket_only_socket","browser_challenge_idempotency","approved_cache_purge","initial_lineage_visibility","initial_delivery_visibility","upload_error_schema"]
+
+[file.001]
+path = "services/launchpad/api/internal/cache/adapter.go"
+lines = 1198
+verdict = "issues"
+note = "Read shared budgets, Redis fencing, reconstruction, scope and accounting bindings; production wiring gap recorded."
+
+[file.002]
+path = "services/launchpad/api/internal/cache/adapter_test.go"
+lines = 680
+verdict = "clean"
+note = "Read real Redis/PostgreSQL adversarial adapter, budget and reconstruction tests; these do not mount production bindings."
+
+[file.003]
+path = "services/launchpad/api/internal/cache/bounds_test.go"
+lines = 220
+verdict = "clean"
+note = "Read bounded entries/bytes, fetch coalescing, per-origin admission, expiration, invalidation, concurrency and cancellation."
+
+[file.004]
+path = "services/launchpad/api/internal/cache/cache.go"
+lines = 374
+verdict = "clean"
+note = "Read bounded entries/bytes, fetch coalescing, per-origin admission, expiration, invalidation, concurrency and cancellation."
+
+[file.005]
+path = "services/launchpad/api/internal/cache/cache_test.go"
+lines = 168
+verdict = "clean"
+note = "Read bounded entries/bytes, fetch coalescing, per-origin admission, expiration, invalidation, concurrency and cancellation."
+
+[file.006]
+path = "services/launchpad/api/internal/cache/policy.go"
+lines = 122
+verdict = "clean"
+note = "Read policy classes, visibility, TTL, scope, query budgets and emergency allocation validation."
+
+[file.007]
+path = "services/launchpad/gateway/cmd/mediagatewayd/main.go"
+lines = 22
+verdict = "clean"
+note = "Read daemon startup, parent context and fatal-error propagation."
+
+[file.008]
+path = "services/launchpad/gateway/internal/app/app.go"
+lines = 1520
+verdict = "issues"
+note = "Read full application construction, split pools, private mTLS authority, production/development routes, media workers, readiness and shutdown."
+
+[file.009]
+path = "services/launchpad/gateway/internal/app/app_test.go"
+lines = 361
+verdict = "issues"
+note = "Read legacy application bootstrap, media/social transport, authentication, readiness and sockets; readiness fixture mismatch recorded."
+
+[file.010]
+path = "services/launchpad/gateway/internal/app/dev_identity_test.go"
+lines = 402
+verdict = "clean"
+note = "Read real PostgreSQL development challenge/session, verification, restart and configuration journeys."
+
+[file.011]
+path = "services/launchpad/gateway/internal/app/development_account.go"
+lines = 32
+verdict = "clean"
+note = "Read development account routing, durable identity integration, expected refusals and owner scope."
+
+[file.012]
+path = "services/launchpad/gateway/internal/app/development_account_test.go"
+lines = 71
+verdict = "clean"
+note = "Read development account routing, durable identity integration, expected refusals and owner scope."
+
+[file.013]
+path = "services/launchpad/gateway/internal/app/development_identity.go"
+lines = 73
+verdict = "clean"
+note = "Read development identity/bootstrap ownership and user routing with actual authority state."
+
+[file.014]
+path = "services/launchpad/gateway/internal/app/development_user_routes_test.go"
+lines = 115
+verdict = "clean"
+note = "Read development identity/bootstrap ownership and user routing with actual authority state."
+
+[file.015]
+path = "services/launchpad/gateway/internal/app/follow_routes_test.go"
+lines = 53
+verdict = "clean"
+note = "Read mounted follow and metadata proxy authorization, actor and route ownership assertions."
+
+[file.016]
+path = "services/launchpad/gateway/internal/app/identity_peers_test.go"
+lines = 916
+verdict = "clean"
+note = "Read all private mTLS authority and peer journeys, credential refusal, revocation and public/private exposure checks."
+
+[file.017]
+path = "services/launchpad/gateway/internal/app/metadata_proxy_test.go"
+lines = 301
+verdict = "clean"
+note = "Read mounted follow and metadata proxy authorization, actor and route ownership assertions."
+
+[file.018]
+path = "services/launchpad/gateway/internal/app/purge_mode_test.go"
+lines = 78
+verdict = "clean"
+note = "Read origin-cache versus external-provider configuration and purge runtime selection."
+
+[file.019]
+path = "services/launchpad/gateway/internal/app/retired_routes_test.go"
+lines = 42
+verdict = "clean"
+note = "Read explicit legacy-route absence assertions; retired names here are deliberate refusal inventories."
+
+[file.020]
+path = "services/launchpad/gateway/internal/auth/auth.go"
+lines = 270
+verdict = "issues"
+note = "Read development nonce/JWT flow; exact issued-message binding deficiency recorded separately from production identity."
+
+[file.021]
+path = "services/launchpad/gateway/internal/auth/auth_test.go"
+lines = 204
+verdict = "clean"
+note = "Read real nonce producer, signatures, replay and malformed-body assertions."
+
+[file.022]
+path = "services/launchpad/gateway/internal/auth/dev_sessions.go"
+lines = 81
+verdict = "clean"
+note = "Read development legacy/v2 credential bridge and cookie mutation authorization through actual identity."
+
+[file.023]
+path = "services/launchpad/gateway/internal/auth/identity_capacity_test.go"
+lines = 221
+verdict = "clean"
+note = "Read actual chain125 EOA/ERC1271 checks, dependency interruption and real HTTP budget workload."
+
+[file.024]
+path = "services/launchpad/gateway/internal/auth/identity_catalog_test.go"
+lines = 106
+verdict = "clean"
+note = "Read actual frozen SDK catalog and registered route/error-schema comparison."
+
+[file.025]
+path = "services/launchpad/gateway/internal/auth/identity_chat.go"
+lines = 68
+verdict = "clean"
+note = "Read shared chat-ticket binding validation and authenticated private-service boundary."
+
+[file.026]
+path = "services/launchpad/gateway/internal/auth/identity_decode.go"
+lines = 197
+verdict = "clean"
+note = "Read closed required fields, duplicate-key checks, signature/type limits and bounded bytes; socket deadlines are an application ingress finding."
+
+[file.027]
+path = "services/launchpad/gateway/internal/auth/identity_dev_routes.go"
+lines = 49
+verdict = "clean"
+note = "Read truthful unavailable development writes and authenticated owner wallet reads."
+
+[file.028]
+path = "services/launchpad/gateway/internal/auth/identity_events.go"
+lines = 122
+verdict = "clean"
+note = "Read transactional revision outbox, exact event payload decoder and durable replay integrity."
+
+[file.029]
+path = "services/launchpad/gateway/internal/auth/identity_http.go"
+lines = 272
+verdict = "clean"
+note = "Read owner route parameters, reauthentication, idempotency and no-store envelopes."
+
+[file.030]
+path = "services/launchpad/gateway/internal/auth/identity_http_test.go"
+lines = 451
+verdict = "clean"
+note = "Read actual PostgreSQL/HTTP identity and JetStream deduplication with the frozen catalog path."
+
+[file.031]
+path = "services/launchpad/gateway/internal/auth/identity_journeys_test.go"
+lines = 798
+verdict = "clean"
+note = "Read full real lifecycle, CSRF, revocation, concurrent retry and interruption journeys."
+
+[file.032]
+path = "services/launchpad/gateway/internal/auth/identity_lifecycle.go"
+lines = 228
+verdict = "issues"
+note = "Read link/session lifecycle and transactions; historical wallet-list bound finding recorded."
+
+[file.033]
+path = "services/launchpad/gateway/internal/auth/identity_measurement.go"
+lines = 1257
+verdict = "issues"
+note = "Read complete offered-load recorder, raw evidence, runtime snapshots, checkpoint, fault and revocation measurement helpers; throughput-window finding recorded."
+
+[file.034]
+path = "services/launchpad/gateway/internal/auth/identity_measurement_test.go"
+lines = 358
+verdict = "issues"
+note = "Read harness and serial measurement tests; unattainable final aggregation assertion recorded."
+
+[file.035]
+path = "services/launchpad/gateway/internal/auth/identity_models.go"
+lines = 343
+verdict = "clean"
+note = "Read chain125 SIWE, explicit purposes, private authority fields and bounded configuration."
+
+[file.036]
+path = "services/launchpad/gateway/internal/auth/identity_proof.go"
+lines = 44
+verdict = "clean"
+note = "Read durable socket authority rechecks and close-on-failure behavior."
+
+[file.037]
+path = "services/launchpad/gateway/internal/auth/identity_reauth.go"
+lines = 116
+verdict = "issues"
+note = "Read single-use reauthentication and bounded operational cleanup; missing collector lifecycle recorded."
+
+[file.038]
+path = "services/launchpad/gateway/internal/auth/identity_store.go"
+lines = 768
+verdict = "clean"
+note = "Read durable nonce, session and refresh transactions and single-use consumption; operational collection finding belongs to identity_reauth.go."
+
+[file.039]
+path = "services/launchpad/gateway/internal/auth/identity_test.go"
+lines = 759
+verdict = "clean"
+note = "Read full canonical-byte, atomic-failure, authority and exact-decoder tests."
+
+[file.040]
+path = "services/launchpad/gateway/internal/auth/identity_tokens.go"
+lines = 351
+verdict = "clean"
+note = "Read managed JWT keys, exact claims/access-generation binding, rotation, cache bounds and dependency-loss tests."
+
+[file.041]
+path = "services/launchpad/gateway/internal/auth/identity_tokens_test.go"
+lines = 194
+verdict = "clean"
+note = "Read managed JWT keys, exact claims/access-generation binding, rotation, cache bounds and dependency-loss tests."
+
+[file.042]
+path = "services/launchpad/gateway/internal/auth/identity_transport.go"
+lines = 620
+verdict = "issues"
+note = "Read complete private and public transport registration, credentials, errors and response envelopes; active browser idempotency mismatch recorded."
+
+[file.043]
+path = "services/launchpad/gateway/internal/auth/identity_wire.go"
+lines = 46
+verdict = "clean"
+note = "Read frozen timestamps as UTC millisecond strings and explicit nullable fields."
+
+[file.044]
+path = "services/launchpad/gateway/internal/auth/jwt.go"
+lines = 88
+verdict = "clean"
+note = "Read fixed-HS256 development signer, constant-time comparison, mint/verify, tampering, wrong-key and expiry tests."
+
+[file.045]
+path = "services/launchpad/gateway/internal/auth/jwt_test.go"
+lines = 60
+verdict = "clean"
+note = "Read fixed-HS256 development signer, constant-time comparison, mint/verify, tampering, wrong-key and expiry tests."
+
+[file.046]
+path = "services/launchpad/gateway/internal/cache/cache.go"
+lines = 101
+verdict = "clean"
+note = "Read bounded Redis objects, namespaced hashed keys, atomic positive/negative publication and eviction."
+
+[file.047]
+path = "services/launchpad/gateway/internal/cache/cache_test.go"
+lines = 67
+verdict = "clean"
+note = "Read bounded Redis objects, namespaced hashed keys, atomic positive/negative publication and eviction."
+
+[file.048]
+path = "services/launchpad/gateway/internal/common/common.go"
+lines = 22
+verdict = "clean"
+note = "Read complete address normalization and validation implementation and tests."
+
+[file.049]
+path = "services/launchpad/gateway/internal/common/common_test.go"
+lines = 22
+verdict = "clean"
+note = "Read complete address normalization and validation implementation and tests."
+
+[file.050]
+path = "services/launchpad/gateway/internal/config/config.go"
+lines = 554
+verdict = "issues"
+note = "Read full environment/default and bound document validation, pool splits, schema and secret configuration; stale component description recorded."
+
+[file.051]
+path = "services/launchpad/gateway/internal/config/config_test.go"
+lines = 110
+verdict = "clean"
+note = "Read actual configuration loader, origin/bounds refusal and digest-bound inline document ambiguity/error tests."
+
+[file.052]
+path = "services/launchpad/gateway/internal/config/inline_document_test.go"
+lines = 54
+verdict = "clean"
+note = "Read actual configuration loader, origin/bounds refusal and digest-bound inline document ambiguity/error tests."
+
+[file.053]
+path = "services/launchpad/gateway/internal/devidentity/devidentity.go"
+lines = 258
+verdict = "clean"
+note = "Read development-only real PostgreSQL migrations, pinned schema and reported-hash chain backend."
+
+[file.054]
+path = "services/launchpad/gateway/internal/image/image.go"
+lines = 60
+verdict = "clean"
+note = "Read PNG/JPEG/WebP validation and tests; SVG helpers cannot bypass the rejecting allowlist."
+
+[file.055]
+path = "services/launchpad/gateway/internal/image/image_test.go"
+lines = 51
+verdict = "clean"
+note = "Read PNG/JPEG/WebP validation and tests; SVG helpers cannot bypass the rejecting allowlist."
+
+[file.056]
+path = "services/launchpad/gateway/internal/internaltest/containers.go"
+lines = 121
+verdict = "clean"
+note = "Read infrastructure acquisition and EIP-191 wallet signing helpers; no production imports."
+
+[file.057]
+path = "services/launchpad/gateway/internal/internaltest/wallet.go"
+lines = 41
+verdict = "clean"
+note = "Read infrastructure acquisition and EIP-191 wallet signing helpers; no production imports."
+
+[file.058]
+path = "services/launchpad/gateway/internal/proxy/connected.go"
+lines = 673
+verdict = "issues"
+note = "Read full frozen forwarding tables, webhook exact bytes, account audiences, actor assertions and response handling; transport findings recorded."
+
+[file.059]
+path = "services/launchpad/gateway/internal/proxy/connected_errors_test.go"
+lines = 73
+verdict = "clean"
+note = "Read v2 dependency error envelopes and restricted upstream-detail handling."
+
+[file.060]
+path = "services/launchpad/gateway/internal/proxy/connected_integration_test.go"
+lines = 27
+verdict = "clean"
+note = "Read explicit allowlist, suffix matching and public secret-boundary assertions."
+
+[file.061]
+path = "services/launchpad/gateway/internal/proxy/connected_media_v2_test.go"
+lines = 181
+verdict = "clean"
+note = "Read frozen voice/stream route tables, exact webhook bytes and header multiplicity."
+
+[file.062]
+path = "services/launchpad/gateway/internal/proxy/connected_retired_test.go"
+lines = 43
+verdict = "clean"
+note = "Read all five retired-template refusal assertions; names are deliberate retirement checks."
+
+[file.063]
+path = "services/launchpad/gateway/internal/proxy/connected_user_v2_test.go"
+lines = 183
+verdict = "issues"
+note = "Read owner route inventory, custom account-audience verifier and public profile assertions; missing actual lifecycle transport proof recorded."
+
+[file.064]
+path = "services/launchpad/gateway/internal/proxy/connected_ws.go"
+lines = 247
+verdict = "issues"
+note = "Read origin, ticket encoding, capacity, frame limits and credentialed rechecks; connected production ticket-only mismatch recorded."
+
+[file.065]
+path = "services/launchpad/gateway/internal/proxy/contract_routes_test.go"
+lines = 133
+verdict = "clean"
+note = "Read follow ownership, optional identity, profiles, watchlists and bounty inventory assertions."
+
+[file.066]
+path = "services/launchpad/gateway/internal/proxy/frozen_media_catalog_test.go"
+lines = 179
+verdict = "clean"
+note = "Read actual generated SDK catalog ownership checks and named route extras."
+
+[file.067]
+path = "services/launchpad/gateway/internal/proxy/metadata_routes_test.go"
+lines = 80
+verdict = "clean"
+note = "Read metadata identity policy, publication bounds and literal/template matching."
+
+[file.068]
+path = "services/launchpad/gateway/internal/proxy/proof_launchpad_gateway_test.go"
+lines = 1671
+verdict = "clean"
+note = "Read full real service subprocess, HTTP/mTLS, actual decoder, restart and refusal proof; platform mode omits the connected production ticket-only mismatch."
+
+[file.069]
+path = "services/launchpad/gateway/internal/proxy/rest.go"
+lines = 167
+verdict = "clean"
+note = "Read development REST prefix transport, authority/admin-header stripping, upstream CORS removal and error tests."
+
+[file.070]
+path = "services/launchpad/gateway/internal/proxy/rest_test.go"
+lines = 149
+verdict = "clean"
+note = "Read development REST prefix transport, authority/admin-header stripping, upstream CORS removal and error tests."
+
+[file.071]
+path = "services/launchpad/gateway/internal/proxy/routes.go"
+lines = 70
+verdict = "clean"
+note = "Read explicit development inventory, traversal/admin refusal, parameter bounds and authority-stripping tests."
+
+[file.072]
+path = "services/launchpad/gateway/internal/proxy/routes_test.go"
+lines = 66
+verdict = "clean"
+note = "Read explicit development inventory, traversal/admin refusal, parameter bounds and authority-stripping tests."
+
+[file.073]
+path = "services/launchpad/gateway/internal/proxy/ws.go"
+lines = 171
+verdict = "clean"
+note = "Read development actor tunnel, frame/backpressure bounds, same-host origins and identity/refusal tests."
+
+[file.074]
+path = "services/launchpad/gateway/internal/proxy/ws_test.go"
+lines = 129
+verdict = "clean"
+note = "Read development actor tunnel, frame/backpressure bounds, same-host origins and identity/refusal tests."
+
+[file.075]
+path = "services/launchpad/gateway/internal/serve/approved.go"
+lines = 98
+verdict = "clean"
+note = "Read authority-before-cache checks, concurrency and encoded-path refusal; delegated header overwrite recorded on serve.go."
+
+[file.076]
+path = "services/launchpad/gateway/internal/serve/approved_test.go"
+lines = 100
+verdict = "clean"
+note = "Read complete authority, delivery, range, metadata and object/cache bounds tests; downstream cache purge behavior is not exercised."
+
+[file.077]
+path = "services/launchpad/gateway/internal/serve/bounds_test.go"
+lines = 44
+verdict = "clean"
+note = "Read complete authority, delivery, range, metadata and object/cache bounds tests; downstream cache purge behavior is not exercised."
+
+[file.078]
+path = "services/launchpad/gateway/internal/serve/connected_integration_test.go"
+lines = 34
+verdict = "clean"
+note = "Read complete authority, delivery, range, metadata and object/cache bounds tests; downstream cache purge behavior is not exercised."
+
+[file.079]
+path = "services/launchpad/gateway/internal/serve/delivery_test.go"
+lines = 139
+verdict = "clean"
+note = "Read complete authority, delivery, range, metadata and object/cache bounds tests; downstream cache purge behavior is not exercised."
+
+[file.080]
+path = "services/launchpad/gateway/internal/serve/serve.go"
+lines = 382
+verdict = "issues"
+note = "Read full small-object/streaming, range, HEAD/304, metadata and cache paths; approved no-store overwrite recorded."
+
+[file.081]
+path = "services/launchpad/gateway/internal/serve/serve_test.go"
+lines = 226
+verdict = "clean"
+note = "Read complete authority, delivery, range, metadata and object/cache bounds tests; downstream cache purge behavior is not exercised."
+
+[file.082]
+path = "services/launchpad/gateway/internal/storage/connected.go"
+lines = 484
+verdict = "issues"
+note = "Read complete transactional restrictions, operation identity, lineage checks, tombstones and intake; visibility and replay findings recorded."
+
+[file.083]
+path = "services/launchpad/gateway/internal/storage/connected_integration_test.go"
+lines = 232
+verdict = "clean"
+note = "Read real SQL authority fixtures, restrictions and recovery; explicit restored visibility fixtures omit no-moderation state. Migration paths resolve correctly."
+
+[file.084]
+path = "services/launchpad/gateway/internal/storage/envelope.go"
+lines = 1341
+verdict = "clean"
+note = "Read full measurement lifecycle, provenance, TLS/load samples, scenarios and durable evidence artifacts."
+
+[file.085]
+path = "services/launchpad/gateway/internal/storage/envelope_test.go"
+lines = 72
+verdict = "clean"
+note = "Read full measurement lifecycle, provenance, TLS/load samples, scenarios and durable evidence artifacts."
+
+[file.086]
+path = "services/launchpad/gateway/internal/storage/inventory.go"
+lines = 146
+verdict = "issues"
+note = "Read bounded provider listing, actual object mutation detection and reconciliation; missing continuation recorded on inventory.go."
+
+[file.087]
+path = "services/launchpad/gateway/internal/storage/inventory_integration_test.go"
+lines = 68
+verdict = "clean"
+note = "Read bounded provider listing, actual object mutation detection and reconciliation; missing continuation recorded on inventory.go."
+
+[file.088]
+path = "services/launchpad/gateway/internal/storage/ledger.go"
+lines = 128
+verdict = "clean"
+note = "Read Redis lifecycle and monotonic restrictions; production uses the connected PostgreSQL authority."
+
+[file.089]
+path = "services/launchpad/gateway/internal/storage/ledger_test.go"
+lines = 159
+verdict = "clean"
+note = "Read Redis lifecycle and monotonic restrictions; production uses the connected PostgreSQL authority."
+
+[file.090]
+path = "services/launchpad/gateway/internal/storage/observability.go"
+lines = 203
+verdict = "issues"
+note = "Read scanner timeline, upload/read counters, quarantine/purge health and thresholds; production wiring gap recorded."
+
+[file.091]
+path = "services/launchpad/gateway/internal/storage/policies.go"
+lines = 46
+verdict = "clean"
+note = "Read scoped object permissions and scanner-failure timeline implementation and tests."
+
+[file.092]
+path = "services/launchpad/gateway/internal/storage/policies_test.go"
+lines = 58
+verdict = "clean"
+note = "Read scoped object permissions and scanner-failure timeline implementation and tests."
+
+[file.093]
+path = "services/launchpad/gateway/internal/storage/purge.go"
+lines = 200
+verdict = "clean"
+note = "Read provider identity, explicit completion proof and pending-state persistence/retry."
+
+[file.094]
+path = "services/launchpad/gateway/internal/storage/purge_integration_test.go"
+lines = 81
+verdict = "clean"
+note = "Read provider identity, explicit completion proof and pending-state persistence/retry."
+
+[file.095]
+path = "services/launchpad/gateway/internal/storage/purge_origin.go"
+lines = 93
+verdict = "clean"
+note = "Read origin-cache identity/completion and actual Redis eviction; false downstream no-store assumption recorded on serve.go."
+
+[file.096]
+path = "services/launchpad/gateway/internal/storage/purge_origin_integration_test.go"
+lines = 94
+verdict = "clean"
+note = "Read origin-cache identity/completion and actual Redis eviction; false downstream no-store assumption recorded on serve.go."
+
+[file.097]
+path = "services/launchpad/gateway/internal/storage/release_inputs.go"
+lines = 105
+verdict = "clean"
+note = "Read fixture confinement, digests, ownership and quota binding with corresponding tests."
+
+[file.098]
+path = "services/launchpad/gateway/internal/storage/release_inputs_test.go"
+lines = 68
+verdict = "clean"
+note = "Read fixture confinement, digests, ownership and quota binding with corresponding tests."
+
+[file.099]
+path = "services/launchpad/gateway/internal/storage/retention.go"
+lines = 258
+verdict = "issues"
+note = "Read deletion/hold predicates, bounded storage operations, signing limits, actual deletion and storage-failure recovery; initial visibility mismatch recorded on retention.go."
+
+[file.100]
+path = "services/launchpad/gateway/internal/storage/retention_integration_test.go"
+lines = 90
+verdict = "clean"
+note = "Read deletion/hold predicates, bounded storage operations, signing limits, actual deletion and storage-failure recovery; initial visibility mismatch recorded on retention.go."
+
+[file.101]
+path = "services/launchpad/gateway/internal/upload/admission.go"
+lines = 60
+verdict = "clean"
+note = "Read distributed wallet/global admission, byte budgets, rate limits and actual connected upload tests."
+
+[file.102]
+path = "services/launchpad/gateway/internal/upload/admission_test.go"
+lines = 91
+verdict = "clean"
+note = "Read distributed wallet/global admission, byte budgets, rate limits and actual connected upload tests."
+
+[file.103]
+path = "services/launchpad/gateway/internal/upload/connected.go"
+lines = 171
+verdict = "issues"
+note = "Read connected identity, capacity/admission, bounded ingress and forwarding; frozen refusal error-schema mismatch recorded."
+
+[file.104]
+path = "services/launchpad/gateway/internal/upload/connected_integration_test.go"
+lines = 64
+verdict = "clean"
+note = "Read distributed wallet/global admission, byte budgets, rate limits and actual connected upload tests."
+
+[file.105]
+path = "services/launchpad/gateway/internal/upload/ingress.go"
+lines = 44
+verdict = "clean"
+note = "Read actual TCP ingress deadline and slow-reader behavior with tests."
+
+[file.106]
+path = "services/launchpad/gateway/internal/upload/ingress_test.go"
+lines = 46
+verdict = "clean"
+note = "Read actual TCP ingress deadline and slow-reader behavior with tests."
+
+[file.107]
+path = "services/launchpad/gateway/internal/upload/scan_unavailable_test.go"
+lines = 65
+verdict = "clean"
+note = "Read legacy multipart validation, scanner outage refusal, bounds and forwarding; connected error-schema defect is separate."
+
+[file.108]
+path = "services/launchpad/gateway/internal/upload/upload.go"
+lines = 318
+verdict = "clean"
+note = "Read legacy multipart validation, scanner outage refusal, bounds and forwarding; connected error-schema defect is separate."
+
+[file.109]
+path = "services/launchpad/gateway/internal/upload/upload_test.go"
+lines = 209
+verdict = "clean"
+note = "Read legacy multipart validation, scanner outage refusal, bounds and forwarding; connected error-schema defect is separate."
+
+[file.110]
+path = "services/launchpad/pnl-tracker/internal/ogrender/fonts/assets.go"
+lines = 185
+verdict = "clean"
+note = "Read embedded font/license digests, private directory traversal, atomic publication and readback; handwritten validation code is not a generated font payload."
+
+[file.111]
+path = "services/launchpad/pnl-tracker/internal/ogrender/ogrender.go"
+lines = 195
+verdict = "clean"
+note = "Read strict production font validation, bounded text, monetary display strings, PNG rendering and output tests."
+
+[file.112]
+path = "services/launchpad/pnl-tracker/internal/ogrender/ogrender_test.go"
+lines = 87
+verdict = "clean"
+note = "Read strict production font validation, bounded text, monetary display strings, PNG rendering and output tests."
+
+[finding.export_capability]
+file = "services/launchpad/gateway/internal/proxy/connected.go"
+line = 252
+class = "interface-mismatch"
+severity = "high"
+observed = "The connected request header allowlist drops X-Export-Authorization. The real user account DownloadHandler requires its 64-character capability at user/internal/account/jobs_http.go:247, so valid owner export downloads are denied."
+expected = "The declared export download route must carry the owner session and single-use export capability to the user authority without changing either credential."
+proposal = "In gateway/internal/proxy, forward one bounded X-Export-Authorization only for export downloads, reject ambiguous values, and prove actual export creation, capability redemption and replay refusal through the gateway."
+owner_domain = 4
+interface = "4.http-gateway-proxy-user-get-v2-me-exports-job-id-download"
+
+[finding.deletion_receipt]
+file = "services/launchpad/gateway/internal/proxy/connected.go"
+line = 357
+class = "interface-mismatch"
+severity = "high"
+observed = "The response allowlist copies only ETag and Retry-After. It discards X-Recovery-Receipt emitted by user/internal/account/jobs_http.go:231 after accepting deletion, leaving the client without its recovery credential."
+expected = "Account deletion must return the authority-issued recovery receipt so progress remains available after deletion revokes the normal session."
+proposal = "In gateway/internal/proxy, forward a validated bounded receipt on successful deletion responses and prove receipt capture, session revocation, restart and recovery against the real user authority."
+owner_domain = 4
+interface = "4.http-gateway-proxy-user-post-v2-me-deletion-requests-j29"
+
+[finding.v2_recovery]
+file = "services/launchpad/gateway/internal/proxy/connected.go"
+line = 193
+class = "interface-mismatch"
+severity = "high"
+observed = "Receipt-only recovery and its service assertion are enabled only for /v1/me/deletion-requests/{jobId}. The frozen /v2 status route authenticates the revoked session instead, although the user authority accepts recovery on both versions."
+expected = "The frozen v2 deletion-status interface must remain usable with its scoped recovery receipt after normal account sessions have been revoked."
+proposal = "Extend the constrained recovery path in gateway/internal/proxy to the frozen v2 status route, preserving job binding and service assertions; prove accepted deletion followed by receipt-only recovery after restart."
+owner_domain = 4
+interface = "4.http-gateway-proxy-user-get-v2-me-deletion-requests-job-id-j29"
+
+[finding.ingest_response]
+file = "services/launchpad/gateway/internal/proxy/connected.go"
+line = 378
+class = "interface-mismatch"
+severity = "high"
+observed = "containsSecret rejects every ingestKey or streamKey field. The real owner ingest-key handler emits ingestKey at livestream/internal/streams/connected_routes.go:556 and the web client expects it, so valid credential retrieval becomes 502."
+expected = "The declared owner-only ingest credential route must deliver its validated private credential while unrelated responses continue to reject secret material."
+proposal = "Define a validated route-specific credential response in gateway/internal/proxy, preserve owner authorization and no-store, and prove the actual livestream response reaches the owner client without exposing credentials on other routes."
+owner_domain = 4
+interface = "4.http-gateway-proxy-livestream-post-v2-streams-stream-id-ingest-key"
+
+[finding.ticket_only_socket]
+file = "services/launchpad/gateway/internal/proxy/connected_ws.go"
+line = 125
+class = "interface-mismatch"
+severity = "high"
+observed = "The gateway accepts a single-use ticket as a complete browser credential. Production socialConnectedRuntime.authenticateTicket consumes it, then unconditionally authenticates the missing browser bearer/cookie at social/internal/app/app.go:881-889, rejecting the valid upgrade."
+expected = "Gateway and production social must agree that a correctly bound single-use ticket authenticates a ticket-only browser upgrade, with ongoing session revocation checks."
+proposal = "Align social/internal/app with the shared ticket authenticator already used by the platform path; prove ticket-only gateway upgrades, replay refusal, binding mismatch and revocation using the production social runtime."
+owner_domain = 4
+interface = "4.ws-gateway-get-v2-stream"
+
+[finding.recording_truncation]
+file = "services/launchpad/gateway/internal/proxy/connected.go"
+line = 331
+class = "runtime-risk"
+severity = "medium"
+observed = "The recording response copies through io.LimitReader(resp.Body,64<<20) and discards the copy result. Social recordings have no matching producer ceiling, so larger recordings are returned as successful truncated audio."
+expected = "A recording download must return the complete producer object or an explicit refusal under a limit agreed by producer, storage and gateway."
+proposal = "Agree the recording size contract across social and gateway, stream the complete accepted object or reject oversize before success, and expose transfer failures with a real recording larger than the present limit."
+owner_domain = 4
+
+[finding.owner_path_proof]
+file = "services/launchpad/gateway/internal/proxy/connected_user_v2_test.go"
+line = 89
+class = "test-gap"
+severity = "medium"
+observed = "The owner-route proof constructs a signed request and custom verifier rather than invoking Connected.ServeHTTP and the real account GatewayHandler. It bypasses header and recovery transport behavior that breaks the owner lifecycle."
+expected = "Requirement 21018.1 requires actual producer, transport and consumer proof, including recovery when account state survives session revocation and restart."
+proposal = "Add a real owner lifecycle proof through the mounted gateway and user authority, including export capability forwarding and deletion receipt recovery, while retaining every existing assertion."
+owner_domain = 4
+
+[finding.browser_challenge_idempotency]
+file = "services/launchpad/gateway/internal/auth/identity_transport.go"
+line = 275
+class = "interface-mismatch"
+severity = "high"
+observed = "The public challenge route passes Idempotency-Key into IssueLoginIdempotent, which requires a UUID. The active BrowserIdentitySession fetchJson in web/src/core/wallet-sdk/auth.ts:140-153 never sets it, so login at line 174 fails with 422 before a challenge."
+expected = "The registered browser caller and challenge authority must agree on the required idempotency UUID and stable request body on retries."
+proposal = "Have apps/launchpad/web/src/core/wallet-sdk create a stable UUID per challenge attempt and reuse it on retries; prove the active browser obtains and verifies a challenge through the gateway without weakening authority validation."
+owner_domain = 4
+interface = "4.http-gateway-post-v2-auth-challenges"
+
+[finding.identity_collection]
+file = "services/launchpad/gateway/internal/auth/identity_reauth.go"
+line = 93
+class = "wiring-gap"
+severity = "medium"
+observed = "CollectExpired has no production caller. Its deletion list also omits identity_challenge_requests and identity_owner_requests despite their retain_until fields, so operational identity and idempotency rows accumulate indefinitely."
+expected = "Operational identity state must expire through a bounded running lifecycle while audit and outbox evidence retain their declared durability."
+proposal = "Wire a cancellable bounded collector into gateway/internal/app, include expired request-replay retention in auth cleanup, preserve audit/outbox records, and prove collection and replay semantics across real PostgreSQL restart."
+owner_domain = 4
+
+[finding.wallet_link_history]
+file = "services/launchpad/gateway/internal/auth/identity_lifecycle.go"
+line = 200
+class = "runtime-risk"
+severity = "medium"
+observed = "WalletLinks selects pending, verified and revoked historical rows with LIMIT 101 and returns RATE_LIMITED above 100. Pending links lack an expiry lifecycle, so repeated linking can permanently prevent listing current links."
+expected = "Owner link reads must remain available as retained history grows, and abandoned pending challenges need a bounded lifecycle."
+proposal = "Define paginated current/history reads and pending-link expiry in gateway/internal/auth with the frozen client contract, preserving verified/revoked history; prove more than 100 historical links remain readable."
+owner_domain = 4
+
+[finding.measurement_load_window]
+file = "services/launchpad/gateway/internal/auth/identity_measurement.go"
+line = 537
+class = "test-gap"
+severity = "medium"
+observed = "The recorder offers exactly Duration times target successful operations, waits for the whole phase duration, then includes worker drain and sampler shutdown in PhaseElapsedNS. Dividing that fixed maximum by the longer interval fails achieved_load even when every offered operation succeeds."
+expected = "The measurement must assert declared offered rate and successful throughput using a defined window, separately measuring queueing and drain latency."
+proposal = "Correct workload/window accounting in auth/identity_measurement.go so scheduling, successful completion and drain have explicit evidence; retain target throughput, zero offered-load loss and all latency assertions."
+owner_domain = 4
+
+[finding.measurement_final_evidence]
+file = "services/launchpad/gateway/internal/auth/identity_measurement_test.go"
+line = 351
+class = "test-gap"
+severity = "medium"
+observed = "The serial test requires RunIdentityMeasurement success and FinalAcceptance true. The runner unconditionally sets AZ_loss_recovery, event_replay_integrity and private_socket_revocation_p99 false, returns an assertion error and never assigns FinalAcceptance; this caller also supplies no Runtime provider."
+expected = "Serial acceptance must collect real runtime, AZ-loss, durable replay and private-socket revocation evidence before asserting final acceptance."
+proposal = "Wire actual runtime and fault/recovery evidence plus final shared acceptance aggregation into the serial measurement path, bound to the same candidate and topology; preserve all existing acceptance conditions."
+owner_domain = 4
+
+[finding.identity_config_description]
+file = "services/launchpad/gateway/internal/config/config.go"
+line = 7
+class = "doc-drift"
+severity = "low"
+observed = "The package description calls the gateway stateless apart from Redis and says it has no PostgreSQL schema or migrations. The app now owns split durable identity/control pools and development identity migrations."
+expected = "Component descriptions must identify the durable authority and development/production configuration boundaries that operators actually run."
+proposal = "Update gateway/internal/config/config.go documentation for PostgreSQL identity/control ownership, bound production documents and isolated development migrations without changing runtime behavior."
+owner_domain = 4
+
+[finding.legacy_message_binding]
+file = "services/launchpad/gateway/internal/auth/auth.go"
+line = 168
+class = "security"
+severity = "medium"
+observed = "Development /auth/login extracts any Nonce line from the signed message and consumes a Redis marker without comparing it to buildMessage. A different domain or purpose with that nonce is accepted, and invalid signatures burn the nonce before verification."
+expected = "Development authentication should bind signatures to the exact issued wallet, domain, purpose and nonce before consumption; production durable identity is a separate path."
+proposal = "Store and validate the exact issued message or digest in gateway/internal/auth, then atomically consume after proof validation; prove wrong-domain, changed-purpose and invalid-signature retries on the development route."
+owner_domain = 4
+
+[finding.identity_ingress_deadline]
+file = "services/launchpad/gateway/internal/app/app.go"
+line = 560
+class = "runtime-risk"
+severity = "medium"
+observed = "The public http.Server sets ReadHeaderTimeout only. Public /v2/auth/challenges uses io.ReadAll(LimitReader), and session DecodeIdentityRequest does likewise without socket read deadlines; a dribbling client can hold a handler indefinitely with a small body."
+expected = "Public authentication ingress needs bounded body time as well as byte limits, independent of downstream contexts and rate limiting."
+proposal = "Apply explicit bounded identity ingress read deadlines in gateway/internal/auth or the public server while preserving long-lived WebSockets; prove slow-body refusal over actual TCP."
+owner_domain = 4
+
+[finding.health_fixture]
+file = "services/launchpad/gateway/internal/app/app_test.go"
+line = 154
+class = "test-gap"
+severity = "medium"
+observed = "TestApp_HealthReady expects 200, but boot constructs Config with no DatabaseURL or identity pool. App.New registers a DB callback returning identity_database_missing when pool is nil, which shared readyHandler turns into 503."
+expected = "The readiness test must exercise the actual app dependencies, without asserting successful readiness for a deliberately missing database."
+proposal = "Provide the real development PostgreSQL identity authority in app_test.go boot or reuse connected identity bootstrap; retain the 200 assertion and prove failure when the real dependency is unavailable."
+owner_domain = 4
+
+[finding.cache_adapter_unwired]
+file = "services/launchpad/api/internal/cache/adapter.go"
+line = 917
+class = "wiring-gap"
+severity = "medium"
+observed = "NewAdapter, CanonicalPolicies and NewAccountingBindings have no production callers. api/internal/app/app.go:156 constructs cache.New(4096), and no runtime mounts adapter bindings or the market invalidation consumer, so shared budgets and projection fences never protect live accounting reads."
+expected = "Cache policy, shared query admission and invalidation must be wired into the actual API route and consumer lifecycle to enforce their declared behavior."
+proposal = "Integrate api/internal/cache adapter and accounting bindings into api/internal/app with real pool budgets, route scope and market consumer startup/shutdown; prove multi-replica admission and restart invalidation on mounted routes."
+owner_domain = 4
+
+[finding.approved_cache_purge]
+file = "services/launchpad/gateway/internal/serve/serve.go"
+line = 215
+class = "security"
+severity = "high"
+observed = "Approved.ServeHTTP sets Cache-Control and CDN-Cache-Control no-store, then Handler.write or headers overwrite both with public one-year immutable caching at lines 215-216 and 276-277. OriginCachePurgeProvider reports completion after Redis eviction and explicitly assumes downstream no-store, leaving restricted copies usable in client/CDN caches."
+expected = "Approved media restrictions and completed purge must prevent subsequent downstream cache delivery; the authority no-store boundary must survive every response path including HEAD and 304."
+proposal = "Preserve approved connected no-store headers through gateway/internal/serve delegation and reconcile storage purge assumptions; prove retrieval, restriction, purge and subsequent reads with actual downstream HTTP caching."
+owner_domain = 4
+interface = "4.http-gateway-get-approved-hash-size-file"
+
+[finding.initial_lineage_visibility]
+file = "services/launchpad/gateway/internal/storage/retention.go"
+line = 61
+class = "interface-mismatch"
+severity = "high"
+observed = "Production RegisterLineage requires a positive restored safety_visibility row and returns ErrRestricted when none exists. Real metadata PostgresVisibilityAuthority.ReadTarget at metadata/internal/metadata/edge.go:203 treats no row as allowed revision zero, so normal newly approved assets cannot import lineage."
+expected = "Freshly approved never-moderated assets must traverse metadata and gateway under authoritative revision-zero visibility, while explicit removals and tombstones remain denied."
+proposal = "Align initial lineage import in gateway/internal/storage with metadata revision-zero semantics and monotonic later moderation revisions; prove a real never-moderated approved asset reaches gateway delivery."
+owner_domain = 4
+interface = "4.http-gateway-get-approved-hash-size-file"
+
+[finding.initial_delivery_visibility]
+file = "services/launchpad/gateway/internal/storage/connected.go"
+line = 72
+class = "interface-mismatch"
+severity = "high"
+observed = "Allowed independently requires an explicit token safety_visibility row with status restored, even with existing approved lineage. Metadata considers a missing moderation row allowed at revision zero, so delivery still rejects never-moderated assets after lineage import."
+expected = "Gateway delivery and metadata approval must agree on initial visibility and honor later token/asset removals, restores and tombstones."
+proposal = "Align Allowed in gateway/internal/storage with authoritative no-row semantics, retaining every explicit denial and revision fence; prove initial delivery and later remove/restore transitions against real metadata state."
+owner_domain = 4
+interface = "4.http-gateway-get-approved-hash-size-file"
+
+[finding.upload_error_schema]
+file = "services/launchpad/gateway/internal/upload/connected.go"
+line = 78
+class = "interface-mismatch"
+severity = "high"
+observed = "Connected PUT refusals use plain-text http.Error for identity, oversize, saturation and admission failures at lines 78-104. Frozen token/account asset PUT clients consume the shared Error schema with requestId, code, message and retryable, so actual refusals do not round-trip."
+expected = "Every frozen asset PUT failure must preserve the shared error shape, authority status/code and declared retry information through transport."
+proposal = "Emit shared v2 errors in gateway/internal/upload for every refusal, retaining actual authority codes and Retry-After; assert real token/account upload rejection responses with the SDK error decoder."
+owner_domain = 4
+interface = "4.http-gateway-allow-metadata-put-v2-tokens-token-address-assets-asset-id"
+
+[finding.tombstone_replay_batch]
+file = "services/launchpad/gateway/internal/storage/connected.go"
+line = 187
+class = "restart-recovery"
+severity = "medium"
+observed = "ReplayTombstones selects only 256 tombstones with missing work and runs once at startup in app.go:1004. Periodic IntakeDeletedAssets excludes existing tombstones, so restoring more than one batch leaves remaining deletion/purge operations unqueued."
+expected = "Recovery must eventually reconstruct work for every durable tombstone, with bounded reconciliation transactions and idempotent operation identity."
+proposal = "Reconcile repeated bounded batches to exhaustion or resume through a durable periodic cursor in gateway/internal/storage and app; prove restart with more than 256 tombstones and missing operations reaches complete recovery."
+owner_domain = 4
+
+[finding.inventory_cursor]
+file = "services/launchpad/gateway/internal/storage/inventory.go"
+line = 37
+class = "runtime-risk"
+severity = "medium"
+observed = "Every inventory pass lists from the prefix beginning, stops at the object limit and records only Truncated. The hourly runtime repeats that prefix, so objects beyond the first bounded page never receive corruption or drift checks."
+expected = "Bounded recurring object reconciliation must eventually visit the complete inventory instead of permanently starving a large prefix tail."
+proposal = "Persist and resume provider continuation state across bounded gateway inventory runs, resetting only after complete traversal; prove mutations beyond the first page are detected across restart."
+owner_domain = 4
+
+[finding.media_observer_unwired]
+file = "services/launchpad/gateway/internal/storage/observability.go"
+line = 31
+class = "wiring-gap"
+severity = "medium"
+observed = "NewMediaObserver, scanner probing and Health have no production callers. App construction supplies neither upload nor serve observers, leaving scanner outage, quarantine age, write readiness and origin/cache measurements disconnected from production monitoring."
+expected = "The running media gateway must publish implemented health and alert signals from actual upload, scanning, purge and read activity."
+proposal = "Attach a runtime observer in gateway/internal/app, connect serve/upload events, schedule bounded scanner probes and expose health/metrics; prove an actual scanner outage changes readiness and alerts while permitted reads remain available."
+owner_domain = 4
+
+[finding.beta_site]
+file = "docs/site/docs/operators/beta-cluster.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The page describes an independent LayerX daemon alongside Paxeer, a receipt-authority replica and a custody profile mounted for layerxd --custody-profile as active cluster bring-up."
+expected = "Brief facts 1-3 require one merged Paxeer BFT network, committed-block finality and node-root JSON-RPC without an independent layerxd sequencer."
+proposal = "Rewrite this operator page for merged paxd cluster bring-up, required boundaries and finality; remove retired daemon/custody-profile instructions and update both published copies together."
+owner_domain = 8
+
+[finding.beta_wiki]
+file = "docs/wiki/BetaCluster.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The page describes an independent LayerX daemon alongside Paxeer, a receipt-authority replica and a custody profile mounted for layerxd --custody-profile as active cluster bring-up."
+expected = "Brief facts 1-3 require one merged Paxeer BFT network, committed-block finality and node-root JSON-RPC without an independent layerxd sequencer."
+proposal = "Rewrite this operator page for merged paxd cluster bring-up, required boundaries and finality; remove retired daemon/custody-profile instructions and update both published copies together."
+owner_domain = 8
+
+[finding.boundary_site]
+file = "docs/site/docs/platform/agent-boundary.md"
+line = 297
+class = "doc-drift"
+severity = "medium"
+observed = "The table points LAYERX_AGENT_BOUNDARY_LNI_SOCKET at layerxd.lni.sock, and lines 419-420 describe tests against a real layerxd sequencer and --authority-replica as the active boundary model."
+expected = "The merged network has no separate LayerX daemon; boundary operation and verification must describe integrated node execution/finality interfaces."
+proposal = "Rewrite this boundary page for merged node transport and current program deployment/evidence lifecycle, removing retired daemon and replica operating instructions from both copies."
+owner_domain = 8
+
+[finding.boundary_wiki]
+file = "docs/wiki/HostedAgentBoundary.md"
+line = 297
+class = "doc-drift"
+severity = "medium"
+observed = "The table points LAYERX_AGENT_BOUNDARY_LNI_SOCKET at layerxd.lni.sock, and lines 419-420 describe tests against a real layerxd sequencer and --authority-replica as the active boundary model."
+expected = "The merged network has no separate LayerX daemon; boundary operation and verification must describe integrated node execution/finality interfaces."
+proposal = "Rewrite this boundary page for merged node transport and current program deployment/evidence lifecycle, removing retired daemon and replica operating instructions from both copies."
+owner_domain = 8
+
+[finding.hosted_identity_site]
+file = "docs/site/docs/platform/identity.md"
+line = 8
+class = "doc-drift"
+severity = "medium"
+observed = "The page says exactly seven service tokens are accepted and omits registry and registrar. Service::ALL in hosted/identity/src/main.rs:60 has nine services; registrar can create principals and registry cannot introspect. The wiki also names control instead of testnet."
+expected = "Operators must provision actual service token names and understand distinct introspection, principal creation and session management capabilities."
+proposal = "Update the caller list, capability table and directory instructions in this page from Service::ALL and capabilities, including registry, registrar and testnet; synchronize both published copies."
+owner_domain = 8
+
+[finding.hosted_identity_wiki]
+file = "docs/wiki/HostedIdentity.md"
+line = 8
+class = "doc-drift"
+severity = "medium"
+observed = "The page says exactly seven service tokens are accepted and omits registry and registrar. Service::ALL in hosted/identity/src/main.rs:60 has nine services; registrar can create principals and registry cannot introspect. The wiki also names control instead of testnet."
+expected = "Operators must provision actual service token names and understand distinct introspection, principal creation and session management capabilities."
+proposal = "Update the caller list, capability table and directory instructions in this page from Service::ALL and capabilities, including registry, registrar and testnet; synchronize both published copies."
+owner_domain = 8
+
+[finding.registry_site]
+file = "docs/site/docs/platform/registry.md"
+line = 28
+class = "doc-drift"
+severity = "medium"
+observed = "The page presents separate node and receipt-authority endpoints, replica identity and authorized-batch program evidence as the active trust model, with mandatory receipt-authority credentials and deployment settings at lines 178-186."
+expected = "Registry publication and evidence in the merged network must bind to committed execution without the retired independent batch receipt-authority replica."
+proposal = "Rewrite this registry page for merged program registration and committed-receipt authority, replacing retired endpoint, token and replica provisioning instructions in both copies."
+owner_domain = 8
+
+[finding.registry_wiki]
+file = "docs/wiki/HostedRegistry.md"
+line = 28
+class = "doc-drift"
+severity = "medium"
+observed = "The page presents separate node and receipt-authority endpoints, replica identity and authorized-batch program evidence as the active trust model, with mandatory receipt-authority credentials and deployment settings at lines 178-186."
+expected = "Registry publication and evidence in the merged network must bind to committed execution without the retired independent batch receipt-authority replica."
+proposal = "Rewrite this registry page for merged program registration and committed-receipt authority, replacing retired endpoint, token and replica provisioning instructions in both copies."
+owner_domain = 8
+
+[finding.readme_network]
+file = "README.md"
+line = 47
+class = "doc-drift"
+severity = "medium"
+observed = "README describes layerxd as a separate daemon settling checkpoints through layerxAnchor, offers make layerxd, and at line 181 says the merge remains draft and the kernel currently runs separately."
+expected = "The audit target is the finished merged Paxeer BFT network with integrated kernel and finality at block commit, as specified by brief facts 1-3."
+proposal = "Update README architecture and quick-start commands for merged paxd, current node-root RPC and committed-block finality, removing separate-daemon and checkpoint-settlement guidance."
+owner_domain = 1
+
+[finding.network_overview]
+file = "docs/paxeer-network.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The overview calls Paxeer the settlement/custody layer for a separate LayerX sequencer, says ordinary activity stays on LayerX and periodic checkpoints settle here, and directs readers to the retired settlement/custody model."
+expected = "There is one merged Paxeer network with chain id 125, integrated kernel and committed-block finality; tenant domains do not introduce another settlement chain."
+proposal = "Rewrite docs/paxeer-network.md architecture, contract and operator references for the merged chain and current public root endpoints, retaining tenant-domain semantics and removing retired checkpoint/custody guidance."
+owner_domain = 1
+
+[finding.gateway_service_contract]
+file = "spec/layerx-merge/contracts/services.md"
+line = 268
+class = "doc-drift"
+severity = "medium"
+observed = "The launchpad-gateway section calls the service stateless, lists only launchpad-indexer as a dependency and describes direct media writes. The app owns durable identity/control authority, media lineage, Redis/NATS workers and explicit user/social/metadata/livestream upstream bindings."
+expected = "The service contract must describe actual durability, ownership, dependencies and failure policy of the audited production gateway."
+proposal = "Update the launchpad-gateway section of contracts/services.md in its owning repair task to document durable authority, bound upstreams, object/purge workers and distinct development/production behavior."
+owner_domain = 4
+
+[finding.internal_site]
+file = "docs/site/docs/operators/hosted-internal.md"
+line = 69
+class = "doc-drift"
+severity = "medium"
+observed = "The cluster/certificate description treats a receipt-authority Service and its authority certificate alias as part of current internal deployment. That independent batch authority is retired by the merged-network model; the page already reports a separate internal-manifest apply discrepancy."
+expected = "Hosted internal operational guidance must identify the active merged-node trust boundary and certificate identities, without requiring a retired standalone receipt-authority service."
+proposal = "Update the cluster and certificate section of this hosted-internal page for the merged deployment, distinguishing retained KMS/event services from retired authority identities and stating the actual internal-manifest installation path in both published copies."
+owner_domain = 8
+
+[finding.internal_wiki]
+file = "docs/wiki/HostedInternal.md"
+line = 69
+class = "doc-drift"
+severity = "medium"
+observed = "The cluster/certificate description treats a receipt-authority Service and its authority certificate alias as part of current internal deployment. That independent batch authority is retired by the merged-network model; the page already reports a separate internal-manifest apply discrepancy."
+expected = "Hosted internal operational guidance must identify the active merged-node trust boundary and certificate identities, without requiring a retired standalone receipt-authority service."
+proposal = "Update the cluster and certificate section of this hosted-internal page for the merged deployment, distinguishing retained KMS/event services from retired authority identities and stating the actual internal-manifest installation path in both published copies."
+owner_domain = 8
+
+[doc.01]
+path = "docs/site/docs/operators/hosted-internal.md"
+status = "stale"
+notes = "Read complete page; line 69 in internal_site identifies the stale statements and owning rewrite proposal."
+
+[doc.02]
+path = "docs/site/docs/operators/beta-cluster.md"
+status = "stale"
+notes = "Read complete page; line 3 in beta_site identifies the stale statements and owning rewrite proposal."
+
+[doc.03]
+path = "docs/site/docs/platform/agent-boundary.md"
+status = "stale"
+notes = "Read complete page; line 297 in boundary_site identifies the stale statements and owning rewrite proposal."
+
+[doc.04]
+path = "docs/site/docs/platform/identity.md"
+status = "stale"
+notes = "Read complete page; line 8 in hosted_identity_site identifies the stale statements and owning rewrite proposal."
+
+[doc.05]
+path = "docs/site/docs/platform/registry.md"
+status = "stale"
+notes = "Read complete page; line 28 in registry_site identifies the stale statements and owning rewrite proposal."
+
+[doc.06]
+path = "docs/wiki/HostedInternal.md"
+status = "stale"
+notes = "Read complete page; line 69 in internal_wiki identifies the stale statements and owning rewrite proposal."
+
+[doc.07]
+path = "docs/wiki/HostedIdentity.md"
+status = "stale"
+notes = "Read complete page; line 8 in hosted_identity_wiki identifies the stale statements and owning rewrite proposal."
+
+[doc.08]
+path = "docs/wiki/HostedAgentBoundary.md"
+status = "stale"
+notes = "Read complete page; line 297 in boundary_wiki identifies the stale statements and owning rewrite proposal."
+
+[doc.09]
+path = "docs/wiki/HostedRegistry.md"
+status = "stale"
+notes = "Read complete page; line 28 in registry_wiki identifies the stale statements and owning rewrite proposal."
+
+[doc.10]
+path = "docs/wiki/BetaCluster.md"
+status = "stale"
+notes = "Read complete page; line 3 in beta_wiki identifies the stale statements and owning rewrite proposal."
+
+[doc.11]
+path = "README.md"
+status = "stale"
+notes = "Read complete page; line 47 in readme_network identifies the stale statements and owning rewrite proposal."
+
+[doc.12]
+path = "docs/paxeer-network.md"
+status = "stale"
+notes = "Read complete page; line 3 in network_overview identifies the stale statements and owning rewrite proposal."
+
+[doc.13]
+path = "spec/layerx-merge/contracts/services.md"
+status = "stale"
+notes = "Read launchpad-gateway section, lines 260-338; state and dependency drift at 268-274 is recorded in gateway_service_contract."
+
+

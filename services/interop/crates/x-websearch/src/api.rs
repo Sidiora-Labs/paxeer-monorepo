@@ -1,5 +1,5 @@
 use std::cmp::Ordering;
-use std::io::{self, Read, Write};
+use std::io::{self, Write};
 use std::net::{SocketAddr, TcpStream};
 use std::num::FpCategory;
 use std::sync::Arc;
@@ -107,9 +107,6 @@ const RESTRICTED_HEADERS: [&str; 8] = [
     "trailer",
     "upgrade",
 ];
-const MAX_RESPONSE_HEAD: usize = 65_536;
-const MAX_CHUNK_LINE: usize = 1_024;
-const READ_CHUNK: usize = 16_384;
 
 /// Why an api request was refused. No variant carries a credential byte.
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -1515,6 +1512,8 @@ pub struct ApiResponse {
     pub status: u16,
     pub content_type: Option<String>,
     pub body: Vec<u8>,
+    /// Peak wire buffer length, excluding the decoded response body.
+    pub wire_buffer_peak: usize,
 }
 
 fn remaining(deadline: Instant) -> Result<Duration, ApiError> {
@@ -1528,116 +1527,8 @@ fn remaining(deadline: Instant) -> Result<Duration, ApiError> {
 
 type TlsStream = native_tls::TlsStream<TcpStream>;
 
-/// The response side of one call, read under the deadline.
-struct Wire {
-    stream: TlsStream,
-    buffer: Vec<u8>,
-    start: usize,
-    deadline: Instant,
-}
-
 const fn fetch(error: FetchError) -> ApiError {
     ApiError::Fetch(error)
-}
-
-impl Wire {
-    fn available(&self) -> &[u8] {
-        &self.buffer[self.start..]
-    }
-
-    fn fill(&mut self) -> Result<usize, ApiError> {
-        let mut chunk = [0_u8; READ_CHUNK];
-        loop {
-            let left = remaining(self.deadline)?;
-            self.stream
-                .get_ref()
-                .set_read_timeout(Some(left))
-                .map_err(|_| fetch(FetchError::Transport))?;
-            match self.stream.read(&mut chunk) {
-                Ok(count) => {
-                    self.buffer.extend_from_slice(&chunk[..count]);
-                    return Ok(count);
-                }
-                Err(error) if error.kind() == io::ErrorKind::Interrupted => {}
-                Err(error)
-                    if matches!(
-                        error.kind(),
-                        io::ErrorKind::WouldBlock | io::ErrorKind::TimedOut
-                    ) =>
-                {
-                    return Err(fetch(FetchError::Timeout))
-                }
-                Err(_) => return Err(fetch(FetchError::Transport)),
-            }
-        }
-    }
-
-    fn until(&mut self, marker: &[u8], maximum: usize) -> Result<String, ApiError> {
-        loop {
-            if let Some(end) = self
-                .available()
-                .windows(marker.len())
-                .position(|window| window == marker)
-            {
-                let text = std::str::from_utf8(&self.available()[..end])
-                    .map_err(|_| fetch(FetchError::MalformedResponse))?
-                    .to_owned();
-                self.start += end + marker.len();
-                return Ok(text);
-            }
-            if self.available().len() > maximum || self.fill()? == 0 {
-                return Err(fetch(FetchError::MalformedResponse));
-            }
-        }
-    }
-
-    fn take(&mut self, count: usize) -> Result<Vec<u8>, ApiError> {
-        while self.available().len() < count {
-            if self.fill()? == 0 {
-                return Err(fetch(FetchError::MalformedResponse));
-            }
-        }
-        let bytes = self.available()[..count].to_vec();
-        self.start += count;
-        Ok(bytes)
-    }
-
-    fn until_close(&mut self, limit: usize) -> Result<Vec<u8>, ApiError> {
-        loop {
-            if self.available().len() > limit {
-                return Err(fetch(FetchError::BodyTooLarge));
-            }
-            if self.fill()? == 0 {
-                let bytes = self.available().to_vec();
-                self.start = self.buffer.len();
-                return Ok(bytes);
-            }
-        }
-    }
-
-    fn chunked(&mut self, limit: usize) -> Result<Vec<u8>, ApiError> {
-        let mut body = Vec::new();
-        loop {
-            let line = self.until(b"\r\n", MAX_CHUNK_LINE)?;
-            let size = line.split(';').next().unwrap_or_default().trim();
-            if size.is_empty() || size.len() > 16 {
-                return Err(fetch(FetchError::MalformedResponse));
-            }
-            let size = usize::from_str_radix(size, 16)
-                .map_err(|_| fetch(FetchError::MalformedResponse))?;
-            if size == 0 {
-                while !self.until(b"\r\n", MAX_RESPONSE_HEAD)?.is_empty() {}
-                return Ok(body);
-            }
-            if body.len().saturating_add(size) > limit {
-                return Err(fetch(FetchError::BodyTooLarge));
-            }
-            body.extend_from_slice(&self.take(size)?);
-            if self.take(2)? != b"\r\n" {
-                return Err(fetch(FetchError::MalformedResponse));
-            }
-        }
-    }
 }
 
 fn parse_head(head: &str) -> Result<(u16, Vec<(String, String)>), ApiError> {
@@ -1817,7 +1708,10 @@ impl ApiClient {
             return Err(fetch(FetchError::UnsupportedScheme));
         }
         let deadline = Instant::now() + self.fetcher.limits().total_timeout();
-        let address = self.fetcher.destination(&url).map_err(fetch)?;
+        let address = self
+            .fetcher
+            .destination_before(&url, deadline)
+            .map_err(fetch)?;
         let mut stream = self.connect(&url, address, deadline)?;
         let request = Self::request_bytes(method, &url, payload, credential);
         stream
@@ -1828,14 +1722,9 @@ impl ApiClient {
                 _ => fetch(FetchError::Transport),
             })?;
         drop(request);
-        let mut wire = Wire {
-            stream,
-            buffer: Vec::with_capacity(READ_CHUNK),
-            start: 0,
-            deadline,
-        };
+        let mut wire = crate::http::Wire::new(stream, deadline);
         let (status, headers) = loop {
-            let (status, headers) = parse_head(&wire.until(b"\r\n\r\n", MAX_RESPONSE_HEAD)?)?;
+            let (status, headers) = parse_head(&wire.head().map_err(fetch)?)?;
             if !(100..200).contains(&status) {
                 break (status, headers);
             }
@@ -1853,7 +1742,7 @@ impl ApiClient {
             if !encoding.eq_ignore_ascii_case("chunked") {
                 return Err(fetch(FetchError::UnsupportedEncoding));
             }
-            wire.chunked(limit)?
+            wire.chunked(limit).map_err(fetch)?
         } else if let Some(length) = header(&headers, "content-length") {
             if length.is_empty() || !length.bytes().all(|byte| byte.is_ascii_digit()) {
                 return Err(fetch(FetchError::MalformedResponse));
@@ -1864,14 +1753,15 @@ impl ApiClient {
             if length > limit {
                 return Err(fetch(FetchError::BodyTooLarge));
             }
-            wire.take(length)?
+            wire.take(length).map_err(fetch)?
         } else {
-            wire.until_close(limit)?
+            wire.until_close(limit).map_err(fetch)?
         };
         Ok(ApiResponse {
             status,
             content_type: header(&headers, "content-type").map(str::to_owned),
             body,
+            wire_buffer_peak: wire.buffer_peak(),
         })
     }
 }

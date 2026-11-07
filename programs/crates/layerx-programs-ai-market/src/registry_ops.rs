@@ -49,7 +49,8 @@ const OWNER_AUTHORITY: u64 = 1;
 const TREASURY_PRESENCE_OFFSET: usize = 226;
 
 /// The whole F01 policy-lifecycle section. Unused history slots always repeat the first header.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct PolicySection<'a> {
     pub header: MarketHeader,
     pub operator: Presence<OperatorGrant>,
@@ -88,6 +89,7 @@ impl<'a> PolicySection<'a> {
     ///
     /// # Errors
     /// Propagates header, grant, and `validate_policy_records` refusals; returns `NON_CANONICAL` when the recent-header count is outside 1..=`MAX_RECENT_POLICY_HEADERS`; `F01_VERSION_MISMATCH` when the active version differs from `current`; `ROLE_CONFLICT` when the operator is the owner or treasury; `F01_PRINCIPAL_MISMATCH` when the pending proposer is not the owner.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn validate(&self) -> CodecResult<()> {
         self.header.validate()?;
         self.validate_records()
@@ -125,6 +127,7 @@ impl<'a> PolicySection<'a> {
     ///
     /// # Errors
     /// Returns `F01_CAPACITY_UNAVAILABLE` when the length overflows or exceeds the F01 section or state cap.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn encoded_len(&self) -> CodecResult<usize> {
         let mut n = self.header.encoded_len();
         for bytes in [
@@ -158,6 +161,7 @@ impl<'a> PolicySection<'a> {
     ///
     /// # Errors
     /// Propagates `validate`, `encoded_len`, and record `encode` refusals; returns `CAPACITY` when `output` is shorter than the encoded length; `ARITHMETIC` when a length prefix does not fit its width.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn encode(&self, output: &mut [u8]) -> CodecResult<usize> {
         self.validate()?;
         let n = self.encoded_len()?;
@@ -194,6 +198,7 @@ impl<'a> PolicySection<'a> {
     ///
     /// # Errors
     /// Returns `F01_CAPACITY_UNAVAILABLE` when the input exceeds the section payload cap; `NON_CANONICAL` when the input is short, has trailing bytes, or holds a bad recent-header count; `ARITHMETIC` when the task length does not fit `usize`; propagates record `decode`, `validate`, and `encoded_len` refusals.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn decode(input: &'a [u8]) -> CodecResult<Self> {
         if input.len() > SECTION_PAYLOAD_CAP {
             return Err(F01_CAPACITY_UNAVAILABLE);
@@ -216,7 +221,7 @@ impl<'a> PolicySection<'a> {
         for slot in recent.iter_mut().take(recent_len).skip(1) {
             *slot = PolicyHistoryHeader::decode(r.take(POLICY_HISTORY_HEADER_BYTES)?)?;
         }
-        let history_root = Digest32::new(r.fixed()?)?;
+        let history_root = r.digest32()?;
         let task_len = usize::try_from(r.u32()?).map_err(|_| ARITHMETIC)?;
         let task_region = r.take(task_len)?;
         r.finish()?;
@@ -271,7 +276,8 @@ pub fn activate_pending_policy<'a>(
 
 /// Authoritative call context obtained from the host (executing Program, invoking principal,
 /// committed height) plus the deployment chain domain.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct CallContext {
     pub chain: ChainDomain,
     pub program: ProgramId,
@@ -279,7 +285,8 @@ pub struct CallContext {
     pub height: u64,
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct Receipt {
     bytes: [u8; RECEIPT_MAX_BYTES],
     len: usize,
@@ -292,7 +299,8 @@ impl Receipt {
     }
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 #[allow(
     clippy::large_enum_variant,
     reason = "no_std without alloc: Box is unavailable, and Applied is the primary result"
@@ -337,11 +345,11 @@ fn parse(operation: Operation, payload: &[u8]) -> CodecResult<(u64, Action)> {
             Action::Suspend(reason, if r.remaining() == 8 { r.u64()? } else { 0 })
         }
         dispatch::UPDATE_METADATA => {
-            let digest = MetadataDigest::new(r.fixed()?)?;
+            let digest = r.metadata_digest()?;
             Action::Metadata(digest, if r.remaining() == 8 { r.u64()? } else { 0 })
         }
         dispatch::APPOINT_OPERATOR => {
-            let principal = PrincipalId::new(r.fixed()?)?;
+            let principal = r.principal_id()?;
             let permissions = r.u8()?;
             Action::Appoint(principal, permissions, r.u64()?)
         }
@@ -460,13 +468,13 @@ struct CreateRequest {
 impl CreateRequest {
     fn parse(payload: &[u8]) -> CodecResult<Self> {
         let mut r = Reader::new(payload);
-        let owner = PrincipalId::new(r.fixed()?)?;
-        let asset = AssetId::new(r.fixed()?)?;
-        let rewards = AccountId::new(r.fixed()?)?;
-        let refund = AccountId::new(r.fixed()?)?;
-        let treasury = r.presence(|r| PrincipalId::new(r.fixed()?))?;
+        let owner = r.principal_id()?;
+        let asset = r.asset_id()?;
+        let rewards = r.account_id()?;
+        let refund = r.account_id()?;
+        let treasury = r.presence(|r| r.principal_id())?;
         let policy = TaskPolicyV1::decode(r.take(TASK_POLICY_BYTES)?)?;
-        let metadata = MetadataDigest::new(r.fixed()?)?;
+        let metadata = r.metadata_digest()?;
         r.finish()?;
         Ok(Self {
             owner,
@@ -585,7 +593,13 @@ fn create<'a>(
         return Err(NON_CANONICAL);
     }
     let n = section.encode(section_out)?;
-    let frozen: &'a [u8] = section_out;
+    let (policy_out, reputation_out) = section_out.split_at_mut(n);
+    let region = crate::reputation_transition::Region {
+        state: crate::reputation::ReputationState::new(market),
+        seal: Presence::Absent,
+    };
+    let reputation_len = crate::reputation_transition::encode_joint(&region, &[], reputation_out)?;
+    let frozen: &'a [u8] = policy_out;
     let receipt = build_receipt(
         market,
         1,
@@ -596,7 +610,13 @@ fn create<'a>(
     )?;
     let state = SharedState {
         revision: 1,
-        feature_sections: [&frozen[..n], &[], &[], &[], &[]],
+        feature_sections: [
+            &frozen[..n],
+            &[],
+            &[],
+            &[],
+            &reputation_out[..reputation_len],
+        ],
         control: Control {
             replay: created_replay(owner, treasury, &request, receipt.digest)?,
             feature_bytes: &[],

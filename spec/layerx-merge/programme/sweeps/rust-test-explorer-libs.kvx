@@ -1,9 +1,9 @@
 [sweep.rust-test-explorer-libs]
-revision = "1fea7069e58b649760bb1afcabdb9c4caec5ea4c"
+revision = "ace3608260f2ec826292dab08cd058031efe2f46"
 command = "cargo test --locked --manifest-path services/explorer/services/libs/Cargo.toml -p TARGET --no-fail-fast"
 targets_total = 19
-targets_passed = 18
-targets_failed = 1
+targets_passed = 19
+targets_failed = 0
 targets_not_run = 0
 
 [target.rust-test-explorer-libs.1]
@@ -83,10 +83,8 @@ exit_code = 0
 
 [target.rust-test-explorer-libs.16]
 target = "sourcify"
-result = "failed"
-exit_code = 101
-observed = "client::tests::chain_not_supported::get_source_files_any failed at sourcify/src/client.rs:443:13 because it expected SourcifyError::ChainNotSupported but received UnexpectedStatusCode 403 stating that the compatibility endpoint is only served to browsers; seven tests failed overall."
-assumption = "The external Sourcify service likely changed its compatibility API access policy, so this environmental dependency rejects legacy endpoint calls and returns responses the client cannot decode."
+result = "passed"
+exit_code = 0
 
 [target.rust-test-explorer-libs.17]
 target = "api-client-framework"

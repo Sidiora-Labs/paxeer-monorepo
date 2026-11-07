@@ -1,5 +1,5 @@
+use super::rpc::error;
 use super::{Config, Endpoint, IncomingRequest};
-use crate::rpc::error;
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 use std::sync::Mutex;
@@ -597,20 +597,24 @@ mod tests {
             listener: crate::Listener::Plain,
             client: crate::Client::without_identity(ca.clone()),
             client_identity: false,
+            identity: Some(crate::IdentityTarget {
+                endpoint: Endpoint::parse(&identity.url).unwrap(),
+                token: Zeroizing::new("service-token".to_owned()),
+                key_provisioning_key: Some(Zeroizing::new([0; 32])),
+            }),
             kernel: Some(crate::Kernel {
                 component: Endpoint::parse(&identity.url).unwrap(),
                 component_token: Zeroizing::new("service-token".to_owned()),
                 public_core: None,
                 authority: Endpoint::parse(&identity.url).unwrap(),
                 authority_token: Zeroizing::new("service-token".to_owned()),
-                identity: Endpoint::parse(&identity.url).unwrap(),
-                identity_token: Zeroizing::new("service-token".to_owned()),
                 registry: Endpoint::parse(&identity.url).unwrap(),
                 registry_token: Zeroizing::new("service-token".to_owned()),
-                key_provisioning_key: Zeroizing::new([0; 32]),
                 modules: layerx_types::payload::ModuleRegistry::new(&[]).unwrap(),
             }),
             receipt_keys: None,
+            committed_state: None,
+            state_clock: crate::now,
             paxeer: None,
             capabilities: crate::capabilities::Cache::new(Duration::from_secs(1)),
             indexer: None,
@@ -685,7 +689,10 @@ mod tests {
             client: crate::Client::without_identity(ca.clone()),
             client_identity: false,
             kernel: None,
+            identity: None,
             receipt_keys: None,
+            committed_state: None,
+            state_clock: crate::now,
             paxeer: None,
             capabilities: crate::capabilities::Cache::new(std::time::Duration::from_secs(1)),
             indexer: None,
@@ -714,6 +721,25 @@ mod tests {
         };
         let id = json!("claim-1");
         for method in ["px_requestFunds", "lx_requestFunds"] {
+            if method == "lx_requestFunds" {
+                for params in [json!([]), json!(["did:layerx:alice", "ab".repeat(32)])] {
+                    assert_eq!(
+                        dispatch(&config, &request, method, &id, Some(&params)),
+                        None
+                    );
+                    assert_eq!(
+                        crate::rpc::dispatch(
+                            &config,
+                            &request,
+                            &json!({
+                                "jsonrpc": "2.0", "id": id, "method": method, "params": params
+                            })
+                        ),
+                        Some(error(&id, -32601, "Method not found"))
+                    );
+                }
+                continue;
+            }
             for params in [
                 None,
                 Some(json!([])),

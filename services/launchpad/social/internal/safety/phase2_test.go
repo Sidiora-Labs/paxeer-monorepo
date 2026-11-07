@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"github.com/Sidiora-Technologies/KindleLaunch/media/social/internal/internaltest"
 	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
 	"os"
@@ -18,15 +19,12 @@ import (
 func TestPostgresLinkedAppealReversalPreservesIndependentGlobalBan(t *testing.T) {
 	s := fixture(t)
 	ctx := principal(s, walletA, "room_moderator")
-	ddl, e := os.ReadFile("../../../../../launchpad/spec/production-system/handoffs/L38/phase2/schema-proposal.sql")
-	if e != nil {
-		t.Fatal(e)
-	}
-	if _, e = s.DB.Exec(ctx, string(ddl)); e != nil {
+	ddl := internaltest.CoordinatorMigrationSQL(t, s.DB.Config().ConnConfig.RuntimeParams["search_path"], 380001)
+	if _, e := s.DB.Exec(ctx, ddl); e != nil {
 		t.Fatal(e)
 	}
 	caseID := uuid.NewString()
-	if _, e = s.DB.Exec(ctx, `INSERT INTO safety_cases(id,target_type,target_id,pool_id,affected_wallet,reporter,category,description)VALUES($1,'message','real-case-target','pool-a',$2,$3,'abuse','private')`, caseID, walletB, walletA); e != nil {
+	if _, e := s.DB.Exec(ctx, `INSERT INTO safety_cases(id,target_type,target_id,pool_id,affected_wallet,reporter,category,description)VALUES($1,'message','real-case-target','pool-a',$2,$3,'abuse','private')`, caseID, walletB, walletA); e != nil {
 		t.Fatal(e)
 	}
 	banID, e := s.ActionBan(ctx, caseID, 1, BanCommand{Wallet: walletB, Scope: "pool", Resource: "pool-a", Reason: "case reviewed", PolicyVersion: "v2"})

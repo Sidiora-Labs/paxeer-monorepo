@@ -467,13 +467,13 @@ func TestProofRecordsProducerTransportConsumer(t *testing.T) {
 	}
 
 	// Real market producer JSON can carry a uint256 outside the portal's
-	// GraphQL Int range. Refuse it at the ID decoder with no partial HTML.
+	// GraphQL Int range. Refuse it at identity validation with no partial HTML.
 	proofRecordsExec(t, db, `UPDATE perps.markets SET market_id = 2147483648 WHERE symbol = 'PAX'`)
 	if id, ok, err := set.ID(ctx, "PAX"); err != nil || !ok || id != "2147483648" {
 		t.Fatalf("MarketSet hid changed producer identity: %q %v %v", id, ok, err)
 	}
 	html.Reset()
-	if err := pages.Market(ctx, &html, "PAX"); err == nil || !strings.Contains(err.Error(), "market PAX id:") || html.Len() != 0 {
+	if err := pages.Market(ctx, &html, "PAX"); err == nil || err.Error() != "portal: invalid market identity" || html.Len() != 0 {
 		t.Fatalf("portal accepted unsupported producer ID: %v, %s", err, html.String())
 	}
 }

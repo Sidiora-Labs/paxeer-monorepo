@@ -1,0 +1,48 @@
+[task.22.33.747]
+base_revision = "76c050242a1edcad6212aa52fac15670ecb5612d"
+repair = "Close oracle-checktx-only with committed feeder readback after replacement and restoration, plus exact-hash block execution and oracle event checks before restoration. Close oracle-zero-window with validated parameters, a bounded wait for a nonempty completed vote period, pinned parameter/counter reads and a positive-total guard before percentage arithmetic."
+build_cmd = "python3 --version"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_747.py"
+evidence_ledger = "/out/run/gates.jsonl"
+evidence = "The final hf-done JSON and private ledger identify the exact content-derived verified revision, command, exit code and log path; hf-build and hf-done must pass on the same candidate revision. The record is finalized before gates because embedding its own revision would change that revision. The runner retains the evidence and commits the result."
+baseline = "No baseline test was run: the explicit implementation-first order, hf-build-before-hf-done sequence and prohibition on running verify_cmd by hand supersede the older unchanged-tree baseline clause. No pre-change test failures are claimed. Initial git status/diff showed only runner-prepared .cgignore and spec task-status changes, preserved unchanged; neither repair artifact existed and no /out/run/gates.jsonl existed. Source inspection identified missing committed feeder/vote proofs, division by zero in an empty window, and dependence on a block CLI that now requires an independently trusted validator-set file."
+source_proof = "Parse both production YAML scenarios and every embedded shell command with bash -n; parse the vote helper with bash -n and check its guarded submission-code/hash, block transaction hash/index correlation, pinned execution-result code and event assertions, deadlines and failure exits. Assert parameter validation, completed-period selection outside slash reset, bounded committed-height wait, pinned params and counters, exact total and guarded division. Read the real Go oracle producer, feeder query, tally/reset hooks, block-results transport, transaction hash and JSON schema to prove the authored source contracts. Execute the actual Python integration runner's verifier consumer in process on valid and invalid captured values, including a zero total, wrong feeder, execution failure, bad restoration, inconsistent count, stale height, changed parameters and the unchanged strict success threshold."
+review_only = "Live transaction signing, CheckTx, block inclusion, DeliverTx, oracle authority and tallying, JSON-RPC serving, historical state retention, consensus authentication and container tool availability are not executed by this gate. These are reviewed source connections, not a live-chain qualification. The new helper uses local block/block_results instead of the disabled Autobahn transaction indexer. ExecTxResult.code is a uint32 tagged omitempty with no JSON override, so its explicitly documented absence represents protocol zero; nonzero or null codes are rejected and the exact transaction's successful aggregate_vote plus oracle sender events remain mandatory. No restart-recovery or interface-mismatch finding applies. The gate needs no credentials, environment variables, live service, native artifact or build toolchain; bash -n is the explicitly requested syntax-only exception to the external-binary restriction and never executes scenario commands."
+wiring_requests = []
+
+[finding.oracle-checktx-only]
+audit = "22.30.172"
+file = "tests/integration/oracle_module/set_feeder_test.yaml"
+class = "test-gap"
+severity = "medium"
+proof_kind = "source facts and real in-process verifier execution"
+closure = "After the sequence wait, query and require the new feeder before submitting the vote. Preserve the vote's sync response and hash; scan committed blocks from the pre-vote height, match SHA-256 of the encoded transaction, and inspect the same height/index in block_results for successful execution, the intended validator/rates, oracle module and feeder sender. Require that proof before restoration, then query and require the original feeder. Preserve all original zero-code and vote checks and add restoration and state assertions."
+tests = ["test_oracle_yaml_commands_have_valid_shell_syntax", "test_oracle_checktx_only_reads_both_committed_delegations", "test_oracle_checktx_only_matches_exact_transaction_and_execution_events", "test_oracle_checktx_only_producer_transport_and_consumer_source_contract", "test_oracle_checktx_only_real_verifiers_reject_failed_effects"]
+
+[finding.oracle-zero-window]
+audit = "22.30.172"
+file = "tests/integration/oracle_module/verify_penalty_counts.yaml"
+class = "runtime-risk"
+severity = "medium"
+proof_kind = "source facts and real in-process verifier execution"
+closure = "Read slash_window and vote_period from one height, validate canonical positive integers and compatible periods before division/modulo, and reject equal periods because every tally would immediately reset. Select a subsequent tally height, skip slash-reset boundaries, wait boundedly for that committed height and reject changed parameters there. Query counters at the same height, validate nonnegative counts and fail an empty total before percentage arithmetic. Require the exact completed-period total and preserve SUCCESS_PERCENT < 5."
+tests = ["test_oracle_yaml_commands_have_valid_shell_syntax", "test_oracle_zero_window_validates_parameters_before_selection", "test_oracle_zero_window_waits_and_pins_params_and_counts", "test_oracle_zero_window_guards_denominator_and_requires_exact_total", "test_oracle_zero_window_real_verifiers_reject_invalid_observations"]
+
+[format]
+policy = "No dedicated Python, YAML, shell or KVX formatter is configured for these paths; apply .editorconfig UTF-8, LF, final-newline and no-trailing-whitespace conventions, and two-space YAML indentation after implementation."
+
+[gotcha.1]
+observed = "The legacy baseline instruction conflicts with the explicit implementation-first and exclusive wrapper-gate order."
+resolution = "Follow the explicit order, record no baseline test result, and keep this note in the scoped repair record because GOTCHA.kvx and spec files are outside scope."
+
+[gotcha.2]
+observed = "The original penalty scenario calls paxd q block without the trusted validator-set file now required by that CLI."
+resolution = "Use local paxd status only to observe committed progress and pin actual oracle reads with --height; this integration scenario does not claim independent consensus authentication."
+
+[gotcha.3]
+observed = "The shared transaction helper echoes CheckTx zero after sequence advancement even when DeliverTx failed, and Autobahn does not populate the transaction indexer."
+resolution = "Keep unrelated shared code unchanged and verify the vote's exact block transaction hash and persisted execution result in the scoped helper."
+
+[gotcha.4]
+observed = "Codify brief reports stale graph state, broad combined reads truncate, and apply_patch rejects delete/add operations targeting one file in a patch."
+resolution = "Use actual Git status, the claimed task block and private gate ledger; inspect bounded relevant source sections and write replacements in place. No unrelated files or graph lifecycle are changed manually."

@@ -99,8 +99,14 @@ lxp_result lx_service_deliver_execute(
     delivery.global_sequence = lxp_ctx_global_sequence(ctx);
     status = lx_service_delivery_put(ctx, &delivery);
     if (status != LXP_OK) return status;
-    if (agreement.state == LX_SERVICE_AGREEMENT_COMMITTED)
-        agreement.state = LX_SERVICE_AGREEMENT_DELIVERED;
+    agreement.state = LX_SERVICE_AGREEMENT_DELIVERED;
+    agreement.rejection_reason = 0U;
+    agreement.contested_hash_count = 0U;
+    (void)memset(agreement.contested_hashes, 0,
+                 sizeof(agreement.contested_hashes));
+    agreement.default_applied = false;
+    agreement.outcome_sequence = 0U;
+    agreement.outcome_timestamp = 0U;
     status = lx_service_agreement_put(ctx, &agreement);
     if (status != LXP_OK) return status;
     *result = delivery;

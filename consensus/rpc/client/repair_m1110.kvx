@@ -1,0 +1,9 @@
+[repair.22.33.1110]
+audit = "22.30.46"
+finding = "31"
+proof = "TestRepairM_1110_TxSearch"
+path = "Real isolated node and kvstore application -> BroadcastTxCommit -> committed block and KV event sink -> local and HTTP TxSearch consumers."
+assertions = "Exact transaction bytes, hash, height, index, success, block-bound Merkle proof, indexed and non-indexed events, ascending and descending results, exact page sizes and totals, and no duplicates."
+baseline = "Not run: numbered gate rules require implementation before qualification and forbid a manual verify; the original TxSearch subtest was unconditionally skipped."
+wiring_requests = "None: finding 31 is entirely within consensus/rpc/client."
+evidence = "The runner records the candidate revision, exact command, exit code and private log in /out/run/gates.jsonl."

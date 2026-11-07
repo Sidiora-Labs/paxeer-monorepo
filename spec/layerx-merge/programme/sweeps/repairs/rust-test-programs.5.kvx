@@ -1,0 +1,7 @@
+[repair.rust-test-programs.5]
+target = "wasm-instrument"
+command = "cargo test --locked --manifest-path programs/Cargo.toml -p wasm-instrument --no-fail-fast"
+revision = "5903ffbb1db92c2e133ddd0fa7f87c058af7b5ed"
+result = "repaired"
+change = "programs/vendor/wasm-instrument/src/gas_metering/mod.rs restores default-feature memory-growth metering; programs/vendor/wasm-instrument/src/gas_metering/validation.rs freezes expected graph costs for the prepaid continuation model introduced by dfffe1310, connects both conditional arms and checks complete loop-cycle costs."
+producer_input_tests = []

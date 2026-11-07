@@ -1,0 +1,6 @@
+[task.22.31.314]
+finding = "qualification_integer_roundtrip"
+proving_tests = ["TestRepair_314_CanonicalNumbersAndErrors", "TestRepair_314_SubmitReopenRouteAndVerify"]
+baseline = "Not run: the explicit ordered gate instructions prohibit verification before implementation and require verification exclusively through hf-done; no baseline failure is claimed."
+canonical_contract = "Sorted compact ASCII JSON with exact JSON numbers, exercised against tools/qualification/paxeer_x_release.py canonical, request_id and workflow_request."
+wiring_request = "tools/qualification/paxeer_x_release.py (owning domain 16, tools-ops): retain the shared exact-integer sorted compact ASCII JSON contract; cross-language parity is enforced here without an out-of-scope Python edit."

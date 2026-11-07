@@ -23,9 +23,12 @@ lxp_result lx_budget_lookup(lx_budget_store *store,
 
 lxp_result lx_budget_record_validate(const lx_budget_record *record)
 {
+    size_t i;
     if (record == NULL || lxp_ct_is_zero(record->budget_id, 32U) ||
         (record->native_source == lxp_ct_is_zero(record->source_account, 32U)) ||
-        lxp_u128_is_zero(record->per_period_limit) ||
+        (lxp_u128_is_zero(record->per_period_limit) &&
+         (lxp_u128_is_zero(record->configured_period_limit) ||
+          !lxp_u128_is_zero(record->spent_this_period))) ||
         record->period_length == 0U || record->expiry == 0U ||
         record->expiry <= record->period_start ||
         record->rollover_policy < LX_BUDGET_ROLLOVER_NONE ||
@@ -34,6 +37,11 @@ lxp_result lx_budget_record_validate(const lx_budget_record *record)
         return LXP_ERR_NON_CANONICAL;
     if (record->rollover_policy == LX_BUDGET_ROLLOVER_NONE &&
         !lxp_u128_is_zero(record->carry_cap)) return LXP_ERR_NON_CANONICAL;
+    for (i = 0U; i < record->delegate_count; ++i)
+        if (lxp_ct_is_zero(record->delegates[i], 32U) ||
+            (i != 0U && memcmp(record->delegates[i - 1U],
+                               record->delegates[i], 32U) >= 0))
+            return LXP_ERR_NON_CANONICAL;
     return LXP_OK;
 }
 
@@ -95,6 +103,8 @@ lxp_result lx_budget_create_execute(lxp_module_ctx *ctx,
         return LXP_ERR_NON_CANONICAL;
     status = lx_budget_record_validate(&request->record);
     if (status != LXP_OK) return status;
+    if (lxp_u128_is_zero(request->record.per_period_limit))
+        return LXP_ERR_NON_CANONICAL;
     if (lx_budget_lookup(request->store, request->record.budget_id,
                          &existing) == LXP_OK ||
         request->store->count == LX_BUDGET_STORE_CAPACITY)

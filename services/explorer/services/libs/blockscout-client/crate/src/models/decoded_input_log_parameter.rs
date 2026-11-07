@@ -21,6 +21,6 @@ use serde_aux::prelude::*;
 pub struct DecodedInputLogParameter {
     pub name: String,
     pub r#type: String,
-    pub value: String,
+    pub value: serde_json::Value,
     pub indexed: bool,
 }

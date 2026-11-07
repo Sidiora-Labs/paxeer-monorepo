@@ -1,3 +1,6 @@
+#[path = "support/gateway_22_33_1546.rs"]
+mod producer_repair;
+
 use std::io::{BufRead, BufReader, Read, Write};
 use std::net::TcpListener;
 use std::thread::JoinHandle;
@@ -60,8 +63,17 @@ fn serve(exchanges: Vec<(&'static str, Value, Value)>) -> (String, JoinHandle<us
     (url, handle)
 }
 
+fn recorded_freshness() -> Value {
+    let transcript: Value = serde_json::from_str(include_str!(
+        "../../../../../apps/web/e2e/fixtures/px-get-unified-history.json"
+    ))
+    .must();
+    transcript["result"]["freshness"].clone()
+}
+
 #[test]
 fn history_pages_px_get_history_and_carries_the_next_cursor() {
+    producer_repair::history();
     let account = "0x1212121212121212121212121212121212121212";
     let next = "000000000000abcd0000001200000034";
     let items = vec![
@@ -69,7 +81,8 @@ fn history_pages_px_get_history_and_carries_the_next_cursor() {
         json!({"kind": "call", "transactionHash": format!("0x{}", "34".repeat(32))}),
     ];
     let result = json!({
-        "items": items, "next_cursor": next, "indexedHeight": 43981, "chainHeight": 44000
+        "account": account, "chainHeight": 44000, "freshness": recorded_freshness(),
+        "items": items, "next_cursor": next, "indexedHeight": 43981
     });
     let refusal = RpcRefusal {
         code: -32001,
@@ -86,7 +99,8 @@ fn history_pages_px_get_history_and_carries_the_next_cursor() {
             "px_getHistory",
             json!([account, next, 50]),
             json!({"result": {
-                "items": [], "next_cursor": null, "indexedHeight": 43982, "chainHeight": 44001
+                "account": account, "chainHeight": 44001, "freshness": recorded_freshness(),
+                "items": [], "next_cursor": null, "indexedHeight": 43982
             }}),
         ),
     ];
@@ -113,6 +127,8 @@ fn history_pages_px_get_history_and_carries_the_next_cursor() {
     assert_eq!(
         page,
         HistoryPage {
+            account: account.to_owned(),
+            freshness: recorded_freshness(),
             items,
             next_cursor: Some(next.to_owned()),
             indexed_height: Some(43981),
@@ -123,6 +139,8 @@ fn history_pages_px_get_history_and_carries_the_next_cursor() {
     assert_eq!(
         last,
         HistoryPage {
+            account: account.to_owned(),
+            freshness: recorded_freshness(),
             items: vec![],
             next_cursor: None,
             indexed_height: Some(43982),

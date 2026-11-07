@@ -1,0 +1,6 @@
+[repair.c-kernel-make.106]
+target = "test-log"
+command = "make -s test-log"
+revision = "c31683c61b87eea00be98941431a38949fe5068b"
+result = "already-passing"
+change = "No product or test change: task 18.1512.1 already aligned tests/storage/lxp_test_log.c with decision 124. Admitted kinds 1, 2, 4, 5 and 7 append and read back; retired kinds 3, 6, 8 and 9 are refused without changing segment bytes or append state. Sequence exhaustion, invalid-kind rejection and corruption detection remain asserted."

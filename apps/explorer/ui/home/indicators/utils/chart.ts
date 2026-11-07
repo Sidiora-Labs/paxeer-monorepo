@@ -18,7 +18,7 @@ const CHART_ITEMS: Record<ChainIndicatorId, Pick<TimeChartDataItem, 'name' | 'va
     valueFormatter: (x: number) => '$' + x.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 6 }),
   },
   secondary_coin_price: {
-    name: `${ config.chain.currency.symbol } price`,
+    name: `${ config.chain.secondaryCoin.symbol } price`,
     valueFormatter: (x: number) => '$' + x.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 6 }),
   },
   market_cap: {
@@ -31,21 +31,11 @@ const CHART_ITEMS: Record<ChainIndicatorId, Pick<TimeChartDataItem, 'name' | 'va
   },
 };
 
-const nonNullTailReducer = (result: Array<TimeChartItemRaw>, item: TimeChartItemRaw) => {
-  if (item.value === null && result.length === 0) {
-    return result;
-  }
-  result.unshift(item);
-  return result;
-};
-
-const mapNullToZero: (item: TimeChartItemRaw) => TimeChartItem = (item) => ({ ...item, value: Number(item.value) });
-
-export function prepareChartItems(items: Array<TimeChartItemRaw>) {
+export function prepareChartItems(items: Array<TimeChartItemRaw>): Array<TimeChartItem> {
   return items
+    .filter((item) => item.value != null && item.value !== '' && Number.isFinite(Number(item.value)) && Number.isFinite(item.date.getTime()))
     .sort(sortByDateDesc)
-    .reduceRight(nonNullTailReducer, [] as Array<TimeChartItemRaw>)
-    .map(mapNullToZero);
+    .map((item) => ({ ...item, value: Number(item.value) }));
 }
 
 export function getChartData(indicatorId: ChainIndicatorId, data: Array<TimeChartItemRaw>): TimeChartData {

@@ -1,0 +1,6 @@
+[repair.rust-test-human.4]
+target = "layerx-intents"
+command = "cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-intents --no-fail-fast"
+revision = "3bc9e23f938f3add09f1b16665b0c66d9e4695a1"
+result = "already-passing"
+change = "None; budget_payloads.rs already asserts the complete budget-create disclosure required by decision 2394."

@@ -1,7 +1,6 @@
 package keeper_test
 
 import (
-	"encoding/binary"
 	"path/filepath"
 	"testing"
 	"time"
@@ -274,40 +273,16 @@ func (s *KeeperTestSuite) TestLastCompletedUpgrade() {
 }
 
 func (s *KeeperTestSuite) TestGetClosestUpgrade() {
-	// Set up some upgrades
-	upgrades := []struct {
-		name   string
-		height int64
-	}{
-		{"upgrade1", 15},
-		{"upgrade2", 20},
-		{"upgrade3", 25},
-	}
-
-	for _, u := range upgrades {
-		s.app.UpgradeKeeper.SetDone(s.ctx, u.name)
-		store := prefix.NewStore(s.ctx.KVStore(s.app.GetKey(types.StoreKey)), []byte{types.DoneByte})
-		bz := make([]byte, 8)
-		binary.BigEndian.PutUint64(bz, uint64(u.height))
-		store.Set([]byte(u.name), bz)
-	}
-
-	tests := []struct {
-		name      string
-		height    int64
-		expName   string
-		expHeight int64
-	}{
-		{"closest to 18", 18, "upgrade2", 20},
-		{"closest to 22", 22, "upgrade3", 25},
-		{"closest to 10", 10, "upgrade1", 15},
-	}
-
-	for _, tt := range tests {
-		s.Run(tt.name, func() {
-			name, height := s.app.UpgradeKeeper.GetClosestUpgrade(s.ctx, tt.height)
-			s.Require().Equal(tt.expName, name)
-			s.Require().Equal(tt.expHeight, height)
+	for _, tc := range repairM601LookupCases() {
+		s.Run(tc.name, func() {
+			doneStore := prefix.NewStore(s.ctx.KVStore(s.app.GetKey(types.StoreKey)), []byte{types.DoneByte})
+			for _, name := range []string{"upgrade1", "upgrade2", "upgrade3", "z-old", "a-new", "m-last", "c-tie"} {
+				doneStore.Delete([]byte(name))
+			}
+			for _, plan := range tc.plans {
+				s.app.UpgradeKeeper.SetDone(s.ctx.WithBlockHeight(plan.Height), plan.Name)
+			}
+			repairM601AssertLookup(s.T(), s.app.UpgradeKeeper, s.ctx, tc)
 		})
 	}
 }

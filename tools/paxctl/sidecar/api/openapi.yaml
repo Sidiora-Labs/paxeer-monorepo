@@ -37,6 +37,7 @@ paths:
   /v0/healthz:
     get:
       operationId: healthz
+      security: []
       summary: Readiness probe
       description: Returns 200 after mark-ready has completed; 503 otherwise.
       responses:
@@ -45,11 +46,99 @@ paths:
         "503":
           description: Sidecar is not yet ready.
 
+  /v0/startupz:
+    get:
+      operationId: startupz
+      summary: Startup probe
+      description: Uses the same readiness state as healthz; the store alone being live is insufficient.
+      security: []
+      responses:
+        "200":
+          description: Sidecar is ready; empty body.
+        "503":
+          description: Sidecar is not yet ready; empty body.
+
+  /v0/livez:
+    get:
+      operationId: livez
+      summary: Liveness probe
+      description: Checks the task store independently of readiness.
+      security: []
+      parameters:
+        - name: verbose
+          in: query
+          description: Set to 1 to include the store error on a failed probe.
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Task store is responsive; empty body.
+        "503":
+          description: Task store is unavailable; empty body unless verbose=1 requests a JSON error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /v0/metrics:
+    get:
+      operationId: getMetrics
+      summary: Prometheus metrics
+      security: []
+      responses:
+        "200":
+          description: Prometheus text exposition (version 0.0.4).
+          content:
+            text/plain:
+              schema:
+                type: string
+        "500":
+          description: Metric collection failed.
+          content:
+            text/plain:
+              schema:
+                type: string
+
+  /v0/node-id:
+    get:
+      operationId: getNodeID
+      summary: Read the CometBFT node ID
+      description: Derives the public node ID from config/node_key.json; never returns key material.
+      security:
+        - remoteUserHeader: []
+      responses:
+        "200":
+          description: Public node identifier.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NodeIDResponse"
+        "401":
+          description: Missing or invalid trusted identity header.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Node key is missing, unreadable, malformed, or not a 64-byte Ed25519 private key.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /v0/status:
     get:
       operationId: getStatus
+      security:
+        - remoteUserHeader: []
       summary: Status snapshot
       responses:
+        "401":
+          description: Missing or invalid trusted identity header.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
         "200":
           description: Current status.
           content:
@@ -77,6 +166,18 @@ paths:
             schema:
               $ref: "#/components/schemas/TaskRequest"
       responses:
+        "401":
+          description: Missing or invalid trusted identity header.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Task writes require an authenticated loopback listener.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
         "201":
           description: Task created.
           content:
@@ -102,6 +203,12 @@ paths:
       security:
         - remoteUserHeader: []
       responses:
+        "401":
+          description: Missing or invalid trusted identity header.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
         "200":
           description: Task results.
           content:
@@ -125,6 +232,12 @@ paths:
             type: string
             format: uuid
       responses:
+        "401":
+          description: Missing or invalid trusted identity header.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
         "200":
           description: Task result.
           content:
@@ -151,6 +264,18 @@ paths:
             type: string
             format: uuid
       responses:
+        "401":
+          description: Missing or invalid trusted identity header.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Task writes require an authenticated loopback listener.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
         "204":
           description: Task deleted.
         "404":
@@ -227,7 +352,7 @@ components:
 
     TaskResult:
       type: object
-      required: [id, type, status, submittedAt]
+      required: [id, type, status, run, submittedAt]
       properties:
         id:
           type: string
@@ -239,6 +364,14 @@ components:
           type: string
           enum: [running, completed, failed]
           description: Current task lifecycle state.
+        run:
+          type: integer
+          minimum: 1
+          description: |
+            Execution attempt, starting at 1. Resubmitting a failed task with
+            the same ID increments this counter. Submitting a running or
+            completed task is an idempotent no-op; crash recovery resumes
+            the existing run without incrementing it.
         params:
           type: object
           additionalProperties: true
@@ -261,6 +394,15 @@ components:
         completedAt:
           type: string
           format: date-time
+
+    NodeIDResponse:
+      type: object
+      required: [nodeId]
+      properties:
+        nodeId:
+          type: string
+          pattern: "^[0-9a-f]{40}$"
+          description: Lowercase hex of the first 20 bytes of SHA-256 of the Ed25519 public key.
 
     ErrorResponse:
       type: object

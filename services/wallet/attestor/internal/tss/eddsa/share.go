@@ -59,20 +59,15 @@ func newKeyShare(id string, threshold uint32, publicKey *pt.ECPoint, share *big.
 	k := &KeyShare{
 		id:        id,
 		threshold: threshold,
-		publicKey: publicKey.Copy(),
-		share:     new(big.Int).Set(share),
-		bks:       make(map[string]*birkhoffinterpolation.BkParameter, len(bks)),
-		ys:        make(map[string]*pt.ECPoint, len(ys)),
-	}
-	for pid, bk := range bks {
-		k.bks[pid] = birkhoffinterpolation.NewBkParameter(new(big.Int).Set(bk.GetX()), bk.GetRank())
-	}
-	for pid, y := range ys {
-		k.ys[pid] = y.Copy()
+		publicKey: publicKey,
+		share:     share,
+		bks:       bks,
+		ys:        ys,
 	}
 	if err := k.validate(); err != nil {
 		return nil, err
 	}
+	k.publicKey, k.share, k.bks, k.ys = k.Material()
 	encoded, err := encodePoint(k.publicKey)
 	if err != nil {
 		return nil, err
@@ -100,7 +95,7 @@ func (k *KeyShare) validate() error {
 	if k.publicKey == nil || k.publicKey.GetCurve() != curve || k.publicKey.IsIdentity() {
 		return ErrInconsistent
 	}
-	if k.share.Sign() <= 0 || k.share.Cmp(n) >= 0 {
+	if k.share == nil || k.share.Sign() <= 0 || k.share.Cmp(n) >= 0 {
 		return ErrInconsistent
 	}
 	selfY, ok := k.ys[k.id]
@@ -110,20 +105,20 @@ func (k *KeyShare) validate() error {
 	if _, ok := k.bks[k.id]; !ok {
 		return ErrInconsistent
 	}
-	if !pt.ScalarBaseMult(curve, k.share).Equal(selfY) {
-		return ErrInconsistent
-	}
 	ids := k.Participants()
 	bks := make(birkhoffinterpolation.BkParameters, 0, len(ids))
 	ys := make([]*pt.ECPoint, 0, len(ids))
 	for _, pid := range ids {
 		bk := k.bks[pid]
 		y, ok := k.ys[pid]
-		if bk == nil || !ok || y == nil || y.GetCurve() != curve || y.IsIdentity() {
+		if bk == nil || bk.GetX() == nil || !ok || y == nil || y.GetCurve() != curve || y.IsIdentity() {
 			return ErrInconsistent
 		}
 		bks = append(bks, bk)
 		ys = append(ys, y)
+	}
+	if !pt.ScalarBaseMult(curve, k.share).Equal(selfY) {
+		return ErrInconsistent
 	}
 	if err := bks.ValidateThresholdScheme(k.threshold, n); err != nil {
 		return fmt.Errorf("%w: %v", ErrInconsistent, err)

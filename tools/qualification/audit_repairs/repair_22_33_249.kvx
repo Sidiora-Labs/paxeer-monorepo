@@ -1,0 +1,54 @@
+[task]
+id = "22.33.249"
+base_revision = "8a5302e1b13ed685ab2cd21b29cd69052c2a8f6a"
+repair = "Correct quickstart entry.call_input_capacity from 8192 to the real SDK inclusive reservation capacity, 1048576 bytes. Keep the SDK capacity bound to MAX_CALL_INPUT_BYTES; document the metadata contract and enforce at compile time that the capacity fits the signed i32 guest length ABI. Reservation, pointer validation and call handling retain their existing behavior."
+
+[finding.018]
+audit = "22.30.129"
+file = "programs/sdk/rust/quickstart/layerx-program.json"
+class = "config-drift"
+severity = "medium"
+status = "source-repaired"
+tests = ["test_018_metadata_matches_real_sdk_buffer_capacity", "test_018_quickstart_exports_delegate_to_sdk_reservation_and_consumer", "test_018_reservation_source_admits_capacity_and_refuses_one_byte_above", "test_018_call_consumer_preserves_capacity_and_pointer_checks"]
+resolution = "Metadata now describes the 1048576-byte buffer actually allocated by the SDK and used by quickstart's entrypoint macro. Exact source checks preserve the inclusive reserve boundary at 1048576 and refusal at 1048577, signed conversion, pointer conversion and the consumer's independent length and pointer checks."
+
+[proof]
+source_facts = "The pytest module parses production JSON and Cargo TOML, reads the production ABI constant and buffer declaration, follows the local SDK dependency and quickstart macro expansion to layerx_reserve and layerx_call, and pins the complete reservation and consumer function bodies without treating comments as code. It checks metadata/export signatures and both sides of the inclusive capacity boundary by source inspection. No replacement reservation implementation, fake guest, subprocess, native artifact, external binary, credential, endpoint or environment variable is needed."
+review_only = "Built Wasm export invocation at capacity and one byte above is not executed by this source-only Python gate. Rust compilation of the new const assertion, actual linear-memory addresses, buffer writes and compiled export behavior require the owning domain's Wasm qualification; no built-export, runtime transport or restart-recovery proof is claimed. This config-drift repair changes metadata, not a transport interface or persisted state."
+wiring_request = "programs/sdk/rust/quickstart/target/wasm32-unknown-unknown/release/layerx_quickstart.wasm | owning domain 13: in the Rust/Wasm qualification environment build quickstart, compare parsed manifest capacity with the real layerx_reserve export at 1048576 (valid nonnegative in-memory pointer) and 1048577 (-1), and validate the allocated memory range; no generated artifact is created here."
+
+[qualification]
+build_cmd = "python3 --version"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_249.py"
+evidence_ledger = "/out/run/gates.jsonl"
+verified_revision = "None: hf-done refused during its dependency check before cg spec done or pytest ran; the source repair is implemented, not qualified. The last declared build evidence is recorded below and copied in the final response because verification never ran. This failure entry was added after the refusal and has not been rebuilt or verified."
+baseline_executed = false
+baseline = "Initial git status/diff showed only runner-prepared .cgignore and spec task-status changes; no scoped implementation or task-specific test/record existed. The gate configuration recorded builds_used=0 and verify_runs_used=0; the gate ledger did not exist. No tests are claimed to have failed before the change: the explicit implementation-first order and prohibition on invoking verify_cmd by hand supersede step 5's unchanged-tree verification clause. Source inspection observed the original 8192 versus 1048576 mismatch."
+closure = "Finding 018 has a source repair and declared proving tests; qualification requires hf-done passing after hf-build on the same candidate. Compiled-Wasm boundary comparison remains explicitly requested from domain 13. The runner handles publication; no manual commit or push."
+
+[qualification.build]
+revision = "25ba9aa4852683e55b0adc7c45222c09c253b0d6"
+command = "python3 --version"
+exit = 0
+log = "/out/logs/build-1.log"
+
+[qualification.failure]
+revision = "25ba9aa4852683e55b0adc7c45222c09c253b0d6"
+command = "hf-done"
+exit = 7
+log = "/out/logs/dependents-1.log"
+observed = "The wrapper's cargo check --locked --manifest-path /work/paxeer-monorepo/services/platform/Cargo.toml --all-targets -p layerx-ai-evaluator -p layerx-indexer -p layerx-paxai-worker -p layerx-platform-agent-boundary -p layerx-platform-authority -p layerx-platform-core -p layerx-platform-dashboard -p layerx-platform-gateway -p layerx-platform-paxeer-boundary -p layerx-platform-registry -p layerx-platform-webhooks -p layerx-ramp-toolkit -p layerx-reference-ramp -p layerx-runtime-clock exited 101 with eight errors in services/platform/hosted/core/src/public_reads.rs:96,137,163,164,172,700,701,706 (Uint256 lacks to_be_bytes, PxAssetEntry lacks layerx/paxeer, asset IDs changed from byte arrays to strings); these unrelated out-of-scope failures were recorded without repair or rerun, and cg spec done and pytest never ran."
+
+[qualification.wiring]
+request = "services/platform/hosted/core/src/public_reads.rs | owning platform domain: reconcile the stale balance and asset reads with the current Uint256 and PxAssetEntry contracts so layerx-platform-core test repair_22_33_1455 compiles; this task does not alter that component or claim qualification."
+
+[format]
+policy = "Use rustfmt only on touched entry.rs; preserve existing JSON layout and EditorConfig whitespace. No Python or KVX formatter is configured for these repair paths."
+
+[gotcha.baseline]
+observed = "The requested unchanged-tree baseline contradicts the explicit implementation-first, wrapper-only gate order."
+resolution = "Run only hf-build then hf-done after implementation; disclose no baseline test run and claim no pre-change failures. GOTCHA.kvx and spec files are outside scope, so notes remain in this record."
+
+[gotcha.runtime]
+observed = "The proposal asks for built layerx_reserve boundary calls, but this task permits only a Python source gate without a subprocess toolchain or native artifact."
+resolution = "Prove the production metadata, allocation, macro wiring and exact boundary guards as source facts; explicitly request compiled-Wasm boundary qualification from domain 13 and claim no runtime execution."

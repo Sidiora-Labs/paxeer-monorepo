@@ -1,472 +1,242 @@
 # Hosted control
 
-Private-network only. Testnet control has no public name on Paxeer X Network and is
-run only inside a private or disposable network; public accounts are funded
-through [custody credit](../human/custody.md) submitted to the router.
+`layerx-testnet-control` is a private-network utility for disposable hosted
+status, journey admission, funding and reset. It has no public control DNS
+name or Ingress in `services/platform/hosted/testnet/deployment.yaml`. Its
+“public” listener means unauthenticated within the permitted private network.
+It is not a protocol node or an authority over public-network finality.
 
+Paxeer mainnet-beta is one BFT network: the kernel is part of `paxd` and
+proposes blocks, EVM chain ID is `125` (`0x7d`), and a receipt is final once its
+block is committed. Public JSON-RPC uses the root of
+`https://api-mainnet-beta.paxeer.network` or the numbered nodes `api1` through
+`api14.mainnet-beta.paxeer.network`; see [Public RPC endpoints](../reference/public-rpc.md).
+The node namespaces are `debug`, `echo`, `eth`, `net`, `pax`, `px`, `test` and
+`txpool`. The `px` namespace answers from node state; `px_register` and
+`px_requestFunds` are operations of the hosted identity and faucet
+services declared in [the gateway OpenRPC contract](../platform/gateway-rpc.md). Public funding uses
+native transfers through node JSON-RPC. The custody-credit/router funding
+instructions are retired.
 
-`layerx-testnet-control` is the public status, parameter, and journey
-admission surface for hosted LayerX Network, and the private funding/reset
-proxy (`services/platform/hosted/testnet/README.md:3`;
-`services/platform/hosted/testnet/Cargo.toml:11-13`;
-`services/platform/hosted/testnet/src/main.rs:1141-1282`). The crate is
-`layerx-platform-testnet`; the library path is `src/lib.rs`; the
-binary path is `src/main.rs`. It is not a protocol node. A developer
-or agent reads `GET /readyz`, `GET /v1/status`, `GET /v1/parameters`,
-and `GET /v1/journeys/{journey}` with no Bearer. Faucet replicas and
-the reset operator call the admin listener.
+For native inputs, deployment limits, readiness and retained volumes, see
+[Disposable beta cluster](beta-cluster.md). Tenant domains are database
+namespaces on the same network. The private utility's `network_id` `402` is
+its configured application namespace identifier, distinct from EVM chain ID
+`125`; it is not evidence of a second public chain.
 
-The image is `ghcr.io/sidiora-labs/layerx-testnet-control:0.1.0`, user
-`4020:4020`, entrypoint `/usr/local/bin/layerx-testnet-control`
-(`docker/platform-testnet/Dockerfile:6-13`;
-`services/platform/hosted/testnet/deployment.yaml:80-82`;
-`services/platform/hosted/tests/beta-cluster.sh:114`). The image also copies
-`run-testnet.sh`, `reset-testnet.sh`, and `render-status.sh` to
-`/opt/layerx/` (`docker/platform-testnet/Dockerfile:11`). The
-Deployment command is the binary, not `run-testnet.sh`
-(`services/platform/hosted/testnet/deployment.yaml:82`).
+## Deployment and TLS
 
-The Deployment has two replicas. Public listen is `0.0.0.0:9443`;
-admin listen is `0.0.0.0:9444`
-(`services/platform/hosted/testnet/deployment.yaml:72`;
-`services/platform/hosted/testnet/deployment.yaml:86-87`;
-`services/platform/hosted/testnet/deployment.yaml:102`). Service
-`layerx-testnet-public` port `443` targets `public-tls` `9443`.
-Service `layerx-testnet-admin` is ClusterIP port `443` targeting
-`admin-tls` `9444`
-(`services/platform/hosted/testnet/deployment.yaml:116-124`). Ingress
-`layerx-testnet-public` carries the retired public control host, path `/`,
-uses backend protocol HTTPS
-(`services/platform/hosted/testnet/deployment.yaml:183-198`). Bring-up
-port-forwards `19443:443` and exports `LAYERX_TESTNET_URL`
-(`services/platform/hosted/tests/beta-cluster.sh:81`;
-`services/platform/hosted/tests/beta-cluster.sh:1114`;
-`services/platform/hosted/tests/beta-cluster.sh:1258`;
-`services/platform/hosted/tests/beta-cluster.sh:1278`). Library
-`platform_testnet` still carries that retired origin
-(`services/platform/hosted/testnet/src/lib.rs:75`).
+The crate is `layerx-platform-testnet`, with library `src/lib.rs` and binary
+`src/main.rs` under `services/platform/hosted/testnet/`. The Deployment has
+two replicas and runs `/usr/local/bin/layerx-testnet-control` from
+`ghcr.io/sidiora-labs/layerx-testnet-control:0.1.0` as UID/GID `4020`.
 
-This page covers that binary, both listeners, journey probes, and the
-funding/reset proxy. Faucet claim HTTP is on
-[Hosted faucet](../platform/faucet.md). Treasury SEND construction is on
-[Hosted core](../platform/hosted-core.md). Gateway `/v1` is on
-[Hosted gateway](../platform/hosted-gateway.md).
+| Listener | Default bind | ClusterIP Service |
+| --- | --- | --- |
+| Unauthenticated status | `0.0.0.0:9443` | `layerx-testnet-public`, port `443` → `9443` |
+| Authenticated admin | `0.0.0.0:9444` | `layerx-testnet-admin`, port `443` → `9444` |
 
----
+Inbound rustls uses `LAYERX_TESTNET_TLS_CERT_DER` and
+`LAYERX_TESTNET_TLS_KEY_DER` (PKCS#8); neither listener requests a client
+certificate. Outbound HTTPS uses `LAYERX_OUTBOUND_CA_DER` with a TLS 1.2
+minimum and no client certificate. Component URLs must use HTTPS; Redis uses
+`rediss://` without a path. Connect timeout is 3 seconds, I/O timeout is
+8 seconds, requests are bounded at 64 KiB, and at most 128 connections are
+live across both listeners. The parser refuses query strings,
+`Transfer-Encoding`, duplicate headers and a missing `Host`.
 
-## TLS
-
-Inbound TLS is rustls with no client authentication on both listeners.
-The certificate is `LAYERX_TESTNET_TLS_CERT_DER`; the PKCS#8 key is
-`LAYERX_TESTNET_TLS_KEY_DER`
-(`services/platform/hosted/testnet/src/main.rs:762-783`). Each accepted TCP
-connection becomes a rustls `ServerConnection`
-(`services/platform/hosted/testnet/src/main.rs:1331-1333`). At most 128
-connections are live across both listeners; further accepts are
-dropped (`services/platform/hosted/testnet/src/main.rs:23`;
-`services/platform/hosted/testnet/src/main.rs:1320-1322`). Messages are bounded
-at 64 KiB (`services/platform/hosted/testnet/src/main.rs:20`;
-`services/platform/hosted/testnet/src/main.rs:951`). Query strings,
-`Transfer-Encoding`, duplicate headers, and a missing `Host` are
-refused (`services/platform/hosted/testnet/src/main.rs:974-975`;
-`services/platform/hosted/testnet/src/main.rs:1018-1028`). Incoming headers and
-bodies are zeroized on drop
-(`services/platform/hosted/testnet/src/main.rs:666-672`).
-
-Outbound HTTPS uses `native_tls` `TlsConnector` with
-`LAYERX_OUTBOUND_CA_DER` and TLS 1.2
-(`services/platform/hosted/testnet/src/main.rs:890-894`). Component URLs must
-be `https://`. Redis must be `rediss://` with no path
-(`services/platform/hosted/testnet/src/main.rs:34-43`;
-`services/platform/hosted/testnet/src/main.rs:1658-1667`). The client writes
-optional `Authorization: Bearer` and optional `Idempotency-Key`
-(`services/platform/hosted/testnet/src/main.rs:911-918`). Connect timeout is
-3s; I/O timeout is 8s (`services/platform/hosted/testnet/src/main.rs:21-22`).
-HTTPS upstreams do not present a client certificate.
-
----
+NetworkPolicy admits admin TCP `9444` from the faucet and reset job. Status
+TCP `9443` admits `ingress-nginx` and the status-publisher pod. An allowed
+ingress namespace does not itself provision a public edge. Deployment health
+probes use the status listener. Keep control and its reset credentials inside
+the disposable environment.
 
 ## Tokens
 
-Public routes accept no credential
-(`services/platform/hosted/testnet/src/main.rs:1141-1175`). Admin routes
-compare `Authorization: Bearer` to the inbound admin token in
-constant time (`services/platform/hosted/testnet/src/main.rs:1178-1191`).
+| Key | Purpose |
+| --- | --- |
+| `LAYERX_TESTNET_CONTROL_ADMIN_TOKEN_FILE` | Inbound admin Bearer; mounted at `/run/layerx/control-admin/token` |
+| `LAYERX_TESTNET_BACKEND_ADMIN_TOKEN_FILE` | Outbound Bearer to core-admin; mounted at `/run/layerx/backend-admin/token` |
+| `LAYERX_TESTNET_RESET_TOKEN_FILE` | Reset script's Bearer to control; the CronJob mounts the control-admin token |
+| `LAYERX_STATUS_TOKEN_FILE` | Status publisher's Bearer to its external publishing destination |
 
-| Credential | Accepted from | Used as | Never |
-| --- | --- | --- | --- |
-| Control admin token | File `LAYERX_TESTNET_CONTROL_ADMIN_TOKEN_FILE`; mounted `/run/layerx/control-admin/token` (`services/platform/hosted/testnet/src/main.rs:860`; `services/platform/hosted/testnet/deployment.yaml:101`; `services/platform/hosted/testnet/deployment.yaml:110`) | Inbound admin `Authorization: Bearer` | Public listener |
-| Backend admin token | File `LAYERX_TESTNET_BACKEND_ADMIN_TOKEN_FILE`; mounted `/run/layerx/backend-admin/token` (`services/platform/hosted/testnet/src/main.rs:859`; `services/platform/hosted/testnet/deployment.yaml:100`; `services/platform/hosted/testnet/deployment.yaml:109`) | `Authorization: Bearer` to core-admin fund and reset | Presented by humans |
-| Reset token | File `LAYERX_TESTNET_RESET_TOKEN_FILE`; CronJob mounts `/run/layerx/control-admin/token` (`services/platform/hosted/testnet/deployment.yaml:221`; `services/platform/hosted/testnet/reset-testnet.sh:6`) | Bearer on `POST /admin/v1/testnet/reset` | Public routes |
-| Status publish token | File `LAYERX_STATUS_TOKEN_FILE`; CronJob mounts `/run/layerx/status/token` (`services/platform/hosted/testnet/deployment.yaml:248`; `services/platform/hosted/testnet/render-status.sh:7`) | Bearer on `PUT` to the status publisher | Testnet-control HTTP |
-
-The faucet mounts the same control-admin Secret as
-`LAYERX_TESTNET_ADMIN_TOKEN_FILE`
-(`services/platform/hosted/testnet/deployment.yaml:148`;
-`services/platform/hosted/testnet/deployment.yaml:166`;
-`services/platform/hosted/testnet/deployment.yaml:171`). Bring-up writes
-`control-admin.token` and `backend-admin.token` as distinct files
-(`services/platform/hosted/tests/beta-cluster.sh:489-490`;
-`services/platform/hosted/tests/beta-cluster.sh:582-583`). Testnet-control
-sets `LAYERX_TESTNET_IDENTITY_URL` and does not set an identity
-service-token env (`services/platform/hosted/testnet/deployment.yaml:92`;
-`services/platform/hosted/testnet/deployment.yaml:83-101`;
-`docs/wiki/HostedIdentity.md`). Identity is probed with
-unauthenticated `GET /readyz` only
-(`services/platform/hosted/testnet/src/main.rs:1032-1037`;
-`services/platform/hosted/testnet/src/main.rs:1097`).
-
----
+Control compares the inbound Bearer in constant time. Token files have
+trailing CR/LF stripped and must contain 1–4096 bytes. Inbound and backend
+admin credentials have different roles. The faucet uses
+`LAYERX_TESTNET_ADMIN_TOKEN_FILE` to call control. Identity readiness is an
+unauthenticated probe; control does not require an identity service token.
 
 ## Public routes
 
-`public_route` accepts `GET` only. Any other method is `404 not_found`
-(`services/platform/hosted/testnet/src/main.rs:1141-1143`).
+These routes require no Bearer on the private status listener. Non-GET
+methods and unknown paths return `404 not_found`.
 
-| Method and path | Inputs | Result |
-| --- | --- | --- |
-| `GET /livez` | none | `200` `{"status":"live"}` (`services/platform/hosted/testnet/src/main.rs:1146`) |
-| `GET /readyz` | none | `200` readiness document when every dependency, every journey, and the release gate are ready; else `503` with the same document (`services/platform/hosted/testnet/src/main.rs:1147-1152`; `services/platform/hosted/testnet/src/main.rs:614-624`) |
-| `GET /v1/status` | none | `200` four-component public status (`services/platform/hosted/testnet/src/main.rs:1154`; `services/platform/hosted/testnet/src/main.rs:627-655`) |
-| `GET /v1/parameters` | none | `200` `network`, `network_id`, `package_semver`, `lxp_wire_protocol_version`, `reset_schedule` (`services/platform/hosted/testnet/src/main.rs:1155-1163`) |
-| `GET /v1/journeys/funding` | none | Journey admission (`services/platform/hosted/testnet/src/main.rs:229`; `services/platform/hosted/testnet/src/main.rs:1165-1171`) |
-| `GET /v1/journeys/payment` | none | Journey admission (`services/platform/hosted/testnet/src/main.rs:230`) |
-| `GET /v1/journeys/receipt-inspection` | none | Journey admission (`services/platform/hosted/testnet/src/main.rs:231`) |
-| `GET /v1/journeys/programs` | none | Journey admission (`services/platform/hosted/testnet/src/main.rs:232`) |
+| Route | Result |
+| --- | --- |
+| `GET /livez` | `200 {"status":"live"}` |
+| `GET /readyz` | Readiness document, `200` when ready, otherwise `503` |
+| `GET /v1/status` | Redacted four-component status, HTTP `200` even when degraded |
+| `GET /v1/parameters` | `network`, `network_id`, `evm_chain_id`, `package_semver`, `lxp_wire_protocol_version`, `reset_schedule` |
+| `GET /v1/journeys/funding` | Funding admission, HTTP `200` or `503` |
+| `GET /v1/journeys/payment` | Payment admission, HTTP `200` or `503` |
+| `GET /v1/journeys/receipt-inspection` | Receipt-inspection admission, HTTP `200` or `503` |
 
-`GET /v1/journeys/settlement` is not a route
-(`services/platform/hosted/testnet/src/main.rs:1498`). Unknown GET paths are
-`404 not_found` (`services/platform/hosted/testnet/src/main.rs:1173`).
+The current `Journey::ALL` contains three journeys. Programs and settlement
+journey paths return `404`; they are not admission routes.
 
-`GET /v1/parameters` body:
+Parameters report `network: "layerx-testnet"`, `network_id: 402` and
+`evm_chain_id: 125`. Package semver comes from the crate; wire version comes
+from `LXP_WIRE_PROTOCOL_VERSION`, which uses the shared state-commitment
+protocol constant. Do not infer the wire version from package semver.
+`reset_schedule` is `09:00 UTC on the first Tuesday of every month`.
 
-- `network` `layerx-testnet`
-- `network_id` `TESTNET_NETWORK_ID` (`402`)
-- `package_semver` from the running crate
-- `lxp_wire_protocol_version` `LXP_WIRE_PROTOCOL_VERSION`
-- `reset_schedule` `09:00 UTC on the first Tuesday of every month`
-
-(`services/platform/hosted/testnet/src/main.rs:1155-1163`;
-`services/platform/hosted/testnet/src/lib.rs:3-4`;
-`services/platform/hosted/testnet/src/lib.rs:79`). ConfigMap
-`layerx-testnet-release` stores `reset-schedule`
-`0 9 * * 2; operator executes only on days 1-7`
-(`services/platform/hosted/testnet/deployment.yaml:11`). Those two schedule
-strings differ. The parameters handler does not read the ConfigMap.
-
-`GET /v1/status` keys are `service`, `state`, `package_semver`,
-`lxp_wire_protocol_version`, `network_id`, `components`
-(`services/platform/hosted/testnet/src/main.rs:687-694`;
-`services/platform/hosted/testnet/src/main.rs:1626-1636`). `service` is
-`layerx-hosted-testnet`. `components` is exactly `testnet`,
-`gateway`, `core`, `paxeer`, each `{name, state}`
-(`services/platform/hosted/testnet/src/main.rs:642-654`;
-`services/platform/hosted/testnet/src/main.rs:1642-1651`). Component `testnet`
-is `ready` or `degraded` from the release gate. `gateway`, `core`,
-and `paxeer` are `ready` or `unavailable` from the matching
-dependency probe. Gateway `GET /v1/status` is a different shape
-(`docs/wiki/HostedGateway.md`).
-
----
+Status keys are `service`, `state`, `package_semver`,
+`lxp_wire_protocol_version`, `network_id` and `components`. Service is
+`layerx-hosted-testnet`; components are exactly `testnet`, `gateway`, `core`
+and `paxeer`, each with `name` and `state`. The `testnet` component reflects
+the release gate; the other three reflect their matching dependency probes.
+This redacted document is not the full readiness document and is not a
+committed-block proof.
 
 ## Journeys and probes
 
-A journey is ready only when every dependency in its declared set
-probes successfully (`services/platform/hosted/testnet/src/main.rs:242-268`;
-`services/platform/hosted/testnet/src/main.rs:455-472`).
+`Dependency::ALL` in `testnet/src/main.rs` contains eight dependencies.
+The names below are retained private compatibility service names. They do
+not describe independent execution, settlement or receipt-finality networks.
 
-| Journey | Route | Dependencies |
-| --- | --- | --- |
-| `funding` | `/v1/journeys/funding` | `identity`, `faucet`, `redis`, `core_admin`, `core` (`services/platform/hosted/testnet/src/main.rs:244-250`) |
-| `payment` | `/v1/journeys/payment` | `identity`, `gateway`, `core`, `receipt_authority` (`services/platform/hosted/testnet/src/main.rs:251-256`) |
-| `receipt_inspection` | `/v1/journeys/receipt-inspection` | `gateway`, `receipt_authority`, `core` (`services/platform/hosted/testnet/src/main.rs:257-261`) |
-| `programs` | `/v1/journeys/programs` | `gateway`, `registry`, `core`, `receipt_authority` (`services/platform/hosted/testnet/src/main.rs:262-267`) |
+| Journey | Dependencies |
+| --- | --- |
+| `funding` | `identity`, `faucet`, `redis`, `core_admin`, `core` |
+| `payment` | `identity`, `gateway`, `core`, `receipt_authority` |
+| `receipt_inspection` | `gateway`, `receipt_authority`, `core` |
 
-Admission JSON flattens `JourneyView` plus `admitted`
-(`services/platform/hosted/testnet/src/main.rs:711-716`;
-`services/platform/hosted/testnet/src/main.rs:486-490`). Ready is HTTP 200 with
-`admitted` true, `ready` true, empty `failing`. Degraded is HTTP 503
-with `admitted` false and `failing` names
-(`services/platform/hosted/testnet/src/main.rs:1165-1171`). Hosted smoke
-requires `.admitted == true and .ready == true and (.failing | length) == 0`
-(`services/platform/hosted/testnet/tests/hosted-smoke.sh:38-49`).
-
-Probe kinds (`services/platform/hosted/testnet/src/main.rs:1094-1105`):
+A ready admission response has `admitted: true`, `ready: true`, and empty
+`failing`. A degraded response has HTTP `503`, `admitted: false` and the
+failing dependency names. Global readiness additionally requires all eight
+dependencies and the package/wire release gate. Thus a `paxeer` probe failure
+can degrade global readiness while all journeys remain admitted. The program
+registry is not a current probe dependency.
 
 | Dependency | Probe |
 | --- | --- |
-| `identity`, `faucet`, `core`, `receipt_authority`, `gateway`, `paxeer` | Unauthenticated `GET /readyz`, HTTP 200 only (`services/platform/hosted/testnet/src/main.rs:1032-1037`) |
-| `core_admin` | TLS handshake, no HTTP (`services/platform/hosted/testnet/src/main.rs:1040-1044`) |
-| `registry` | TCP connect; the detail string names client-certificate TLS beyond the probe (`services/platform/hosted/testnet/src/main.rs:1047-1053`) |
-| `redis` | TLS then `PING`; `+PONG` or `-NOAUTH` is success (`services/platform/hosted/testnet/src/main.rs:1056-1091`) |
+| `identity`, `faucet`, `core`, `receipt_authority`, `gateway`, `paxeer` | Unauthenticated `GET /readyz`, requires HTTP `200` |
+| `core_admin` | TLS handshake only |
+| `redis` | TLS then `PING`; `+PONG` or `-NOAUTH` proves listener reachability |
 
-Global `/readyz` is ready only when all nine dependencies succeed,
-all four journeys are ready, and `ReleaseGate::verify` matches
-package semver and wire version
-(`services/platform/hosted/testnet/src/main.rs:519-555`;
-`services/platform/hosted/testnet/src/main.rs:1556-1569`). A Paxeer miss
-degrades global state while leaving journeys ready
-(`services/platform/hosted/testnet/src/main.rs:1571-1579`). The readiness
-document includes `release`, `dependencies`, and `journeys`
-(`services/platform/hosted/testnet/src/main.rs:728-737`). `state` is `ready`
-or `degraded` (`services/platform/hosted/testnet/src/main.rs:562-567`).
-
-`config` refuses boot when `TestnetConfig::validate` fails
-(`services/platform/hosted/testnet/src/main.rs:794-799`;
-`services/platform/hosted/testnet/src/lib.rs:33-52`). The readiness document
-can still represent a degraded release in tests
-(`services/platform/hosted/testnet/src/main.rs:1599-1619`). Those two gates
-differ.
-
-In-cluster URLs (`services/platform/hosted/testnet/deployment.yaml:88-96`):
-
-- Core `https://layerx-pending-core.layerx-testnet.svc.cluster.local:9443`
-- Core admin `https://layerx-pending-core-admin.layerx-testnet.svc.cluster.local:9444`
-- Gateway `https://layerx-gateway.layerx-testnet.svc.cluster.local:443`
-- Paxeer `https://paxeer-boundary.layerx-testnet.svc.cluster.local:9443`
-- Identity `https://layerx-identity.layerx-testnet.svc.cluster.local:9443`
-- Faucet `https://layerx-faucet-public.layerx-testnet.svc.cluster.local:443`
-- Receipt authority `https://layerx-receipt-authority.layerx-testnet.svc.cluster.local:9443`
-- Registry `https://layerx-program-registry.layerx-testnet.svc.cluster.local:9420`
-- Redis `rediss://layerx-faucet-redis.layerx-testnet.svc.cluster.local:6379`
-
-Control does not write Redis. It shares the faucet Redis
-listener for the `redis` probe. Persistence for claims is the faucet
-store (`docs/wiki/HostedFaucet.md`). Persistence for fund/reset is
-the core journal (`docs/wiki/HostedCore.md`).
-
----
+A successful Redis probe does not prove that faucet ACL credentials work.
+Control does not write Redis; faucet claim quota and idempotency reservations
+belong to the faucet's Redis store. Core's native node health is separate
+from control's aggregate dependency reachability.
 
 ## Admin routes
 
-Served only on the admin listener
-(`services/platform/hosted/testnet/src/main.rs:1342-1346`;
-`services/platform/hosted/testnet/src/main.rs:1381-1392`). There is no admin
-`/livez` or `/readyz`. Deployment probes use the public port
-(`services/platform/hosted/testnet/deployment.yaml:103-104`).
+Admin routes use the admin listener only. Requests require a valid inbound
+Bearer, exact `Content-Type: application/json` and an `Idempotency-Key` of
+1–128 ASCII alphanumeric characters or `-`, `_`, `.`, `:`. There is no admin
+health route; authentication and header checks precede route dispatch.
 
-Every admin request requires the inbound Bearer, then
-`Content-Type: application/json`, then `Idempotency-Key` 1–128
-alnum/`-`/`_`/`.`/`:` (`services/platform/hosted/testnet/src/main.rs:1194-1225`;
-`services/platform/hosted/testnet/src/main.rs:1202-1225`).
-
-| Method and path | Inputs | Upstream |
-| --- | --- | --- |
-| `POST /admin/v1/testnet/fund` | JSON `funding_id`, `did`, `public_key`, `amount` with `deny_unknown_fields` (`services/platform/hosted/testnet/src/main.rs:740-747`; `services/platform/hosted/testnet/src/main.rs:1228-1255`) | Core-admin `POST /admin/v1/testnet/fund` with the backend admin token and the same body and idempotency key |
-| `POST /admin/v1/testnet/reset` | JSON `{}` (`services/platform/hosted/testnet/src/main.rs:1257-1264`) | Core-admin `POST /admin/v1/testnet/reset` |
-
-Fund validation: `funding_id` is a valid key; `did` starts with
-`did:` and length ≤ 512; `public_key` is 64 ASCII hex; `amount != 0`
-(`services/platform/hosted/testnet/src/main.rs:1235-1248`). Failure is
-`400 invalid_argument`. Before proxying, the handler probes the
-funding journey; a degraded set is `503 journey_degraded` with
-`journey`, `failing`, and `retry` `after`
-(`services/platform/hosted/testnet/src/main.rs:1250-1253`;
-`services/platform/hosted/testnet/src/main.rs:427-435`). Reset does not probe
-journeys. Reset body other than `{}` is `400 invalid_argument`.
-
-Upstream HTTP 200 or 202 is returned unchanged. Upstream 400–499 is
-returned unchanged. Any other outcome is
-`503 core_unavailable` with `retry` `after`
-(`services/platform/hosted/testnet/src/main.rs:1268-1281`). Testnet-control
-does not rewrite core 5xx to 422. Core admin itself rewrites many
-admin 5xx to 422 (`docs/wiki/HostedCore.md`). Those two mappings
-differ.
-
----
-
-## Treasury SEND funding path
-
-The faucet does not submit a SEND. It posts the funding command to
-testnet-control admin (`services/platform/hosted/faucet/src/main.rs:878-893`;
-`services/platform/hosted/testnet/deployment.yaml:147`). Testnet-control
-authenticates the control-admin token, validates the command, requires
-the funding journey, and POSTs the same JSON to
-
-`https://layerx-pending-core-admin.layerx-testnet.svc.cluster.local:9444/admin/v1/testnet/fund`
-
-with `LAYERX_TESTNET_BACKEND_ADMIN_TOKEN_FILE`
-(`services/platform/hosted/testnet/src/main.rs:1255`;
-`services/platform/hosted/testnet/src/main.rs:1268-1274`;
-`services/platform/hosted/testnet/deployment.yaml:89`).
-
-Core `fund` / `fund_send` builds an owner-authorised Asset SEND
-(ordinal `SEND_ACTIVITY` `5`) from the treasury seed, submits it on
-LNI, and waits for a receipt
-(`services/platform/hosted/core/src/lib.rs:19-20`;
-`services/platform/hosted/core/src/lib.rs:105-110`;
-`services/platform/hosted/core/src/main.rs:1471-1571`;
-`docs/wiki/HostedCore.md`). Source and destination accounts are
-`agent:<did>:main`. A 200 core body is `funding_id`, `state`
-`funded`, `transaction_id`. A 202 core body is `state` `pending`.
-The faucet accepts only `state == "funded"` as
-`FundingResult::Funded`; `pending` is `Unknown` → `202 still_checking`
-(`services/platform/hosted/faucet/src/main.rs:906-907`;
-`services/platform/hosted/faucet/src/main.rs:1087`).
-
-Core additionally requires `did == did:layerx:` plus the lowercase
-public key and refuses the treasury DID
-(`services/platform/hosted/core/src/main.rs:1475-1484`). Control does
-not apply those two checks. The faucet does not either. Those three
-DID alphabets differ.
-
----
-
-## Config keys
-
-| Key | Role |
+| Route | Body and behavior |
 | --- | --- |
-| `LAYERX_TESTNET_PUBLIC_LISTEN` | Public bind; default `0.0.0.0:9443` (`services/platform/hosted/testnet/src/main.rs:801-804`; `services/platform/hosted/testnet/deployment.yaml:86`) |
-| `LAYERX_TESTNET_ADMIN_LISTEN` | Admin bind; default `0.0.0.0:9444` (`services/platform/hosted/testnet/src/main.rs:805-808`; `services/platform/hosted/testnet/deployment.yaml:87`) |
-| `LAYERX_TESTNET_TLS_CERT_DER` | Inbound server certificate DER; mounted `/run/layerx/tls/server.crt.der` |
-| `LAYERX_TESTNET_TLS_KEY_DER` | Inbound PKCS#8 key DER; mounted `/run/layerx/tls/server.key.der` |
-| `LAYERX_OUTBOUND_CA_DER` | Trust bundle; mounted `/run/layerx/tls/ca.crt.der` |
-| `LAYERX_PENDING_PACKAGE_SEMVER` | Pending package; ConfigMap `layerx-testnet-release` key `package-semver` (`services/platform/hosted/testnet/src/main.rs:788-789`; `services/platform/hosted/testnet/deployment.yaml:84`) |
-| `LAYERX_PENDING_WIRE_PROTOCOL_VERSION` | Pending wire `u16`; ConfigMap key `lxp-wire-protocol-version` (`services/platform/hosted/testnet/src/main.rs:790-793`; `services/platform/hosted/testnet/deployment.yaml:85`) |
-| `LAYERX_TESTNET_CORE_URL` | Core HTTPS origin |
-| `LAYERX_TESTNET_CORE_ADMIN_URL` | Core-admin HTTPS origin |
-| `LAYERX_TESTNET_GATEWAY_URL` | Gateway HTTPS origin |
-| `LAYERX_TESTNET_PAXEER_URL` | Paxeer-boundary HTTPS origin |
-| `LAYERX_TESTNET_IDENTITY_URL` | Identity HTTPS origin |
-| `LAYERX_TESTNET_FAUCET_URL` | Faucet HTTPS origin |
-| `LAYERX_TESTNET_RECEIPT_AUTHORITY_URL` | Receipt-authority HTTPS origin |
-| `LAYERX_TESTNET_REGISTRY_URL` | Program-registry HTTPS origin |
-| `LAYERX_TESTNET_REDIS_URL` | `rediss://` origin |
-| `LAYERX_TESTNET_BACKEND_ADMIN_TOKEN_FILE` | Bearer to core-admin; mounted `/run/layerx/backend-admin/token` |
-| `LAYERX_TESTNET_CONTROL_ADMIN_TOKEN_FILE` | Inbound admin Bearer; mounted `/run/layerx/control-admin/token` |
+| `POST /admin/v1/testnet/fund` | JSON `funding_id`, `did`, `public_key`, `amount`; unknown fields are refused. Requires the funding journey, then proxies to core-admin at the same path |
+| `POST /admin/v1/testnet/reset` | Body must be exactly the two bytes `{}`. Proxies to core-admin at the same path without a journey probe |
 
-Secret files are read, trailing CR/LF stripped, and refused when empty
-or longer than 4096 bytes (`services/platform/hosted/testnet/src/main.rs:749-759`).
-Volume mounts are TLS Secret `layerx-testnet-control-tls` at
-`/run/layerx/tls`, `layerx-testnet-backend-admin` at
-`/run/layerx/backend-admin`, and `layerx-testnet-control-admin` at
-`/run/layerx/control-admin`
-(`services/platform/hosted/testnet/deployment.yaml:107-114`).
+Control requires a valid `funding_id`, a `did` beginning with `did:` and at
+most 512 bytes, a 64-character ASCII hexadecimal public key, and nonzero
+amount. Core additionally requires `did:layerx:<lowercase-public-key>` and
+refuses the treasury DID. Use the same request body and idempotency key for
+retries; control passes both to core-admin with the backend admin token.
 
-`run-testnet.sh` requires the same keys then `exec`s the binary
-(`services/platform/hosted/testnet/run-testnet.sh:3-24`). The Deployment does
-not use that script.
+Upstream `200`, `202` and `4xx` responses pass through. Other upstream
+outcomes become `503 core_unavailable` with `retry: "after"`. This includes
+backend `5xx`; inspect core's private evidence when diagnosing the original
+cause. Control does not add a `Retry-After` header.
 
----
+## Private funding and recovery
+
+The faucet posts the funding command to control. Control validates and
+proxies it; core's `fund`, `fund_send`, `funding_native.rs` and `chain_fund.rs`
+own the native transfer and its durable recovery. New funding prepares an
+EVM value transfer, records an authorized version-2 intent, submits the signed
+transaction and checks its receipt. The recipient is the address bound to
+the identity public key through the identity precompile at
+`0x0000000000000000000000000000000000001004`. A missing or zero binding is
+`409 identity_binding_unavailable` in the funding implementation.
+
+The sender needs native funds for the value and gas. There is no custody
+deposit or LNI SEND bootstrap for new funding. A pending confirmation returns
+`202` with `state: "pending"` and the transaction ID. The faucet treats
+pending as indeterminate, not funded. Core archives confirmed native receipts
+and preserves authenticated older intent records for replay through their
+original native interface. It does not convert an old intent into a second
+value transfer.
+
+Retain core's funding journals and archives across restarts. After an
+indeterminate response, retry the same private funding identifier, body and
+idempotency key. Changing the key can create another transfer. A reset is a
+disposable-generation operation mediated by the node supervisor; core retains
+funding receipt evidence before requesting it. It is not an operation for
+public mainnet, and resetting an application namespace is not a public chain
+rollback.
+
+## Configuration
+
+The source of truth for required inputs is `config()` in
+`testnet/src/main.rs`; mount definitions are in `testnet/deployment.yaml`.
+
+| Keys | Role |
+| --- | --- |
+| `LAYERX_TESTNET_PUBLIC_LISTEN`, `LAYERX_TESTNET_ADMIN_LISTEN` | Listener overrides; defaults `0.0.0.0:9443` and `0.0.0.0:9444` |
+| `LAYERX_TESTNET_TLS_CERT_DER`, `LAYERX_TESTNET_TLS_KEY_DER`, `LAYERX_OUTBOUND_CA_DER` | Server certificate, PKCS#8 key and outbound CA |
+| `LAYERX_PENDING_PACKAGE_SEMVER`, `LAYERX_PENDING_WIRE_PROTOCOL_VERSION` | Required pending release identity; mismatches refuse startup |
+| `LAYERX_TESTNET_CORE_URL`, `LAYERX_TESTNET_CORE_ADMIN_URL` | Private core application and admin HTTPS origins |
+| `LAYERX_TESTNET_GATEWAY_URL`, `LAYERX_TESTNET_PAXEER_URL` | Gateway and Paxeer-boundary HTTPS origins |
+| `LAYERX_TESTNET_IDENTITY_URL`, `LAYERX_TESTNET_FAUCET_URL` | Identity and faucet HTTPS origins |
+| `LAYERX_TESTNET_RECEIPT_AUTHORITY_URL` | Private receipt-verification compatibility service |
+| `LAYERX_TESTNET_REDIS_URL` | TLS Redis origin |
+| `LAYERX_TESTNET_BACKEND_ADMIN_TOKEN_FILE`, `LAYERX_TESTNET_CONTROL_ADMIN_TOKEN_FILE` | Distinct outbound and inbound admin credentials |
+
+The manifest uses Service port `443` for gateway and faucet, `9443` for
+core, identity, receipt authority and Paxeer boundary, `9444` for core-admin,
+and `6379` for Redis. `LAYERX_TESTNET_REGISTRY_URL` remains in the manifest
+but is not read by current control configuration. Library defaults in
+`platform_testnet()` use private service origins. The Deployment runs the
+binary directly; the older `run-testnet.sh` wrapper is not its entrypoint.
 
 ## Cluster CronJobs
 
-CronJob `layerx-testnet-reset` runs `/opt/layerx/reset-testnet.sh`
-(`services/platform/hosted/testnet/deployment.yaml:200-225`). The script POSTs
-`{}` to `$LAYERX_TESTNET_ADMIN_URL/admin/v1/testnet/reset` with the
-reset token and one idempotency key per calendar month, and requires
-JSON `state == "reset"` with a non-empty `reset_id`
-(`services/platform/hosted/testnet/reset-testnet.sh:13-33`). It exits `0`
-without calling the admin URL when the UTC day-of-month is greater
-than 7 (`services/platform/hosted/testnet/reset-testnet.sh:10-12`).
+`layerx-testnet-reset` is scheduled Tuesdays at `09:00 UTC`.
+`reset-testnet.sh` additionally checks that it is Tuesday and the day of the
+month is at most seven. It POSTs `{}` with one idempotency key per calendar
+month and requires `state: "reset"` and a non-empty `reset_id`. A pending
+reset is not a completed reset.
 
-CronJob `layerx-testnet-status-publisher` runs
-`/opt/layerx/render-status.sh`
-(`services/platform/hosted/testnet/deployment.yaml:227-252`). The script GETs
-`$LAYERX_TESTNET_STATUS_URL` (`/v1/status` on
-`layerx-testnet-public`), checks the four-component shape, and PUTs
-that body to `$LAYERX_STATUS_PUBLISH_URL`
-(`services/platform/hosted/testnet/render-status.sh:15-38`).
-`status.json` lists the same four component ids
-(`services/platform/hosted/testnet/status.json:3-8`). The status publisher
-Service is not in this repository; `topology-check.sh` reports that
-edge as `external` (`services/platform/hosted/tests/topology-check.sh:29-32`).
-
----
-
-## Callers the NetworkPolicy admits
-
-Admin ingress admits TCP 9444 from `app=layerx-faucet` and
-`app=layerx-testnet-reset`. Public ingress admits TCP 9443 from
-namespace `ingress-nginx` and `app=layerx-testnet-status-publisher`
-(`services/platform/hosted/testnet/deployment.yaml:254-264`). Egress is
-`layerx-plane: trusted-boundary` on 9443 / 9444 / 9445, gateway 9443,
-faucet 9443, faucet-redis 6379, program-registry 9420, and DNS 53
-(`services/platform/hosted/testnet/deployment.yaml:266-284`). Gateway ingress
-admits `app=layerx-testnet-control` on 9443
-(`docs/wiki/HostedGateway.md`). Node ingress admits
-`app=layerx-testnet-control` on 9443 / 9444 / 9445
-(`services/platform/hosted/node/deployment.yaml:273-274`).
-
-`topology-check.sh` default manifests include
-`services/platform/hosted/testnet/deployment.yaml`
-(`services/platform/hosted/tests/topology-check.sh:21`;
-`services/platform/hosted/tests/topology-check.sh:87`). Beta-cluster apply
-order is control, then gateway, then registry, then developer
-(`services/platform/hosted/tests/beta-cluster.sh:868-872`).
-
----
+`layerx-testnet-status-publisher` runs every two minutes. Its
+`render-status.sh` fetches `/v1/status`, checks the redacted four-component
+shape and PUTs it to `LAYERX_STATUS_PUBLISH_URL` using the status token. The
+publishing service is external to this repository's deployment. The beta
+helper omits that job when `LAYERX_BETA_STATUS_PUBLISH_URL` is unset and
+reports the missing owner input.
 
 ## Typed refusals
 
-Public and admin JSON refusals use `{"error":{"code":…}}`
-(`services/platform/hosted/testnet/src/main.rs:1143`;
-`services/platform/hosted/testnet/src/main.rs:1204-1280`). There is no
-`Retry-After` header (`services/platform/hosted/testnet/src/main.rs:1295-1310`).
-Faucet refusals set `Retry-After` when a delay is present
-(`docs/wiki/HostedFaucet.md`). Those two header behaviors differ.
+JSON refusals use `{"error":{"code":…}}`. Readiness and journey failures
+instead return their readiness/admission documents with HTTP `503`.
 
-| HTTP | Code | Listener | Condition |
-| --- | --- | --- | --- |
-| 400 | `invalid_request` | both | Request framing failed (`services/platform/hosted/testnet/src/main.rs:1334-1339`) |
-| 400 | `content_type_required` | admin | `Content-Type` is not `application/json` (`services/platform/hosted/testnet/src/main.rs:1209-1212`) |
-| 400 | `idempotency_key_required` | admin | Missing `Idempotency-Key` (`services/platform/hosted/testnet/src/main.rs:1215-1218`) |
-| 400 | `invalid_idempotency_key` | admin | Key fails `valid_key` (`services/platform/hosted/testnet/src/main.rs:1221-1224`) |
-| 400 | `invalid_argument` | admin | Fund JSON/fields rejected, or reset body is not `{}` (`services/platform/hosted/testnet/src/main.rs:1229-1262`) |
-| 401 | `unauthorized` | admin | Missing or mismatched Bearer (`services/platform/hosted/testnet/src/main.rs:1203-1207`) |
-| 404 | `not_found` | public | Non-GET, or unknown GET path (`services/platform/hosted/testnet/src/main.rs:1142-1143`; `services/platform/hosted/testnet/src/main.rs:1173`) |
-| 404 | `not_found` | admin | Method/path is not fund or reset (`services/platform/hosted/testnet/src/main.rs:1266`) |
-| 503 | `journey_degraded` | admin | Funding journey probe failed (`services/platform/hosted/testnet/src/main.rs:1250-1253`) |
-| 503 | `core_unavailable` | admin | Upstream not 200/202/4xx (`services/platform/hosted/testnet/src/main.rs:1278-1280`) |
+| HTTP | Code | Condition |
+| --- | --- | --- |
+| `400` | `invalid_request` | Request framing rejected |
+| `400` | `content_type_required` | Admin content type missing or different |
+| `400` | `idempotency_key_required` | Admin idempotency key missing |
+| `400` | `invalid_idempotency_key` | Admin key outside the accepted alphabet or length |
+| `400` | `invalid_argument` | Funding fields invalid or reset body differs from `{}` |
+| `401` | `unauthorized` | Admin Bearer missing or mismatched |
+| `404` | `not_found` | Unknown route or unsupported method after applicable checks |
+| `503` | `journey_degraded` | Funding journey failed; includes journey, failing names and retry hint |
+| `503` | `core_unavailable` | Backend transport failed or status was not `200`, `202` or `4xx` |
+| `500` | `serialization_failure` | JSON serialization failed |
 
-`GET /readyz` and journey GETs use 503 with the readiness or
-admission document, not `core_unavailable`. JSON serialization
-failure is `500` `serialization_failure`
-(`services/platform/hosted/testnet/src/main.rs:1285-1291`). Reason phrase for
-any unlisted status is `Service Unavailable`
-(`services/platform/hosted/testnet/src/main.rs:1296-1302`).
-
----
-
-## Tests
-
-Portable crate tests (no cluster):
-
-| Test | Proves |
-| --- | --- |
-| `package_and_wire_versions_are_independent_release_gates` | `TestnetConfig::validate` accepts matching pending package and wire, refuses either mismatch (`services/platform/hosted/testnet/src/lib.rs:88-107`) |
-| `dependency_reports_are_indexed_by_dependency` | Reports index equals `Dependency::ALL` (`services/platform/hosted/testnet/src/main.rs:1435-1442`) |
-| `journeys_declare_their_dependency_sets` | Exact four journeys and four routes; settlement is absent (`services/platform/hosted/testnet/src/main.rs:1444-1498`) |
-| `journey_readiness_is_the_conjunction_of_its_declared_dependencies` | Identity miss degrades only journeys that declare it (`services/platform/hosted/testnet/src/main.rs:1501-1529`) |
-| `degraded_journey_names_every_failing_dependency_once` | Funding names `faucet` then `core`; refusal code `journey_degraded` (`services/platform/hosted/testnet/src/main.rs:1532-1552`) |
-| `global_ready_needs_every_journey_every_dependency_and_the_release` | Nine dependencies and four journeys; Paxeer miss degrades global state only (`services/platform/hosted/testnet/src/main.rs:1555-1595`) |
-| `release_mismatch_degrades_the_global_state_without_touching_journeys` | Package mismatch → public `testnet` component `degraded` (`services/platform/hosted/testnet/src/main.rs:1598-1619`) |
-| `public_status_keeps_the_published_four_component_shape` | Keys and component names `testnet`, `gateway`, `core`, `paxeer` (`services/platform/hosted/testnet/src/main.rs:1622-1654`) |
-| `redis_endpoint_requires_the_rediss_scheme` | `rediss://` only, no path; `https` parse rejects `rediss` (`services/platform/hosted/testnet/src/main.rs:1657-1672`) |
-
-Hosted smoke (`services/platform/hosted/testnet/tests/hosted-smoke.sh`):
-
-- Testnet `GET /readyz` is 200, `state == "ready"`, nine named
-  dependencies ready, four journeys ready
-  (`services/platform/hosted/testnet/tests/hosted-smoke.sh:52-65`)
-- `GET /v1/parameters` is 200 and matches readiness network id,
-  package, and wire
-  (`services/platform/hosted/testnet/tests/hosted-smoke.sh:89-96`)
-- Journeys `funding`, `payment`, `receipt-inspection`, `programs`
-  are admitted in that order
-  (`services/platform/hosted/testnet/tests/hosted-smoke.sh:101`;
-  `services/platform/hosted/testnet/tests/hosted-smoke.sh:113`;
-  `services/platform/hosted/testnet/tests/hosted-smoke.sh:134`;
-  `services/platform/hosted/testnet/tests/hosted-smoke.sh:151`)
-
-Make:
-
-| Target | Testnet use |
-| --- | --- |
-| `platform-test` | workspace `cargo test`, including `layerx-platform-testnet` (`services/platform/Makefile.inc:112-113`) |
-| `platform-test-tooling` | `cargo test -p layerx-platform-testnet` and `sh -n` of `run-testnet.sh`, `reset-testnet.sh`, `render-status.sh`, `hosted-smoke.sh` (`services/platform/Makefile.inc:119-121`) |
-| `platform-hosted-smoke` | requires `LAYERX_TESTNET_URL` and `LAYERX_FAUCET_URL` (`services/platform/Makefile.inc:161-173`) |
-| `platform-hosted-topology-check` | default manifests include testnet (`services/platform/Makefile.inc:177-178`; `services/platform/hosted/tests/topology-check.sh:21`) |
-| `platform-beta-cluster-up` | waits until testnet `GET /readyz` has `state == "ready"` and every journey ready (`services/platform/hosted/tests/beta-cluster.sh:1286-1287`) |
+Backend `4xx` codes may also pass through unchanged. For deployment and
+recovery, use [Disposable beta cluster](beta-cluster.md); for claim quotas
+and faucet responses, see [Hosted faucet](../platform/faucet.md).
 
 [Home](../index.md)

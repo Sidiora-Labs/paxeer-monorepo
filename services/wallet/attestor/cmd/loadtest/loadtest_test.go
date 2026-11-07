@@ -24,11 +24,13 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/audit"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/auth/agent"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/auth/jwt"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/lxwire"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/policy"
@@ -148,11 +150,46 @@ func (is *issuer) mint(t *testing.T, signer *rsa.PrivateKey, subject string) str
 }
 
 type network struct {
-	endpoints  []string
-	caFile     string
-	clientCert string
-	clientKey  string
-	issuer     *issuer
+	endpoints       []string
+	caFile          string
+	clientCert      string
+	clientKey       string
+	issuer          *issuer
+	inventoryKey    *ecdsa.PrivateKey
+	inventoryPath   string
+	inventoryPublic string
+	inventory       server.WalletInventory
+	pins            map[string]string
+	sequence        uint64
+	manifestPath    string
+}
+
+func (n *network) publishInventory(t *testing.T) {
+	t.Helper()
+	n.sequence++
+	now := time.Now().Unix()
+	n.inventory.SignedClaims = agent.SignedClaims{Version: 1, Issuer: "loadtest", Audience: agent.InventoryAudience,
+		Tenant: "loadtest", Sequence: strconv.FormatUint(n.sequence, 10), IssuedAt: now - 1, ExpiresAt: now + 3600}
+	header, err := json.Marshal(map[string]string{"alg": "ES256", "typ": agent.InventoryAudience + "+jwt"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	body, err := json.Marshal(n.inventory)
+	if err != nil {
+		t.Fatal(err)
+	}
+	input := b64(header) + "." + b64(body)
+	digest := sha256.Sum256([]byte(input))
+	r, s, err := ecdsa.Sign(rand.Reader, n.inventoryKey, digest[:])
+	if err != nil {
+		t.Fatal(err)
+	}
+	signature := make([]byte, 64)
+	r.FillBytes(signature[:32])
+	s.FillBytes(signature[32:])
+	if err := os.WriteFile(n.inventoryPath, []byte(input+"."+b64(signature)), 0o600); err != nil {
+		t.Fatal(err)
+	}
 }
 
 func startNetwork(t *testing.T, n int) *network {
@@ -168,6 +205,19 @@ func startNetwork(t *testing.T, n int) *network {
 	operator, _, _ := certificate(t, operatorDir, "ca", nil)
 	_, clientCert, clientKey := certificate(t, gatewayDir, "wallet-gateway", gateway)
 	nw := &network{caFile: gateway.path, clientCert: clientCert, clientKey: clientKey, issuer: newIssuer(t)}
+	var err error
+	nw.inventoryKey, err = ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	public, err := x509.MarshalPKIXPublicKey(&nw.inventoryKey.PublicKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	nw.inventoryPath, nw.inventoryPublic = filepath.Join(dir, "inventory.jwt"), filepath.Join(dir, "inventory-public.pem")
+	writePEM(t, nw.inventoryPublic, "PUBLIC KEY", public)
+	nw.inventory = server.WalletInventory{Protocol: "wallet", Threshold: 3}
+	nw.pins = make(map[string]string, n)
 
 	policyFile, kernelFile := filepath.Join(dir, "policy.json"), filepath.Join(dir, "kernel-policy.json")
 	if err := os.WriteFile(policyFile, []byte(signPolicy), 0o600); err != nil {
@@ -205,8 +255,11 @@ func startNetwork(t *testing.T, n int) *network {
 		nodeCert, certs[i], keys[i] = certificate(t, gatewayDir, ids[i], gateway)
 		pin := transport.SPKIHash(nodeCert.cert)
 		peers[i] = transport.Peer{ID: ids[i], Address: peerListeners[i].Addr().String(), SPKISHA256: hex.EncodeToString(pin[:])}
+		nw.pins[ids[i]] = peers[i].SPKISHA256
+		nw.inventory.Members = append(nw.inventory.Members, server.InventoryMember{ID: ids[i], Pin: peers[i].SPKISHA256})
 		nw.endpoints = append(nw.endpoints, ids[i]+"="+apiListeners[i].Addr().String())
 	}
+	nw.publishInventory(t)
 	for i, id := range ids {
 		nodeKey := sha256.Sum256([]byte("load test store key " + id))
 		dataDir := filepath.Join(dir, id)
@@ -262,10 +315,15 @@ func startNetwork(t *testing.T, n int) *network {
 				probe[p.ID] = p.Address
 			}
 		}
+		inventory, err := server.NewInventory(nw.inventoryPath, nw.inventoryPublic, "loadtest", "loadtest", st, nw.pins)
+		if err != nil {
+			t.Fatal(err)
+		}
 		srv, err := server.New(server.Options{
 			NodeID: id, Region: fmt.Sprintf("region-%d", i+1), ChainID: testChainID, Participants: ids,
 			Store: st, Audit: lg, Transport: tr, Policy: engine, Kernel: kernel, Ledger: ledger,
 			Clients: clients, Tokens: tokens, Activities: registry, PeerProbe: server.TCPPeerProbe(probe),
+			Inventory: inventory,
 		})
 		if err != nil {
 			t.Fatal(err)
@@ -292,9 +350,51 @@ func (n *network) env(token string) map[string]string {
 	}
 }
 
-func runTool(t *testing.T, env map[string]string, args ...string) (Summary, []byte) {
+func runTool(t *testing.T, nw *network, env map[string]string, args ...string) (Summary, []byte) {
 	t.Helper()
 	var out, errs bytes.Buffer
+	if nw.manifestPath == "" {
+		nw.manifestPath = filepath.Join(t.TempDir(), "run.json")
+		var pins []string
+		for _, ep := range nw.endpoints {
+			id, _, _ := strings.Cut(ep, "=")
+			pins = append(pins, id+"="+nw.pins[id])
+		}
+		stage := func(phase string, extra ...string) (RunManifest, error) {
+			var raw bytes.Buffer
+			stageArgs := append(append([]string{}, args...), "-manifest", nw.manifestPath, "-phase", phase)
+			stageArgs = append(stageArgs, extra...)
+			_, err := run(context.Background(), stageArgs, func(k string) string { return env[k] }, &raw, &errs)
+			if err != nil {
+				return RunManifest{}, err
+			}
+			var m RunManifest
+			err = json.Unmarshal(raw.Bytes(), &m)
+			return m, err
+		}
+		m, err := stage("export", "-pins", strings.Join(pins, ","))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := stage("generate"); err == nil || !strings.Contains(err.Error(), server.CodeKeyInvalidShare) {
+			t.Fatalf("generation before owner admission: %v", err)
+		}
+		nw.inventory.Keys = append(nw.inventory.Keys, m.Inventory...)
+		nw.publishInventory(t)
+		generated, err := stage("generate")
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, request := range generated.Inventory {
+			for i := range nw.inventory.Keys {
+				if nw.inventory.Keys[i].KeyID == request.KeyID {
+					nw.inventory.Keys[i] = request
+				}
+			}
+		}
+		nw.publishInventory(t)
+	}
+	args = append(append([]string{}, args...), "-manifest", nw.manifestPath, "-phase", "sign")
 	summary, err := run(context.Background(), args, func(k string) string { return env[k] }, &out, &errs)
 	if err != nil {
 		t.Fatalf("loadtest: %v (stderr %s)", err, errs.String())
@@ -390,8 +490,26 @@ func TestLoadTestAgainstFiveHardenedDaemons(t *testing.T) {
 
 	const concurrency = 4
 	duration := 15 * time.Second
-	summary, raw := runTool(t, nw.env(token), "-duration", duration.String(), "-concurrency", "4")
+	summary, raw := runTool(t, nw, nw.env(token), "-duration", duration.String(), "-concurrency", "4")
 	checkShape(t, "owner token", summary, raw, concurrency, duration)
+	// Keep measured signing latency alongside the bounded gate's private logs.
+	if evidenceRoot := os.Getenv("HF_OUT_DIR"); evidenceRoot != "" {
+		evidence, err := os.CreateTemp(filepath.Join(evidenceRoot, "logs"), "wallet-owner-signing-*.json")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err = evidence.Chmod(0600); err != nil {
+			t.Fatal(err)
+		}
+		if _, err = evidence.Write(raw); err != nil {
+			t.Fatal(err)
+		}
+		if err = evidence.Close(); err != nil {
+			t.Fatal(err)
+		}
+		t.Logf("owner signing evidence: %s", evidence.Name())
+	}
+	t.Logf("owner bearer signing concurrency=%d duration=%s sessions=%d successes=%d latency_ms=%+v curves=%+v refusals=%v", concurrency, duration, summary.Sessions, summary.Successes, summary.LatencyMillis, summary.Curves, summary.Refusals)
 	if len(summary.Refusals) != 0 {
 		t.Fatalf("owner token: refusals %v\n%s", summary.Refusals, raw)
 	}
@@ -411,7 +529,7 @@ func TestLoadTestAgainstFiveHardenedDaemons(t *testing.T) {
 	forged := nw.issuer.mint(t, foreign, testSubject)
 	env := nw.env(forged)
 	env[EnvDuration], env[EnvConcurrency] = "2s", "2"
-	refused, raw := runTool(t, env)
+	refused, raw := runTool(t, nw, env)
 	checkShape(t, "forged token", refused, raw, 2, 2*time.Second)
 	if refused.Successes != 0 || len(refused.Refusals) != 1 || refused.Refusals[server.CodeTokenInvalid] != refused.Sessions {
 		t.Fatalf("forged token: %d successes, refusals %v over %d sessions", refused.Successes, refused.Refusals, refused.Sessions)

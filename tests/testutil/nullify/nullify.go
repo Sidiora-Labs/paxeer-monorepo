@@ -20,8 +20,22 @@ func Fill(x interface{}) interface{} {
 	v := reflect.Indirect(reflect.ValueOf(x))
 	switch v.Kind() {
 	case reflect.Slice:
+		if v.IsNil() {
+			empty := reflect.MakeSlice(v.Type(), 0, 0)
+			if v.CanSet() {
+				v.Set(empty)
+			} else {
+				v = empty
+			}
+		}
 		for i := 0; i < v.Len(); i++ {
 			obj := v.Index(i)
+			if obj.Kind() == reflect.Ptr {
+				if !obj.IsNil() {
+					Fill(obj.Interface())
+				}
+				continue
+			}
 			objPt := reflect.NewAt(obj.Type(), unsafe.Pointer(obj.UnsafeAddr())).Interface() //nolint:gosec
 			objPt = Fill(objPt)
 			obj.Set(reflect.ValueOf(objPt))
@@ -34,7 +48,7 @@ func Fill(x interface{}) interface{} {
 			}
 			switch f.Kind() {
 			case reflect.Slice:
-				f.Set(reflect.MakeSlice(f.Type(), 0, 0))
+				f.Set(reflect.ValueOf(Fill(f.Addr().Interface())))
 			case reflect.Struct:
 				switch f.Type() {
 				case coinType:

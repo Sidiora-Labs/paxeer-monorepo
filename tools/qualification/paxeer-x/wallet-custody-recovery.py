@@ -1,23 +1,110 @@
 #!/usr/bin/env python3
+"""Qualify the supported native-send contract using a recorded authenticated peer.
+
+The Python gate checks the published provider contract and verifies node-produced
+transaction/receipt bytes with the production SDK. It does not certify a deployed
+TypeScript gateway, PostgreSQL, or attestor cluster.
+"""
 import hashlib
 import json
 import os
 from pathlib import Path
+import re
 import stat
 import subprocess
 import sys
+import tempfile
+from urllib.error import HTTPError
 from urllib.parse import urlparse
+from urllib.request import HTTPRedirectHandler, Request, build_opener
 
 ROOT = Path(__file__).resolve().parents[3]
-NODE = Path('/root/lx-toolchains/node24/bin/node')
-PNPM = Path('/root/lx-toolchains/node24/private-pnpm/corepack/v1/pnpm/9.15.9/bin/pnpm.cjs')
-EVIDENCE = Path(os.environ.get('WALLET_CUSTODY_RECOVERY_EVIDENCE_ROOT', '/root/lx-ops/paxeer-x-integration-2026-10-03/task-14.11-evidence'))
-SOURCES = ['sdk/wallet/src/provider.ts', 'services/wallet/gateway/src/routes/sign.ts',
-           'services/wallet/gateway/src/custody/authorization.ts',
-           'services/wallet/gateway/src/agent/actions/orchestrator.ts',
-           'services/wallet/gateway/migrations/013_wallet_custody_authorizations.sql',
-           'services/wallet/gateway/test/custody-authorization.test.ts',
-           'tools/qualification/paxeer-x/wallet-custody-recovery.py']
+sys.path.insert(0, str(ROOT / 'services/agent/sdk/python'))
+from layerx_sdk.account_derivation import keccak256
+from layerx_sdk.evm_transaction import decode_signed
+from layerx_sdk.verifier import (
+    ReceiptKey, SequencerReceiptVerificationError, verify_sequencer_receipt,
+)
+
+RETIRED_METHODS = ('paxeer_recoverCustody', 'paxeer_signCustody')
+MAX_RESPONSE = 131072
+PACKAGE_PATHS = {'sdk': 'sdk/wallet', 'gateway': 'services/wallet/gateway'}
+
+
+def build_commands(node, root=ROOT):
+    return [([str(node), str(root / package / 'node_modules/typescript/bin/tsc'),
+              '-p', str(root / package / 'tsconfig.json')], root / package)
+            for package in PACKAGE_PATHS.values()]
+
+
+def candidate_binding(root=ROOT):
+    sources, artifacts = {}, {}
+    for package in PACKAGE_PATHS.values():
+        for directory, target in (('src', sources), ('dist', artifacts)):
+            folder = root / package / directory
+            require(folder.is_dir() and not folder.is_symlink(), 'complete package tree required')
+            paths = sorted(folder.rglob('*'))
+            require(not any(path.is_symlink() for path in paths), 'candidate symlinks refused')
+            files = [path for path in paths if path.is_file()]
+            require(files, 'empty package tree refused: ' + str(folder))
+            for path in files:
+                target[str(path.relative_to(root))] = hashlib.sha256(path.read_bytes()).hexdigest()
+        for name in ('package.json', 'tsconfig.json'):
+            path = root / package / name
+            require(not path.is_symlink(), 'candidate symlinks refused')
+            sources[str(path.relative_to(root))] = hashlib.sha256(path.read_bytes()).hexdigest()
+    return {'packages': PACKAGE_PATHS, 'sources': sources, 'artifacts': artifacts}
+
+
+def build_candidate(node, evidence, root=ROOT):
+    evidence = Path(evidence)
+    evidence.mkdir(parents=True, exist_ok=True, mode=0o700)
+    require(not evidence.is_symlink() and evidence.stat().st_uid == os.getuid()
+            and evidence.stat().st_mode & 0o077 == 0, 'private build evidence required')
+    before = {str(path.relative_to(root)): hashlib.sha256(path.read_bytes()).hexdigest()
+              for package in PACKAGE_PATHS.values()
+              for path in [*(root / package / 'src').rglob('*'),
+                           root / package / 'package.json', root / package / 'tsconfig.json']
+              if path.is_file()}
+    for (name, _), (command, cwd) in zip(PACKAGE_PATHS.items(), build_commands(node, root)):
+        with (evidence / ('build-' + name + '.log')).open('wb') as output:
+            result = subprocess.run(command, cwd=cwd, stdout=output,
+                                    stderr=subprocess.STDOUT, timeout=240)
+        require(result.returncode == 0, 'package compilation failed: ' + name)
+    return seal_candidate(evidence, root, before)
+
+
+def seal_candidate(evidence, root=ROOT, expected_sources=None):
+    evidence = Path(evidence)
+    evidence.mkdir(parents=True, exist_ok=True, mode=0o700)
+    require(not evidence.is_symlink() and evidence.stat().st_uid == os.getuid()
+            and evidence.stat().st_mode & 0o077 == 0, 'private build evidence required')
+    binding = candidate_binding(root)
+    if expected_sources is not None:
+        require(binding['sources'] == expected_sources, 'package sources changed during compilation')
+    fd, temporary = tempfile.mkstemp(prefix='.candidate-', dir=evidence)
+    try:
+        with os.fdopen(fd, 'w') as output:
+            json.dump(binding, output, sort_keys=True)
+            output.flush()
+            os.fsync(output.fileno())
+        os.replace(temporary, evidence / 'candidate.json')
+    finally:
+        if os.path.exists(temporary):
+            os.unlink(temporary)
+    return binding
+
+
+def load_candidate(evidence, root=ROOT):
+    descriptor = os.open(Path(evidence) / 'candidate.json', os.O_RDONLY | os.O_NOFOLLOW)
+    with os.fdopen(descriptor) as stream:
+        info = os.fstat(stream.fileno())
+        require(stat.S_ISREG(info.st_mode) and info.st_uid == os.getuid()
+                and info.st_mode & 0o077 == 0 and info.st_nlink == 1,
+                'private candidate manifest required')
+        binding = json.load(stream)
+    require(binding == candidate_binding(root), 'source/generated artifact seal mismatch')
+    return binding
 
 
 def require(condition, message):
@@ -25,152 +112,189 @@ def require(condition, message):
         raise RuntimeError(message)
 
 
-def digest(path):
-    return hashlib.sha256(Path(path).read_bytes()).hexdigest()
+def assert_provider_contract(root=ROOT):
+    """Check the actual source contract; do not emulate an EIP-1193 provider."""
+    source = (root / 'sdk/wallet/src/provider.ts').read_text()
+    errors = (root / 'sdk/wallet/src/errors.ts').read_text()
+    unsupported = re.search(r'const UNSUPPORTED_METHODS = new Set\(\[(.*?)\]\);', source, re.S)
+    require(unsupported is not None, 'published unsupported-method contract missing')
+    names = re.findall(r"'([^']+)'", unsupported.group(1))
+    require(all(name in names for name in RETIRED_METHODS), 'retired custody method admitted')
+    refusal = 'if (UNSUPPORTED_METHODS.has(method)) throw new UnsupportedMethodError(method);'
+    start = source.index('const method = args.method;')
+    dispatch = source.index('switch (method)', start)
+    require(refusal in source[start:dispatch], 'retired methods must be refused before dispatch')
+    require(source.index(refusal, start) < source.index('await this.captureSigningContext()', start),
+            'retired methods must be refused before signing or authentication')
+    require('unsupportedMethod: 4200' in errors
+            and 'super(PROVIDER_ERROR_CODES.unsupportedMethod,' in errors,
+            'published EIP-1193 unsupported-method code changed')
+    require("'/v1/wallet/send', {\n      tx: wire," in source
+            and "case 'eth_sendTransaction':" in source,
+            'supported SDK native-send interface changed')
+    return {'methods': list(RETIRED_METHODS), 'code': 4200, 'transport': 'local refusal'}
 
 
-def sources():
-    paths = set(SOURCES)
-    for tree in ('sdk/wallet/src', 'services/wallet/gateway/src'):
-        paths.update(str(p.relative_to(ROOT)) for p in (ROOT / tree).rglob('*.ts'))
-    for package in ('sdk/wallet', 'services/wallet/gateway'):
-        paths.update(package + '/' + f for f in ('package.json', 'tsconfig.json'))
-    return {p: digest(ROOT / p) for p in sorted(paths)}
+def native_transaction(raw):
+    require(isinstance(raw, str) and re.fullmatch(r'0x(?:[0-9a-f]{2})+', raw),
+            'canonical signed transaction required')
+    data = bytes.fromhex(raw[2:])
+    tx, signature = decode_signed(data)
+    require(tx.chain_id == 125 and tx.value > 0 and tx.data == b'',
+            'chain-125 native value transfer required')
+    account = tx.recover_signer(signature).lower()
+    require(tx.attach_signature(signature, account) == data, 'signed bytes changed during SDK round trip')
+    wire = {'chainId': tx.chain_id, 'from': account, 'to': '0x' + tx.to.hex(),
+            'data': '0x', 'value': str(tx.value), 'gas': str(tx.gas_limit),
+            'maxFeePerGas': str(tx.max_fee_per_gas),
+            'maxPriorityFeePerGas': str(tx.max_priority_fee_per_gas), 'nonce': tx.nonce}
+    return data, tx, wire, '0x' + keccak256(data).hex()
 
 
-def artifacts():
-    result = {}
-    for tree in ('sdk/wallet/dist', 'services/wallet/gateway/dist'):
-        paths = list((ROOT / tree).rglob('*.js'))
-        require(paths, 'actual compiled SDK and gateway artifacts required')
-        result.update({str(p.relative_to(ROOT)): digest(p) for p in paths})
-    return result
+class NoRedirect(HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        raise RuntimeError('qualification redirects refused')
 
 
-def protected(path):
-    metadata = path.lstat()
-    require(stat.S_ISREG(metadata.st_mode) and stat.S_IMODE(metadata.st_mode) == 0o600
-            and metadata.st_uid == os.getuid() and metadata.st_nlink == 1 and metadata.st_size <= 131072,
-            'owner-only genuine custody fixture required')
-    return json.loads(path.read_text())
+class RecoveryQualification:
+    """Real HTTP consumer, retaining the original native send across reopen.
+
+    An ambiguous write is only polled. Recovery never constructs a second send.
+    The gateway owns rebroadcast of its retained signed bytes.
+    """
+
+    def __init__(self, endpoint, token, state, raw, pinned_key):
+        parsed = urlparse(endpoint)
+        require(parsed.scheme == 'http' and parsed.hostname == '127.0.0.1'
+                and parsed.port and parsed.path in ('', '/') and not parsed.query
+                and not parsed.fragment and not parsed.username and not parsed.password,
+                'recorded loopback HTTP peer required')
+        require(isinstance(token, str) and token and '\r' not in token and '\n' not in token,
+                'bounded bearer header required')
+        self.endpoint = endpoint.rstrip('/')
+        self.token = token
+        self.state = Path(state)
+        self.raw, self.tx, self.wire, self.hash = native_transaction(raw)
+        self.key = ReceiptKey(bytes.fromhex(pinned_key['keyId'][2:]),
+                              bytes.fromhex(pinned_key['publicKey'][2:]),
+                              pinned_key['firstHeight'], pinned_key['lastHeight'])
+        self.opener = build_opener(NoRedirect())
+        if self.state.exists():
+            saved = self.read_state()
+            require(saved['raw'] == raw and saved['tx_hash'] == self.hash
+                    and saved['tx'] == self.wire, 'reopened native send differs from original')
+
+    def read_state(self):
+        fd = os.open(self.state, os.O_RDONLY | os.O_NOFOLLOW)
+        with os.fdopen(fd) as stream:
+            info = os.fstat(stream.fileno())
+            require(stat.S_ISREG(info.st_mode) and info.st_uid == os.getuid()
+                    and stat.S_IMODE(info.st_mode) == 0o600 and info.st_nlink == 1
+                    and 0 < info.st_size <= MAX_RESPONSE, 'private recovery record required')
+            value = json.load(stream)
+        require(set(value) == {'raw', 'tx_hash', 'tx', 'phase'}
+                and value['phase'] in ('sending', 'unknown', 'settled'), 'invalid recovery record')
+        return value
+
+    def save(self, phase):
+        value = {'raw': '0x' + self.raw.hex(), 'tx_hash': self.hash, 'tx': self.wire, 'phase': phase}
+        fd, name = tempfile.mkstemp(prefix='.native-send-', dir=self.state.parent)
+        try:
+            with os.fdopen(fd, 'w') as stream:
+                json.dump(value, stream, sort_keys=True)
+                stream.flush()
+                os.fsync(stream.fileno())
+            os.replace(name, self.state)
+            parent = os.open(self.state.parent, os.O_RDONLY | os.O_DIRECTORY)
+            try:
+                os.fsync(parent)
+            finally:
+                os.close(parent)
+        finally:
+            if os.path.exists(name):
+                os.unlink(name)
+
+    def request(self, path, body):
+        data = json.dumps(body, separators=(',', ':')).encode()
+        request = Request(self.endpoint + path, data=data, method='POST', headers={
+            'Authorization': 'Bearer ' + self.token, 'Content-Type': 'application/json'})
+        try:
+            response = self.opener.open(request, timeout=5)
+        except HTTPError as error:
+            response = error
+        with response:
+            payload = response.read(MAX_RESPONSE + 1)
+            require(len(payload) <= MAX_RESPONSE, 'bounded response required')
+            require(response.headers.get_content_type() == 'application/json', 'JSON response required')
+            value = json.loads(payload)
+            require(isinstance(value, dict), 'response object required')
+            return response.status, value
+
+    def submit(self):
+        require(not self.state.exists(), 'retained send must be recovered, never resubmitted')
+        # Persist before the uncertain HTTP write, including a lost response.
+        self.save('sending')
+        status, value = self.request('/v1/wallet/send', {'tx': self.wire})
+        require(status in (200, 202) and value.get('tx_hash') == self.hash,
+                'gateway must identify the exact original signed transaction')
+        if status == 202:
+            require(value.get('error') == 'outcome_unknown'
+                    and value.get('nonce') == self.tx.nonce
+                    and value.get('retry') == 'poll_receipt'
+                    and value.get('poll') == 'eth_getTransactionReceipt'
+                    and value.get('must_not_resubmit') is True, 'ambiguous send recovery contract changed')
+        else:
+            require(value.get('address', '').lower() == self.wire['from']
+                    and value.get('chain_id') == 125, 'gateway account or chain mismatch')
+        self.save('unknown')
+        return value
+
+    def recover(self):
+        saved = self.read_state()
+        require(saved['raw'] == '0x' + self.raw.hex() and saved['tx_hash'] == self.hash
+                and saved['tx'] == self.wire, 'retained native send changed')
+        status, value = self.request('/rpc', {'jsonrpc': '2.0', 'id': 1,
+                                             'method': 'pax_sequencerReceipt', 'params': [self.hash]})
+        require(status == 200 and value.get('jsonrpc') == '2.0'
+                and type(value.get('id')) is int and value['id'] == 1
+                and 'error' not in value and 'result' in value, 'receipt RPC failed')
+        row = value['result']
+        if row is None:
+            return None
+        require(isinstance(row, dict) and row.get('txHash') == self.hash, 'receipt hash mismatch')
+        proof = verify_sequencer_receipt(bytes.fromhex(row['receipt'][2:]), self.raw, (self.key,))
+        facts = proof.receipt
+        require(facts.module_id == 12 and facts.operation == 2 and facts.result_code == 0
+                and facts.from_sequence == self.tx.nonce and facts.amount == self.tx.value
+                and facts.from_account == bytes(12) + bytes.fromhex(self.wire['from'][2:])
+                and facts.to_account == bytes(12) + self.tx.to, 'native execution binding mismatch')
+        expected = {'rung': 'receipted', 'nonce': hex(self.tx.nonce), 'status': '0x1',
+                    'height': hex(proof.height), 'seq': hex(facts.global_sequence),
+                    'from': self.wire['from'], 'to': self.wire['to'],
+                    'feeAmount': hex(facts.fee_charged), 'keyId': '0x' + facts.context_hash.hex(),
+                    'signingKey': '0x' + self.key.public_key.hex()}
+        require(all(row.get(key) == item for key, item in expected.items()),
+                'receipt JSON differs from signed execution')
+        self.save('settled')
+        return row
 
 
-def run(command, log, environment, seconds):
-    with log.open('wb') as stream:
-        log.chmod(0o600)
-        result = subprocess.run(command, cwd=ROOT, env=environment, stdout=stream,
-                                stderr=subprocess.STDOUT, timeout=seconds)
-    print(json.dumps({'command': command[:4], 'exit_code': result.returncode, 'log_path': str(log)}), flush=True)
-    return result.returncode
-
-
-HTTP_CASE = r'''
-import assert from 'node:assert/strict';
-import fs from 'node:fs';
-import {spawn} from 'node:child_process';
-import {createRequire} from 'node:module';
-import {pathToFileURL} from 'node:url';
-const root=process.cwd(), require=createRequire(root+'/services/wallet/gateway/package.json');
-const {Pool}=require('pg');
-const {PaxeerProvider,decodeCustodyAuthorization}=await import(pathToFileURL(root+'/sdk/wallet/dist/provider.js'));
-const store=await import(pathToFileURL(root+'/services/wallet/gateway/dist/custody/authorization.js'));
-const fixture=JSON.parse(fs.readFileSync(process.env.WALLET_CUSTODY_AUTHORIZATION_FIXTURE,'utf8'));
-const runtime=fixture.runtime;
-assert(runtime&&runtime.environment&&runtime.owner_token&&runtime.foreign_token,'genuine JWT/process fixture required');
-assert.equal(runtime.environment.DATABASE_URL,fixture.database_url);
-const url=new URL(runtime.gateway_url),rpc=new URL(runtime.rpc_url);
-for(const u of [url,rpc])assert(['http:','https:'].includes(u.protocol)&&['localhost','127.0.0.1','[::1]'].includes(u.hostname)&&!u.username&&!u.password);
-assert.equal(url.protocol,'http:');assert(url.port&&url.pathname==='/');
-assert.equal(runtime.environment.HYPERPAXEER_RPC_URL,runtime.rpc_url);
-assert.equal(BigInt(runtime.environment.HYPERPAXEER_CHAIN_ID),decodeCustodyAuthorization(fixture.signed.identity.custody).chainId);
-assert(decodeCustodyAuthorization(fixture.signed.identity.custody).deadline<=BigInt(Math.floor(Date.now()/1000)), 'genuine retained expired consent required');
-const pool=new Pool({connectionString:fixture.database_url});
-const rows=[fixture.signed.identity.id,fixture.unknown.identity.id];
-let ownsRows=false,child=null,log=null;
-async function transaction(work){const c=await pool.connect();try{await c.query('begin');const r=await work(c);await c.query('commit');return r;}catch(e){await c.query('rollback');throw e;}finally{c.release();}}
-async function start(){
- const code=`const {buildApp}=await import(${JSON.stringify(pathToFileURL(root+'/services/wallet/gateway/dist/index.js').href)});const app=await buildApp();await app.listen({host:'127.0.0.1',port:${Number(url.port)}});`;
- log=fs.openSync(process.env.CUSTODY_PROCESS_LOG,'a',0o600);
- child=spawn(process.execPath,['--input-type=module','--eval',code],{cwd:root+'/services/wallet/gateway',env:{...process.env,...runtime.environment,NODE_ENV:'test',API_WORKERS:'1'},stdio:['ignore',log,log]});
- fs.closeSync(log);log=null;
- for(let i=0;i<150;i++){
-  assert(child.exitCode===null,'actual candidate gateway exited before admission');
-  try{const r=await fetch(new URL('/healthz',url));if(r.ok&&r.headers.get('x-served-by')==='paxeer-wallet-gateway'){const h=await r.json();assert.equal(h.chain_id,Number(runtime.environment.HYPERPAXEER_CHAIN_ID));return;}}catch{}
-  await new Promise(r=>setTimeout(r,200));
- }
- throw Error('actual candidate gateway readiness unavailable');
-}
-async function stop(){if(!child)return;const p=child;child=null;p.kill('SIGTERM');await new Promise(resolve=>{if(p.exitCode!==null)return resolve();p.once('exit',resolve);setTimeout(()=>{p.kill('SIGKILL');},5000).unref();});}
-async function request(path,method='GET',body,token=runtime.owner_token){const r=await fetch(new URL(path,url),{method,headers:{Authorization:'Bearer '+token,...(body?{'Content-Type':'application/json'}:{})},body:body?JSON.stringify(body):undefined});return {status:r.status,body:await r.json()};}
-function provider(){return new PaxeerProvider({gatewayUrl:runtime.gateway_url,rpcUrl:runtime.rpc_url,chainId:Number(runtime.environment.HYPERPAXEER_CHAIN_ID),token:()=>runtime.owner_token});}
-try{
- const present=await pool.query('select id from wallet_custody_authorizations where id=any($1::text[])',[rows]);assert.equal(present.rowCount,0);
- ownsRows=true;
- await transaction(async c=>{await store.retainCustodyAuthorization(c,fixture.signed.identity);await store.completeCustodyAuthorization(c,fixture.signed.identity,fixture.signed.signature,fixture.signed.evidence);await store.retainCustodyAuthorization(c,fixture.unknown.identity);});
- await start();
- let sdk=provider();const accounts=await sdk.request({method:'eth_requestAccounts'});assert.equal(accounts[0].toLowerCase(),fixture.signed.identity.address.toLowerCase());
- const recover=()=>sdk.request({method:'paxeer_recoverCustody',params:[{custody:fixture.signed.identity.custody}]});
- assert.equal(await recover(),fixture.signed.signature);
- const replay=await request('/v1/wallet/sign-custody','POST',{custody:fixture.signed.identity.custody});assert.equal(replay.status,200);assert.equal(replay.body.signature,fixture.signed.signature);assert(!('tx_hash' in replay.body));
- sdk.disconnect();await stop();await start();sdk=provider();await sdk.request({method:'eth_requestAccounts'});assert.equal(await recover(),fixture.signed.signature);
- assert.equal(await sdk.request({method:'paxeer_signCustody',params:[{custody:fixture.signed.identity.custody}]}),fixture.signed.signature);
- const pending=await request('/v1/wallet/sign-custody','POST',{custody:fixture.unknown.identity.custody});assert.equal(pending.status,409);assert.equal(pending.body.error,'custody_authorization_unknown');
- await assert.rejects(sdk.request({method:'paxeer_signCustody',params:[{custody:fixture.unknown.identity.custody}]}),e=>e.data?.status===409&&e.data.body.error==='custody_authorization_unknown');
- const ambiguous=await transaction(c=>store.readCustodyAuthorization(c,fixture.unknown.identity));assert.equal(ambiguous.state,'signing_unknown');assert.equal(ambiguous.signature,null);assert.equal(ambiguous.evidence,null);
- const foreign=await request('/v1/wallet/custody-authorization/'+fixture.signed.identity.id,'GET',undefined,runtime.foreign_token);assert([403,404].includes(foreign.status));assert(!foreign.body.signature);
- assert.equal((await request('/v1/wallet/custody-authorization/0x01')).status,400);
- assert.equal((await request('/v1/wallet/sign-custody','POST',{custody:'0x01'})).status,400);
- await assert.rejects(sdk.request({method:'paxeer_recoverCustody',params:[{custody:'0x01'}]}));
- console.log('actual storage, SDK, authenticated gateway, expired retained proof, process restart, replay and durable unknown paths passed');
-}finally{await stop();if(ownsRows)await pool.query('delete from wallet_custody_authorizations where id=any($1::text[])',[rows]);await pool.end();}
-'''
-
-
-def main():
-    EVIDENCE.mkdir(parents=True, exist_ok=True, mode=0o700)
-    require(not EVIDENCE.stat().st_mode & 0o077, 'private evidence directory required')
-    environment = os.environ.copy()
-    environment['PATH'] = str(NODE.parent) + ':' + environment.get('PATH', '')
-    require(NODE.is_file() and PNPM.is_file(), 'actual Node24/pnpm9.15.9 tooling required')
-    manifest = EVIDENCE / 'wallet-custody-candidate.json'
-    if sys.argv[1:] == ['--build']:
-        require(subprocess.check_output([str(NODE), str(PNPM), '--version'], env=environment, text=True).strip() == '9.15.9', 'pnpm9.15.9 required')
-        before = sources()
-        for name in ('sdk', 'gateway'):
-            code = run([str(NODE), str(PNPM), '--dir', 'services/wallet/' + name, 'exec', 'tsc', '-p', 'tsconfig.json'],
-                       EVIDENCE / ('build-' + name + '.log'), environment, 600)
-            if code:
-                return code
-        require(sources() == before, 'source changed during compilation')
-        manifest.write_text(json.dumps({'sources': before, 'artifacts': artifacts()}, sort_keys=True))
-        manifest.chmod(0o600)
-        print(json.dumps({'build_exit_code': 0, 'candidate_manifest': str(manifest)}))
+def main(arguments=None):
+    arguments = sys.argv[1:] if arguments is None else arguments
+    if len(arguments) == 3 and arguments[0] == '--build':
+        build_candidate(arguments[1], arguments[2])
         return 0
-    require(not sys.argv[1:], 'only --build or the declared verification command is supported')
-    binding = protected(manifest)
-    require(binding['sources'] == sources() and binding['artifacts'] == artifacts(), 'candidate does not match whole current source and actual artifacts')
-    path = os.environ.get('WALLET_CUSTODY_AUTHORIZATION_FIXTURE')
-    require(path, 'missing genuine protected isolated PostgreSQL, attestor signature, JWT, RPC and runtime fixture')
-    fixture = protected(Path(path))
-    parsed = urlparse(fixture['database_url'])
-    require(fixture.get('isolated_database') is True and parsed.scheme in ('postgres', 'postgresql')
-            and parsed.hostname in ('localhost', '127.0.0.1', '::1')
-            and parsed.path.startswith('/wallet_custody_qualification_'), 'dedicated genuine local fixture database required')
-    require(isinstance(fixture.get('runtime'), dict), 'actual JWT and candidate process environment required')
-    code = run([str(NODE), str(PNPM), '--dir', 'services/wallet/gateway', 'exec', 'vitest', 'run', 'test/custody-authorization.test.ts'],
-               EVIDENCE / 'storage.log', environment, 180)
-    if code:
-        return code
-    script = EVIDENCE / 'actual-custody-http.mjs'
-    script.write_text(HTTP_CASE)
-    script.chmod(0o600)
-    environment['CUSTODY_PROCESS_LOG'] = str(EVIDENCE / 'process.log')
-    return run([str(NODE), str(script)], EVIDENCE / 'http.log', environment, 240)
+    require(not arguments, 'use the declared qualification command or --build NODE EVIDENCE')
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    from wallet_recovery_recording import qualify_recording
+    result = qualify_recording()
+    print(json.dumps(result, sort_keys=True))
+    return 0
 
 
 if __name__ == '__main__':
     try:
         sys.exit(main())
-    except (RuntimeError, KeyError, ValueError, OSError, subprocess.TimeoutExpired):
-        print(json.dumps({'exit_code': 78, 'qualification': 'UNQUALIFIED', 'observed': 'required genuine fixture, source-matched candidate or bounded target unavailable'}))
-        sys.exit(78)
+    except (RuntimeError, OSError, ValueError, KeyError, SequencerReceiptVerificationError) as error:
+        print('wallet native recovery qualification refused: ' + str(error), file=sys.stderr)
+        sys.exit(1)

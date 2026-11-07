@@ -1,0 +1,36 @@
+{
+  "source": {
+    "kind": "recorded",
+    "endpoint": "https://api1.mainnet-beta.paxeer.network",
+    "captured_at": "2026-11-04T05:46:55.254012+00:00",
+    "node_revision_before": "2da69275051f6feb074a8b552977d37197735d86",
+    "node_revision_after": "2da69275051f6feb074a8b552977d37197735d86",
+    "application_version": {
+      "name": "paxeer",
+      "app_name": "paxd",
+      "version": "v6.12.0",
+      "git_commit": "2da69275051f6feb074a8b552977d37197735d86",
+      "build_tags": "netgo,ledger",
+      "go_version": "go version go1.25.6 linux/amd64",
+      "cosmos_sdk_version": ""
+    },
+    "environment": "public node; disposable-node provenance not available"
+  },
+  "request": {
+    "jsonrpc": "2.0",
+    "id": 0,
+    "method": "pax_getBlockTransactionCountByNumber",
+    "params": [
+      "0x289221E"
+    ]
+  },
+  "response": {
+    "error": {
+      "code": -32601,
+      "data": "legacy_pax_deprecated",
+      "message": "pax_getBlockTransactionCountByNumber is not enabled on this node. The pax_* and pax2_* JSON-RPC surfaces are deprecated, scheduled for removal, and should not be used for new integrations - prefer standard eth_* (and debug_*) methods and official migration guidance. To allow this legacy method, add it to enabled_legacy_pax_apis under [evm] in app.toml."
+    },
+    "id": 0,
+    "jsonrpc": "2.0"
+  }
+}

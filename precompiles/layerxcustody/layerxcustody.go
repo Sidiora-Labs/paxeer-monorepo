@@ -157,7 +157,7 @@ func NewPrecompile(keepers utils.Keepers) (*pcommon.Precompile, error) {
 		bankKeeper: keepers.BankK(),
 		evmKeeper:  keepers.EVMK(),
 	}
-	return pcommon.NewPrecompile(newAbi, p, p.address, PrecompileName).WithRevertReasons(), nil
+	return pcommon.NewPrecompile(newAbi, p, p.address, PrecompileName).WithLegacyRevertReasons(), nil
 }
 
 // Signatures returns the Ed25519 verifications a method performs.

@@ -1,0 +1,6 @@
+[repair.rust-build-explorer-verifier.1]
+target = "smart-contract-verifier"
+command = "cargo build --locked --manifest-path services/explorer/services/smart-contract-verifier/Cargo.toml -p smart-contract-verifier --all-targets"
+revision = "d42f4a3aeb711ba09c21e70fffb559980e64765d"
+result = "repaired"
+change = "smart-contract-verifier/src/compiler/version_detailed.rs parses Vyper prereleases, smart-contract-verifier/src/verify/solc_compiler_cli.rs preserves legacy compiler warnings and reports missing contracts as compilation errors, smart-contract-verifier/src/sourcify/api_client.rs and smart-contract-verifier/src/sourcify/api.rs validate Etherscan import support against the chain catalog, and smart-contract-verifier-server/tests/sourcify_from_etherscan.rs checks the unsupported chain response with failure diagnostics."

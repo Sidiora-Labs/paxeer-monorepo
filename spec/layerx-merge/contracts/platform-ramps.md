@@ -140,7 +140,7 @@ No interface block names this anchor; the citing criteria and rules below define
 | <code>interface.8.cfg-ramp-toolkit-layerxconfig-operator-address-j41</code> | <code>config_key</code> | <code>new</code> | <code>services/platform/ramps/toolkit/src/clients.rs</code> (planned) | <code>pub operator_address: String</code> |
 | <code>interface.8.cfg-ramp-toolkit-layerxconfig-receipt-keys-j41</code> | <code>config_key</code> | <code>new</code> | <code>services/platform/ramps/toolkit/src/clients.rs</code> (planned) | <code>pub receipt_keys: Vec&lt;ReceiptKeyConfig&gt;</code> |
 | <code>interface.8.cfg-ramp-toolkit-layerxconfig-rpc-endpoint-j41</code> | <code>config_key</code> | <code>new</code> | <code>services/platform/ramps/toolkit/src/clients.rs</code> (planned) | <code>pub rpc_endpoint: String</code> |
-| <code>interface.8.cfg-ramp-toolkit-layerxconfig-rpc-trust-anchor-der-j41</code> | <code>config_key</code> | <code>new</code> | <code>services/platform/ramps/toolkit/src/clients.rs</code> (planned) | <code>pub rpc_trust_anchor_der: Option&lt;PathBuf&gt;</code> |
+| <code>interface.8.cfg-ramp-toolkit-layerxconfig-rpc-trust-anchor-der-j41</code> | <code>config_key</code> | <code>new</code> | <code>services/platform/ramps/toolkit/src/clients.rs</code> (planned) | <code>pub rpc_trust_anchor_der: PathBuf</code> |
 | <code>interface.8.cfg-ramps-layerx-chain-id-j41</code> | <code>config_key</code> | <code>new</code> | <code>services/platform/ramps/config.example.json</code> (planned) | <code>"layerx": { "chain_id": ... }</code> |
 | <code>interface.8.cfg-ramps-layerx-gas-limit-cap-j41</code> | <code>config_key</code> | <code>new</code> | <code>services/platform/ramps/config.example.json</code> (planned) | <code>"layerx": { "gas_limit_cap": ... }</code> |
 | <code>interface.8.cfg-ramps-layerx-max-fee-per-gas-j41</code> | <code>config_key</code> | <code>new</code> | <code>services/platform/ramps/config.example.json</code> (planned) | <code>"layerx": { "max_fee_per_gas": ... }</code> |
@@ -746,3 +746,27 @@ No interface block names this anchor; the citing criteria and rules below define
 |---|---|---|
 | <code>interface.8.env-ramps-layerx-ramp-on-account-sequence</code> | overridden_by | override.J41.82 |
 | <code>interface.8.env-ramps-layerx-ramp-receipt-verifier-config</code> | overridden_by | override.J41.83 |
+
+
+## Toolkit configuration and order presentation v2
+
+`interface.8.cfg-ramp-toolkit-layerxconfig-rpc-trust-anchor-der-j41` requires
+`rpc_trust_anchor_der: PathBuf`: typed producers serialize a non-null path under
+`layerx.rpc_trust_anchor_der`. Missing, null and malformed certificate inputs are
+refused. `LayerxConfig::build` consumes that DER certificate as the RPC trust pin;
+there is no implicit system-root or unauthenticated production alternative.
+The maintained producer example is `tests/proof_ramp_layerx_config.rs::Option`.
+
+`OrderSnapshot::presentation()` emits version 2 with `transaction_hash` as a
+`0x`-prefixed 32-byte hex string (or null), matching serialized
+`VerifiedLayerxLeg` and verifier output. It never substitutes a legacy activity
+identifier. `OrderSnapshot::response()` supplies the same field in GET order
+`evidence` and `presentation`; journal v2 retains its internal `tx_hash` key so
+existing hash-chained records replay unchanged. `presentation_v1()` is an explicit
+read-only historical view, with `version: 1` and `activity_id` drawn only from
+legacy evidence. The deprecated Rust-only presentation member is omitted from
+serialization and exists solely for source compatibility during consumer wiring.
+
+Domain 8 wiring: `services/platform/ramps/reference/src/main.rs::order_response`
+must consume `OrderSnapshot::response()` in place of its hand-written `tx_hash`
+envelope; downstream HTTP clients must consume presentation version 2.

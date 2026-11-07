@@ -1,0 +1,11 @@
+{
+  "data": {
+    "collateralTokens": [
+      {
+        "tokenAddress": "0x85FcD13735F4309833A503EE804ea32395851479",
+        "decimals": 6,
+        "isActive": true
+      }
+    ]
+  }
+}

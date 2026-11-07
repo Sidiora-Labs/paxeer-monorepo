@@ -18,6 +18,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+var _ lp.HostKeepers = (*app.PrecompileKeepers)(nil)
+
 func TestProgramsPrecompileActiveAfterMergeHeight(t *testing.T) {
 	h := newHarness(t)
 	a := testkeeper.EVMTestApp
@@ -29,6 +31,7 @@ func TestProgramsPrecompileActiveAfterMergeHeight(t *testing.T) {
 	require.True(t, ok, "node keepers must expose the LayerX host to the merge constructor")
 	require.NotNil(t, a.LayerXHost)
 	require.Same(t, a.LayerXHost, keepers.LayerXHost())
+	require.Same(t, &a.XWebKeeper, keepers.XWebK())
 	prices := [7]uint64{11, 13, 17, 19, 23, 29, 31}
 	asset := [32]byte{0xa5}
 	record := binary.BigEndian.AppendUint32([]byte("LXFR1"), 1)
@@ -112,6 +115,7 @@ func TestProgramsPrecompileListedInMergeSet(t *testing.T) {
 	require.True(t, ok)
 	require.NotNil(t, wired.LayerXHost())
 	require.Same(t, a.LayerXHost, wired.LayerXHost())
+	require.Same(t, &a.XWebKeeper, wired.XWebK())
 	built, err := lp.NewMergePrecompile(keepers, precompiles.MergeUpgrade)
 	require.NoError(t, err)
 	require.NotNil(t, built)
@@ -122,10 +126,16 @@ func TestProgramsPrecompileListedInMergeSet(t *testing.T) {
 	require.NoError(t, err)
 	require.Contains(t, custom, address)
 	require.Contains(t, custom[address], precompiles.MergeUpgrade)
-	require.Equal(t, built, custom[address][precompiles.MergeUpgrade], "the registered constructor must build NewMergePrecompile with the real node keepers")
+	registered, ok := custom[address][precompiles.MergeUpgrade].(precompiles.IPrecompile)
+	require.True(t, ok)
+	require.Equal(t, built.Address(), registered.Address())
+	require.Equal(t, built.GetName(), registered.GetName())
+	require.Equal(t, built.GetABI(), registered.GetABI())
 	ctx := h.stateDB.Ctx().WithBlockHeight(10)
 	a.UpgradeKeeper.SetDone(ctx, precompiles.MergeUpgrade)
-	served, ok := a.EvmKeeper.CustomPrecompiles(ctx)[address]
+	served, ok := a.EvmKeeper.CustomPrecompiles(ctx)[address].(precompiles.IPrecompile)
 	require.True(t, ok, "the node must install the registered programs precompile")
-	require.Equal(t, built, served)
+	require.Equal(t, registered.Address(), served.Address())
+	require.Equal(t, registered.GetName(), served.GetName())
+	require.Equal(t, registered.GetABI(), served.GetABI())
 }

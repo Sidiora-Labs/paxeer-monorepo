@@ -341,22 +341,30 @@ impl ProductionAgentCreation<'_> {
                 .map_err(|_| AgentFailure::Refused("invalid retained payload identity"))?
                 != action.compiled.payload_hash()
             || signed.disclosure.activity_type != action.compiled.activity_type()
-            || signed.disclosure.idempotency_key != action.action_key
+            || signed.disclosure.idempotency_key
+                != ProtocolEvidence::creation_idempotency_key(
+                    &signed.disclosure,
+                    action.action_key,
+                )?
         {
             return Err(AgentFailure::Refused("retained owner request differs"));
         }
         let activity_id = signed.activity_id;
         let material = match self
             .runtime
-            .receipt_by_idempotency_key(action.action_key, activity_id)
+            .receipt_by_idempotency_key(
+                ProtocolEvidence::creation_idempotency_key(&signed.disclosure, action.action_key)?,
+                activity_id,
+            )
             .map_err(map_boundary)?
         {
             ReceiptLookup::Absent | ReceiptLookup::Submitted { .. } => return Ok(None),
             ReceiptLookup::Found(value) => value,
         };
-        ProductionAgentCreation::protocol_evidence(
+        ProductionAgentCreation::protocol_evidence_for_action(
             bytes,
             signed.owner_public_key,
+            action.action_key,
             self.runtime.registry(),
             material,
         )

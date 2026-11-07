@@ -3,7 +3,7 @@ defmodule Explorer.Repo.Migrations.AddPaxeerXPriceObservationAccepted do
 
   def change do
     alter table(:paxeer_x_price_observations) do
-      add(:accepted, :boolean, null: false, default: true)
+      add(:accepted, :boolean)
     end
   end
 end

@@ -7,6 +7,11 @@ if [ "$#" -ne 1 ]; then
 fi
 
 input_file="$1"
+if [ ! -f "$input_file" ]; then
+  echo "Environment documentation not found: $input_file" >&2
+  exit 1
+fi
+
 prefix="NEXT_PUBLIC_"
 
 # Function to make the environment variables registry file based on documentation file ENVS.md
@@ -25,6 +30,9 @@ make_registry_file() {
   done
 }
 
+# Save build-time defaults in the raw NAME=value format consumed by Next.js.
+# make_envs_script.sh fills only unset keys from this snapshot; deployment
+# values, including explicit empty strings, take precedence over these defaults.
 # Function to save build-time environment variables to .env file
 save_build-time_envs() {
   output_file=".env"

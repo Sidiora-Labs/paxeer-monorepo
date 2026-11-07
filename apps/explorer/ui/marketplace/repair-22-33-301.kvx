@@ -1,0 +1,17 @@
+[repair.22.33.301]
+audit = "22.30.135"
+marketplace-card-share-path = "repair-22-33-301.spec.ts:marketplaceCardSharePathCopiesMountedAbsoluteUrl"
+marketplace-modal-share-path = "repair-22-33-301.spec.ts:marketplaceModalSharePathMatchesCardAndReopensSelectedApp"
+route_encoding = "repair-22-33-301.spec.ts:marketplaceShareUrlEncodesIdAndUsesCurrentOrigin"
+encoding_repair = "The initial verification exposed that nextjs-routes interpolates dynamic segments without escaping reserved characters; the shared builder encodes the app ID before passing it to the route helper, preserving the existing encoding and route-decoding assertions."
+baseline = "Not executed: the explicit gate order forbids testing before implementation and running verify_cmd by hand; no baseline failures are claimed."
+formatting = "ESLint --fix passed on MarketplaceAppCard.tsx, MarketplaceAppModal.tsx, getMarketplaceAppShareUrl.ts and repair-22-33-301.spec.ts; test registrations use literal string titles and named test bodies with assertions inside each body, as decision 2528 requires."
+evidence = "The private hf-done ledger records the exact verified candidate revision, command, exit code and log."
+wiring_requests = []
+
+[qualification.pre_existing_type_mismatch]
+revision = "d8ca79778aa339c6774ccfcb8325bbde14709239"
+command = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json"
+exit = 2
+log = "/out/logs/build-1.log"
+observed = "Unchanged essentialDapps/revoke/components/repair-22-33-299.spec.ts:116 lacks coverage, partialAllowances, scanIssues and retry required by its production query type; this is unrelated to the share-path findings."

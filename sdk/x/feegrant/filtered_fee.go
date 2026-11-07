@@ -74,12 +74,12 @@ func (a *AllowedMsgAllowance) Accept(ctx sdk.Context, fee sdk.Coins, msgs []sdk.
 
 	remove, err := allowance.Accept(ctx, fee, msgs)
 	if err != nil {
-		return false, err
+		return remove, err
 	}
 
 	a.Allowance, err = types.NewAnyWithValue(allowance.(proto.Message))
 	if err != nil {
-		return false, err
+		return remove, err
 	}
 
 	return remove, nil

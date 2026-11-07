@@ -1,0 +1,603 @@
+[audit.22.30.159]
+task = "22.30.159"
+revision = "2b99f88520e4e809ad5593f3bee2df74fe355d7b"
+files_reviewed = 29
+findings = 33
+docs_reviewed = 14
+upgrade_ready = false
+blocking = ["health-metadata", "log-emitter", "log-nullability", "holder-address", "nft-transfer-total", "pagination-transport", "contract-abi", "internal-create", "transaction-lifecycle"]
+requirements_reviewed = ["22108.1", "22998.1"]
+produces_reviewed = []
+consumes_reviewed = ["14.http-get-api-health", "14.http-get-api-health-l564", "14.http-get-api-v2-addresses-address-hash-param-blocks-validated", "14.http-get-api-v2-addresses-address-hash-param-counters", "14.http-get-api-v2-addresses-address-hash-param-logs", "14.http-get-api-v2-addresses-address-hash-param-nft-collections", "14.http-get-api-v2-addresses-address-hash-param-token-balances", "14.http-get-api-v2-addresses-address-hash-param-token-transfers", "14.http-get-api-v2-addresses-address-hash-param-tokens", "14.http-get-api-v2-tokens-address-hash-param-counters", "14.http-get-api-v2-tokens-address-hash-param-holders", "14.http-get-api-v2-tokens-address-hash-param-instances", "14.http-get-api-v2-tokens-address-hash-param-instances-token-id-param", "14.http-get-api-v2-tokens-address-hash-param-instances-token-id-param-holders", "14.http-get-api-v2-tokens-address-hash-param-transfers", "14.http-get-api-v2-transactions-transaction-hash-param-internal-transactions"]
+review_basis = "The audited source is the supplied base revision; the pre-existing task-status and graph-ignore changes do not alter members. One handwritten Rust test file was read in full. Twenty-eight generated upstream response recordings take the BRIEF generated-data exception, with every envelope/body loaded and per-file provenance and shape notes; no generated data is claimed as clean source."
+qualification_boundary = "This is an audit record, not a dependency upgrade or an inventory-target repair. req.22108 ac_1 governs dependency alert disposition and req.22998 ac_1 requires original target evidence for a repair. Record validation does not certify the Rust suite, frozen dependency install, live explorer or all network behavior."
+lifecycle_security = "The sixteen consumed rows are read-only HTTP endpoints with no persistent state in this slice. Paths, methods, encodings and shared response models were compared against local routes/controllers/views; findings name disagreements and absent failure coverage. Captures contain no bearer credential or private signing key. Opaque metadata/source/URL response content is not executed. Backend persistence, tenancy and restart are not exercised by replay; shared test-server lifecycle is a separate finding."
+retired_references = "No active retired router, daemon or LayerX method reference was found in member source or recording envelopes; Ethereum recordings are compatibility samples rather than deployed Paxeer defaults. Retired architecture, endpoint and settlement references in the package documentation are recorded separately."
+
+[file.1]
+path = "services/explorer/services/libs/blockscout-client/crate/tests/it_works.rs"
+lines = 476
+verdict = "issues"
+note = "All 476 lines read, including the shared fixture, every active test and the commented config test. The suite uses only read HTTP methods and no embedded signing keys. Issues below concern actual typed decoders, lifecycle and the limits of replay coverage; no retired daemon/router reference occurs in this source."
+
+[file.2]
+path = "services/explorer/services/libs/blockscout-client/crate/tests/recorded/eth_blockscout_com/_api_health.json"
+lines = 13
+verdict = "issues"
+note = "Generated upstream health recording with fixture-only compatibility metadata; issue health-metadata identifies the exact local producer divergence."
+
+[file.3]
+path = "services/explorer/services/libs/blockscout-client/crate/tests/recorded/eth_blockscout_com/_api_v1_health.json"
+lines = 13
+verdict = "issues"
+note = "Historical upstream v1 health recording; issue legacy-health distinguishes this absent local route from current /api/health."
+
+[file.4]
+path = "services/explorer/services/libs/blockscout-client/crate/tests/recorded/eth_blockscout_com/_api_v2_addresses_0x4838B106FCe9647Bdf1E7877BF73cE8B0BAD5f97_blocks-validated.json"
+lines = 13
+verdict = "generated"
+note = "Generated eth.blockscout.com recording from ts-src/record-stubs.ts; review exemption for captured block data. Row 14.http-get-api-v2-addresses-address-hash-param-blocks-validated reaches AddressController and BlockView; hash/parent hash, decimal height, base-unit strings, miner and items/cursor envelope match the captured success model. Continuation is covered by pagination-transport."
+
+[file.5]
+path = "services/explorer/services/libs/blockscout-client/crate/tests/recorded/eth_blockscout_com/_api_v2_addresses_0x8FD4596d4E7788a71F82dAf4119D069a84E7d3f3_logs.json"
+lines = 13
+verdict = "generated"
+note = "Generated upstream recording; review exemption for captured event payloads. Row 14.http-get-api-v2-addresses-address-hash-param-logs reaches AddressController and TransactionView. Twelve decoded logs cover hex data, four nullable topics and transaction hashes, but log-emitter and log-nullability show the typed consumer disagreements; continuation is absent."
+
+[file.6]
+path = "services/explorer/services/libs/blockscout-client/crate/tests/recorded/eth_blockscout_com/_api_v2_addresses_0xc0de20a37e2dac848f81a93bd85fe4acdde7c0de.json"
+lines = 13
+verdict = "generated"
+note = "Generated upstream address recording; review exemption for captured address data. The active address_details test reads the checksummed hash. Coin balance is an integer string and optional token/creation fields are null; this capture does not prove a live chain-125 address path."
+
+[file.7]
+path = "services/explorer/services/libs/blockscout-client/crate/tests/recorded/eth_blockscout_com/_api_v2_addresses_0xc0de20a37e2dac848f81a93bd85fe4acdde7c0de_counters.json"
+lines = 13
+verdict = "generated"
+note = "Generated upstream recording; review exemption for captured counter values. Row 14.http-get-api-v2-addresses-address-hash-param-counters emits transactions_count, token_transfers_count, gas_usage_count and validations_count as decimal strings in AddressController; AddressCounters accepts the same four strings. The test only covers nonzero transaction count."
+
+[file.8]
+path = "services/explorer/services/libs/blockscout-client/crate/tests/recorded/eth_blockscout_com/_api_v2_addresses_0xc0de20a37e2dac848f81a93bd85fe4acdde7c0de_nft_collections.json"
+lines = 13
+verdict = "generated"
+note = "Generated upstream recording; review exemption for captured NFT metadata. Row 14.http-get-api-v2-addresses-address-hash-param-nft-collections reaches AddressController/AddressView and GetAddressNftCollections200Response. The items/cursor envelope, amount, token, token_instances, exact string IDs, token_type and nullable owners agree for this capture; pagination and real-producer coverage remain findings."
+
+[file.9]
+path = "services/explorer/services/libs/blockscout-client/crate/tests/recorded/eth_blockscout_com/_api_v2_addresses_0xc0de20a37e2dac848f81a93bd85fe4acdde7c0de_token-balances.json"
+lines = 13
+verdict = "generated"
+note = "Generated upstream recording; review exemption for captured balances. Row 14.http-get-api-v2-addresses-address-hash-param-token-balances returns an unwrapped array of five TokenBalance objects, agreeing with Vec<TokenBalance>; values and token IDs remain integer strings and optional token_instance is null. GET is a stateless read and no local authority is stored."
+
+[file.10]
+path = "services/explorer/services/libs/blockscout-client/crate/tests/recorded/eth_blockscout_com/_api_v2_addresses_0xc0de20a37e2dac848f81a93bd85fe4acdde7c0de_token-transfers.json"
+lines = 13
+verdict = "generated"
+note = "Generated upstream recording; review exemption for captured transfers. Row 14.http-get-api-v2-addresses-address-hash-param-token-transfers reaches AddressController/TokenTransferView and GetAddressTokenTransfers200Response; path, hash encodings and base-unit string quantities align. The ERC-1155 total loses its ID through nft-transfer-total, and pagination-transport covers missing continuation."
+
+[file.11]
+path = "services/explorer/services/libs/blockscout-client/crate/tests/recorded/eth_blockscout_com/_api_v2_addresses_0xc0de20a37e2dac848f81a93bd85fe4acdde7c0de_tokens.json"
+lines = 13
+verdict = "generated"
+note = "Generated upstream recording; review exemption for captured balances/NFT metadata. Row 14.http-get-api-v2-addresses-address-hash-param-tokens reaches AddressController/AddressView and GetAddressTokens200Response. Its five-item envelope and nested nullable token_instance with string NFT ID agree for captured success; real pages cannot be continued with the generated parameter type."
+
+[file.12]
+path = "services/explorer/services/libs/blockscout-client/crate/tests/recorded/eth_blockscout_com/_api_v2_blocks.json"
+lines = 13
+verdict = "generated"
+note = "Generated upstream recording; review exemption for captured Ethereum block data. The blocks test decodes only this first fifty-item page and ignores its nonnull next_page_params. Hashes, height and gas strings match Block for the captured success; upstream proof-of-stake data is compatibility input, not a Paxeer runtime configuration."
+
+[file.13]
+path = "services/explorer/services/libs/blockscout-client/crate/tests/recorded/eth_blockscout_com/_api_v2_blocks_12345.json"
+lines = 13
+verdict = "generated"
+note = "Generated upstream recording; review exemption for captured historical block data. This is a genuine /api/v2/blocks/12345 response with null base_fee_per_gas and a block hash, but no active test calls get_block; unused-recordings identifies the missing executable consumer path."
+
+[file.14]
+path = "services/explorer/services/libs/blockscout-client/crate/tests/recorded/eth_blockscout_com/_api_v2_search_q=USDT.json"
+lines = 18
+verdict = "generated"
+note = "Generated upstream recording; review exemption for captured search results. The request matches q=USDT through queryParameters.equalTo; fifty token search results exercise only the token union variant and expose a continuation cursor. Address, transaction and block search variants are not established by the nonempty assertion."
+
+[file.15]
+path = "services/explorer/services/libs/blockscout-client/crate/tests/recorded/eth_blockscout_com/_api_v2_smart-contracts.json"
+lines = 13
+verdict = "generated"
+note = "Generated upstream recording; review exemption for captured verified-contract list data. Fifty rows exercise SmartContractForList through smart_contracts, but the list assertion does not establish the separate single-contract ABI shape or any second page."
+
+[file.16]
+path = "services/explorer/services/libs/blockscout-client/crate/tests/recorded/eth_blockscout_com/_api_v2_smart-contracts_0x8FD4596d4E7788a71F82dAf4119D069a84E7d3f3.json"
+lines = 13
+verdict = "generated"
+note = "Generated upstream recording; review exemption for embedded Solidity, bytecode and ABI data, which are response content and are not built or executed by this slice. The captured ABI is an array of 36 entries. contract-abi records why the current smart_contracts test accepts HTTP success without a typed single-contract result."
+
+[file.17]
+path = "services/explorer/services/libs/blockscout-client/crate/tests/recorded/eth_blockscout_com/_api_v2_stats.json"
+lines = 13
+verdict = "generated"
+note = "Generated upstream recording; review exemption for captured Ethereum statistics. Stats decodes total_blocks as a decimal string and checks it is positive. Ethereum price/icon and twelve-second average are historical compatibility data rather than network defaults; unavailable-price behavior is not covered."
+
+[file.18]
+path = "services/explorer/services/libs/blockscout-client/crate/tests/recorded/eth_blockscout_com/_api_v2_token-transfers.json"
+lines = 13
+verdict = "generated"
+note = "Generated upstream recording; review exemption for captured fungible-transfer data. All fifty totals have decimals and value and no token_id, so this capture cannot reveal the untagged NFT total problem. No active global token transfer request is registered in it_works.rs; see unused-recordings."
+
+[file.19]
+path = "services/explorer/services/libs/blockscout-client/crate/tests/recorded/eth_blockscout_com/_api_v2_tokens.json"
+lines = 13
+verdict = "generated"
+note = "Generated upstream recording; review exemption for captured token catalogue. Fifty ERC-20 rows carry decimal strings and checksummed address_hash; TokenInfo accepts those captured fields. The test asserts only a nonempty first page and does not exercise null prices or continuation."
+
+[file.20]
+path = "services/explorer/services/libs/blockscout-client/crate/tests/recorded/eth_blockscout_com/_api_v2_tokens_0xD4416b13_instances_25625468.json"
+lines = 13
+verdict = "generated"
+note = "Generated upstream recording; review exemption for captured ENS metadata. Row 14.http-get-api-v2-tokens-address-hash-param-instances-token-id-param reaches TokenController.instance/TokenView and NftInstance. The full decimal string id in request and result is preserved, as are nullable owner/token fields. External image/metadata URLs are opaque response data and are not fetched by this test."
+
+[file.21]
+path = "services/explorer/services/libs/blockscout-client/crate/tests/recorded/eth_blockscout_com/_api_v2_tokens_0xD4416b13_instances_25625468_holders.json"
+lines = 13
+verdict = "generated"
+note = "Generated upstream recording; review exemption for captured holder data. Row 14.http-get-api-v2-tokens-address-hash-param-instances-token-id-param-holders reaches TokenController.holders_by_instance/TokenView and the shared Holder model. This single holder includes address, exact string token_id and value; holder-address records the address loss in the consumer."
+
+[file.22]
+path = "services/explorer/services/libs/blockscout-client/crate/tests/recorded/eth_blockscout_com/_api_v2_tokens_0xD4416b13d2b3a9aBae7AcD5D6C2BbDBE25686401.json"
+lines = 13
+verdict = "generated"
+note = "Generated upstream recording; review exemption for captured token metadata. get_token parses TokenInfo and the NameWrapper token is an ERC-1155 with nullable decimals, symbol, supply and prices. Extra upstream address/holders aliases are not a requirement to add those aliases to the local producer."
+
+[file.23]
+path = "services/explorer/services/libs/blockscout-client/crate/tests/recorded/eth_blockscout_com/_api_v2_tokens_0xD4416b13d2b3a9aBae7AcD5D6C2BbDBE25686401_counters.json"
+lines = 13
+verdict = "generated"
+note = "Generated upstream recording; review exemption for captured counts. Row 14.http-get-api-v2-tokens-address-hash-param-counters reaches TokenController.counters and TokenCounters; both transfer and holder counts are decimal strings with matching names. Only transfers_count positivity is asserted."
+
+[file.24]
+path = "services/explorer/services/libs/blockscout-client/crate/tests/recorded/eth_blockscout_com/_api_v2_tokens_0xD4416b13d2b3a9aBae7AcD5D6C2BbDBE25686401_holders.json"
+lines = 13
+verdict = "generated"
+note = "Generated upstream recording; review exemption for captured holder data. Row 14.http-get-api-v2-tokens-address-hash-param-holders reaches TokenController.holders/TokenView and Holder. Fifty rows include address, string token_id/value and a nonnull paging cursor. holder-address and pagination-transport identify actual consumer losses."
+
+[file.25]
+path = "services/explorer/services/libs/blockscout-client/crate/tests/recorded/eth_blockscout_com/_api_v2_tokens_0xD4416b13d2b3a9aBae7AcD5D6C2BbDBE25686401_instances.json"
+lines = 13
+verdict = "issues"
+note = "Generated recording with a lossy numeric cursor; see nft-cursor-precision. Row 14.http-get-api-v2-tokens-address-hash-param-instances reaches TokenController.instances/TokenView and GetNftInstances200Response. Individual id strings survive, but next_page_params no longer equals the final full-width ID and the request type cannot forward it."
+
+[file.26]
+path = "services/explorer/services/libs/blockscout-client/crate/tests/recorded/eth_blockscout_com/_api_v2_tokens_0xD4416b13d2b3a9aBae7AcD5D6C2BbDBE25686401_transfers.json"
+lines = 13
+verdict = "generated"
+note = "Generated upstream recording; review exemption for captured ERC-1155 transfer and ENS metadata. Row 14.http-get-api-v2-tokens-address-hash-param-transfers reaches TokenController.transfers/TokenTransferView and TokenTransfer. All fifty totals carry token_id and token_instance; nft-transfer-total explains their silent loss and pagination-transport explains missing continuation."
+
+[file.27]
+path = "services/explorer/services/libs/blockscout-client/crate/tests/recorded/eth_blockscout_com/_api_v2_transactions.json"
+lines = 13
+verdict = "generated"
+note = "Generated upstream recording; review exemption for captured mined Ethereum transactions. All fifty rows have committed block fields, nonnull destinations and nonnull coin prices; transaction-lifecycle identifies the valid pending/creation/pricing states absent from these assertions."
+
+[file.28]
+path = "services/explorer/services/libs/blockscout-client/crate/tests/recorded/eth_blockscout_com/_api_v2_transactions_0x4dd7e3f4.json"
+lines = 13
+verdict = "generated"
+note = "Generated upstream recording; review exemption for captured transaction data. get_transaction checks the exact full transaction hash but only for a mined transfer with a destination and price. transaction-lifecycle covers valid pending and creation responses that this capture does not represent."
+
+[file.29]
+path = "services/explorer/services/libs/blockscout-client/crate/tests/recorded/eth_blockscout_com/_api_v2_transactions_0x4dd7e3f4_internal-transactions.json"
+lines = 13
+verdict = "generated"
+note = "Generated upstream recording; review exemption for captured delegatecall data. Row 14.http-get-api-v2-transactions-transaction-hash-param-internal-transactions reaches TransactionController/TransactionView/InternalTransactionView and GetTransactionInternalTxs200Response. Integer strings, transaction hash, success and nullable error align for the sole delegatecall; internal-create and pagination-transport describe missing lifecycle coverage."
+
+[finding.health-metadata]
+file = "services/explorer/services/libs/blockscout-client/crate/tests/recorded/eth_blockscout_com/_api_health.json"
+line = 8
+class = "interface-mismatch"
+severity = "high"
+observed = "The recording supplies both metadata.blocks.latest_block and metadata.latest_block. it_works.rs:60-68 reads only the latter through models/health_check_response_metadata.rs:24. The local HealthController.health/3 at services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/health_controller.ex:38-44 emits metadata.blocks only, so decoding a real healthy response loses its block metadata."
+expected = "Registry rows 14.http-get-api-health and 14.http-get-api-health-l564 reach the same controller. HealthApi must expose the actual metadata.blocks.healthy and metadata.blocks.latest_block database, cache and node numbers, without a fixture-only sibling field."
+proposal = "Update the health OpenAPI input and generated metadata models under services/explorer/services/libs/blockscout-client to the local HealthController shape, regenerate this recording from that controller, and assert its block numbers through HealthApi over HTTP."
+owner_domain = 14
+interface = "14.http-get-api-health"
+related_interfaces = ["14.http-get-api-health-l564"]
+
+[finding.legacy-health]
+file = "services/explorer/services/libs/blockscout-client/crate/tests/recorded/eth_blockscout_com/_api_v1_health.json"
+line = 4
+class = "test-gap"
+severity = "medium"
+observed = "The recording promises GET /api/v1/health returns 200 with data.latest_block_number, and it_works.rs:71-83 requires that legacy response. The local routers/api_router.ex:532-563 v1 scope has search, gas-price-oracle, supply and RPC translation but no health route; health is mounted at /api/health."
+expected = "The suite should distinguish upstream-version compatibility recordings from methods actually supported by the merged explorer; a recorded 200 must not certify an absent local route."
+proposal = "Have the explorer client owner explicitly version the legacy compatibility case, and add a real local-router assertion for the supported /api/health contract and the declared refusal for unsupported legacy health; document the supported method set in the client package."
+owner_domain = 14
+
+[finding.log-emitter]
+file = "services/explorer/services/libs/blockscout-client/crate/tests/it_works.rs"
+line = 350
+class = "interface-mismatch"
+severity = "high"
+observed = "address_logs only checks a nonempty page. Its recording and the local TransactionView.prepare_log/4 at views/api/v2/transaction_view.ex:358 emit the log origin under address, but models/log.rs declares address_hash: Option<AddressParam> with no serde rename. Successful decoding silently leaves the emitter absent."
+expected = "The emitter address of every item from registry row 14.http-get-api-v2-addresses-address-hash-param-logs must reach the typed consumer with the same hash; the transaction destination smart_contract is a different address and cannot replace it."
+proposal = "Correct the log field mapping in the client OpenAPI source and models/log.rs to the producer address field, then drive the actual AddressController logs route through AddressesApi and assert the emitter hash, including a log whose origin differs from the transaction destination."
+owner_domain = 14
+interface = "14.http-get-api-v2-addresses-address-hash-param-logs"
+
+[finding.log-nullability]
+file = "services/explorer/services/libs/blockscout-client/crate/tests/it_works.rs"
+line = 339
+class = "interface-mismatch"
+severity = "high"
+observed = "All twelve recorded address logs have decoded objects and smart_contract objects. models/log.rs requires both fields as concrete structs. The local schemas/api/v2/log.ex:18-19 permits null for both, and TransactionView.process_decoded_log/1 at views/api/v2/transaction_view.ex:410-418 returns nil for undecodable events. One valid raw event therefore prevents typed decoding of its whole page."
+expected = "Registry row 14.http-get-api-v2-addresses-address-hash-param-logs includes raw undecodable logs and nullable contract context; consumers must still expose topics, data, emitter and transaction identity for those events."
+proposal = "Represent exactly the producer-declared nullable decoded and smart_contract fields in the client schema and regenerate models/log.rs. Extend the real controller-to-client test with an undecodable event and absent contract context, asserting raw log data remains available."
+owner_domain = 14
+interface = "14.http-get-api-v2-addresses-address-hash-param-logs"
+
+[finding.holder-address]
+file = "services/explorer/services/libs/blockscout-client/crate/tests/it_works.rs"
+line = 247
+class = "interface-mismatch"
+severity = "high"
+observed = "token_holders and token_instance_holders at lines 247-248 and 282-283 assert only nonempty items. Both recordings and TokenView.prepare_token_holder/1 at views/api/v2/token_view.ex:98-103 emit address, whereas models/holder.rs:23-24 accepts address_hash: Option<AddressParam>. Every returned balance can decode without its holder identity."
+expected = "Registry rows 14.http-get-api-v2-tokens-address-hash-param-holders and 14.http-get-api-v2-tokens-address-hash-param-instances-token-id-param-holders must preserve each holder address together with the exact token_id and value."
+proposal = "Align Holder and its generating schema with TokenView address, and prove both actual holder routes through TokensApi with assertions on the checksum address, token ID and integer base-unit balance rather than list length alone."
+owner_domain = 14
+interface = "14.http-get-api-v2-tokens-address-hash-param-holders"
+related_interfaces = ["14.http-get-api-v2-tokens-address-hash-param-instances-token-id-param-holders"]
+
+[finding.nft-transfer-total]
+file = "services/explorer/services/libs/blockscout-client/crate/tests/it_works.rs"
+line = 264
+class = "interface-mismatch"
+severity = "high"
+observed = "The token transfer recording contains fifty ERC-1155 totals with token_id, token_instance, value and decimals; the address transfer recording also contains ERC-1155 totals. models/token_transfer_total.rs tries the untagged TotalErc20 variant first, whose two fields in models/total_erc20.rs are optional and whose decoder accepts extra fields. NFT totals thus match that first variant and discard the token ID and instance while the tests at lines 264-265 and 401-402 pass."
+expected = "Registry rows 14.http-get-api-v2-tokens-address-hash-param-transfers and 14.http-get-api-v2-addresses-address-hash-param-token-transfers must carry the NFT identity emitted by TokenTransferView.prepare_token_transfer_total/1 at views/api/v2/token_transfer_view.ex:72-111. ERC-721 and ERC-1155 totals must remain distinguishable from fungible totals."
+proposal = "Give the client a typed total decoder that selects the producer-defined NFT structure when token_id is present and validates its required fields. Prove real ERC-20, ERC-721 and ERC-1155 transfers through both HTTP routes, asserting token_id, instance.id, quantity and variant identity."
+owner_domain = 14
+interface = "14.http-get-api-v2-tokens-address-hash-param-transfers"
+related_interfaces = ["14.http-get-api-v2-addresses-address-hash-param-token-transfers", "14.http-get-api-v2-token-transfers"]
+
+[finding.pagination-transport]
+file = "services/explorer/services/libs/blockscout-client/crate/tests/it_works.rs"
+line = 248
+class = "interface-mismatch"
+severity = "high"
+observed = "The holders, validated blocks and NFT instance recordings already contain full fifty-item pages with next_page_params. GetTokenHoldersParams, GetTokenInstanceHoldersParams, GetNftInstancesParams and GetAddressBlocksValidatedParams expose identifiers only; their request methods send no cursor. The other paginated address and token methods likewise omit the returned paging fields. The suite never requests a second page, so typed clients cannot retrieve history beyond the first page."
+expected = "Each paginated registry route must accept its own returned next_page_params through the client transport. This applies to blocks-validated, logs, nft/collections, address token-transfers and tokens, token holders and instances, instance holders, token transfers and transaction internal-transactions; counters and the all-balances array do not need a cursor."
+proposal = "Extend the operation schemas and client parameter types under services/explorer/services/libs/blockscout-client with each backend-declared cursor, preserving full token-ID precision. Add a real backend-to-client multi-page read that forwards the returned cursor and asserts complete nonduplicated results and continuation after recreating the client."
+owner_domain = 14
+interface = "14.http-get-api-v2-tokens-address-hash-param-holders"
+related_interfaces = ["14.http-get-api-v2-addresses-address-hash-param-blocks-validated", "14.http-get-api-v2-addresses-address-hash-param-logs", "14.http-get-api-v2-addresses-address-hash-param-nft-collections", "14.http-get-api-v2-addresses-address-hash-param-token-transfers", "14.http-get-api-v2-addresses-address-hash-param-tokens", "14.http-get-api-v2-tokens-address-hash-param-holders", "14.http-get-api-v2-tokens-address-hash-param-instances", "14.http-get-api-v2-tokens-address-hash-param-instances-token-id-param", "14.http-get-api-v2-tokens-address-hash-param-instances-token-id-param-holders", "14.http-get-api-v2-tokens-address-hash-param-transfers", "14.http-get-api-v2-transactions-transaction-hash-param-internal-transactions"]
+
+[finding.contract-abi]
+file = "services/explorer/services/libs/blockscout-client/crate/tests/it_works.rs"
+line = 143
+class = "interface-mismatch"
+severity = "high"
+observed = "smart_contracts awaits get_smart_contract without inspecting its success model. The captured verified contract has abi as an array of 36 entries, as emitted by SmartContractView at views/api/v2/smart_contract_view.ex:207. models/smart_contract.rs declares abi: Option<String>; GetSmartContractSuccess can fall through to UnknownValue while the HTTP call still returns Ok. Its optimizations_runs field also differs from producer optimization_runs."
+expected = "Registry row 14.http-get-api-v2-smart-contracts-address-hash-param must expose a verified contract ABI as structured ABI entries and its optimization_runs value; transport success alone is not a typed contract result."
+proposal = "Correct the source OpenAPI contract and regenerate SmartContract with the actual ABI array and producer field names. Make the real SmartContractController-to-SmartContractsApi test parse the typed result and assert an ABI function and the optimization count, including the existing captured verified-contract case."
+owner_domain = 14
+interface = "14.http-get-api-v2-smart-contracts-address-hash-param"
+
+[finding.internal-create]
+file = "services/explorer/services/libs/blockscout-client/crate/tests/it_works.rs"
+line = 125
+class = "interface-mismatch"
+severity = "high"
+observed = "internal_transactions decodes only a successful delegatecall. models/internal_transaction.rs requires to: AddressParam, but the local InternalTransactionView.prepare_internal_transaction/2 at views/api/v2/internal_transaction_view.ex:43-51 obtains to from a nullable to_address_hash and carries a separate created_contract address. Helper.address_with_info/5 returns nil for a nil hash. A valid creation trace therefore cannot decode as InternalTransaction."
+expected = "Registry row 14.http-get-api-v2-transactions-transaction-hash-param-internal-transactions includes contract-creation traces with no call destination and a created_contract field; the consumer must preserve those traces rather than reject their page."
+proposal = "Align the internal trace schema and generated InternalTransaction destination with the producer creation lifecycle, and extend the real transaction internal-transactions route test with creation and failed-call traces, asserting the created contract, nullable destination, error and success flag."
+owner_domain = 14
+interface = "14.http-get-api-v2-transactions-transaction-hash-param-internal-transactions"
+
+[finding.transaction-lifecycle]
+file = "services/explorer/services/libs/blockscout-client/crate/tests/it_works.rs"
+line = 213
+class = "interface-mismatch"
+severity = "high"
+observed = "get_transaction and transactions exercise only mined transactions with a destination and a coin exchange rate. models/transaction.rs requires timestamp, block_number, status, to, gas_used, position, base_fee_per_gas and exchange_rate. The local TransactionView at views/api/v2/transaction_view.ex:471-524 emits null block fields for pending transactions, nil to for contract creation and a nullable Market fiat value; schemas/api/v2/transaction.ex:354-450 explicitly describes these nullable fields. A valid lifecycle response is relegated to UnknownValue or fails typed parsing."
+expected = "Registry row 14.http-get-api-v2-transactions-transaction-hash-param and the transaction-list route must expose pending and committed transactions, contract creation and unavailable market pricing as distinct valid states. Chain finality is block commit, not the presence of a fiat-price field."
+proposal = "Regenerate the client transaction model from the local backend lifecycle schema and prove real pending-to-committed and contract-creation reads through TransactionsApi, including unavailable coin pricing. Assert status and identity at each state without fabricating nonnull fields."
+owner_domain = 14
+interface = "14.http-get-api-v2-transactions-transaction-hash-param"
+related_interfaces = ["14.http-get-api-v2-transactions"]
+
+[finding.nft-cursor-precision]
+file = "services/explorer/services/libs/blockscout-client/crate/tests/recorded/eth_blockscout_com/_api_v2_tokens_0xD4416b13d2b3a9aBae7AcD5D6C2BbDBE25686401_instances.json"
+line = 8
+class = "test-gap"
+severity = "medium"
+observed = "The final recorded NFT has id 115785665443821794889628784622978168165342723005226866880138161782244014770980, but next_page_params.unique_token is 1.157856654438218e+77. BlockScoutWeb.Chain.paging_params(%Instance{}) at chain.ex:1072-1073 emits Decimal.to_integer(token_id), while ts-src/record-stubs.ts decodes response.json() and JSON.stringify() through JavaScript numbers. The stored cursor is no longer the exact final token ID."
+expected = "The recording for 14.http-get-api-v2-tokens-address-hash-param-instances must preserve the actual integer pagination boundary byte-for-byte; an approximate floating-point boundary cannot prove exact NFT pagination."
+proposal = "Change the recorder under services/explorer/services/libs/blockscout-client/ts-src to preserve the response body as raw text with the actual HTTP status, regenerate the NFT recording from the producer, and assert the full-width last ID survives cursor forwarding through the real client."
+owner_domain = 14
+
+[finding.shared-server-lifetime]
+file = "services/explorer/services/libs/blockscout-client/crate/tests/it_works.rs"
+line = 31
+class = "runtime-risk"
+severity = "medium"
+observed = "api_client starts Stubr once in a detached task on the first tokio::test runtime, stores its handle process-wide, sleeps one second and then expects initialization. Each tokio::test owns a separate runtime. Slow startup can leave the Option empty; shutdown of the initializing test runtime can cancel the shared server tasks while later tests still reuse the Once and handle."
+expected = "The explorer client suite needs an explicitly owned server lifetime and a bounded readiness result shared by every test; completion of one test must not invalidate another test connection."
+proposal = "Give the test harness under services/explorer/services/libs/blockscout-client/crate/tests an explicitly owned runtime/server or a per-test server, await readiness with error propagation, and configure a request deadline so startup failure and server shutdown produce bounded diagnostic failures."
+owner_domain = 14
+
+[finding.real-producer-coverage]
+file = "services/explorer/services/libs/blockscout-client/crate/tests/it_works.rs"
+line = 33
+class = "test-gap"
+severity = "medium"
+observed = "All HTTP tests are routed to Stubr recordings from eth.blockscout.com; none starts the local BlockScout routers and views. Thus the suite checks a recorded upstream compatibility surface while local field changes, CHAIN_TYPE differences, access checks and backend recovery are outside its path. The fixture-only health sibling demonstrates that this distinction already matters."
+expected = "The audit brief requires interface changes to be demonstrated along the actual producer, HTTP transport and typed consumer. Historical upstream recordings can supplement that proof but cannot stand in for the merged explorer."
+proposal = "Add a focused integration path owned by services/explorer that starts the actual backend with controlled chain data and uses blockscout-client over HTTP, asserting identity, amounts, nullability, pagination and typed refusals; retain the upstream compatibility recordings with explicit provenance and version labels."
+owner_domain = 14
+
+[finding.refusal-coverage]
+file = "services/explorer/services/libs/blockscout-client/crate/tests/it_works.rs"
+line = 52
+class = "test-gap"
+severity = "medium"
+observed = "Every recording in this slice has response.status 200 and the HTTP tests only request successful reads. The real controllers expose invalid-address, missing-token and restricted-access branches, and HealthController returns 500 when indexing is unhealthy. No assertion checks the consumer status/body contract for those responses, malformed JSON or transport loss."
+expected = "Registered public read interfaces must preserve invalid-input and access refusals and unhealthy status without treating them as successful data; the tests must demonstrate the real refusal branches and bounded failure behavior."
+proposal = "Extend the real backend/client tests in services/explorer for invalid hashes, unknown resources, restricted addresses and unhealthy indexing. Assert HTTP status and error payload plus the consumer error result, and cover bounded transport failure without weakening positive assertions."
+owner_domain = 14
+
+[finding.unused-recordings]
+file = "services/explorer/services/libs/blockscout-client/crate/tests/it_works.rs"
+line = 88
+class = "test-gap"
+severity = "low"
+observed = "blocks exercises only get_blocks, and no test invokes the global token_transfers_api. The recorded /api/v2/blocks/12345 and /api/v2/token-transfers responses therefore have no corresponding request/typed-model assertion in it_works.rs, despite being present in the loaded recording directory."
+expected = "A recording used as explorer-client evidence needs a reachable operation assertion; loading a directory alone does not exercise its captured endpoints."
+proposal = "Add focused typed-response coverage for get_block and the global token transfer method under services/explorer/services/libs/blockscout-client/crate/tests, preferably driving their actual local producers and checking the block identity and transfer facts."
+owner_domain = 14
+
+[finding.disabled-config-coverage]
+file = "services/explorer/services/libs/blockscout-client/crate/tests/it_works.rs"
+line = 432
+class = "test-gap"
+severity = "low"
+observed = "The entire config_json_rpc_url test at lines 432-442 is commented out. No active case in this file verifies the config API or checks that the explorer client receives the intended merged-network JSON-RPC origin."
+expected = "Configuration compatibility should have an executable assertion for the supported config route and documented network endpoint, instead of an inactive example being counted as coverage."
+proposal = "Have the explorer client owner restore a real supported config-route assertion with the current root-path node endpoint, or explicitly document the operation as unsupported and test its real refusal; do not count commented code as an executed test."
+owner_domain = 14
+
+[finding.readme-network]
+file = "README.md"
+line = 44
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 44-47 describe two execution domains and layerxd running separately with checkpoints through layerxAnchor; lines 145 and 181 repeat the daemon build and separate settlement as current behavior. That is the pre-merge network model."
+expected = "BRIEF network facts 1-3 define one chain with the kernel inside paxd, chain ID 125 and finality at block commit. layerxd and the active checkpoint settlement path are retired after the merge."
+proposal = "Rewrite README.md network architecture, build examples and upgrade guidance around the merged paxd execution path; label any pre-activation material as historical and name the supported native views and root JSON-RPC endpoint."
+owner_domain = 17
+
+[finding.monorepo-boundaries]
+file = "docs/MONOREPO.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The introduction still identifies the kernel with layerxd, and lines 70-72 assign custody, checkpoint registration, guarantor bonds and challenges to a distinct settlement boundary. The layout guide therefore teaches the pre-merge trust model."
+expected = "The repository contains one chain execution domain; the kernel is linked into paxd, and the old checkpoint/custody runtime is retired. Filesystem groups do not imply a separately running kernel network."
+proposal = "Update docs/MONOREPO.md introduction and trust-boundary section to distinguish code organization from the merged runtime, identify active versus archived settlement components, and remove layerxd as a current subsystem binary."
+owner_domain = 17
+
+[finding.unified-network-architecture]
+file = "docs/site/docs/overview/unified-network.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 3-31 describe two execution domains, a C sequencer under cmd/layerxd, and active LayerXVerify verification. Lines 52-88 and 104-124 present LayerXCustody and LayerXAnchor checkpoint finality, bonded guarantors and forced exits as live network behavior."
+expected = "The merged network executes in paxd and commits final receipts in blocks. The retired 0x1012-0x1014 executors refuse, and balances and program state come from the active native interfaces rather than separate custody/checkpoint settlement."
+proposal = "Rewrite this overview around native chain execution, the active precompile table and commit finality; move the two-domain proof connector and checkpoint contracts to clearly marked historical migration material."
+owner_domain = 17
+
+[finding.unified-network-endpoint]
+file = "docs/site/docs/overview/unified-network.md"
+line = 128
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 128-171 publish https://api-mainnet-beta.paxeer.network/rpc as a unified router, describe separate lx_ and px_ joins, promise lx_subscribe on its WebSocket and GET /rpc/schema, and link an old repository path for openrpc.json. Lines 208-211 still make the retired explorer index a peer reader of that gateway."
+expected = "BRIEF facts 2-3 state there is no unified /rpc, /rpc/ws or /rpc/schema router. Public node JSON-RPC is at the root; px_ contracts belong to services/platform/hosted/gateway/openrpc.json, and the retired human explorer index is replaced by native explorer pages."
+proposal = "Replace this page endpoint and explorer-index sections with the current root node methods and separately identified hosted gateway contract. Link the in-tree gateway OpenRPC file and current native explorer read path, removing the obsolete router and two-source joins."
+owner_domain = 8
+
+[finding.payments-endpoint]
+file = "docs/site/docs/overview/payments.md"
+line = 21
+class = "doc-drift"
+severity = "medium"
+observed = "The trusted-input example exports RPC_URL with the retired /rpc path and calls it the published router origin at line 18. Every subsequent command inherits that URL."
+expected = "BRIEF fact 3 requires public chain JSON-RPC at the root path for chain 125; fact 2 retires the unified router path."
+proposal = "Rewrite the RPC_URL setup in docs/site/docs/overview/payments.md to the supported root node origin and clearly identify any hosted gateway URL and credential separately, then align the examples with the current CLI."
+owner_domain = 8
+
+[finding.payments-protocol]
+file = "docs/site/docs/overview/payments.md"
+line = 33
+class = "doc-drift"
+severity = "medium"
+observed = "The path requires protocol-3 first_batch/last_batch/checkpoint receipt policy, obtains lx_getSequence at lines 138-144, submits lx_sendActivity at lines 224-226 and verifies batched/finalised native receipt evidence at lines 245-247. These describe the retired standalone activity and batch settlement path."
+expected = "The merged payment path submits EIP-1559 transactions on chain 125, derives replay protection from EVM nonce and transaction hash, uses active ledger/pay interfaces and verifies the committed receipt at its height."
+proposal = "Rewrite the CLI and x402 walkthrough in this page from the current chain transaction, ledger/pay and receipt contracts. Replace standalone activity/batch inputs with the exact chain signing, fee and commit-verification inputs, including recovery by the original transaction identity."
+owner_domain = 8
+
+[finding.payments-example-manifest]
+file = "docs/site/docs/overview/payments.md"
+line = 195
+class = "doc-drift"
+severity = "medium"
+observed = "Section 6 says to build and deploy the LXT20 example, but its cargo command builds programs/sdk/rust/examples/payments-merchant/Cargo.toml. The following initialization and transfer interface at lines 204-209 describes the token rather than the merchant artifact."
+expected = "A deploy walkthrough must build the program whose ABI and account registration it subsequently describes; the token and merchant examples are separate artifacts named in the introduction."
+proposal = "Correct section 6 to build programs/sdk/rust/examples/token-lxt20/Cargo.toml and name its output artifact, or make the whole section an explicitly separate merchant example with its own ABI and account flow; state the required deployment envelope limit and host/guest ABI compatibility."
+owner_domain = 8
+
+[finding.payments-cli-catalogue]
+file = "docs/site/docs/overview/payments.md"
+line = 258
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 258-260 say account-open, Asset info/list, fee estimate, receipt wait and live watch are not CLI commands in this tree. The same page explicitly invokes wallet open-account at line 113, wallet receipt at line 159 and token info/list plus wallet estimate-fee at lines 171-175."
+expected = "A developer path must present a single supported command catalogue; the MCP tool set and CLI command set can differ but cannot be described with contradictory availability claims."
+proposal = "Reconcile the catalogue paragraph and all command examples in docs/site/docs/overview/payments.md against the current CLI and MCP implementation, giving the two surfaces separate supported-operation lists and preserving accurate typed-unavailable guidance."
+owner_domain = 8
+
+[finding.translation-zh-cn]
+file = "docs/site/docs/overview/i18n/zh-cn.md"
+line = 18
+class = "doc-drift"
+severity = "medium"
+observed = "The translation says ordinary LayerX activity does not require a Paxeer transaction and checkpoints settle separately on Paxeer at line 18. Its layout at lines 98-104 still lists layerxd, agent/, human/ and interop/ with legacy settlement contracts, while the later SDK table already uses services/agent paths."
+expected = "Each language must describe the same merged chain as BRIEF facts 1-3: kernel execution inside paxd, EVM chain ID 125, final receipts at block commit and the current services/ tree."
+proposal = "Rewrite this translation from the corrected merged-network overview, updating the standalone daemon and settlement claims, current repository paths, and quickstart/receipt/program instructions together; keep local development setup clearly separate from public mainnet access."
+owner_domain = 17
+
+[finding.translation-ru]
+file = "docs/site/docs/overview/i18n/ru.md"
+line = 18
+class = "doc-drift"
+severity = "medium"
+observed = "The translation says ordinary LayerX activity does not require a Paxeer transaction and checkpoints settle separately on Paxeer at line 18. Its layout at lines 98-104 still lists layerxd, agent/, human/ and interop/ with legacy settlement contracts, while the later SDK table already uses services/agent paths."
+expected = "Each language must describe the same merged chain as BRIEF facts 1-3: kernel execution inside paxd, EVM chain ID 125, final receipts at block commit and the current services/ tree."
+proposal = "Rewrite this translation from the corrected merged-network overview, updating the standalone daemon and settlement claims, current repository paths, and quickstart/receipt/program instructions together; keep local development setup clearly separate from public mainnet access."
+owner_domain = 17
+
+[finding.translation-es]
+file = "docs/site/docs/overview/i18n/es.md"
+line = 18
+class = "doc-drift"
+severity = "medium"
+observed = "The translation says ordinary LayerX activity does not require a Paxeer transaction and checkpoints settle separately on Paxeer at line 18. Its layout at lines 98-104 still lists layerxd, agent/, human/ and interop/ with legacy settlement contracts, while the later SDK table already uses services/agent paths."
+expected = "Each language must describe the same merged chain as BRIEF facts 1-3: kernel execution inside paxd, EVM chain ID 125, final receipts at block commit and the current services/ tree."
+proposal = "Rewrite this translation from the corrected merged-network overview, updating the standalone daemon and settlement claims, current repository paths, and quickstart/receipt/program instructions together; keep local development setup clearly separate from public mainnet access."
+owner_domain = 17
+
+[finding.translation-pt-br]
+file = "docs/site/docs/overview/i18n/pt-br.md"
+line = 18
+class = "doc-drift"
+severity = "medium"
+observed = "The translation says ordinary LayerX activity does not require a Paxeer transaction and checkpoints settle separately on Paxeer at line 18. Its layout at lines 98-104 still lists layerxd, agent/, human/ and interop/ with legacy settlement contracts, while the later SDK table already uses services/agent paths."
+expected = "Each language must describe the same merged chain as BRIEF facts 1-3: kernel execution inside paxd, EVM chain ID 125, final receipts at block commit and the current services/ tree."
+proposal = "Rewrite this translation from the corrected merged-network overview, updating the standalone daemon and settlement claims, current repository paths, and quickstart/receipt/program instructions together; keep local development setup clearly separate from public mainnet access."
+owner_domain = 17
+
+[finding.translation-ja]
+file = "docs/site/docs/overview/i18n/ja.md"
+line = 18
+class = "doc-drift"
+severity = "medium"
+observed = "The translation says ordinary LayerX activity does not require a Paxeer transaction and checkpoints settle separately on Paxeer at line 18. Its layout at lines 98-104 still lists layerxd, agent/, human/ and interop/ with legacy settlement contracts, while the later SDK table already uses services/agent paths."
+expected = "Each language must describe the same merged chain as BRIEF facts 1-3: kernel execution inside paxd, EVM chain ID 125, final receipts at block commit and the current services/ tree."
+proposal = "Rewrite this translation from the corrected merged-network overview, updating the standalone daemon and settlement claims, current repository paths, and quickstart/receipt/program instructions together; keep local development setup clearly separate from public mainnet access."
+owner_domain = 17
+
+[finding.translation-de]
+file = "docs/site/docs/overview/i18n/de.md"
+line = 18
+class = "doc-drift"
+severity = "medium"
+observed = "The translation says ordinary LayerX activity does not require a Paxeer transaction and checkpoints settle separately on Paxeer at line 18. Its layout at lines 98-104 still lists layerxd, agent/, human/ and interop/ with legacy settlement contracts, while the later SDK table already uses services/agent paths."
+expected = "Each language must describe the same merged chain as BRIEF facts 1-3: kernel execution inside paxd, EVM chain ID 125, final receipts at block commit and the current services/ tree."
+proposal = "Rewrite this translation from the corrected merged-network overview, updating the standalone daemon and settlement claims, current repository paths, and quickstart/receipt/program instructions together; keep local development setup clearly separate from public mainnet access."
+owner_domain = 17
+
+[finding.translation-fr]
+file = "docs/site/docs/overview/i18n/fr.md"
+line = 18
+class = "doc-drift"
+severity = "medium"
+observed = "The translation says ordinary LayerX activity does not require a Paxeer transaction and checkpoints settle separately on Paxeer at line 18. Its layout at lines 98-104 still lists layerxd, agent/, human/ and interop/ with legacy settlement contracts, while the later SDK table already uses services/agent paths."
+expected = "Each language must describe the same merged chain as BRIEF facts 1-3: kernel execution inside paxd, EVM chain ID 125, final receipts at block commit and the current services/ tree."
+proposal = "Rewrite this translation from the corrected merged-network overview, updating the standalone daemon and settlement claims, current repository paths, and quickstart/receipt/program instructions together; keep local development setup clearly separate from public mainnet access."
+owner_domain = 17
+
+[finding.retired-boundary-page]
+file = "docs/site/docs/concepts/paxeer-boundary.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The entire page documents layerx-paxeer-boundary as the required running TLS relay, layerx-paxeer-client as its consumer, and its image, environment, deployment and tests as current. Lines 117-129 instruct operators to bootstrap the old guarantor/checkpoint settlement suite."
+expected = "The retirement registry component.eth-relay removes services/platform/hosted/paxeer, and component.human-two-domain removes layerx-paxeer-client. The merged chain does not require an intermediary between a separate kernel and Paxeer."
+proposal = "Replace this page with a concise retirement and migration notice that directs callers to the root node JSON-RPC and the current committed-state/receipt client. Preserve any necessary pre-upgrade settlement details only in explicitly historical documentation."
+owner_domain = 8
+
+[finding.http-contract-router-context]
+file = "spec/layerx-merge/contracts/explorer-http-api.md"
+line = 2321
+class = "doc-drift"
+severity = "medium"
+observed = "The generated HTTP reference still describes the transaction-signature route as reading router answers per request at line 2321, and calls the route planned/not landed at lines 2310-2314 although the current api_router.ex registers TransactionSignatureController.signature. It is a pinned historical snapshot rather than an adequate current explorer contract."
+expected = "A current explorer reference must name the actual producer and deployed route status, and the merged-network model has no unified router; the pinned source revision must remain distinguishable from current behavior."
+proposal = "Have the explorer specification owner update the source registry and regenerate this HTTP reference with the active signature producer and route status, retaining historical revision labels while removing the retired router dependency from current guidance."
+owner_domain = 14
+
+[doc.1]
+path = "README.md"
+status = "stale"
+notes = "Stale at lines 44-47, 145 and 181: separate layerxd execution and checkpoint settlement. See readme-network; source layout/SDK sections do not cure the live architecture drift."
+
+[doc.2]
+path = "docs/MONOREPO.md"
+status = "stale"
+notes = "Stale at line 3 and lines 70-72: kernel daemon and separate custody/checkpoint trust boundary. See monorepo-boundaries; current explorer services path itself is correctly listed at line 30."
+
+[doc.3]
+path = "docs/site/docs/overview/unified-network.md"
+status = "stale"
+notes = "Stale architecture at lines 3-31, 52-88 and 104-124; misleading /rpc, lx_ router/WebSocket and /rpc/schema guidance at lines 128-171; retired explorer-index join at lines 208-211. See the two unified-network findings."
+
+[doc.4]
+path = "docs/site/docs/overview/payments.md"
+status = "stale"
+notes = "Stale /rpc setup at line 21 and standalone batch/activity payment flow at lines 33-36, 138-144, 224-247. Section 6 builds the merchant while describing LXT20 at line 195, and lines 258-260 contradict earlier CLI examples. See the four payments findings."
+
+[doc.5]
+path = "docs/site/docs/overview/i18n/zh-cn.md"
+status = "stale"
+notes = "All 144 lines read. Stale separate-network/no-chain-transaction claim at line 18 and retired daemon/old repository paths at lines 98-104. SDK paths later in the page are current, but architecture and quickstart need a coordinated rewrite; see translation-zh-cn."
+
+[doc.6]
+path = "docs/site/docs/overview/i18n/ru.md"
+status = "stale"
+notes = "All 144 lines read. Stale separate-network/no-chain-transaction claim at line 18 and retired daemon/old repository paths at lines 98-104. SDK paths later in the page are current, but architecture and quickstart need a coordinated rewrite; see translation-ru."
+
+[doc.7]
+path = "docs/site/docs/overview/i18n/es.md"
+status = "stale"
+notes = "All 144 lines read. Stale separate-network/no-chain-transaction claim at line 18 and retired daemon/old repository paths at lines 98-104. SDK paths later in the page are current, but architecture and quickstart need a coordinated rewrite; see translation-es."
+
+[doc.8]
+path = "docs/site/docs/overview/i18n/pt-br.md"
+status = "stale"
+notes = "All 144 lines read. Stale separate-network/no-chain-transaction claim at line 18 and retired daemon/old repository paths at lines 98-104. SDK paths later in the page are current, but architecture and quickstart need a coordinated rewrite; see translation-pt-br."
+
+[doc.9]
+path = "docs/site/docs/overview/i18n/ja.md"
+status = "stale"
+notes = "All 144 lines read. Stale separate-network/no-chain-transaction claim at line 18 and retired daemon/old repository paths at lines 98-104. SDK paths later in the page are current, but architecture and quickstart need a coordinated rewrite; see translation-ja."
+
+[doc.10]
+path = "docs/site/docs/overview/i18n/de.md"
+status = "stale"
+notes = "All 144 lines read. Stale separate-network/no-chain-transaction claim at line 18 and retired daemon/old repository paths at lines 98-104. SDK paths later in the page are current, but architecture and quickstart need a coordinated rewrite; see translation-de."
+
+[doc.11]
+path = "docs/site/docs/overview/i18n/fr.md"
+status = "stale"
+notes = "All 144 lines read. Stale separate-network/no-chain-transaction claim at line 18 and retired daemon/old repository paths at lines 98-104. SDK paths later in the page are current, but architecture and quickstart need a coordinated rewrite; see translation-fr."
+
+[doc.12]
+path = "docs/site/docs/concepts/paxeer-boundary.md"
+status = "stale"
+notes = "All 159 lines read. The relay and client at lines 3-7 and deployment/settlement procedure at lines 117-129 describe components retired by the merged network. See retired-boundary-page; this needs a retirement/migration notice rather than current operator instructions."
+
+[doc.13]
+path = "spec/layerx-merge/contracts/explorer-http-api.md"
+status = "stale"
+notes = "Generated source-pinned registry reference, consulted for health, address, token, trace and contract route anchors. It identifies their HTTP names but does not specify enough response fields to resolve the typed-model mismatches. Lines 2310-2321 still describe a planned signature route and router-backed storage; see http-contract-router-context."
+
+[doc.14]
+path = "spec/layerx-merge/contracts/explorer-tests.md"
+status = "accurate"
+notes = "All 57 lines read. This is an explicitly source-pinned generated acceptance reference for data-boundary fixtures, not a claim that this blockscout-client suite proves those paths. Its qualification cells explicitly say UNRUN and its retirement criteria remove old binary/case dependencies; no contradictory current-runtime instruction is asserted here."

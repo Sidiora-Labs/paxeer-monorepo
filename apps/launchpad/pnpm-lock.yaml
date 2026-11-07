@@ -41,6 +41,7 @@ overrides:
   glob@<14.0.2: 14.0.2
   minimatch@<11.0.1: 11.0.1
   zod@<4.6.6: 4.6.6
+  deepmerge: npm:@stackline/deepmerge@1.1.0
 
 patchedDependencies:
   metro@0.84.4:
@@ -108,7 +109,7 @@ importers:
   ../../sdk/launchpad/packages/sdk:
     dependencies:
       '@kindle/sdk-v2':
-        specifier: workspace:*
+        specifier: file:../sdk-v2
         version: link:../sdk-v2
       ajv:
         specifier: 8.20.0
@@ -117,6 +118,9 @@ importers:
         specifier: 3.0.1
         version: 3.0.1(ajv@8.20.0)
     devDependencies:
+      pyodide:
+        specifier: 0.29.3
+        version: 0.29.3(bufferutil@4.1.0)(utf-8-validate@6.0.6)
       typescript:
         specifier: 5.9.3
         version: 5.9.3
@@ -2849,6 +2853,10 @@ packages:
       typescript:
         optional: true
 
+  '@stackline/deepmerge@1.1.0':
+    resolution: {integrity: sha512-bEQ1EpXrlu9PTTgKD9z85MWYGjDMv79fF2qn2LYdmukpuj6onkn5kZlRAu0PaZvUv9ZQerwtDVgIEn2LYtsE7w==}
+    engines: {node: '>=14.17.0'}
+
   '@standard-schema/spec@1.1.0':
     resolution: {integrity: sha512-l2aFy5jALhniG5HgqrD6jXLi/rUWrKvqN/qJx6yoJsgKhblVd+iqqU4RCXavm/jPityDo5TCvKMnpjKnOriy0w==}
 
@@ -3009,6 +3017,9 @@ packages:
 
   '@types/dom-mediacapture-record@1.0.22':
     resolution: {integrity: sha512-mUMZLK3NvwRLcAAT9qmcK+9p7tpU2FHdDsntR3YI4+GY88XrgG4XiE7u1Q2LAN2/FZOz/tdMDC3GQCR4T8nFuw==}
+
+  '@types/emscripten@1.41.6':
+    resolution: {integrity: sha512-uN+9i8bFT5CUcZfyIEYDrSueACEyKGbUs5kC/72DGlZZoinh84sJfVV0i8UOJD1asdzkvLPBRrKs41kZ8MdEXg==}
 
   '@types/eslint-scope@3.7.7':
     resolution: {integrity: sha512-MzMFlSLBqNF2gcHWO0G1vP/YQyfvrxZ0bF+u7mzUdZ1/xK4A4sru+nraZz5i3iEIk1l1uyicaDVTB4QbbEkAYg==}
@@ -4138,10 +4149,6 @@ packages:
 
   deep-is@0.1.4:
     resolution: {integrity: sha512-oIPzksmTg4/MriiaYGO+okXDT7ztn/w3Eptv/+gSIdMdKsJo0u4CfYNFJPy+4SKMuCqGw2wxnA+URMg3t8a/bQ==}
-
-  deepmerge@4.3.1:
-    resolution: {integrity: sha512-3sUqbMEc77XqpdNO7FRyRog+eW3ph+GYCbj+rK+uYyRMuwsVy0rMiVtPn+QJlKFvWP/1PYpapqYn0Me2knFn+A==}
-    engines: {node: '>=0.10.0'}
 
   defaults@1.0.4:
     resolution: {integrity: sha512-eFuaLoy/Rxalv2kr+lqMlUnrDWV+3j4pljOIJgLIhI058IQfWJ7vXhyEIHu+HtC738klGALYxOKDO0bQP3tg8A==}
@@ -6094,6 +6101,10 @@ packages:
   punycode@2.3.1:
     resolution: {integrity: sha512-vYt7UD1U9Wg6138shLtLOvdAu+8DsC/ilFtEVHcH+wydcSpNE20AfSOduf6MkRFahL5FY7X1oU7nKVZFtfq8Fg==}
     engines: {node: '>=6'}
+
+  pyodide@0.29.3:
+    resolution: {integrity: sha512-22UBuhOJawj7vKUnS7/F3xK+515LJdjiMAHoCfuS6/PbHiOrSQVnYwDe+2sbVwiOZ3sMMexdXICew6NqOMQGgA==}
+    engines: {node: '>=18.0.0'}
 
   qrcode.react@4.2.0:
     resolution: {integrity: sha512-QpgqWi8rD9DsS9EP3z7BT+5lY5SFhsqGjpgW5DY/i3mK4M9DTBNz3ErMi8BWYEfI3L0d8GIbGmcdFAS1uIRGjA==}
@@ -8996,7 +9007,7 @@ snapshots:
     dependencies:
       '@react-native-community/cli-tools': 20.1.2
       cosmiconfig: 9.0.2(typescript@5.9.3)
-      deepmerge: 4.3.1
+      deepmerge: '@stackline/deepmerge@1.1.0'
       fast-glob: 3.3.3
       joi: 17.13.9
       picocolors: 1.1.1
@@ -9011,7 +9022,7 @@ snapshots:
       '@react-native-community/cli-platform-ios': 20.1.2
       '@react-native-community/cli-tools': 20.1.2
       command-exists: 1.2.9
-      deepmerge: 4.3.1
+      deepmerge: '@stackline/deepmerge@1.1.0'
       envinfo: 7.21.0
       execa: 5.1.1
       node-stream-zip: 1.16.0
@@ -9087,7 +9098,7 @@ snapshots:
       '@react-native-community/cli-tools': 20.1.2
       '@react-native-community/cli-types': 20.1.2
       commander: 9.5.0
-      deepmerge: 4.3.1
+      deepmerge: '@stackline/deepmerge@1.1.0'
       execa: 5.1.1
       find-up: 5.0.0
       fs-extra: 8.1.0
@@ -10505,6 +10516,8 @@ snapshots:
     transitivePeerDependencies:
       - fastestsmallesttextencoderdecoder
 
+  '@stackline/deepmerge@1.1.0': {}
+
   '@standard-schema/spec@1.1.0': {}
 
   '@supabase/auth-js@2.118.0':
@@ -10646,6 +10659,8 @@ snapshots:
   '@types/deep-eql@4.0.2': {}
 
   '@types/dom-mediacapture-record@1.0.22': {}
+
+  '@types/emscripten@1.41.6': {}
 
   '@types/eslint-scope@3.7.7':
     dependencies:
@@ -12452,8 +12467,6 @@ snapshots:
   decode-uri-component@0.5.1: {}
 
   deep-is@0.1.4: {}
-
-  deepmerge@4.3.1: {}
 
   defaults@1.0.4:
     dependencies:
@@ -14673,6 +14686,14 @@ snapshots:
       once: 1.4.0
 
   punycode@2.3.1: {}
+
+  pyodide@0.29.3(bufferutil@4.1.0)(utf-8-validate@6.0.6):
+    dependencies:
+      '@types/emscripten': 1.41.6
+      ws: 8.21.0(bufferutil@4.1.0)(utf-8-validate@6.0.6)
+    transitivePeerDependencies:
+      - bufferutil
+      - utf-8-validate
 
   qrcode.react@4.2.0(react@19.3.1):
     dependencies:

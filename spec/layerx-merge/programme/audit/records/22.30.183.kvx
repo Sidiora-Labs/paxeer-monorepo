@@ -1,0 +1,2223 @@
+# Pre-upgrade tools-ops audit; decision 2515. Proposals only.
+
+[audit.22.30.183]
+task = "22.30.183"
+revision = "9d9e94b1751d89ba849d2d3d0f89b48fabce9756"
+files_reviewed = 227
+findings = 61
+docs_reviewed = 17
+upgrade_ready = false
+blocking = ["f009","f010","f011"]
+lines_reviewed = 17065
+produces_reviewed = 400
+consumes_reviewed = 400
+note = "Reviewed the package members in full against the listed requirements, declared interfaces, retirement inventory and network brief. The revision names the source tree audited. This record proposes repairs; it does not claim that the qualification commands under review were executed."
+
+[file.001]
+path = ".codex/hooks.json"
+lines = 26
+verdict = "generated"
+note = "Codify-owned generated host hook configuration or portable event shim; owned by the Codify hook installer, with no application-network contract."
+
+[file.002]
+path = ".codify/hooks/claude.sh"
+lines = 3
+verdict = "generated"
+note = "Codify-owned generated host hook configuration or portable event shim; owned by the Codify hook installer, with no application-network contract."
+
+[file.003]
+path = ".codify/hooks/codex.sh"
+lines = 3
+verdict = "generated"
+note = "Codify-owned generated host hook configuration or portable event shim; owned by the Codify hook installer, with no application-network contract."
+
+[file.004]
+path = ".codify/hooks/copilot.sh"
+lines = 3
+verdict = "generated"
+note = "Codify-owned generated host hook configuration or portable event shim; owned by the Codify hook installer, with no application-network contract."
+
+[file.005]
+path = ".codify/hooks/cursor.sh"
+lines = 3
+verdict = "generated"
+note = "Codify-owned generated host hook configuration or portable event shim; owned by the Codify hook installer, with no application-network contract."
+
+[file.006]
+path = ".codify/hooks/event.sh"
+lines = 4
+verdict = "generated"
+note = "Codify-owned generated host hook configuration or portable event shim; owned by the Codify hook installer, with no application-network contract."
+
+[file.007]
+path = ".codify/hooks/gemini.sh"
+lines = 3
+verdict = "generated"
+note = "Codify-owned generated host hook configuration or portable event shim; owned by the Codify hook installer, with no application-network contract."
+
+[file.008]
+path = ".devcontainer/Dockerfile"
+lines = 105
+verdict = "clean"
+note = "Read the complete development-container configuration and bootstrap path, including commands, dependencies and privilege assumptions."
+
+[file.009]
+path = ".devcontainer/devcontainer.json"
+lines = 25
+verdict = "clean"
+note = "Read the complete development-container configuration and bootstrap path, including commands, dependencies and privilege assumptions."
+
+[file.010]
+path = ".devcontainer/postCreate.sh"
+lines = 18
+verdict = "clean"
+note = "Read the complete development-container configuration and bootstrap path, including commands, dependencies and privilege assumptions."
+
+[file.011]
+path = ".github/ISSUE_TEMPLATE/bug.yml"
+lines = 47
+verdict = "clean"
+note = "Read the complete issue template and its submission fields; no runtime transport, persistent state or retired operational endpoint is introduced."
+
+[file.012]
+path = ".github/ISSUE_TEMPLATE/bug_report.md"
+lines = 33
+verdict = "clean"
+note = "Read the complete issue template and its submission fields; no runtime transport, persistent state or retired operational endpoint is introduced."
+
+[file.013]
+path = ".github/ISSUE_TEMPLATE/config.yml"
+lines = 8
+verdict = "clean"
+note = "Read the complete issue template and its submission fields; no runtime transport, persistent state or retired operational endpoint is introduced."
+
+[file.014]
+path = ".github/ISSUE_TEMPLATE/enahancement.yml"
+lines = 41
+verdict = "clean"
+note = "Read the complete issue template and its submission fields; no runtime transport, persistent state or retired operational endpoint is introduced."
+
+[file.015]
+path = ".github/ISSUE_TEMPLATE/feature.yml"
+lines = 38
+verdict = "clean"
+note = "Read the complete issue template and its submission fields; no runtime transport, persistent state or retired operational endpoint is introduced."
+
+[file.016]
+path = ".github/ISSUE_TEMPLATE/general_issue.md"
+lines = 20
+verdict = "clean"
+note = "Read the complete issue template and its submission fields; no runtime transport, persistent state or retired operational endpoint is introduced."
+
+[file.017]
+path = ".github/ISSUE_TEMPLATE/question.yml"
+lines = 20
+verdict = "clean"
+note = "Read the complete issue template and its submission fields; no runtime transport, persistent state or retired operational endpoint is introduced."
+
+[file.018]
+path = ".github/ISSUE_TEMPLATE/security.md"
+lines = 10
+verdict = "clean"
+note = "Read the complete issue template and its submission fields; no runtime transport, persistent state or retired operational endpoint is introduced."
+
+[file.019]
+path = ".github/codeql/codeql-config.yml"
+lines = 23
+verdict = "clean"
+note = "Read the complete repository security-analysis configuration and its scope declarations."
+
+[file.020]
+path = "docker/README.md"
+lines = 97
+verdict = "clean"
+note = "Read the complete container configuration or helper, including exposed listeners, configuration rendering, process ownership and shutdown behavior."
+
+[file.021]
+path = "docker/bridge-relayer/Dockerfile"
+lines = 31
+verdict = "clean"
+note = "Read the complete image recipe, build inputs, runtime artifacts, environment defaults, process entrypoint and service boundary."
+declared_interfaces = ["16.env-dock-bridge-relayer-dockerfile-env-cargo-build-jobs","16.env-dock-bridge-relayer-dockerfile-env-cargo-target-dir","16.env-dock-bridge-relayer-dockerfile-env-path","16.env-dock-bridge-relayer-dockerfile-env-rustc"]
+
+[file.022]
+path = "docker/bridge-relayer/entrypoint.sh"
+lines = 129
+verdict = "clean"
+note = "Read the complete container configuration or helper, including exposed listeners, configuration rendering, process ownership and shutdown behavior."
+declared_interfaces = ["16.cli-dock-bridge-relayer-entrypoint","16.env-dock-bridge-relayer-entrypoint-layerx-bridge-approved-membership","16.env-dock-bridge-relayer-entrypoint-layerx-bridge-attestor-index","16.env-dock-bridge-relayer-entrypoint-layerx-bridge-attestor-key-file","16.env-dock-bridge-relayer-entrypoint-layerx-bridge-attestor-set-size","16.env-dock-bridge-relayer-entrypoint-layerx-bridge-attestor-threshold","16.env-dock-bridge-relayer-entrypoint-layerx-bridge-cosign-transport-config","16.env-dock-bridge-relayer-entrypoint-layerx-bridge-operator-inventory"]
+
+[file.023]
+path = "docker/common/env-files.sh"
+lines = 72
+verdict = "clean"
+note = "Read the complete container configuration or helper, including exposed listeners, configuration rendering, process ownership and shutdown behavior."
+declared_interfaces = ["16.cli-dock-common-env-files","16.env-dock-common-env-files-layerx-files-owner","16.env-dock-common-env-files-layerx-files-owner-2","16.env-dock-common-env-files-layerx-files-table","16.env-dock-common-env-files-layerx-role"]
+
+[file.024]
+path = "docker/docker-compose.giga-mixed.yml"
+lines = 35
+verdict = "clean"
+note = "Read the complete container configuration or helper, including exposed listeners, configuration rendering, process ownership and shutdown behavior."
+declared_interfaces = ["16.cfg-dock-docker-compose-giga-mixed-yml-svc-node0","16.cfg-dock-docker-compose-giga-mixed-yml-svc-node1","16.cfg-dock-docker-compose-giga-mixed-yml-svc-node2","16.cfg-dock-docker-compose-giga-mixed-yml-svc-node3"]
+
+[file.025]
+path = "docker/docker-compose.monitoring.yml"
+lines = 33
+verdict = "issues"
+note = "Read the complete container configuration or helper, including exposed listeners, configuration rendering, process ownership and shutdown behavior."
+findings = ["f008"]
+declared_interfaces = ["16.cfg-dock-docker-compose-monitoring-yml-networks-localnet","16.cfg-dock-docker-compose-monitoring-yml-svc-grafana","16.cfg-dock-docker-compose-monitoring-yml-svc-prometheus"]
+
+[file.026]
+path = "docker/docker-compose.yml"
+lines = 162
+verdict = "clean"
+note = "Read the complete container configuration or helper, including exposed listeners, configuration rendering, process ownership and shutdown behavior."
+declared_interfaces = ["16.cfg-dock-docker-compose-yml-networks-localnet","16.cfg-dock-docker-compose-yml-svc-node0","16.cfg-dock-docker-compose-yml-svc-node1","16.cfg-dock-docker-compose-yml-svc-node2","16.cfg-dock-docker-compose-yml-svc-node3","16.cfg-dock-docker-compose-yml-svc-x-websearch"]
+
+[file.027]
+path = "docker/docker_compose_monitoring/grafana-datasource.yaml"
+lines = 8
+verdict = "clean"
+note = "Read the complete container configuration or helper, including exposed listeners, configuration rendering, process ownership and shutdown behavior."
+
+[file.028]
+path = "docker/docker_compose_monitoring/prometheus.yaml"
+lines = 14
+verdict = "clean"
+note = "Read the complete container configuration or helper, including exposed listeners, configuration rendering, process ownership and shutdown behavior."
+
+[file.029]
+path = "docker/explorer-backend/Dockerfile"
+lines = 96
+verdict = "clean"
+note = "Read the complete image recipe, build inputs, runtime artifacts, environment defaults, process entrypoint and service boundary."
+declared_interfaces = ["16.env-dock-explorer-backend-dockerfile-arg-api-graphql-max-complexity","16.env-dock-explorer-backend-dockerfile-arg-api-v1-read-methods-disabled","16.env-dock-explorer-backend-dockerfile-arg-api-v1-write-methods-disabled","16.env-dock-explorer-backend-dockerfile-arg-blockscout-gid","16.env-dock-explorer-backend-dockerfile-arg-blockscout-group","16.env-dock-explorer-backend-dockerfile-arg-blockscout-uid","16.env-dock-explorer-backend-dockerfile-arg-blockscout-user","16.env-dock-explorer-backend-dockerfile-arg-blockscout-version","16.env-dock-explorer-backend-dockerfile-arg-bridged-tokens-enabled","16.env-dock-explorer-backend-dockerfile-arg-chain-type","16.env-dock-explorer-backend-dockerfile-arg-disable-api","16.env-dock-explorer-backend-dockerfile-arg-mud-indexer-enabled","16.env-dock-explorer-backend-dockerfile-arg-release-version","16.env-dock-explorer-backend-dockerfile-env-admin-panel-enabled","16.env-dock-explorer-backend-dockerfile-env-disable-webapp","16.env-dock-explorer-backend-dockerfile-env-mix-env","16.env-dock-explorer-backend-dockerfile-env-mix-home"]
+
+[file.030]
+path = "docker/explorer-elixir-builder/Dockerfile"
+lines = 38
+verdict = "clean"
+note = "Read the complete image recipe, build inputs, runtime artifacts, environment defaults, process entrypoint and service boundary."
+declared_interfaces = ["16.env-dock-explorer-elixir-builder-dockerfile-env-mix-home"]
+
+[file.031]
+path = "docker/explorer-frontend/Dockerfile"
+lines = 215
+verdict = "clean"
+note = "Read the complete image recipe, build inputs, runtime artifacts, environment defaults, process entrypoint and service boundary."
+declared_interfaces = ["16.env-dock-explorer-frontend-dockerfile-arg-envs-preset","16.env-dock-explorer-frontend-dockerfile-arg-git-commit-sha","16.env-dock-explorer-frontend-dockerfile-arg-git-tag","16.env-dock-explorer-frontend-dockerfile-arg-next-open-telemetry-enabled","16.env-dock-explorer-frontend-dockerfile-env-next-public-git-commit-sha","16.env-dock-explorer-frontend-dockerfile-env-next-public-git-tag","16.env-dock-explorer-frontend-dockerfile-env-node-env","16.env-dock-explorer-frontend-dockerfile-env-node-options","16.env-dock-explorer-frontend-dockerfile-env-port"]
+
+[file.032]
+path = "docker/explorer-sig-provider/Dockerfile"
+lines = 33
+verdict = "clean"
+note = "Read the complete image recipe, build inputs, runtime artifacts, environment defaults, process entrypoint and service boundary."
+declared_interfaces = ["16.env-dock-explorer-sig-provider-dockerfile-env-app-user"]
+
+[file.033]
+path = "docker/explorer-smart-contract-verifier/Dockerfile"
+lines = 33
+verdict = "clean"
+note = "Read the complete image recipe, build inputs, runtime artifacts, environment defaults, process entrypoint and service boundary."
+declared_interfaces = ["16.env-dock-explorer-smart-contract-verifier-dockerfile-env-app-user"]
+
+[file.034]
+path = "docker/flyci-controller/Dockerfile"
+lines = 15
+verdict = "clean"
+note = "Read the complete image recipe, build inputs, runtime artifacts, environment defaults, process entrypoint and service boundary."
+declared_interfaces = ["16.env-dock-flyci-controller-dockerfile-arg-source-revision"]
+
+[file.035]
+path = "docker/flyci-runner/Dockerfile"
+lines = 98
+verdict = "clean"
+note = "Read the complete image recipe, build inputs, runtime artifacts, environment defaults, process entrypoint and service boundary."
+declared_interfaces = ["16.env-dock-flyci-runner-dockerfile-arg-runner-sha256","16.env-dock-flyci-runner-dockerfile-arg-runner-version","16.env-dock-flyci-runner-dockerfile-env-debian-frontend"]
+
+[file.036]
+path = "docker/gas-station/Dockerfile"
+lines = 19
+verdict = "clean"
+note = "Read the complete image recipe, build inputs, runtime artifacts, environment defaults, process entrypoint and service boundary."
+declared_interfaces = ["16.env-dock-gas-station-dockerfile-env-cargo-build-jobs","16.env-dock-gas-station-dockerfile-env-cargo-target-dir"]
+
+[file.037]
+path = "docker/gas-station/init.sh"
+lines = 139
+verdict = "issues"
+note = "Read the complete container configuration or helper, including exposed listeners, configuration rendering, process ownership and shutdown behavior."
+findings = ["f040"]
+declared_interfaces = ["16.cli-dock-gas-station-init","16.env-dock-gas-station-init-gas-station-balance-floor","16.env-dock-gas-station-init-gas-station-chain-id","16.env-dock-gas-station-init-gas-station-decimals","16.env-dock-gas-station-init-gas-station-endpoints","16.env-dock-gas-station-init-gas-station-gas-limit","16.env-dock-gas-station-init-gas-station-interval-seconds","16.env-dock-gas-station-init-gas-station-listen","16.env-dock-gas-station-init-gas-station-margin-bps","16.env-dock-gas-station-init-gas-station-max-priority-fee-per-gas","16.env-dock-gas-station-init-gas-station-max-rate-age","16.env-dock-gas-station-init-gas-station-paymaster","16.env-dock-gas-station-init-gas-station-per-account-limit","16.env-dock-gas-station-init-gas-station-per-interval-limit","16.env-dock-gas-station-init-gas-station-per-quote-limit","16.env-dock-gas-station-init-gas-station-rate-balance-floor","16.env-dock-gas-station-init-gas-station-rate-cadence-seconds","16.env-dock-gas-station-init-gas-station-rate-confirmation-retry-seconds","16.env-dock-gas-station-init-gas-station-rate-gas-budget-per-day","16.env-dock-gas-station-init-gas-station-rate-max-fee-per-gas","16.env-dock-gas-station-init-gas-station-rate-owner-key-env","16.env-dock-gas-station-init-gas-station-receipt-keys","16.env-dock-gas-station-init-gas-station-relayer-key-env","16.env-dock-gas-station-init-gas-station-spread-bps","16.env-dock-gas-station-init-gas-station-token"]
+
+[file.038]
+path = "docker/hpx-registry/Dockerfile"
+lines = 38
+verdict = "clean"
+note = "Read the complete image recipe, build inputs, runtime artifacts, environment defaults, process entrypoint and service boundary."
+declared_interfaces = ["16.env-dock-hpx-registry-dockerfile-arg-source-revision"]
+
+[file.039]
+path = "docker/hpx-registry/entrypoint.sh"
+lines = 37
+verdict = "clean"
+note = "Read the complete container configuration or helper, including exposed listeners, configuration rendering, process ownership and shutdown behavior."
+declared_interfaces = ["16.cli-dock-hpx-registry-entrypoint","16.env-dock-hpx-registry-entrypoint-hpx-addr","16.env-dock-hpx-registry-entrypoint-port"]
+
+[file.040]
+path = "docker/human-service/Dockerfile"
+lines = 33
+verdict = "clean"
+note = "Read the complete image recipe, build inputs, runtime artifacts, environment defaults, process entrypoint and service boundary."
+declared_interfaces = ["16.env-dock-human-service-dockerfile-arg-cargo-build-jobs","16.env-dock-human-service-dockerfile-env-makeflags"]
+
+[file.041]
+path = "docker/interop-mirror/Dockerfile"
+lines = 22
+verdict = "clean"
+note = "Read the complete image recipe, build inputs, runtime artifacts, environment defaults, process entrypoint and service boundary."
+declared_interfaces = ["16.env-dock-interop-mirror-dockerfile-env-cargo-build-jobs","16.env-dock-interop-mirror-dockerfile-env-cargo-target-dir"]
+
+[file.042]
+path = "docker/layerx/Dockerfile"
+lines = 112
+verdict = "clean"
+note = "Read the complete image recipe, build inputs, runtime artifacts, environment defaults, process entrypoint and service boundary."
+declared_interfaces = ["16.env-dock-layerx-dockerfile-arg-cargo-build-jobs","16.env-dock-layerx-dockerfile-arg-go-build-args","16.env-dock-layerx-dockerfile-arg-go-build-tags","16.env-dock-layerx-dockerfile-arg-pax-chain-ref","16.env-dock-layerx-dockerfile-arg-paxctl-version","16.env-dock-layerx-dockerfile-arg-targetarch","16.env-dock-layerx-dockerfile-env-cargo-target-dir","16.env-dock-layerx-dockerfile-env-cgo-enabled","16.env-dock-layerx-dockerfile-env-rustup-toolchain"]
+
+[file.043]
+path = "docker/monitornode/config/grafana-dashboards.yaml"
+lines = 11
+verdict = "clean"
+note = "Read the complete container configuration or helper, including exposed listeners, configuration rendering, process ownership and shutdown behavior."
+
+[file.044]
+path = "docker/monitornode/config/grafana.yaml"
+lines = 8
+verdict = "clean"
+note = "Read the complete container configuration or helper, including exposed listeners, configuration rendering, process ownership and shutdown behavior."
+
+[file.045]
+path = "docker/monitornode/config/prometheus.yaml"
+lines = 9
+verdict = "clean"
+note = "Read the complete container configuration or helper, including exposed listeners, configuration rendering, process ownership and shutdown behavior."
+
+[file.046]
+path = "docker/monitornode/scripts/start-grafana.sh"
+lines = 93
+verdict = "issues"
+note = "Read the complete container configuration or helper, including exposed listeners, configuration rendering, process ownership and shutdown behavior."
+findings = ["f007"]
+declared_interfaces = ["16.cli-dock-monitornode-scripts-start-grafana","16.env-dock-monitornode-scripts-start-grafana-add-host-flag"]
+
+[file.047]
+path = "docker/monitornode/scripts/start-prometheus.sh"
+lines = 77
+verdict = "clean"
+note = "Read the complete container configuration or helper, including exposed listeners, configuration rendering, process ownership and shutdown behavior."
+declared_interfaces = ["16.cli-dock-monitornode-scripts-start-prometheus","16.env-dock-monitornode-scripts-start-prometheus-add-host-flag"]
+
+[file.048]
+path = "docker/monitornode/scripts/stop-grafana.sh"
+lines = 33
+verdict = "clean"
+note = "Read the complete container configuration or helper, including exposed listeners, configuration rendering, process ownership and shutdown behavior."
+declared_interfaces = ["16.cli-dock-monitornode-scripts-stop-grafana"]
+
+[file.049]
+path = "docker/monitornode/scripts/stop-prometheus.sh"
+lines = 33
+verdict = "clean"
+note = "Read the complete container configuration or helper, including exposed listeners, configuration rendering, process ownership and shutdown behavior."
+declared_interfaces = ["16.cli-dock-monitornode-scripts-stop-prometheus"]
+
+[file.050]
+path = "docker/paxeer/Dockerfile"
+lines = 11
+verdict = "clean"
+note = "Read the complete image recipe, build inputs, runtime artifacts, environment defaults, process entrypoint and service boundary."
+
+[file.051]
+path = "docker/platform-agent-boundary/Dockerfile"
+lines = 11
+verdict = "clean"
+note = "Read the complete image recipe, build inputs, runtime artifacts, environment defaults, process entrypoint and service boundary."
+
+[file.052]
+path = "docker/platform-authority/Dockerfile"
+lines = 17
+verdict = "clean"
+note = "Read the complete image recipe, build inputs, runtime artifacts, environment defaults, process entrypoint and service boundary."
+declared_interfaces = ["16.env-dock-platform-authority-dockerfile-env-cargo-build-jobs"]
+
+[file.053]
+path = "docker/platform-core/Dockerfile"
+lines = 12
+verdict = "clean"
+note = "Read the complete image recipe, build inputs, runtime artifacts, environment defaults, process entrypoint and service boundary."
+
+[file.054]
+path = "docker/platform-dashboard/Dockerfile"
+lines = 13
+verdict = "clean"
+note = "Read the complete image recipe, build inputs, runtime artifacts, environment defaults, process entrypoint and service boundary."
+
+[file.055]
+path = "docker/platform-faucet/Dockerfile"
+lines = 11
+verdict = "clean"
+note = "Read the complete image recipe, build inputs, runtime artifacts, environment defaults, process entrypoint and service boundary."
+
+[file.056]
+path = "docker/platform-gateway/Dockerfile"
+lines = 15
+verdict = "clean"
+note = "Read the complete image recipe, build inputs, runtime artifacts, environment defaults, process entrypoint and service boundary."
+
+[file.057]
+path = "docker/platform-gateway/entrypoint.sh"
+lines = 158
+verdict = "clean"
+note = "Read the complete container configuration or helper, including exposed listeners, configuration rendering, process ownership and shutdown behavior."
+declared_interfaces = ["16.cli-dock-platform-gateway-entrypoint"]
+
+[file.058]
+path = "docker/platform-identity/Dockerfile"
+lines = 16
+verdict = "clean"
+note = "Read the complete image recipe, build inputs, runtime artifacts, environment defaults, process entrypoint and service boundary."
+
+[file.059]
+path = "docker/platform-indexer/Dockerfile"
+lines = 22
+verdict = "clean"
+note = "Read the complete image recipe, build inputs, runtime artifacts, environment defaults, process entrypoint and service boundary."
+
+[file.060]
+path = "docker/platform-indexer/package-abis.sh"
+lines = 32
+verdict = "clean"
+note = "Read the complete container configuration or helper, including exposed listeners, configuration rendering, process ownership and shutdown behavior."
+
+[file.061]
+path = "docker/platform-internal/Dockerfile"
+lines = 31
+verdict = "clean"
+note = "Read the complete image recipe, build inputs, runtime artifacts, environment defaults, process entrypoint and service boundary."
+
+[file.062]
+path = "docker/platform-node/Dockerfile"
+lines = 56
+verdict = "issues"
+note = "Read the complete image recipe, build inputs, runtime artifacts, environment defaults, process entrypoint and service boundary."
+findings = ["f001"]
+
+[file.063]
+path = "docker/platform-registry-builder/Dockerfile"
+lines = 40
+verdict = "clean"
+note = "Read the complete image recipe, build inputs, runtime artifacts, environment defaults, process entrypoint and service boundary."
+
+[file.064]
+path = "docker/platform-testnet/Dockerfile"
+lines = 13
+verdict = "clean"
+note = "Read the complete image recipe, build inputs, runtime artifacts, environment defaults, process entrypoint and service boundary."
+
+[file.065]
+path = "docker/platform-webhooks/Dockerfile"
+lines = 30
+verdict = "clean"
+note = "Read the complete image recipe, build inputs, runtime artifacts, environment defaults, process entrypoint and service boundary."
+
+[file.066]
+path = "docker/ramps/Dockerfile"
+lines = 20
+verdict = "clean"
+note = "Read the complete image recipe, build inputs, runtime artifacts, environment defaults, process entrypoint and service boundary."
+
+[file.067]
+path = "docker/redis/Dockerfile"
+lines = 9
+verdict = "clean"
+note = "Read the complete image recipe, build inputs, runtime artifacts, environment defaults, process entrypoint and service boundary."
+
+[file.068]
+path = "docker/redis/entrypoint.sh"
+lines = 49
+verdict = "clean"
+note = "Read the complete container configuration or helper, including exposed listeners, configuration rendering, process ownership and shutdown behavior."
+declared_interfaces = ["16.cli-dock-redis-entrypoint"]
+
+[file.069]
+path = "docker/redis/tests/redis-image.test.sh"
+lines = 67
+verdict = "clean"
+note = "Read the complete container configuration or helper, including exposed listeners, configuration rendering, process ownership and shutdown behavior."
+
+[file.070]
+path = "docker/search-front/Dockerfile"
+lines = 17
+verdict = "clean"
+note = "Read the complete image recipe, build inputs, runtime artifacts, environment defaults, process entrypoint and service boundary."
+
+[file.071]
+path = "docker/search-front/real-ip.sh"
+lines = 26
+verdict = "clean"
+note = "Read the complete container configuration or helper, including exposed listeners, configuration rendering, process ownership and shutdown behavior."
+declared_interfaces = ["16.cli-dock-search-front-real-ip"]
+
+[file.072]
+path = "docker/search-front/real-ip.test.sh"
+lines = 76
+verdict = "clean"
+note = "Read the complete container configuration or helper, including exposed listeners, configuration rendering, process ownership and shutdown behavior."
+
+[file.073]
+path = "docker/wallet-attestor/Dockerfile"
+lines = 23
+verdict = "clean"
+note = "Read the complete image recipe, build inputs, runtime artifacts, environment defaults, process entrypoint and service boundary."
+
+[file.074]
+path = "docker/wallet-gateway/Dockerfile"
+lines = 42
+verdict = "clean"
+note = "Read the complete image recipe, build inputs, runtime artifacts, environment defaults, process entrypoint and service boundary."
+
+[file.075]
+path = "docker/wallet-gateway/entrypoint.sh"
+lines = 28
+verdict = "clean"
+note = "Read the complete container configuration or helper, including exposed listeners, configuration rendering, process ownership and shutdown behavior."
+declared_interfaces = ["16.cli-dock-wallet-gateway-entrypoint"]
+
+[file.076]
+path = "docker/wallet-pwa/Dockerfile"
+lines = 122
+verdict = "clean"
+note = "Read the complete image recipe, build inputs, runtime artifacts, environment defaults, process entrypoint and service boundary."
+
+[file.077]
+path = "docker/x-websearch/Dockerfile"
+lines = 36
+verdict = "clean"
+note = "Read the complete image recipe, build inputs, runtime artifacts, environment defaults, process entrypoint and service boundary."
+
+[file.078]
+path = "docker/x-websearch/entrypoint.sh"
+lines = 34
+verdict = "clean"
+note = "Read the complete container configuration or helper, including exposed listeners, configuration rendering, process ownership and shutdown behavior."
+declared_interfaces = ["16.cli-dock-x-websearch-entrypoint"]
+
+[file.079]
+path = "migrations/README.md"
+lines = 27
+verdict = "issues"
+note = "Read the complete migration ownership and operator guidance against retained chain state and retired history paths."
+findings = ["f002"]
+
+[file.080]
+path = "scripts/evm_stress/main.go"
+lines = 220
+verdict = "issues"
+note = "Read the complete operational script and its inputs, subprocess errors and configuration boundaries."
+findings = ["f005"]
+declared_interfaces = ["16.cli-scr-evm-stress-main","16.cli-scr-evm-stress-main-opt-dump-pax-addrs","16.cli-scr-evm-stress-main-opt-mode"]
+
+[file.081]
+path = "scripts/interop/dependency-policy.sh"
+lines = 82
+verdict = "clean"
+note = "Read the complete operational script and its inputs, subprocess errors and configuration boundaries."
+declared_interfaces = ["16.cli-scr-interop-dependency-policy"]
+
+[file.082]
+path = "scripts/workspace/check-core-gates-test.sh"
+lines = 24
+verdict = "clean"
+note = "Read the complete workspace guard or its regression cases against current manifest roots, exclusions, error propagation and retained build gates."
+declared_interfaces = ["16.cli-scr-workspace-check-core-gates-test"]
+
+[file.083]
+path = "scripts/workspace/check-core-gates.sh"
+lines = 43
+verdict = "clean"
+note = "Read the complete workspace guard or its regression cases against current manifest roots, exclusions, error propagation and retained build gates."
+declared_interfaces = ["16.cli-scr-workspace-check-core-gates"]
+
+[file.084]
+path = "scripts/workspace/check-hardhat-compilers.mjs"
+lines = 25
+verdict = "clean"
+note = "Read the complete workspace guard or its regression cases against current manifest roots, exclusions, error propagation and retained build gates."
+declared_interfaces = ["16.cli-scr-workspace-check-hardhat-compilers"]
+
+[file.085]
+path = "scripts/workspace/check-paxeer-manifests-test.sh"
+lines = 13
+verdict = "clean"
+note = "Read the complete workspace guard or its regression cases against current manifest roots, exclusions, error propagation and retained build gates."
+declared_interfaces = ["16.cli-scr-workspace-check-paxeer-manifests-test"]
+
+[file.086]
+path = "scripts/workspace/check-paxeer-manifests.sh"
+lines = 39
+verdict = "clean"
+note = "Read the complete workspace guard or its regression cases against current manifest roots, exclusions, error propagation and retained build gates."
+declared_interfaces = ["16.cli-scr-workspace-check-paxeer-manifests"]
+
+[file.087]
+path = "scripts/workspace/check-platform-dependencies-test.sh"
+lines = 31
+verdict = "clean"
+note = "Read the complete workspace guard or its regression cases against current manifest roots, exclusions, error propagation and retained build gates."
+declared_interfaces = ["16.cli-scr-workspace-check-platform-dependencies-test"]
+
+[file.088]
+path = "scripts/workspace/check-platform-dependencies.sh"
+lines = 41
+verdict = "issues"
+note = "Read the complete workspace guard or its regression cases against current manifest roots, exclusions, error propagation and retained build gates."
+findings = ["f004"]
+declared_interfaces = ["16.cli-scr-workspace-check-platform-dependencies"]
+
+[file.089]
+path = "tests/conformance/check_receipt_vector_copies.py"
+lines = 181
+verdict = "issues"
+note = "Read the complete qualification test and its real fixture/API assumptions, retained execution path, strict refusals and expected result shape."
+findings = ["f041"]
+
+[file.090]
+path = "tests/oracle/lx_oracle_adapter_isolation.sh"
+lines = 14
+verdict = "issues"
+note = "Read the complete qualification test and its real fixture/API assumptions, retained execution path, strict refusals and expected result shape."
+findings = ["f006"]
+
+[file.091]
+path = "tests/replay/lxp_test_golden_replay.c"
+lines = 184
+verdict = "issues"
+note = "Read the complete qualification test and its real fixture/API assumptions, retained execution path, strict refusals and expected result shape."
+findings = ["f003"]
+
+[file.092]
+path = "tests/sdk/typescript/program-terminal-v5.test.mjs"
+lines = 128
+verdict = "issues"
+note = "Read the complete qualification test and its real fixture/API assumptions, retained execution path, strict refusals and expected result shape."
+findings = ["f019"]
+
+[file.093]
+path = "tests/sequencer/lxp_test_admission.c"
+lines = 51
+verdict = "clean"
+note = "Read the complete qualification test and its real fixture/API assumptions, retained execution path, strict refusals and expected result shape."
+
+[file.094]
+path = "tests/workspace/test-dashboard.sh"
+lines = 87
+verdict = "clean"
+note = "Read the complete qualification test and its real fixture/API assumptions, retained execution path, strict refusals and expected result shape."
+
+[file.095]
+path = "tools/benchmark/AGENTS.md"
+lines = 87
+verdict = "clean"
+note = "Read the complete benchmark helper, documentation or regression cases against the retained comparison and TPS extraction behavior."
+
+[file.096]
+path = "tools/benchmark/benchmark-compare.sh"
+lines = 314
+verdict = "clean"
+note = "Read the complete benchmark helper, documentation or regression cases against the retained comparison and TPS extraction behavior."
+declared_interfaces = ["16.cli-bench-benchmark-benchmark-compare","16.env-bench-benchmark-benchmark-compare-benchmark-config","16.env-bench-benchmark-benchmark-compare-benchmark-txs-per-batch","16.env-bench-benchmark-benchmark-compare-db-backend","16.env-bench-benchmark-benchmark-compare-duration","16.env-bench-benchmark-benchmark-compare-giga-executor","16.env-bench-benchmark-benchmark-compare-giga-occ","16.env-bench-benchmark-benchmark-compare-height","16.env-bench-benchmark-compare-base-dir-j59","16.env-bench-benchmark-compare-max-regression-pct-j59","16.env-bench-benchmark-compare-results-only-j59"]
+
+[file.097]
+path = "tools/benchmark/loadtest/config.json"
+lines = 121
+verdict = "clean"
+note = "Read the complete load-generator source or configuration, including transaction construction, message selection, endpoint usage, errors and concurrency."
+declared_interfaces = ["16.cfg-bench-config-blockchain-endpoint","16.cfg-bench-config-chain-id","16.cfg-bench-config-contract-distribution","16.cfg-bench-config-evm-rpc-endpoints","16.cfg-bench-config-evm-use-eip1559-txs","16.cfg-bench-config-grpc-endpoints","16.cfg-bench-config-max-accounts","16.cfg-bench-config-message-configs","16.cfg-bench-config-message-type-distribution","16.cfg-bench-config-message-types","16.cfg-bench-config-metrics-port","16.cfg-bench-config-msgs-per-tx","16.cfg-bench-config-node-uri","16.cfg-bench-config-pax-tester-address","16.cfg-bench-config-post-tx-evm-queries","16.cfg-bench-config-price-distribution","16.cfg-bench-config-quantity-distribution","16.cfg-bench-config-run-oracle","16.cfg-bench-config-target-tps","16.cfg-bench-config-ticks","16.cfg-bench-config-tls","16.cfg-bench-config-wasm-msg-types"]
+
+[file.098]
+path = "tools/benchmark/loadtest/contracts/deploy.sh"
+lines = 94
+verdict = "issues"
+note = "Read the complete benchmark contract, manifest or setup helper against its message/ABI encoding, retained build inputs and caller expectations."
+findings = ["f028"]
+declared_interfaces = ["16.cli-bench-benchmark-loadtest-contracts-deploy"]
+
+[file.099]
+path = "tools/benchmark/loadtest/contracts/deploy_erc20.sh"
+lines = 28
+verdict = "issues"
+note = "Read the complete benchmark contract, manifest or setup helper against its message/ABI encoding, retained build inputs and caller expectations."
+findings = ["f030"]
+declared_interfaces = ["16.cli-bench-benchmark-loadtest-contracts-deploy-erc20","16.env-bench-deployer-key-j59"]
+
+[file.100]
+path = "tools/benchmark/loadtest/contracts/deploy_erc721.sh"
+lines = 31
+verdict = "issues"
+note = "Read the complete benchmark contract, manifest or setup helper against its message/ABI encoding, retained build inputs and caller expectations."
+findings = ["f031"]
+declared_interfaces = ["16.cli-bench-benchmark-loadtest-contracts-deploy-erc721"]
+
+[file.101]
+path = "tools/benchmark/loadtest/contracts/evm/VENDORING.md"
+lines = 11
+verdict = "clean"
+note = "Read the complete benchmark contract, manifest or setup helper against its message/ABI encoding, retained build inputs and caller expectations."
+
+[file.102]
+path = "tools/benchmark/loadtest/contracts/evm/foundry.toml"
+lines = 27
+verdict = "clean"
+note = "Read the complete benchmark contract, manifest or setup helper against its message/ABI encoding, retained build inputs and caller expectations."
+declared_interfaces = ["16.cfg-bench-evm-foundry-toml-profile-default","16.cfg-bench-evm-foundry-toml-profile-default-auto-detect-solc","16.cfg-bench-evm-foundry-toml-profile-default-fuzz-runs","16.cfg-bench-evm-foundry-toml-profile-default-libs","16.cfg-bench-evm-foundry-toml-profile-default-optimizer","16.cfg-bench-evm-foundry-toml-profile-default-optimizer-runs","16.cfg-bench-evm-foundry-toml-profile-default-out","16.cfg-bench-evm-foundry-toml-profile-default-remappings","16.cfg-bench-evm-foundry-toml-profile-default-solc-version","16.cfg-bench-evm-foundry-toml-profile-default-src"]
+
+[file.103]
+path = "tools/benchmark/loadtest/contracts/evm/setup.sh"
+lines = 14
+verdict = "clean"
+note = "Read the complete benchmark contract, manifest or setup helper against its message/ABI encoding, retained build inputs and caller expectations."
+declared_interfaces = ["16.cli-bench-benchmark-loadtest-contracts-evm-setup"]
+
+[file.104]
+path = "tools/benchmark/loadtest/contracts/evm/test_sources_match_bindings.py"
+lines = 48
+verdict = "issues"
+note = "Read the complete benchmark contract, manifest or setup helper against its message/ABI encoding, retained build inputs and caller expectations."
+findings = ["f032"]
+
+[file.105]
+path = "tools/benchmark/loadtest/contracts/jupiter/Cargo.toml"
+lines = 28
+verdict = "clean"
+note = "Read the complete benchmark contract, manifest or setup helper against its message/ABI encoding, retained build inputs and caller expectations."
+
+[file.106]
+path = "tools/benchmark/loadtest/contracts/jupiter/src/contract.rs"
+lines = 129
+verdict = "issues"
+note = "Read the complete benchmark contract, manifest or setup helper against its message/ABI encoding, retained build inputs and caller expectations."
+findings = ["f044"]
+
+[file.107]
+path = "tools/benchmark/loadtest/contracts/jupiter/src/lib.rs"
+lines = 3
+verdict = "clean"
+note = "Read the complete benchmark contract, manifest or setup helper against its message/ABI encoding, retained build inputs and caller expectations."
+
+[file.108]
+path = "tools/benchmark/loadtest/contracts/jupiter/src/msg.rs"
+lines = 93
+verdict = "clean"
+note = "Read the complete benchmark contract, manifest or setup helper against its message/ABI encoding, retained build inputs and caller expectations."
+
+[file.109]
+path = "tools/benchmark/loadtest/contracts/jupiter/src/state.rs"
+lines = 4
+verdict = "clean"
+note = "Read the complete benchmark contract, manifest or setup helper against its message/ABI encoding, retained build inputs and caller expectations."
+
+[file.110]
+path = "tools/benchmark/loadtest/contracts/mars/Cargo.toml"
+lines = 28
+verdict = "clean"
+note = "Read the complete benchmark contract, manifest or setup helper against its message/ABI encoding, retained build inputs and caller expectations."
+
+[file.111]
+path = "tools/benchmark/loadtest/contracts/mars/src/contract.rs"
+lines = 105
+verdict = "clean"
+note = "Read the complete benchmark contract, manifest or setup helper against its message/ABI encoding, retained build inputs and caller expectations."
+
+[file.112]
+path = "tools/benchmark/loadtest/contracts/mars/src/lib.rs"
+lines = 2
+verdict = "clean"
+note = "Read the complete benchmark contract, manifest or setup helper against its message/ABI encoding, retained build inputs and caller expectations."
+
+[file.113]
+path = "tools/benchmark/loadtest/contracts/mars/src/msg.rs"
+lines = 91
+verdict = "clean"
+note = "Read the complete benchmark contract, manifest or setup helper against its message/ABI encoding, retained build inputs and caller expectations."
+
+[file.114]
+path = "tools/benchmark/loadtest/contracts/parser.py"
+lines = 46
+verdict = "issues"
+note = "Read the complete benchmark contract, manifest or setup helper against its message/ABI encoding, retained build inputs and caller expectations."
+findings = ["f029"]
+declared_interfaces = ["16.cli-bench-benchmark-loadtest-contracts-parser","16.cli-bench-benchmark-loadtest-contracts-parser-opt-argv1"]
+
+[file.115]
+path = "tools/benchmark/loadtest/contracts/saturn/Cargo.toml"
+lines = 28
+verdict = "clean"
+note = "Read the complete benchmark contract, manifest or setup helper against its message/ABI encoding, retained build inputs and caller expectations."
+
+[file.116]
+path = "tools/benchmark/loadtest/contracts/saturn/src/contract.rs"
+lines = 105
+verdict = "clean"
+note = "Read the complete benchmark contract, manifest or setup helper against its message/ABI encoding, retained build inputs and caller expectations."
+
+[file.117]
+path = "tools/benchmark/loadtest/contracts/saturn/src/lib.rs"
+lines = 2
+verdict = "clean"
+note = "Read the complete benchmark contract, manifest or setup helper against its message/ABI encoding, retained build inputs and caller expectations."
+
+[file.118]
+path = "tools/benchmark/loadtest/contracts/saturn/src/msg.rs"
+lines = 91
+verdict = "clean"
+note = "Read the complete benchmark contract, manifest or setup helper against its message/ABI encoding, retained build inputs and caller expectations."
+
+[file.119]
+path = "tools/benchmark/loadtest/contracts/venus/Cargo.toml"
+lines = 28
+verdict = "clean"
+note = "Read the complete benchmark contract, manifest or setup helper against its message/ABI encoding, retained build inputs and caller expectations."
+
+[file.120]
+path = "tools/benchmark/loadtest/contracts/venus/src/contract.rs"
+lines = 105
+verdict = "clean"
+note = "Read the complete benchmark contract, manifest or setup helper against its message/ABI encoding, retained build inputs and caller expectations."
+
+[file.121]
+path = "tools/benchmark/loadtest/contracts/venus/src/lib.rs"
+lines = 2
+verdict = "clean"
+note = "Read the complete benchmark contract, manifest or setup helper against its message/ABI encoding, retained build inputs and caller expectations."
+
+[file.122]
+path = "tools/benchmark/loadtest/contracts/venus/src/msg.rs"
+lines = 91
+verdict = "clean"
+note = "Read the complete benchmark contract, manifest or setup helper against its message/ABI encoding, retained build inputs and caller expectations."
+
+[file.123]
+path = "tools/benchmark/loadtest/evm.go"
+lines = 269
+verdict = "issues"
+note = "Read the complete load-generator source or configuration, including transaction construction, message selection, endpoint usage, errors and concurrency."
+findings = ["f043"]
+
+[file.124]
+path = "tools/benchmark/loadtest/evm_test.go"
+lines = 102
+verdict = "clean"
+note = "Read the complete load-generator source or configuration, including transaction construction, message selection, endpoint usage, errors and concurrency."
+
+[file.125]
+path = "tools/benchmark/loadtest/loadtest_client.go"
+lines = 303
+verdict = "issues"
+note = "Read the complete load-generator source or configuration, including transaction construction, message selection, endpoint usage, errors and concurrency."
+findings = ["f024","f025","f026","f042"]
+
+[file.126]
+path = "tools/benchmark/loadtest/message_types_test.go"
+lines = 60
+verdict = "clean"
+note = "Read the complete load-generator source or configuration, including transaction construction, message selection, endpoint usage, errors and concurrency."
+
+[file.127]
+path = "tools/benchmark/loadtest/metrics.go"
+lines = 108
+verdict = "clean"
+note = "Read the complete load-generator source or configuration, including transaction construction, message selection, endpoint usage, errors and concurrency."
+
+[file.128]
+path = "tools/benchmark/loadtest/sign.go"
+lines = 247
+verdict = "clean"
+note = "Read the complete load-generator source or configuration, including transaction construction, message selection, endpoint usage, errors and concurrency."
+
+[file.129]
+path = "tools/benchmark/loadtest/tx.go"
+lines = 33
+verdict = "clean"
+note = "Read the complete load-generator source or configuration, including transaction construction, message selection, endpoint usage, errors and concurrency."
+
+[file.130]
+path = "tools/benchmark/loadtest/types.go"
+lines = 238
+verdict = "issues"
+note = "Read the complete load-generator source or configuration, including transaction construction, message selection, endpoint usage, errors and concurrency."
+findings = ["f027"]
+declared_interfaces = ["16.cfg-bench-config-blockchain-endpoint-2","16.cfg-bench-config-chain-id-2","16.cfg-bench-config-contract-distribution-2","16.cfg-bench-config-evm-rpc-endpoints-2","16.cfg-bench-config-evm-use-eip1559-txs-2","16.cfg-bench-config-grpc-endpoints-2","16.cfg-bench-config-max-accounts-2","16.cfg-bench-config-message-configs-2","16.cfg-bench-config-message-type-distribution-2","16.cfg-bench-config-message-types-2","16.cfg-bench-config-metrics-port-2","16.cfg-bench-config-msgs-per-tx-2","16.cfg-bench-config-node-uri-2","16.cfg-bench-config-pax-tester-address-2","16.cfg-bench-config-post-tx-evm-queries-2","16.cfg-bench-config-price-distribution-2","16.cfg-bench-config-quantity-distribution-2","16.cfg-bench-config-target-tps-2","16.cfg-bench-config-ticks-2","16.cfg-bench-config-tls-2","16.cfg-bench-config-wasm-msg-types-2","16.cfg-bench-contractdistribution-contract-address","16.cfg-bench-contractdistribution-percentage","16.cfg-bench-dexmsgtypedistribution-limit-order-percentage","16.cfg-bench-dexmsgtypedistribution-market-order-percentage","16.cfg-bench-messagetypeconfig-fee","16.cfg-bench-messagetypeconfig-gas","16.cfg-bench-msgtypedistribution-dex","16.cfg-bench-msgtypedistribution-staking","16.cfg-bench-numericdistribution-max","16.cfg-bench-numericdistribution-min","16.cfg-bench-numericdistribution-number-of-distinct-values","16.cfg-bench-posttxevmqueries-block-by-number","16.cfg-bench-posttxevmqueries-filters","16.cfg-bench-posttxevmqueries-receipt","16.cfg-bench-stakingmsgtypedistribution-begin-redelegate-percentage","16.cfg-bench-stakingmsgtypedistribution-delegate-percentage","16.cfg-bench-stakingmsgtypedistribution-undelegate-percentage","16.cfg-bench-vortexcontract-contract-address","16.cfg-bench-vortexcontract-num-orders-per-tx","16.cfg-bench-wasminstantiatetype-code-id","16.cfg-bench-wasminstantiatetype-payload","16.cfg-bench-wasmiteratorwritemsg-values","16.cfg-bench-wasmmessagetypes-instantiate","16.cfg-bench-wasmmessagetypes-vortex","16.cfg-bench-wasmmessagetypes-wasm-mint-nft","16.cfg-bench-wasmmintnfttype-contract-address"]
+
+[file.131]
+path = "tools/benchmark/loadtest/wasm_occ_retired_test.go"
+lines = 41
+verdict = "clean"
+note = "Read the complete load-generator source or configuration, including transaction construction, message selection, endpoint usage, errors and concurrency."
+
+[file.132]
+path = "tools/benchmark/scenarios_test.go"
+lines = 54
+verdict = "clean"
+note = "Read the complete benchmark helper, documentation or regression cases against the retained comparison and TPS extraction behavior."
+
+[file.133]
+path = "tools/benchmark/test_benchmark_compare.py"
+lines = 100
+verdict = "clean"
+note = "Read the complete benchmark helper, documentation or regression cases against the retained comparison and TPS extraction behavior."
+
+[file.134]
+path = "tools/benchmark/test_tps_stats.py"
+lines = 120
+verdict = "clean"
+note = "Read the complete benchmark helper, documentation or regression cases against the retained comparison and TPS extraction behavior."
+
+[file.135]
+path = "tools/benchmark/tps_stats.py"
+lines = 100
+verdict = "clean"
+note = "Read the complete benchmark helper, documentation or regression cases against the retained comparison and TPS extraction behavior."
+declared_interfaces = ["16.cli-bench-tps-stats-j59"]
+
+[file.136]
+path = "tools/platform/emulator/build.rs"
+lines = 90
+verdict = "issues"
+note = "Read the complete member against the package requirements, declared producer/consumer boundaries and merged-network retirement rules."
+findings = ["f022"]
+
+[file.137]
+path = "tools/qualification/localnode/main_test.go"
+lines = 101
+verdict = "clean"
+note = "Read the complete qualification guard and negative cases against the retained production boundaries."
+
+[file.138]
+path = "tools/qualification/paxeer-x/arbiter_prestate.py"
+lines = 278
+verdict = "clean"
+note = "Read the complete qualification producer or verifier, including source/artifact admission, declared cases, transport shape, refusals and lifecycle evidence."
+declared_interfaces = ["16.cli-qual-qualification-paxeer-x-arbiter-prestate","16.cli-qual-qualification-paxeer-x-arbiter-prestate-opt-build","16.cli-qual-qualification-paxeer-x-arbiter-prestate-opt-build-dir","16.cli-qual-qualification-paxeer-x-arbiter-prestate-opt-cargo","16.cli-qual-qualification-paxeer-x-arbiter-prestate-opt-cc","16.cli-qual-qualification-paxeer-x-arbiter-prestate-opt-cppflags","16.cli-qual-qualification-paxeer-x-arbiter-prestate-opt-ldflags"]
+
+[file.139]
+path = "tools/qualification/paxeer-x/asset-execution-prestate.py"
+lines = 258
+verdict = "clean"
+note = "Read the complete qualification producer or verifier, including source/artifact admission, declared cases, transport shape, refusals and lifecycle evidence."
+declared_interfaces = ["16.cli-qual-qualification-paxeer-x-asset-execution-prestate","16.cli-qual-qualification-paxeer-x-asset-execution-prestate-opt-build","16.cli-qual-qualification-paxeer-x-asset-execution-prestate-opt-cargo","16.cli-qual-qualification-paxeer-x-asset-execution-prestate-opt-daemon","16.cli-qual-qualification-paxeer-x-asset-execution-prestate-opt-native"]
+
+[file.140]
+path = "tools/qualification/paxeer-x/asset-inventory.py"
+lines = 259
+verdict = "clean"
+note = "Read the complete qualification producer or verifier, including source/artifact admission, declared cases, transport shape, refusals and lifecycle evidence."
+declared_interfaces = ["16.cli-qual-qualification-paxeer-x-asset-inventory","16.cli-qual-qualification-paxeer-x-asset-inventory-opt-build","16.cli-qual-qualification-paxeer-x-asset-inventory-opt-cargo","16.cli-qual-qualification-paxeer-x-asset-inventory-opt-daemon","16.cli-qual-qualification-paxeer-x-asset-inventory-opt-native"]
+
+[file.141]
+path = "tools/qualification/paxeer-x/authenticated-replay-step.py"
+lines = 102
+verdict = "clean"
+note = "Read the complete qualification producer or verifier, including source/artifact admission, declared cases, transport shape, refusals and lifecycle evidence."
+declared_interfaces = ["16.cli-qual-qualification-paxeer-x-authenticated-replay-step","16.cli-qual-qualification-paxeer-x-authenticated-replay-step-opt-build"]
+
+[file.142]
+path = "tools/qualification/paxeer-x/authority-evidence-read.py"
+lines = 19
+verdict = "clean"
+note = "Read the complete qualification producer or verifier, including source/artifact admission, declared cases, transport shape, refusals and lifecycle evidence."
+declared_interfaces = ["16.cli-qual-qualification-paxeer-x-authority-evidence-read"]
+
+[file.143]
+path = "tools/qualification/paxeer-x/budget-proof-exports.py"
+lines = 130
+verdict = "clean"
+note = "Read the complete qualification producer or verifier, including source/artifact admission, declared cases, transport shape, refusals and lifecycle evidence."
+declared_interfaces = ["16.cli-qual-qualification-paxeer-x-budget-proof-exports"]
+
+[file.144]
+path = "tools/qualification/paxeer-x/budget-proof-intake.py"
+lines = 17
+verdict = "clean"
+note = "Read the complete qualification producer or verifier, including source/artifact admission, declared cases, transport shape, refusals and lifecycle evidence."
+declared_interfaces = ["16.cli-qual-qualification-paxeer-x-budget-proof-intake"]
+
+[file.145]
+path = "tools/qualification/paxeer-x/build-caps-codecs.sh"
+lines = 76
+verdict = "issues"
+note = "Read the complete qualification producer or verifier, including source/artifact admission, declared cases, transport shape, refusals and lifecycle evidence."
+findings = ["f014"]
+declared_interfaces = ["16.cli-qual-qualification-paxeer-x-build-caps-codecs","16.cli-qual-qualification-paxeer-x-build-caps-codecs-opt-version"]
+
+[file.146]
+path = "tools/qualification/paxeer-x/build-caps-discovery.sh"
+lines = 36
+verdict = "issues"
+note = "Read the complete qualification producer or verifier, including source/artifact admission, declared cases, transport shape, refusals and lifecycle evidence."
+findings = ["f060"]
+declared_interfaces = ["16.cli-qual-qualification-paxeer-x-build-caps-discovery"]
+
+[file.147]
+path = "tools/qualification/paxeer-x/caps-codecs.py"
+lines = 154
+verdict = "clean"
+note = "Read the complete qualification producer or verifier, including source/artifact admission, declared cases, transport shape, refusals and lifecycle evidence."
+declared_interfaces = ["16.cli-qual-qualification-paxeer-x-caps-codecs","16.cli-qual-qualification-paxeer-x-caps-codecs-opt-argv1","16.cli-qual-qualification-paxeer-x-caps-codecs-opt-argv2"]
+
+[file.148]
+path = "tools/qualification/paxeer-x/caps-discovery.py"
+lines = 118
+verdict = "issues"
+note = "Read the complete qualification producer or verifier, including source/artifact admission, declared cases, transport shape, refusals and lifecycle evidence."
+findings = ["f009","f015"]
+declared_interfaces = ["16.cli-qual-qualification-paxeer-x-caps-discovery","16.cli-qual-qualification-paxeer-x-caps-discovery-opt-argv1","16.cli-qual-qualification-paxeer-x-caps-discovery-opt-argv2"]
+
+[file.149]
+path = "tools/qualification/paxeer-x/custody-provider-producer.py"
+lines = 194
+verdict = "clean"
+note = "Read the complete qualification producer or verifier, including source/artifact admission, declared cases, transport shape, refusals and lifecycle evidence."
+declared_interfaces = ["16.cli-qual-qualification-paxeer-x-custody-provider-producer","16.cli-qual-qualification-paxeer-x-custody-provider-producer-opt-argv1","16.cli-qual-qualification-paxeer-x-custody-provider-producer-opt-argv1-2"]
+
+[file.150]
+path = "tools/qualification/paxeer-x/custody_governance.py"
+lines = 22
+verdict = "clean"
+note = "Read the complete qualification producer or verifier, including source/artifact admission, declared cases, transport shape, refusals and lifecycle evidence."
+declared_interfaces = ["16.cli-qual-qualification-paxeer-x-custody-governance","16.cli-qual-qualification-paxeer-x-custody-governance-opt-manifest","16.cli-qual-qualification-paxeer-x-custody-governance-opt-produce"]
+
+[file.151]
+path = "tools/qualification/paxeer-x/explorer-availability.py"
+lines = 32
+verdict = "clean"
+note = "Read the complete qualification producer or verifier, including source/artifact admission, declared cases, transport shape, refusals and lifecycle evidence."
+declared_interfaces = ["16.cli-qual-qualification-paxeer-x-explorer-availability"]
+
+[file.152]
+path = "tools/qualification/paxeer-x/explorer-receipt-reader.py"
+lines = 19
+verdict = "clean"
+note = "Read the complete qualification producer or verifier, including source/artifact admission, declared cases, transport shape, refusals and lifecycle evidence."
+declared_interfaces = ["16.cli-qual-qualification-paxeer-x-explorer-receipt-reader","16.cli-qual-qualification-paxeer-x-explorer-receipt-reader-opt-argv1","16.cli-qual-qualification-paxeer-x-explorer-receipt-reader-opt-argv2"]
+
+[file.153]
+path = "tools/qualification/paxeer-x/external_custody.py"
+lines = 176
+verdict = "clean"
+note = "Read the complete qualification producer or verifier, including source/artifact admission, declared cases, transport shape, refusals and lifecycle evidence."
+declared_interfaces = ["16.cli-qual-qualification-paxeer-x-external-custody","16.cli-qual-qualification-paxeer-x-external-custody-opt-argv1"]
+
+[file.154]
+path = "tools/qualification/paxeer-x/human-approval-admission.py"
+lines = 17
+verdict = "clean"
+note = "Read the complete qualification producer or verifier, including source/artifact admission, declared cases, transport shape, refusals and lifecycle evidence."
+declared_interfaces = ["16.cli-qual-qualification-paxeer-x-human-approval-admission","16.cli-qual-qualification-paxeer-x-human-approval-admission-opt-argv1"]
+
+[file.155]
+path = "tools/qualification/paxeer-x/human-native-send-producer.py"
+lines = 156
+verdict = "clean"
+note = "Read the complete qualification producer or verifier, including source/artifact admission, declared cases, transport shape, refusals and lifecycle evidence."
+declared_interfaces = ["16.cli-qual-qualification-paxeer-x-human-native-send-producer","16.cli-qual-qualification-paxeer-x-human-native-send-producer-opt-candidate-manifest"]
+
+[file.156]
+path = "tools/qualification/paxeer-x/human-program-approvals.py"
+lines = 69
+verdict = "clean"
+note = "Read the complete qualification producer or verifier, including source/artifact admission, declared cases, transport shape, refusals and lifecycle evidence."
+declared_interfaces = ["16.cli-qual-qualification-paxeer-x-human-program-approvals"]
+
+[file.157]
+path = "tools/qualification/paxeer-x/human-projection-facts.py"
+lines = 63
+verdict = "issues"
+note = "Read the complete qualification producer or verifier, including source/artifact admission, declared cases, transport shape, refusals and lifecycle evidence."
+findings = ["f045"]
+declared_interfaces = ["16.cli-qual-qualification-paxeer-x-human-projection-facts"]
+
+[file.158]
+path = "tools/qualification/paxeer-x/human_native_custody.py"
+lines = 126
+verdict = "issues"
+note = "Read the complete qualification producer or verifier, including source/artifact admission, declared cases, transport shape, refusals and lifecycle evidence."
+findings = ["f020"]
+declared_interfaces = ["16.cli-qual-qualification-paxeer-x-human-native-custody","16.cli-qual-qualification-paxeer-x-human-native-custody-opt-build","16.cli-qual-qualification-paxeer-x-human-native-custody-opt-candidate-manifest"]
+
+[file.159]
+path = "tools/qualification/paxeer-x/human_unified_custody_shapes.py"
+lines = 173
+verdict = "clean"
+note = "Read the complete qualification producer or verifier, including source/artifact admission, declared cases, transport shape, refusals and lifecycle evidence."
+declared_interfaces = ["16.cli-qual-qualification-paxeer-x-human-unified-custody-shapes","16.cli-qual-qualification-paxeer-x-human-unified-custody-shapes-opt-argv1"]
+
+[file.160]
+path = "tools/qualification/paxeer-x/market-sandbox-capture.py"
+lines = 237
+verdict = "clean"
+note = "Read the complete qualification producer or verifier, including source/artifact admission, declared cases, transport shape, refusals and lifecycle evidence."
+declared_interfaces = ["16.cli-qual-qualification-paxeer-x-market-sandbox-capture","16.cli-qual-qualification-paxeer-x-market-sandbox-capture-opt-build"]
+
+[file.161]
+path = "tools/qualification/paxeer-x/market-sandbox-profile.py"
+lines = 111
+verdict = "clean"
+note = "Read the complete qualification producer or verifier, including source/artifact admission, declared cases, transport shape, refusals and lifecycle evidence."
+declared_interfaces = ["16.cli-qual-qualification-paxeer-x-market-sandbox-profile","16.cli-qual-qualification-paxeer-x-market-sandbox-profile-opt-build"]
+
+[file.162]
+path = "tools/qualification/paxeer-x/migration-unified-transport.py"
+lines = 48
+verdict = "clean"
+note = "Read the complete qualification producer or verifier, including source/artifact admission, declared cases, transport shape, refusals and lifecycle evidence."
+declared_interfaces = ["16.cli-qual-qualification-paxeer-x-migration-unified-transport"]
+
+[file.163]
+path = "tools/qualification/paxeer-x/movement-executor-readiness.py"
+lines = 186
+verdict = "issues"
+note = "Read the complete qualification producer or verifier, including source/artifact admission, declared cases, transport shape, refusals and lifecycle evidence."
+findings = ["f023"]
+declared_interfaces = ["16.cli-qual-qualification-paxeer-x-movement-executor-readiness","16.cli-qual-qualification-paxeer-x-movement-executor-readiness-opt-argv1"]
+
+[file.164]
+path = "tools/qualification/paxeer-x/native-effect-sdk.py"
+lines = 154
+verdict = "clean"
+note = "Read the complete qualification producer or verifier, including source/artifact admission, declared cases, transport shape, refusals and lifecycle evidence."
+declared_interfaces = ["16.cli-qual-qualification-paxeer-x-native-effect-sdk","16.cli-qual-qualification-paxeer-x-native-effect-sdk-opt-build"]
+
+[file.165]
+path = "tools/qualification/paxeer-x/native-journey-approval.py"
+lines = 143
+verdict = "clean"
+note = "Read the complete qualification producer or verifier, including source/artifact admission, declared cases, transport shape, refusals and lifecycle evidence."
+declared_interfaces = ["16.cli-qual-qualification-paxeer-x-native-journey-approval","16.cli-qual-qualification-paxeer-x-native-journey-approval-opt-argv1"]
+
+[file.166]
+path = "tools/qualification/paxeer-x/native-program-human-peer.py"
+lines = 98
+verdict = "issues"
+note = "Read the complete qualification producer or verifier, including source/artifact admission, declared cases, transport shape, refusals and lifecycle evidence."
+findings = ["f046"]
+declared_interfaces = ["16.cli-qual-qualification-paxeer-x-native-program-human-peer","16.cli-qual-qualification-paxeer-x-native-program-human-peer-opt-argv1"]
+
+[file.167]
+path = "tools/qualification/paxeer-x/native-program-presentation.py"
+lines = 98
+verdict = "issues"
+note = "Read the complete qualification producer or verifier, including source/artifact admission, declared cases, transport shape, refusals and lifecycle evidence."
+findings = ["f047"]
+declared_interfaces = ["16.cli-qual-qualification-paxeer-x-native-program-presentation"]
+
+[file.168]
+path = "tools/qualification/paxeer-x/native-programs-link.py"
+lines = 321
+verdict = "issues"
+note = "Read the complete qualification producer or verifier, including source/artifact admission, declared cases, transport shape, refusals and lifecycle evidence."
+findings = ["f013","f048"]
+declared_interfaces = ["16.cli-qual-qualification-paxeer-x-native-programs-link","16.cli-qual-qualification-paxeer-x-native-programs-link-opt-agent-dir","16.cli-qual-qualification-paxeer-x-native-programs-link-opt-build","16.cli-qual-qualification-paxeer-x-native-programs-link-opt-cargo"]
+
+[file.169]
+path = "tools/qualification/paxeer-x/native-terminal-outcome.py"
+lines = 87
+verdict = "issues"
+note = "Read the complete qualification producer or verifier, including source/artifact admission, declared cases, transport shape, refusals and lifecycle evidence."
+findings = ["f016"]
+declared_interfaces = ["16.cli-qual-qualification-paxeer-x-native-terminal-outcome"]
+
+[file.170]
+path = "tools/qualification/paxeer-x/native_send_purpose.py"
+lines = 135
+verdict = "issues"
+note = "Read the complete qualification producer or verifier, including source/artifact admission, declared cases, transport shape, refusals and lifecycle evidence."
+findings = ["f021"]
+declared_interfaces = ["16.cli-qual-qualification-paxeer-x-native-send-purpose","16.cli-qual-qualification-paxeer-x-native-send-purpose-opt-build","16.cli-qual-qualification-paxeer-x-native-send-purpose-opt-candidate-manifest"]
+
+[file.171]
+path = "tools/qualification/paxeer-x/private-human-custody.py"
+lines = 193
+verdict = "clean"
+note = "Read the complete qualification producer or verifier, including source/artifact admission, declared cases, transport shape, refusals and lifecycle evidence."
+declared_interfaces = ["16.cli-qual-qualification-paxeer-x-private-human-custody","16.cli-qual-qualification-paxeer-x-private-human-custody-opt-build"]
+
+[file.172]
+path = "tools/qualification/paxeer-x/program-abi-freeze.py"
+lines = 173
+verdict = "clean"
+note = "Read the complete qualification producer or verifier, including source/artifact admission, declared cases, transport shape, refusals and lifecycle evidence."
+declared_interfaces = ["16.cli-qual-qualification-paxeer-x-program-abi-freeze","16.cli-qual-qualification-paxeer-x-program-abi-freeze-opt-manifest","16.cli-qual-qualification-paxeer-x-program-abi-freeze-opt-output","16.cli-qual-qualification-paxeer-x-program-abi-freeze-sub-build","16.cli-qual-qualification-paxeer-x-program-abi-freeze-sub-verify"]
+
+[file.173]
+path = "tools/qualification/paxeer-x/program-interface-producer.py"
+lines = 205
+verdict = "issues"
+note = "Read the complete qualification producer or verifier, including source/artifact admission, declared cases, transport shape, refusals and lifecycle evidence."
+findings = ["f061"]
+declared_interfaces = ["16.cli-qual-qualification-paxeer-x-program-interface-producer","16.cli-qual-qualification-paxeer-x-program-interface-producer-opt-output"]
+
+[file.174]
+path = "tools/qualification/paxeer-x/program-interface.py"
+lines = 122
+verdict = "issues"
+note = "Read the complete qualification producer or verifier, including source/artifact admission, declared cases, transport shape, refusals and lifecycle evidence."
+findings = ["f010"]
+declared_interfaces = ["16.cli-qual-qualification-paxeer-x-program-interface","16.cli-qual-qualification-paxeer-x-program-interface-opt-manifest"]
+
+[file.175]
+path = "tools/qualification/paxeer-x/program-storage.py"
+lines = 148
+verdict = "clean"
+note = "Read the complete qualification producer or verifier, including source/artifact admission, declared cases, transport shape, refusals and lifecycle evidence."
+declared_interfaces = ["16.cli-qual-qualification-paxeer-x-program-storage","16.cli-qual-qualification-paxeer-x-program-storage-opt-balance-evidence","16.cli-qual-qualification-paxeer-x-program-storage-opt-manifest"]
+
+[file.176]
+path = "tools/qualification/paxeer-x/program_execution_context.mk"
+lines = 10
+verdict = "clean"
+note = "Read the complete retained native qualification target, source dependencies, library linkage and invocation."
+
+[file.177]
+path = "tools/qualification/paxeer-x/program_spend_composition.mk"
+lines = 10
+verdict = "clean"
+note = "Read the complete retained native qualification target, source dependencies, library linkage and invocation."
+
+[file.178]
+path = "tools/qualification/paxeer-x/programs_market_resolution.py"
+lines = 191
+verdict = "clean"
+note = "Read the complete qualification producer or verifier, including source/artifact admission, declared cases, transport shape, refusals and lifecycle evidence."
+declared_interfaces = ["16.cli-qual-qualification-paxeer-x-programs-market-resolution"]
+
+[file.179]
+path = "tools/qualification/paxeer-x/programs_sandbox_bounds.py"
+lines = 154
+verdict = "clean"
+note = "Read the complete qualification producer or verifier, including source/artifact admission, declared cases, transport shape, refusals and lifecycle evidence."
+declared_interfaces = ["16.cli-qual-qualification-paxeer-x-programs-sandbox-bounds","16.cli-qual-qualification-paxeer-x-programs-sandbox-bounds-opt-build"]
+
+[file.180]
+path = "tools/qualification/paxeer-x/replay-vendor-closure.py"
+lines = 88
+verdict = "clean"
+note = "Read the complete qualification producer or verifier, including source/artifact admission, declared cases, transport shape, refusals and lifecycle evidence."
+declared_interfaces = ["16.cli-qual-qualification-paxeer-x-replay-vendor-closure","16.cli-qual-qualification-paxeer-x-replay-vendor-closure-opt-build"]
+
+[file.181]
+path = "tools/qualification/paxeer-x/router-authority-schema.py"
+lines = 127
+verdict = "issues"
+note = "Read the complete qualification producer or verifier, including source/artifact admission, declared cases, transport shape, refusals and lifecycle evidence."
+findings = ["f018"]
+declared_interfaces = ["16.cli-qual-qualification-paxeer-x-router-authority-schema"]
+
+[file.182]
+path = "tools/qualification/paxeer-x/runtime-boundary-witness.py"
+lines = 39
+verdict = "issues"
+note = "Read the complete qualification producer or verifier, including source/artifact admission, declared cases, transport shape, refusals and lifecycle evidence."
+findings = ["f039"]
+declared_interfaces = ["16.cli-qual-qualification-paxeer-x-runtime-boundary-witness"]
+
+[file.183]
+path = "tools/qualification/paxeer-x/single-step-conformance.py"
+lines = 161
+verdict = "clean"
+note = "Read the complete qualification producer or verifier, including source/artifact admission, declared cases, transport shape, refusals and lifecycle evidence."
+declared_interfaces = ["16.cli-qual-qualification-paxeer-x-single-step-conformance","16.cli-qual-qualification-paxeer-x-single-step-conformance-opt-build"]
+
+[file.184]
+path = "tools/qualification/paxeer-x/storage-recovery-producer.py"
+lines = 171
+verdict = "issues"
+note = "Read the complete qualification producer or verifier, including source/artifact admission, declared cases, transport shape, refusals and lifecycle evidence."
+findings = ["f012"]
+declared_interfaces = ["16.cli-qual-qualification-paxeer-x-storage-recovery-producer","16.cli-qual-qualification-paxeer-x-storage-recovery-producer-opt-output"]
+
+[file.185]
+path = "tools/qualification/paxeer-x/storage-recovery.py"
+lines = 105
+verdict = "issues"
+note = "Read the complete qualification producer or verifier, including source/artifact admission, declared cases, transport shape, refusals and lifecycle evidence."
+findings = ["f011"]
+declared_interfaces = ["16.cli-qual-qualification-paxeer-x-storage-recovery","16.cli-qual-qualification-paxeer-x-storage-recovery-opt-manifest"]
+
+[file.186]
+path = "tools/qualification/paxeer-x/test_caps_codecs_counts.py"
+lines = 41
+verdict = "clean"
+note = "Read the complete qualification producer or verifier, including source/artifact admission, declared cases, transport shape, refusals and lifecycle evidence."
+
+[file.187]
+path = "tools/qualification/paxeer-x/wallet-attestor-disclosure.py"
+lines = 122
+verdict = "clean"
+note = "Read the complete qualification producer or verifier, including source/artifact admission, declared cases, transport shape, refusals and lifecycle evidence."
+declared_interfaces = ["16.cli-qual-qualification-paxeer-x-wallet-attestor-disclosure"]
+
+[file.188]
+path = "tools/qualification/paxeer-x/wallet-injected-entry.tsx"
+lines = 189
+verdict = "clean"
+note = "Read the complete qualification producer or verifier, including source/artifact admission, declared cases, transport shape, refusals and lifecycle evidence."
+declared_interfaces = ["16.cli-qual-qualification-paxeer-x-wallet-injected-entry"]
+
+[file.189]
+path = "tools/qualification/paxeer-x/wallet-transfer-truth.py"
+lines = 181
+verdict = "issues"
+note = "Read the complete qualification producer or verifier, including source/artifact admission, declared cases, transport shape, refusals and lifecycle evidence."
+findings = ["f017"]
+declared_interfaces = ["16.cli-qual-qualification-paxeer-x-wallet-transfer-truth"]
+
+[file.190]
+path = "tools/qualification/test_native_program_human_peer.py"
+lines = 39
+verdict = "clean"
+note = "Read the complete qualification guard and negative cases against the retained production boundaries."
+
+[file.191]
+path = "tools/qualification/test_program_market_attestation.py"
+lines = 56
+verdict = "clean"
+note = "Read the complete qualification guard and negative cases against the retained production boundaries."
+
+[file.192]
+path = "tools/qualification/test_registry_router_bootstrap.py"
+lines = 200
+verdict = "clean"
+note = "Read the complete qualification guard and negative cases against the retained production boundaries."
+declared_interfaces = ["16.cli-qual-qualification-test-registry-router-bootstrap"]
+
+[file.193]
+path = "tools/qualification/test_retired_callers_1.py"
+lines = 54
+verdict = "clean"
+note = "Read the complete retirement regression: retired names are refusal inputs or absence assertions, not operational dependencies."
+
+[file.194]
+path = "tools/qualification/test_retired_callers_10.py"
+lines = 32
+verdict = "clean"
+note = "Read the complete retirement regression: retired names are refusal inputs or absence assertions, not operational dependencies."
+
+[file.195]
+path = "tools/qualification/test_retired_callers_11.py"
+lines = 31
+verdict = "clean"
+note = "Read the complete retirement regression: retired names are refusal inputs or absence assertions, not operational dependencies."
+
+[file.196]
+path = "tools/qualification/test_retired_callers_13.py"
+lines = 40
+verdict = "clean"
+note = "Read the complete retirement regression: retired names are refusal inputs or absence assertions, not operational dependencies."
+
+[file.197]
+path = "tools/qualification/test_retired_callers_14.py"
+lines = 34
+verdict = "clean"
+note = "Read the complete retirement regression: retired names are refusal inputs or absence assertions, not operational dependencies."
+
+[file.198]
+path = "tools/qualification/test_retired_callers_15.py"
+lines = 50
+verdict = "clean"
+note = "Read the complete retirement regression: retired names are refusal inputs or absence assertions, not operational dependencies."
+
+[file.199]
+path = "tools/qualification/test_retired_callers_16.py"
+lines = 35
+verdict = "clean"
+note = "Read the complete retirement regression: retired names are refusal inputs or absence assertions, not operational dependencies."
+
+[file.200]
+path = "tools/qualification/test_retired_callers_17.py"
+lines = 49
+verdict = "clean"
+note = "Read the complete retirement regression: retired names are refusal inputs or absence assertions, not operational dependencies."
+
+[file.201]
+path = "tools/qualification/test_retired_callers_18.py"
+lines = 39
+verdict = "clean"
+note = "Read the complete retirement regression: retired names are refusal inputs or absence assertions, not operational dependencies."
+
+[file.202]
+path = "tools/qualification/test_retired_callers_2.py"
+lines = 50
+verdict = "clean"
+note = "Read the complete retirement regression: retired names are refusal inputs or absence assertions, not operational dependencies."
+
+[file.203]
+path = "tools/qualification/test_retired_callers_3.py"
+lines = 43
+verdict = "clean"
+note = "Read the complete retirement regression: retired names are refusal inputs or absence assertions, not operational dependencies."
+
+[file.204]
+path = "tools/qualification/test_retired_callers_4.py"
+lines = 44
+verdict = "clean"
+note = "Read the complete retirement regression: retired names are refusal inputs or absence assertions, not operational dependencies."
+
+[file.205]
+path = "tools/qualification/test_retired_callers_5.py"
+lines = 41
+verdict = "clean"
+note = "Read the complete retirement regression: retired names are refusal inputs or absence assertions, not operational dependencies."
+
+[file.206]
+path = "tools/qualification/test_retired_callers_6.py"
+lines = 44
+verdict = "clean"
+note = "Read the complete retirement regression: retired names are refusal inputs or absence assertions, not operational dependencies."
+
+[file.207]
+path = "tools/qualification/test_retired_callers_7.py"
+lines = 37
+verdict = "clean"
+note = "Read the complete retirement regression: retired names are refusal inputs or absence assertions, not operational dependencies."
+
+[file.208]
+path = "tools/qualification/test_retired_callers_8.py"
+lines = 55
+verdict = "clean"
+note = "Read the complete retirement regression: retired names are refusal inputs or absence assertions, not operational dependencies."
+
+[file.209]
+path = "tools/qualification/test_retired_callers_9.py"
+lines = 43
+verdict = "clean"
+note = "Read the complete retirement regression: retired names are refusal inputs or absence assertions, not operational dependencies."
+
+[file.210]
+path = "tools/qualification/test_service_catalogue_1.py"
+lines = 53
+verdict = "clean"
+note = "Read the complete catalogue regression against the current image, workload, service and retirement inventories."
+
+[file.211]
+path = "tools/qualification/test_service_catalogue_2.py"
+lines = 45
+verdict = "clean"
+note = "Read the complete catalogue regression against the current image, workload, service and retirement inventories."
+
+[file.212]
+path = "tools/qualification/test_service_catalogue_3.py"
+lines = 68
+verdict = "clean"
+note = "Read the complete catalogue regression against the current image, workload, service and retirement inventories."
+
+[file.213]
+path = "tools/qualification/tests/test_requested_inputs_removed.py"
+lines = 90
+verdict = "clean"
+note = "Read the complete qualification guard and negative cases against the retained production boundaries."
+
+[file.214]
+path = "tools/railway/fly-files-to-table.py"
+lines = 74
+verdict = "clean"
+note = "Read the complete Railway configuration extraction or environment-file regression against deployed configuration names and quoting."
+declared_interfaces = ["16.cli-railway-railway-fly-files-to-table"]
+
+[file.215]
+path = "tools/railway/tests/env-files.test.sh"
+lines = 120
+verdict = "clean"
+note = "Read the complete Railway configuration extraction or environment-file regression against deployed configuration names and quoting."
+
+[file.216]
+path = "tools/runtime/run-with-clock.sh"
+lines = 17
+verdict = "clean"
+note = "Read the complete runtime clock wrapper and its argument, clock-state and process execution behavior."
+
+[file.217]
+path = "tools/tx-scanner/client/grpc.go"
+lines = 58
+verdict = "issues"
+note = "Read the complete transaction scanning path, including canonical/indexed response comparison, bounded requests and restart checkpoint behavior."
+findings = ["f037"]
+
+[file.218]
+path = "tools/tx-scanner/cmd/scan.go"
+lines = 153
+verdict = "issues"
+note = "Read the complete transaction scanning path, including canonical/indexed response comparison, bounded requests and restart checkpoint behavior."
+findings = ["f033","f034"]
+declared_interfaces = ["16.cli-txscan-tx-scanner-cmd-scan","16.cli-txscan-tx-scanner-cmd-scan-opt-batch-size","16.cli-txscan-tx-scanner-cmd-scan-opt-bps-limit","16.cli-txscan-tx-scanner-cmd-scan-opt-endpoint","16.cli-txscan-tx-scanner-cmd-scan-opt-port","16.cli-txscan-tx-scanner-cmd-scan-opt-start-height","16.cli-txscan-tx-scanner-cmd-scan-opt-state-dir","16.cli-txscan-tx-scanner-cmd-scan-sub-scan-tx"]
+
+[file.219]
+path = "tools/tx-scanner/query/block.go"
+lines = 22
+verdict = "issues"
+note = "Read the complete transaction scanning path, including canonical/indexed response comparison, bounded requests and restart checkpoint behavior."
+findings = ["f036"]
+
+[file.220]
+path = "tools/tx-scanner/query/tx.go"
+lines = 26
+verdict = "issues"
+note = "Read the complete transaction scanning path, including canonical/indexed response comparison, bounded requests and restart checkpoint behavior."
+findings = ["f035"]
+
+[file.221]
+path = "tools/tx-scanner/state/types.go"
+lines = 53
+verdict = "issues"
+note = "Read the complete transaction scanning path, including canonical/indexed response comparison, bounded requests and restart checkpoint behavior."
+findings = ["f038"]
+
+[file.222]
+path = "tools/utils/helper.go"
+lines = 65
+verdict = "clean"
+note = "Read the complete shared helper and its formatting/value behavior at current callers."
+
+[file.223]
+path = "tools/v6120-holders-scan/main.go"
+lines = 309
+verdict = "clean"
+note = "Read the complete holder scanner, including block selection, event-derived candidate holders, balance reconciliation and output publication."
+
+[file.224]
+path = "tools/wallet/tests/pwa-args.test.sh"
+lines = 59
+verdict = "clean"
+note = "Read the complete wallet argument regression against the retained entrypoint and command-line boundary."
+
+[file.225]
+path = "utils/logging/metrics.go"
+lines = 27
+verdict = "clean"
+note = "Read the complete logging implementation or regression, including metric registration, timer lifecycle and completion/panic handling."
+
+[file.226]
+path = "utils/logging/time.go"
+lines = 46
+verdict = "clean"
+note = "Read the complete logging implementation or regression, including metric registration, timer lifecycle and completion/panic handling."
+
+[file.227]
+path = "utils/logging/time_test.go"
+lines = 67
+verdict = "clean"
+note = "Read the complete logging implementation or regression, including metric registration, timer lifecycle and completion/panic handling."
+
+[finding.f001]
+file = "docker/platform-node/Dockerfile"
+line = 12
+class = "retired-reference"
+severity = "medium"
+observed = "The platform-node image still builds layerxd, layerx-handover and layerx-guarantor and copies checkpoint-settlement.json and history-index migrations."
+expected = "Requirement 16020.1 retires this image; brief fact 2 runs the merged kernel within paxd, with no standalone daemon or guarantor."
+proposal = "Remove docker/platform-node/Dockerfile and any image-catalogue or deployment references in the tools-ops retirement task; retain paxd packaging."
+owner_domain = 16
+
+[finding.f002]
+file = "migrations/README.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The page describes layerxd and an append-only activity log as authoritative and directs operators to test-history and src/replica/lxp_history.c."
+expected = "The merged network commits state through paxd; the replay/history subsystem and standalone layerxd are retired under the audit brief."
+proposal = "Rewrite migrations/README.md around retained projection schema callers and chain store ownership, and remove retired history commands and authority claims."
+owner_domain = 16
+
+[finding.f003]
+file = "tests/replay/lxp_test_golden_replay.c"
+line = 68
+class = "retired-reference"
+severity = "low"
+observed = "The replay golden test still loads tests/replay/golden/history.lxl and constructs two standalone kernels for the retired replay workflow."
+expected = "Retired component replay-golden explicitly lists this source and its history.lxl fixture for deletion; kept C determinism has its own gate."
+proposal = "Remove tests/replay/lxp_test_golden_replay.c and its retired inventory entries through the owning tools-ops retirement task."
+owner_domain = 16
+
+[finding.f004]
+file = "scripts/workspace/check-platform-dependencies.sh"
+line = 10
+class = "wiring-gap"
+severity = "medium"
+observed = "The dependency scanner walks platform, while its inventory and regression test name services/platform manifests."
+expected = "The workspace inventory must scan the actual services/platform dependency roots to detect missing and extra manifests."
+proposal = "Point scripts/workspace/check-platform-dependencies.sh at the current services/platform layout and retain its negative inventory cases."
+owner_domain = 16
+
+[finding.f005]
+file = "scripts/evm_stress/main.go"
+line = 216
+class = "runtime-risk"
+severity = "medium"
+observed = "Every worker discards client.SendTransaction errors, and all accounts exhausted is printed even if every submission was refused."
+expected = "A stress run must distinguish attempted, accepted and refused transactions and fail or report a degraded run when submission fails."
+proposal = "Count and report send failures in scripts/evm_stress/main.go, include the refusal reason, and bound each RPC with a cancellable timeout."
+owner_domain = 16
+
+[finding.f006]
+file = "tests/oracle/lx_oracle_adapter_isolation.sh"
+line = 7
+class = "test-gap"
+severity = "medium"
+observed = "The isolation script continues for every missing object directory and exits successfully when no compiled objects were inspected."
+expected = "A passing isolation gate must inspect at least the declared retained C object set and reject missing qualification inputs."
+proposal = "Require built object directories and a nonzero inspected-object count in tests/oracle/lx_oracle_adapter_isolation.sh before claiming isolation."
+owner_domain = 16
+
+[finding.f007]
+file = "docker/monitornode/scripts/start-grafana.sh"
+line = 79
+class = "security"
+severity = "medium"
+observed = "The standalone script publishes Grafana on every host interface and configures the publicly known admin/admin login."
+expected = "Local monitoring should be loopback-bound by default or require an operator-provided secret before exposure to other hosts."
+proposal = "Bind the Grafana port to loopback in docker/monitornode/scripts/start-grafana.sh and read an explicit credential for remote use."
+owner_domain = 16
+
+[finding.f008]
+file = "docker/docker-compose.monitoring.yml"
+line = 24
+class = "security"
+severity = "medium"
+observed = "The monitoring overlay publishes port 3000 on all host interfaces and fixes GF_SECURITY_ADMIN_PASSWORD to admin."
+expected = "The local compose monitoring service must not expose a default administrative credential to the surrounding network."
+proposal = "Bind docker/docker-compose.monitoring.yml to loopback by default and provide a documented secret-backed option for deliberate remote access."
+owner_domain = 16
+
+[finding.f009]
+file = "tools/qualification/paxeer-x/caps-discovery.py"
+line = 40
+class = "interface-mismatch"
+severity = "high"
+observed = "build-caps-discovery.sh:34 emits version 1 native-complete-caps-discovery artifacts containing native and rust only; manifest() demands the additional layerxd artifact, so an unmodified producer result is refused."
+expected = "The build manifest must round-trip from build-caps-discovery.sh to caps-discovery.py with the same artifact names and merged-network execution path."
+proposal = "Align the manifest schema and inventory in both tools/qualification/paxeer-x/build-caps-discovery.sh and caps-discovery.py around the retained node capability producer; prove the actual produced manifest is admitted before executing discovery."
+owner_domain = 16
+interface = "16.cli-qual-qualification-paxeer-x-caps-discovery"
+
+[finding.f010]
+file = "tools/qualification/paxeer-x/program-interface.py"
+line = 51
+class = "interface-mismatch"
+severity = "high"
+observed = "verify() accesses producer.NATIVE_CASES, which program-interface-producer.py does not declare. It requires required_native_cases, native and generated-header artifacts and four logs; the producer emits only native-library, sandbox-staticlib, protocol-tests, legacy-tests and three logs."
+expected = "The program interface qualification consumer must accept the exact manifest and exported constants its declared producer emits, while still exercising the real interface lifecycle."
+proposal = "Define one retained program-interface artifact contract across tools/qualification/paxeer-x/program-interface-producer.py and program-interface.py and qualify an untouched producer output, including native execution only through retained interfaces."
+owner_domain = 16
+interface = "16.cli-qual-qualification-paxeer-x-program-interface"
+
+[finding.f011]
+file = "tools/qualification/paxeer-x/storage-recovery.py"
+line = 54
+class = "interface-mismatch"
+severity = "high"
+observed = "The consumer requires command[4:] to start with layerxd, whereas storage-recovery-producer.py:123 appends only test targets. It subsequently reads producer.ORDER_CHECK, which the producer no longer declares."
+expected = "The recovery producer and verifier must agree on the command, retained artifacts and recovery suites, with no removed daemon prerequisite."
+proposal = "Update tools/qualification/paxeer-x/storage-recovery.py and storage-recovery-producer.py to share a retained store recovery contract, and exercise the real produced manifest through the verifier without adding retired targets."
+owner_domain = 16
+interface = "16.cli-qual-qualification-paxeer-x-storage-recovery"
+
+[finding.f012]
+file = "tools/qualification/paxeer-x/storage-recovery-producer.py"
+line = 15
+class = "retired-reference"
+severity = "medium"
+observed = "SOURCES still hashes src/modules/programs/feed_store.c and TESTS still includes lxp_test_batch_wal_recovery, binding qualification to the retired feed-store and daemon batch WAL."
+expected = "Merged-network recovery evidence must come from the chain-owned state and retained storage implementation; retired feed-store and daemon recovery are not release inputs."
+proposal = "Replace the retired sources and suite in tools/qualification/paxeer-x/storage-recovery-producer.py with retained recovery producers and restart cases, coordinated with the storage owner."
+owner_domain = 16
+
+[finding.f013]
+file = "tools/qualification/paxeer-x/native-programs-link.py"
+line = 15
+class = "retired-reference"
+severity = "medium"
+observed = "PRODUCTION includes layerxd and qualification specifically requires its libssl.so dependency at line 271; the manifest contains standalone native tools but no paxd artifact."
+expected = "The merged network embeds the kernel and program runtime in paxd; production link evidence must cover that node instead of treating a standalone daemon as required."
+proposal = "Retarget tools/qualification/paxeer-x/native-programs-link.py to the retained paxd link and programs runtime closure, remove the layerxd requirement, and preserve source and executable digest binding."
+owner_domain = 16
+
+[finding.f014]
+file = "tools/qualification/paxeer-x/build-caps-codecs.sh"
+line = 33
+class = "retired-reference"
+severity = "medium"
+observed = "The capability codec build stages layerxd beside layerx-genesis-build through CAPS_NATIVE_BIN_DIR and its foundation-artifact helper."
+expected = "Capability codec qualification for the merged network must not build or require the retired standalone layerxd process."
+proposal = "Replace the daemon artifact dependency in tools/qualification/paxeer-x/build-caps-codecs.sh with the retained paxd capability transport and keep real codec and refusal coverage."
+owner_domain = 16
+
+[finding.f015]
+file = "tools/qualification/paxeer-x/caps-discovery.py"
+line = 24
+class = "retired-reference"
+severity = "medium"
+observed = "RUNTIME_CASES and Rust markers require real-finality-authority, finality selectors and signed-header authority; manifest() calls supplemental finality artifact admission."
+expected = "Committed Paxeer blocks determine finality; the separate finality authority and its discovery selection path are retired."
+proposal = "Rebase tools/qualification/paxeer-x/caps-discovery.py and its fixture onto chain-committed discovery evidence, retaining wrong-network, cursor, restart and proof mutation cases."
+owner_domain = 16
+
+[finding.f016]
+file = "tools/qualification/paxeer-x/native-terminal-outcome.py"
+line = 37
+class = "retired-reference"
+severity = "medium"
+observed = "The terminal outcome inventory requires sequencer first/last batch pins, signed batch headers and maintenance proofs for every captured outcome."
+expected = "The merged terminal outcome path must establish finality from the committed block and retained receipt contract without a separate signed-batch authority."
+proposal = "Replace the retired capture contract in tools/qualification/paxeer-x/native-terminal-outcome.py and its native producer with committed chain receipt and terminal evidence, retaining all four outcome cases."
+owner_domain = 16
+
+[finding.f017]
+file = "tools/qualification/paxeer-x/wallet-transfer-truth.py"
+line = 89
+class = "retired-reference"
+severity = "medium"
+observed = "check_bound_evidence requires two canonical transfers to occupy distinct sealed and final rungs and to carry sealed_batch_number, checkpoint_id and finalized_batch_number."
+expected = "A successful receipt in a committed block is already final, with no later checkpoint finality rung in the merged network."
+proposal = "Update tools/qualification/paxeer-x/wallet-transfer-truth.py and its real explorer fixture to prove committed transfer outcomes and refusal/recovery states using block-bound receipt facts."
+owner_domain = 16
+
+[finding.f018]
+file = "tools/qualification/paxeer-x/router-authority-schema.py"
+line = 13
+class = "test-gap"
+severity = "medium"
+observed = "CHAIN_METHODS requires eth_sendRawTransaction and eth_call as named gateway OpenRPC entries; openrpc.json has neither named entry, and the brief assigns the node RPC namespaces to the node."
+expected = "Schema qualification must match the retained hosted px_ contract and separately prove node eth_/pax_ methods at the public root endpoint."
+proposal = "Replace the router schema expectation in tools/qualification/paxeer-x/router-authority-schema.py with separate real hosted and node schema checks and remove the retired router terminology."
+owner_domain = 16
+
+[finding.f019]
+file = "tests/sdk/typescript/program-terminal-v5.test.mjs"
+line = 3
+class = "test-gap"
+severity = "medium"
+observed = "The test imports verifyProgramReceiptV5 and verifyProgramReceipt from programs.js and verifyNativeProgramReceiptOutcomeV5 from verifier.js, while the corresponding current TypeScript source modules export none of these functions."
+expected = "Terminal SDK qualification must execute the public verification exports actually supplied by the current producer, against the current committed receipt shape."
+proposal = "Port tests/sdk/typescript/program-terminal-v5.test.mjs to the current TypeScript verification API and chain receipt corpus, retaining the ten success/refusal and adversarial cases."
+owner_domain = 16
+
+[finding.f020]
+file = "tools/qualification/paxeer-x/human_native_custody.py"
+line = 25
+class = "test-gap"
+severity = "medium"
+observed = "The source inventory walks human, agent and crates roots that do not exist, plus services/platform; the real compiled Rust inputs live under services/human and services/agent, and the Go inputs under services/wallet."
+expected = "Evidence must bind the full current source of each attestor and Rust/Go consumer, including uncommitted changes and additions in their real workspaces."
+proposal = "Correct the inventory roots in tools/qualification/paxeer-x/human_native_custody.py to include the actual transitive production source trees and reject stale artifacts after any compiled source changes."
+owner_domain = 16
+
+[finding.f021]
+file = "tools/qualification/paxeer-x/native_send_purpose.py"
+line = 25
+class = "test-gap"
+severity = "medium"
+observed = "The source inventory walks human, agent and crates roots that do not exist, plus services/platform; the real compiled Rust inputs live under services/human and services/agent, and the Go inputs under services/wallet."
+expected = "Evidence must bind the full current source of each attestor and Rust/Go consumer, including uncommitted changes and additions in their real workspaces."
+proposal = "Correct the inventory roots in tools/qualification/paxeer-x/native_send_purpose.py to include the actual transitive production source trees and reject stale artifacts after any compiled source changes."
+owner_domain = 16
+
+[finding.f022]
+file = "tools/platform/emulator/build.rs"
+line = 54
+class = "retired-reference"
+severity = "low"
+observed = "The emulator compiler defines LAYERX_EMULATOR_HISTORY_SCHEMA and tracks migrations/0007_history_index.sql even though the history index is retired."
+expected = "Retained emulator builds should not depend on a retired history schema or declare its path as a runtime contract."
+proposal = "Remove the obsolete history schema define and rerun dependency in tools/platform/emulator/build.rs after rebasing the emulator bridge to the retained chain state."
+owner_domain = 16
+
+[finding.f023]
+file = "tools/qualification/paxeer-x/movement-executor-readiness.py"
+line = 39
+class = "retired-reference"
+severity = "medium"
+observed = "The scoped build and readiness suite still select layerx-human-movement-provider, whose crate is explicitly listed in retired human two-domain deleted_trees."
+expected = "Movement readiness must prove the retained executor used by the merged Human service, without compiling a deleted movement provider."
+proposal = "Retarget tools/qualification/paxeer-x/movement-executor-readiness.py to the retained execution provider and preserve real identity, outage, recovery and authority-boundary cases."
+owner_domain = 16
+
+[finding.f024]
+file = "tools/benchmark/loadtest/loadtest_client.go"
+line = 112
+class = "security"
+severity = "medium"
+observed = "TLS=true constructs credentials with InsecureSkipVerify:true, so the configured endpoint is encrypted but its certificate and host identity are not authenticated."
+expected = "A TLS-enabled load client must authenticate the configured server before accepting chain data or submitting signed transactions."
+proposal = "Use verified system or explicitly configured trust roots and the endpoint server name in tools/benchmark/loadtest/loadtest_client.go; qualify rejection of an unrelated certificate."
+owner_domain = 16
+
+[finding.f025]
+file = "tools/benchmark/loadtest/loadtest_client.go"
+line = 117
+class = "runtime-risk"
+severity = "medium"
+observed = "BuildGrpcClients uses blocking grpc.Dial without a deadline and discards its error; its monitor never ends after Close transitions a connection to Shutdown."
+expected = "An unreachable benchmark endpoint must produce a bounded startup failure, and closing a client must stop its connection monitor."
+proposal = "Use a bounded DialContext and propagate errors from tools/benchmark/loadtest/loadtest_client.go; give monitors a cancellation context and join them during Close."
+owner_domain = 16
+
+[finding.f026]
+file = "tools/benchmark/loadtest/loadtest_client.go"
+line = 267
+class = "runtime-risk"
+severity = "medium"
+observed = "SendTxs increments the counter for tx.MsgType before checking the receive ok flag; closing txQueue produces an empty message type and a nil counter dereference."
+expected = "A completed producer queue must stop consumers cleanly and must not create a sent metric or panic during normal shutdown."
+proposal = "Check ok before using the received SignedTx in tools/benchmark/loadtest/loadtest_client.go and prove shutdown with an empty closed queue."
+owner_domain = 16
+
+[finding.f027]
+file = "tools/benchmark/loadtest/types.go"
+line = 131
+class = "runtime-risk"
+severity = "medium"
+observed = "NumericDistribution.Sample and InvalidSample pass NumDistinct directly to rand.Int63n and divide by it; zero or negative configured values panic rather than returning a configuration error."
+expected = "Numeric distribution configuration must reject invalid distinct counts and ranges before any benchmark workers start."
+proposal = "Validate active NumericDistribution values at configuration admission in tools/benchmark/loadtest/types.go, report the offending key, and preserve valid distribution sampling."
+owner_domain = 16
+
+[finding.f028]
+file = "tools/benchmark/loadtest/contracts/deploy.sh"
+line = 48
+class = "runtime-risk"
+severity = "medium"
+observed = "Deployment passes unquoted transaction JSON to parser.py, whose main reads only args[1]; whitespace in a valid response splits the document, and the script continues after build, transaction or parse failures."
+expected = "Contract setup must preserve each full response and stop before subsequent submissions when storage or instantiation has failed."
+proposal = "Quote JSON and path arguments in tools/benchmark/loadtest/contracts/deploy.sh, stop on failed commands and refused transaction codes, and validate all parsed IDs before use."
+owner_domain = 16
+
+[finding.f029]
+file = "tools/benchmark/loadtest/contracts/parser.py"
+line = 6
+class = "runtime-risk"
+severity = "medium"
+observed = "get_code_id removes every backslash before decoding raw_log, corrupting valid escaped JSON strings; absent events return -1 or an empty string while the CLI exits successfully."
+expected = "Deployment response parsing must preserve JSON escaping and distinguish an absent success event from a usable code or contract identifier."
+proposal = "Decode raw_log without rewriting its content in tools/benchmark/loadtest/contracts/parser.py and return a nonzero error for refused transactions, missing events or malformed identifiers."
+owner_domain = 16
+
+[finding.f030]
+file = "tools/benchmark/loadtest/contracts/deploy_erc20.sh"
+line = 28
+class = "runtime-risk"
+severity = "medium"
+observed = "The script ignores setup.sh failures and pipes forge create into jq without pipefail; a failed deployment can therefore return jq success with no usable deployedTo address."
+expected = "Benchmark contract setup must fail when the build or deployment fails and return only a validated deployed contract address."
+proposal = "Propagate setup and forge failures in tools/benchmark/loadtest/contracts/deploy_erc20.sh, validate deployedTo as a nonzero address, and avoid starting load generation after a refused deployment."
+owner_domain = 16
+
+[finding.f031]
+file = "tools/benchmark/loadtest/contracts/deploy_erc721.sh"
+line = 31
+class = "runtime-risk"
+severity = "medium"
+observed = "The script ignores setup.sh failures and pipes forge create into jq without pipefail; a failed deployment can therefore return jq success with no usable deployedTo address."
+expected = "Benchmark contract setup must fail when the build or deployment fails and return only a validated deployed contract address."
+proposal = "Propagate setup and forge failures in tools/benchmark/loadtest/contracts/deploy_erc721.sh, validate deployedTo as a nonzero address, and avoid starting load generation after a refused deployment."
+owner_domain = 16
+
+[finding.f032]
+file = "tools/benchmark/loadtest/contracts/evm/test_sources_match_bindings.py"
+line = 28
+class = "test-gap"
+severity = "medium"
+observed = "abi_names compares only sets of function, event and error names, so changed parameter types, overloads, outputs, mutability and indexed flags all remain undetected."
+expected = "The source-to-binding gate must prove compatible ABI signatures and encodings for the Go load clients that use the checked bindings."
+proposal = "Compare canonical complete ABI entries in tools/benchmark/loadtest/contracts/evm/test_sources_match_bindings.py and include a changed-parameter negative case."
+owner_domain = 16
+
+[finding.f033]
+file = "tools/tx-scanner/cmd/scan.go"
+line = 131
+class = "runtime-risk"
+severity = "medium"
+observed = "processBlock reports count mismatch only when numTxIndexed is zero; a block with 100 transactions and one indexed result can be accepted after checking only that result."
+expected = "The missing-transaction scanner must compare the complete canonical transaction set with the complete indexed result set and report any omitted transaction."
+proposal = "Compare all canonical block hashes with all paginated indexed hashes in tools/tx-scanner/cmd/scan.go, including partially indexed blocks."
+owner_domain = 16
+
+[finding.f034]
+file = "tools/tx-scanner/cmd/scan.go"
+line = 40
+class = "runtime-risk"
+severity = "medium"
+observed = "batch-size and bps-limit are never required to be positive; a zero batch advances no heights and repeatedly rewrites state, while negative values cannot produce a valid scan batch."
+expected = "Invalid throughput settings must fail before connecting or entering the scan loop rather than hanging or consuming CPU indefinitely."
+proposal = "Validate positive batch-size and bps-limit in tools/tx-scanner/cmd/scan.go and return a clear command error before constructing the limiter."
+owner_domain = 16
+
+[finding.f035]
+file = "tools/tx-scanner/query/tx.go"
+line = 13
+class = "runtime-risk"
+severity = "medium"
+observed = "GetTxsEvent requests only a height filter without pagination, and both transaction RPCs use context.Background with no timeout; the caller assumes a complete response and waits for every query."
+expected = "Transaction scans must retrieve every page and bound each request so one unavailable endpoint cannot stop checkpoint progress forever."
+proposal = "Add explicit complete pagination and caller deadlines in tools/tx-scanner/query/tx.go, coordinating complete-set comparison with cmd/scan.go."
+owner_domain = 16
+
+[finding.f036]
+file = "tools/tx-scanner/query/block.go"
+line = 14
+class = "runtime-risk"
+severity = "medium"
+observed = "GetLatestBlock and GetBlockByHeight issue RPCs with context.Background and no deadline; a nonresponding server holds the scan batch wait group indefinitely."
+expected = "Block queries used by a continuous scanner must have a bounded timeout and return a retryable error when the endpoint stops responding."
+proposal = "Accept the scan context and enforce per-request deadlines in tools/tx-scanner/query/block.go, propagating timeout errors to the batch retry path."
+owner_domain = 16
+
+[finding.f037]
+file = "tools/tx-scanner/client/grpc.go"
+line = 29
+class = "runtime-risk"
+severity = "medium"
+observed = "InitializeGRPCClient uses blocking grpc.Dial without a startup deadline, logs errors without returning them and launches a permanent monitor even when Shutdown cannot recover."
+expected = "A scanner must fail startup within a bounded interval and must cancel monitoring when its connection or command closes."
+proposal = "Use an error-returning bounded dial and a cancellable connection lifecycle in tools/tx-scanner/client/grpc.go, with command cleanup owning the connection."
+owner_domain = 16
+
+[finding.f038]
+file = "tools/tx-scanner/state/types.go"
+line = 25
+class = "restart-recovery"
+severity = "medium"
+observed = "WriteState truncates tx-scanner-state.json before writing its replacement and ignores close errors; an interruption can leave corrupt state, and cmd/scan.go:47 discards ReadState errors and starts fresh."
+expected = "Scanner checkpoints and previously detected missing transactions must survive a crash or produce an explicit recovery error rather than silently disappearing."
+proposal = "Write and sync a temporary checkpoint then atomically replace the file in tools/tx-scanner/state/types.go; distinguish absent state from corrupt state in cmd/scan.go and preserve a recoverable previous checkpoint."
+owner_domain = 16
+
+[finding.f039]
+file = "tools/qualification/paxeer-x/runtime-boundary-witness.py"
+line = 15
+class = "test-gap"
+severity = "medium"
+observed = "The witness accepts any sources mapping, including an empty map, selects an executable from build.log without a binary digest, and accepts exit zero without checking that required tests ran."
+expected = "Qualification evidence must bind the complete production source set to the exact executable and prove the declared boundary cases executed without ignored or empty suites."
+proposal = "Require an exact source inventory, executable digest and revision-bound manifest in tools/qualification/paxeer-x/runtime-boundary-witness.py and validate required case results before admitting success."
+owner_domain = 16
+
+[finding.f040]
+file = "docker/gas-station/init.sh"
+line = 85
+class = "retired-reference"
+severity = "medium"
+observed = "The entrypoint fetches px_getReceiptKeys from the same GAS_STATION_ENDPOINTS used for chain RPC and renders sequencer_receipt_keys for the rate publisher, retaining a separate signed-receipt authority dependency."
+expected = "The merged node provides eth_ and pax_ methods at its root; px_ methods belong to the hosted gateway, and committed chain receipts determine finality."
+proposal = "Rebase docker/gas-station/init.sh and the interop rate publisher onto committed chain receipts; separate any retained hosted endpoint configuration from node RPC and prove rate publication across restart."
+owner_domain = 16
+interface = "11.cfg-gas-sequencer-receipt-keys"
+
+[finding.f041]
+file = "tests/conformance/check_receipt_vector_copies.py"
+line = 10
+class = "retired-reference"
+severity = "medium"
+observed = "The copy gate treats sequencer-receipt-v1.json as canonical and requires copied sequencer key and signedReceipt envelopes across explorer, relayer, gas station and x402 settlement fixtures."
+expected = "The merged receipt corpus must describe committed block receipts and retained transport encodings rather than an independent sequencer authority."
+proposal = "Replace the canonical corpus and consumers selected by tests/conformance/check_receipt_vector_copies.py with committed receipt vectors, preserving strict copy equality and refusal coverage."
+owner_domain = 16
+
+[finding.f042]
+file = "tools/benchmark/loadtest/loadtest_client.go"
+line = 204
+class = "runtime-risk"
+severity = "medium"
+observed = "Every BuildTxs worker appends to the global EvmTxHashes slice without synchronization; main.go:197 starts one worker per account, and post-transaction queries read that same slice."
+expected = "Concurrent benchmark producers must retain a coherent transaction hash set without data races, lost entries or unbounded memory growth."
+proposal = "Replace the shared append in tools/benchmark/loadtest/loadtest_client.go with a synchronized bounded hash store and a safe snapshot for post-transaction queries."
+owner_domain = 16
+
+[finding.f043]
+file = "tools/benchmark/loadtest/evm.go"
+line = 217
+class = "runtime-risk"
+severity = "medium"
+observed = "Transaction generation advances the account nonce before submission; SendEvmTx only logs a failed send, and ResetNonce has no caller, leaving all later transactions behind a missing nonce after a refusal."
+expected = "A temporary submission failure must not silently strand the rest of an account's benchmark transactions or misstate accepted throughput."
+proposal = "Handle refused and uncertain sends explicitly in tools/benchmark/loadtest/evm.go with bounded calls and reconciliation of pending nonces and queued transactions before generating further work."
+owner_domain = 16
+
+[finding.f044]
+file = "tools/benchmark/loadtest/contracts/jupiter/src/contract.rs"
+line = 94
+class = "runtime-risk"
+severity = "medium"
+observed = "process_bulk_order_placements sets serialized BulkOrderPlacementsResponse data, then replaces the entire Response when block height is divisible by ten, dropping that data while adding the Mars order."
+expected = "The benchmark contract must return the same bulk-order response encoding whether or not it emits the periodic secondary order."
+proposal = "Preserve the existing response when adding the message in tools/benchmark/loadtest/contracts/jupiter/src/contract.rs, or remove this fixture with the retired Wasm benchmark path; do not treat its missing data as successful coverage."
+owner_domain = 16
+
+[finding.f045]
+file = "tools/qualification/paxeer-x/human-projection-facts.py"
+line = 43
+class = "test-gap"
+severity = "medium"
+observed = "The gate verifies fixture source_hashes but selects the human_projection_facts executables by a filename glob; no build manifest binds their bytes to those current sources, so an older sole executable is accepted."
+expected = "Evidence must prove that the actual executed tests were built from the current production and consumer sources, not merely that a fixture hashes those sources."
+proposal = "Admit a revision-bound build manifest with complete source and executable digests in tools/qualification/paxeer-x/human-projection-facts.py and verify it before executing the required real cases."
+owner_domain = 16
+
+[finding.f046]
+file = "tools/qualification/paxeer-x/native-program-human-peer.py"
+line = 73
+class = "test-gap"
+severity = "medium"
+observed = "The gate verifies fixture source_hashes but selects the native_program_human_peer and human_frame executables by a filename glob; no build manifest binds their bytes to those current sources, so an older sole executable is accepted."
+expected = "Evidence must prove that the actual executed tests were built from the current production and consumer sources, not merely that a fixture hashes those sources."
+proposal = "Admit a revision-bound build manifest with complete source and executable digests in tools/qualification/paxeer-x/native-program-human-peer.py and verify it before executing the required real cases."
+owner_domain = 16
+
+[finding.f047]
+file = "tools/qualification/paxeer-x/native-program-presentation.py"
+line = 59
+class = "test-gap"
+severity = "medium"
+observed = "The gate verifies fixture source_hashes but selects the native_program_presentation executables by a filename glob; no build manifest binds their bytes to those current sources, so an older sole executable is accepted."
+expected = "Evidence must prove that the actual executed tests were built from the current production and consumer sources, not merely that a fixture hashes those sources."
+proposal = "Admit a revision-bound build manifest with complete source and executable digests in tools/qualification/paxeer-x/native-program-presentation.py and verify it before executing the required real cases."
+owner_domain = 16
+
+[finding.f048]
+file = "tools/qualification/paxeer-x/native-programs-link.py"
+line = 15
+class = "doc-drift"
+severity = "medium"
+observed = "The stable tools-ops registry rows for CLI, Docker environment and benchmark configuration name contracts/operations.md anchors, but contracts/operations.md does not exist in this checkout."
+expected = "Declared operator interfaces need an available contract that specifies their inputs, artifact shapes, failures and lifecycle for consumers and operators."
+proposal = "Create the retained tools-ops contract at contracts/operations.md or repoint the registry rows to maintained pages, covering the merged node and the real qualification manifest producers."
+owner_domain = 17
+interface = "16.cli-qual-qualification-paxeer-x-native-programs-link"
+
+[finding.f049]
+file = "docs/site/docs/operators/beta-cluster.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The cluster guide presents a running LayerX daemon and receipt-authority services; lines 26, 40, 50 and 68 retain checkpoint settlement, sequencer custody pins and layerxd --custody-profile as bring-up steps."
+expected = "The finished network runs the kernel inside paxd, with chain-committed finality and no separate daemon, sequencer or checkpoint authority."
+proposal = "Rewrite docs/site/docs/operators/beta-cluster.md around the merged paxd deployment and retained Human/hosted services, removing retired image, settlement and custody-profile steps and synchronizing the site and wiki copies."
+owner_domain = 17
+
+[finding.f050]
+file = "docs/wiki/BetaCluster.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The cluster guide presents a running LayerX daemon and receipt-authority services; lines 26, 40, 50 and 68 retain checkpoint settlement, sequencer custody pins and layerxd --custody-profile as bring-up steps."
+expected = "The finished network runs the kernel inside paxd, with chain-committed finality and no separate daemon, sequencer or checkpoint authority."
+proposal = "Rewrite docs/wiki/BetaCluster.md around the merged paxd deployment and retained Human/hosted services, removing retired image, settlement and custody-profile steps and synchronizing the site and wiki copies."
+owner_domain = 17
+
+[finding.f051]
+file = "README.md"
+line = 47
+class = "doc-drift"
+severity = "medium"
+observed = "The architecture and build instructions call layerxd a separate C17 daemon whose checkpoints settle through layerxAnchor; line 181 explicitly says the merge remains a draft."
+expected = "The post-merge product is one BFT network with the kernel in paxd and final receipts on committed blocks."
+proposal = "Update README.md architecture, kernel build example and release-status paragraph to describe the merged node and retained build targets; remove standalone checkpoint-settlement guidance."
+owner_domain = 17
+
+[finding.f052]
+file = "docs/readme/README.pt-BR.md"
+line = 37
+class = "doc-drift"
+severity = "medium"
+observed = "The translated overview presents paxd and layerxd as separate execution domains; the layout table still names root agent/human trees, and the diagram at lines 152-209 routes sealed batches through layerx-guarantor and a separate daemon."
+expected = "Translated product and layout guidance must describe the merged node, current services/ workspaces and chain-committed receipts without retired daemon or settlement authority."
+proposal = "Rewrite docs/readme/README.pt-BR.md architecture, directory table and diagram from the merged English overview, retaining chain id 125 and replacing the daemon, guarantor and old root workspace paths."
+owner_domain = 17
+
+[finding.f053]
+file = "docs/readme/README.de.md"
+line = 37
+class = "doc-drift"
+severity = "medium"
+observed = "The translated overview presents paxd and layerxd as separate execution domains; the layout table still names root agent/human trees, and the diagram at lines 152-209 routes sealed batches through layerx-guarantor and a separate daemon."
+expected = "Translated product and layout guidance must describe the merged node, current services/ workspaces and chain-committed receipts without retired daemon or settlement authority."
+proposal = "Rewrite docs/readme/README.de.md architecture, directory table and diagram from the merged English overview, retaining chain id 125 and replacing the daemon, guarantor and old root workspace paths."
+owner_domain = 17
+
+[finding.f054]
+file = "docs/readme/README.es.md"
+line = 37
+class = "doc-drift"
+severity = "medium"
+observed = "The translated overview presents paxd and layerxd as separate execution domains; the layout table still names root agent/human trees, and the diagram at lines 152-209 routes sealed batches through layerx-guarantor and a separate daemon."
+expected = "Translated product and layout guidance must describe the merged node, current services/ workspaces and chain-committed receipts without retired daemon or settlement authority."
+proposal = "Rewrite docs/readme/README.es.md architecture, directory table and diagram from the merged English overview, retaining chain id 125 and replacing the daemon, guarantor and old root workspace paths."
+owner_domain = 17
+
+[finding.f055]
+file = "docs/readme/README.fr.md"
+line = 37
+class = "doc-drift"
+severity = "medium"
+observed = "The translated overview presents paxd and layerxd as separate execution domains; the layout table still names root agent/human trees, and the diagram at lines 152-209 routes sealed batches through layerx-guarantor and a separate daemon."
+expected = "Translated product and layout guidance must describe the merged node, current services/ workspaces and chain-committed receipts without retired daemon or settlement authority."
+proposal = "Rewrite docs/readme/README.fr.md architecture, directory table and diagram from the merged English overview, retaining chain id 125 and replacing the daemon, guarantor and old root workspace paths."
+owner_domain = 17
+
+[finding.f056]
+file = "docs/MONOREPO.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The repository guide names layerxd as the kernel product, and line 71 preserves checkpoint registration and guarantor bonds as current settlement trust boundaries."
+expected = "The merged network embeds the kernel in paxd and retires the standalone daemon, checkpoint settlement and guarantor bond operation."
+proposal = "Update docs/MONOREPO.md subsystem ownership and trust boundaries around paxd and retained service workspaces; remove retired checkpoint and guarantor claims."
+owner_domain = 17
+
+[finding.f057]
+file = "docs/system/routes.md"
+line = 908
+class = "doc-drift"
+severity = "medium"
+observed = "The generated route catalogue advertises GET /rpc/evm/ws and a replica-authority surface for independent replay, finality, receipts and checkpoint authority at line 41."
+expected = "Public node JSON-RPC and WebSocket access use the declared node root surface; the merged system has no router RPC path or separate finality authority."
+proposal = "Correct the owning tools/paxeer-x/route-catalogue.json entries and regenerate docs/system/routes.md through tools/docs/gen-system-docs.sh, distinguishing hosted px_ methods from node namespaces."
+owner_domain = 17
+
+[finding.f058]
+file = "docs/site/docs/operators/hosted-internal.md"
+line = 71
+class = "doc-drift"
+severity = "medium"
+observed = "The page says IMAGE_NAMES omits an internal image and beta-cluster.sh neither renders nor applies internal workloads; beta-images.sh:4 includes layerx-internal and beta-cluster.sh:1765 and :1979 render and apply internal.yaml."
+expected = "Operator deployment guidance must match the current image table and actual manifest render/apply path so installed signing and event-source workloads are understood."
+proposal = "Update docs/site/docs/operators/hosted-internal.md lines 71-81 to document the real internal installation path, and replace lines 232-233 denying a Human workload with the current hosted Human deployment and service ownership."
+owner_domain = 17
+
+[finding.f059]
+file = "docs/wiki/HostedInternal.md"
+line = 71
+class = "doc-drift"
+severity = "medium"
+observed = "The page says IMAGE_NAMES omits an internal image and beta-cluster.sh neither renders nor applies internal workloads; beta-images.sh:4 includes layerx-internal and beta-cluster.sh:1765 and :1979 render and apply internal.yaml."
+expected = "Operator deployment guidance must match the current image table and actual manifest render/apply path so installed signing and event-source workloads are understood."
+proposal = "Update docs/wiki/HostedInternal.md lines 71-81 to document the real internal installation path, and replace lines 232-233 denying a Human workload with the current hosted Human deployment and service ownership."
+owner_domain = 17
+
+[finding.f060]
+file = "tools/qualification/paxeer-x/build-caps-discovery.sh"
+line = 34
+class = "test-gap"
+severity = "medium"
+observed = "The producer writes a two-artifact native/rust manifest and exits without any round-trip check against caps-discovery.py, whose exact artifact set still includes layerxd."
+expected = "A produced capability manifest must have a real consumer-path compatibility test so a successful build cannot publish unusable qualification inputs."
+proposal = "Add producer-to-consumer manifest admission coverage for tools/qualification/paxeer-x/build-caps-discovery.sh when aligning the retained capability contract; preserve the actual native and Rust artifact hashes."
+owner_domain = 16
+interface = "16.cli-qual-qualification-paxeer-x-build-caps-discovery"
+
+[finding.f061]
+file = "tools/qualification/paxeer-x/program-interface-producer.py"
+line = 192
+class = "test-gap"
+severity = "medium"
+observed = "The producer publishes four artifacts and three logs but does not exercise its consumer, which requires two additional artifacts, a fourth log and the undeclared NATIVE_CASES constant."
+expected = "Successful program interface build evidence must be admitted unchanged by the real consumer under a single versioned contract."
+proposal = "Add an actual producer-output admission test for tools/qualification/paxeer-x/program-interface-producer.py and program-interface.py while coordinating their retained native case and artifact inventory."
+owner_domain = 16
+interface = "16.cli-qual-qualification-paxeer-x-program-interface-producer"
+
+[doc.01]
+path = "docs/site/docs/operators/beta-cluster.md"
+status = "misleading"
+notes = "Lines 3-5, 26, 40, 50 and 68 describe retired daemon, checkpoint authority and sequencer-bound bring-up. Preserve chain id 125 and current hosted image ownership while rewriting the merged deployment path."
+
+[doc.02]
+path = "docs/wiki/BetaCluster.md"
+status = "misleading"
+notes = "Lines 3-5, 26, 40, 50 and 68 describe retired daemon, checkpoint authority and sequencer-bound bring-up. Preserve chain id 125 and current hosted image ownership while rewriting the merged deployment path."
+
+[doc.03]
+path = "README.md"
+status = "misleading"
+notes = "Lines 47, 145 and 181 present the retired separate daemon and checkpoint settlement, and describe the merge as a draft instead of the specified upgrade behavior."
+
+[doc.04]
+path = "docs/readme/README.pt-BR.md"
+status = "misleading"
+notes = "Lines 37-39, 80-89 and 125-239 retain standalone daemon execution, old workspace roots and the sealed-batch/guarantor settlement diagram."
+
+[doc.05]
+path = "docs/readme/README.de.md"
+status = "misleading"
+notes = "Lines 37-39, 80-89 and 125-239 retain standalone daemon execution, old workspace roots and the sealed-batch/guarantor settlement diagram."
+
+[doc.06]
+path = "docs/readme/README.es.md"
+status = "misleading"
+notes = "Lines 37-39, 80-89 and 125-239 retain standalone daemon execution, old workspace roots and the sealed-batch/guarantor settlement diagram."
+
+[doc.07]
+path = "docs/readme/README.fr.md"
+status = "misleading"
+notes = "Lines 37-39, 80-89 and 125-239 retain standalone daemon execution, old workspace roots and the sealed-batch/guarantor settlement diagram."
+
+[doc.08]
+path = "docs/MONOREPO.md"
+status = "stale"
+notes = "Lines 3 and 71 retain the standalone layerxd product and checkpoint/guarantor settlement boundary that the upgrade retires."
+
+[doc.09]
+path = "docs/system/routes.md"
+status = "stale"
+notes = "Line 41 retains independent checkpoint/finality authority and line 908 lists /rpc/evm/ws. Rewrite the source catalogue and regenerate this generated page."
+
+[doc.10]
+path = "docs/site/docs/operators/hosted-internal.md"
+status = "stale"
+notes = "Lines 71-81 incorrectly deny installation of internal workloads; lines 232-233 incorrectly deny the hosted Human workload. The current beta image table and apply path contain both."
+
+[doc.11]
+path = "docs/wiki/HostedInternal.md"
+status = "stale"
+notes = "Lines 71-81 incorrectly deny installation of internal workloads; lines 232-233 incorrectly deny the hosted Human workload. The current beta image table and apply path contain both."
+
+[doc.12]
+path = "docs/site/docs/platform/identity.md"
+status = "accurate"
+notes = "The page describes the retained hosted identity and session service, TLS and credential ownership, and explicitly identifies deployment/runtime differences instead of treating them as merged chain authority."
+
+[doc.13]
+path = "docker/README.md"
+status = "accurate"
+notes = "Read the local node, container and monitoring instructions in full. The documented admin/admin monitoring login matches current behavior; its unsafe exposure is recorded against the implementation."
+
+[doc.14]
+path = "migrations/README.md"
+status = "stale"
+notes = "Line 3 calls layerxd and the append-only activity log authoritative, and later directs operators to retired history-index tests and replay source."
+
+[doc.15]
+path = "tools/benchmark/AGENTS.md"
+status = "accurate"
+notes = "The retained benchmark and compare commands, scenario selection, environment defaults and within-run comparison guidance agree with the reviewed scripts."
+
+[doc.16]
+path = "tools/benchmark/loadtest/contracts/evm/VENDORING.md"
+status = "accurate"
+notes = "Documents pinned vendored OpenZeppelin and Solmate trees and offline setup digest verification; the deploy wrapper failure-handling issues are recorded separately."
+
+[doc.17]
+path = "contracts/operations.md"
+status = "missing"
+notes = "The registry's tools-ops CLI, Docker environment and benchmark configuration anchors point to this absent contract page; restore the maintained contract or correct those registry links."

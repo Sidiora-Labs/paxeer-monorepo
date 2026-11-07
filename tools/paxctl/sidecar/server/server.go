@@ -1,12 +1,14 @@
 package server
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -28,11 +30,14 @@ const (
 
 // Server is the HTTP API for the sidecar.
 type Server struct {
-	addr    string
-	homeDir string
-	engine  *engine.Engine
-	mux     *http.ServeMux
-	handler http.Handler // mux, possibly wrapped by trustedHeaderMiddleware
+	addr      string
+	homeDir   string
+	engine    *engine.Engine
+	mux       *http.ServeMux
+	handler   http.Handler // mux, possibly wrapped by trustedHeaderMiddleware
+	protected bool
+	configErr error
+	admission *TaskStore
 }
 
 // TaskRequest is the JSON body for POST /v0/tasks. When ID is provided,
@@ -44,6 +49,41 @@ type TaskRequest struct {
 	Params map[string]any `json:"params,omitempty"`
 }
 
+func (r *TaskRequest) UnmarshalJSON(data []byte) error {
+	var wire struct {
+		ID     string          `json:"id,omitempty"`
+		Type   string          `json:"type"`
+		Params json.RawMessage `json:"params,omitempty"`
+	}
+	if err := json.Unmarshal(data, &wire); err != nil {
+		return err
+	}
+	params, err := decodeTaskParams(wire.Params)
+	if err != nil {
+		return err
+	}
+	r.ID, r.Type, r.Params = wire.ID, wire.Type, params
+	return nil
+}
+
+func decodeTaskParams(data []byte) (map[string]any, error) {
+	if len(data) == 0 {
+		return nil, nil
+	}
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return nil, err
+	}
+	if raw == nil {
+		return nil, nil
+	}
+	params := make(map[string]any, len(raw))
+	for k, v := range raw {
+		params[k] = v
+	}
+	return params, nil
+}
+
 // ErrorResponse is a standard JSON error envelope.
 type ErrorResponse struct {
 	Error string `json:"error"`
@@ -52,11 +92,25 @@ type ErrorResponse struct {
 // NewServer wires a Server to the engine. authnMode must come from
 // AuthnMode() so the env read and validation happen once at startup.
 func NewServer(addr string, eng *engine.Engine, homeDir, authnMode string) *Server {
+	if authnMode == "" {
+		authnMode = AuthnModeTrustedHeader
+	}
 	s := &Server{
-		addr:    addr,
-		homeDir: homeDir,
-		engine:  eng,
-		mux:     http.NewServeMux(),
+		addr:      addr,
+		homeDir:   homeDir,
+		engine:    eng,
+		mux:       http.NewServeMux(),
+		protected: authnMode == AuthnModeTrustedHeader,
+		configErr: validateListener(addr, authnMode),
+	}
+	s.protected = s.protected && s.configErr == nil
+	if eng != nil && s.protected {
+		if store, ok := eng.Config.Checkpointer.(*TaskStore); ok {
+			s.admission = store
+			if err := store.bindEngine(eng); err != nil {
+				s.configErr = err
+			}
+		}
 	}
 	s.mux.HandleFunc("GET /v0/healthz", s.handleHealthz)
 	s.mux.HandleFunc("GET /v0/startupz", s.handleHealthz)
@@ -72,6 +126,11 @@ func NewServer(addr string, eng *engine.Engine, homeDir, authnMode string) *Serv
 	s.handler = s.mux
 	if authnMode == AuthnModeTrustedHeader {
 		s.handler = trustedHeaderMiddleware(s.mux)
+	}
+	if s.configErr != nil {
+		s.handler = http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			writeError(w, http.StatusServiceUnavailable, s.configErr.Error())
+		})
 	}
 	return s
 }
@@ -115,9 +174,30 @@ func (s *Server) handleStatus(w http.ResponseWriter, _ *http.Request) {
 }
 
 func (s *Server) handlePostTask(w http.ResponseWriter, r *http.Request) {
-	var req TaskRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if !s.protected {
+		writeError(w, http.StatusForbidden, "task submission requires an authenticated loopback listener")
+		return
+	}
+	r.Body = http.MaxBytesReader(w, r.Body, MaxTaskRequestBytes)
+	defer r.Body.Close()
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		var tooLarge *http.MaxBytesError
+		if errors.As(err, &tooLarge) {
+			writeError(w, http.StatusRequestEntityTooLarge, "task request exceeds 64 KiB")
+			return
+		}
 		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	var req TaskRequest
+	dec := json.NewDecoder(bytes.NewReader(body))
+	if err := dec.Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	if err := dec.Decode(new(any)); err != io.EOF {
+		writeError(w, http.StatusBadRequest, "request body must contain exactly one JSON object")
 		return
 	}
 	if req.Type == "" {
@@ -127,16 +207,36 @@ func (s *Server) handlePostTask(w http.ResponseWriter, r *http.Request) {
 
 	task := engine.Task{ID: req.ID, Type: engine.TaskType(req.Type), Params: req.Params}
 
-	id, err := s.engine.Submit(task)
+	if s.admission == nil {
+		w.Header().Set("Retry-After", "1")
+		writeError(w, http.StatusServiceUnavailable, ErrTaskAdmissionUnavailable.Error())
+		return
+	}
+	id, err := s.admission.SubmitQueued(task)
 	if err != nil {
-		writeError(w, http.StatusBadRequest, err.Error())
+		status := http.StatusBadRequest
+		if errors.Is(err, ErrTaskOverload) {
+			status = http.StatusTooManyRequests
+		}
+		if errors.Is(err, ErrTaskAdmissionUnavailable) {
+			status = http.StatusServiceUnavailable
+		}
+		if status == http.StatusTooManyRequests || status == http.StatusServiceUnavailable {
+			w.Header().Set("Retry-After", "1")
+		}
+		writeError(w, status, err.Error())
 		return
 	}
 	writeJSON(w, http.StatusCreated, map[string]string{"id": id})
 }
 
 func (s *Server) handleListTasks(w http.ResponseWriter, _ *http.Request) {
-	results := s.engine.RecentResults()
+	results, err := s.engine.RecentResults()
+	if err != nil {
+		w.Header().Set("Retry-After", "1")
+		writeError(w, http.StatusServiceUnavailable, "failed to list tasks; retry")
+		return
+	}
 	if results == nil {
 		results = []engine.TaskResult{}
 	}
@@ -149,7 +249,12 @@ func (s *Server) handleGetTask(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "missing task ID")
 		return
 	}
-	result := s.engine.GetResult(id)
+	result, err := s.engine.GetResult(id)
+	if err != nil {
+		w.Header().Set("Retry-After", "1")
+		writeError(w, http.StatusServiceUnavailable, "failed to get task; retry")
+		return
+	}
 	if result == nil {
 		writeError(w, http.StatusNotFound, "task not found")
 		return
@@ -158,6 +263,10 @@ func (s *Server) handleGetTask(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleDeleteTask(w http.ResponseWriter, r *http.Request) {
+	if !s.protected {
+		writeError(w, http.StatusForbidden, "task deletion requires an authenticated loopback listener")
+		return
+	}
 	id := r.PathValue("id")
 	if id == "" {
 		writeError(w, http.StatusBadRequest, "missing task ID")
@@ -217,6 +326,9 @@ func (s *Server) handleNodeID(w http.ResponseWriter, _ *http.Request) {
 
 // ListenAndServe starts the HTTP server and blocks until ctx is cancelled.
 func (s *Server) ListenAndServe(ctx context.Context) error {
+	if s.configErr != nil {
+		return s.configErr
+	}
 	srv := &http.Server{
 		Addr:              s.addr,
 		Handler:           s.handler,

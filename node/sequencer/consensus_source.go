@@ -13,7 +13,6 @@ import (
 	seqtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/sequencer/types"
 	app "github.com/Sidiora-Labs/Paxeer-X-Network/node"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/node/sequencer/wal"
-	evmrpc "github.com/Sidiora-Labs/Paxeer-X-Network/rpc"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 	sdkerrors "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types/errors"
 	"github.com/paxeer-network/paxlog"
@@ -32,7 +31,7 @@ type ConsensusSource struct {
 	exec     Executor
 	key      *ReceiptKey
 	repl     *Replicator
-	accept   func([]byte) (evmrpc.AcceptedSend, error)
+	accepter *Accepter
 	mu       sync.Mutex
 	pending  *Batch
 	prepared *SealedLayer
@@ -90,34 +89,69 @@ func (s *ConsensusSource) SetAccepter(a *Accepter) {
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.accept = a.Accept
+	s.accepter = a
 }
 
 // Admit accepts mempool transactions in order, continuing past individual refusals.
-func (s *ConsensusSource) Admit(_ context.Context, height int64, txs tmtypes.Txs) (admitted int, err error) {
+func (s *ConsensusSource) Admit(ctx context.Context, height int64, txs tmtypes.Txs) (int, error) {
+	admitted, _, err := s.AdmitWithAcknowledgements(ctx, height, txs)
+	return admitted, err
+}
+
+// AdmitWithAcknowledgements also returns the processed prefix, including logged
+// individual refusals. A closed height and a fatal error never acknowledge the
+// unprocessed suffix. The lock prevents Seal from overtaking admission.
+func (s *ConsensusSource) AdmitWithAcknowledgements(ctx context.Context, height int64, txs tmtypes.Txs) (admitted, processed int, err error) {
 	s.mu.Lock()
-	closed := (s.pending != nil && s.pending.Height == height) || (s.sealed != nil && s.sealed.Height == height)
-	accept := s.accept
-	s.mu.Unlock()
-	if closed {
-		return 0, nil
+	defer s.mu.Unlock()
+	if (s.pending != nil && s.pending.Height == height) || (s.sealed != nil && s.sealed.Height == height) {
+		return 0, 0, nil
 	}
-	if accept == nil {
-		return 0, fmt.Errorf("%w: consensus source has no accepter", ErrReplicationHalted)
+	if s.accepter == nil {
+		return 0, 0, fmt.Errorf("%w: consensus source has no accepter", ErrReplicationHalted)
 	}
 	log := paxlog.NewLogger("sequencer", "consensus-source")
 	for _, tx := range txs {
-		if _, err := accept(tx); err != nil {
+		if err := ctx.Err(); err != nil {
+			return admitted, processed, err
+		}
+		// Replay rebuilds the receipt source before proposal admission resumes. An
+		// acceptance can reach the WAL before the proposal journal acknowledges it.
+		id := sha256.Sum256(tx)
+		if decoded, err := s.app.GetTxConfig().TxDecoder()(tx); err == nil {
+			if msg := s.app.GetEVMMsg(decoded); msg != nil {
+				if etx, _ := msg.AsTransaction(); etx != nil {
+					id = etx.Hash()
+				}
+			}
+		}
+		s.accepter.src.mu.RLock()
+		prior, exists := s.accepter.src.entries[id]
+		s.accepter.src.mu.RUnlock()
+		if exists && prior.height == height {
+			admitted++
+			processed++
+			continue
+		}
+		if _, err := s.accepter.Accept(tx); err != nil {
+			s.accepter.mu.Lock()
+			halted := s.accepter.halted
+			s.accepter.mu.Unlock()
+			if halted {
+				return admitted, processed, errors.Join(ErrReplicationHalted, err)
+			}
 			if errors.Is(err, ErrLayerNotOpen) || errors.Is(err, ErrLeaseFenced) || errors.Is(err, ErrReplicationHalted) {
-				return admitted, err
+				return admitted, processed, err
 			}
 			codespace, code, _ := sdkerrors.ABCIInfo(err, false)
 			log.Info("refused consensus mempool transaction", "height", height, "hash", fmt.Sprintf("%X", sha256.Sum256(tx)), "codespace", codespace, "code", code, "error", err.Error())
+			processed++
 			continue
 		}
 		admitted++
+		processed++
 	}
-	return admitted, nil
+	return admitted, processed, nil
 }
 
 // Admit cannot execute on a standby; only an already sealed replicated height
@@ -129,6 +163,12 @@ func (s *standbyRoleSource) Admit(_ context.Context, height int64, _ tmtypes.Txs
 		return 0, nil
 	}
 	return 0, ErrLayerNotOpen
+}
+
+// AdmitWithAcknowledgements on a standby processes no new transactions.
+func (s *standbyRoleSource) AdmitWithAcknowledgements(ctx context.Context, height int64, txs tmtypes.Txs) (int, int, error) {
+	admitted, err := s.Admit(ctx, height, txs)
+	return admitted, 0, err
 }
 
 // Sealed returns L_N of the last Seal, or nil before the first.
@@ -147,6 +187,22 @@ func (s *ConsensusSource) Seal(ctx context.Context, height int64) (tmtypes.Seale
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if s.sealed != nil && s.sealed.Height == height {
+		txs := make(tmtypes.Txs, len(s.sealed.Txs)-1)
+		for i, tx := range s.sealed.Txs[1:] {
+			txs[i] = append(tmtypes.Tx(nil), tx...)
+		}
+		return tmtypes.SealedBlock{Batch: append(tmtypes.Tx(nil), s.sealed.Txs[0]...), Txs: txs, OpenTime: s.sealed.Context().BlockTime()}, nil
+	}
+	// Accepter holds this boundary through execution, WAL release and
+	// receipt publication. SEAL cannot overtake any included ACCEPT.
+	if s.accepter != nil {
+		s.accepter.mu.Lock()
+		defer s.accepter.mu.Unlock()
+		if s.accepter.halted {
+			return tmtypes.SealedBlock{}, ErrReplicationHalted
+		}
+	}
 	if !s.Sequenced(height) {
 		return tmtypes.SealedBlock{}, fmt.Errorf("%w: height %d", ErrNotSequenced, height)
 	}

@@ -1,0 +1,69 @@
+[repair.22.31.348]
+audit = "22.30.78"
+acceptance = "22998.1"
+mode = "BUILD"
+qualification = "Private runner gate ledger records the candidate revision, command, exit and log; completion requires hf-done success."
+baseline = "The regression module did not exist on the initial tree; no baseline gate was run because the explicit implementation-first and hf-done-only order forbids a manual pre-change verification. No pre-change failures are claimed."
+
+[finding.assembly-custody-records]
+test = "test_assembly_custody_records"
+repair = "Producer inventory and versioned bundle retain authenticated current ledger funding receipts; generated producer output assembles, reloads and installs without custody records."
+
+[finding.purpose-selector-shape]
+test = "test_purpose_selector_shape"
+repair = "Generated selector catalog survives installation unchanged; the merged owner runtime authorizes declared ledger/payment calls and refuses undeclared selectors, counterparties, assets and amounts."
+
+[finding.kms-network-registry]
+test = "test_kms_network_registry"
+repair = "One exact schema-version-2 network-bound registry is validated by KMS preparation, onboarding, producer and assembly and projected identically for runtime consumers."
+
+[finding.disabled-custody-bindings]
+test = "test_disabled_custody_bindings"
+repair = "Installed bindings use ledger 0x101A and payment 0x101B; signed owner payments and native budget funding/spending cross the public precompile ABI into the loopback ledger store."
+
+[finding.owner-custody-bootstrap]
+test = "test_owner_custody_bootstrap_restart"
+repair = "Bootstrap binds the original Ed25519 identity to its EVM signer, registers identity/recovery, opens the native asset account and funds it with a signed confirmed ledger transaction; durable raw intents and persisted loopback ledger state recover after both the server and owner producer reopen, without a second funding transfer."
+
+[wiring]
+auth_rotation = "Domain 2: modules/layerxauth/keeper/lifecycle.go must implement authenticated rotation lifecycle ordinal 2 before bootstrap can advertise a rotation policy; the current exact merged identity schema includes only committed registration/recovery."
+human_runtime = "Domain 10: services/human/crates/layerx-human-service and services/agent must consume layerx.human.merged-owner.v1 and the ledger/payment configuration and asset-account bindings; legacy LNI/custody runtime consumers remain outside this scope."
+authority_runtime = "Domain 10: services/authority principal-policy consumers must support the versioned merged identity model with registration/recovery evidence and no fabricated rotation evidence."
+kms_signer = "Domain 10: services/human KMS must expose authenticated EVM signer/binding operations; this producer requires explicit protected Ed25519 and EVM key inputs rather than silently reusing legacy LNI signing."
+registry_producer = "Domain 6: cmd/layerx-module-registry/main.c and tools/bringup registry/genesis producers must emit the canonical schema_version, network_id, assets and modules artifact; this task validates their external artifact and does not edit generators outside its paths."
+owner_identity = "Domain 10: services/human owner onboarding must return the original did:layerx:<Ed25519 public key> identity and protected owner-evm.json transport/funding configuration; an unrelated legacy act_ identity is explicitly refused."
+
+[wiring.budget_main]
+request = "Domain 6: modules/layerxpay/keeper/execute.go requires an existing owner main account; current sponsored onboarding must provision it before native budget administration. The loopback peer explicitly retains this genesis prerequisite before serving RPC requests."
+
+[gotchas]
+rotation = "The live merged auth interface rejects rotation setup; do not synthesize nonzero rotation revisions to satisfy the retired model."
+budget = "budgetSpend maps to kernel ordinal 6; rollover NONE is encoded as 1, and native budget funding binds the current business-source sequence."
+restart = "Persist signed raw transaction bytes before broadcast and reuse the original expiry, sequence and funding reference on restart."
+registry = "The version-2 registry includes network_id; all preparation and assembly stages must validate the expected network before publication."
+
+[qualification.first]
+revision = "127e6b288ae84af3f66bb1dcec219a6f0d1cc862"
+command = "cg spec done 22.31.348 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "All five tests stopped in fixture setup because the real kernel state writer was initialized on a different thread from HTTP execution."
+repair = "Run every C host operation on one dedicated creating/writer thread; preserve the actual module-specific supply receipt tag and isolate interpreter caches from the candidate."
+
+[gotcha.writer]
+symptom = "The real kernel state journal refuses calls from an HTTP handler thread with LXP_FATAL_INVARIANT."
+remedy = "Initialize, execute, snapshot, restore and release the host on a dedicated single writer thread."
+
+[gotcha.bytecode]
+symptom = "The sandbox candidate includes interpreter bytecode created under a directory scope, changing the build/verify revision."
+remedy = "Use a private PYTHONPYCACHEPREFIX for both bounded gates and remove generated in-scope bytecode before the next candidate."
+
+[qualification.attempt_1]
+observed = "The prior attempt reached the local node peer but all five tests failed during setup with eth_sendRawTransaction code -32000 and an empty message; no finding was qualified."
+source = "Runner-provided continuation ruling for attempt 1; exact final revision and evidence path were not supplied in that ruling."
+
+[continuation]
+transport = "LoopbackRpcServer starts an HTTPS JSON-RPC peer inside the test, uses the production EIP-155 and ABI codecs plus committed precompile catalogs, and retains bindings, identities, accounts, transactions, canonical blocks and receipts in a private store."
+restart = "The test stops the HTTP server, discards all in-memory stores, reopens the store and listening socket, then reruns production owner bootstrap and a new OwnerClient against the retained receipt and balance state."
+dependencies = "The declared gate reads no configuration environment variable, compiles no helper, and invokes no external binary; the production installer and KMS certificate validation run in process."
+helper_removal = "The previous C host probe was removed because a subprocess toolchain and native helper artifact violate gotchas 2962 and 2966."

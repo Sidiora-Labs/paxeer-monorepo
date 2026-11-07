@@ -16,6 +16,9 @@ import (
 
 const ERC721 = "erc721"
 
+// Admit intrinsic gas, cold owner/balance storage writes and the Transfer log.
+const erc721MintGasLimit = 100000
+
 // ERC721Scenario implements the TxGenerator interface for ERC721 contract operations
 type ERC721Scenario struct {
 	*ContractScenarioBase[bindings.ERC721]
@@ -54,26 +57,13 @@ func (s *ERC721Scenario) SetContract(contract *bindings.ERC721) {
 
 // CreateContractTransaction implements ContractDeployer interface - creates ERC721 transaction
 func (s *ERC721Scenario) CreateContractTransaction(auth *bind.TransactOpts, scenario *types.TxScenario) (*ethtypes.Transaction, error) {
-	auth.GasLimit = 22460
+	if s.scenarioConfig.GasPicker == nil {
+		auth.GasLimit = erc721MintGasLimit
+	}
 	return s.contract.Mint(auth, scenario.Receiver, big.NewInt(atomic.AddInt64(&s.id, 1)))
 }
 
 // Attach implements TxGenerator interface - attaches to an existing contract
 func (s *ERC721Scenario) Attach(config *config.LoadConfig, address common.Address) error {
-	// Call base Attach to set deployed flag and config
-	if err := s.ContractScenarioBase.Attach(config, address); err != nil {
-		return err
-	}
-
-	var client *ethclient.Client
-	var err error
-	if !config.MockDeploy {
-		client, err = ethclient.Dial(config.Endpoints[0])
-		if err != nil {
-			return err
-		}
-	}
-
-	s.contract, err = bindings.NewERC721(address, client)
-	return err
+	return s.ContractScenarioBase.Attach(config, address)
 }

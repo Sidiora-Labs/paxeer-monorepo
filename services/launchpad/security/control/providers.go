@@ -287,6 +287,8 @@ type RuntimeConfig struct {
 	Verifier                                                      EvidenceVerifier
 	Payout                                                        *PayoutProvider
 	Revocation                                                    *RevocationProvider
+	Replay                                                        *ReplayProvider
+	ReplayCredential                                              string
 	InventoryCredential, IncidentCredential, SettlementCredential string
 	Assets                                                        []Asset
 	Observe                                                       func(string, error)
@@ -337,6 +339,10 @@ func NewRuntime(config RuntimeConfig) (*Runtime, error) {
 	if config.Revocation != nil && config.IncidentCredential == "" {
 		return nil, Unavailable
 	}
+	if config.Replay != nil && config.ReplayCredential == "" {
+		return nil, Unavailable
+	}
+	store.replay = config.Replay
 	service, err := NewHTTPService(store, settlement)
 	if err != nil {
 		return nil, err
@@ -375,6 +381,10 @@ func (r *Runtime) Run(ctx context.Context) error {
 	}
 	if r.config.IncidentCredential != "" {
 		worker := IncidentWorker{Store: r.Store, Identity: r.Identity, Revocation: r.config.Revocation, Credential: r.config.IncidentCredential, Observe: r.config.Observe}
+		workers = append(workers, worker.Run)
+	}
+	if r.config.Replay != nil {
+		worker := ReplayWorker{Store: r.Store, Provider: r.config.Replay, Credential: r.config.ReplayCredential, Observe: r.config.Observe}
 		workers = append(workers, worker.Run)
 	}
 	if r.settlement != nil {

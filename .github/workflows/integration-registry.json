@@ -1,0 +1,8 @@
+{
+  "owner": "sidiora-labs",
+  "packages": {
+    "localnode": "pax-chain-integration-test-localnode",
+    "rpcnode": "pax-chain-integration-test-rpcnode"
+  },
+  "publisher_workflow": ".github/workflows/paxeer-integration-test.yml"
+}

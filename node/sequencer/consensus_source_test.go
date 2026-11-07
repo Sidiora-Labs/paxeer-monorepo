@@ -19,7 +19,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/node/sequencer"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/node/sequencer/wal"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/baseapp"
-	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/crypto/keys/secp256k1"
+	sdked25519 "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/crypto/keys/ed25519"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 	authtypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/auth/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/tests/occ/utils"
@@ -45,15 +45,15 @@ type sourceHarness struct {
 
 // newSourceHarness builds the real App on the synchronous block path, funds the given accounts
 // (EVM-mapped), runs setup on the genesis context, writes the sequencer genesis with the test
-// receipt key pinned and the stored chain at sourceLastSeq, records the merge plan as done at
-// activation-1 (never when activation is 0) so blocks from activation are sequenced, commits
+// receipt key and leader pinned, the stored chain at sourceLastSeq and the keeper activation
+// height, records the merge plan as done at activation-1, commits
 // height 1 and builds the executor, receipter and consensus source over them.
 func newSourceHarness(t *testing.T, activation int64, setup func(ctx sdk.Context, a *app.App), funded ...utils.TestAcct) *sourceHarness {
 	t.Helper()
 	app.EnableOCC = false
 	t.Cleanup(func() { app.EnableOCC = true })
 	tm := time.Now().UTC()
-	valPub := secp256k1.GenPrivKey().PubKey()
+	valPub := sdked25519.GenPrivKey().PubKey()
 	tw := app.NewTestWrapper(t, tm, valPub, false, func(ba *baseapp.BaseApp) {
 		ba.SetOccEnabled(false)
 		ba.SetConcurrencyWorkers(1)
@@ -67,7 +67,8 @@ func newSourceHarness(t *testing.T, activation int64, setup func(ctx sdk.Context
 		setup(tw.Ctx, a)
 	}
 	require.NoError(t, a.SequencerKeeper.InitGenesis(tw.Ctx, seqtypes.GenesisState{
-		Leaders: [][32]byte{[32]byte(label("consensus source leader"))},
+		ActivationHeight: uint64(activation),
+		Leaders:          [][32]byte{[32]byte(valPub.Bytes())},
 		ReceiptKeys: []seqtypes.ReceiptKey{{
 			KeyId:       testKeyID,
 			PublicKey:   publicOf(testKeySeed),
@@ -378,8 +379,10 @@ func TestConsensusSourceBelowActivation(t *testing.T) {
 	_, err = h.exec.Snapshot()
 	require.NoError(t, err, "a refused seal leaves the open layer")
 
-	unmerged := newSourceHarness(t, 0, nil)
+	unmerged := newHarness(t)
+	unmergedSource, err := sequencer.NewConsensusSource(unmerged.app, unmerged.exec, h.key)
+	require.NoError(t, err)
 	for _, height := range []int64{1, openHeight, activation, math.MaxInt64} {
-		require.False(t, unmerged.src.Sequenced(height), "height %d", height)
+		require.False(t, unmergedSource.Sequenced(height), "height %d", height)
 	}
 }

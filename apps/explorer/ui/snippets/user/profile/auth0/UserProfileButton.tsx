@@ -1,4 +1,3 @@
-import type { ButtonProps } from '@chakra-ui/react';
 import { Box, HStack } from '@chakra-ui/react';
 import type { UseQueryResult } from '@tanstack/react-query';
 import React, { useCallback, useState } from 'react';
@@ -9,6 +8,7 @@ import { useMarketplaceContext } from 'lib/contexts/marketplace';
 import useIsMobile from 'lib/hooks/useIsMobile';
 import shortenString from 'lib/shortenString';
 import useWeb3AccountWithDomain from 'lib/web3/useAccountWithDomain';
+import type { ButtonProps } from 'toolkit/chakra/button';
 import { Button } from 'toolkit/chakra/button';
 import { Tooltip } from 'toolkit/chakra/tooltip';
 import IconSvg from 'ui/shared/IconSvg';

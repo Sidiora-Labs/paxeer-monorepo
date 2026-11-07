@@ -8,8 +8,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -92,8 +94,9 @@ func decodeJSONStrict[T any](t *testing.T, name string, body []byte) T {
 	if err := decoder.Decode(&out); err != nil {
 		t.Fatalf("decoding %s back into %T: %v\n%s", name, out, err, body)
 	}
-	if decoder.More() {
-		t.Fatalf("%s carries more than one JSON document", name)
+	var tail any
+	if err := decoder.Decode(&tail); err != io.EOF {
+		t.Fatalf("%s carries invalid trailing input: %v", name, err)
 	}
 	return out
 }
@@ -351,11 +354,11 @@ func TestCommittedManifestCarriesPlaceholdersEveryToolRefuses(t *testing.T) {
 		t.Fatal("the committed attestor manifest was accepted")
 	}
 	refusal := fieldError(t, err)
-	if refusal.Field != "attestors[0]" {
-		t.Fatalf("the refusal names %q, want attestors[0]", refusal.Field)
+	if refusal.Field != fieldDocument {
+		t.Fatalf("the refusal names %q, want %s", refusal.Field, fieldDocument)
 	}
-	if !strings.Contains(refusal.Msg, "placeholder address") {
-		t.Fatalf("the refusal reads %q, want a placeholder address", refusal.Msg)
+	if !strings.Contains(refusal.Msg, `unknown field "pending_governance"`) {
+		t.Fatalf("the refusal reads %q, want the pending governance field refused", refusal.Msg)
 	}
 }
 
@@ -1158,6 +1161,279 @@ func TestRunWritesNoProposalsOrBodiesWhenTheProposalsCannotBeWritten(t *testing.
 	for _, name := range []string{"refused", "refused-bodies"} {
 		if _, err := os.Stat(filepath.Join(root, name)); !os.IsNotExist(err) {
 			t.Fatalf("the refused run left %s behind (%v)", name, err)
+		}
+	}
+}
+
+type publicationFixture struct {
+	root     string
+	config   string
+	args     []string
+	outputs  []publicationOutput
+	bundle   Bundle
+	readback Readback
+}
+
+func newPublicationFixture(t *testing.T, chain string) publicationFixture {
+	t.Helper()
+	config := deployableConfiguration(t, chain)
+	canonical := loadCanonical(t, config)
+	vault := ethereumVault
+	if chain == "solana" {
+		vault = vectors.VectorVaultHandle.Hex()
+	}
+	cfg, err := FromChainConfig(canonical, governanceAuthority, vault)
+	if err != nil {
+		t.Fatal(err)
+	}
+	bundle, err := Generate(cfg, loadManifest(t, testManifest))
+	if err != nil {
+		t.Fatal(err)
+	}
+	bodies, err := bundle.Files()
+	if err != nil {
+		t.Fatal(err)
+	}
+	proposals, err := bundle.ProposalFiles()
+	if err != nil {
+		t.Fatal(err)
+	}
+	readback, err := ReadbackOf(canonical, bundle)
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw, err := marshalJSON(readback)
+	if err != nil {
+		t.Fatal(err)
+	}
+	root := t.TempDir()
+	bodyPath, proposalPath, readbackPath := filepath.Join(root, "bodies"), filepath.Join(root, "proposals"), filepath.Join(root, "readback.json")
+	return publicationFixture{
+		root: root, config: config, bundle: bundle, readback: readback,
+		args: []string{"-manifest", testManifest, "-authority", governanceAuthority, "-vault", vault,
+			"-readback", readbackPath, "-proposals", proposalPath, config, bodyPath},
+		outputs: []publicationOutput{
+			{Path: bodyPath, Directory: true, Files: bodies},
+			{Path: proposalPath, Directory: true, Files: proposals},
+			{Path: readbackPath, Files: []File{{Body: raw}}},
+		},
+	}
+}
+
+func assertRepairM365Bodies(t *testing.T, dir string, bundle Bundle) {
+	t.Helper()
+	files, err := bundle.Files()
+	if err != nil {
+		t.Fatal(err)
+	}
+	messages := []sdk.Msg{&bundle.Register, &bundle.Attestors}
+	for i := range bundle.Caps {
+		messages = append(messages, &bundle.Caps[i])
+	}
+	for i, file := range files {
+		raw, err := os.ReadFile(filepath.Join(dir, file.Name))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !bytes.Equal(raw, file.Body) {
+			t.Fatalf("%s changed on disk", file.Name)
+		}
+		msg, err := DecodeBody(raw)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := msg.ValidateBasic(); err != nil {
+			t.Fatal(err)
+		}
+		want, ok := messages[i].(codec.ProtoMarshaler)
+		if !ok {
+			t.Fatalf("generated body has unexpected type %T", messages[i])
+		}
+		sameCarried(t, file.Name, msg, want)
+	}
+}
+
+func (fixture publicationFixture) assertComplete(t *testing.T, report string) {
+	t.Helper()
+	outputs, err := publicationOutputs(fixture.outputs)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, output := range outputs {
+		if err := output.verify(output.Path); err != nil {
+			t.Fatalf("incomplete publication: %v", err)
+		}
+	}
+	assertRepairM365Bodies(t, fixture.outputs[0].Path, fixture.bundle)
+	proposals, err := fixture.bundle.Proposals()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, proposal := range proposals {
+		raw, err := os.ReadFile(filepath.Join(fixture.outputs[1].Path, proposal.Name))
+		if err != nil {
+			t.Fatal(err)
+		}
+		decoded, err := DecodeProposal(raw)
+		if err != nil {
+			t.Fatal(err)
+		}
+		sameMessage(t, proposal.Name, proposal.Content, decoded)
+		decodeProposalStrict(t, File{Name: proposal.Name, Body: raw})
+	}
+	raw, err := os.ReadFile(fixture.outputs[2].Path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	readback := decodeJSONStrict[Readback](t, fixture.outputs[2].Path, raw)
+	if !reflect.DeepEqual(readback, fixture.readback) {
+		t.Fatalf("readback changed: got %+v, want %+v", readback, fixture.readback)
+	}
+	var expectedReport strings.Builder
+	for _, output := range fixture.outputs {
+		for _, file := range output.Files {
+			path := output.Path
+			if output.Directory {
+				path = filepath.Join(path, file.Name)
+			}
+			fmt.Fprintln(&expectedReport, path)
+		}
+	}
+	if report != expectedReport.String() {
+		t.Fatalf("reported incomplete or unordered outputs:\ngot %s\nwant %s", report, &expectedReport)
+	}
+	if _, err := os.Lstat(publicationJournal(outputs)); !os.IsNotExist(err) {
+		t.Fatalf("completed publication retained journal: %v", err)
+	}
+	entries, err := os.ReadDir(fixture.root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, entry := range entries {
+		if strings.HasPrefix(entry.Name(), ".bridge-") {
+			t.Fatalf("leaked staging file %s", entry.Name())
+		}
+	}
+}
+
+func TestRunStagesAllOutputsBeforePublishingAndRetries(t *testing.T) {
+	testPublicationStagingFailures(t)
+}
+
+func testPublicationStagingFailures(t *testing.T) {
+	t.Helper()
+	for _, failure := range []string{"missing-readback-parent", "unavailable-proposal-parent"} {
+		t.Run(failure, func(t *testing.T) {
+			fixture := newPublicationFixture(t, "solana")
+			parent := filepath.Join(fixture.root, "unavailable")
+			if failure == "missing-readback-parent" {
+				fixture.outputs[2].Path = filepath.Join(parent, "readback.json")
+				fixture.args[7] = fixture.outputs[2].Path
+			} else {
+				if err := os.Symlink(filepath.Join(fixture.root, "absent"), parent); err != nil {
+					t.Fatal(err)
+				}
+				fixture.outputs[1].Path = filepath.Join(parent, "proposals")
+				fixture.args[9] = fixture.outputs[1].Path
+			}
+			var report bytes.Buffer
+			if err := Run(fixture.args, &report); err == nil {
+				t.Fatal("Run accepted an unavailable output parent")
+			}
+			if report.Len() != 0 {
+				t.Fatalf("failed staging reported success: %s", &report)
+			}
+			for _, output := range fixture.outputs {
+				if _, err := os.Lstat(output.Path); !os.IsNotExist(err) {
+					t.Fatalf("staging failure published %s: %v", output.Path, err)
+				}
+			}
+			entries, err := os.ReadDir(fixture.root)
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, entry := range entries {
+				if strings.HasPrefix(entry.Name(), ".") {
+					t.Fatalf("staging failure left %s", entry.Name())
+				}
+			}
+			if failure == "unavailable-proposal-parent" {
+				if err := os.Remove(parent); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if err := os.Mkdir(parent, 0o755); err != nil {
+				t.Fatal(err)
+			}
+			if err := Run(fixture.args, &report); err != nil {
+				t.Fatalf("same-argument retry failed: %v", err)
+			}
+			fixture.assertComplete(t, report.String())
+		})
+	}
+}
+
+func TestRunRestartsAnInterruptedPublication(t *testing.T) {
+	testPublicationRestartRecovery(t)
+}
+
+func testPublicationRestartRecovery(t *testing.T) {
+	t.Helper()
+	for _, chain := range []string{"ethereum", "solana"} {
+		for stoppedAfter := 0; stoppedAfter <= 3; stoppedAfter++ {
+			t.Run(fmt.Sprintf("%s/after_%d_outputs", chain, stoppedAfter), func(t *testing.T) {
+				fixture := newPublicationFixture(t, chain)
+				// Empty destinations retain the existing command's supported layout.
+				if err := os.Mkdir(fixture.outputs[0].Path, 0o755); err != nil {
+					t.Fatal(err)
+				}
+				publication, err := stagePublication(fixture.outputs)
+				if err != nil {
+					t.Fatal(err)
+				}
+				journal := publication.journal
+				for i := 0; i < stoppedAfter; i++ {
+					if err := publication.Outputs[i].publish(); err != nil {
+						t.Fatal(err)
+					}
+				}
+				if stoppedAfter < 3 {
+					// A real destination collision prevents the next rename/link. No
+					// injected filesystem or replacement publisher participates.
+					blocked := publication.Outputs[stoppedAfter].Path
+					if err := os.MkdirAll(blocked, 0o755); err != nil {
+						t.Fatal(err)
+					}
+					obstruction := filepath.Join(blocked, "operator-file")
+					if err := os.WriteFile(obstruction, []byte("preserve me\n"), 0o644); err != nil {
+						t.Fatal(err)
+					}
+					if err := publication.publish(); err == nil {
+						t.Fatal("publisher accepted an occupied destination")
+					}
+					raw, err := os.ReadFile(obstruction)
+					if err != nil || string(raw) != "preserve me\n" {
+						t.Fatalf("publisher changed obstruction: %q, %v", raw, err)
+					}
+					if err := os.Remove(obstruction); err != nil {
+						t.Fatal(err)
+					}
+					if err := os.Remove(blocked); err != nil {
+						t.Fatal(err)
+					}
+				}
+				if _, err := os.Lstat(journal); err != nil {
+					t.Fatalf("interruption lost journal: %v", err)
+				}
+				// All files and descriptors are closed; discard memory and reopen
+				// through Run, which must recover exclusively from disk.
+				publication = nil
+				var report bytes.Buffer
+				if err := Run(fixture.args, &report); err != nil {
+					t.Fatalf("restart failed after %d outputs: %v", stoppedAfter, err)
+				}
+				fixture.assertComplete(t, report.String())
+			})
 		}
 	}
 }

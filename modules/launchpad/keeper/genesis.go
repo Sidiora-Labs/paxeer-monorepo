@@ -53,6 +53,9 @@ func (k *Keeper) initContracts(ctx sdk.Context, gs types.GenesisState) error {
 		}
 	}
 	store := k.store(ctx)
+	for _, entry := range gs.FactoryNonces {
+		k.setUint64(ctx, addressKey(factoryNoncePrefix, common.HexToAddress(entry.Creator)), entry.Nonce)
+	}
 	for _, member := range gs.RoleMembers {
 		store.Set(types.RoleKey(common.HexToAddress(member.Contract), common.HexToHash(member.Role),
 			common.HexToAddress(member.Account)), []byte{1})
@@ -130,7 +133,11 @@ func (k *Keeper) initFeeAccounting(ctx sdk.Context, a types.FeeAccounting, pools
 		}
 	}
 	for _, claim := range a.Claims {
-		k.store(ctx).Set(poolAirdropClaimKey(common.HexToAddress(claim.Pool), common.HexToAddress(claim.Holder), claim.Epoch), []byte{1})
+		if err := k.setFeeAccountingEntry(ctx,
+			poolAirdropClaimKey(common.HexToAddress(claim.Pool), common.HexToAddress(claim.Holder), claim.Epoch),
+			[]byte{1}, feeAccountingClaimCountKey); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -141,7 +148,7 @@ func (k *Keeper) initFeeAccounting(ctx sdk.Context, a types.FeeAccounting, pools
 // generation 1 id map. A zero NextTokenID is a collection without a record.
 func (k *Keeper) initFeeRights(ctx sdk.Context, c types.FeeRightCollection) error {
 	if c.NextTokenID == 0 {
-		if len(c.Tokens) != 0 || len(c.Operators) != 0 || len(c.IDMap) != 0 {
+		if len(c.Tokens) != 0 || len(c.OwnerTokens) != 0 || len(c.Operators) != 0 || len(c.IDMap) != 0 {
 			return fmt.Errorf("%w: fee rights without a collection record", types.ErrInvalidGenesis)
 		}
 		return nil
@@ -156,7 +163,11 @@ func (k *Keeper) initFeeRights(ctx sdk.Context, c types.FeeRightCollection) erro
 		}
 		k.setUint64(ctx, feeRightKey(feeRightAllTokensPrefix, collection, idBytes(uint64(index))), right.ID)
 		k.setUint64(ctx, feeRightKey(feeRightAllIndexPrefix, collection, idBytes(right.ID)), uint64(index))
-		k.addOwnedFeeRight(ctx, collection, common.HexToAddress(right.Owner), right.ID)
+	}
+	for _, owner := range c.OwnerTokens {
+		for _, id := range owner.TokenIDs {
+			k.addOwnedFeeRight(ctx, collection, common.HexToAddress(owner.Owner), id)
+		}
 	}
 	for _, operator := range c.Operators {
 		k.SetFeeRightApprovalForAll(ctx, collection, common.HexToAddress(operator.Owner),
@@ -195,6 +206,16 @@ func (k *Keeper) ExportGenesis(ctx sdk.Context) *types.GenesisState {
 // Treasury ledgers, book-held deltas and retired list into gs.
 func (k *Keeper) exportContracts(ctx sdk.Context, gs *types.GenesisState) error {
 	store := k.store(ctx)
+	nonces := sdk.KVStorePrefixIterator(store, factoryNoncePrefix)
+	defer nonces.Close()
+	for ; nonces.Valid(); nonces.Next() {
+		key := nonces.Key()[len(factoryNoncePrefix):]
+		if len(key) != common.AddressLength || len(nonces.Value()) != 8 {
+			return types.ErrInvalidGenesis.Wrapf("corrupt factory nonce %x", nonces.Key())
+		}
+		gs.FactoryNonces = append(gs.FactoryNonces, types.FactoryNonce{
+			Creator: common.BytesToAddress(key).Hex(), Nonce: binary.BigEndian.Uint64(nonces.Value())})
+	}
 	surfaces := sdk.KVStorePrefixIterator(store, types.SurfacePrefix)
 	defer surfaces.Close()
 	for ; surfaces.Valid(); surfaces.Next() {
@@ -348,6 +369,7 @@ func (k *Keeper) exportFeeRights(ctx sdk.Context) (types.FeeRightCollection, err
 	}
 	out := types.FeeRightCollection{NextTokenID: state.NextTokenID,
 		PoolIndexMigrationCursor: state.PoolIndexMigrationCursor, PoolIndexReady: state.PoolIndexReady}
+	owners := map[string]bool{}
 	for index := uint64(0); index < state.TotalSupply; index++ {
 		id, err := k.FeeRightByIndex(ctx, collection, index)
 		if err != nil {
@@ -358,6 +380,31 @@ func (k *Keeper) exportFeeRights(ctx sdk.Context) (types.FeeRightCollection, err
 			return types.FeeRightCollection{}, err
 		}
 		out.Tokens = append(out.Tokens, right)
+		owners[right.Owner] = true
+	}
+	sortedOwners := make([]string, 0, len(owners))
+	for owner := range owners {
+		sortedOwners = append(sortedOwners, owner)
+	}
+	sort.Strings(sortedOwners)
+	for _, owner := range sortedOwners {
+		address := common.HexToAddress(owner)
+		balance, err := k.FeeRightBalanceOf(ctx, collection, address)
+		if err != nil {
+			return types.FeeRightCollection{}, err
+		}
+		if balance == 0 || balance > state.TotalSupply {
+			return types.FeeRightCollection{}, types.ErrInvalidGenesis.Wrapf("invalid fee-right owner balance %s", owner)
+		}
+		entry := types.FeeRightOwnerTokens{Owner: owner}
+		for index := uint64(0); index < balance; index++ {
+			id, err := k.FeeRightOfOwnerByIndex(ctx, collection, address, index)
+			if err != nil {
+				return types.FeeRightCollection{}, err
+			}
+			entry.TokenIDs = append(entry.TokenIDs, id)
+		}
+		out.OwnerTokens = append(out.OwnerTokens, entry)
 	}
 	prefix := feeRightKey(feeRightOperatorPrefix, collection)
 	operators := sdk.KVStorePrefixIterator(store, prefix)

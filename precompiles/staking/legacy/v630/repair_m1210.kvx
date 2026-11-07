@@ -1,0 +1,25 @@
+[repair.22.33.1210]
+audit = "22.30.57"
+findings = ["historical-key-v630", "historical-shares-v630"]
+historical-key-v630 = ["TestRepairM_1210_InvalidKeyBeforePayment", "TestRepairM_1210_ValidKeyCreatesValidator", "TestRepairM_1210_KeyUpgradeReplay", "TestRepairM_1210_EVMTransactionRefusal"]
+historical-shares-v630 = ["TestRepairM_1210_RedelegationShares", "TestRepairM_1210_SharesUpgradeReplay", "TestRepairM_1210_ABICompatibility"]
+implementation = "Preserve v630 staking.go and abi.json. Retain the existing active validator-key-length guard before payment; gate the active decimal SharesDst projection with common.MergePlanActive, retaining Balance.String() before the applied merge height. No selectors, event topics, ABI types or version registrations change."
+historical_heights = "Historical tracing selects v630 from the applied v6.3.0 height until the next applied staking version. The archived v630 implementation always retains its malformed-key panic and token-balance sharesDst projection, even when called at a later height. The current executor retains the historical boundary and projection below the applied v7.0 merge height, and at every height while the plan is unapplied or merely scheduled. No absolute mainnet height is assumed."
+activation = "The real EVM upgrade keeper's applied v7.0 marker activates both corrections at and above its recorded height. Ordinary execution and tracing are proven before, at and after activation, including unscheduled and scheduled-only plans."
+key_proof = "ABI-packed calls enter the production dynamic wrapper with a funded payment source and real staking/bank keepers; invalid decoded lengths refuse before payment and preserve balances, supply, validators and delegations. A valid 32-byte key creates a persisted validator and self-delegation. Signed EVM transactions prove empty, 31-byte and 33-byte keys revert with unchanged balance and validator state. Archived v630 calls retain the original panic."
+shares_proof = "Real validator creation, Slash and BeginRedelegation produce a non-unit destination exchange rate and persisted 11.666666666666666666 destination shares. The real staking Querier and ABI consumer preserve the exact decimal independently of integer balance, including both delegator and source-index queries, pagination and every entry field. The activation matrix compares historical encoded bytes and proves only sharesDst changes forward."
+baseline = "Not run: the explicit ordered instructions require complete implementation, hf-build, then hf-done and prohibit a manual verify_cmd first; no pre-change failing tests are claimed."
+wiring_requests = []
+evidence = "The runner-owned /out/run/gates.jsonl records the exact candidate revision, command, exit code and private log location. Closure requires hf-done to pass on the built revision; no gate is claimed before that evidence exists."
+
+[gotcha.order]
+observed = "The task's generated steps request pre-change verification, while its explicit ordered instructions forbid it and limit verification to hf-done after implementation and hf-build."
+resolution = "Follow the explicit ordered gate instructions and report that no baseline ran."
+
+[gotcha.scope]
+observed = "The normal spec task record and root gotcha ledger are outside the explicitly permitted paths."
+resolution = "Keep the repair record and task-local gotchas in this v630 directory; do not edit spec files or root ledgers."
+
+[gotcha.fixture]
+observed = "StateDB takes a snapshot, so direct calls write to db.Ctx() rather than the parent fixture context."
+resolution = "Inspect db.Ctx() for successful validator creation and unchanged state after refusal."

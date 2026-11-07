@@ -4,20 +4,14 @@
 
 use std::collections::BTreeMap;
 
-use base64::engine::general_purpose::STANDARD;
-use base64::Engine as _;
-use layerx_committed_proof::{committed::verify_committed, header::Validator, CommittedProof};
+use layerx_committed_proof::{header::Validator, CommittedProof};
 use layerx_interop_gateway::adapter::AdapterId;
-use layerx_interop_gateway::evidence::{
-    canonical_receipt_digest, SequencerEvidence, SettlementRung,
-};
+use layerx_interop_gateway::evidence::{SequencerEvidence, SettlementRung};
 use layerx_interop_gateway::gateway::{TranslationKind, TranslationRequest, TranslationStatus};
 use layerx_interop_gateway::principal::PrincipalId;
 use layerx_interop_gateway::trace::{TraceId, Traced};
 use layerx_interop_gateway::GatewayCore;
 use layerx_proof::inclusion::SequencerAuthorization;
-use layerx_proof::receipt::verify_sequencer_signature;
-use layerx_proof::sequencer_logs::verify_logs;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use sha2::{Digest as _, Sha256};
@@ -25,7 +19,10 @@ use sha2::{Digest as _, Sha256};
 use crate::model::{
     PaymentPayload, PaymentRequirements, SettlementResponse, X402Error, X402_VERSION,
 };
-use crate::seller::{payment_matches, validate_network, validate_transaction};
+use crate::seller::{
+    validate_network, validate_transaction, CommittedSettlementProof, ExecutedPayment, Seller,
+    SellerOutcome,
+};
 
 const ADAPTER_ID: &str = "x402";
 const VERIFY_DIGEST_DOMAIN: &[u8] = b"LayerX/x402/v2/facilitator/verify/digest\0";
@@ -463,6 +460,7 @@ impl Facilitator {
                 principal,
                 idempotency_key,
                 &request.payment_requirements,
+                &request.payment_payload.payload,
                 &executed,
                 plane.receipt_keys(),
                 plane.committed_proof(),
@@ -564,6 +562,7 @@ fn settle_executed(
     principal: &PrincipalId,
     idempotency_key: [u8; 32],
     requirements: &PaymentRequirements,
+    scheme_payload: &Value,
     evidence: &SequencerEvidence,
     receipt_keys: &[SequencerAuthorization],
     commitment: Option<&FacilitatorCommitment>,
@@ -573,102 +572,28 @@ fn settle_executed(
     if evidence.rung == SettlementRung::Submitted {
         return Err(X402Error::EvidenceMissing);
     }
-    let verified = verify_sequencer_signature(&evidence.signed_receipt, receipt_keys)
-        .map_err(|_| X402Error::EvidenceMismatch)?;
-    let protocol = verified.protocol().ok_or(X402Error::EvidenceMismatch)?;
-    if protocol.activity_id() != evidence.transaction_hash || protocol.result_code() != 0 {
-        return Err(X402Error::EvidenceMismatch);
-    }
-    let logs =
-        verify_logs(&verified, evidence.logs.clone()).map_err(|_| X402Error::EvidenceMismatch)?;
-    let mut payments = logs.logs().iter().filter(|log| {
-        log.address()
-            == [
-                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x10, 0x1a,
-            ]
-            && log.topics().len() == 4
-            && hex(&log.topics()[0])
-                == "c4da5d6f757c251cd70947b752917e5671b677517e3d953f362a1df6648ef5b1"
-            && log.topics()[1] == idempotency_key
-    });
-    let payment = payments.next().ok_or(X402Error::EvidenceMismatch)?;
-    if payments.next().is_some() || payment.data().len() != 64 || payment.data()[32..48] != [0; 16]
-    {
-        return Err(X402Error::EvidenceMismatch);
-    }
-    let asset = payment.data()[..32]
-        .try_into()
-        .map_err(|_| X402Error::EvidenceMismatch)?;
-    let amount = u128::from_be_bytes(
-        payment.data()[48..]
-            .try_into()
-            .map_err(|_| X402Error::EvidenceMismatch)?,
-    );
-    payment_matches(requirements, asset, payment.topics()[3], amount)?;
-    let committed = if let Some(commitment) = commitment {
-        let digest = canonical_receipt_digest(&evidence.signed_receipt)
-            .map_err(|_| X402Error::EvidenceMismatch)?;
-        let block = verify_committed(
-            digest,
-            &commitment.proof,
-            &commitment.validators,
-            &commitment.chain_id,
-        )
-        .map_err(|_| X402Error::EvidenceMismatch)?;
-        if evidence.rung
-            != (SettlementRung::Committed {
-                block_number: block.number,
-                block_hash: block.hash,
-            })
-        {
-            return Err(X402Error::EvidenceMismatch);
-        }
-        Some(block)
-    } else {
-        None
+    let executed = ExecutedPayment {
+        evidence: evidence.clone(),
+        committed: commitment.map(|commitment| CommittedSettlementProof {
+            proof: commitment.proof.clone(),
+            validators: commitment.validators.clone(),
+            chain_id: commitment.chain_id.clone(),
+        }),
     };
-    let status = gateway
-        .settle_with_sequencer_evidence(
-            principal,
-            idempotency_key,
-            evidence,
-            receipt_keys,
-            trace,
-            now,
-        )
-        .map_err(|error| match error.into_error() {
-            layerx_interop_gateway::gateway::SequencerSettlementError::Gateway(error) => {
-                X402Error::Gateway(error)
-            }
-            _ => X402Error::EvidenceMismatch,
-        })?;
-    let TranslationStatus::ReceiptVerified { receipt_digest } = status else {
-        return Err(X402Error::EvidenceMissing);
-    };
-    let digest_text = hex(&receipt_digest);
-    let mut extensions = BTreeMap::new();
-    let mut layerx = json!({
-        "receipt": STANDARD.encode(&evidence.signed_receipt),
-        "receiptDigest": digest_text,
-        "verificationLevel": "receipted"
-    });
-    if let Some(block) = committed {
-        layerx["verificationLevel"] = json!("committed");
-        layerx["blockNumber"] = json!(format!("0x{:x}", block.number));
-        layerx["blockHash"] = json!(format!("0x{}", hex(&block.hash)));
+    match Seller::settled(
+        gateway,
+        principal,
+        idempotency_key,
+        requirements,
+        scheme_payload,
+        &executed,
+        receipt_keys,
+        trace,
+        now,
+    )? {
+        SellerOutcome::Settled { response, .. } => Ok(response),
+        _ => Err(X402Error::EvidenceMissing),
     }
-    extensions.insert("layerx".to_owned(), layerx);
-    let response = SettlementResponse {
-        success: true,
-        error_reason: None,
-        payer: Some(hex(&payment.topics()[2])),
-        transaction: format!("0x{}", hex(&evidence.transaction_hash)),
-        network: requirements.network.clone(),
-        amount: Some(requirements.amount),
-        extensions,
-    };
-    response.validate_wire()?;
-    Ok(response)
 }
 
 pub(crate) fn validate_verify(response: &VerifyResponse) -> Result<(), X402Error> {
@@ -701,7 +626,7 @@ pub(crate) fn validate_supported(response: &SupportedResponse) -> Result<(), X40
     }
     for (index, kind) in response.kinds.iter().enumerate() {
         if kind.x402_version != X402_VERSION
-            || !identifier(&kind.scheme, 32)
+            || !matches!(kind.scheme.as_str(), "exact" | "metered" | "subscription")
             || validate_network(&kind.network).is_err()
             || kind.extra.as_ref().is_some_and(|extra| !extra.is_object())
             || response.kinds[..index].iter().any(|prior| {
@@ -902,6 +827,7 @@ mod tests {
             &principal,
             [0x74; 32],
             accepted,
+            &json!({"idempotencyKey": "74".repeat(32)}),
             &executed,
             &receipt_keys,
             None,

@@ -1,9 +1,24 @@
 - name: Test validators should be able to create snapshot with custom location
   inputs:
-    # Check if snapshots are created
-    - cmd: if [ -d "./build/generated/node_0/snapshots" ]; then echo "true"; else echo "false"; fi
-      env: FOUND
+    - cmd: >-
+        set -euo pipefail;
+        python3 tests/integration/chain_operation/snapshot_probe.py prepare
+        --snapshot-dir ./build/generated/node_0/snapshots
+      env: BOOTSTRAP
+      node: pax-node-0
+    - cmd: >-
+        set -euo pipefail;
+        python3 tests/integration/chain_operation/snapshot_probe.py restore
+        --bootstrap "$BOOTSTRAP"
+      env: IMPORT
+      node: pax-node-0
+    - cmd: >-
+        set -euo pipefail;
+        python3 tests/integration/chain_operation/snapshot_probe.py compare
+        --bootstrap "$BOOTSTRAP" --evidence "$IMPORT"
+        --snapshot-dir ./build/generated/node_0/snapshots
+      env: RESTORED
       node: pax-node-0
   verifiers:
-  - type: eval
-    expr: FOUND == "true"
+    - type: eval
+      expr: RESTORED == "verified"

@@ -1,0 +1,9 @@
+[repair.22.33.1502]
+audit = "22.30.9"
+findings = [8]
+finding_8_tests = ["TestRepairM_1502_GovernanceReductionRestart", "TestRepairM_1502_CompatibleReduction"]
+finding_8_change = "Reject gas-cap reductions incompatible with stored active jobs before writing parameters; deterministic job-ID traversal includes future jobs and preserves jobs, indexes, deposits and all prior parameters on rejection."
+proof = "Production LayerX proposal construction, protobuf interface JSON, proposal handler, message router and UpdateParams feed the real keeper; close and reopen its committed IAVL store before execution and between blocks, then assert progress, ordered typed outcomes, exact bank escrow/fees/refunds and no replay."
+baseline = "No unchanged-tree verification ran: the explicit ordered gate rules prohibit tests before implementation and require the first verification through hf-done; the initial ledger was absent and both counters were zero. No baseline failures are claimed."
+wiring_request = "None: the existing governance handler and message server already propagate SetParams rejection; the entire repair is inside the keeper domain."
+qualification = "Qualification is asserted only by a passing hf-done; the runner's private gate ledger retains the exact candidate revision, command, exit code and evidence log."

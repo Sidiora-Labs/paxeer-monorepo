@@ -254,7 +254,7 @@ fn every_valid_shared_case_exports_from_its_receipt_answer() {
         }
         exported_cases += 1;
     }
-    assert_eq!(exported_cases, 5, "all valid shared cases executed");
+    assert_eq!(exported_cases, 6, "all valid shared cases executed");
 }
 
 #[test]

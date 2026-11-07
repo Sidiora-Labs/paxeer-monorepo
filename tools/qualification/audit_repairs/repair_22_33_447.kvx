@@ -1,0 +1,30 @@
+[repair]
+task = "22.33.447"
+audit = "22.30.147"
+acceptance = "22998.1"
+inspected_revision = "04c1e9407e75f7ac92c260452f2232ab07bf3ef1"
+implementation = "Update only the chain-identity and adapter comments in backend.example.env for the merged chain-125 paxd network, committed-block finality, retired anchor/import surfaces, and false/progress/error synchronization semantics; preserve all 69 effective assignments and existing HTTP, WebSocket and throttle names."
+baseline = "Baseline verify was not run: both scoped repair files and /out/run/gates.jsonl were absent and gate.json recorded zero builds and verifies. The explicit implementation-first order and prohibition on running verify_cmd by hand supersede step 5's baseline instruction; no pre-change test failure is claimed. Initial Git status/diff showed only runner-prepared .cgignore and spec status changes, preserved without editing."
+build_cmd = "python3 --version"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_447.py"
+evidence_ledger = "/out/run/gates.jsonl"
+verified_revision = "The final hf-done JSON and private evidence_ledger record the exact verified revision, command, exit and log. Build and verify must pass at the same candidate revision. This record is finalized before gates because embedding its own content-derived revision would change that revision; the runner retains the exact qualification evidence."
+source_proof = "Pytest parses the real dotenv assignments, checks merged-network and retirement comments, matches synchronization prose to the node SyncingResult/Status implementation, HTTP result/error transport and PaxeerX false/progress/error consumer, and checks compose endpoint wiring and runtime throttle names. A fixed SHA-256 of the baseline's 69 effective assignment lines proves no effective setting changed. The KVX finding-to-test map is parsed and checked against declared Python test functions."
+review_only = "No Go/Elixir build toolchain exists for these production sources in this qualification environment. Source checks prove documentation alignment, not runtime node or adapter execution, network availability, receipt authentication, consensus finality, or restart/recovery. This doc-drift change introduces no interface or stateful component. The dotenv template is not a shell script (display values contain spaces), unit file, manifest or build file; no bash or external executable is required by the pytest gate."
+wiring_requests = ["Domain 14 / explorer backend: services/explorer/backend/apps/ethereum_jsonrpc/test/ethereum_jsonrpc/paxeer_x_test.exs:309 still asserts that a -32000 eth_syncing refusal is synced; align that stale test with the already-landed error-preserving adapter under its owning repair task; this task does not edit or execute the Elixir test."]
+
+[finding.env-template-sync-and-retired]
+file = "services/explorer/deploy/env/backend.example.env"
+line = 25
+class = "doc-drift"
+severity = "medium"
+observed = "The template promised active anchor/lx_* import surfaces and described eth_syncing refusal as synced despite the merged node's false/progress contract."
+resolution = "Describe one BFT chain 125 with the kernel embedded in paxd, committed receipts and explicit retirement of anchor/import paths; describe false as synced, hex progress while catching up, and transport/refusal/consensus/unexpected results as errors. The adapter fix is present in production source. Closure depends on the declared hf-done evidence."
+tests = ["test_env_template_describes_merged_chain_and_retired_surfaces", "test_env_sync_comments_match_node_transport_and_adapter_source", "test_all_effective_env_assignments_are_preserved", "test_http_websocket_and_throttle_names_reach_existing_consumers"]
+
+[format]
+policy = "No Python, dotenv or KVX formatter is configured for these paths. After implementation, apply .editorconfig UTF-8, LF, final newline and trailing-whitespace conventions only to the three touched files."
+
+[gotcha.context]
+observed = "Large ledger reads exceed tool output bounds, cg brief names an unrelated cached task, and optional configuration paths may be absent."
+resolution = "Use bounded task-specific sections, actual Git status/diff and the private gate ledger; keep this note in the authorized repair record because GOTCHA.kvx and spec files are outside scope."

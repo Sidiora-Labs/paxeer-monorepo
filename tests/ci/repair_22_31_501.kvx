@@ -1,0 +1,18 @@
+[repair.22.31.501]
+decision = "2543"
+gotcha = "3043"
+issue = "1540"
+acceptance = "22998.1"
+base_revision = "a5330ed164a250d3d5c58f1ca6bbeda372209eac"
+repair = "Exclude exactly the two weak-reference absence proofs from the retired bridge-credit reference scan and remove the retired symbol's kernel interface table row, updating the exact table cardinality from 481 to 480 while preserving the absence assertions and the scan of all other C sources and headers."
+absence_proofs = ["tests/codec/lxp_test_ledger_bridge_credit_absent.c", "tests/codec/lxp_test_bridge_credit_absent.c"]
+build_cmd = "python3 -m py_compile tests/ci/test_kernel_suite_retired_uses.py && gcc -fsyntax-only -Iinclude tests/codec/lxp_test_kernel_complete.c"
+verify_cmd = "python3 -m pytest -q tests/ci/test_kernel_suite_retired_uses.py -k no_bridge_credit_apply_caller"
+evidence = "The runner's private /out/run/gates.jsonl records the exact verified candidate revision, command, exit code and log path emitted by hf-build and hf-done; the final handoff copies the last gate's evidence."
+
+[repair.22.31.501.build_1]
+revision = "ba846c8167adfce822d93ec69a9e2f25a6421b1c"
+command = "python3 -m py_compile tests/ci/test_kernel_suite_retired_uses.py && gcc -fsyntax-only -Iinclude tests/codec/lxp_test_kernel_complete.c"
+exit = 1
+log = "/out/logs/build-1.log"
+observed = "Removing the retired interface row requires changing the table's exact-cardinality assertion to 480 entries."

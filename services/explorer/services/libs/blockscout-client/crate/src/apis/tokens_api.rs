@@ -26,6 +26,9 @@ use std::sync::Arc;
 #[cfg_attr(feature = "mockall", automock)]
 #[async_trait]
 pub trait TokensApi: Send + Sync {
+    /// Scope subsequent paginated calls to the producer's validated next-page cursor.
+    fn with_cursor(&self, cursor: super::pagination::PageCursor) -> Box<dyn TokensApi>;
+
     /// GET /api/v2/tokens/{address_hash}/instances/{id}
     ///
     ///
@@ -123,11 +126,15 @@ pub trait TokensApi: Send + Sync {
 
 pub struct TokensApiClient {
     configuration: Arc<configuration::Configuration>,
+    cursor: Option<super::pagination::PageCursor>,
 }
 
 impl TokensApiClient {
     pub fn new(configuration: Arc<configuration::Configuration>) -> Self {
-        Self { configuration }
+        Self {
+            configuration,
+            cursor: None,
+        }
     }
 }
 
@@ -151,6 +158,9 @@ pub struct GetNftInstanceTransfersParams {
 
     /// integer id
     pub id: String,
+
+    /// Continuation returned by this route; overrides the client-scoped cursor.
+    pub cursor: Option<super::pagination::PageCursor>,
 }
 
 /// struct for passing parameters to the method [`get_nft_instance_transfers_count`]
@@ -170,6 +180,9 @@ pub struct GetNftInstanceTransfersCountParams {
 pub struct GetNftInstancesParams {
     /// Address hash
     pub address_hash: String,
+
+    /// Continuation returned by this route; overrides the client-scoped cursor.
+    pub cursor: Option<super::pagination::PageCursor>,
 }
 
 /// struct for passing parameters to the method [`get_token`]
@@ -194,6 +207,9 @@ pub struct GetTokenCountersParams {
 pub struct GetTokenHoldersParams {
     /// Address hash
     pub address_hash: String,
+
+    /// Continuation returned by this route; overrides the client-scoped cursor.
+    pub cursor: Option<super::pagination::PageCursor>,
 }
 
 /// struct for passing parameters to the method [`get_token_instance_holders`]
@@ -205,6 +221,9 @@ pub struct GetTokenInstanceHoldersParams {
 
     /// integer id
     pub id: String,
+
+    /// Continuation returned by this route; overrides the client-scoped cursor.
+    pub cursor: Option<super::pagination::PageCursor>,
 }
 
 /// struct for passing parameters to the method [`get_token_token_transfers`]
@@ -213,6 +232,9 @@ pub struct GetTokenInstanceHoldersParams {
 pub struct GetTokenTokenTransfersParams {
     /// Address hash
     pub address_hash: String,
+
+    /// Continuation returned by this route; overrides the client-scoped cursor.
+    pub cursor: Option<super::pagination::PageCursor>,
 }
 
 /// struct for passing parameters to the method [`get_tokens_list`]
@@ -222,6 +244,9 @@ pub struct GetTokensListParams {
     pub q: Option<String>,
 
     pub r#type: Option<String>,
+
+    /// Continuation returned by this route; overrides the client-scoped cursor.
+    pub cursor: Option<super::pagination::PageCursor>,
 }
 
 /// struct for passing parameters to the method [`refetch_token_instance_metadata`]
@@ -239,6 +264,13 @@ pub struct RefetchTokenInstanceMetadataParams {
 
 #[async_trait]
 impl TokensApi for TokensApiClient {
+    fn with_cursor(&self, cursor: super::pagination::PageCursor) -> Box<dyn TokensApi> {
+        Box::new(Self {
+            configuration: self.configuration.clone(),
+            cursor: Some(cursor),
+        })
+    }
+
     async fn get_nft_instance(
         &self,
         params: GetNftInstanceParams,
@@ -251,7 +283,7 @@ impl TokensApi for TokensApiClient {
 
         let local_var_uri_str = format!(
             "{}/api/v2/tokens/{address_hash}/instances/{id}",
-            local_var_configuration.base_path,
+            local_var_configuration.rest_origin()?,
             address_hash = crate::apis::urlencode(address_hash),
             id = crate::apis::urlencode(id)
         );
@@ -263,11 +295,14 @@ impl TokensApi for TokensApiClient {
                 .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
         }
 
-        let local_var_req = local_var_req_builder.build()?;
+        let local_var_req = local_var_req_builder
+            .timeout(local_var_configuration.request_timeout)
+            .build()?;
         let local_var_resp = local_var_client.execute(local_var_req).await?;
 
         let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
+        let local_var_content =
+            super::read_bounded(local_var_resp, local_var_configuration.max_response_bytes).await?;
 
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             let local_var_entity: Option<GetNftInstanceSuccess> =
@@ -295,7 +330,11 @@ impl TokensApi for TokensApiClient {
         params: GetNftInstanceTransfersParams,
     ) -> Result<ResponseContent<GetNftInstanceTransfersSuccess>, Error<GetNftInstanceTransfersError>>
     {
-        let GetNftInstanceTransfersParams { address_hash, id } = params;
+        let GetNftInstanceTransfersParams {
+            address_hash,
+            id,
+            cursor,
+        } = params;
 
         let local_var_configuration = &self.configuration;
 
@@ -303,7 +342,7 @@ impl TokensApi for TokensApiClient {
 
         let local_var_uri_str = format!(
             "{}/api/v2/tokens/{address_hash}/instances/{id}/transfers",
-            local_var_configuration.base_path,
+            local_var_configuration.rest_origin()?,
             address_hash = crate::apis::urlencode(address_hash),
             id = crate::apis::urlencode(id)
         );
@@ -315,11 +354,17 @@ impl TokensApi for TokensApiClient {
                 .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
         }
 
-        let local_var_req = local_var_req_builder.build()?;
+        let mut local_var_req = local_var_req_builder
+            .timeout(local_var_configuration.request_timeout)
+            .build()?;
+        if let Some(cursor) = cursor.as_ref().or(self.cursor.as_ref()) {
+            cursor.apply(&mut local_var_req)?;
+        }
         let local_var_resp = local_var_client.execute(local_var_req).await?;
 
         let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
+        let local_var_content =
+            super::read_bounded(local_var_resp, local_var_configuration.max_response_bytes).await?;
 
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             let local_var_entity: Option<GetNftInstanceTransfersSuccess> =
@@ -357,7 +402,7 @@ impl TokensApi for TokensApiClient {
 
         let local_var_uri_str = format!(
             "{}/api/v2/tokens/{address_hash}/instances/{id}/transfers-count",
-            local_var_configuration.base_path,
+            local_var_configuration.rest_origin()?,
             address_hash = crate::apis::urlencode(address_hash),
             id = crate::apis::urlencode(id)
         );
@@ -369,11 +414,14 @@ impl TokensApi for TokensApiClient {
                 .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
         }
 
-        let local_var_req = local_var_req_builder.build()?;
+        let local_var_req = local_var_req_builder
+            .timeout(local_var_configuration.request_timeout)
+            .build()?;
         let local_var_resp = local_var_client.execute(local_var_req).await?;
 
         let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
+        let local_var_content =
+            super::read_bounded(local_var_resp, local_var_configuration.max_response_bytes).await?;
 
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             let local_var_entity: Option<GetNftInstanceTransfersCountSuccess> =
@@ -400,7 +448,10 @@ impl TokensApi for TokensApiClient {
         &self,
         params: GetNftInstancesParams,
     ) -> Result<ResponseContent<GetNftInstancesSuccess>, Error<GetNftInstancesError>> {
-        let GetNftInstancesParams { address_hash } = params;
+        let GetNftInstancesParams {
+            address_hash,
+            cursor,
+        } = params;
 
         let local_var_configuration = &self.configuration;
 
@@ -408,7 +459,7 @@ impl TokensApi for TokensApiClient {
 
         let local_var_uri_str = format!(
             "{}/api/v2/tokens/{address_hash}/instances",
-            local_var_configuration.base_path,
+            local_var_configuration.rest_origin()?,
             address_hash = crate::apis::urlencode(address_hash)
         );
         let mut local_var_req_builder =
@@ -419,11 +470,17 @@ impl TokensApi for TokensApiClient {
                 .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
         }
 
-        let local_var_req = local_var_req_builder.build()?;
+        let mut local_var_req = local_var_req_builder
+            .timeout(local_var_configuration.request_timeout)
+            .build()?;
+        if let Some(cursor) = cursor.as_ref().or(self.cursor.as_ref()) {
+            cursor.apply(&mut local_var_req)?;
+        }
         let local_var_resp = local_var_client.execute(local_var_req).await?;
 
         let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
+        let local_var_content =
+            super::read_bounded(local_var_resp, local_var_configuration.max_response_bytes).await?;
 
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             let local_var_entity: Option<GetNftInstancesSuccess> =
@@ -458,7 +515,7 @@ impl TokensApi for TokensApiClient {
 
         let local_var_uri_str = format!(
             "{}/api/v2/tokens/{address_hash}",
-            local_var_configuration.base_path,
+            local_var_configuration.rest_origin()?,
             address_hash = crate::apis::urlencode(address_hash)
         );
         let mut local_var_req_builder =
@@ -469,11 +526,14 @@ impl TokensApi for TokensApiClient {
                 .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
         }
 
-        let local_var_req = local_var_req_builder.build()?;
+        let local_var_req = local_var_req_builder
+            .timeout(local_var_configuration.request_timeout)
+            .build()?;
         let local_var_resp = local_var_client.execute(local_var_req).await?;
 
         let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
+        let local_var_content =
+            super::read_bounded(local_var_resp, local_var_configuration.max_response_bytes).await?;
 
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             let local_var_entity: Option<GetTokenSuccess> =
@@ -508,7 +568,7 @@ impl TokensApi for TokensApiClient {
 
         let local_var_uri_str = format!(
             "{}/api/v2/tokens/{address_hash}/counters",
-            local_var_configuration.base_path,
+            local_var_configuration.rest_origin()?,
             address_hash = crate::apis::urlencode(address_hash)
         );
         let mut local_var_req_builder =
@@ -519,11 +579,14 @@ impl TokensApi for TokensApiClient {
                 .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
         }
 
-        let local_var_req = local_var_req_builder.build()?;
+        let local_var_req = local_var_req_builder
+            .timeout(local_var_configuration.request_timeout)
+            .build()?;
         let local_var_resp = local_var_client.execute(local_var_req).await?;
 
         let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
+        let local_var_content =
+            super::read_bounded(local_var_resp, local_var_configuration.max_response_bytes).await?;
 
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             let local_var_entity: Option<GetTokenCountersSuccess> =
@@ -550,7 +613,10 @@ impl TokensApi for TokensApiClient {
         &self,
         params: GetTokenHoldersParams,
     ) -> Result<ResponseContent<GetTokenHoldersSuccess>, Error<GetTokenHoldersError>> {
-        let GetTokenHoldersParams { address_hash } = params;
+        let GetTokenHoldersParams {
+            address_hash,
+            cursor,
+        } = params;
 
         let local_var_configuration = &self.configuration;
 
@@ -558,7 +624,7 @@ impl TokensApi for TokensApiClient {
 
         let local_var_uri_str = format!(
             "{}/api/v2/tokens/{address_hash}/holders",
-            local_var_configuration.base_path,
+            local_var_configuration.rest_origin()?,
             address_hash = crate::apis::urlencode(address_hash)
         );
         let mut local_var_req_builder =
@@ -569,11 +635,17 @@ impl TokensApi for TokensApiClient {
                 .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
         }
 
-        let local_var_req = local_var_req_builder.build()?;
+        let mut local_var_req = local_var_req_builder
+            .timeout(local_var_configuration.request_timeout)
+            .build()?;
+        if let Some(cursor) = cursor.as_ref().or(self.cursor.as_ref()) {
+            cursor.apply(&mut local_var_req)?;
+        }
         let local_var_resp = local_var_client.execute(local_var_req).await?;
 
         let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
+        let local_var_content =
+            super::read_bounded(local_var_resp, local_var_configuration.max_response_bytes).await?;
 
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             let local_var_entity: Option<GetTokenHoldersSuccess> =
@@ -601,7 +673,11 @@ impl TokensApi for TokensApiClient {
         params: GetTokenInstanceHoldersParams,
     ) -> Result<ResponseContent<GetTokenInstanceHoldersSuccess>, Error<GetTokenInstanceHoldersError>>
     {
-        let GetTokenInstanceHoldersParams { address_hash, id } = params;
+        let GetTokenInstanceHoldersParams {
+            address_hash,
+            id,
+            cursor,
+        } = params;
 
         let local_var_configuration = &self.configuration;
 
@@ -609,7 +685,7 @@ impl TokensApi for TokensApiClient {
 
         let local_var_uri_str = format!(
             "{}/api/v2/tokens/{address_hash}/instances/{id}/holders",
-            local_var_configuration.base_path,
+            local_var_configuration.rest_origin()?,
             address_hash = crate::apis::urlencode(address_hash),
             id = crate::apis::urlencode(id)
         );
@@ -621,11 +697,17 @@ impl TokensApi for TokensApiClient {
                 .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
         }
 
-        let local_var_req = local_var_req_builder.build()?;
+        let mut local_var_req = local_var_req_builder
+            .timeout(local_var_configuration.request_timeout)
+            .build()?;
+        if let Some(cursor) = cursor.as_ref().or(self.cursor.as_ref()) {
+            cursor.apply(&mut local_var_req)?;
+        }
         let local_var_resp = local_var_client.execute(local_var_req).await?;
 
         let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
+        let local_var_content =
+            super::read_bounded(local_var_resp, local_var_configuration.max_response_bytes).await?;
 
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             let local_var_entity: Option<GetTokenInstanceHoldersSuccess> =
@@ -653,7 +735,10 @@ impl TokensApi for TokensApiClient {
         params: GetTokenTokenTransfersParams,
     ) -> Result<ResponseContent<GetTokenTokenTransfersSuccess>, Error<GetTokenTokenTransfersError>>
     {
-        let GetTokenTokenTransfersParams { address_hash } = params;
+        let GetTokenTokenTransfersParams {
+            address_hash,
+            cursor,
+        } = params;
 
         let local_var_configuration = &self.configuration;
 
@@ -661,7 +746,7 @@ impl TokensApi for TokensApiClient {
 
         let local_var_uri_str = format!(
             "{}/api/v2/tokens/{address_hash}/transfers",
-            local_var_configuration.base_path,
+            local_var_configuration.rest_origin()?,
             address_hash = crate::apis::urlencode(address_hash)
         );
         let mut local_var_req_builder =
@@ -672,11 +757,17 @@ impl TokensApi for TokensApiClient {
                 .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
         }
 
-        let local_var_req = local_var_req_builder.build()?;
+        let mut local_var_req = local_var_req_builder
+            .timeout(local_var_configuration.request_timeout)
+            .build()?;
+        if let Some(cursor) = cursor.as_ref().or(self.cursor.as_ref()) {
+            cursor.apply(&mut local_var_req)?;
+        }
         let local_var_resp = local_var_client.execute(local_var_req).await?;
 
         let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
+        let local_var_content =
+            super::read_bounded(local_var_resp, local_var_configuration.max_response_bytes).await?;
 
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             let local_var_entity: Option<GetTokenTokenTransfersSuccess> =
@@ -703,13 +794,13 @@ impl TokensApi for TokensApiClient {
         &self,
         params: GetTokensListParams,
     ) -> Result<ResponseContent<GetTokensListSuccess>, Error<GetTokensListError>> {
-        let GetTokensListParams { q, r#type } = params;
+        let GetTokensListParams { q, r#type, cursor } = params;
 
         let local_var_configuration = &self.configuration;
 
         let local_var_client = &local_var_configuration.client;
 
-        let local_var_uri_str = format!("{}/api/v2/tokens", local_var_configuration.base_path);
+        let local_var_uri_str = format!("{}/api/v2/tokens", local_var_configuration.rest_origin()?);
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::GET, local_var_uri_str.as_str());
 
@@ -728,11 +819,17 @@ impl TokensApi for TokensApiClient {
                 .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
         }
 
-        let local_var_req = local_var_req_builder.build()?;
+        let mut local_var_req = local_var_req_builder
+            .timeout(local_var_configuration.request_timeout)
+            .build()?;
+        if let Some(cursor) = cursor.as_ref().or(self.cursor.as_ref()) {
+            cursor.apply(&mut local_var_req)?;
+        }
         let local_var_resp = local_var_client.execute(local_var_req).await?;
 
         let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
+        let local_var_content =
+            super::read_bounded(local_var_resp, local_var_configuration.max_response_bytes).await?;
 
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             let local_var_entity: Option<GetTokensListSuccess> =
@@ -774,7 +871,7 @@ impl TokensApi for TokensApiClient {
 
         let local_var_uri_str = format!(
             "{}/api/v2/tokens/{address_hash}/instances/{id}/refetch-metadata",
-            local_var_configuration.base_path,
+            local_var_configuration.rest_origin()?,
             address_hash = crate::apis::urlencode(address_hash),
             id = crate::apis::urlencode(id)
         );
@@ -788,11 +885,14 @@ impl TokensApi for TokensApiClient {
 
         local_var_req_builder = local_var_req_builder.json(&recaptcha_body);
 
-        let local_var_req = local_var_req_builder.build()?;
+        let local_var_req = local_var_req_builder
+            .timeout(local_var_configuration.request_timeout)
+            .build()?;
         let local_var_resp = local_var_client.execute(local_var_req).await?;
 
         let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
+        let local_var_content =
+            super::read_bounded(local_var_resp, local_var_configuration.max_response_bytes).await?;
 
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             let local_var_entity: Option<RefetchTokenInstanceMetadataSuccess> =

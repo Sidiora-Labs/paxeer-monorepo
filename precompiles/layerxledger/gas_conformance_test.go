@@ -181,13 +181,13 @@ func TestLedgerGasConformance(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, expectedFrom, from)
 	to := call(recipient, "openAccount", asset)[0].([32]byte)
+	expectedTo, err := ledgerkeeper.AccountID(payee.DIDKey, asset)
+	require.NoError(t, err)
+	require.Equal(t, expectedTo, to)
 	call(sender, "mint", asset, from, big.NewInt(251))
 	call(sender, "burn", asset, from, big.NewInt(1))
-	main := transferMainAccount(t, &harness{
-		ctx: ctx, host: a.LayerXHost, hostKey: a.GetKey(app.LayerXHostStoreKey),
-	}, payer, asset)
 	now := uint64(ctx.BlockTime().UnixMilli())
-	call(sender, "payExact", from, main, asset, big.NewInt(100), now+1000, [32]byte{0x72})
+	call(sender, "payExact", from, to, asset, big.NewInt(100), now+1000, [32]byte{0x72})
 	sendEnvelope := func(from, to, asset [32]byte, amount int64, sequence uint64, key [32]byte) []byte {
 		t.Helper()
 		material := append(append(append([]byte(nil), from[:]...), to[:]...), asset[:]...)
@@ -216,7 +216,8 @@ func TestLedgerGasConformance(t *testing.T) {
 		require.NoError(t, types.ValidateSendEnvelope(payload))
 		return payload
 	}
-	payload := sendEnvelope(main, to, asset, 40, 0, [32]byte{0x73})
+	require.Equal(t, []interface{}{uint64(2)}, call(sender, "nextSequence", from, asset))
+	payload := sendEnvelope(from, to, asset, 40, 2, [32]byte{0x73})
 	call(sender, "send", payload)
 	purpose := [32]byte{0x74}
 	contextHash, err := codec.DomainHash(codec.DomainContextHash, purpose[:])
@@ -245,14 +246,16 @@ func TestLedgerGasConformance(t *testing.T) {
 	grant = append(grant, ed25519.Sign(private, grantID[:])...)
 	require.NoError(t, types.ValidateIssueGrantPayload(grant))
 	call(sender, "issueGrant", grant)
-	sequence := call(recipient, "nextSequence", payee.DIDKey, asset)[0].(uint64)
+	sequence := call(recipient, "nextSequence", to, asset)[0].(uint64)
 	call(recipient, "draw", grantID, to, big.NewInt(15), [32]byte{0x75}, sequence, purpose, contextHash)
 	revokeSequence, err := a.LayerXHost.ReadIdentitySequence(ctx, payer.DID)
 	require.NoError(t, err)
 	call(sender, "revokeGrant", grantID, revokeSequence)
 	call(sender, "getPayerGrant", grantID)
 	call(sender, "getAsset", asset)
-	require.Zero(t, call(sender, "balanceOf", from, asset)[0].(*big.Int).Cmp(big.NewInt(150)))
+	require.Zero(t, call(sender, "balanceOf", from, asset)[0].(*big.Int).Cmp(big.NewInt(110)))
+	require.Zero(t, call(sender, "balanceOf", to, asset)[0].(*big.Int).Cmp(big.NewInt(140)))
+	require.Equal(t, []interface{}{uint64(3)}, call(sender, "nextSequence", from, asset))
 	require.Zero(t, call(sender, "totalUnits", asset)[0].(*big.Int).Cmp(big.NewInt(250)))
 	require.Equal(t, []interface{}{from}, call(sender, "accountId", payer.DIDKey, asset))
 	require.Equal(t, []interface{}{payer.Authority.Actor}, call(sender, "accountOwner", from))

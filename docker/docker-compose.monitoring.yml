@@ -1,9 +1,9 @@
 services:
   prometheus:
     container_name: pax-prometheus
-    image: prom/prometheus:latest
+    image: "prom/prometheus:v2.55.1"
     ports:
-      - "9099:9090"
+      - "127.0.0.1:9099:9090"
     volumes:
       - ./docker_compose_monitoring/prometheus.yaml:/etc/prometheus/prometheus.yml:ro
     command:
@@ -15,19 +15,25 @@ services:
 
   grafana:
     container_name: pax-grafana
-    image: grafana/grafana:latest
+    image: "grafana/grafana:11.3.0"
     ports:
-      - "3000:3000"
+      - "${GRAFANA_BIND_ADDRESS:-127.0.0.1}:3000:3000"
     volumes:
       - ./docker_compose_monitoring/grafana-datasource.yaml:/etc/grafana/provisioning/datasources/grafana-datasource.yaml:ro
     environment:
       - GF_SECURITY_ADMIN_USER=admin
-      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_SECURITY_ADMIN_PASSWORD__FILE=/run/secrets/grafana_admin_password
       - GF_USERS_ALLOW_SIGN_UP=false
+    secrets:
+      - grafana_admin_password
     depends_on:
       - prometheus
     networks:
       - localnet
+
+secrets:
+  grafana_admin_password:
+    file: "${GRAFANA_ADMIN_PASSWORD_FILE:?Set GRAFANA_ADMIN_PASSWORD_FILE to a private file containing a unique Grafana admin password}"
 
 networks:
   localnet:

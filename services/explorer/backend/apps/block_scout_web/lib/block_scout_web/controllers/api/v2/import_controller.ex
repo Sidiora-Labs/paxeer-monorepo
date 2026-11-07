@@ -22,7 +22,7 @@ defmodule BlockScoutWeb.API.V2.ImportController do
     Function to handle POST request to `/api/v2/import/token-info`
 
     Needed to import token info via admin panel.
-    Protected by `x-api-key` header.
+    Protected by a single `x-api-key` header; body and query API keys are not accepted.
   """
   @spec import_token_info(Plug.Conn.t(), map()) ::
           {:api_key, any()}
@@ -37,9 +37,9 @@ defmodule BlockScoutWeb.API.V2.ImportController do
           "token_address" => token_address_hash_string,
           "token_symbol" => token_symbol,
           "token_name" => token_name
-        } = params
+        }
       ) do
-    with {:ok, token} <- validate_api_key_address_hash_and_token(token_address_hash_string, params["api_key"]) do
+    with {:ok, token} <- validate_api_key_address_hash_and_token(token_address_hash_string, get_api_key_header(conn)) do
       changeset =
         %{is_verified_via_admin_panel: true}
         |> put_icon_url(icon_url)
@@ -71,9 +71,9 @@ defmodule BlockScoutWeb.API.V2.ImportController do
           "tokenAddress" => token_address_hash_string,
           "tokenSymbol" => token_symbol,
           "tokenName" => token_name
-        } = params
+        }
       ) do
-    with {:ok, token} <- validate_api_key_address_hash_and_token(token_address_hash_string, params["api_key"]) do
+    with {:ok, token} <- validate_api_key_address_hash_and_token(token_address_hash_string, get_api_key_header(conn)) do
       changeset =
         %{is_verified_via_admin_panel: true}
         |> put_icon_url(icon_url)
@@ -122,7 +122,7 @@ defmodule BlockScoutWeb.API.V2.ImportController do
               },
               api?: true
             )},
-         {:nonempty_bytecode, true} <- {:nonempty_bytecode, Address.smart_contract_with_nonempty_code?(address)},
+         {:not_a_smart_contract, true} <- {:not_a_smart_contract, Address.smart_contract_with_nonempty_code?(address)},
          {:already_verified, false} <-
            {:already_verified,
             not (is_nil(address.smart_contract) or
@@ -156,7 +156,7 @@ defmodule BlockScoutWeb.API.V2.ImportController do
       `/api/v2/import/token-info`
 
     Needed to delete token info via admin panel.
-    Protected by `x-api-key` header.
+    Protected by a single `x-api-key` header; body and query API keys are not accepted.
   """
   @spec delete_token_info(Plug.Conn.t(), map()) ::
           {:api_key, any()}
@@ -168,9 +168,9 @@ defmodule BlockScoutWeb.API.V2.ImportController do
         conn,
         %{
           "token_address_hash" => token_address_hash_string
-        } = params
+        }
       ) do
-    with {:ok, token} <- validate_api_key_address_hash_and_token(token_address_hash_string, params["api_key"]) do
+    with {:ok, token} <- validate_api_key_address_hash_and_token(token_address_hash_string, get_api_key_header(conn)) do
       case Token.drop_token_info(token) do
         {:ok, _} ->
           TokenUpdater.run([token], [])

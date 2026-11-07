@@ -10,12 +10,12 @@
   "author": "Blockscout Team",
   "repository": {
     "type": "git",
-    "url": "https://github.com/blockscout/frontend.git",
-    "directory": "toolkit/package"
+    "url": "https://github.com/Sidiora-Labs/paxeer-monorepo.git",
+    "directory": "apps/explorer/toolkit/package"
   },
-  "homepage": "https://github.com/blockscout/frontend/tree/main/toolkit/package",
+  "homepage": "https://github.com/Sidiora-Labs/paxeer-monorepo/tree/main/apps/explorer/toolkit/package",
   "bugs": {
-    "url": "https://github.com/blockscout/frontend/issues"
+    "url": "https://github.com/Sidiora-Labs/paxeer-monorepo/issues"
   },
   "keywords": [
     "blockscout",
@@ -78,6 +78,7 @@
     "postcss": "8.5.23",
     "rollup": "4.59.0",
     "source-map-js": "1.2.2",
-    "@microsoft/api-extractor": "7.52.10"
+    "@microsoft/api-extractor": "7.52.10",
+    "minimatch": "11.0.1"
   }
 }

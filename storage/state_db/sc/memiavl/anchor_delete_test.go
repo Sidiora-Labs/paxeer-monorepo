@@ -1,6 +1,7 @@
 package memiavl
 
 import (
+	"context"
 	"sort"
 	"strconv"
 	"testing"
@@ -13,6 +14,7 @@ import (
 )
 
 func TestApplyUpgradesDeletesAnchorTreeAndKeepsMergeTrees(t *testing.T) {
+	repair1199Buffers(t)
 	const anchorName = "layerxanchor"
 	mergeStores := []string{
 		keys.LayerXProgramsStoreKey,
@@ -29,15 +31,13 @@ func TestApplyUpgradesDeletesAnchorTreeAndKeepsMergeTrees(t *testing.T) {
 
 	for _, initialVersion := range []uint32{0, 100} {
 		t.Run(strconv.FormatUint(uint64(initialVersion), 10), func(t *testing.T) {
-			dir := t.TempDir()
-			initialDB, err := OpenDB(0, Options{
-				Dir:             dir,
-				CreateIfMissing: true,
-				InitialVersion:  initialVersion,
-				InitialStores:   initialStores,
-			})
+			store := NewCommitStore(t.TempDir(), Config{SnapshotWriterLimit: 1})
+			store.opts.InitialVersion = initialVersion
+			require.NoError(t, store.Initialize(initialStores))
+			_, err := store.LoadVersion(0, false)
 			require.NoError(t, err)
-			t.Cleanup(func() { require.NoError(t, initialDB.Close()) })
+			t.Cleanup(func() { require.NoError(t, store.Close()) })
+			initialDB := store.db
 
 			populate := func(db *DB, name string) {
 				t.Helper()
@@ -51,30 +51,39 @@ func TestApplyUpgradesDeletesAnchorTreeAndKeepsMergeTrees(t *testing.T) {
 			for _, name := range initialStores {
 				populate(initialDB, name)
 			}
-			initialCommit, err := initialDB.Commit()
+			initialCommit, err := store.Commit()
 			require.NoError(t, err)
 			require.Equal(t, utils.NextVersion(0, initialVersion), initialCommit)
-			require.NoError(t, initialDB.Close())
+			require.NoError(t, store.Close())
 
-			db, err := OpenDB(0, Options{Dir: dir})
+			_, err = store.LoadVersion(0, false)
 			require.NoError(t, err)
-			t.Cleanup(func() { require.NoError(t, db.Close()) })
+			db := store.db
 			var upgrades []*proto.TreeNameUpgrade
 			for _, name := range mergeStores {
 				require.Nil(t, db.TreeByName(name), name)
 				upgrades = append(upgrades, &proto.TreeNameUpgrade{Name: name})
 			}
-			require.NoError(t, db.ApplyUpgrades(upgrades))
+			require.NoError(t, store.ApplyUpgrades(upgrades))
 			for _, name := range mergeStores {
 				populate(db, name)
 			}
-			mergeCommit, err := db.Commit()
+			mergeCommit, err := store.Commit()
 			require.NoError(t, err)
 			require.Equal(t, initialCommit+1, mergeCommit)
 			require.Len(t, db.Trees(), len(expectedNames)+1)
 			anchor := db.TreeByName(anchorName)
 			require.NotNil(t, anchor)
 			require.Equal(t, []byte(anchorName+"-first"), anchor.Get([]byte("first")))
+
+			require.NoError(t, db.RewriteSnapshot(context.Background()))
+			require.NoError(t, db.Reload())
+			anchor = db.TreeByName(anchorName)
+			snapshot := anchor.snapshot
+			require.NotNil(t, snapshot)
+			held := anchor.Copy()
+			t.Cleanup(func() { require.NoError(t, held.Close()) })
+			require.Equal(t, int32(2), snapshot.refCount.Load())
 
 			hashes := make(map[string][]byte, len(expectedNames))
 			for _, name := range expectedNames {
@@ -84,11 +93,17 @@ func TestApplyUpgradesDeletesAnchorTreeAndKeepsMergeTrees(t *testing.T) {
 				hashes[name] = append([]byte(nil), tree.RootHash()...)
 			}
 
-			require.NoError(t, db.ApplyUpgrades([]*proto.TreeNameUpgrade{
+			require.NoError(t, store.ApplyUpgrades([]*proto.TreeNameUpgrade{
 				{Name: anchorName, Delete: true},
 			}))
 			require.Nil(t, db.TreeByName(anchorName))
-			retirementVersion, err := db.Commit()
+			require.Nil(t, anchor.snapshot)
+			require.Equal(t, int32(1), snapshot.refCount.Load())
+			require.Equal(t, []byte(anchorName+"-first"), held.Get([]byte("first")))
+			require.NoError(t, held.Close())
+			require.Zero(t, snapshot.refCount.Load())
+			require.Nil(t, snapshot.kvsMap)
+			retirementVersion, err := store.Commit()
 			require.NoError(t, err)
 			require.Equal(t, mergeCommit+1, retirementVersion)
 
@@ -114,15 +129,30 @@ func TestApplyUpgradesDeletesAnchorTreeAndKeepsMergeTrees(t *testing.T) {
 				}
 			}
 			assertRetired(db)
-			require.NoError(t, db.Close())
+			require.NoError(t, store.Close())
 
-			reopened, err := OpenDB(0, Options{Dir: dir})
+			_, err = store.LoadVersion(0, false)
 			require.NoError(t, err)
-			t.Cleanup(func() { require.NoError(t, reopened.Close()) })
+			reopened := store.db
 			assertRetired(reopened)
-			require.EqualError(t, reopened.ApplyUpgrades([]*proto.TreeNameUpgrade{
+			pending, err := reopened.pendingLogEntry.Marshal()
+			require.NoError(t, err)
+			require.NoError(t, store.ApplyUpgrades([]*proto.TreeNameUpgrade{
 				{Name: anchorName, Delete: true},
-			}), "unknown tree name layerxanchor")
+			}))
+			after, err := reopened.pendingLogEntry.Marshal()
+			require.NoError(t, err)
+			require.Equal(t, pending, after)
+			assertRetired(reopened)
+			nextVersion, err := store.Commit()
+			require.NoError(t, err)
+			require.Equal(t, retirementVersion+1, nextVersion)
+			retirementVersion = nextVersion
+			assertRetired(reopened)
+			require.NoError(t, store.Close())
+			_, err = store.LoadVersion(0, false)
+			require.NoError(t, err)
+			assertRetired(store.db)
 		})
 	}
 }

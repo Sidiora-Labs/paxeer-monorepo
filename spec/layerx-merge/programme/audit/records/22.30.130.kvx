@@ -1,0 +1,505 @@
+# Pre-upgrade Programs audit: repairs are proposals for the named product owners.
+
+[audit.22.30.130]
+task = "22.30.130"
+revision = "2b99f88520e4e809ad5593f3bee2df74fe355d7b"
+files_reviewed = 17
+findings = 31
+docs_reviewed = 13
+upgrade_ready = false
+blocking = ["occupancy-ledger-capacity", "occupancy-unpaid-replay"]
+
+[file.1]
+path = "programs/crates/layerx-programs-ai-market/tests/f03_evaluator_host.rs"
+lines = 2889
+verdict = "issues"
+note = "Full file read: evaluator signatures, admission, replay, report/event codecs and authority/aggregation consumers. Findings cover fabricated admission and post-seal dispatch; remaining reviewed bounded encodings and refusal values agree."
+
+[file.2]
+path = "programs/crates/layerx-programs-ai-market/tests/f04_windows.rs"
+lines = 2482
+verdict = "issues"
+note = "Full file read: commitment preimages, phase windows, reveal/report chunks and authority lifecycle. Restored admission is not producer-authentic; direct seal-context calls share the f03 routed-revocation finding."
+
+[file.3]
+path = "programs/crates/layerx-programs-ai-market/tests/f05_aggregation_runtime.rs"
+lines = 2328
+verdict = "issues"
+note = "Full file read: aggregation ordering, chunk cursors, histories, settlement, retries and buffer refusals. Findings cover restored admission and native fuel evidence; direct seal context shares the f03 revocation finding."
+
+[file.4]
+path = "programs/crates/layerx-programs-ai-market/tests/reputation_lifecycle.rs"
+lines = 2671
+verdict = "issues"
+note = "Full file read: current/history codecs, identity generations, suspension/reset, completion and joint settlement. Findings cover restored admission and native storage/restart evidence; supplied seal context shares the f03 revocation finding."
+
+[file.5]
+path = "programs/crates/layerx-programs-ai-market/tests/rewards_native.rs"
+lines = 2653
+verdict = "issues"
+note = "Full file read: native response parsing, funding fees and rollback, entitlements, claims/refunds, retention and snapshot binding. Findings distinguish fabricated lifecycle/proof setup and missing persistent payout recovery from actual native Fund coverage."
+
+[file.6]
+path = "programs/crates/layerx-programs-ai-market/tests/task_state_boundary.rs"
+lines = 2456
+verdict = "issues"
+note = "Full file read: routed task lifecycle, deadlines, policy/roster bindings, sealing and execution heights. Restored active/admission setup is a finding; remaining typed selectors, event/result layouts and refusal values agree."
+
+[file.7]
+path = "programs/crates/layerx-programs-runtime/src/calls.rs"
+lines = 2714
+verdict = "clean"
+note = "Full file read: bounded call graph, principal/immediate caller, frame/edge canonical evidence, capability admission and nested execution rollback. Reviewed signatures, encodings and authorization agree with callers and the runtime contract; no retired reference found."
+
+[file.8]
+path = "programs/crates/layerx-programs-runtime/src/occupancy.rs"
+lines = 2536
+verdict = "issues"
+note = "Full file read: scope/payer mandates, activation import, canonical ledger/evidence versions, fee units, arrears, settlement and replay. Two high findings concern persistence capacity and replay of actual unpaid evidence."
+
+[file.9]
+path = "programs/crates/layerx-programs-runtime/src/storage/mod.rs"
+lines = 956
+verdict = "clean"
+note = "Full file read: transactional read/write/delete, namespace/prefix replacement, private protocol state, size accounting and replay codecs. Checked lengths, ordering, commit atomicity and replay representation agree with reviewed callers; no retired reference found."
+
+[file.10]
+path = "programs/crates/layerx-programs-runtime/src/storage/namespace.rs"
+lines = 270
+verdict = "clean"
+note = "Full file read: identifiers, principal/shared/protocol-private scope and canonical namespace bytes. Tags and lengths agree with storage, occupancy and host consumers; protocol-private scope stays host-only. No retired reference found."
+
+[file.11]
+path = "programs/crates/layerx-programs-runtime/src/storage/reclaim.rs"
+lines = 248
+verdict = "clean"
+note = "Full file read: namespace drop, reclaimed key/value counts, metered work and overflow refusal. Metadata agrees with storage and host reclaim consumers; no persistent cursor is promised and no retired reference found."
+
+[file.12]
+path = "programs/crates/layerx-programs-runtime/src/storage/scan.rs"
+lines = 890
+verdict = "issues"
+note = "Full file read: lexicographic scan, prefix/scope/limit-bound cursors, canonical pages, ceilings and mutation continuation. Wire shape agrees with host and pages; repeated full-page copying is the runtime-cost finding."
+
+[file.13]
+path = "programs/crates/layerx-programs-runtime/src/validate.rs"
+lines = 1417
+verdict = "issues"
+note = "Full file read: deterministic WASM subset, ABI 1-5 registration, metering injection, capabilities, instantiation and linker reuse. Findings cover pre-entry capability disclosure and timing-dependent qualification."
+
+[file.14]
+path = "programs/tests/ai-market/run-aggregation-runtime.sh"
+lines = 57
+verdict = "issues"
+note = "Full file read: cargo call, acceptance-name checks, status propagation and temporary log cleanup. Missing native fuel evidence is reported honestly, but the complete acceptance matrix has no successful exit path."
+
+[file.15]
+path = "programs/tests/conservation/run.sh"
+lines = 32
+verdict = "clean"
+note = "Full file read: real 0x101D Go precompile tests, kernel conservation targets and named Rust monetary-law/sandbox tests. Filters name declared functions, failures propagate under set -eu, and value/fee conservation paths are real; no retired reference found."
+
+[file.16]
+path = "programs/tests/differential/parallel.c"
+lines = 1428
+verdict = "issues"
+note = "Full file read: real kernel authority/fee fixtures, receipts, sequential/prepared roots, retries, zero-prefix and planning refusal. No WAL/DA-body/batch-signing dependency remains; findings cover protocol-3 workload absence and timing-error reads."
+
+[file.17]
+path = "programs/tests/gauntlet/state.rs"
+lines = 1102
+verdict = "clean"
+note = "Full file read: real guest execution, independent principal scopes, state isolation, limits, refusals, rollback and replay. Bounded host/state encodings and authorization agree with reviewed runtime interfaces; no retired reference found."
+
+[finding.occupancy-ledger-capacity]
+file = "programs/crates/layerx-programs-runtime/src/occupancy.rs"
+line = 1191
+class = "interface-mismatch"
+severity = "high"
+observed = "import_activation_position admits up to 256 occupied namespaces without checking encoded bytes. canonical_state writes 260 bytes per principal-scoped position: 256 positions exceed 60000 bytes before the header. canonical_decode rejects that output at line 1445; prepare_positions and ffi_call.rs publish_occupancy also refuse it. Native batch finalization imports these activation positions."
+expected = "The admitted occupancy ledger must round-trip through canonical-state and canonical-decode and remain settleable after activation and restart. The position-count and persisted-byte limits must describe the same supported state."
+proposal = "In programs/crates/layerx-programs-runtime/src/occupancy.rs and ffi_call.rs, preflight the complete activation migration against actual canonical ledger and settlement byte budgets before admission. Derive limits from namespace encodings or design explicitly bounded persisted pages. Prove the maximum admitted migration, publication, reopen and next-block settlement without merely raising caps."
+owner_domain = 13
+interface = "13.rs-rt-occupancy-occupancyledger-canonical-state"
+
+[finding.occupancy-unpaid-replay]
+file = "programs/crates/layerx-programs-runtime/src/occupancy.rs"
+line = 1397
+class = "interface-mismatch"
+severity = "high"
+observed = "replay_evidence compares decoded current evidence directly with prepare_batch output. The ffi_call.rs native batch finalizer calls unavailable_occupancy_payers and defer_unpaid before publishing: Paid becomes InsufficientFunds, remaining mandate balance is restored, arrears accrue and the position freezes. replay_evidence has no authenticated payer-balance input and never applies that transformation, so valid published unpaid evidence is rejected as MalformedEvidence."
+expected = "The declared replay interface must accept evidence emitted by the native settlement producer for funded and insufficient-funds payers and reproduce the same ledger transition after recovery."
+proposal = "Extend occupancy.rs replay and its native caller to authenticate relevant payer balances or debit outcomes and derive the same all-or-nothing payer deferral before comparing settlements. Prove paid, unpaid and mixed-payer evidence from the actual producer through decode and replay across a persisted-ledger reopen, including altered outcomes."
+owner_domain = 13
+interface = "13.rs-rt-occupancy-occupancyledger-replay-evidence"
+
+[finding.scan-copying-cost]
+file = "programs/crates/layerx-programs-runtime/src/storage/scan.rs"
+line = 318
+class = "runtime-risk"
+severity = "medium"
+observed = "The scan loop clones each value and then clones all accumulated entries and serializes the growing page on every iteration to check max_bytes. A 64-entry page of one-MiB values copies roughly two GiB cumulatively before host output-capacity validation and final metering; an oversized first value is also copied before refusal."
+expected = "Ordered-scan ceilings should bound host work as well as returned bytes. Resource checks must precede avoidable copying while preserving documented cursor, page encoding, charging and refusal behavior."
+proposal = "In storage/scan.rs calculate checked encoded length incrementally from borrowed entries and cursor lengths, then allocate and encode the accepted page once. Carry host output/resource budgets into planning where necessary; cover maximum values, tiny byte ceilings and cursor overhead without weakening any wire or metering assertion."
+owner_domain = 13
+interface = "13.rs-rt-storage-ordered-scan-storagescan"
+
+[finding.pre-entry-capabilities]
+file = "programs/crates/layerx-programs-runtime/src/validate.rs"
+line = 699
+class = "security"
+severity = "medium"
+observed = "entry_capability_masks traverses each exported function independently. validate_original_module ignores Payload::StartSection although instantiate_inner executes pre.start. The layerx_reserve allocator invoked for nonempty input is also absent from the selected entry mask. A storage or event import reachable only during start or reservation is omitted from required_interface_capability_mask; runtime host capability checks still apply."
+expected = "The capability mask consumed by interface admission should disclose every host capability needed by the selected invocation, including instantiation and input reservation, so descriptor admission agrees with real execution."
+proposal = "In validate.rs union start-function and applicable layerx_reserve reachability into each callable entry mask, or explicitly reject effectful pre-entry execution under a documented rule. Test real descriptor binding, admission and execution where the only host effect occurs in start or reserve, including refusal under insufficient capabilities."
+owner_domain = 13
+interface = "13.rs-rt-validate-validatedmodule-required-interface-capability-mask"
+
+[finding.linker-timing-assertion]
+file = "programs/crates/layerx-programs-runtime/src/validate.rs"
+line = 1413
+class = "test-gap"
+severity = "medium"
+observed = "deep_composition_measures_the_avoided_per_frame_linker_rebuild asserts an ordering between independently sampled wall-clock medians. Scheduler noise can make rebuilt instantiation appear faster. per_call_rebuild is calculated from those samples rather than measuring a second complete composition. The neighboring test already counts actual linker constructions."
+expected = "Functional qualification should deterministically prove linker reuse and equivalent results. Performance claims should compare measured execution strategies under a benchmark protocol without making correctness gates depend on host scheduling."
+proposal = "Move the timing comparison in validate.rs into the runtime benchmark target and measure both complete composition strategies there. Preserve all functional output and linker-count assertions in deterministic tests; report benchmark distributions instead of a universal wall-clock ordering."
+owner_domain = 13
+
+[finding.evaluator-admission-fixture]
+file = "programs/crates/layerx-programs-ai-market/tests/f03_evaluator_host.rs"
+line = 945
+class = "test-gap"
+severity = "medium"
+observed = "World.restore inserts worker/evaluator records and replay slots directly and copies another identity AdmissionMeta, changing only participant and owner. Admitted flags, admission/heartbeat heights, generations and scheduled epochs are reused without consuming identity-specific approval/consent or the normal enrollment budget. These bytes feed evaluator-host scenarios without passing through enrollment and consent producers."
+expected = "Brief checks 1 and 7 require lifecycle proof to consume admission bytes produced for the same participant, owner, authority and effective epoch. A decodable fabricated admission table does not prove producer-to-consumer agreement."
+proposal = "In programs/crates/layerx-programs-ai-market/tests/f03_evaluator_host.rs build the roster through routed enrollment, owner acceptance, evaluator consent and effective-epoch activation with independent signed approvals, advancing epochs to respect the admission budget. Drive the existing assertions from those produced bytes and limit any fabricated admission records explicitly to codec-only tests."
+owner_domain = 13
+interface = "13.rs-aim-admission-admissionmeta"
+
+[finding.windows-admission-fixture]
+file = "programs/crates/layerx-programs-ai-market/tests/f04_windows.rs"
+line = 753
+class = "test-gap"
+severity = "medium"
+observed = "World.restore inserts worker/evaluator records and replay slots directly and copies another identity AdmissionMeta, changing only participant and owner. Admitted flags, admission/heartbeat heights, generations and scheduled epochs are reused without consuming identity-specific approval/consent or the normal enrollment budget. These bytes feed commit/reveal and maximum-roster scenarios without passing through enrollment and consent producers."
+expected = "Brief checks 1 and 7 require lifecycle proof to consume admission bytes produced for the same participant, owner, authority and effective epoch. A decodable fabricated admission table does not prove producer-to-consumer agreement."
+proposal = "In programs/crates/layerx-programs-ai-market/tests/f04_windows.rs build the roster through routed enrollment, owner acceptance, evaluator consent and effective-epoch activation with independent signed approvals, advancing epochs to respect the admission budget. Drive the existing assertions from those produced bytes and limit any fabricated admission records explicitly to codec-only tests."
+owner_domain = 13
+interface = "13.rs-aim-admission-admissionmeta"
+
+[finding.aggregation-admission-fixture]
+file = "programs/crates/layerx-programs-ai-market/tests/f05_aggregation_runtime.rs"
+line = 735
+class = "test-gap"
+severity = "medium"
+observed = "World.restore inserts worker/evaluator records and replay slots directly and copies another identity AdmissionMeta, changing only participant and owner. Admitted flags, admission/heartbeat heights, generations and scheduled epochs are reused without consuming identity-specific approval/consent or the normal enrollment budget. These bytes feed aggregation and chunked-roster scenarios without passing through enrollment and consent producers."
+expected = "Brief checks 1 and 7 require lifecycle proof to consume admission bytes produced for the same participant, owner, authority and effective epoch. A decodable fabricated admission table does not prove producer-to-consumer agreement."
+proposal = "In programs/crates/layerx-programs-ai-market/tests/f05_aggregation_runtime.rs build the roster through routed enrollment, owner acceptance, evaluator consent and effective-epoch activation with independent signed approvals, advancing epochs to respect the admission budget. Drive the existing assertions from those produced bytes and limit any fabricated admission records explicitly to codec-only tests."
+owner_domain = 13
+interface = "13.rs-aim-admission-admissionmeta"
+
+[finding.reputation-admission-fixture]
+file = "programs/crates/layerx-programs-ai-market/tests/reputation_lifecycle.rs"
+line = 856
+class = "test-gap"
+severity = "medium"
+observed = "World.restore inserts worker/evaluator records and replay slots directly and copies another identity AdmissionMeta, changing only participant and owner. Admitted flags, admission/heartbeat heights, generations and scheduled epochs are reused without consuming identity-specific approval/consent or the normal enrollment budget. These bytes feed reputation lifecycle and capacity scenarios without passing through enrollment and consent producers."
+expected = "Brief checks 1 and 7 require lifecycle proof to consume admission bytes produced for the same participant, owner, authority and effective epoch. A decodable fabricated admission table does not prove producer-to-consumer agreement."
+proposal = "In programs/crates/layerx-programs-ai-market/tests/reputation_lifecycle.rs build the roster through routed enrollment, owner acceptance, evaluator consent and effective-epoch activation with independent signed approvals, advancing epochs to respect the admission budget. Drive the existing assertions from those produced bytes and limit any fabricated admission records explicitly to codec-only tests."
+owner_domain = 13
+interface = "13.rs-aim-admission-admissionmeta"
+
+[finding.routed-sealed-revocation]
+file = "programs/crates/layerx-programs-ai-market/tests/f03_evaluator_host.rs"
+line = 1445
+class = "wiring-gap"
+severity = "medium"
+observed = "Market.revoke routes unsealed requests but calls authority::apply directly with aggregate_sealed=true after sealing. Real dispatch.rs always passes false in its 0x0301..=0x0303 arm. authority.rs therefore stores and emits excludes_frozen_epoch=true for a frozen evaluator revoked after sealing on the live route, unlike this test. f04_windows.rs, f05_aggregation_runtime.rs and reputation_lifecycle.rs also supply the flag themselves."
+expected = "Routed RevokeEvaluator must derive seal status from committed F05 progress and emit the same revocation state/event as the declared authority operation. Existing sealed aggregation inputs remain immutable and the exclusion bit must describe the actual ordering."
+proposal = "In programs/crates/layerx-programs-ai-market/src/dispatch.rs derive aggregate_sealed from persisted aggregation progress. Replace the four suites direct authority branches with registered calls before and after BeginAggregation; assert the stored revocation, emitted exclusion bit and unchanged sealed settlement."
+owner_domain = 13
+interface = "13.rs-aim-evaluators-authority-apply"
+
+[finding.aggregation-native-fuel-proof]
+file = "programs/crates/layerx-programs-ai-market/tests/f05_aggregation_runtime.rs"
+line = 2194
+class = "test-gap"
+severity = "medium"
+observed = "f05_a16_refused_steps_keep_committed_progress exercises process-local buffer refusals. run-aggregation-runtime.sh explicitly reports native ProcessAggregation fuel refusal as NOT_RUN. No exhausted native meter is driven, so progress, accounting and event atomicity at that boundary are unproved."
+expected = "AI.F05-A16 requires refused aggregation steps to preserve committed progress on the real native path, including fuel exhaustion rather than only caller output, scratch and event buffer shortages."
+proposal = "Extend f05_aggregation_runtime.rs and tests/programs/test_ai_host_boundary.c to deploy the real guest and submit ProcessAggregation with fuel exhausted inside execution. Assert unchanged persisted state, cursor, reward balances and events; retry with sufficient fuel and prove exactly one transition."
+owner_domain = 13
+interface = "13.rs-aim-dispatch-processaggregation"
+
+[finding.reputation-native-atomicity]
+file = "programs/crates/layerx-programs-ai-market/tests/reputation_lifecycle.rs"
+line = 2666
+class = "restart-recovery"
+severity = "medium"
+observed = "f07_a12_atomic_terminal_and_sealed_history_allowed compares cloned World bytes after buffer refusals and explicitly reports native host storage refusal as NOT_RUN. It never closes and reopens persisted storage around the joint F05/F06/F07 terminal transition; retry proves retained local bytes rather than durable recovery."
+expected = "Terminal aggregation, reward allocation and reputation observation must commit atomically, survive restart and remain idempotent after storage admission refusal or response loss."
+proposal = "In reputation_lifecycle.rs and the native host harness force actual storage admission refusal during FinalizeAggregation and compare all three persisted sections and events. Commit successfully, reopen the real store, replay the same signed request and verify one reward allocation and one reputation observation."
+owner_domain = 13
+interface = "13.rs-aim-dispatch-finalizeaggregation"
+
+[finding.reward-lifecycle-producer]
+file = "programs/crates/layerx-programs-ai-market/tests/rewards_native.rs"
+line = 787
+class = "test-gap"
+severity = "medium"
+observed = "World.lifecycle edits PolicySection.header.lifecycle directly and says REQUEST_CLOSE has no routed producer, although dispatch now routes closure::apply. World.terminalize also inserts computed terminal reward rows. Late-settlement and close scenarios bypass the real close preconditions and entitlement producer."
+expected = "Reward lifecycle scenarios must establish WINDING_DOWN and terminal rows through actual close and aggregation operations before proving claim/refund/close behavior. Their setup must agree with current producers."
+proposal = "In rewards_native.rs invoke registered RequestClose and aggregation terminal operations to construct the late-settlement state. Preserve existing timing, claim, refund and balance assertions and add refused closure with outstanding work, proving setup cannot manufacture a lifecycle the producer rejects."
+owner_domain = 13
+interface = "13.rs-aim-rewards-apply"
+
+[finding.reward-finality-proof-origin]
+file = "programs/crates/layerx-programs-ai-market/tests/rewards_native.rs"
+line = 1853
+class = "test-gap"
+severity = "medium"
+observed = "read_proof invents native_state_root, execution_height and block_hash from a byte. capture passes constant app_hash and store_proof_digest directly into bind_snapshot. Root-binding rejection is exercised, but no committed node proof produces or authenticates those facts, so a corrupt or foreign store witness never traverses this fixture path."
+expected = "Requirements 13279 and the package proof requirements bind snapshots to authenticated block-commit facts and store witnesses under the app hash. bind_snapshot assumes verified facts; hand-built facts alone do not prove that boundary."
+proposal = "Keep the focused binding vectors in rewards_native.rs and add a producer-path scenario from a committed Programs read through the real ICS23 verifier to SnapshotBinding. Refuse modified value, key, block and app-hash witnesses before accepting the binding used to authorize reward actions."
+owner_domain = 13
+interface = "13.rs-aim-queries-bind-snapshot"
+
+[finding.reward-native-reopen]
+file = "programs/crates/layerx-programs-ai-market/tests/rewards_native.rs"
+line = 2535
+class = "restart-recovery"
+severity = "medium"
+observed = "native_recovery_and_capacity performs Fund and retry submissions within one Native child process. finality_recovery simulates a lost reply with retained Vec state. Neither restarts the native consumer from persistent storage; the native retry does not cover outward Claim or Refund transfers after response loss."
+expected = "Durable payout recovery must survive producer/consumer restart and prove a recipient receives value once. Native funding replay and process-local response-loss simulation do not establish persisted payout recovery."
+proposal = "Extend rewards_native.rs and the native host harness with committed Claim and Refund operations, discard their successful replies, close the process and reopen its actual store. Replay the exact signed requests and assert retained results, balances, events and rows without a second value transfer."
+owner_domain = 13
+interface = "13.rs-aim-dispatch-claim"
+
+[finding.task-active-admission-fixture]
+file = "programs/crates/layerx-programs-ai-market/tests/task_state_boundary.rs"
+line = 896
+class = "test-gap"
+severity = "medium"
+observed = "restored_execution_height_market writes lifecycle ACTIVE and constructs a second worker by cloning the first worker AdmissionMeta with a different participant and owner. Membership flags, generations, admission height and scheduled epoch are inserted without a distinct owner acceptance or consent check. Subsequent routed task operations do not validate this activation/admission setup."
+expected = "Task execution-height boundary evidence should begin from an active market and eligible workers produced by the actual lifecycle and identity-consent interfaces, with authority bound to each participant."
+proposal = "In task_state_boundary.rs activate via ScheduleActivation and AdvanceActivation, then enroll and accept each worker using its own signed authority/consent. Run existing task and execution-height assertions on produced bytes and retain a negative case for a foreign-worker approval."
+owner_domain = 13
+interface = "13.rs-aim-dispatch-admit-task"
+
+[finding.parallel-current-protocol]
+file = "programs/tests/differential/parallel.c"
+line = 1025
+class = "test-gap"
+severity = "medium"
+observed = "qualify_workload selects LXP_PROTOCOL_VERSION, whose header default is occupancy protocol 2. Retry, zero-prefix and planning-refusal use the same default. Explicit protocol 3 appears only in the payment-account resolver check, not real sequential versus prepared-batch execution. execute_scalar_prefix hard-codes LX_PROGRAMS_ACCOUNT_ABI_VERSION instead of fixture.module_version."
+expected = "Requirement 13291.1 retargets the workload comparison to merged execution. The current state-commitment protocol must be exercised for low-conflict, all-conflicting, retry, zero-prefix and planning-refusal paths with its real module registration."
+proposal = "Parameterize parallel.c workload/retry matrices over explicit supported protocols including STATE_COMMITMENT and use fixture.module_version consistently. Compare real receipts, fees and canonical/prepared roots for each case, preserving the removal of retired WAL, DA-body and batch-signing dependencies."
+owner_domain = 13
+interface = "13.cli-programs-differential-parallel"
+
+[finding.parallel-clock-error]
+file = "programs/tests/differential/parallel.c"
+line = 838
+class = "runtime-risk"
+severity = "low"
+observed = "On a failed finishing clock_gettime the code sets LXP_ERR_IO but still calls elapsed_ns with an uninitialized finish timespec. The error path reads indeterminate values before cleanup and may print an interval that was never measured."
+expected = "A failed timing read must preserve the execution error and release prepared resources without accessing an uninitialized timespec or publishing invalid timing evidence."
+proposal = "In programs/tests/differential/parallel.c branch to existing cleanup on a failed finishing clock_gettime, or compute elapsed_ns only when both timestamps succeed. Preserve receipt/root checks and report the clock error explicitly."
+owner_domain = 13
+
+[finding.aggregation-runner-incomplete]
+file = "programs/tests/ai-market/run-aggregation-runtime.sh"
+line = 51
+class = "test-gap"
+severity = "medium"
+observed = "The runner unconditionally emits AI.F05-A16 NOT_RUN for native fuel refusal and exits 2 when every selected Rust scenario succeeds. It reports incompleteness honestly, but has no passing path for the full acceptance set and cannot establish requirement 22998.1 in its current form."
+expected = "The aggregation CLI must execute and assert every required scenario and return zero only for a complete passing matrix, preserving nonzero failures and explicit missing evidence."
+proposal = "After implementing native ProcessAggregation fuel refusal in the production-linked host harness, invoke it from run-aggregation-runtime.sh and assert its result alongside the current case list. Return zero only after all clauses execute and pass; keep absent cases and command failures nonzero."
+owner_domain = 13
+interface = "13.cli-programs-ai-market-aggregation-run"
+
+[finding.programs-abi-documentation]
+file = "docs/site/docs/programs/index.md"
+line = 299
+class = "doc-drift"
+severity = "medium"
+observed = "The page says crate-root ABI_VERSION is 2, describes only guest ABI 1 and 2, and says Rust admit_abi_version accepts only those versions. Runtime ABI_VERSION is ABI_V4_VERSION and validate.rs supports AbiRevision V1 through V5. The stated deployment and registration compatibility limits are obsolete."
+expected = "Deployment guidance must distinguish default guest ABI, explicit supported replay revisions, module-interface versions and protocol versions, with actual registration and host/guest compatibility rules."
+proposal = "Rewrite the version and admission sections in docs/site/docs/programs/index.md against lib.rs, validate.rs, ABI manifests and native registration predicates. Describe ABI 3-5 capabilities and admission while preserving legacy replay support; synchronize the site and wiki tables."
+owner_domain = 17
+
+[finding.wiki-programs-abi-documentation]
+file = "docs/wiki/Programs.md"
+line = 300
+class = "doc-drift"
+severity = "medium"
+observed = "The page says crate-root ABI_VERSION is 2, describes only guest ABI 1 and 2, and says Rust admit_abi_version accepts only those versions. Runtime ABI_VERSION is ABI_V4_VERSION and validate.rs supports AbiRevision V1 through V5. The stated deployment and registration compatibility limits are obsolete."
+expected = "Deployment guidance must distinguish default guest ABI, explicit supported replay revisions, module-interface versions and protocol versions, with actual registration and host/guest compatibility rules."
+proposal = "Rewrite the version and admission sections in docs/wiki/Programs.md against lib.rs, validate.rs, ABI manifests and native registration predicates. Describe ABI 3-5 capabilities and admission while preserving legacy replay support; synchronize the site and wiki tables."
+owner_domain = 17
+
+[finding.programs-retired-simulation]
+file = "docs/site/docs/programs/index.md"
+line = 118
+class = "doc-drift"
+severity = "medium"
+observed = "The simulation section presents lxp_daemon_lni_simulate and cmd/layerxd/lxp_daemon_lni.c as active producers and describes hosted Programs calls over separate daemon LNI. This is the retired architecture identified by brief fact 2."
+expected = "Programs executes in the single Paxeer BFT chain with final receipts at block commit. Retired layerxd is not an integration prerequisite and hosted gateway duties must be distinct from root node JSON-RPC."
+proposal = "Rewrite call/simulation transport and source sections in docs/site/docs/programs/index.md around the merged node Programs path and current hosted gateway contract. State actual noncommitting simulation effects, fees and committed-block evidence without instructions to run layerxd."
+owner_domain = 17
+
+[finding.wiki-programs-retired-simulation]
+file = "docs/wiki/Programs.md"
+line = 118
+class = "doc-drift"
+severity = "medium"
+observed = "The simulation section presents lxp_daemon_lni_simulate and cmd/layerxd/lxp_daemon_lni.c as active producers and describes hosted Programs calls over separate daemon LNI. This is the retired architecture identified by brief fact 2."
+expected = "Programs executes in the single Paxeer BFT chain with final receipts at block commit. Retired layerxd is not an integration prerequisite and hosted gateway duties must be distinct from root node JSON-RPC."
+proposal = "Rewrite call/simulation transport and source sections in docs/wiki/Programs.md around the merged node Programs path and current hosted gateway contract. State actual noncommitting simulation effects, fees and committed-block evidence without instructions to run layerxd."
+owner_domain = 17
+
+[finding.beta-retired-daemon]
+file = "docs/site/docs/operators/beta-cluster.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The introduction requires a separate LayerX Network daemon and line 50 mounts a custody profile with layerxd --custody-profile. Readiness and explorer instructions depend on separate sequencer-signed evidence and authority stores, describing pre-merge deployment."
+expected = "Operators must deploy one Paxeer BFT network with integrated kernel block proposal and live node/gateway boundaries. Readiness and restart must not depend on retired layerxd."
+proposal = "Rewrite beta-cluster.md deployment, images, profiles and readiness against merged paxd manifests/kernel startup. Document root JSON-RPC chain-id checks, committed-block readiness and persistent node restart, removing separate daemon/sequencer steps."
+owner_domain = 17
+
+[finding.beta-retired-custody-funding]
+file = "docs/site/docs/operators/beta-cluster.md"
+line = 90
+class = "doc-drift"
+severity = "medium"
+observed = "Explorer funding deposits through owner_custody.py, attests custody credit, submits it through a separate owner producer and checks a sequencer signature. The Programs pages retire the kernel custody-credit activity and light client, so these steps require a retired funding producer."
+expected = "Explorer authorization and funding must use merged native account and fee paths, with recoverable provisioning independent of retired bridge-credit or separate settlement services."
+proposal = "Replace beta-cluster.md explorer funding and related custody steps with actual native account provisioning and fee-asset funding. Reconcile retries using the retained transaction and committed block/account state through root node JSON-RPC."
+owner_domain = 17
+
+[finding.running-retired-rpc-path]
+file = "docs/site/docs/agents/running.md"
+line = 512
+class = "doc-drift"
+severity = "medium"
+observed = "The EVM relay paragraph directs eth_sendRawTransaction to /rpc. Brief facts 2 and 3 place public node JSON-RPC at the origin root and explicitly retire the unified /rpc path; following this guide addresses the wrong endpoint."
+expected = "Agent integrations must submit EVM JSON-RPC to the documented node origin root on chain 125 and distinguish that transport from hosted gateway API routes."
+proposal = "Update running.md relay examples and endpoint configuration to current root-path node JSON-RPC, with the chain-id check and committed transaction receipt behavior. Remove /rpc, /rpc/ws and /rpc/schema assumptions from this workflow."
+owner_domain = 17
+
+[finding.running-receipt-key-owner]
+file = "docs/site/docs/agents/running.md"
+line = 767
+class = "doc-drift"
+severity = "medium"
+observed = "The web sidecar paragraph calls px_getReceiptKeys a node response. Brief fact 3 assigns px_ methods to services/platform/hosted/gateway/openrpc.json and excludes px from node namespaces, so the stated producer cannot serve that request."
+expected = "Receipt-key discovery must identify the hosted gateway producer and its declared trust-bound response, with node JSON-RPC and chain identity as separate explicit inputs."
+proposal = "Correct running.md sidecar startup against services/platform/hosted/gateway/openrpc.json. Name the gateway origin and authenticated key response, and retain an independent root-node chain-id check before consuming receipt keys."
+owner_domain = 17
+
+[finding.agentd-finality-documentation]
+file = "docs/site/docs/agents/agentd.md"
+line = 13
+class = "doc-drift"
+severity = "medium"
+observed = "Startup requires a real sequencer handshake and protected sequencer-authority history. Protocol evidence uses batch-header authority ranges and verification defaults retain checkpoint-finalised and settlement-anchored ranks. This describes the old multi-stage authority/finality ladder."
+expected = "The local agent daemon may retain budget and recovery duties, while network authority comes from the merged BFT node and receipts become final at block commit. Store proofs must verify under that block app hash."
+proposal = "Rewrite startup trust, evidence verification and defaults in docs/site/docs/agents/agentd.md for current node commit proofs, receipt-key height ranges and app-hash witnesses. Preserve durable local authorization/recovery controls and remove separate-sequencer/checkpoint settlement prerequisites."
+owner_domain = 17
+
+[finding.wiki-agentd-finality-documentation]
+file = "docs/wiki/Agentd.md"
+line = 13
+class = "doc-drift"
+severity = "medium"
+observed = "Startup requires a real sequencer handshake and protected sequencer-authority history. Protocol evidence uses batch-header authority ranges and verification defaults retain checkpoint-finalised and settlement-anchored ranks. This describes the old multi-stage authority/finality ladder."
+expected = "The local agent daemon may retain budget and recovery duties, while network authority comes from the merged BFT node and receipts become final at block commit. Store proofs must verify under that block app hash."
+proposal = "Rewrite startup trust, evidence verification and defaults in docs/wiki/Agentd.md for current node commit proofs, receipt-key height ranges and app-hash witnesses. Preserve durable local authorization/recovery controls and remove separate-sequencer/checkpoint settlement prerequisites."
+owner_domain = 17
+
+[finding.protocol-separate-settlement]
+file = "docs/site/docs/protocol/index.md"
+line = 5
+class = "doc-drift"
+severity = "medium"
+observed = "The introduction divides LayerX execution from Paxeer custody/checkpoints and says normal actions need no Paxeer transaction. Lines 27-30 describe periodic checkpoints; line 64 uses bonded guarantors before attestation to Paxeer and line 130 links L0-to-L4 finality."
+expected = "Brief facts 1 and 2 specify a single BFT chain with integrated kernel, final receipts at block commit, and no separate sequencer or settlement chain."
+proposal = "Rewrite protocol/index.md architecture, responsibility table, execution flow and finality links for one Paxeer chain. Explain tenant namespaces, kernel block proposal, committed receipt finality and app-hash proofs; remove checkpoint/guarantor settlement stages."
+owner_domain = 17
+
+[finding.workspace-retired-differential-input]
+file = "docs/site/docs/programs/workspace.md"
+line = 155
+class = "doc-drift"
+severity = "medium"
+observed = "The programs-differential table says the executable is compiled with cmd/layerxd/lxp_daemon_batch_wal.c. The actual Makefile link recipe omits that source, and audited parallel.c compares kernel sequential/prepared execution without WAL, DA-body construction or batch signing, as required by 13291.1."
+expected = "The workspace guide must describe actual merged differential build inputs and proof boundaries without retired daemon transport/persistence dependencies."
+proposal = "Update workspace.md programs-differential row against its current Makefile recipe and parallel.c. Describe the kernel receipt/root workload matrix and real runtime dependencies and remove the retired daemon WAL input."
+owner_domain = 17
+
+[doc.1]
+path = "docs/site/docs/programs/index.md"
+status = "stale"
+notes = "Full page read. Lines 118-140 retain daemon/LNI simulation; lines 288-312 describe obsolete ABI defaults/admission. Transport and periodic-finality guidance needs the merged-node rewrite."
+
+[doc.2]
+path = "docs/wiki/Programs.md"
+status = "stale"
+notes = "Full page read, including site differences. Lines 118-140 retain daemon simulation; line 300 and the admit_abi_version paragraph retain obsolete ABI limits. Synchronize version and transport guidance."
+
+[doc.3]
+path = "docs/site/docs/operators/beta-cluster.md"
+status = "stale"
+notes = "Full page read. Lines 3, 50, 68, 88 and 90 assume separate daemon/sequencer and retired custody-credit provisioning. Deployment, funding, readiness and recovery require merged-node steps."
+
+[doc.4]
+path = "docs/site/docs/agents/running.md"
+status = "stale"
+notes = "Full page read. Line 512 uses retired /rpc; line 767 calls gateway px_getReceiptKeys a node method. Sequencer trust and legacy verification defaults require the same committed-block rewrite as agentd."
+
+[doc.5]
+path = "docs/site/docs/agents/agentd.md"
+status = "stale"
+notes = "Full page read. Lines 13-15 and 59 onward retain sequencer handshake/batch authority; verification defaults at 524 retain checkpoint/settlement ranks. Local durable budget and recovery controls remain relevant."
+
+[doc.6]
+path = "docs/site/docs/programs/storage-scan.md"
+status = "accurate"
+notes = "Full page read. Ordering, cursor binding, encoded pages, ceilings and refusal meanings agree with audited scan and host consumer. The copying-cost finding changes no documented wire semantics."
+
+[doc.7]
+path = "docs/site/docs/programs/workspace.md"
+status = "stale"
+notes = "Full page read. Line 155 still lists retired daemon WAL for programs-differential; actual kernel sequential/prepared comparison needs an updated recipe and proof description."
+
+[doc.8]
+path = "docs/site/docs/programs/sandbox.md"
+status = "accurate"
+notes = "Full page read. Bounded lease authority, caller/program scope, snapshot semantics, metering and rollback agree with reviewed call/storage consumers. No separate daemon or settlement prerequisite found."
+
+[doc.9]
+path = "docs/site/docs/protocol/index.md"
+status = "stale"
+notes = "Full page read. Lines 5-30 split execution and settlement; line 64 describes guarantor checkpoint attestation and line 130 links L0-to-L4 finality. Rewrite for integrated kernel block proposal and finality."
+
+[doc.10]
+path = "docs/wiki/Sandbox.md"
+status = "accurate"
+notes = "Full page read including wiki navigation difference. Lease authority, bounded state and snapshot/rollback behavior match the site and reviewed runtime consumers; no retired network dependency found."
+
+[doc.11]
+path = "docs/wiki/StorageScan.md"
+status = "accurate"
+notes = "Full page read including wiki navigation difference. Cursor/page formats, bounded scans and refusals match the site and audited implementation. Copying cost is recorded separately."
+
+[doc.12]
+path = "docs/wiki/Agentd.md"
+status = "stale"
+notes = "Full page read including site differences. Lines 13-15, 60 onward and defaults at 525 retain sequencer authority, batch evidence and checkpoint/settlement finality. Apply the site committed-block trust rewrite."
+
+[doc.13]
+path = "spec/layerx-merge/contracts/programs.md"
+status = "accurate"
+notes = "Reviewed the runtime-crate, AI-market-guest, fixtures and test-vectors sections and merged-network decisions. The feature-relative contract exists; its pinned baseline and explicit planned/change statuses distinguish historical declarations from the merged target. Snapshot block-commit and native conservation requirements agree with the package."
+

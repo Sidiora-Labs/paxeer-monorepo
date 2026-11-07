@@ -32,12 +32,12 @@ _ZERO_ID = "00" * 32
 
 
 def _check_id(value: str, nonzero: bool = True) -> bytes:
-    if not isinstance(value, str) or len(value) != 64 or value != value.lower():
+    if (not isinstance(value, str) or len(value) != 64
+            or any(character not in "0123456789abcdef" for character in value)):
         raise TradingPayloadError("non_canonical", "identifier")
-    try:
-        raw = bytes.fromhex(value)
-    except ValueError as error:
-        raise TradingPayloadError("non_canonical", "identifier") from error
+    raw = bytes.fromhex(value)
+    if len(raw) != 32:
+        raise TradingPayloadError("non_canonical", "identifier width")
     if nonzero and raw == bytes(32):
         raise TradingPayloadError("non_canonical", "zero identifier")
     return raw
@@ -58,6 +58,8 @@ class Writer:
         return self
 
     def flag(self, value: bool) -> Writer:
+        if type(value) is not bool:
+            raise TradingPayloadError("non_canonical", "boolean flag")
         self.out.append(1 if value else 0)
         return self
 

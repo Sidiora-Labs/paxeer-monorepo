@@ -1,0 +1,38 @@
+[repair.22.33.156]
+audit = "22.30.117"
+findings = ["14", "5"]
+finding_14_tests = ["TestRepairM_156_GovernedCollateralChange", "TestRepairM_156_RecordedExecutionView", "TestRepairM_156_CollateralStateRefusals", "TestRepairM_156_CollateralBatchPins", "TestRepairM_156_MixedBatchStateDisagreement", "TestRepairM_156_CollateralTransportRefusals"]
+finding_5_tests = ["TestRepairM_156_ConstructDebitAccounting", "TestRepairM_156_ShippedFundedConstructs"]
+finding_14_repair = "Remove the seeded token from addCollateral accounting. A trusted adapter reads governed params at a reviewed chain/account/block/root, and ResolvePerpsCollateral compares them with a canonical getPosition execution view obtained at that exact block hash. Immutable verified state is bound to the requested position, signer and chain. Batch reads must agree on pin and token; mixed construct/perps pins must agree. Decisions expose ReviewedBlock for submission coordination. Missing, unavailable, malformed, inactive, unbound or disagreeing state refuses without spend writes."
+finding_5_repair = "Replace unresolved-only funding coverage with canonical funded account fixtures for budgetCreate, budgetCreateNative, budgetFund, budgetFundNative, escrowOpen, transfer and sandboxFund. The tests produce canonical precompile calldata, inspect it with production policy, execute the same calldata through the existing real-native adapter, and assert exact asset IDs, every affected source/destination balance, daily totals, per-transaction and daily cap refusals, uncapped refusals, and no native-wei charge. Retain the old unresolved/nonpayable and selector checks."
+baseline = "No unchanged-tree verification ran: the explicit ordered gates forbid testing before completed implementation and hf-build; the starting policy tree was unchanged, repair_m156_test.go did not exist, and the gate ledger was absent with builds_used=0 and verify_runs_used=0. No baseline test failure is claimed."
+continuation_baseline = "The runner supplied attempt 1 revision 665bf1671db1a600a4d99eaca4e1374abb2df570 with TestRepairM_156_GovernedCollateralChange failing at the uncapped-asset assertion: deleting a lowercase cap left the shared fixture's mixed-case alias active. Preserve that assertion and canonicalize the governed-change and batch cap fixtures with production mergeCaps before overriding limits. No additional unchanged-tree verify is run."
+verified_revision = "The exact content revision is recorded in the final hf-done line and /out/run/gates.jsonl alongside command, exit and private log; the record is part of that content revision and is not rewritten after qualification."
+proof_boundary = "The recorded getPosition result comes from precompiles/perps/testdata/views_account_golden.json, produced by the canonical precompile golden test. Governed-token transition cases use immutable ABI-encoded execution-view fixtures over a loopback JSON-RPC server with the production HTTP transport/resolver/policy. The transport requires an exact canonical block hash and validates response identity, errors and canonical ABI encoding. They prove the in-scope transport, configuration comparison and accounting; live governance plus EVM token execution belongs to the chain integration wiring request."
+wiring_server = "services/wallet/attestor/internal/server (owning domain fm-wallet): install SetPerpsCollateralReader with independently trusted chain/header/account binding and governed Params.CollateralToken read at the same block/root; use ResolvePerpsCollateral with the canonical chain RPC, and revalidate Decision.ReviewedBlock at submission. Never take pins or params from signing requests. Until installed, addCollateral refuses."
+wiring_chain = "precompiles/perps and precompiles/layerxpay and precompiles/layerxprograms (owning domain chain): run full Go EVM-wrapper integration against the attestor ABI transport, including a governance UpdateParams collateral-token change and actual ERC20 debit assertions; the chain geth fork is outside the nested attestor module and this edit scope."
+portability = "The inherited testkernel package links build/liblayerx.a and programs/target/release/liblayerx_programs_sandbox.a, as already recorded in repair_244.kvx. Those preinstalled artifacts remain required even when other native tests are filtered out; this is a pre-existing gate-portability limitation, not proof of a portable gate."
+status = "In-scope policy and test repairs implemented; production wiring, full chain-wrapper proof and inherited native-artifact portability remain the recorded boundaries."
+
+[gotcha.m156.1]
+observed = "The explicit ordered gate instructions conflict with the historical unchanged-tree verify step."
+resolution = "Follow hf-build then hf-done after complete implementation; do not fabricate a baseline failure."
+
+[gotcha.m156.2]
+observed = "The attestor module consumes upstream geth while chain precompile wrappers use the repository geth fork."
+resolution = "Keep the policy resolver on the canonical ABI/JSON-RPC boundary and record full wrapper integration for the chain owner."
+
+[gotcha.m156.3]
+observed = "A broad replacement inserted perps fixture setup in an unrelated fee test during implementation."
+resolution = "Inspect the complete scoped diff before qualification and restrict the setup to the existing perps pull test."
+
+[gotcha.m156.4]
+observed = "The shared policy fixture stores a mixed-case token cap; adding a lowercase override creates two entries for one asset, so cap selection depends on map iteration and deleting the override leaves the asset capped."
+resolution = "Canonicalize the task's cap fixtures with production mergeCaps before setting exact bounds or removing a cap; retain exact spend, daily total and uncapped refusal assertions."
+
+[qualification.verify_1]
+revision = "8cce24775992d7d01ed09dbfe183974ddd388e78"
+command = "cg spec done 22.33.156 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The added ethclient/rpc test imports reached an existing missing indirect-module checksum; replace those new imports with a production bounded HTTP JSON-RPC adapter without changing manifests or assertions."

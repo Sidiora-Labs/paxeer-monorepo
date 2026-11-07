@@ -1,0 +1,10 @@
+[repair.22.31.59]
+audit = "22.30.35"
+finding_3 = "TestRepair_59_RevocationLegacyRoutes; TestRepair_59_RevocationAfterRestart; TestRepair_59_AuthorityUnavailable"
+behavior = "Legacy single, batch and logo requests refresh the configured visibility authority through ConnectedMedia.syncModeration before opening their response snapshot; persisted revision ordering prevents older allows from undoing a removal after restart."
+cache = "Only canonical identity is cached; metadata and logo responses, including errors, use Cache-Control: no-store so every new request checks authority."
+baseline = "Inherited attempt 2 reported failures in TestRepair_59_RevocationLegacyRoutes, TestRepair_59_RevocationAfterRestart and TestRepair_59_AuthorityUnavailable because METADATA_TEST_S3_ENDPOINT was unset. No additional pre-change verification ran: the explicit gate order permits verification only through hf-done after implementation."
+wiring_request = "services/launchpad/metadata/internal/app/app.go — launchpad domain: retain the existing configured ConnectedMedia authority passed to NewProductionLegacyReads; at rollout purge legacy metadata/logo responses cached under the previous public max-age policy and ensure serving proxies honor no-store."
+proof = "The repair tests require no environment or external service: an in-process PostgreSQL wire fixture backs the real ProductionStore and PostgresVisibilityAuthority, the committed chain receipt drives the real canonical decoder, and an httptest object service backs the real S3 client. Reader and fixture state are closed and reloaded from disk for restart recovery."
+qualification = "The hf-build/hf-done gate ledger records the verified candidate revision, exact command, exit code and private log; the runner publishes that evidence with this repair."
+fixture_encoding = "pgx simple-protocol encodes values as quoted text, including booleans as t/f and integer revisions as decimal strings; the fixture decodes that exact wire format without altering the production store or assertions."

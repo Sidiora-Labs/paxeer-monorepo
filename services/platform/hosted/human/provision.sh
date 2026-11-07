@@ -40,6 +40,7 @@ import yaml
 value = yaml.safe_load(open(sys.argv[1]))
 value['metadata']['namespace'] = sys.argv[3]
 pod = value['spec']['template']['spec']
+pod['containers'] = [c for c in pod['containers'] if c['name'] != 'validate-account-head']
 for container in pod['containers'] + pod['initContainers']:
     container['image'] = sys.argv[4]
 pod['nodeName'] = json.load(open(sys.argv[5]))['items'][0]['spec']['nodeName']
@@ -50,8 +51,7 @@ PY
         --from-file=owner-request.json="$input/owner-request.json" \
         --from-file=recovery-policy.json="$input/recovery-policy.json" \
         --from-file=treasury-request.json="$input/treasury-request.json" \
-        --from-file=sequencer-request.json="$input/sequencer-request.json" \
-        --from-file=account-head-request.json="$input/account-head-request.json"
+        --from-file=sequencer-request.json="$input/sequencer-request.json"
     kube create -f "$manifest" > /dev/null
     kube -n "$TESTNET_NAMESPACE" wait --for=condition=complete --timeout=150s job/layerx-human-provision-owner > /dev/null \
         || fail 'layerx-human-provision-owner: Job did not complete; owner result not published'
@@ -59,7 +59,6 @@ PY
     python3 "$REPO_ROOT/services/platform/hosted/human/provision.py" --validate-owner-result \
         --work-dir "$WORK_DIR" --request "$output.pending"
     mv "$output.pending" "$output"
-    kube -n "$TESTNET_NAMESPACE" logs job/layerx-human-provision-owner -c validate-account-head > "$input/account-head-result.json"
     local account
     for account in treasury sequencer; do
         kube -n "$TESTNET_NAMESPACE" logs job/layerx-human-provision-owner -c "provision-$account" > "$input/$account.json"
@@ -181,80 +180,37 @@ PYPAIR
 human_native_owner_prepare() (
     set -euo pipefail
     umask 077
-    registry_kernel_material
-    local input="$WORK_DIR/human-evidence-input" status
-    local provision="$REPO_ROOT/services/platform/hosted/human/provision.py"
-    [ -d "$input" ] && [ ! -L "$input" ] || fail "$input: owner registration producer inputs required"
-    python3 "$provision" --validate-job-input --work-dir "$WORK_DIR"
-    kube -n "$TESTNET_NAMESPACE" get secret layerx-guarantor-checkpoint-authority \
-        -o 'jsonpath={.data.public\.hex}' > "$input/checkpoint-public.base64" \
-        || fail 'Secret layerx-guarantor-checkpoint-authority/public.hex: checkpoint producer output required'
-    python3 "$provision" --movement-source --work-dir "$WORK_DIR" --secrets-dir "$SECRETS_DIR"
-    port_forward human-account-head "$TESTNET_NAMESPACE" layerx-agent-boundary 19454 9443
-    status=$(curl --silent --show-error --max-time 30 --max-filesize 1048576 \
-        --cacert "$CA_DIR/ca.crt" --header "Authorization: Bearer $(cat "$SECRETS_DIR/registry-node.token")" \
-        --output "$input/account-head.json" --write-out '%{http_code}' \
-        'https://localhost:19454/v1/protocol/account-state/head')
-    [ "$status" = 200 ] || fail "$input/account-head.json: agent boundary refused account-state head with status $status"
-    python3 - "$provision" "$input" "$NODE_NETWORK_ID" "$NODE_SEQUENCER_ID" "$NODE_SEQUENCER_PUBLIC_KEY" <<'PYHEAD'
-import importlib.util
-from pathlib import Path
+    python3 - "$WORK_DIR" "$NODE_NETWORK_ID" "$REPO_ROOT" "$PAXEER_CHAIN_ID" <<'PYMERGED'
 import sys
-spec = importlib.util.spec_from_file_location('provision', sys.argv[1])
-module = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(module)
-root = Path(sys.argv[2])
-module.write_json(root / 'account-head-request.json', {
-    'head': module.protected_json(root / 'account-head.json'), 'network_id': int(sys.argv[3]),
-    'sequencer_id': sys.argv[4], 'public_key': sys.argv[5]})
-PYHEAD
-    human_owner_provision
-    case "${LAYERX_BETA_OWNER_CUSTODY:-kms}" in
-        kms) human_kms_prepare ;;
-        operator) python3 "$provision" --prepare-owner-admission --work-dir "$WORK_DIR" --secrets-dir "$SECRETS_DIR" ;;
-        *) fail 'LAYERX_BETA_OWNER_CUSTODY must be kms or operator' ;;
-    esac
+from pathlib import Path
+sys.path.insert(0, str(Path(sys.argv[3]) / 'services/platform/hosted/human'))
+from native_manifest import configure
+configure(sys.argv[1], int(sys.argv[2]), None, None, None, int(sys.argv[4]))
+PYMERGED
 )
+
 
 registry_kernel_material() (
     set -euo pipefail
     umask 077
-    local helper="$REPO_ROOT/services/platform/hosted/human/material.py"
-    local stage before after selected
-    stage=$(mktemp -d "$WORK_DIR/.registry-kernel-XXXXXXXX")
-    trap 'rm -rf "$stage"' EXIT
-    kube -n "$TESTNET_NAMESPACE" get pod layerx-node-0 -o json > "$stage/before.json"
-    before=$(python3 - "$stage/before.json" <<'PY_KERNEL_POD'
-import json,sys
-p=json.load(open(sys.argv[1]))
-c=next(x for x in p['status']['containerStatuses'] if x['name']=='layerxd')
-if p['status']['phase']!='Running' or not c.get('ready') or not c.get('imageID') or not p['metadata'].get('uid'):
-    raise SystemExit('selected kernel producer pod is not ready')
-print(p['metadata']['uid']+'|'+c['imageID'])
-PY_KERNEL_POD
+    # Registry naming consumers still require their original signed generation.
+    # Consume an explicitly retained/imported generation; never edit node genesis.
+    local selected
+    selected=$(python3 - "$REPO_ROOT" "$SECRETS_DIR/registry-kernel" "$NODE_NETWORK_ID" \
+        "$NODE_SEQUENCER_ID" "$NODE_SEQUENCER_PUBLIC_KEY" <<'PY_REGISTRY'
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(sys.argv[1]) / 'services/platform/hosted/human'))
+from material import verify_registry_material
+from provision import require
+value = verify_registry_material(Path(sys.argv[2]))
+manifest = value['manifest']
+require(manifest['network_id'] == int(sys.argv[3]) and manifest['sequencer_id'] == sys.argv[4]
+        and manifest['sequencer_public_key'] == sys.argv[5], sys.argv[2],
+        'independently pinned retained registry generation; migration required for a new producer')
+print(value['directory'])
+PY_REGISTRY
 )
-    kube -n "$TESTNET_NAMESPACE" exec layerx-node-0 -c layerxd -- \
-        python3 /usr/local/lib/layerx-human/material.py --export-registry-material \
-        /var/lib/layerx/registry-material > "$stage/export.json"
-    kube -n "$TESTNET_NAMESPACE" get pod layerx-node-0 -o json > "$stage/after.json"
-    after=$(python3 - "$stage/after.json" <<'PY_KERNEL_POD'
-import json,sys
-p=json.load(open(sys.argv[1]))
-c=next(x for x in p['status']['containerStatuses'] if x['name']=='layerxd')
-if p['status']['phase']!='Running' or not c.get('ready'):
-    raise SystemExit('selected kernel producer changed during transfer')
-print(p['metadata']['uid']+'|'+c['imageID'])
-PY_KERNEL_POD
-)
-    [ "$before" = "$after" ] || fail 'kernel producer pod or selected image changed during private transfer'
-    python3 "$helper" --import-registry-material "$stage/export.json" "$SECRETS_DIR/registry-kernel" \
-        "$NODE_NETWORK_ID" "$NODE_SEQUENCER_ID" "$NODE_SEQUENCER_PUBLIC_KEY" > "$stage/import.json"
-    selected=$(python3 - "$stage/import.json" <<'PY_KERNEL_SELECTED'
-import json,sys
-print(json.load(open(sys.argv[1]))['directory'])
-PY_KERNEL_SELECTED
-)
-    python3 "$helper" --verify-registry-material "$selected" > /dev/null
     apply_secret "$TESTNET_NAMESPACE" layerx-registry-kernel-generation \
         --from-file=generation.json="$selected/generation.json" \
         --from-file=replica-id="$selected/replica-id" --from-file=trust-history="$selected/trust-history"
@@ -266,7 +222,9 @@ human_evidence_provision() (
     local provision="$REPO_ROOT/services/platform/hosted/human/provision.py"
     human_native_owner_prepare
     human_native_provision
+    python3 "$provision" --funding-evidence --work-dir "$WORK_DIR"
     python3 "$provision" --validate-owner-registration --work-dir "$WORK_DIR"
+    human_account_head_observe
     naming_program_deploy
     registry_deployment_produce
     human_journal_deploy
@@ -309,107 +267,77 @@ PY_POLICY_GRAPH
 human_native_provision() (
     set -euo pipefail
     umask 077
-    local input="$WORK_DIR/human-evidence-input" state="$WORK_DIR/human-native-statefulset.json"
-    local manifest="$WORK_DIR/human-native-producer.json" status=0
-    [ ! -e "$input/owner-native.started" ] || fail 'owner-native.started: reconcile the retained native outcome before retry'
-    local explorer_public explorer_did
-    [ -s "$SECRETS_DIR/explorer-read.pub.hex" ] \
-        || fail "explorer-read.pub.hex: the explorer read principal key is missing from $SECRETS_DIR"
-    explorer_public=$(tr -d '\r\n' < "$SECRETS_DIR/explorer-read.pub.hex")
-    [[ $explorer_public =~ ^[0-9a-f]{64}$ ]] || fail 'explorer-read.pub.hex: the explorer read principal key is not an ed25519 public key'
-    explorer_did="did:layerx:$explorer_public"
-    cat "$input/owner-admission.txt" > "$input/genesis-admission.txt"
-    printf '%s:%s:0\n' "$(printf '%s' "$explorer_did" | od -An -v -tx1 | tr -d ' \n')" "$explorer_public" \
-        >> "$input/genesis-admission.txt"
-    kube -n "$TESTNET_NAMESPACE" exec -i layerx-node-0 -c layerxd -- sh -ec '
-        set -eu
-        umask 077
-        target=/var/lib/layerx/node/identities.txt
-        [ ! -e "$target.owner-pending" ]
-        cat "$target" > "$target.owner-pending"
-        cat >> "$target.owner-pending"
-        sync "$target.owner-pending"
-        mv "$target.owner-pending" "$target"
-        for identity in 1 2; do
-            destination="/var/lib/layerx/guarantor-$identity/identity/identities.txt"
-            install -m 0440 "$target" "$destination.owner-pending"
-            mv "$destination.owner-pending" "$destination"
-        done
-    ' < "$input/genesis-admission.txt"
-    local did admitted=0 attempt
-    did=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["did"])' "$input/owner-admission.json")
-    for attempt in $(seq 1 100); do
-        if kube -n "$TESTNET_NAMESPACE" exec layerx-node-0 -c registry-check -- \
-            /usr/local/bin/layerxctl read-state --socket /run/layerx/node/layerxd.lni.sock \
-            --network-id "$NODE_NETWORK_ID" --protocol-version 3 --actor "$did" > "$input/owner-admission-state.json" 2>/dev/null; then
-            admitted=1
-            break
-        fi
-        sleep 0.1
-    done
-    [ "$admitted" = 1 ] || fail 'owner-admission.json: native genesis admission did not complete; preserve identity files'
-    python3 - "$input/owner-admission-state.json" <<'PY'
-import json, sys
-state = json.load(open(sys.argv[1]))
-if state['account_sequence'] != 0 or state['global_sequence'] != 0:
-    raise SystemExit('owner admission requires a fresh native genesis head')
-PY
-    kube -n "$TESTNET_NAMESPACE" exec layerx-node-0 -c registry-check -- \
-        /usr/local/bin/layerxctl read-state --socket /run/layerx/node/layerxd.lni.sock \
-        --network-id "$NODE_NETWORK_ID" --protocol-version 3 --actor "$explorer_did" \
-        > "$input/explorer-read-admission-state.json" 2>/dev/null \
-        || fail "genesis-admission.txt: the node did not admit the explorer read principal $explorer_did; preserve identity files"
-    python3 - "$input/explorer-read-admission-state.json" <<'PY'
-import json, sys
-state = json.load(open(sys.argv[1]))
-if state['account_sequence'] != 0:
-    raise SystemExit('explorer read principal admission requires an unused identity sequence')
-PY
-    kube -n "$TESTNET_NAMESPACE" get statefulset layerx-node -o json > "$state"
-    python3 "$REPO_ROOT/services/platform/hosted/human/native_manifest.py" "$WORK_DIR" "$NODE_NETWORK_ID" \
-        "$NODE_SEQUENCER_PUBLIC_KEY" "$(image_ref layerx-human)" "$state" "$manifest"
-    local -a owner_material
-    if [ -f "$input/owner-kms.json" ]; then
-        owner_material=(--from-file=owner-kms.json="$input/owner-kms.json")
-    else
-        owner_material=(--from-file=owner.seed="$SECRETS_DIR/human-owner/owner.seed"
-            --from-file=pending.seed="$SECRETS_DIR/human-owner/pending.seed")
-    fi
-    apply_secret "$TESTNET_NAMESPACE" layerx-human-native-input \
-        --from-file=owner-native.json="$input/owner-native.json" \
-        --from-file=recovery-policy.json="$input/recovery-policy.json" \
-        --from-file=recovery-guardians.json="$input/recovery-guardians.json" \
-        --from-file=owner-admission.json="$input/owner-admission.json" \
-        --from-file=custody-credit.bin="$input/custody-credit.bin" \
-        --from-file=human-owner-result.json="$WORK_DIR/human-owner-result.json" \
-        "${owner_material[@]}" \
-        --from-file=authority.token="$SECRETS_DIR/registry-authority.token" --from-file=ca.crt="$CA_DIR/ca.crt"
-    kube apply -f "$manifest" > /dev/null
-    kube -n "$TESTNET_NAMESPACE" rollout status statefulset/layerx-node --timeout=300s > /dev/null
-    printf 'preserve owner-native-run and reconcile before retry\n' > "$input/owner-native.started"
-    kube -n "$TESTNET_NAMESPACE" exec layerx-node-0 -c owner-producer -- \
-        python3 /usr/local/lib/layerx-human/provision.py --produce-owner-registration --work-dir /run/owner/work \
-        > "$LOG_DIR/human-native-producer.log" 2>&1 || status=$?
-    mkdir "$input/owner-native-run"
-    kube -n "$TESTNET_NAMESPACE" exec layerx-node-0 -c owner-producer -- \
-        tar -C /run/owner/work/human-evidence-input/owner-native-run -cf - . \
-        | tar -C "$input/owner-native-run" -xf -
-    [ "$status" = 0 ] || fail "native owner producer refused; see $LOG_DIR/human-native-producer.log and retained owner-native-run"
-    kube -n "$TESTNET_NAMESPACE" exec layerx-node-0 -c owner-producer -- \
-        cat /run/owner/work/human-evidence-input/owner-registration.json > "$input/owner-registration.json"
-    python3 "$REPO_ROOT/services/platform/hosted/human/provision.py" --validate-owner-registration --work-dir "$WORK_DIR"
-    python3 - "$input" "$WORK_DIR/human-owner.env" <<'PY'
-import base64, json, shlex, sys
+    python3 "$REPO_ROOT/services/platform/hosted/human/provision.py" \
+        --produce-owner-registration --work-dir "$WORK_DIR"
+    python3 "$REPO_ROOT/services/platform/hosted/human/provision.py" \
+        --validate-owner-registration --work-dir "$WORK_DIR"
+)
+
+human_account_head_observe() (
+    set -euo pipefail
+    umask 077
+    local input="$WORK_DIR/human-evidence-input" job
+    local manifest="$WORK_DIR/human-account-head-job.json"
+    python3 - "$REPO_ROOT" "$WORK_DIR" "$manifest" "$TESTNET_NAMESPACE" "$(image_ref layerx-human)" <<'PY_ACCOUNT_HEAD'
+import json
+import ssl
+import sys
 from pathlib import Path
-root = Path(sys.argv[1])
-registration = json.loads((root / 'owner-registration.json').read_text())
-policy = json.loads((root / 'recovery-policy.json').read_text())
-values = dict(ACTOR=registration['identity']['did'], AUTHORITY=registration['authority'],
-              OWNER_ACCOUNT='agent:' + registration['identity']['did'] + ':main',
-              RECOVERY_ROOT=base64.urlsafe_b64encode(bytes(policy['root'])).decode().rstrip('='),
-              RECOVERY_THRESHOLD=str(policy['threshold']))
-with open(sys.argv[2], 'x') as output:
-    for name, value in values.items():
-        output.write('export LAYERX_HUMAN_AGENT_' + name + '=' + shlex.quote(value) + '\n')
-PY
+import yaml
+root, work = Path(sys.argv[1]), Path(sys.argv[2])
+sys.path.insert(0, str(root / 'services/platform/hosted/human'))
+from provision import protected_bytes, protected_json, require, write_json, owner_policy
+from merged_owner import account_id
+inputs = work / 'human-evidence-input'
+config = protected_json(inputs / 'owner-native.json')
+registration = protected_json(inputs / 'owner-registration.json')
+owner = protected_json(work / 'human-owner-result.json')
+require(config['rpc_url'].startswith('https://') and config['chain_id'] > 0,
+        inputs, 'authenticated committed chain endpoint')
+require(registration['identity']['did'] == owner['did'] == 'did:layerx:' + registration['authority']
+        and registration['owner_account'] == account_id(registration['authority'], config['asset_id']),
+        inputs, 'original provisioned owner and merged asset account')
+ca = protected_bytes(config['rpc_ca_file'], 65536).decode('ascii')
+request = dict(rpc_url=config['rpc_url'], rpc_ca_der_hex=[ssl.PEM_cert_to_DER_cert(ca).hex()],
+    chain_id=config['chain_id'], owner_did=owner['did'], owner_account=registration['owner_account'],
+    asset_id=config['asset_id'], maximum_age_seconds=owner_policy()['maximum_age_seconds'])
+write_json(inputs / 'account-observation-request.json', request)
+value = yaml.safe_load((root / 'services/platform/hosted/human/provision-owner-job.yaml').read_text())
+value['metadata'].pop('name')
+value['metadata']['generateName'] = 'layerx-human-account-head-'
+value['metadata']['namespace'] = sys.argv[4]
+pod = value['spec']['template']['spec']
+validator = next(c for c in pod['containers'] if c['name'] == 'validate-account-head')
+validator['image'] = sys.argv[5]
+pod['containers'] = [validator]
+pod.pop('initContainers')
+pod['volumes'] = [dict(name='input', secret=dict(secretName='layerx-human-account-head-input', defaultMode=0o444))]
+with open(sys.argv[3], 'w') as output:
+    json.dump(value, output)
+PY_ACCOUNT_HEAD
+    apply_secret "$TESTNET_NAMESPACE" layerx-human-account-head-input \
+        --from-file=account-head-request.json="$input/account-observation-request.json"
+    job=$(kube create -f "$manifest" -o jsonpath='{.metadata.name}')
+    kube -n "$TESTNET_NAMESPACE" wait --for=condition=complete --timeout=150s "job/$job" > /dev/null \
+        || fail 'committed owner account observation refused; limits not published'
+    kube -n "$TESTNET_NAMESPACE" logs "job/$job" -c validate-account-head > "$input/account-observation.json.pending"
+    python3 - "$REPO_ROOT/services/platform/hosted/human" "$input" <<'PY_ACCOUNT_RESULT'
+import sys
+from pathlib import Path
+sys.path.insert(0, sys.argv[1])
+from provision import fields, protected_json, require, write_json
+root = Path(sys.argv[2])
+request = protected_json(root / 'account-observation-request.json')
+result = protected_json(root / 'account-observation.json.pending')
+fields(result, 'schema chain_id owner_did account asset_id committed_height block_hash state_root observed_at balance consumed',
+       root, 'committed account observation')
+require(result['schema'] == 'layerx.human.account-head.v1'
+        and result['chain_id'] == request['chain_id'] and result['owner_did'] == request['owner_did']
+        and result['account'] == request['owner_account'] and result['asset_id'] == request['asset_id']
+        and type(result['committed_height']) is int and result['committed_height'] > 0
+        and type(result['consumed']) is int and result['consumed'] == 0,
+        root, 'verified original owner account and supported unused limit')
+(root / 'account-observation.json.pending').replace(root / 'account-observation.json')
+write_json(root / 'account-head-result.json', dict(consumed=result['consumed']))
+PY_ACCOUNT_RESULT
 )

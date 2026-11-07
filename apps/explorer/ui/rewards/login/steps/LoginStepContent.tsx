@@ -17,6 +17,8 @@ import { Switch } from 'toolkit/chakra/switch';
 import { apos } from 'toolkit/utils/htmlEntities';
 import useProfileQuery from 'ui/snippets/auth/useProfileQuery';
 
+import useLoginAddressMismatch from './useLoginAddressMismatch';
+
 type Props = {
   goNext: (isReferral: boolean, reward: string | undefined) => void;
   closeModal: () => void;
@@ -34,11 +36,7 @@ const LoginStepContent = ({ goNext, closeModal, openAuthModal }: Props) => {
   const { login, checkUserQuery, rewardsConfigQuery } = useRewardsContext();
   const profileQuery = useProfileQuery();
 
-  const isAddressMismatch = React.useMemo(() =>
-    Boolean(address) &&
-    Boolean(profileQuery.data?.address_hash) &&
-    profileQuery.data?.address_hash !== address,
-  [ address, profileQuery.data ]);
+  const isAddressMismatch = useLoginAddressMismatch(address, profileQuery.data?.address_hash);
 
   const isLoggedIntoAccountWithWallet = React.useMemo(() =>
     !profileQuery.isLoading && profileQuery.data?.address_hash,

@@ -1,0 +1,39 @@
+[task]
+id = "22.33.414"
+audit = "22.30.143"
+base_revision = "399c122802fbe3326c62ef9251760c3e53ee4060"
+checkout_revision = "056daa1b1720da5251ca5720a2e1bc81aa9d6d63"
+repair = "Decision 2525 delegates README.md changes to 22.31.470. Its existing README supplies the expected merged topology; this task adds the focused offline regression proof and finding-to-test record without changing README.md."
+source_proof = "Read actual README architecture, topology and sequence diagrams, parse the curl JSON-RPC request and root HTTPS URLs, and compare documented transaction acceptance/forwarding, WAL-before-publication, committed receipt coverage, native address registrations and retirement upgrade gates with production sources. Assert chain 125, api1 through api14, embedded paxd execution, block commitment finality, retired custody/checkpoint executors and archive-only anchor reads."
+review_only = "Native builds, node startup, transaction execution, cryptographic verification, endpoint availability, BFT consensus and restart/recovery are not executed by this documentation gate. Source checks prove the documented producer/transport/consumer connections; runtime correctness and deployment state require owning-domain review and qualification. This doc-drift repair changes no runtime interface or persistent component."
+baseline = "Initial git status/diff showed only pre-existing runner .cgignore and spec bookkeeping, with neither scoped file present. /out/run/gate.json recorded builds_used=0 and verify_runs_used=0; /out/run/gates.jsonl was absent. No tests are claimed to have failed before the change: the explicit implementation-first order and hf-done-only verification prohibit the older step-5 baseline run. README.md remains unchanged throughout this task."
+build_cmd = "python3 --version"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_414.py"
+evidence_ledger = "/out/run/gates.jsonl"
+evidence = "The last hf-done JSON and private /out/run/gates.jsonl record the exact verified content-derived candidate revision, command, exit code and log path. Build and verification must pass on the same candidate revision. Evidence remains external to this record because embedding its own candidate revision changes that revision. The runner publishes the qualified task."
+wiring_requests = []
+
+[finding.root-readme-topology]
+file = "README.md"
+line = 47
+class = "doc-drift"
+severity = "medium"
+expected = "The product overview must describe the finished single paxd network, embedded kernel and committed-block finality, with historical interfaces separated from active upgrade-version interfaces."
+repair_owner = "22.31.470"
+tests = ["test_root_readme_topology_is_one_embedded_paxd_network", "test_root_readme_public_rpc_is_chain_125_at_root_hosts", "test_root_readme_transaction_to_committed_receipt_path", "test_root_readme_separates_retired_executors_and_active_addresses", "test_root_readme_upgrade_and_operating_guidance_is_merged"]
+closure = "The named tests assert every expected source fact against README.md as left by the prerequisite; the declared gate, rather than this record, determines qualification."
+
+[wiring.root_readme]
+path = "README.md"
+owner_domain = 1
+owner_task = "22.31.470"
+request = "README.md owning domain 1 / task 22.31.470: maintain merged paxd architecture and upgrades, root chain-125 RPC and committed receipt guidance, remove standalone daemon operations, and label retired custody/checkpoint addresses and archive-only interfaces."
+status = "satisfied_by_prerequisite"
+missing_facts = []
+
+[format]
+policy = "No Python or KVX formatter is configured for these paths; apply .editorconfig UTF-8, LF, final newline and no trailing whitespace after the complete implementation."
+
+[gotcha.context]
+observed = "Broad context reads can exceed the output limit, guessed adjacent repair paths may not exist, and cg brief/grep use a stale graph with unrelated tasks and omitted production paths."
+resolution = "Use bounded audit sections, known prerequisite files, direct production source reads and the runner gate ledger. Preserve runner changes; task notes stay here because GOTCHA.kvx and spec files are outside scope."

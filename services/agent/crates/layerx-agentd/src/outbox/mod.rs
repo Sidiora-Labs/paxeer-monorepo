@@ -13,6 +13,9 @@ use crate::session::{SessionId, SessionRef};
 use crate::sign::VerifiedSubmission;
 use crate::store::{ObjectKind, Store, StoreError, TenantId, TenantKey};
 
+const MAX_TRANSITIONS: usize = 1_024;
+const MAX_RECORD_FIELD_BYTES: usize = 1_048_576;
+
 #[path = "unknown.rs"]
 mod resolution;
 #[path = "recover.rs"]
@@ -40,6 +43,19 @@ pub enum SubmissionState {
 }
 
 impl SubmissionState {
+    // Reserve the longest remaining non-repeating path, including restart's Unknown event.
+    const fn remaining_transitions(self) -> usize {
+        match self {
+            Self::Prepared => 6,
+            Self::Signed => 5,
+            Self::Queued => 4,
+            Self::Submitted => 3,
+            Self::Unknown => 2,
+            Self::Executed => 1,
+            Self::Failed | Self::Expired | Self::Committed => 0,
+        }
+    }
+
     #[must_use]
     pub const fn terminal(self) -> bool {
         matches!(self, Self::Committed | Self::Failed | Self::Expired)
@@ -161,6 +177,24 @@ impl Outbox {
         let (call, signature) = decode_signed(&raw).map_err(OutboxError::InvalidTransaction)?;
         recover_sender(&call, &signature).map_err(OutboxError::InvalidTransaction)?;
         self.enqueue_exact(store, tenant, raw, None, None)
+    }
+
+    /// Queues the verifier's exact type-2 bytes through the same origin-aware path
+    /// used by the Human runtime, without an additional preparation authorization.
+    pub fn enqueue_verified(
+        &mut self,
+        store: &mut Store,
+        tenant: TenantId,
+        verified: VerifiedSubmission,
+    ) -> Result<[u8; 32], OutboxError> {
+        self.enqueue_with_origin(
+            store,
+            tenant,
+            verified.idempotency_key(),
+            verified,
+            None,
+            None,
+        )
     }
 
     /// Durably queues exact verified bytes together with the preparation authorization that
@@ -351,7 +385,9 @@ impl Outbox {
     ///
     /// # Errors
     ///
-    /// Returns `EmptyCause` for a blank cause, `NotFound` for an untracked submission,
+    /// Returns `EmptyCause` for a blank cause, `CauseTooLong` above the durable byte bound,
+    /// `HistoryFull` if the event would consume space reserved for recovery and completion,
+    /// `NotFound` for an untracked submission,
     /// `InvalidTransition` for a move `legal_transition` forbids, `SuccessWithoutVerifiedReceipt`
     /// for `Executed` without verified evidence, `ReceiptMismatch` for evidence naming another
     /// activity, and `Corrupt` or `Store` when the updated record cannot be encoded or persisted.
@@ -481,6 +517,9 @@ impl Outbox {
         if cause.is_empty() {
             return Err(OutboxError::EmptyCause);
         }
+        if cause.len() > MAX_RECORD_FIELD_BYTES {
+            return Err(OutboxError::CauseTooLong);
+        }
         let current = self
             .records
             .get(&submission_id)
@@ -535,6 +574,9 @@ impl Outbox {
         } else {
             current.status.evidence
         };
+        if current.status.transitions.len() >= MAX_TRANSITIONS - to.remaining_transitions() {
+            return Err(OutboxError::HistoryFull);
+        }
         let mut updated = current;
         updated.status.state = to;
         updated.status.evidence = receipt;
@@ -573,6 +615,8 @@ pub enum OutboxError {
     NotFound,
     NotQueued,
     EmptyCause,
+    CauseTooLong,
+    HistoryFull,
     Corrupt,
     SuccessWithoutVerifiedReceipt,
     ReceiptMismatch,
@@ -607,6 +651,9 @@ pub fn legal_transition(from: SubmissionState, to: SubmissionState) -> bool {
 }
 
 fn encode_record(record: &OutboxRecord) -> Result<Vec<u8>, OutboxError> {
+    if record.status.transitions.len() > MAX_TRANSITIONS {
+        return Err(OutboxError::HistoryFull);
+    }
     let mut bytes = Vec::new();
     bytes.extend_from_slice(b"LXOB");
     bytes.push(4);
@@ -647,7 +694,7 @@ fn decode_record(bytes: &[u8], tenant: TenantId) -> Result<OutboxRecord, OutboxE
     let activity_id = decoder.fixed()?;
     let evidence = decoder.receipt()?;
     let transition_count = decoder.u32()? as usize;
-    if transition_count > 1_024 {
+    if transition_count > MAX_TRANSITIONS {
         return Err(OutboxError::Corrupt);
     }
     let mut transitions = Vec::with_capacity(transition_count);
@@ -701,6 +748,9 @@ fn push_u32(bytes: &mut Vec<u8>, value: usize) -> Result<(), OutboxError> {
 }
 
 fn push_bytes(bytes: &mut Vec<u8>, value: &[u8]) -> Result<(), OutboxError> {
+    if value.len() > MAX_RECORD_FIELD_BYTES {
+        return Err(OutboxError::CauseTooLong);
+    }
     push_u32(bytes, value.len())?;
     bytes.extend_from_slice(value);
     Ok(())
@@ -743,7 +793,7 @@ impl<'a> RecordDecoder<'a> {
 
     fn bytes(&mut self) -> Result<&'a [u8], OutboxError> {
         let length = self.u32()? as usize;
-        if length > 1_048_576 {
+        if length > MAX_RECORD_FIELD_BYTES {
             return Err(OutboxError::Corrupt);
         }
         self.take(length)

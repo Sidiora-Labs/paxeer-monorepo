@@ -3,6 +3,7 @@ package benchmark
 import (
 	"encoding/binary"
 	"fmt"
+	"math"
 	"math/rand"
 	"os"
 	"path"
@@ -77,6 +78,9 @@ type Cohort struct {
 	// is NOT serialized to disk.
 	nextKeyIndex uint64
 
+	// Tracks exhaustion when the last key is MaxUint64 and the cursor cannot advance.
+	keysExhausted bool
+
 	// True iff all key-value pairs in the cohort have been written to the database.
 	allValuesWritten bool
 
@@ -98,6 +102,10 @@ func NewCohort(
 	highIndex uint64,
 	valueSize uint64,
 	fsync bool) (*Cohort, error) {
+
+	if err := validateCohortRange(lowIndex, highIndex); err != nil {
+		return nil, err
+	}
 
 	cohort := &Cohort{
 		parentDirectory:     parentDirectory,
@@ -121,6 +129,10 @@ func NewCohort(
 
 // LoadCohort loads a cohort from the given path.
 func LoadCohort(path string) (*Cohort, error) {
+	return loadCohort(path, false)
+}
+
+func loadCohort(path string, fsync bool) (*Cohort, error) {
 
 	parentDirectory := filepath.Dir(path)
 	// Cohort file names are in the format "X.cohort", where X is the cohort index.
@@ -135,6 +147,7 @@ func LoadCohort(path string) (*Cohort, error) {
 		parentDirectory: parentDirectory,
 		cohortIndex:     cohortIndex,
 		loadedFromDisk:  true,
+		fsync:           fsync,
 	}
 
 	filePath := cohort.Path()
@@ -167,9 +180,19 @@ func LoadCohort(path string) (*Cohort, error) {
 
 // NextCohort creates the next cohort in the sequence with the given number of keys.
 func (c *Cohort) NextCohort(keyCount uint64, valueSize uint64) (*Cohort, error) {
+	if keyCount == 0 {
+		return nil, fmt.Errorf("cannot create next cohort with no keys")
+	}
+	if c.cohortIndex == math.MaxUint64 {
+		return nil, fmt.Errorf("next cohort index overflows uint64")
+	}
+	if keyCount > math.MaxUint64-c.highKeyIndex {
+		return nil, fmt.Errorf("next cohort key range overflows uint64")
+	}
+
 	nextIndex := c.cohortIndex + 1
 	nextLowKeyIndex := c.highKeyIndex + 1
-	nextHighKeyIndex := nextLowKeyIndex + keyCount - 1
+	nextHighKeyIndex := c.highKeyIndex + keyCount
 
 	nextCohort, err := NewCohort(
 		c.parentDirectory,
@@ -218,7 +241,7 @@ func (c *Cohort) IsComplete() bool {
 // capable of producing. Once exhausted, a cohort should be marked as completed once all key-value pairs have been
 // written to the database, thus making all keys in the cohort safe to read.
 func (c *Cohort) IsExhausted() bool {
-	return c.nextKeyIndex > c.highKeyIndex
+	return c.keysExhausted || c.nextKeyIndex > c.highKeyIndex
 }
 
 // IsLoadedFromDisk returns true if the cohort has been loaded from disk.
@@ -239,7 +262,11 @@ func (c *Cohort) GetKeyIndexForWriting() (uint64, error) {
 	}
 
 	key := c.nextKeyIndex
-	c.nextKeyIndex++
+	if key == math.MaxUint64 {
+		c.keysExhausted = true
+	} else {
+		c.nextKeyIndex++
+	}
 
 	return key, nil
 }
@@ -272,13 +299,14 @@ func (c *Cohort) MarkComplete() error {
 	if c.loadedFromDisk {
 		return fmt.Errorf("cannot mark cohort complete: cohort has been loaded from disk")
 	}
-	if c.nextKeyIndex <= c.highKeyIndex {
+	if !c.IsExhausted() {
 		return fmt.Errorf("cannot mark cohort complete: cohort is not exhausted")
 	}
 
 	c.allValuesWritten = true
 	err := c.Write()
 	if err != nil {
+		c.allValuesWritten = false
 		return fmt.Errorf("failed to mark cohort complete: %w", err)
 	}
 	return nil
@@ -326,6 +354,16 @@ func (c *Cohort) serialize() []byte {
 	return data
 }
 
+func validateCohortRange(lowIndex, highIndex uint64) error {
+	if lowIndex > highIndex {
+		return fmt.Errorf("invalid index range: %d > %d", lowIndex, highIndex)
+	}
+	if highIndex-lowIndex == math.MaxUint64 {
+		return fmt.Errorf("index range size overflows uint64: [%d, %d]", lowIndex, highIndex)
+	}
+	return nil
+}
+
 func (c *Cohort) deserialize(data []byte) error {
 	if len(data) != 41 {
 		return fmt.Errorf("invalid data length: %d", len(data))
@@ -339,8 +377,8 @@ func (c *Cohort) deserialize(data []byte) error {
 	c.lowKeyIndex = binary.BigEndian.Uint64(data[8:16])
 	c.highKeyIndex = binary.BigEndian.Uint64(data[16:24])
 	c.valueSize = binary.BigEndian.Uint64(data[24:32])
-	if c.lowKeyIndex >= c.highKeyIndex {
-		return fmt.Errorf("invalid index range: %d >= %d", c.lowKeyIndex, c.highKeyIndex)
+	if err := validateCohortRange(c.lowKeyIndex, c.highKeyIndex); err != nil {
+		return err
 	}
 
 	c.firstValueTimestamp = time.Unix(int64(binary.BigEndian.Uint64(data[32:40])), 0) //nolint:gosec // wall-clock seconds fit int64

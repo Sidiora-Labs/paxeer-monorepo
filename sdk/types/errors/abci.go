@@ -32,9 +32,8 @@ func safeIntFromUint64(v uint64) int64 {
 // client. Returned codespace, code, and log message should be used as a ABCI response.
 // Any error that does not provide ABCICode information is categorized as error
 // with code 1, codespace UndefinedCodespace
-// When not running in a debug mode all messages of errors that do not provide
-// ABCICode information are replaced with generic "internal error". Errors
-// without an ABCICode information as considered internal.
+// Outside debug mode, only registered root errors other than internal errors
+// and ErrPanic expose their messages; all others return "internal error".
 func ABCIInfo(err error, debug bool) (codespace string, code uint32, log string) {
 	if errIsNil(err) {
 		return "", SuccessABCICode, ""
@@ -104,7 +103,21 @@ func debugErrEncoder(err error) string {
 }
 
 func defaultErrEncoder(err error) string {
-	return err.Error()
+	for cause := err; !errIsNil(cause); {
+		if root, ok := cause.(*Error); ok {
+			if root != ErrPanic && root != errInternal && getUsed(root.codespace, root.code) == root {
+				return err.Error()
+			}
+			return "internal error"
+		}
+
+		if c, ok := cause.(causer); ok {
+			cause = c.Cause()
+		} else {
+			break
+		}
+	}
+	return "internal error"
 }
 
 type coder interface {

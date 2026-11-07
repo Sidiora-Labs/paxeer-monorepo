@@ -1,0 +1,2197 @@
+[audit.22.30.143]
+task = "22.30.143"
+revision = "2b99f88520e4e809ad5593f3bee2df74fe355d7b"
+files_reviewed = 290
+findings = 37
+docs_reviewed = 14
+upgrade_ready = false
+blocking = ["bridge-all-rejected", "transaction-create-recipient", "internal-create-recipient", "raw-trace-producer-shape", "mint-log-indexer-abort"]
+
+[file.001]
+path = "apps/explorer/ui/home/HeroBanner.pw.tsx"
+lines = 47
+verdict = "issues"
+note = "Read in full; concrete disagreements and owning-path repair proposals are recorded in this file's findings."
+
+[file.002]
+path = "apps/explorer/ui/home/HeroBanner.spec.tsx"
+lines = 73
+verdict = "clean"
+note = "Read the full component, utility or test against applicable homepage REST types, socket notifier payloads and configuration paths. EVM and price-update rows preserve their separate types and party/status behavior under 18870. No additional issue identified beyond the recorded owning-component findings."
+
+[file.003]
+path = "apps/explorer/ui/home/HeroBanner.tsx"
+lines = 95
+verdict = "issues"
+note = "Read in full; concrete disagreements and owning-path repair proposals are recorded in this file's findings."
+
+[file.004]
+path = "apps/explorer/ui/home/Highlights.pw.tsx"
+lines = 73
+verdict = "issues"
+note = "Read in full; concrete disagreements and owning-path repair proposals are recorded in this file's findings."
+
+[file.005]
+path = "apps/explorer/ui/home/Highlights.spec.tsx"
+lines = 47
+verdict = "clean"
+note = "Read the full component, utility or test against applicable homepage REST types, socket notifier payloads and configuration paths. EVM and price-update rows preserve their separate types and party/status behavior under 18870. No additional issue identified beyond the recorded owning-component findings."
+
+[file.006]
+path = "apps/explorer/ui/home/Highlights.tsx"
+lines = 34
+verdict = "issues"
+note = "Read in full; concrete disagreements and owning-path repair proposals are recorded in this file's findings."
+
+[file.007]
+path = "apps/explorer/ui/home/LatestBlocks.pw.tsx"
+lines = 82
+verdict = "clean"
+note = "Read the full component, utility or test against applicable homepage REST types, socket notifier payloads and configuration paths. EVM and price-update rows preserve their separate types and party/status behavior under 18870. No additional issue identified beyond the recorded owning-component findings."
+
+[file.008]
+path = "apps/explorer/ui/home/LatestBlocks.spec.tsx"
+lines = 301
+verdict = "clean"
+note = "Read the full component, utility or test against applicable homepage REST types, socket notifier payloads and configuration paths. EVM and price-update rows preserve their separate types and party/status behavior under 18870. No additional issue identified beyond the recorded owning-component findings."
+
+[file.009]
+path = "apps/explorer/ui/home/LatestBlocks.tsx"
+lines = 205
+verdict = "issues"
+note = "Read in full; concrete disagreements and owning-path repair proposals are recorded in this file's findings."
+
+[file.010]
+path = "apps/explorer/ui/home/LatestBlocksItem.spec.tsx"
+lines = 116
+verdict = "clean"
+note = "Read the full component, utility or test against applicable homepage REST types, socket notifier payloads and configuration paths. EVM and price-update rows preserve their separate types and party/status behavior under 18870. No additional issue identified beyond the recorded owning-component findings."
+
+[file.011]
+path = "apps/explorer/ui/home/LatestBlocksItem.tsx"
+lines = 133
+verdict = "clean"
+note = "Read the full component, utility or test against applicable homepage REST types, socket notifier payloads and configuration paths. EVM and price-update rows preserve their separate types and party/status behavior under 18870. No additional issue identified beyond the recorded owning-component findings."
+
+[file.012]
+path = "apps/explorer/ui/home/LatestTxs.pw.tsx"
+lines = 111
+verdict = "clean"
+note = "Read the full component, utility or test against applicable homepage REST types, socket notifier payloads and configuration paths. EVM and price-update rows preserve their separate types and party/status behavior under 18870. No additional issue identified beyond the recorded owning-component findings."
+
+[file.013]
+path = "apps/explorer/ui/home/LatestTxs.spec.tsx"
+lines = 179
+verdict = "clean"
+note = "Read the full component, utility or test against applicable homepage REST types, socket notifier payloads and configuration paths. EVM and price-update rows preserve their separate types and party/status behavior under 18870. No additional issue identified beyond the recorded owning-component findings."
+
+[file.014]
+path = "apps/explorer/ui/home/LatestTxs.tsx"
+lines = 124
+verdict = "clean"
+note = "Read the full component, utility or test against applicable homepage REST types, socket notifier payloads and configuration paths. EVM and price-update rows preserve their separate types and party/status behavior under 18870. No additional issue identified beyond the recorded owning-component findings."
+
+[file.015]
+path = "apps/explorer/ui/home/LatestTxsItem.spec.tsx"
+lines = 149
+verdict = "clean"
+note = "Read the full component, utility or test against applicable homepage REST types, socket notifier payloads and configuration paths. EVM and price-update rows preserve their separate types and party/status behavior under 18870. No additional issue identified beyond the recorded owning-component findings."
+
+[file.016]
+path = "apps/explorer/ui/home/LatestTxsItem.tsx"
+lines = 149
+verdict = "clean"
+note = "Read the full component, utility or test against applicable homepage REST types, socket notifier payloads and configuration paths. EVM and price-update rows preserve their separate types and party/status behavior under 18870. No additional issue identified beyond the recorded owning-component findings."
+
+[file.017]
+path = "apps/explorer/ui/home/LatestTxsItemMobile.spec.tsx"
+lines = 125
+verdict = "clean"
+note = "Read the full component, utility or test against applicable homepage REST types, socket notifier payloads and configuration paths. EVM and price-update rows preserve their separate types and party/status behavior under 18870. No additional issue identified beyond the recorded owning-component findings."
+
+[file.018]
+path = "apps/explorer/ui/home/LatestTxsItemMobile.tsx"
+lines = 117
+verdict = "clean"
+note = "Read the full component, utility or test against applicable homepage REST types, socket notifier payloads and configuration paths. EVM and price-update rows preserve their separate types and party/status behavior under 18870. No additional issue identified beyond the recorded owning-component findings."
+
+[file.019]
+path = "apps/explorer/ui/home/LatestWatchlistTxs.tsx"
+lines = 66
+verdict = "clean"
+note = "Read the full component, utility or test against applicable homepage REST types, socket notifier payloads and configuration paths. EVM and price-update rows preserve their separate types and party/status behavior under 18870. No additional issue identified beyond the recorded owning-component findings."
+
+[file.020]
+path = "apps/explorer/ui/home/Stats.pw.tsx"
+lines = 54
+verdict = "issues"
+note = "Read in full; concrete disagreements and owning-path repair proposals are recorded in this file's findings."
+
+[file.021]
+path = "apps/explorer/ui/home/Stats.spec.tsx"
+lines = 200
+verdict = "clean"
+note = "Read the full component, utility or test against applicable homepage REST types, socket notifier payloads and configuration paths. EVM and price-update rows preserve their separate types and party/status behavior under 18870. No additional issue identified beyond the recorded owning-component findings."
+
+[file.022]
+path = "apps/explorer/ui/home/Stats.tsx"
+lines = 206
+verdict = "issues"
+note = "Read in full; concrete disagreements and owning-path repair proposals are recorded in this file's findings."
+
+[file.023]
+path = "apps/explorer/ui/home/Transactions.spec.tsx"
+lines = 66
+verdict = "clean"
+note = "Read the full component, utility or test against applicable homepage REST types, socket notifier payloads and configuration paths. EVM and price-update rows preserve their separate types and party/status behavior under 18870. No additional issue identified beyond the recorded owning-component findings."
+
+[file.024]
+path = "apps/explorer/ui/home/Transactions.tsx"
+lines = 74
+verdict = "clean"
+note = "Read the full component, utility or test against applicable homepage REST types, socket notifier payloads and configuration paths. EVM and price-update rows preserve their separate types and party/status behavior under 18870. No additional issue identified beyond the recorded owning-component findings."
+
+[file.025]
+path = "apps/explorer/ui/home/fallbacks/LatestBlocksDegraded.spec.tsx"
+lines = 50
+verdict = "clean"
+note = "Read the full component, utility or test against applicable homepage REST types, socket notifier payloads and configuration paths. EVM and price-update rows preserve their separate types and party/status behavior under 18870. No additional issue identified beyond the recorded owning-component findings."
+
+[file.026]
+path = "apps/explorer/ui/home/fallbacks/LatestBlocksDegraded.tsx"
+lines = 57
+verdict = "clean"
+note = "Read the full component, utility or test against applicable homepage REST types, socket notifier payloads and configuration paths. EVM and price-update rows preserve their separate types and party/status behavior under 18870. No additional issue identified beyond the recorded owning-component findings."
+
+[file.027]
+path = "apps/explorer/ui/home/fallbacks/LatestBlocksFallback.tsx"
+lines = 28
+verdict = "clean"
+note = "Read the full component, utility or test against applicable homepage REST types, socket notifier payloads and configuration paths. EVM and price-update rows preserve their separate types and party/status behavior under 18870. No additional issue identified beyond the recorded owning-component findings."
+
+[file.028]
+path = "apps/explorer/ui/home/fallbacks/LatestTxsDegraded.tsx"
+lines = 78
+verdict = "clean"
+note = "Read the full component, utility or test against applicable homepage REST types, socket notifier payloads and configuration paths. EVM and price-update rows preserve their separate types and party/status behavior under 18870. No additional issue identified beyond the recorded owning-component findings."
+
+[file.029]
+path = "apps/explorer/ui/home/fallbacks/LatestTxsDegradedNewItems.tsx"
+lines = 24
+verdict = "clean"
+note = "Read the full component, utility or test against applicable homepage REST types, socket notifier payloads and configuration paths. EVM and price-update rows preserve their separate types and party/status behavior under 18870. No additional issue identified beyond the recorded owning-component findings."
+
+[file.030]
+path = "apps/explorer/ui/home/fallbacks/LatestTxsFallback.tsx"
+lines = 47
+verdict = "clean"
+note = "Read the full component, utility or test against applicable homepage REST types, socket notifier payloads and configuration paths. EVM and price-update rows preserve their separate types and party/status behavior under 18870. No additional issue identified beyond the recorded owning-component findings."
+
+[file.031]
+path = "apps/explorer/ui/home/fallbacks/StatsDegraded.tsx"
+lines = 181
+verdict = "clean"
+note = "Read the full component, utility or test against applicable homepage REST types, socket notifier payloads and configuration paths. EVM and price-update rows preserve their separate types and party/status behavior under 18870. No additional issue identified beyond the recorded owning-component findings."
+
+[file.032]
+path = "apps/explorer/ui/home/fallbacks/rpcDataContext.tsx"
+lines = 179
+verdict = "issues"
+note = "Read in full; concrete disagreements and owning-path repair proposals are recorded in this file's findings."
+
+[file.033]
+path = "apps/explorer/ui/home/highlights/HighlightsItem.spec.tsx"
+lines = 47
+verdict = "clean"
+note = "Read the full component, utility or test against applicable homepage REST types, socket notifier payloads and configuration paths. EVM and price-update rows preserve their separate types and party/status behavior under 18870. No additional issue identified beyond the recorded owning-component findings."
+
+[file.034]
+path = "apps/explorer/ui/home/highlights/HighlightsItem.tsx"
+lines = 58
+verdict = "clean"
+note = "Read the full component, utility or test against applicable homepage REST types, socket notifier payloads and configuration paths. EVM and price-update rows preserve their separate types and party/status behavior under 18870. No additional issue identified beyond the recorded owning-component findings."
+
+[file.035]
+path = "apps/explorer/ui/home/indicators/ChainIndicatorChartContainer.tsx"
+lines = 38
+verdict = "clean"
+note = "Read the full component, utility or test against applicable homepage REST types, socket notifier payloads and configuration paths. EVM and price-update rows preserve their separate types and party/status behavior under 18870. No additional issue identified beyond the recorded owning-component findings."
+
+[file.036]
+path = "apps/explorer/ui/home/indicators/ChainIndicatorChartContent.spec.tsx"
+lines = 54
+verdict = "clean"
+note = "Read the full component, utility or test against applicable homepage REST types, socket notifier payloads and configuration paths. EVM and price-update rows preserve their separate types and party/status behavior under 18870. No additional issue identified beyond the recorded owning-component findings."
+
+[file.037]
+path = "apps/explorer/ui/home/indicators/ChainIndicatorChartContent.tsx"
+lines = 85
+verdict = "clean"
+note = "Read the full component, utility or test against applicable homepage REST types, socket notifier payloads and configuration paths. EVM and price-update rows preserve their separate types and party/status behavior under 18870. No additional issue identified beyond the recorded owning-component findings."
+
+[file.038]
+path = "apps/explorer/ui/home/indicators/ChainIndicatorItem.tsx"
+lines = 81
+verdict = "clean"
+note = "Read the full component, utility or test against applicable homepage REST types, socket notifier payloads and configuration paths. EVM and price-update rows preserve their separate types and party/status behavior under 18870. No additional issue identified beyond the recorded owning-component findings."
+
+[file.039]
+path = "apps/explorer/ui/home/indicators/ChainIndicators.pw.tsx"
+lines = 65
+verdict = "clean"
+note = "Read the full component, utility or test against applicable homepage REST types, socket notifier payloads and configuration paths. EVM and price-update rows preserve their separate types and party/status behavior under 18870. No additional issue identified beyond the recorded owning-component findings."
+
+[file.040]
+path = "apps/explorer/ui/home/indicators/ChainIndicators.tsx"
+lines = 188
+verdict = "clean"
+note = "Read the full component, utility or test against applicable homepage REST types, socket notifier payloads and configuration paths. EVM and price-update rows preserve their separate types and party/status behavior under 18870. No additional issue identified beyond the recorded owning-component findings."
+
+[file.041]
+path = "apps/explorer/ui/home/indicators/ChainIndicatorsChart.spec.tsx"
+lines = 72
+verdict = "clean"
+note = "Read the full component, utility or test against applicable homepage REST types, socket notifier payloads and configuration paths. EVM and price-update rows preserve their separate types and party/status behavior under 18870. No additional issue identified beyond the recorded owning-component findings."
+
+[file.042]
+path = "apps/explorer/ui/home/indicators/ChainIndicatorsChart.tsx"
+lines = 97
+verdict = "clean"
+note = "Read the full component, utility or test against applicable homepage REST types, socket notifier payloads and configuration paths. EVM and price-update rows preserve their separate types and party/status behavior under 18870. No additional issue identified beyond the recorded owning-component findings."
+
+[file.043]
+path = "apps/explorer/ui/home/indicators/ChainIndicatorsContainer.tsx"
+lines = 26
+verdict = "clean"
+note = "Read the full component, utility or test against applicable homepage REST types, socket notifier payloads and configuration paths. EVM and price-update rows preserve their separate types and party/status behavior under 18870. No additional issue identified beyond the recorded owning-component findings."
+
+[file.044]
+path = "apps/explorer/ui/home/indicators/ChainIndicatorsList.tsx"
+lines = 45
+verdict = "clean"
+note = "Read the full component, utility or test against applicable homepage REST types, socket notifier payloads and configuration paths. EVM and price-update rows preserve their separate types and party/status behavior under 18870. No additional issue identified beyond the recorded owning-component findings."
+
+[file.045]
+path = "apps/explorer/ui/home/indicators/types.ts"
+lines = 13
+verdict = "clean"
+note = "Read the full component, utility or test against applicable homepage REST types, socket notifier payloads and configuration paths. EVM and price-update rows preserve their separate types and party/status behavior under 18870. No additional issue identified beyond the recorded owning-component findings."
+
+[file.046]
+path = "apps/explorer/ui/home/indicators/useChartDataQuery.tsx"
+lines = 148
+verdict = "clean"
+note = "Read the full component, utility or test against applicable homepage REST types, socket notifier payloads and configuration paths. EVM and price-update rows preserve their separate types and party/status behavior under 18870. No additional issue identified beyond the recorded owning-component findings."
+
+[file.047]
+path = "apps/explorer/ui/home/indicators/utils/chart.ts"
+lines = 59
+verdict = "issues"
+note = "Read in full; concrete disagreements and owning-path repair proposals are recorded in this file's findings."
+
+[file.048]
+path = "apps/explorer/ui/home/indicators/utils/indicators.ts"
+lines = 17
+verdict = "clean"
+note = "Read the full component, utility or test against applicable homepage REST types, socket notifier payloads and configuration paths. EVM and price-update rows preserve their separate types and party/status behavior under 18870. No additional issue identified beyond the recorded owning-component findings."
+
+[file.049]
+path = "apps/explorer/ui/home/latestBatches/LatestArbitrumL2Batches.pw.tsx"
+lines = 15
+verdict = "clean"
+note = "Read the full component, utility or test against applicable homepage REST types, socket notifier payloads and configuration paths. EVM and price-update rows preserve their separate types and party/status behavior under 18870. No additional issue identified beyond the recorded owning-component findings."
+
+[file.050]
+path = "apps/explorer/ui/home/latestBatches/LatestArbitrumL2Batches.tsx"
+lines = 100
+verdict = "clean"
+note = "Read the full component, utility or test against applicable homepage REST types, socket notifier payloads and configuration paths. EVM and price-update rows preserve their separate types and party/status behavior under 18870. No additional issue identified beyond the recorded owning-component findings."
+
+[file.051]
+path = "apps/explorer/ui/home/latestBatches/LatestBatchItem.tsx"
+lines = 66
+verdict = "clean"
+note = "Read the full component, utility or test against applicable homepage REST types, socket notifier payloads and configuration paths. EVM and price-update rows preserve their separate types and party/status behavior under 18870. No additional issue identified beyond the recorded owning-component findings."
+
+[file.052]
+path = "apps/explorer/ui/home/latestBatches/LatestZkEvmL2Batches.pw.tsx"
+lines = 15
+verdict = "clean"
+note = "Read the full component, utility or test against applicable homepage REST types, socket notifier payloads and configuration paths. EVM and price-update rows preserve their separate types and party/status behavior under 18870. No additional issue identified beyond the recorded owning-component findings."
+
+[file.053]
+path = "apps/explorer/ui/home/latestBatches/LatestZkEvmL2Batches.tsx"
+lines = 104
+verdict = "clean"
+note = "Read the full component, utility or test against applicable homepage REST types, socket notifier payloads and configuration paths. EVM and price-update rows preserve their separate types and party/status behavior under 18870. No additional issue identified beyond the recorded owning-component findings."
+
+[file.054]
+path = "apps/explorer/ui/home/latestCrossChainTxs/LatestCrossChainTxs.tsx"
+lines = 73
+verdict = "clean"
+note = "Read the full component, utility or test against applicable homepage REST types, socket notifier payloads and configuration paths. EVM and price-update rows preserve their separate types and party/status behavior under 18870. No additional issue identified beyond the recorded owning-component findings."
+
+[file.055]
+path = "apps/explorer/ui/home/latestCrossChainTxs/LatestCrossChainTxsItemDesktop.tsx"
+lines = 86
+verdict = "clean"
+note = "Read the full component, utility or test against applicable homepage REST types, socket notifier payloads and configuration paths. EVM and price-update rows preserve their separate types and party/status behavior under 18870. No additional issue identified beyond the recorded owning-component findings."
+
+[file.056]
+path = "apps/explorer/ui/home/latestDeposits/LatestArbitrumDeposits.pw.tsx"
+lines = 14
+verdict = "clean"
+note = "Read the full component, utility or test against applicable homepage REST types, socket notifier payloads and configuration paths. EVM and price-update rows preserve their separate types and party/status behavior under 18870. No additional issue identified beyond the recorded owning-component findings."
+
+[file.057]
+path = "apps/explorer/ui/home/latestDeposits/LatestArbitrumDeposits.tsx"
+lines = 78
+verdict = "clean"
+note = "Read the full component, utility or test against applicable homepage REST types, socket notifier payloads and configuration paths. EVM and price-update rows preserve their separate types and party/status behavior under 18870. No additional issue identified beyond the recorded owning-component findings."
+
+[file.058]
+path = "apps/explorer/ui/home/latestDeposits/LatestDeposits.tsx"
+lines = 180
+verdict = "clean"
+note = "Read the full component, utility or test against applicable homepage REST types, socket notifier payloads and configuration paths. EVM and price-update rows preserve their separate types and party/status behavior under 18870. No additional issue identified beyond the recorded owning-component findings."
+
+[file.059]
+path = "apps/explorer/ui/home/latestDeposits/LatestDepositsItem.tsx"
+lines = 124
+verdict = "clean"
+note = "Read the full component, utility or test against applicable homepage REST types, socket notifier payloads and configuration paths. EVM and price-update rows preserve their separate types and party/status behavior under 18870. No additional issue identified beyond the recorded owning-component findings."
+
+[file.060]
+path = "apps/explorer/ui/home/latestDeposits/LatestOptimisticDeposits.pw.tsx"
+lines = 14
+verdict = "clean"
+note = "Read the full component, utility or test against applicable homepage REST types, socket notifier payloads and configuration paths. EVM and price-update rows preserve their separate types and party/status behavior under 18870. No additional issue identified beyond the recorded owning-component findings."
+
+[file.061]
+path = "apps/explorer/ui/home/latestDeposits/LatestOptimisticDeposits.tsx"
+lines = 73
+verdict = "clean"
+note = "Read the full component, utility or test against applicable homepage REST types, socket notifier payloads and configuration paths. EVM and price-update rows preserve their separate types and party/status behavior under 18870. No additional issue identified beyond the recorded owning-component findings."
+
+[file.062]
+path = "apps/explorer/ui/home/latestZetaChainCCTX/LatestZetaChainCCTXItem.tsx"
+lines = 53
+verdict = "clean"
+note = "Read the full component, utility or test against applicable homepage REST types, socket notifier payloads and configuration paths. EVM and price-update rows preserve their separate types and party/status behavior under 18870. No additional issue identified beyond the recorded owning-component findings."
+
+[file.063]
+path = "apps/explorer/ui/home/latestZetaChainCCTX/LatestZetaChainCCTXs.pw.tsx"
+lines = 52
+verdict = "clean"
+note = "Read the full component, utility or test against applicable homepage REST types, socket notifier payloads and configuration paths. EVM and price-update rows preserve their separate types and party/status behavior under 18870. No additional issue identified beyond the recorded owning-component findings."
+
+[file.064]
+path = "apps/explorer/ui/home/latestZetaChainCCTX/LatestZetaChainCCTXs.tsx"
+lines = 159
+verdict = "clean"
+note = "Read the full component, utility or test against applicable homepage REST types, socket notifier payloads and configuration paths. EVM and price-update rows preserve their separate types and party/status behavior under 18870. No additional issue identified beyond the recorded owning-component findings."
+
+[file.065]
+path = "apps/explorer/ui/home/utils.ts"
+lines = 22
+verdict = "clean"
+note = "Read the full component, utility or test against applicable homepage REST types, socket notifier payloads and configuration paths. EVM and price-update rows preserve their separate types and party/status behavior under 18870. No additional issue identified beyond the recorded owning-component findings."
+
+[file.066]
+path = "services/bridge/deploy/deploy-evm-chain.sh"
+lines = 348
+verdict = "issues"
+note = "Read in full; concrete disagreements and owning-path repair proposals are recorded in this file's findings."
+
+[file.067]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/account.ex"
+lines = 85
+verdict = "clean"
+note = "Read the complete schema, required/nullable fields, encodings and chain-specific additions against response/view types and applicable package interfaces. No additional mismatch or active retired reference identified; nullable recipient and raw-trace defects are recorded at their owning schemas."
+
+[file.068]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/account/session.ex"
+lines = 26
+verdict = "clean"
+note = "Read the complete schema, required/nullable fields, encodings and chain-specific additions against response/view types and applicable package interfaces. No additional mismatch or active retired reference identified; nullable recipient and raw-trace defects are recorded at their owning schemas."
+
+[file.069]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/account/user.ex"
+lines = 22
+verdict = "clean"
+note = "Read the complete schema, required/nullable fields, encodings and chain-specific additions against response/view types and applicable package interfaces. No additional mismatch or active retired reference identified; nullable recipient and raw-trace defects are recorded at their owning schemas."
+
+[file.070]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/address.ex"
+lines = 131
+verdict = "clean"
+note = "Read the complete schema, required/nullable fields, encodings and chain-specific additions against response/view types and applicable package interfaces. No additional mismatch or active retired reference identified; nullable recipient and raw-trace defects are recorded at their owning schemas."
+
+[file.071]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/address/counters.ex"
+lines = 22
+verdict = "clean"
+note = "Read the complete schema, required/nullable fields, encodings and chain-specific additions against response/view types and applicable package interfaces. No additional mismatch or active retired reference identified; nullable recipient and raw-trace defects are recorded at their owning schemas."
+
+[file.072]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/address/response.ex"
+lines = 159
+verdict = "clean"
+note = "Read the complete schema, required/nullable fields, encodings and chain-specific additions against response/view types and applicable package interfaces. No additional mismatch or active retired reference identified; nullable recipient and raw-trace defects are recorded at their owning schemas."
+
+[file.073]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/address/tabs_counters.ex"
+lines = 26
+verdict = "clean"
+note = "Read the complete schema, required/nullable fields, encodings and chain-specific additions against response/view types and applicable package interfaces. No additional mismatch or active retired reference identified; nullable recipient and raw-trace defects are recorded at their owning schemas."
+
+[file.074]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/address/token_balance.ex"
+lines = 21
+verdict = "clean"
+note = "Read the complete schema, required/nullable fields, encodings and chain-specific additions against response/view types and applicable package interfaces. No additional mismatch or active retired reference identified; nullable recipient and raw-trace defects are recorded at their owning schemas."
+
+[file.075]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/address_nullable.ex"
+lines = 18
+verdict = "clean"
+note = "Read the complete schema, required/nullable fields, encodings and chain-specific additions against response/view types and applicable package interfaces. No additional mismatch or active retired reference identified; nullable recipient and raw-trace defects are recorded at their owning schemas."
+
+[file.076]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/beacon/deposit.ex"
+lines = 41
+verdict = "clean"
+note = "Read the complete schema, required/nullable fields, encodings and chain-specific additions against response/view types and applicable package interfaces. No additional mismatch or active retired reference identified; nullable recipient and raw-trace defects are recorded at their owning schemas."
+
+[file.077]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/beacon/deposit/response.ex"
+lines = 17
+verdict = "clean"
+note = "Read the complete schema, required/nullable fields, encodings and chain-specific additions against response/view types and applicable package interfaces. No additional mismatch or active retired reference identified; nullable recipient and raw-trace defects are recorded at their owning schemas."
+
+[file.078]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/beacon/deposit/status.ex"
+lines = 8
+verdict = "clean"
+note = "Read the complete schema, required/nullable fields, encodings and chain-specific additions against response/view types and applicable package interfaces. No additional mismatch or active retired reference identified; nullable recipient and raw-trace defects are recorded at their owning schemas."
+
+[file.079]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/blob.ex"
+lines = 18
+verdict = "clean"
+note = "Read the complete schema, required/nullable fields, encodings and chain-specific additions against response/view types and applicable package interfaces. No additional mismatch or active retired reference identified; nullable recipient and raw-trace defects are recorded at their owning schemas."
+
+[file.080]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/blob/response.ex"
+lines = 17
+verdict = "clean"
+note = "Read the complete schema, required/nullable fields, encodings and chain-specific additions against response/view types and applicable package interfaces. No additional mismatch or active retired reference identified; nullable recipient and raw-trace defects are recorded at their owning schemas."
+
+[file.081]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/block.ex"
+lines = 443
+verdict = "clean"
+note = "Read the complete schema, required/nullable fields, encodings and chain-specific additions against response/view types and applicable package interfaces. No additional mismatch or active retired reference identified; nullable recipient and raw-trace defects are recorded at their owning schemas."
+
+[file.082]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/block/countdown.ex"
+lines = 53
+verdict = "clean"
+note = "Read the complete schema, required/nullable fields, encodings and chain-specific additions against response/view types and applicable package interfaces. No additional mismatch or active retired reference identified; nullable recipient and raw-trace defects are recorded at their owning schemas."
+
+[file.083]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/block/response.ex"
+lines = 17
+verdict = "clean"
+note = "Read the complete schema, required/nullable fields, encodings and chain-specific additions against response/view types and applicable package interfaces. No additional mismatch or active retired reference identified; nullable recipient and raw-trace defects are recorded at their owning schemas."
+
+[file.084]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/celo/election_reward.ex"
+lines = 31
+verdict = "clean"
+note = "Read the complete schema, required/nullable fields, encodings and chain-specific additions against response/view types and applicable package interfaces. No additional mismatch or active retired reference identified; nullable recipient and raw-trace defects are recorded at their owning schemas."
+
+[file.085]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/celo/election_reward/type.ex"
+lines = 8
+verdict = "clean"
+note = "Read the complete schema, required/nullable fields, encodings and chain-specific additions against response/view types and applicable package interfaces. No additional mismatch or active retired reference identified; nullable recipient and raw-trace defects are recorded at their owning schemas."
+
+[file.086]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/coin_balance.ex"
+lines = 28
+verdict = "clean"
+note = "Read the complete schema, required/nullable fields, encodings and chain-specific additions against response/view types and applicable package interfaces. No additional mismatch or active retired reference identified; nullable recipient and raw-trace defects are recorded at their owning schemas."
+
+[file.087]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/coin_balance_by_day.ex"
+lines = 19
+verdict = "clean"
+note = "Read the complete schema, required/nullable fields, encodings and chain-specific additions against response/view types and applicable package interfaces. No additional mismatch or active retired reference identified; nullable recipient and raw-trace defects are recorded at their owning schemas."
+
+[file.088]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/error_responses.ex"
+lines = 113
+verdict = "clean"
+note = "Read the complete schema, required/nullable fields, encodings and chain-specific additions against response/view types and applicable package interfaces. No additional mismatch or active retired reference identified; nullable recipient and raw-trace defects are recorded at their owning schemas."
+
+[file.089]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/general.ex"
+lines = 1562
+verdict = "clean"
+note = "Read the complete schema, required/nullable fields, encodings and chain-specific additions against response/view types and applicable package interfaces. No additional mismatch or active retired reference identified; nullable recipient and raw-trace defects are recorded at their owning schemas."
+
+[file.090]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/general/address_hash.ex"
+lines = 6
+verdict = "clean"
+note = "Read the complete schema, required/nullable fields, encodings and chain-specific additions against response/view types and applicable package interfaces. No additional mismatch or active retired reference identified; nullable recipient and raw-trace defects are recorded at their owning schemas."
+
+[file.091]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/general/address_hash_nullable.ex"
+lines = 6
+verdict = "clean"
+note = "Read the complete schema, required/nullable fields, encodings and chain-specific additions against response/view types and applicable package interfaces. No additional mismatch or active retired reference identified; nullable recipient and raw-trace defects are recorded at their owning schemas."
+
+[file.092]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/general/decoded_input.ex"
+lines = 45
+verdict = "clean"
+note = "Read the complete schema, required/nullable fields, encodings and chain-specific additions against response/view types and applicable package interfaces. No additional mismatch or active retired reference identified; nullable recipient and raw-trace defects are recorded at their owning schemas."
+
+[file.093]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/general/decoded_log_input.ex"
+lines = 48
+verdict = "clean"
+note = "Read the complete schema, required/nullable fields, encodings and chain-specific additions against response/view types and applicable package interfaces. No additional mismatch or active retired reference identified; nullable recipient and raw-trace defects are recorded at their owning schemas."
+
+[file.094]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/general/empty_string.ex"
+lines = 5
+verdict = "clean"
+note = "Read the complete schema, required/nullable fields, encodings and chain-specific additions against response/view types and applicable package interfaces. No additional mismatch or active retired reference identified; nullable recipient and raw-trace defects are recorded at their owning schemas."
+
+[file.095]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/general/float_string.ex"
+lines = 6
+verdict = "clean"
+note = "Read the complete schema, required/nullable fields, encodings and chain-specific additions against response/view types and applicable package interfaces. No additional mismatch or active retired reference identified; nullable recipient and raw-trace defects are recorded at their owning schemas."
+
+[file.096]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/general/float_string_nullable.ex"
+lines = 6
+verdict = "clean"
+note = "Read the complete schema, required/nullable fields, encodings and chain-specific additions against response/view types and applicable package interfaces. No additional mismatch or active retired reference identified; nullable recipient and raw-trace defects are recorded at their owning schemas."
+
+[file.097]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/general/full_hash.ex"
+lines = 6
+verdict = "clean"
+note = "Read the complete schema, required/nullable fields, encodings and chain-specific additions against response/view types and applicable package interfaces. No additional mismatch or active retired reference identified; nullable recipient and raw-trace defects are recorded at their owning schemas."
+
+[file.098]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/general/full_hash_nullable.ex"
+lines = 6
+verdict = "clean"
+note = "Read the complete schema, required/nullable fields, encodings and chain-specific additions against response/view types and applicable package interfaces. No additional mismatch or active retired reference identified; nullable recipient and raw-trace defects are recorded at their owning schemas."
+
+[file.099]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/general/hex_string.ex"
+lines = 6
+verdict = "clean"
+note = "Read the complete schema, required/nullable fields, encodings and chain-specific additions against response/view types and applicable package interfaces. No additional mismatch or active retired reference identified; nullable recipient and raw-trace defects are recorded at their owning schemas."
+
+[file.100]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/general/hex_string_nullable.ex"
+lines = 6
+verdict = "clean"
+note = "Read the complete schema, required/nullable fields, encodings and chain-specific additions against response/view types and applicable package interfaces. No additional mismatch or active retired reference identified; nullable recipient and raw-trace defects are recorded at their owning schemas."
+
+[file.101]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/general/implementation.ex"
+lines = 22
+verdict = "clean"
+note = "Read the complete schema, required/nullable fields, encodings and chain-specific additions against response/view types and applicable package interfaces. No additional mismatch or active retired reference identified; nullable recipient and raw-trace defects are recorded at their owning schemas."
+
+[file.102]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/general/implementation/chain_type_customizations.ex"
+lines = 32
+verdict = "clean"
+note = "Read the complete schema, required/nullable fields, encodings and chain-specific additions against response/view types and applicable package interfaces. No additional mismatch or active retired reference identified; nullable recipient and raw-trace defects are recorded at their owning schemas."
+
+[file.103]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/general/integer_string.ex"
+lines = 6
+verdict = "clean"
+note = "Read the complete schema, required/nullable fields, encodings and chain-specific additions against response/view types and applicable package interfaces. No additional mismatch or active retired reference identified; nullable recipient and raw-trace defects are recorded at their owning schemas."
+
+[file.104]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/general/integer_string_nullable.ex"
+lines = 6
+verdict = "clean"
+note = "Read the complete schema, required/nullable fields, encodings and chain-specific additions against response/view types and applicable package interfaces. No additional mismatch or active retired reference identified; nullable recipient and raw-trace defects are recorded at their owning schemas."
+
+[file.105]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/general/method_name_nullable.ex"
+lines = 11
+verdict = "clean"
+note = "Read the complete schema, required/nullable fields, encodings and chain-specific additions against response/view types and applicable package interfaces. No additional mismatch or active retired reference identified; nullable recipient and raw-trace defects are recorded at their owning schemas."
+
+[file.106]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/general/null_string.ex"
+lines = 5
+verdict = "clean"
+note = "Read the complete schema, required/nullable fields, encodings and chain-specific additions against response/view types and applicable package interfaces. No additional mismatch or active retired reference identified; nullable recipient and raw-trace defects are recorded at their owning schemas."
+
+[file.107]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/general/proxy_type.ex"
+lines = 12
+verdict = "clean"
+note = "Read the complete schema, required/nullable fields, encodings and chain-specific additions against response/view types and applicable package interfaces. No additional mismatch or active retired reference identified; nullable recipient and raw-trace defects are recorded at their owning schemas."
+
+[file.108]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/general/tag.ex"
+lines = 19
+verdict = "clean"
+note = "Read the complete schema, required/nullable fields, encodings and chain-specific additions against response/view types and applicable package interfaces. No additional mismatch or active retired reference identified; nullable recipient and raw-trace defects are recorded at their owning schemas."
+
+[file.109]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/general/timestamp.ex"
+lines = 10
+verdict = "clean"
+note = "Read the complete schema, required/nullable fields, encodings and chain-specific additions against response/view types and applicable package interfaces. No additional mismatch or active retired reference identified; nullable recipient and raw-trace defects are recorded at their owning schemas."
+
+[file.110]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/general/timestamp_nullable.ex"
+lines = 10
+verdict = "clean"
+note = "Read the complete schema, required/nullable fields, encodings and chain-specific additions against response/view types and applicable package interfaces. No additional mismatch or active retired reference identified; nullable recipient and raw-trace defects are recorded at their owning schemas."
+
+[file.111]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/general/url_nullable.ex"
+lines = 11
+verdict = "clean"
+note = "Read the complete schema, required/nullable fields, encodings and chain-specific additions against response/view types and applicable package interfaces. No additional mismatch or active retired reference identified; nullable recipient and raw-trace defects are recorded at their owning schemas."
+
+[file.112]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/general/watchlist_name.ex"
+lines = 16
+verdict = "clean"
+note = "Read the complete schema, required/nullable fields, encodings and chain-specific additions against response/view types and applicable package interfaces. No additional mismatch or active retired reference identified; nullable recipient and raw-trace defects are recorded at their owning schemas."
+
+[file.113]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/internal_transaction.ex"
+lines = 71
+verdict = "issues"
+note = "Read in full; concrete disagreements and owning-path repair proposals are recorded in this file's findings."
+
+[file.114]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/log.ex"
+lines = 38
+verdict = "clean"
+note = "Read the complete schema, required/nullable fields, encodings and chain-specific additions against response/view types and applicable package interfaces. No additional mismatch or active retired reference identified; nullable recipient and raw-trace defects are recorded at their owning schemas."
+
+[file.115]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/mud/record.ex"
+lines = 43
+verdict = "clean"
+note = "Read the complete schema, required/nullable fields, encodings and chain-specific additions against response/view types and applicable package interfaces. No additional mismatch or active retired reference identified; nullable recipient and raw-trace defects are recorded at their owning schemas."
+
+[file.116]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/mud/system.ex"
+lines = 24
+verdict = "clean"
+note = "Read the complete schema, required/nullable fields, encodings and chain-specific additions against response/view types and applicable package interfaces. No additional mismatch or active retired reference identified; nullable recipient and raw-trace defects are recorded at their owning schemas."
+
+[file.117]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/mud/system_details.ex"
+lines = 23
+verdict = "clean"
+note = "Read the complete schema, required/nullable fields, encodings and chain-specific additions against response/view types and applicable package interfaces. No additional mismatch or active retired reference identified; nullable recipient and raw-trace defects are recorded at their owning schemas."
+
+[file.118]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/mud/table.ex"
+lines = 30
+verdict = "clean"
+note = "Read the complete schema, required/nullable fields, encodings and chain-specific additions against response/view types and applicable package interfaces. No additional mismatch or active retired reference identified; nullable recipient and raw-trace defects are recorded at their owning schemas."
+
+[file.119]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/mud/table_schema.ex"
+lines = 27
+verdict = "clean"
+note = "Read the complete schema, required/nullable fields, encodings and chain-specific additions against response/view types and applicable package interfaces. No additional mismatch or active retired reference identified; nullable recipient and raw-trace defects are recorded at their owning schemas."
+
+[file.120]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/mud/table_with_schema.ex"
+lines = 23
+verdict = "clean"
+note = "Read the complete schema, required/nullable fields, encodings and chain-specific additions against response/view types and applicable package interfaces. No additional mismatch or active retired reference identified; nullable recipient and raw-trace defects are recorded at their owning schemas."
+
+[file.121]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/mud/world.ex"
+lines = 26
+verdict = "clean"
+note = "Read the complete schema, required/nullable fields, encodings and chain-specific additions against response/view types and applicable package interfaces. No additional mismatch or active retired reference identified; nullable recipient and raw-trace defects are recorded at their owning schemas."
+
+[file.122]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/nft_collection.ex"
+lines = 24
+verdict = "clean"
+note = "Read the complete schema, required/nullable fields, encodings and chain-specific additions against response/view types and applicable package interfaces. No additional mismatch or active retired reference identified; nullable recipient and raw-trace defects are recorded at their owning schemas."
+
+[file.123]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/optimism/batch.ex"
+lines = 41
+verdict = "clean"
+note = "Read the complete schema, required/nullable fields, encodings and chain-specific additions against response/view types and applicable package interfaces. No additional mismatch or active retired reference identified; nullable recipient and raw-trace defects are recorded at their owning schemas."
+
+[file.124]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/optimism/batch/detailed.ex"
+lines = 73
+verdict = "clean"
+note = "Read the complete schema, required/nullable fields, encodings and chain-specific additions against response/view types and applicable package interfaces. No additional mismatch or active retired reference identified; nullable recipient and raw-trace defects are recorded at their owning schemas."
+
+[file.125]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/optimism/deposit.ex"
+lines = 31
+verdict = "clean"
+note = "Read the complete schema, required/nullable fields, encodings and chain-specific additions against response/view types and applicable package interfaces. No additional mismatch or active retired reference identified; nullable recipient and raw-trace defects are recorded at their owning schemas."
+
+[file.126]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/optimism/deposit/main_page.ex"
+lines = 27
+verdict = "clean"
+note = "Read the complete schema, required/nullable fields, encodings and chain-specific additions against response/view types and applicable package interfaces. No additional mismatch or active retired reference identified; nullable recipient and raw-trace defects are recorded at their owning schemas."
+
+[file.127]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/optimism/game.ex"
+lines = 37
+verdict = "clean"
+note = "Read the complete schema, required/nullable fields, encodings and chain-specific additions against response/view types and applicable package interfaces. No additional mismatch or active retired reference identified; nullable recipient and raw-trace defects are recorded at their owning schemas."
+
+[file.128]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/optimism/output_root.ex"
+lines = 31
+verdict = "clean"
+note = "Read the complete schema, required/nullable fields, encodings and chain-specific additions against response/view types and applicable package interfaces. No additional mismatch or active retired reference identified; nullable recipient and raw-trace defects are recorded at their owning schemas."
+
+[file.129]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/optimism/withdrawal.ex"
+lines = 61
+verdict = "clean"
+note = "Read the complete schema, required/nullable fields, encodings and chain-specific additions against response/view types and applicable package interfaces. No additional mismatch or active retired reference identified; nullable recipient and raw-trace defects are recorded at their owning schemas."
+
+[file.130]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/paxeer_x/archive_anchor.ex"
+lines = 51
+verdict = "clean"
+note = "Read in full against the current PaxeerX controllers, nested schemas and requirements 14242, 14247, 14249, 14250, 14254, 14265 and 14298 as applicable. Active fields follow the merged response; frozen archive records remain explicitly historical."
+
+[file.131]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/paxeer_x/archive_receipt.ex"
+lines = 130
+verdict = "clean"
+note = "Read in full against the current PaxeerX controllers, nested schemas and requirements 14242, 14247, 14249, 14250, 14254, 14265 and 14298 as applicable. Active fields follow the merged response; frozen archive records remain explicitly historical."
+
+[file.132]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/paxeer_x/capabilities.ex"
+lines = 36
+verdict = "clean"
+note = "Read in full against the current PaxeerX controllers, nested schemas and requirements 14242, 14247, 14249, 14250, 14254, 14265 and 14298 as applicable. Active fields follow the merged response; frozen archive records remain explicitly historical."
+
+[file.133]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/paxeer_x/parameters.ex"
+lines = 53
+verdict = "clean"
+note = "Read in full against the current PaxeerX controllers, nested schemas and requirements 14242, 14247, 14249, 14250, 14254, 14265 and 14298 as applicable. Active fields follow the merged response; frozen archive records remain explicitly historical."
+
+[file.134]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/paxeer_x/price_feed.ex"
+lines = 223
+verdict = "clean"
+note = "Read in full against the current PaxeerX controllers, nested schemas and requirements 14242, 14247, 14249, 14250, 14254, 14265 and 14298 as applicable. Active fields follow the merged response; frozen archive records remain explicitly historical."
+
+[file.135]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/paxeer_x/settlement_rung.ex"
+lines = 19
+verdict = "clean"
+note = "Read in full against the current PaxeerX controllers, nested schemas and requirements 14242, 14247, 14249, 14250, 14254, 14265 and 14298 as applicable. Active fields follow the merged response; frozen archive records remain explicitly historical."
+
+[file.136]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/paxeer_x/transaction_signature.ex"
+lines = 43
+verdict = "clean"
+note = "Read in full against the current PaxeerX controllers, nested schemas and requirements 14242, 14247, 14249, 14250, 14254, 14265 and 14298 as applicable. Active fields follow the merged response; frozen archive records remain explicitly historical."
+
+[file.137]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/paxeer_x/transaction_status.ex"
+lines = 39
+verdict = "clean"
+note = "Read in full against the current PaxeerX controllers, nested schemas and requirements 14242, 14247, 14249, 14250, 14254, 14265 and 14298 as applicable. Active fields follow the merged response; frozen archive records remain explicitly historical."
+
+[file.138]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/paxeer_x/unified_account.ex"
+lines = 46
+verdict = "issues"
+note = "Read in full; concrete disagreements and owning-path repair proposals are recorded in this file's findings."
+
+[file.139]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/paxeer_x/unified_account/activity_item.ex"
+lines = 50
+verdict = "clean"
+note = "Read in full against the current PaxeerX controllers, nested schemas and requirements 14242, 14247, 14249, 14250, 14254, 14265 and 14298 as applicable. Active fields follow the merged response; frozen archive records remain explicitly historical."
+
+[file.140]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/paxeer_x/unified_account/asset.ex"
+lines = 31
+verdict = "issues"
+note = "Read in full; concrete disagreements and owning-path repair proposals are recorded in this file's findings."
+
+[file.141]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/paxeer_x/unified_account/asset_nullable.ex"
+lines = 18
+verdict = "clean"
+note = "Read in full against the current PaxeerX controllers, nested schemas and requirements 14242, 14247, 14249, 14250, 14254, 14265 and 14298 as applicable. Active fields follow the merged response; frozen archive records remain explicitly historical."
+
+[file.142]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/paxeer_x/unified_account/balance.ex"
+lines = 24
+verdict = "clean"
+note = "Read in full against the current PaxeerX controllers, nested schemas and requirements 14242, 14247, 14249, 14250, 14254, 14265 and 14298 as applicable. Active fields follow the merged response; frozen archive records remain explicitly historical."
+
+[file.143]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/paxeer_x/unified_account/identities.ex"
+lines = 25
+verdict = "clean"
+note = "Read in full against the current PaxeerX controllers, nested schemas and requirements 14242, 14247, 14249, 14250, 14254, 14265 and 14298 as applicable. Active fields follow the merged response; frozen archive records remain explicitly historical."
+
+[file.144]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/proxy/account_abstraction/account.ex"
+lines = 32
+verdict = "clean"
+note = "Read the complete schema, required/nullable fields, encodings and chain-specific additions against response/view types and applicable package interfaces. No additional mismatch or active retired reference identified; nullable recipient and raw-trace defects are recorded at their owning schemas."
+
+[file.145]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/proxy/account_abstraction/bundle.ex"
+lines = 32
+verdict = "clean"
+note = "Read the complete schema, required/nullable fields, encodings and chain-specific additions against response/view types and applicable package interfaces. No additional mismatch or active retired reference identified; nullable recipient and raw-trace defects are recorded at their owning schemas."
+
+[file.146]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/proxy/account_abstraction/bundler.ex"
+lines = 26
+verdict = "clean"
+note = "Read the complete schema, required/nullable fields, encodings and chain-specific additions against response/view types and applicable package interfaces. No additional mismatch or active retired reference identified; nullable recipient and raw-trace defects are recorded at their owning schemas."
+
+[file.147]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/proxy/account_abstraction/factory.ex"
+lines = 24
+verdict = "clean"
+note = "Read the complete schema, required/nullable fields, encodings and chain-specific additions against response/view types and applicable package interfaces. No additional mismatch or active retired reference identified; nullable recipient and raw-trace defects are recorded at their owning schemas."
+
+[file.148]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/proxy/account_abstraction/paymaster.ex"
+lines = 24
+verdict = "clean"
+note = "Read the complete schema, required/nullable fields, encodings and chain-specific additions against response/view types and applicable package interfaces. No additional mismatch or active retired reference identified; nullable recipient and raw-trace defects are recorded at their owning schemas."
+
+[file.149]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/proxy/account_abstraction/status.ex"
+lines = 30
+verdict = "clean"
+note = "Read the complete schema, required/nullable fields, encodings and chain-specific additions against response/view types and applicable package interfaces. No additional mismatch or active retired reference identified; nullable recipient and raw-trace defects are recorded at their owning schemas."
+
+[file.150]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/proxy/account_abstraction/user_operation.ex"
+lines = 168
+verdict = "clean"
+note = "Read the complete schema, required/nullable fields, encodings and chain-specific additions against response/view types and applicable package interfaces. No additional mismatch or active retired reference identified; nullable recipient and raw-trace defects are recorded at their owning schemas."
+
+[file.151]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/proxy/account_abstraction/user_operation_in_list.ex"
+lines = 42
+verdict = "clean"
+note = "Read the complete schema, required/nullable fields, encodings and chain-specific additions against response/view types and applicable package interfaces. No additional mismatch or active retired reference identified; nullable recipient and raw-trace defects are recorded at their owning schemas."
+
+[file.152]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/proxy/metadata.ex"
+lines = 19
+verdict = "clean"
+note = "Read the complete schema, required/nullable fields, encodings and chain-specific additions against response/view types and applicable package interfaces. No additional mismatch or active retired reference identified; nullable recipient and raw-trace defects are recorded at their owning schemas."
+
+[file.153]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/proxy/metadata_tag.ex"
+lines = 22
+verdict = "clean"
+note = "Read the complete schema, required/nullable fields, encodings and chain-specific additions against response/view types and applicable package interfaces. No additional mismatch or active retired reference identified; nullable recipient and raw-trace defects are recorded at their owning schemas."
+
+[file.154]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/search/results.ex"
+lines = 19
+verdict = "clean"
+note = "Read the complete schema, required/nullable fields, encodings and chain-specific additions against response/view types and applicable package interfaces. No additional mismatch or active retired reference identified; nullable recipient and raw-trace defects are recorded at their owning schemas."
+
+[file.155]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/signed_authorization.ex"
+lines = 29
+verdict = "clean"
+note = "Read the complete schema, required/nullable fields, encodings and chain-specific additions against response/view types and applicable package interfaces. No additional mismatch or active retired reference identified; nullable recipient and raw-trace defects are recorded at their owning schemas."
+
+[file.156]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/smart_contract.ex"
+lines = 146
+verdict = "clean"
+note = "Read the complete schema, required/nullable fields, encodings and chain-specific additions against response/view types and applicable package interfaces. No additional mismatch or active retired reference identified; nullable recipient and raw-trace defects are recorded at their owning schemas."
+
+[file.157]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/smart_contract/audit_report.ex"
+lines = 15
+verdict = "clean"
+note = "Read the complete schema, required/nullable fields, encodings and chain-specific additions against response/view types and applicable package interfaces. No additional mismatch or active retired reference identified; nullable recipient and raw-trace defects are recorded at their owning schemas."
+
+[file.158]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/smart_contract/counters.ex"
+lines = 16
+verdict = "clean"
+note = "Read the complete schema, required/nullable fields, encodings and chain-specific additions against response/view types and applicable package interfaces. No additional mismatch or active retired reference identified; nullable recipient and raw-trace defects are recorded at their owning schemas."
+
+[file.159]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/smart_contract/language.ex"
+lines = 8
+verdict = "clean"
+note = "Read the complete schema, required/nullable fields, encodings and chain-specific additions against response/view types and applicable package interfaces. No additional mismatch or active retired reference identified; nullable recipient and raw-trace defects are recorded at their owning schemas."
+
+[file.160]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/stats/hot_smart_contract.ex"
+lines = 21
+verdict = "clean"
+note = "Read the complete schema, required/nullable fields, encodings and chain-specific additions against response/view types and applicable package interfaces. No additional mismatch or active retired reference identified; nullable recipient and raw-trace defects are recorded at their owning schemas."
+
+[file.161]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/stats/response.ex"
+lines = 120
+verdict = "clean"
+note = "Read the complete schema, required/nullable fields, encodings and chain-specific additions against response/view types and applicable package interfaces. No additional mismatch or active retired reference identified; nullable recipient and raw-trace defects are recorded at their owning schemas."
+
+[file.162]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/token.ex"
+lines = 119
+verdict = "clean"
+note = "Read the complete schema, required/nullable fields, encodings and chain-specific additions against response/view types and applicable package interfaces. No additional mismatch or active retired reference identified; nullable recipient and raw-trace defects are recorded at their owning schemas."
+
+[file.163]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/token/counters.ex"
+lines = 23
+verdict = "clean"
+note = "Read the complete schema, required/nullable fields, encodings and chain-specific additions against response/view types and applicable package interfaces. No additional mismatch or active retired reference identified; nullable recipient and raw-trace defects are recorded at their owning schemas."
+
+[file.164]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/token/holder.ex"
+lines = 85
+verdict = "clean"
+note = "Read the complete schema, required/nullable fields, encodings and chain-specific additions against response/view types and applicable package interfaces. No additional mismatch or active retired reference identified; nullable recipient and raw-trace defects are recorded at their owning schemas."
+
+[file.165]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/token/response.ex"
+lines = 17
+verdict = "clean"
+note = "Read the complete schema, required/nullable fields, encodings and chain-specific additions against response/view types and applicable package interfaces. No additional mismatch or active retired reference identified; nullable recipient and raw-trace defects are recorded at their owning schemas."
+
+[file.166]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/token_instance.ex"
+lines = 62
+verdict = "clean"
+note = "Read the complete schema, required/nullable fields, encodings and chain-specific additions against response/view types and applicable package interfaces. No additional mismatch or active retired reference identified; nullable recipient and raw-trace defects are recorded at their owning schemas."
+
+[file.167]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/token_instance_in_list.ex"
+lines = 21
+verdict = "clean"
+note = "Read the complete schema, required/nullable fields, encodings and chain-specific additions against response/view types and applicable package interfaces. No additional mismatch or active retired reference identified; nullable recipient and raw-trace defects are recorded at their owning schemas."
+
+[file.168]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/token_transfer.ex"
+lines = 152
+verdict = "clean"
+note = "Read the complete schema, required/nullable fields, encodings and chain-specific additions against response/view types and applicable package interfaces. No additional mismatch or active retired reference identified; nullable recipient and raw-trace defects are recorded at their owning schemas."
+
+[file.169]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/transaction.ex"
+lines = 523
+verdict = "issues"
+note = "Read in full; concrete disagreements and owning-path repair proposals are recorded in this file's findings."
+
+[file.170]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/transaction/fee.ex"
+lines = 22
+verdict = "clean"
+note = "Read the complete schema, required/nullable fields, encodings and chain-specific additions against response/view types and applicable package interfaces. No additional mismatch or active retired reference identified; nullable recipient and raw-trace defects are recorded at their owning schemas."
+
+[file.171]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/transaction/raw_trace.ex"
+lines = 53
+verdict = "issues"
+note = "Read in full; concrete disagreements and owning-path repair proposals are recorded in this file's findings."
+
+[file.172]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/transaction/response.ex"
+lines = 87
+verdict = "clean"
+note = "Read the complete schema, required/nullable fields, encodings and chain-specific additions against response/view types and applicable package interfaces. No additional mismatch or active retired reference identified; nullable recipient and raw-trace defects are recorded at their owning schemas."
+
+[file.173]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/transaction/state_change.ex"
+lines = 34
+verdict = "clean"
+note = "Read the complete schema, required/nullable fields, encodings and chain-specific additions against response/view types and applicable package interfaces. No additional mismatch or active retired reference identified; nullable recipient and raw-trace defects are recorded at their owning schemas."
+
+[file.174]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/transaction/summary.ex"
+lines = 57
+verdict = "clean"
+note = "Read the complete schema, required/nullable fields, encodings and chain-specific additions against response/view types and applicable package interfaces. No additional mismatch or active retired reference identified; nullable recipient and raw-trace defects are recorded at their owning schemas."
+
+[file.175]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/transaction/summary_just_request_body.ex"
+lines = 62
+verdict = "clean"
+note = "Read the complete schema, required/nullable fields, encodings and chain-specific additions against response/view types and applicable package interfaces. No additional mismatch or active retired reference identified; nullable recipient and raw-trace defects are recorded at their owning schemas."
+
+[file.176]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/withdrawal.ex"
+lines = 26
+verdict = "clean"
+note = "Read the complete schema, required/nullable fields, encodings and chain-specific additions against response/view types and applicable package interfaces. No additional mismatch or active retired reference identified; nullable recipient and raw-trace defects are recorded at their owning schemas."
+
+[file.177]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/withdrawal/counter.ex"
+lines = 20
+verdict = "clean"
+note = "Read the complete schema, required/nullable fields, encodings and chain-specific additions against response/view types and applicable package interfaces. No additional mismatch or active retired reference identified; nullable recipient and raw-trace defects are recorded at their owning schemas."
+
+[file.178]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/helper.ex"
+lines = 49
+verdict = "clean"
+note = "Read the complete schema, required/nullable fields, encodings and chain-specific additions against response/view types and applicable package interfaces. No additional mismatch or active retired reference identified; nullable recipient and raw-trace defects are recorded at their owning schemas."
+
+[file.179]
+path = "services/explorer/backend/apps/explorer/coveralls.json"
+lines = 5
+verdict = "clean"
+note = "Read in full against package requirements and applicable configuration interfaces; no additional defect or active retired reference identified."
+
+[file.180]
+path = "services/explorer/backend/apps/indexer/lib/indexer/transform/address_coin_balances.ex"
+lines = 229
+verdict = "clean"
+note = "Read the complete transform against fetched block/log/token and import parameter shapes, decoding, chain-selection and error behavior. Chain-specific code follows its configured chain type. No additional defect or active retired reference identified."
+
+[file.181]
+path = "services/explorer/backend/apps/indexer/lib/indexer/transform/address_coin_balances_daily.ex"
+lines = 76
+verdict = "issues"
+note = "Read in full; concrete disagreements and owning-path repair proposals are recorded in this file's findings."
+
+[file.182]
+path = "services/explorer/backend/apps/indexer/lib/indexer/transform/address_token_balances.ex"
+lines = 47
+verdict = "clean"
+note = "Read the complete transform against fetched block/log/token and import parameter shapes, decoding, chain-selection and error behavior. Chain-specific code follows its configured chain type. No additional defect or active retired reference identified."
+
+[file.183]
+path = "services/explorer/backend/apps/indexer/lib/indexer/transform/addresses.ex"
+lines = 705
+verdict = "clean"
+note = "Read the complete transform against fetched block/log/token and import parameter shapes, decoding, chain-selection and error behavior. Chain-specific code follows its configured chain type. No additional defect or active retired reference identified."
+
+[file.184]
+path = "services/explorer/backend/apps/indexer/lib/indexer/transform/arbitrum/messaging.ex"
+lines = 47
+verdict = "clean"
+note = "Read the complete transform against fetched block/log/token and import parameter shapes, decoding, chain-selection and error behavior. Chain-specific code follows its configured chain type. No additional defect or active retired reference identified."
+
+[file.185]
+path = "services/explorer/backend/apps/indexer/lib/indexer/transform/blocks.ex"
+lines = 104
+verdict = "clean"
+note = "Read the complete transform against fetched block/log/token and import parameter shapes, decoding, chain-selection and error behavior. Chain-specific code follows its configured chain type. No additional defect or active retired reference identified."
+
+[file.186]
+path = "services/explorer/backend/apps/indexer/lib/indexer/transform/blocks/base.ex"
+lines = 14
+verdict = "clean"
+note = "Read the complete transform against fetched block/log/token and import parameter shapes, decoding, chain-selection and error behavior. Chain-specific code follows its configured chain type. No additional defect or active retired reference identified."
+
+[file.187]
+path = "services/explorer/backend/apps/indexer/lib/indexer/transform/blocks/clique.ex"
+lines = 18
+verdict = "clean"
+note = "Read the complete transform against fetched block/log/token and import parameter shapes, decoding, chain-selection and error behavior. Chain-specific code follows its configured chain type. No additional defect or active retired reference identified."
+
+[file.188]
+path = "services/explorer/backend/apps/indexer/lib/indexer/transform/celo/l1_epochs.ex"
+lines = 50
+verdict = "clean"
+note = "Read the complete transform against fetched block/log/token and import parameter shapes, decoding, chain-selection and error behavior. Chain-specific code follows its configured chain type. No additional defect or active retired reference identified."
+
+[file.189]
+path = "services/explorer/backend/apps/indexer/lib/indexer/transform/celo/l2_epochs.ex"
+lines = 67
+verdict = "clean"
+note = "Read the complete transform against fetched block/log/token and import parameter shapes, decoding, chain-selection and error behavior. Chain-specific code follows its configured chain type. No additional defect or active retired reference identified."
+
+[file.190]
+path = "services/explorer/backend/apps/indexer/lib/indexer/transform/celo/transaction_gas_tokens.ex"
+lines = 44
+verdict = "clean"
+note = "Read the complete transform against fetched block/log/token and import parameter shapes, decoding, chain-selection and error behavior. Chain-specific code follows its configured chain type. No additional defect or active retired reference identified."
+
+[file.191]
+path = "services/explorer/backend/apps/indexer/lib/indexer/transform/celo/transaction_token_transfers.ex"
+lines = 148
+verdict = "clean"
+note = "Read the complete transform against fetched block/log/token and import parameter shapes, decoding, chain-selection and error behavior. Chain-specific code follows its configured chain type. No additional defect or active retired reference identified."
+
+[file.192]
+path = "services/explorer/backend/apps/indexer/lib/indexer/transform/celo/validator_epoch_payment_distributions.ex"
+lines = 75
+verdict = "clean"
+note = "Read the complete transform against fetched block/log/token and import parameter shapes, decoding, chain-selection and error behavior. Chain-specific code follows its configured chain type. No additional defect or active retired reference identified."
+
+[file.193]
+path = "services/explorer/backend/apps/indexer/lib/indexer/transform/mint_transfers.ex"
+lines = 62
+verdict = "issues"
+note = "Read in full; concrete disagreements and owning-path repair proposals are recorded in this file's findings."
+
+[file.194]
+path = "services/explorer/backend/apps/indexer/lib/indexer/transform/optimism/withdrawals.ex"
+lines = 48
+verdict = "clean"
+note = "Read the complete transform against fetched block/log/token and import parameter shapes, decoding, chain-selection and error behavior. Chain-specific code follows its configured chain type. No additional defect or active retired reference identified."
+
+[file.195]
+path = "services/explorer/backend/apps/indexer/lib/indexer/transform/paxeer_x_logs.ex"
+lines = 925
+verdict = "clean"
+note = "Read in full with address, legacy exchange, current perpetuals, bridge and both launchpad ABI generations, MarketEvent/AccountBinding changesets and the block-fetch import path. Twelve current and ten legacy launchpad definitions coexist. Retired 0x1013/0x1014 registry events are deliberately excluded under 14258/14262, not missing active consumers."
+
+[file.196]
+path = "services/explorer/backend/apps/indexer/lib/indexer/transform/polygon_zkevm/bridge.ex"
+lines = 115
+verdict = "clean"
+note = "Read the complete transform against fetched block/log/token and import parameter shapes, decoding, chain-selection and error behavior. Chain-specific code follows its configured chain type. No additional defect or active retired reference identified."
+
+[file.197]
+path = "services/explorer/backend/apps/indexer/lib/indexer/transform/scroll/l1_fee_params.ex"
+lines = 70
+verdict = "clean"
+note = "Read the complete transform against fetched block/log/token and import parameter shapes, decoding, chain-selection and error behavior. Chain-specific code follows its configured chain type. No additional defect or active retired reference identified."
+
+[file.198]
+path = "services/explorer/backend/apps/indexer/lib/indexer/transform/shibarium/bridge.ex"
+lines = 99
+verdict = "clean"
+note = "Read the complete transform against fetched block/log/token and import parameter shapes, decoding, chain-selection and error behavior. Chain-specific code follows its configured chain type. No additional defect or active retired reference identified."
+
+[file.199]
+path = "services/explorer/backend/apps/indexer/lib/indexer/transform/signed_authorizations.ex"
+lines = 87
+verdict = "clean"
+note = "Read the complete transform against fetched block/log/token and import parameter shapes, decoding, chain-selection and error behavior. Chain-specific code follows its configured chain type. No additional defect or active retired reference identified."
+
+[file.200]
+path = "services/explorer/backend/apps/indexer/lib/indexer/transform/stability/validators.ex"
+lines = 35
+verdict = "clean"
+note = "Read the complete transform against fetched block/log/token and import parameter shapes, decoding, chain-selection and error behavior. Chain-specific code follows its configured chain type. No additional defect or active retired reference identified."
+
+[file.201]
+path = "services/explorer/backend/apps/indexer/lib/indexer/transform/token_instances.ex"
+lines = 102
+verdict = "clean"
+note = "Read the complete transform against fetched block/log/token and import parameter shapes, decoding, chain-selection and error behavior. Chain-specific code follows its configured chain type. No additional defect or active retired reference identified."
+
+[file.202]
+path = "services/explorer/backend/apps/indexer/lib/indexer/transform/token_transfers.ex"
+lines = 673
+verdict = "clean"
+note = "Read the complete transform against fetched block/log/token and import parameter shapes, decoding, chain-selection and error behavior. Chain-specific code follows its configured chain type. No additional defect or active retired reference identified."
+
+[file.203]
+path = "services/explorer/backend/apps/indexer/lib/indexer/transform/transaction_actions.ex"
+lines = 992
+verdict = "clean"
+note = "Read the complete transform against fetched block/log/token and import parameter shapes, decoding, chain-selection and error behavior. Chain-specific code follows its configured chain type. No additional defect or active retired reference identified."
+
+[file.204]
+path = "services/explorer/services/libs/blockscout-db/Cargo.toml"
+lines = 10
+verdict = "clean"
+note = "Read the complete handwritten manifest, module or migration entry point against entity exports and the registered SQL migration. Loader and rollback documentation defects are recorded at their owning files; no additional issue identified."
+
+[file.205]
+path = "services/explorer/services/libs/blockscout-db/entity/Cargo.toml"
+lines = 14
+verdict = "clean"
+note = "Read the complete handwritten manifest, module or migration entry point against entity exports and the registered SQL migration. Loader and rollback documentation defects are recorded at their owning files; no additional issue identified."
+
+[file.206]
+path = "services/explorer/services/libs/blockscout-db/entity/src/account_api_keys.rs"
+lines = 34
+verdict = "generated"
+note = "SeaORM Entity, @generated by sea-orm-codegen 1.1.8, as declared in this file's header. Classified as generated bindings rather than a hand-reviewed source-clean claim; exact tree line count retained."
+
+[file.207]
+path = "services/explorer/services/libs/blockscout-db/entity/src/account_api_plans.rs"
+lines = 28
+verdict = "generated"
+note = "SeaORM Entity, @generated by sea-orm-codegen 1.1.8, as declared in this file's header. Classified as generated bindings rather than a hand-reviewed source-clean claim; exact tree line count retained."
+
+[file.208]
+path = "services/explorer/services/libs/blockscout-db/entity/src/account_custom_abis.rs"
+lines = 42
+verdict = "generated"
+note = "SeaORM Entity, @generated by sea-orm-codegen 1.1.8, as declared in this file's header. Classified as generated bindings rather than a hand-reviewed source-clean claim; exact tree line count retained."
+
+[file.209]
+path = "services/explorer/services/libs/blockscout-db/entity/src/account_identities.rs"
+lines = 91
+verdict = "generated"
+note = "SeaORM Entity, @generated by sea-orm-codegen 1.1.8, as declared in this file's header. Classified as generated bindings rather than a hand-reviewed source-clean claim; exact tree line count retained."
+
+[file.210]
+path = "services/explorer/services/libs/blockscout-db/entity/src/account_public_tags_requests.rs"
+lines = 49
+verdict = "generated"
+note = "SeaORM Entity, @generated by sea-orm-codegen 1.1.8, as declared in this file's header. Classified as generated bindings rather than a hand-reviewed source-clean claim; exact tree line count retained."
+
+[file.211]
+path = "services/explorer/services/libs/blockscout-db/entity/src/account_tag_addresses.rs"
+lines = 40
+verdict = "generated"
+note = "SeaORM Entity, @generated by sea-orm-codegen 1.1.8, as declared in this file's header. Classified as generated bindings rather than a hand-reviewed source-clean claim; exact tree line count retained."
+
+[file.212]
+path = "services/explorer/services/libs/blockscout-db/entity/src/account_tag_transactions.rs"
+lines = 40
+verdict = "generated"
+note = "SeaORM Entity, @generated by sea-orm-codegen 1.1.8, as declared in this file's header. Classified as generated bindings rather than a hand-reviewed source-clean claim; exact tree line count retained."
+
+[file.213]
+path = "services/explorer/services/libs/blockscout-db/entity/src/account_watchlist_addresses.rs"
+lines = 54
+verdict = "generated"
+note = "SeaORM Entity, @generated by sea-orm-codegen 1.1.8, as declared in this file's header. Classified as generated bindings rather than a hand-reviewed source-clean claim; exact tree line count retained."
+
+[file.214]
+path = "services/explorer/services/libs/blockscout-db/entity/src/account_watchlist_notifications.rs"
+lines = 44
+verdict = "generated"
+note = "SeaORM Entity, @generated by sea-orm-codegen 1.1.8, as declared in this file's header. Classified as generated bindings rather than a hand-reviewed source-clean claim; exact tree line count retained."
+
+[file.215]
+path = "services/explorer/services/libs/blockscout-db/entity/src/account_watchlists.rs"
+lines = 42
+verdict = "generated"
+note = "SeaORM Entity, @generated by sea-orm-codegen 1.1.8, as declared in this file's header. Classified as generated bindings rather than a hand-reviewed source-clean claim; exact tree line count retained."
+
+[file.216]
+path = "services/explorer/services/libs/blockscout-db/entity/src/address_coin_balances.rs"
+lines = 26
+verdict = "generated"
+note = "SeaORM Entity, @generated by sea-orm-codegen 1.1.8, as declared in this file's header. Classified as generated bindings rather than a hand-reviewed source-clean claim; exact tree line count retained."
+
+[file.217]
+path = "services/explorer/services/libs/blockscout-db/entity/src/address_coin_balances_daily.rs"
+lines = 25
+verdict = "generated"
+note = "SeaORM Entity, @generated by sea-orm-codegen 1.1.8, as declared in this file's header. Classified as generated bindings rather than a hand-reviewed source-clean claim; exact tree line count retained."
+
+[file.218]
+path = "services/explorer/services/libs/blockscout-db/entity/src/address_contract_code_fetch_attempts.rs"
+lines = 22
+verdict = "generated"
+note = "SeaORM Entity, @generated by sea-orm-codegen 1.1.8, as declared in this file's header. Classified as generated bindings rather than a hand-reviewed source-clean claim; exact tree line count retained."
+
+[file.219]
+path = "services/explorer/services/libs/blockscout-db/entity/src/address_current_token_balances.rs"
+lines = 28
+verdict = "generated"
+note = "SeaORM Entity, @generated by sea-orm-codegen 1.1.8, as declared in this file's header. Classified as generated bindings rather than a hand-reviewed source-clean claim; exact tree line count retained."
+
+[file.220]
+path = "services/explorer/services/libs/blockscout-db/entity/src/address_names.rs"
+lines = 23
+verdict = "generated"
+note = "SeaORM Entity, @generated by sea-orm-codegen 1.1.8, as declared in this file's header. Classified as generated bindings rather than a hand-reviewed source-clean claim; exact tree line count retained."
+
+[file.221]
+path = "services/explorer/services/libs/blockscout-db/entity/src/address_tags.rs"
+lines = 29
+verdict = "generated"
+note = "SeaORM Entity, @generated by sea-orm-codegen 1.1.8, as declared in this file's header. Classified as generated bindings rather than a hand-reviewed source-clean claim; exact tree line count retained."
+
+[file.222]
+path = "services/explorer/services/libs/blockscout-db/entity/src/address_to_tags.rs"
+lines = 35
+verdict = "generated"
+note = "SeaORM Entity, @generated by sea-orm-codegen 1.1.8, as declared in this file's header. Classified as generated bindings rather than a hand-reviewed source-clean claim; exact tree line count retained."
+
+[file.223]
+path = "services/explorer/services/libs/blockscout-db/entity/src/address_token_balances.rs"
+lines = 29
+verdict = "generated"
+note = "SeaORM Entity, @generated by sea-orm-codegen 1.1.8, as declared in this file's header. Classified as generated bindings rather than a hand-reviewed source-clean claim; exact tree line count retained."
+
+[file.224]
+path = "services/explorer/services/libs/blockscout-db/entity/src/addresses.rs"
+lines = 41
+verdict = "generated"
+note = "SeaORM Entity, @generated by sea-orm-codegen 1.1.8, as declared in this file's header. Classified as generated bindings rather than a hand-reviewed source-clean claim; exact tree line count retained."
+
+[file.225]
+path = "services/explorer/services/libs/blockscout-db/entity/src/administrators.rs"
+lines = 36
+verdict = "generated"
+note = "SeaORM Entity, @generated by sea-orm-codegen 1.1.8, as declared in this file's header. Classified as generated bindings rather than a hand-reviewed source-clean claim; exact tree line count retained."
+
+[file.226]
+path = "services/explorer/services/libs/blockscout-db/entity/src/block_rewards.rs"
+lines = 46
+verdict = "generated"
+note = "SeaORM Entity, @generated by sea-orm-codegen 1.1.8, as declared in this file's header. Classified as generated bindings rather than a hand-reviewed source-clean claim; exact tree line count retained."
+
+[file.227]
+path = "services/explorer/services/libs/blockscout-db/entity/src/block_second_degree_relations.rs"
+lines = 42
+verdict = "generated"
+note = "SeaORM Entity, @generated by sea-orm-codegen 1.1.8, as declared in this file's header. Classified as generated bindings rather than a hand-reviewed source-clean claim; exact tree line count retained."
+
+[file.228]
+path = "services/explorer/services/libs/blockscout-db/entity/src/blocks.rs"
+lines = 117
+verdict = "generated"
+note = "SeaORM Entity, @generated by sea-orm-codegen 1.1.8, as declared in this file's header. Classified as generated bindings rather than a hand-reviewed source-clean claim; exact tree line count retained."
+
+[file.229]
+path = "services/explorer/services/libs/blockscout-db/entity/src/constants.rs"
+lines = 18
+verdict = "generated"
+note = "SeaORM Entity, @generated by sea-orm-codegen 1.1.8, as declared in this file's header. Classified as generated bindings rather than a hand-reviewed source-clean claim; exact tree line count retained."
+
+[file.230]
+path = "services/explorer/services/libs/blockscout-db/entity/src/contract_methods.rs"
+lines = 21
+verdict = "generated"
+note = "SeaORM Entity, @generated by sea-orm-codegen 1.1.8, as declared in this file's header. Classified as generated bindings rather than a hand-reviewed source-clean claim; exact tree line count retained."
+
+[file.231]
+path = "services/explorer/services/libs/blockscout-db/entity/src/contract_verification_status.rs"
+lines = 20
+verdict = "generated"
+note = "SeaORM Entity, @generated by sea-orm-codegen 1.1.8, as declared in this file's header. Classified as generated bindings rather than a hand-reviewed source-clean claim; exact tree line count retained."
+
+[file.232]
+path = "services/explorer/services/libs/blockscout-db/entity/src/decompiled_smart_contracts.rs"
+lines = 22
+verdict = "generated"
+note = "SeaORM Entity, @generated by sea-orm-codegen 1.1.8, as declared in this file's header. Classified as generated bindings rather than a hand-reviewed source-clean claim; exact tree line count retained."
+
+[file.233]
+path = "services/explorer/services/libs/blockscout-db/entity/src/emission_rewards.rs"
+lines = 20
+verdict = "generated"
+note = "SeaORM Entity, @generated by sea-orm-codegen 1.1.8, as declared in this file's header. Classified as generated bindings rather than a hand-reviewed source-clean claim; exact tree line count retained."
+
+[file.234]
+path = "services/explorer/services/libs/blockscout-db/entity/src/event_notifications.rs"
+lines = 17
+verdict = "generated"
+note = "SeaORM Entity, @generated by sea-orm-codegen 1.1.8, as declared in this file's header. Classified as generated bindings rather than a hand-reviewed source-clean claim; exact tree line count retained."
+
+[file.235]
+path = "services/explorer/services/libs/blockscout-db/entity/src/internal_transactions.rs"
+lines = 81
+verdict = "generated"
+note = "SeaORM Entity, @generated by sea-orm-codegen 1.1.8, as declared in this file's header. Classified as generated bindings rather than a hand-reviewed source-clean claim; exact tree line count retained."
+
+[file.236]
+path = "services/explorer/services/libs/blockscout-db/entity/src/last_fetched_counters.rs"
+lines = 19
+verdict = "generated"
+note = "SeaORM Entity, @generated by sea-orm-codegen 1.1.8, as declared in this file's header. Classified as generated bindings rather than a hand-reviewed source-clean claim; exact tree line count retained."
+
+[file.237]
+path = "services/explorer/services/libs/blockscout-db/entity/src/lib.rs"
+lines = 66
+verdict = "generated"
+note = "SeaORM Entity, @generated by sea-orm-codegen 1.1.8, as declared in this file's header. Classified as generated bindings rather than a hand-reviewed source-clean claim; exact tree line count retained."
+
+[file.238]
+path = "services/explorer/services/libs/blockscout-db/entity/src/logs.rs"
+lines = 71
+verdict = "generated"
+note = "SeaORM Entity, @generated by sea-orm-codegen 1.1.8, as declared in this file's header. Classified as generated bindings rather than a hand-reviewed source-clean claim; exact tree line count retained."
+
+[file.239]
+path = "services/explorer/services/libs/blockscout-db/entity/src/market_history.rs"
+lines = 21
+verdict = "generated"
+note = "SeaORM Entity, @generated by sea-orm-codegen 1.1.8, as declared in this file's header. Classified as generated bindings rather than a hand-reviewed source-clean claim; exact tree line count retained."
+
+[file.240]
+path = "services/explorer/services/libs/blockscout-db/entity/src/massive_blocks.rs"
+lines = 17
+verdict = "generated"
+note = "SeaORM Entity, @generated by sea-orm-codegen 1.1.8, as declared in this file's header. Classified as generated bindings rather than a hand-reviewed source-clean claim; exact tree line count retained."
+
+[file.241]
+path = "services/explorer/services/libs/blockscout-db/entity/src/migrations_status.rs"
+lines = 20
+verdict = "generated"
+note = "SeaORM Entity, @generated by sea-orm-codegen 1.1.8, as declared in this file's header. Classified as generated bindings rather than a hand-reviewed source-clean claim; exact tree line count retained."
+
+[file.242]
+path = "services/explorer/services/libs/blockscout-db/entity/src/missing_balance_of_tokens.rs"
+lines = 23
+verdict = "generated"
+note = "SeaORM Entity, @generated by sea-orm-codegen 1.1.8, as declared in this file's header. Classified as generated bindings rather than a hand-reviewed source-clean claim; exact tree line count retained."
+
+[file.243]
+path = "services/explorer/services/libs/blockscout-db/entity/src/missing_block_ranges.rs"
+lines = 17
+verdict = "generated"
+note = "SeaORM Entity, @generated by sea-orm-codegen 1.1.8, as declared in this file's header. Classified as generated bindings rather than a hand-reviewed source-clean claim; exact tree line count retained."
+
+[file.244]
+path = "services/explorer/services/libs/blockscout-db/entity/src/pending_block_operations.rs"
+lines = 37
+verdict = "generated"
+note = "SeaORM Entity, @generated by sea-orm-codegen 1.1.8, as declared in this file's header. Classified as generated bindings rather than a hand-reviewed source-clean claim; exact tree line count retained."
+
+[file.245]
+path = "services/explorer/services/libs/blockscout-db/entity/src/prelude.rs"
+lines = 51
+verdict = "generated"
+note = "SeaORM Entity, @generated by sea-orm-codegen 1.1.8, as declared in this file's header. Classified as generated bindings rather than a hand-reviewed source-clean claim; exact tree line count retained."
+
+[file.246]
+path = "services/explorer/services/libs/blockscout-db/entity/src/proxy_implementations.rs"
+lines = 25
+verdict = "generated"
+note = "SeaORM Entity, @generated by sea-orm-codegen 1.1.8, as declared in this file's header. Classified as generated bindings rather than a hand-reviewed source-clean claim; exact tree line count retained."
+
+[file.247]
+path = "services/explorer/services/libs/blockscout-db/entity/src/proxy_smart_contract_verification_statuses.rs"
+lines = 35
+verdict = "generated"
+note = "SeaORM Entity, @generated by sea-orm-codegen 1.1.8, as declared in this file's header. Classified as generated bindings rather than a hand-reviewed source-clean claim; exact tree line count retained."
+
+[file.248]
+path = "services/explorer/services/libs/blockscout-db/entity/src/scam_address_badge_mappings.rs"
+lines = 36
+verdict = "generated"
+note = "SeaORM Entity, @generated by sea-orm-codegen 1.1.8, as declared in this file's header. Classified as generated bindings rather than a hand-reviewed source-clean claim; exact tree line count retained."
+
+[file.249]
+path = "services/explorer/services/libs/blockscout-db/entity/src/schema_migrations.rs"
+lines = 16
+verdict = "generated"
+note = "SeaORM Entity, @generated by sea-orm-codegen 1.1.8, as declared in this file's header. Classified as generated bindings rather than a hand-reviewed source-clean claim; exact tree line count retained."
+
+[file.250]
+path = "services/explorer/services/libs/blockscout-db/entity/src/sea_orm_active_enums.rs"
+lines = 126
+verdict = "generated"
+note = "SeaORM Entity, @generated by sea-orm-codegen 1.1.8, as declared in this file's header. Classified as generated bindings rather than a hand-reviewed source-clean claim; exact tree line count retained."
+
+[file.251]
+path = "services/explorer/services/libs/blockscout-db/entity/src/signed_authorizations.rs"
+lines = 49
+verdict = "generated"
+note = "SeaORM Entity, @generated by sea-orm-codegen 1.1.8, as declared in this file's header. Classified as generated bindings rather than a hand-reviewed source-clean claim; exact tree line count retained."
+
+[file.252]
+path = "services/explorer/services/libs/blockscout-db/entity/src/smart_contract_audit_reports.rs"
+lines = 46
+verdict = "generated"
+note = "SeaORM Entity, @generated by sea-orm-codegen 1.1.8, as declared in this file's header. Classified as generated bindings rather than a hand-reviewed source-clean claim; exact tree line count retained."
+
+[file.253]
+path = "services/explorer/services/libs/blockscout-db/entity/src/smart_contracts.rs"
+lines = 72
+verdict = "generated"
+note = "SeaORM Entity, @generated by sea-orm-codegen 1.1.8, as declared in this file's header. Classified as generated bindings rather than a hand-reviewed source-clean claim; exact tree line count retained."
+
+[file.254]
+path = "services/explorer/services/libs/blockscout-db/entity/src/smart_contracts_additional_sources.rs"
+lines = 37
+verdict = "generated"
+note = "SeaORM Entity, @generated by sea-orm-codegen 1.1.8, as declared in this file's header. Classified as generated bindings rather than a hand-reviewed source-clean claim; exact tree line count retained."
+
+[file.255]
+path = "services/explorer/services/libs/blockscout-db/entity/src/token_instance_metadata_refetch_attempts.rs"
+lines = 28
+verdict = "generated"
+note = "SeaORM Entity, @generated by sea-orm-codegen 1.1.8, as declared in this file's header. Classified as generated bindings rather than a hand-reviewed source-clean claim; exact tree line count retained."
+
+[file.256]
+path = "services/explorer/services/libs/blockscout-db/entity/src/token_instances.rs"
+lines = 56
+verdict = "generated"
+note = "SeaORM Entity, @generated by sea-orm-codegen 1.1.8, as declared in this file's header. Classified as generated bindings rather than a hand-reviewed source-clean claim; exact tree line count retained."
+
+[file.257]
+path = "services/explorer/services/libs/blockscout-db/entity/src/token_transfer_token_id_migrator_progress.rs"
+lines = 18
+verdict = "generated"
+note = "SeaORM Entity, @generated by sea-orm-codegen 1.1.8, as declared in this file's header. Classified as generated bindings rather than a hand-reviewed source-clean claim; exact tree line count retained."
+
+[file.258]
+path = "services/explorer/services/libs/blockscout-db/entity/src/token_transfers.rs"
+lines = 70
+verdict = "generated"
+note = "SeaORM Entity, @generated by sea-orm-codegen 1.1.8, as declared in this file's header. Classified as generated bindings rather than a hand-reviewed source-clean claim; exact tree line count retained."
+
+[file.259]
+path = "services/explorer/services/libs/blockscout-db/entity/src/tokens.rs"
+lines = 48
+verdict = "generated"
+note = "SeaORM Entity, @generated by sea-orm-codegen 1.1.8, as declared in this file's header. Classified as generated bindings rather than a hand-reviewed source-clean claim; exact tree line count retained."
+
+[file.260]
+path = "services/explorer/services/libs/blockscout-db/entity/src/transaction_actions.rs"
+lines = 43
+verdict = "generated"
+note = "SeaORM Entity, @generated by sea-orm-codegen 1.1.8, as declared in this file's header. Classified as generated bindings rather than a hand-reviewed source-clean claim; exact tree line count retained."
+
+[file.261]
+path = "services/explorer/services/libs/blockscout-db/entity/src/transaction_forks.rs"
+lines = 54
+verdict = "generated"
+note = "SeaORM Entity, @generated by sea-orm-codegen 1.1.8, as declared in this file's header. Classified as generated bindings rather than a hand-reviewed source-clean claim; exact tree line count retained."
+
+[file.262]
+path = "services/explorer/services/libs/blockscout-db/entity/src/transaction_stats.rs"
+lines = 22
+verdict = "generated"
+note = "SeaORM Entity, @generated by sea-orm-codegen 1.1.8, as declared in this file's header. Classified as generated bindings rather than a hand-reviewed source-clean claim; exact tree line count retained."
+
+[file.263]
+path = "services/explorer/services/libs/blockscout-db/entity/src/transactions.rs"
+lines = 129
+verdict = "generated"
+note = "SeaORM Entity, @generated by sea-orm-codegen 1.1.8, as declared in this file's header. Classified as generated bindings rather than a hand-reviewed source-clean claim; exact tree line count retained."
+
+[file.264]
+path = "services/explorer/services/libs/blockscout-db/entity/src/user_contacts.rs"
+lines = 38
+verdict = "generated"
+note = "SeaORM Entity, @generated by sea-orm-codegen 1.1.8, as declared in this file's header. Classified as generated bindings rather than a hand-reviewed source-clean claim; exact tree line count retained."
+
+[file.265]
+path = "services/explorer/services/libs/blockscout-db/entity/src/user_operations.rs"
+lines = 76
+verdict = "generated"
+note = "SeaORM Entity, @generated by sea-orm-codegen 1.1.8, as declared in this file's header. Classified as generated bindings rather than a hand-reviewed source-clean claim; exact tree line count retained."
+
+[file.266]
+path = "services/explorer/services/libs/blockscout-db/entity/src/user_ops_indexer_migrations.rs"
+lines = 16
+verdict = "generated"
+note = "SeaORM Entity, @generated by sea-orm-codegen 1.1.8, as declared in this file's header. Classified as generated bindings rather than a hand-reviewed source-clean claim; exact tree line count retained."
+
+[file.267]
+path = "services/explorer/services/libs/blockscout-db/entity/src/users.rs"
+lines = 37
+verdict = "generated"
+note = "SeaORM Entity, @generated by sea-orm-codegen 1.1.8, as declared in this file's header. Classified as generated bindings rather than a hand-reviewed source-clean claim; exact tree line count retained."
+
+[file.268]
+path = "services/explorer/services/libs/blockscout-db/entity/src/validators.rs"
+lines = 25
+verdict = "generated"
+note = "SeaORM Entity, @generated by sea-orm-codegen 1.1.8, as declared in this file's header. Classified as generated bindings rather than a hand-reviewed source-clean claim; exact tree line count retained."
+
+[file.269]
+path = "services/explorer/services/libs/blockscout-db/entity/src/withdrawals.rs"
+lines = 39
+verdict = "generated"
+note = "SeaORM Entity, @generated by sea-orm-codegen 1.1.8, as declared in this file's header. Classified as generated bindings rather than a hand-reviewed source-clean claim; exact tree line count retained."
+
+[file.270]
+path = "services/explorer/services/libs/blockscout-db/migration/Cargo.toml"
+lines = 22
+verdict = "clean"
+note = "Read the complete handwritten manifest, module or migration entry point against entity exports and the registered SQL migration. Loader and rollback documentation defects are recorded at their owning files; no additional issue identified."
+
+[file.271]
+path = "services/explorer/services/libs/blockscout-db/migration/README.md"
+lines = 41
+verdict = "issues"
+note = "Read in full; concrete disagreements and owning-path repair proposals are recorded in this file's findings."
+
+[file.272]
+path = "services/explorer/services/libs/blockscout-db/migration/src/lib.rs"
+lines = 65
+verdict = "issues"
+note = "Read in full; concrete disagreements and owning-path repair proposals are recorded in this file's findings."
+
+[file.273]
+path = "services/explorer/services/libs/blockscout-db/migration/src/m20220101_000001_create_table.rs"
+lines = 12
+verdict = "clean"
+note = "Read the complete handwritten manifest, module or migration entry point against entity exports and the registered SQL migration. Loader and rollback documentation defects are recorded at their owning files; no additional issue identified."
+
+[file.274]
+path = "services/explorer/services/libs/blockscout-db/migration/src/main.rs"
+lines = 6
+verdict = "clean"
+note = "Read the complete handwritten manifest, module or migration entry point against entity exports and the registered SQL migration. Loader and rollback documentation defects are recorded at their owning files; no additional issue identified."
+
+[file.275]
+path = "services/explorer/services/libs/blockscout-db/migration/src/migration.sql"
+lines = 3989
+verdict = "generated"
+note = "Generated PostgreSQL 17.2 pg_dump schema snapshot as declared in its header. Classified as generated DDL rather than a hand-reviewed source-clean claim; the SQL loader is reviewed separately."
+
+[file.276]
+path = "services/explorer/services/libs/blockscout-db/src/lib.rs"
+lines = 2
+verdict = "clean"
+note = "Read the complete handwritten manifest, module or migration entry point against entity exports and the registered SQL migration. Loader and rollback documentation defects are recorded at their owning files; no additional issue identified."
+
+[file.277]
+path = "services/explorer/services/smart-contract-verifier/verification-common/Cargo.toml"
+lines = 21
+verdict = "clean"
+note = "Read the full handwritten source or manifest and test logic/assertions, including constructor, metadata, blueprint, library and immutable behavior as applicable. Long bytecode literals were inspected as fixture data. Offset safety is recorded at verification_match.rs; no further disagreement identified."
+
+[file.278]
+path = "services/explorer/services/smart-contract-verifier/verification-common/src/blueprint_contracts.rs"
+lines = 211
+verdict = "clean"
+note = "Read the full handwritten source or manifest and test logic/assertions, including constructor, metadata, blueprint, library and immutable behavior as applicable. Long bytecode literals were inspected as fixture data. Offset safety is recorded at verification_match.rs; no further disagreement identified."
+
+[file.279]
+path = "services/explorer/services/smart-contract-verifier/verification-common/src/lib.rs"
+lines = 3
+verdict = "clean"
+note = "Read the full handwritten source or manifest and test logic/assertions, including constructor, metadata, blueprint, library and immutable behavior as applicable. Long bytecode literals were inspected as fixture data. Offset safety is recorded at verification_match.rs; no further disagreement identified."
+
+[file.280]
+path = "services/explorer/services/smart-contract-verifier/verification-common/src/solidity_libraries.rs"
+lines = 147
+verdict = "clean"
+note = "Read the full handwritten source or manifest and test logic/assertions, including constructor, metadata, blueprint, library and immutable behavior as applicable. Long bytecode literals were inspected as fixture data. Offset safety is recorded at verification_match.rs; no further disagreement identified."
+
+[file.281]
+path = "services/explorer/services/smart-contract-verifier/verification-common/src/verifier_alliance/code_artifact_types.rs"
+lines = 22
+verdict = "clean"
+note = "Read the full handwritten source or manifest and test logic/assertions, including constructor, metadata, blueprint, library and immutable behavior as applicable. Long bytecode literals were inspected as fixture data. Offset safety is recorded at verification_match.rs; no further disagreement identified."
+
+[file.282]
+path = "services/explorer/services/smart-contract-verifier/verification-common/src/verifier_alliance/compilation_artifacts.rs"
+lines = 66
+verdict = "clean"
+note = "Read the full handwritten source or manifest and test logic/assertions, including constructor, metadata, blueprint, library and immutable behavior as applicable. Long bytecode literals were inspected as fixture data. Offset safety is recorded at verification_match.rs; no further disagreement identified."
+
+[file.283]
+path = "services/explorer/services/smart-contract-verifier/verification-common/src/verifier_alliance/creation_code_artifacts.rs"
+lines = 51
+verdict = "clean"
+note = "Read the full handwritten source or manifest and test logic/assertions, including constructor, metadata, blueprint, library and immutable behavior as applicable. Long bytecode literals were inspected as fixture data. Offset safety is recorded at verification_match.rs; no further disagreement identified."
+
+[file.284]
+path = "services/explorer/services/smart-contract-verifier/verification-common/src/verifier_alliance/mod.rs"
+lines = 18
+verdict = "clean"
+note = "Read the full handwritten source or manifest and test logic/assertions, including constructor, metadata, blueprint, library and immutable behavior as applicable. Long bytecode literals were inspected as fixture data. Offset safety is recorded at verification_match.rs; no further disagreement identified."
+
+[file.285]
+path = "services/explorer/services/smart-contract-verifier/verification-common/src/verifier_alliance/runtime_code_artifacts.rs"
+lines = 78
+verdict = "clean"
+note = "Read the full handwritten source or manifest and test logic/assertions, including constructor, metadata, blueprint, library and immutable behavior as applicable. Long bytecode literals were inspected as fixture data. Offset safety is recorded at verification_match.rs; no further disagreement identified."
+
+[file.286]
+path = "services/explorer/services/smart-contract-verifier/verification-common/src/verifier_alliance/verification_match.rs"
+lines = 313
+verdict = "issues"
+note = "Read in full; concrete disagreements and owning-path repair proposals are recorded in this file's findings."
+
+[file.287]
+path = "services/explorer/services/smart-contract-verifier/verification-common/src/verifier_alliance/verification_match_transformations.rs"
+lines = 71
+verdict = "clean"
+note = "Read the full handwritten source or manifest and test logic/assertions, including constructor, metadata, blueprint, library and immutable behavior as applicable. Long bytecode literals were inspected as fixture data. Offset safety is recorded at verification_match.rs; no further disagreement identified."
+
+[file.288]
+path = "services/explorer/services/smart-contract-verifier/verification-common/src/verifier_alliance/verification_match_values.rs"
+lines = 55
+verdict = "clean"
+note = "Read the full handwritten source or manifest and test logic/assertions, including constructor, metadata, blueprint, library and immutable behavior as applicable. Long bytecode literals were inspected as fixture data. Offset safety is recorded at verification_match.rs; no further disagreement identified."
+
+[file.289]
+path = "services/explorer/services/smart-contract-verifier/verification-common/tests/integration/main.rs"
+lines = 1
+verdict = "clean"
+note = "Read the full handwritten source or manifest and test logic/assertions, including constructor, metadata, blueprint, library and immutable behavior as applicable. Long bytecode literals were inspected as fixture data. Offset safety is recorded at verification_match.rs; no further disagreement identified."
+
+[file.290]
+path = "services/explorer/services/smart-contract-verifier/verification-common/tests/integration/verifier_alliance_matches.rs"
+lines = 647
+verdict = "clean"
+note = "Read the full handwritten source or manifest and test logic/assertions, including constructor, metadata, blueprint, library and immutable behavior as applicable. Long bytecode literals were inspected as fixture data. Offset safety is recorded at verification_match.rs; no further disagreement identified."
+
+[finding.bridge-all-rejected]
+file = "services/bridge/deploy/deploy-evm-chain.sh"
+line = 79
+class = "interface-mismatch"
+severity = "high"
+observed = "The initial -*) argument case rejects deploy-evm-chain.sh --all with usage exit 2 before the --all dispatch at line 84. Only --preflight --all reaches run_all, so the declared eight-chain deployment command cannot execute."
+expected = "Registry 14.cli-bridge-deploy-evm-chain-flag-all-j55 declares --all as the deployment entry point for eight ordered EVM chains, with one deployment record per chain and a stop at the first failure."
+proposal = "In services/bridge/deploy/deploy-evm-chain.sh accept --all in the initial parser and pass it to run_all. Add a regression through the actual CLI dispatcher for both --all and --preflight --all."
+owner_domain = 14
+interface = "14.cli-bridge-deploy-evm-chain-flag-all-j55"
+
+[finding.bridge-broadcast-recovery]
+file = "services/bridge/deploy/deploy-evm-chain.sh"
+line = 222
+class = "restart-recovery"
+severity = "medium"
+observed = "FOUNDRY_BROADCAST and deploy.log are placed under work, whose EXIT trap deletes the directory. A partial broadcast or later readback failure exits before the final deployment record, discarding the local transaction and vault journal despite possible finalized foreign transactions."
+expected = "Once deployment broadcasts, transaction identities and the created vault must survive failure and restart so recovery reads back the same deployment before creating another vault."
+proposal = "In services/bridge/deploy/deploy-evm-chain.sh persist a private per-chain run journal before broadcast, retain submitted transactions and vault identities, resume readback after restart, and publish the completed record atomically after successful checks."
+owner_domain = 14
+
+[finding.bridge-deployer-after-broadcast]
+file = "services/bridge/deploy/deploy-evm-chain.sh"
+line = 276
+class = "config-drift"
+severity = "medium"
+observed = "configured_deployer is compared with the broadcast record only after forge script --broadcast has deployed the vault and spent fees. A valid but wrong deployment key therefore produces an irreversible deployment before its configuration mismatch is reported."
+expected = "The configured deployer must agree with the signer selected by the deployment key before any transaction is broadcast."
+proposal = "In services/bridge/deploy/deploy-evm-chain.sh derive the signer address locally before forge script, compare it with configured_deployer, retain the post-broadcast provenance check, and cover refusal before broadcast for a mismatched signer."
+owner_domain = 14
+
+[finding.bridge-config-provenance]
+file = "services/bridge/deploy/deploy-evm-chain.sh"
+line = 331
+class = "restart-recovery"
+severity = "medium"
+observed = "With BRIDGE_DEPLOY_OVERLAY, apply_overlay replaces config with a file under OVERLAY_ROOT. The deployment record stores that temporary path, and the EXIT trap removes OVERLAY_ROOT; the resolved configuration snapshot is not retained."
+expected = "Deployment provenance must remain reproducible after exit, including the resolved owner, attestors, caps and chain settings used in the deployment."
+proposal = "In services/bridge/deploy/deploy-evm-chain.sh retain a private non-secret resolved configuration snapshot beside the deployment record and store its durable path and digest, preserving overlay provenance without copying credentials."
+owner_domain = 14
+
+[finding.rpc-reverted-status]
+file = "apps/explorer/ui/home/fallbacks/rpcDataContext.tsx"
+line = 113
+class = "runtime-risk"
+severity = "medium"
+observed = "The receipt effect checks receipt.status on the React Query result, where success means the request succeeded. A receipt whose receipt.data.status is reverted is therefore displayed as status ok. The shared formatTxData helper understands the execution status when passed the actual receipt."
+expected = "The degraded homepage must report the chain execution outcome and display reverted transactions as failed even when the RPC request succeeds."
+proposal = "In apps/explorer/ui/home/fallbacks/rpcDataContext.tsx pass receipt.data through the receipt-aware formatter or inspect its execution status explicitly. Cover a reverted chain receipt through the provider and degraded transaction row."
+owner_domain = 14
+
+[finding.rpc-feed-stops-updating]
+file = "apps/explorer/ui/home/fallbacks/rpcDataContext.tsx"
+line = 49
+class = "runtime-risk"
+severity = "medium"
+observed = "Once prevTxs reaches ITEMS_LIMIT, nextTxs always equals prevTxs and discards every newer transaction. totalTxs is recalculated from the retained sample length plus the current block count, so the latest feed freezes and its observed count can decrease."
+expected = "During API degradation the RPC feed must retain the latest transactions and maintain its observed-transaction count independently of the display sample."
+proposal = "In apps/explorer/ui/home/fallbacks/rpcDataContext.tsx prepend and deduplicate new transactions before truncating the display sample and maintain a separate observed count. Cover successive blocks beyond the five-row capacity."
+owner_domain = 14
+
+[finding.rpc-empty-block-loading]
+file = "apps/explorer/ui/home/fallbacks/rpcDataContext.tsx"
+line = 101
+class = "runtime-risk"
+severity = "medium"
+observed = "areReceiptsLoading remains true whenever txs.length is zero, and only the receipt effect clears loading after successful data. Valid empty blocks therefore leave fallback blocks and statistics loading indefinitely even when block data is usable."
+expected = "Successful empty blocks must let the degraded homepage show current blocks and zero observed transactions without waiting for a nonexistent transaction receipt."
+proposal = "In apps/explorer/ui/home/fallbacks/rpcDataContext.tsx track successful block observation separately from receipt requests and clear block loading on empty blocks. Cover an empty-block sequence through the provider and degraded block view."
+owner_domain = 14
+
+[finding.rpc-subscriber-lifecycle]
+file = "apps/explorer/ui/home/fallbacks/rpcDataContext.tsx"
+line = 139
+class = "runtime-risk"
+severity = "medium"
+observed = "enable(false, id) sets shared isEnabled and isLoading false even when other subscription ids remain. The remaining degraded consumers read that shared enablement and can lose their active state when one consumer leaves; repeated enables also append duplicate ids."
+expected = "The shared block watcher and provider state must remain enabled while any consumer is subscribed, with each subscription id represented once."
+proposal = "In apps/explorer/ui/home/fallbacks/rpcDataContext.tsx derive enablement from unique active subscriptions and manage watcher start and stop on zero-to-one and one-to-zero transitions. Cover two consumers, removal of one, and re-subscription."
+owner_domain = 14
+
+[finding.hero-container-config]
+file = "apps/explorer/ui/home/HeroBanner.tsx"
+line = 54
+class = "config-drift"
+severity = "medium"
+observed = "HeroBanner does not apply background, text_color or border from config.UI.homepage.heroBanner to its section and title, although configs/app/ui.ts still parses NEXT_PUBLIC_HOMEPAGE_HERO_BANNER_CONFIG. Search border and button-theme subfields are consumed elsewhere, leaving container customization partially disconnected."
+expected = "The declared hero configuration must consistently control its supported container and title styles as advertised by the customization fixture."
+proposal = "In apps/explorer/ui/home/HeroBanner.tsx apply supported container and title settings, or explicitly migrate unsupported fields across configuration, validation and operator guidance with an agreed replacement."
+owner_domain = 14
+interface = "14.env-fe-next-public-homepage-hero-banner-config"
+
+[finding.hero-customization-test]
+file = "apps/explorer/ui/home/HeroBanner.pw.tsx"
+line = 21
+class = "test-gap"
+severity = "medium"
+observed = "The customization test supplies hero background, text_color and border values but only takes a screenshot. The mounted component no longer reads those container fields, and the test never asserts that configuration reaches those styles."
+expected = "Customization coverage must assert the configured background, text color and border on the rendered hero so ignored configuration cannot pass as a working customization."
+proposal = "In apps/explorer/ui/home/HeroBanner.pw.tsx assert supported configured styles in light and dark modes through the actual loader and rendered component, retaining screenshot coverage after explicit behavioral checks."
+owner_domain = 14
+
+[finding.highlights-config-disconnected]
+file = "apps/explorer/ui/home/Highlights.tsx"
+line = 12
+class = "config-drift"
+severity = "medium"
+observed = "Highlights now renders statistics items and returns null without items. No homepage consumer reads config.UI.homepage.highlights, but configs/app/ui.ts still exposes NEXT_PUBLIC_HOMEPAGE_HIGHLIGHTS_CONFIG as an external promotional-banner URL, leaving configured banners absent."
+expected = "External highlights configuration must render its promotional banners through a live homepage entry point or be explicitly migrated as a removed feature."
+proposal = "In apps/explorer/ui/home wire a dedicated promotional-banner parent to the external configuration alongside the existing statistics Highlights component, or retire the environment contract with an explicit operator migration."
+owner_domain = 14
+interface = "14.env-fe-next-public-homepage-highlights-config"
+
+[finding.highlights-empty-screenshot]
+file = "apps/explorer/ui/home/Highlights.pw.tsx"
+line = 56
+class = "test-gap"
+severity = "medium"
+observed = "Both banner scenarios mock NEXT_PUBLIC_HOMEPAGE_HIGHLIGHTS_CONFIG and render Highlights without items. That component returns null, as Highlights.spec.tsx explicitly asserts, so no configured banner is mounted and no configured title, link or image is asserted."
+expected = "Two-banner and three-banner scenarios must render the configured promotional banners and assert their count, titles, destinations and adaptive images."
+proposal = "In apps/explorer/ui/home/Highlights.pw.tsx mount the real configured banner entry point after its wiring is resolved, assert content and counts before screenshots, and keep statistics-item coverage separate from promotional-banner coverage."
+owner_domain = 14
+
+[finding.stats-widget-selection]
+file = "apps/explorer/ui/home/Stats.tsx"
+line = 68
+class = "config-drift"
+severity = "medium"
+observed = "Stats checks isHomeStatsItemEnabled only for total_txs and total_blocks, always adds available coin price and market cap, and omits configured wallet_addresses, gas_tracker, btc_locked and standalone average_block_time. configs/app/ui.ts and HOME_STATS_WIDGET_IDS still accept those selections and use them in defaults."
+expected = "NEXT_PUBLIC_HOMEPAGE_STATS and config.UI.homepage.stats must consistently select the supported widgets, including the documented default selection."
+proposal = "In apps/explorer/ui/home/Stats.tsx restore rendering and selection for supported widget ids, or migrate the configuration, defaults and operator guidance to the agreed replacement layout. Assert enabled and disabled selections using real stats response shapes."
+owner_domain = 14
+interface = "14.env-fe-next-public-homepage-stats"
+
+[finding.stats-widget-test]
+file = "apps/explorer/ui/home/Stats.pw.tsx"
+line = 12
+class = "test-gap"
+severity = "medium"
+observed = "The all-items and default-view fixtures configure gas_tracker, wallet_addresses, btc_locked and average_block_time, while mounted Stats omits those widgets. The scenarios compare screenshots without asserting that requested widget identities and values are present."
+expected = "Configured-widget coverage must prove each requested supported widget is rendered with its producer value and that disabled widgets are absent."
+proposal = "In apps/explorer/ui/home/Stats.pw.tsx assert widget identities and values before screenshots and align the scenarios with the supported product configuration after reconciling Stats selection."
+owner_domain = 14
+
+[finding.nullable-utilization-crash]
+file = "apps/explorer/ui/home/LatestBlocks.tsx"
+line = 136
+class = "runtime-risk"
+severity = "medium"
+observed = "LatestBlocks admits every utilization value except undefined and calls toFixed at line 143. The backend Stats.Response schema permits null at line 106, so a contract-valid null crashes rendering. The current StatsController emits a number, making this a latent boundary defect rather than a claimed current null response."
+expected = "The homepage must tolerate every value admitted by its declared stats contract, or producer, schema and frontend types must consistently guarantee a non-null number."
+proposal = "In apps/explorer/ui/home/LatestBlocks.tsx handle nullable utilization consistently in the label and color calculation, align HomeStats with the backend schema and cover the declared null response without altering valid numeric behavior."
+owner_domain = 14
+interface = "14.http-get-api-v2-stats"
+
+[finding.secondary-price-label]
+file = "apps/explorer/ui/home/indicators/utils/chart.ts"
+line = 21
+class = "config-drift"
+severity = "medium"
+observed = "CHART_ITEMS.secondary_coin_price uses config.chain.currency.symbol, while secondary indicator metadata uses config.chain.secondaryCoin.symbol. With distinct primary and secondary assets, the secondary price chart is labelled as the primary asset."
+expected = "A secondary price series must carry the configured secondary asset symbol consistently with its indicator label."
+proposal = "In apps/explorer/ui/home/indicators/utils/chart.ts use config.chain.secondaryCoin.symbol for the secondary series name and cover a configuration with different primary and secondary symbols."
+owner_domain = 14
+interface = "14.cfg-fe-chain-secondarycoin"
+
+[finding.transaction-create-recipient]
+file = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/transaction.ex"
+line = 365
+class = "interface-mismatch"
+severity = "high"
+observed = "Transaction requires to as nonnullable Address. TransactionView renders transaction.to_address_hash through Helper.address_with_info, which returns nil for the absent recipient of contract creation. The emitted to:null fails the declared schema; frontend Transaction already permits null and uses created_contract separately."
+expected = "The declared transaction contract must accept actual contract-creation responses with a null recipient and separate created_contract across REST and homepage listings."
+proposal = "In services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/transaction.ex use the nullable address contract for to. Prove a persisted contract-creation transaction rendered by TransactionView casts against transaction and homepage response schemas."
+owner_domain = 14
+interface = "14.http-get-api-v2-transactions-transaction-hash-param"
+
+[finding.internal-create-recipient]
+file = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/internal_transaction.ex"
+line = 33
+class = "interface-mismatch"
+severity = "high"
+observed = "InternalTransaction requires to as nonnullable Address. InternalTransactionView renders to_address_hash using Helper.address_with_info, which returns null for a CREATE trace with no to_address_hash; its destination is reported separately as created_contract. The actual response cannot cast against this schema."
+expected = "The internal-transaction response must represent contract creation with its actual nullable recipient and separate created contract."
+proposal = "In services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/internal_transaction.ex align to with the nullable address contract and cover a real CREATE trace rendered through the transaction internal-transactions endpoint and canonical response cast."
+owner_domain = 14
+interface = "14.http-get-api-v2-transactions-transaction-hash-param-internal-transactions"
+
+[finding.raw-trace-producer-shape]
+file = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/transaction/raw_trace.ex"
+line = 49
+class = "interface-mismatch"
+severity = "high"
+observed = "RawTrace declares an array of Parity-style action/result entries. PaxeerX delegates raw tracing to Geth, which returns debug_traceTransaction unchanged; runtime.exs defaults to call_tracer, whose result is a nested call object. TransactionView passes that object through, violating the declared array response."
+expected = "The raw-trace response contract must describe the actual configured node adapter output, including nested calls, contract creation and execution errors."
+proposal = "In services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/transaction/raw_trace.ex reconcile the schema with Geth and other supported adapters using explicit variants or a deliberate normalized transport, and prove a real node trace through the controller and response validator."
+owner_domain = 14
+interface = "14.http-get-api-v2-transactions-transaction-hash-param-raw-trace"
+
+[finding.unified-account-description]
+file = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/paxeer_x/unified_account.ex"
+line = 13
+class = "retired-reference"
+severity = "medium"
+observed = "PaxeerXUnifiedAccount still describes four identities, chain/custody/kernel balance parts and activity merged with separate LayerX kernel events. Current child schemas expose three identities, one asset total, and chain transaction or token_transfer activity, matching requirement 14265.1 instead of the description."
+expected = "The published one-account description must reflect the merged response without kernel_account, parts, side or a separate custody/kernel activity domain."
+proposal = "In services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/paxeer_x/unified_account.ex rewrite the description for current identities, total balances and chain activity while retaining real controller-to-schema checks for requirement 14265.1."
+owner_domain = 14
+
+[finding.unified-asset-description]
+file = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/paxeer_x/unified_account/asset.ex"
+line = 14
+class = "retired-reference"
+severity = "medium"
+observed = "PaxeerXAsset describes a custody asset of the LayerX kernel and says id may be the kernel asset id. The merged unified-account controller exposes native and chain-token asset identities without the retired custody/kernel balance split."
+expected = "The asset identifier and denomination descriptions must match the native and chain-token asset list emitted by the merged account response."
+proposal = "In services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/paxeer_x/unified_account/asset.ex replace retired custody/kernel descriptions with actual native and token identifier semantics and align published examples with controller output."
+owner_domain = 14
+
+[finding.mint-log-indexer-abort]
+file = "services/explorer/backend/apps/indexer/lib/indexer/transform/mint_transfers.ex"
+line = 44
+class = "security"
+severity = "high"
+observed = "MintTransfers selects every fetched log solely by first_topic and calls parse_params, which has no clause for absent second or third topics. truncate_address_hash also requires zero address padding. An arbitrary EVM contract can LOG1 the matching topic or emit malformed address words. Indexer.Block.Fetcher invokes MintTransfers.parse(logs) unconditionally at line 199 before import, causing FunctionClauseError and repeated failure to index that valid block."
+expected = "An unrelated or malformed log must not abort indexing a committed block; mint extraction must validate the supported emitter and complete log shape before decoding."
+proposal = "In services/explorer/backend/apps/indexer/lib/indexer/transform/mint_transfers.ex constrain supported mint emitters and validate topic count, word length and address padding. Report unsupported logs without aborting the block and cover an adversarial LOG1 through the real block-fetch transform path."
+owner_domain = 14
+
+[finding.artifact-offset-panic]
+file = "services/explorer/services/smart-contract-verifier/verification-common/src/verifier_alliance/verification_match.rs"
+line = 192
+class = "runtime-risk"
+severity = "medium"
+observed = "Library and immutable transformations slice deployed_code and compiled_code with unchecked artifact start and length values at lines 192 and 232. MatchBuilder::new only compares total lengths. Inconsistent compiler artifact references can therefore panic instead of returning the Result error handled by the verifier caller."
+expected = "Malformed or inconsistent compiler artifact offsets must return contextual verification errors without panicking the verification task or mutating unrelated bytecode."
+proposal = "In services/explorer/services/smart-contract-verifier/verification-common/src/verifier_alliance/verification_match.rs validate checked start-plus-length against both buffers before slicing, return contextual errors, and cover invalid and overflowing references alongside valid-reference integration cases."
+owner_domain = 14
+
+[finding.migration-unicode-offset]
+file = "services/explorer/services/libs/blockscout-db/migration/src/lib.rs"
+line = 21
+class = "runtime-risk"
+severity = "medium"
+observed = "split enumerates Unicode characters but uses their indices as UTF-8 byte offsets when slicing at line 40. A valid SQL statement with multibyte text before a semicolon can be truncated or sliced inside a code point. from_sql exposes the splitter to migration contents; the current dump does not prove safety for later Unicode migrations."
+expected = "The migration loader must preserve statement bytes and handle valid Unicode SQL without corruption or a string-slicing panic."
+proposal = "In services/explorer/services/libs/blockscout-db/migration/src/lib.rs use byte positions from char_indices or a PostgreSQL-aware splitter and cover multibyte literals before semicolons through from_sql in a real database transaction."
+owner_domain = 14
+
+[finding.unused-daily-transform]
+file = "services/explorer/backend/apps/indexer/lib/indexer/transform/address_coin_balances_daily.ex"
+line = 10
+class = "dead-code"
+severity = "low"
+observed = "Indexer.Transform.AddressCoinBalancesDaily has no reference from another indexer library module. Its unused missing-block branch returns DateTime.from_unix!, unlike the Date returned for an in-memory block, and RPC errors can become day values; reconnecting it would expose inconsistent result types."
+expected = "Daily balance generation should have one live transformation path with consistent date and explicit error semantics rather than an unreferenced alternative."
+proposal = "In services/explorer/backend/apps/indexer/lib/indexer/transform/address_coin_balances_daily.ex remove the unused alternative after confirming the active daily-balance importer, or restore a deliberate caller with Date conversion and explicit RPC error propagation."
+owner_domain = 14
+
+[finding.site-beta-topology]
+file = "docs/site/docs/operators/beta-cluster.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The beta-cluster page describes Paxeer plus a separate LayerX daemon and a receipt authority reading a sequencer replica at lines 3-5, then checkpoint/guarantor settlement deployment and custody-backed funding. It retains the pre-merge operating topology."
+expected = "The finished beta network has one paxd BFT chain with its kernel inside the network and committed-block receipt finality, without retired daemon, sequencer or custody/anchor deployment dependencies."
+proposal = "Rewrite docs/site/docs/operators/beta-cluster.md for merged paxd deployment, current hosted boundaries, block-commit verification, durable restart state and supported funding. Label retained old-cluster procedures explicitly historical and non-operational."
+owner_domain = 8
+
+[finding.wiki-beta-topology]
+file = "docs/wiki/BetaCluster.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The beta-cluster page describes Paxeer plus a separate LayerX daemon and a receipt authority reading a sequencer replica at lines 3-5, then checkpoint/guarantor settlement deployment and custody-backed funding. It retains the pre-merge operating topology."
+expected = "The finished beta network has one paxd BFT chain with its kernel inside the network and committed-block receipt finality, without retired daemon, sequencer or custody/anchor deployment dependencies."
+proposal = "Rewrite docs/wiki/BetaCluster.md for merged paxd deployment, current hosted boundaries, block-commit verification, durable restart state and supported funding. Label retained old-cluster procedures explicitly historical and non-operational."
+owner_domain = 8
+
+[finding.site-programs-inventory]
+file = "docs/site/docs/programs/workspace.md"
+line = 9
+class = "doc-drift"
+severity = "medium"
+observed = "The workspace table lists layerx-programs-protocol-adapter and omits live layerx-programs-ai-market and layerx-programs-arbiter. programs/Cargo.toml now includes AI market and arbiter without a protocol-adapter member. The page also lacks AI market chain-domain and release payload-budget instructions."
+expected = "Workspace documentation must reflect current members and explain the AI market release build with opt-level z, build-time chain domain, matching host/guest ABI and 524288-byte deployment limit including its 104-byte envelope."
+proposal = "Update docs/site/docs/programs/workspace.md from programs/Cargo.toml and supported program build recipes, remove the obsolete member claim, and document AI guest build-domain, ABI agreement and payload-budget checks at deployment."
+owner_domain = 13
+
+[finding.wiki-programs-inventory]
+file = "docs/wiki/ProgramsWorkspace.md"
+line = 9
+class = "doc-drift"
+severity = "medium"
+observed = "The workspace table lists layerx-programs-protocol-adapter and omits live layerx-programs-ai-market and layerx-programs-arbiter. programs/Cargo.toml now includes AI market and arbiter without a protocol-adapter member. The page also lacks AI market chain-domain and release payload-budget instructions."
+expected = "Workspace documentation must reflect current members and explain the AI market release build with opt-level z, build-time chain domain, matching host/guest ABI and 524288-byte deployment limit including its 104-byte envelope."
+proposal = "Update docs/wiki/ProgramsWorkspace.md from programs/Cargo.toml and supported program build recipes, remove the obsolete member claim, and document AI guest build-domain, ABI agreement and payload-budget checks at deployment."
+owner_domain = 13
+
+[finding.route-catalogue-topology]
+file = "docs/system/routes.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The generated catalogue is titled Router routes, calls kernel a Sequencer at line 31, advertises live explorer anchors and receipts at lines 409-414, and lists /rpc/evm/ws at line 908. These entries conflict with the merged node surface and archive-only explorer contract."
+expected = "The catalogue must distinguish root-path node namespaces from hosted px_ interfaces and describe historical anchors and receipts under explicit frozen archive paths."
+proposal = "Correct the route catalogue inputs and generator for docs/system/routes.md and regenerate current node, hosted gateway and explorer archive routes, removing active router/sequencer wording and retaining precise authentication boundaries."
+owner_domain = 8
+
+[finding.root-readme-topology]
+file = "README.md"
+line = 47
+class = "doc-drift"
+severity = "medium"
+observed = "README says layerxd runs separately and settles checkpoints through layerxAnchor, lists custody and anchor addresses without retired status at line 83, and calls the merge only a draft at lines 79 and 181."
+expected = "The product overview must describe the finished single paxd network, embedded kernel and committed-block finality, with historical interfaces separated from active upgrade-version interfaces."
+proposal = "Rewrite architecture and upgrade paragraphs in README.md for the merged network, remove standalone daemon operating guidance and clearly label retired addresses and archive-only interfaces so integrators select current endpoints."
+owner_domain = 1
+
+[finding.network-overview-topology]
+file = "docs/paxeer-network.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The page calls Paxeer the settlement and custody layer for a separate LayerX network, describes periodic checkpoints and a LayerX sequencer at lines 3-7, and claims a public faucet at line 9, giving the retired topology and funding model."
+expected = "Paxeer mainnet-beta is one BFT network with the kernel inside it, chain id 125, committed-block finality and root-path public RPC; funding guidance must match current beta policy."
+proposal = "Rewrite docs/paxeer-network.md around the merged network and current node/hosted responsibilities, remove active checkpoint/custody/sequencer claims, and link supported access and funding instructions while retaining accurate tenant-domain guidance."
+owner_domain = 1
+
+[finding.monorepo-overview-topology]
+file = "docs/MONOREPO.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The monorepo guide names the LayerX kernel as layerxd in its introduction and treats custody, checkpoint registration, guarantor bonds, challenges and emergency exits as current settlement boundaries at lines 70-72."
+expected = "Repository and trust-boundary guidance must describe the integrated paxd kernel and identify retired settlement components as historical rather than live deployment dependencies."
+proposal = "Update docs/MONOREPO.md for the paxd/kernel build and execution relationship, current service authority boundaries and historical-only settlement code; keep directory-move plans distinct from running network architecture."
+owner_domain = 1
+
+[finding.quickstart-retired-public-path]
+file = "docs/site/docs/overview/quickstart.md"
+line = 167
+class = "doc-drift"
+severity = "medium"
+observed = "The quickstart directs public clients to POST /rpc and /rpc/ws, publishes api-mainnet-beta.paxeer.network/rpc at lines 214-215, uses lx_ receipt methods and sequencer trust anchors, directs custody-credit funding to the router and later sends eth_sendRawTransaction to /rpc."
+expected = "Public node JSON-RPC is at the root of api1 through api14.mainnet-beta.paxeer.network and api-mainnet-beta.paxeer.network; node namespaces and hosted px_ methods are distinct and final receipts follow block commitment."
+proposal = "Rewrite docs/site/docs/overview/quickstart.md as a merged-network connection, funding, program deployment and receipt walkthrough. Replace router endpoints and retired methods using node and hosted gateway openrpc contracts and remove separate sequencer authority setup."
+owner_domain = 8
+
+[finding.payments-retired-public-path]
+file = "docs/site/docs/overview/payments.md"
+line = 18
+class = "doc-drift"
+severity = "medium"
+observed = "The payments page publishes a router origin ending /rpc and teaches verification with sequencer_id, sequencer_key, batch ranges and checkpoint context, followed by lx_ watches and a sequencer-signed verification label. These examples retain the old payment transport and finality model."
+expected = "Payment guidance must use merged interfaces, distinguish hosted px_ methods from root-path node RPC and verify committed-block receipt evidence instead of separate sequencer or checkpoint authority."
+proposal = "Rewrite docs/site/docs/overview/payments.md against the current node payment path and hosted gateway openrpc contract, with an end-to-end committed payment, current authentication and funding and explicit refusal/error handling."
+owner_domain = 8
+
+[finding.beta-control-retired-funding]
+file = "docs/site/docs/operators/beta-control.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "Although this is a private beta-control profile, its introduction directs public clients to custody credit submitted to the router. Later operations retain pending-core, receipt-authority and relay responsibilities from the pre-merge settlement topology."
+expected = "A private control runbook must distinguish private tooling from the merged public network and provide current funding and committed-receipt checks without retired custody/router dependencies."
+proposal = "Rewrite docs/site/docs/operators/beta-control.md for the supported private scope, current gateway/node connections, funding and block-commit checks, and archive obsolete pending-core and settlement steps as non-operational history."
+owner_domain = 8
+
+[finding.migration-rollback-runbook]
+file = "services/explorer/services/libs/blockscout-db/migration/README.md"
+line = 18
+class = "doc-drift"
+severity = "medium"
+observed = "The migrator README advertises down, refresh and reset rollback workflows, but its sole registered migration implements only up and provides no down operation. There is no implemented reverse schema migration for this initial SQL dump."
+expected = "The runbook must state actual rollback capability and distinguish destructive fresh recreation from a supported reverse migration."
+proposal = "Update services/explorer/services/libs/blockscout-db/migration/README.md to state that the initial migration has no supported down operation and document approved backup/restore or disposable recreation, or separately implement and qualify reversal before advertising rollback."
+owner_domain = 14
+
+[doc.01]
+path = "docs/site/docs/operators/beta-cluster.md"
+status = "misleading"
+notes = "Read in full, including examples and operator or route tables. Operational pre-merge topology, endpoint, funding or finality guidance conflicts with the finished merged network. Exact source locations and owning-domain rewrite proposals are recorded in this page's finding."
+
+[doc.02]
+path = "docs/wiki/BetaCluster.md"
+status = "misleading"
+notes = "Read in full, including examples and operator or route tables. Operational pre-merge topology, endpoint, funding or finality guidance conflicts with the finished merged network. Exact source locations and owning-domain rewrite proposals are recorded in this page's finding."
+
+[doc.03]
+path = "docs/site/docs/programs/workspace.md"
+status = "stale"
+notes = "The runtime and ABI gate discussion remains useful, but the workspace inventory omits AI market and arbiter and retains an obsolete member. Current AI guest build-domain and payload-budget guidance is absent; see the corresponding programs-inventory finding."
+
+[doc.04]
+path = "docs/wiki/ProgramsWorkspace.md"
+status = "stale"
+notes = "The runtime and ABI gate discussion remains useful, but the workspace inventory omits AI market and arbiter and retains an obsolete member. Current AI guest build-domain and payload-budget guidance is absent; see the corresponding programs-inventory finding."
+
+[doc.05]
+path = "docs/system/routes.md"
+status = "misleading"
+notes = "Read in full, including examples and operator or route tables. Operational pre-merge topology, endpoint, funding or finality guidance conflicts with the finished merged network. Exact source locations and owning-domain rewrite proposals are recorded in this page's finding."
+
+[doc.06]
+path = "contracts/bridge/README.md"
+status = "accurate"
+notes = "Read the complete bridge runbook, including EVM/Solana readback, coordinated cap decreases, Sidiora registration order, recipient encoding and recovery dispositions. Opening correctly depends on finalized registration, ownership acceptance and cap agreement. Command recovery defects are recorded against the deployment script."
+
+[doc.07]
+path = "README.md"
+status = "misleading"
+notes = "Read in full, including examples and operator or route tables. Operational pre-merge topology, endpoint, funding or finality guidance conflicts with the finished merged network. Exact source locations and owning-domain rewrite proposals are recorded in this page's finding."
+
+[doc.08]
+path = "docs/paxeer-network.md"
+status = "misleading"
+notes = "Read in full, including examples and operator or route tables. Operational pre-merge topology, endpoint, funding or finality guidance conflicts with the finished merged network. Exact source locations and owning-domain rewrite proposals are recorded in this page's finding."
+
+[doc.09]
+path = "docs/MONOREPO.md"
+status = "misleading"
+notes = "Read in full, including examples and operator or route tables. Operational pre-merge topology, endpoint, funding or finality guidance conflicts with the finished merged network. Exact source locations and owning-domain rewrite proposals are recorded in this page's finding."
+
+[doc.10]
+path = "docs/site/docs/overview/quickstart.md"
+status = "misleading"
+notes = "Read in full, including examples and operator or route tables. Operational pre-merge topology, endpoint, funding or finality guidance conflicts with the finished merged network. Exact source locations and owning-domain rewrite proposals are recorded in this page's finding."
+
+[doc.11]
+path = "docs/site/docs/overview/payments.md"
+status = "misleading"
+notes = "Read in full, including examples and operator or route tables. Operational pre-merge topology, endpoint, funding or finality guidance conflicts with the finished merged network. Exact source locations and owning-domain rewrite proposals are recorded in this page's finding."
+
+[doc.12]
+path = "docs/site/docs/operators/beta-control.md"
+status = "misleading"
+notes = "Read in full, including examples and operator or route tables. Operational pre-merge topology, endpoint, funding or finality guidance conflicts with the finished merged network. Exact source locations and owning-domain rewrite proposals are recorded in this page's finding."
+
+[doc.13]
+path = "services/explorer/services/libs/blockscout-db/migration/README.md"
+status = "misleading"
+notes = "The CLI catalogue advertises rollback, refresh and reset although the registered initial migration implements only up. See migration-rollback-runbook for the supported recovery documentation proposal."
+
+[doc.14]
+path = "contracts/explorer-ws.md"
+status = "missing"
+notes = "The reviewed websocket registry rows cite this path for channels, topics and pushes, but it is absent in this revision. Domain 14 should restore a canonical websocket contract and align registry links. Actual channel, notifier and homepage consumer source was inspected directly."

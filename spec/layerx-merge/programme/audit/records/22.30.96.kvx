@@ -1,0 +1,1398 @@
+# Pre-upgrade audit of the agent client, shared types and preparation slice.
+# Findings are proposals; source behavior is unchanged.
+
+[audit.22.30.96]
+task = "22.30.96"
+revision = "2b99f88520e4e809ad5593f3bee2df74fe355d7b"
+files_reviewed = 110
+findings = 64
+docs_reviewed = 15
+upgrade_ready = false
+blocking = ["f01", "f02", "f03", "f04", "f05", "f06", "f07", "f08", "f09"]
+review_basis = "Full member-file review against the package requirement list, enumerated producer/consumer registry rows, retirement inventory and product pages. Registry rehoming and retired rows were distinguished from live wire behavior; gateway dispatch and node receipt/storage producers were compared directly."
+interface_coverage = "The package enumerates 400 produces and 400 consumes, with produces_total 872; review follows the supplied rows and full source files. Old registry paths resolved through reconciliation are historical inventory, not assumed live routes."
+qualification_scope = "Only the declared record qualification gates apply. No Rust build or suite was run, and no proposed repair or historical failing target is claimed verified by this audit."
+
+[file.f001]
+path = "services/agent/crates/layerx-agentd/src/lib.rs"
+lines = 50
+verdict = "clean"
+note = "Read the complete daemon module exports; preparation migration issues are recorded in the owning preparation files. The library names no lni module."
+
+[file.f002]
+path = "services/agent/crates/layerx-agentd/src/prepare/disclose.rs"
+lines = 69
+verdict = "issues"
+note = "Read the entire file, including error and test paths, against its declared producer/consumer interfaces and package requirements. Findings: finding.f14."
+
+[file.f003]
+path = "services/agent/crates/layerx-agentd/src/prepare/expiry.rs"
+lines = 1240
+verdict = "issues"
+note = "Read the entire file, including error and test paths, against its declared producer/consumer interfaces and package requirements. Findings: finding.f15, finding.f16."
+
+[file.f004]
+path = "services/agent/crates/layerx-agentd/src/prepare/mod.rs"
+lines = 953
+verdict = "issues"
+note = "Read the entire file, including error and test paths, against its declared producer/consumer interfaces and package requirements. Findings: finding.f13."
+
+[file.f005]
+path = "services/agent/crates/layerx-agentd/src/prepare/restore_tests.rs"
+lines = 87
+verdict = "issues"
+note = "Read the entire file, including error and test paths, against its declared producer/consumer interfaces and package requirements. Findings: finding.f17."
+
+[file.f006]
+path = "services/agent/crates/layerx-client/Cargo.toml"
+lines = 31
+verdict = "clean"
+note = "Read the complete manifest and feature/dependency wiring; source dependencies resolve to the shared workspace crates without a new endpoint default."
+
+[file.f007]
+path = "services/agent/crates/layerx-client/examples/paxeer_bind_vectors.rs"
+lines = 118
+verdict = "clean"
+note = "Read the complete binding vector example; derives and encodes the chain-domain binding using the shared account binding implementation."
+
+[file.f008]
+path = "services/agent/crates/layerx-client/src/account_binding.rs"
+lines = 338
+verdict = "clean"
+note = "Read complete binding selectors, nonce/DID decoding, chain-domain message and transaction signing paths against the addr ABI."
+
+[file.f009]
+path = "services/agent/crates/layerx-client/src/ai_market.rs"
+lines = 1888
+verdict = "issues"
+note = "Read the entire file, including error and test paths, against its declared producer/consumer interfaces and package requirements. Findings: finding.f01, finding.f04, finding.f11."
+
+[file.f010]
+path = "services/agent/crates/layerx-client/src/budget.rs"
+lines = 155
+verdict = "clean"
+note = "Read complete committed budget record decoding, version handling and malformed-field checks against native budget vectors."
+
+[file.f011]
+path = "services/agent/crates/layerx-client/src/chains.rs"
+lines = 510
+verdict = "clean"
+note = "Read complete tenant chain ABI encoding, decoding and per-chain URL derivation against the shared chains vectors."
+
+[file.f012]
+path = "services/agent/crates/layerx-client/src/fee.rs"
+lines = 63
+verdict = "clean"
+note = "Read complete native fee schedule decoding and fee context checks against the declared binary producer fields."
+
+[file.f013]
+path = "services/agent/crates/layerx-client/src/frame/framing.rs"
+lines = 181
+verdict = "clean"
+note = "Read complete bounded length-prefix encoder/decoder, truncation and oversize refusals; reusable frame behavior is independent of retired LNI message schemas."
+
+[file.f014]
+path = "services/agent/crates/layerx-client/src/frame/mod.rs"
+lines = 2
+verdict = "clean"
+note = "Read the complete generic frame module exports; the codec and socket transport remain available at the required frame path."
+
+[file.f015]
+path = "services/agent/crates/layerx-client/src/frame/transport.rs"
+lines = 380
+verdict = "clean"
+note = "Read complete Unix/TLS frame transport, peer admission, frame bounds and I/O error paths; no retired message negotiation is required here."
+
+[file.f016]
+path = "services/agent/crates/layerx-client/src/grants.rs"
+lines = 69
+verdict = "clean"
+note = "Read complete grant decoding, role/version/presence fields and canonical bounds against committed capability vectors."
+
+[file.f017]
+path = "services/agent/crates/layerx-client/src/lib.rs"
+lines = 19
+verdict = "issues"
+note = "Read the entire file, including error and test paths, against its declared producer/consumer interfaces and package requirements. Findings: finding.f18."
+
+[file.f018]
+path = "services/agent/crates/layerx-client/src/lni/abi.rs"
+lines = 191
+verdict = "issues"
+note = "Read the entire file, including error and test paths, against its declared producer/consumer interfaces and package requirements. Findings: finding.f20."
+
+[file.f019]
+path = "services/agent/crates/layerx-client/src/lni/capabilities.rs"
+lines = 93
+verdict = "issues"
+note = "Read the entire file, including error and test paths, against its declared producer/consumer interfaces and package requirements. Findings: finding.f21."
+
+[file.f020]
+path = "services/agent/crates/layerx-client/src/lni/framing.rs"
+lines = 1
+verdict = "clean"
+note = "Complete file is a compatibility re-export of the generic frame codec; it introduces no retired message shape or runtime endpoint."
+
+[file.f021]
+path = "services/agent/crates/layerx-client/src/lni/handshake.rs"
+lines = 429
+verdict = "issues"
+note = "Read the entire file, including error and test paths, against its declared producer/consumer interfaces and package requirements. Findings: finding.f22."
+
+[file.f022]
+path = "services/agent/crates/layerx-client/src/lni/mod.rs"
+lines = 14
+verdict = "issues"
+note = "Read the entire file, including error and test paths, against its declared producer/consumer interfaces and package requirements. Findings: finding.f19."
+
+[file.f023]
+path = "services/agent/crates/layerx-client/src/lni/refusal.rs"
+lines = 20
+verdict = "issues"
+note = "Read the entire file, including error and test paths, against its declared producer/consumer interfaces and package requirements. Findings: finding.f23."
+
+[file.f024]
+path = "services/agent/crates/layerx-client/src/lni/report.rs"
+lines = 161
+verdict = "issues"
+note = "Read the entire file, including error and test paths, against its declared producer/consumer interfaces and package requirements. Findings: finding.f24."
+
+[file.f025]
+path = "services/agent/crates/layerx-client/src/lni/schema.rs"
+lines = 1096
+verdict = "issues"
+note = "Read the entire file, including error and test paths, against its declared producer/consumer interfaces and package requirements. Findings: finding.f25."
+
+[file.f026]
+path = "services/agent/crates/layerx-client/src/lni/transport.rs"
+lines = 1
+verdict = "clean"
+note = "Complete file is a compatibility re-export of the generic frame transport; protocol negotiation resides in the separately flagged LNI files."
+
+[file.f027]
+path = "services/agent/crates/layerx-client/src/paxeer_binding.rs"
+lines = 241
+verdict = "clean"
+note = "Read the full DID/EVM bind domain, selectors and ABI word encodings against the addr producer and binding vectors."
+
+[file.f028]
+path = "services/agent/crates/layerx-client/src/px.rs"
+lines = 313
+verdict = "issues"
+note = "Read the entire file, including error and test paths, against its declared producer/consumer interfaces and package requirements. Findings: finding.f06, finding.f07, finding.f09, finding.f10."
+
+[file.f029]
+path = "services/agent/crates/layerx-client/src/rpc/account.rs"
+lines = 78
+verdict = "clean"
+note = "Read full committed balance/nonce and DID account resolution paths; native scalar reads use explicit heights and no removed AccountProof API."
+
+[file.f030]
+path = "services/agent/crates/layerx-client/src/rpc/batch.rs"
+lines = 31
+verdict = "clean"
+note = "Read full block lookup/availability mapping and head/pruned refusals against eth_getBlockByNumber fields."
+
+[file.f031]
+path = "services/agent/crates/layerx-client/src/rpc/evidence.rs"
+lines = 64
+verdict = "issues"
+note = "Read the entire file, including error and test paths, against its declared producer/consumer interfaces and package requirements. Findings: finding.f03."
+
+[file.f032]
+path = "services/agent/crates/layerx-client/src/rpc/history.rs"
+lines = 180
+verdict = "issues"
+note = "Read the entire file, including error and test paths, against its declared producer/consumer interfaces and package requirements. Findings: finding.f26."
+
+[file.f033]
+path = "services/agent/crates/layerx-client/src/rpc/mod.rs"
+lines = 20
+verdict = "issues"
+note = "Issues concern the exported freshness carrier; all RPC submodules and their registration exports were read. Findings: finding.f28."
+
+[file.f034]
+path = "services/agent/crates/layerx-client/src/rpc/module_state.rs"
+lines = 71
+verdict = "issues"
+note = "Read the entire file, including error and test paths, against its declared producer/consumer interfaces and package requirements. Findings: finding.f02."
+
+[file.f035]
+path = "services/agent/crates/layerx-client/src/rpc/payments.rs"
+lines = 76
+verdict = "issues"
+note = "Read the entire file, including error and test paths, against its declared producer/consumer interfaces and package requirements. Findings: finding.f27."
+
+[file.f036]
+path = "services/agent/crates/layerx-client/src/rpc/receipt.rs"
+lines = 337
+verdict = "issues"
+note = "Read the entire file, including error and test paths, against its declared producer/consumer interfaces and package requirements. Findings: finding.f05."
+
+[file.f037]
+path = "services/agent/crates/layerx-client/src/rpc/stream.rs"
+lines = 122
+verdict = "clean"
+note = "Read full event ordering, gap handling and subscription result decoding; transport lifetime risk is recorded in subscription.rs."
+
+[file.f038]
+path = "services/agent/crates/layerx-client/src/rpc/submit.rs"
+lines = 106
+verdict = "clean"
+note = "Read full signed transaction submission and typed LXP refusal mapping; submitted denotes acknowledgement only."
+
+[file.f039]
+path = "services/agent/crates/layerx-client/src/rpc/withdrawal.rs"
+lines = 59
+verdict = "issues"
+note = "Read the entire file, including error and test paths, against its declared producer/consumer interfaces and package requirements. Findings: finding.f29."
+
+[file.f040]
+path = "services/agent/crates/layerx-client/src/runtime_clock.rs"
+lines = 314
+verdict = "clean"
+note = "Read full Linux runtime clock peer PID/UID/socket authentication and protocol decode; the three registry environment keys agree with the implementation."
+
+[file.f041]
+path = "services/agent/crates/layerx-client/src/sequencer.rs"
+lines = 1423
+verdict = "issues"
+note = "Read complete HTTP/TLS JSON-RPC transport, canonical receipt/denomination decoder, receipt keys, block and storage-witness reads; history envelope mismatch is recorded separately. Findings: finding.f08."
+
+[file.f042]
+path = "services/agent/crates/layerx-client/src/storage_witness.rs"
+lines = 69
+verdict = "clean"
+note = "Read full ICS23 membership decoding, bounded path and hash operations and slot/value/store/app-root binding against the node-generated witness vectors."
+
+[file.f043]
+path = "services/agent/crates/layerx-client/src/subscription.rs"
+lines = 237
+verdict = "issues"
+note = "Read the entire file, including error and test paths, against its declared producer/consumer interfaces and package requirements. Findings: finding.f47."
+
+[file.f044]
+path = "services/agent/crates/layerx-client/tests/ai_market_commit.rs"
+lines = 521
+verdict = "issues"
+note = "Read the entire file, including error and test paths, against its declared producer/consumer interfaces and package requirements. Findings: finding.f39."
+
+[file.f045]
+path = "services/agent/crates/layerx-client/tests/ai_market_rpc.rs"
+lines = 459
+verdict = "issues"
+note = "Read the entire file, including error and test paths, against its declared producer/consumer interfaces and package requirements. Findings: finding.f37."
+
+[file.f046]
+path = "services/agent/crates/layerx-client/tests/batch_rpc.rs"
+lines = 148
+verdict = "clean"
+note = "Read all block lookup and availability success/refusal tests including receipts_root fields; no proof authority is inferred from availability."
+
+[file.f047]
+path = "services/agent/crates/layerx-client/tests/chains_vectors.rs"
+lines = 345
+verdict = "clean"
+note = "Read complete chain-method vector tests including tenant IDs, method selectors and derived per-chain RPC URLs."
+
+[file.f048]
+path = "services/agent/crates/layerx-client/tests/committed_caps.rs"
+lines = 194
+verdict = "clean"
+note = "Read complete native budget/grant committed capability vectors and malformed version/field coverage."
+
+[file.f049]
+path = "services/agent/crates/layerx-client/tests/evidence_rpc.rs"
+lines = 183
+verdict = "issues"
+note = "Read the entire file, including error and test paths, against its declared producer/consumer interfaces and package requirements. Findings: finding.f36."
+
+[file.f050]
+path = "services/agent/crates/layerx-client/tests/history_rpc.rs"
+lines = 235
+verdict = "issues"
+note = "Read the entire file, including error and test paths, against its declared producer/consumer interfaces and package requirements. Findings: finding.f44."
+
+[file.f051]
+path = "services/agent/crates/layerx-client/tests/module_reads_rpc.rs"
+lines = 129
+verdict = "issues"
+note = "Read complete module-state success/refusal test paths. The tests named for storage proofs exercise repeated eth_call and block metadata; finding.f35 records the missing witness path."
+
+[file.f052]
+path = "services/agent/crates/layerx-client/tests/payments_rpc.rs"
+lines = 247
+verdict = "issues"
+note = "Read the entire file, including error and test paths, against its declared producer/consumer interfaces and package requirements. Findings: finding.f42."
+
+[file.f053]
+path = "services/agent/crates/layerx-client/tests/proof_client.rs"
+lines = 888
+verdict = "issues"
+note = "Read the entire file, including error and test paths, against its declared producer/consumer interfaces and package requirements. Findings: finding.f40."
+
+[file.f054]
+path = "services/agent/crates/layerx-client/tests/px_reads.rs"
+lines = 483
+verdict = "issues"
+note = "Read the entire file, including error and test paths, against its declared producer/consumer interfaces and package requirements. Findings: finding.f41."
+
+[file.f055]
+path = "services/agent/crates/layerx-client/tests/reads_rpc.rs"
+lines = 137
+verdict = "clean"
+note = "Read complete explicit-height balance and account RPC tests and unavailable/malformed response refusals."
+
+[file.f056]
+path = "services/agent/crates/layerx-client/tests/receipt_rpc.rs"
+lines = 563
+verdict = "issues"
+note = "Read the entire file, including error and test paths, against its declared producer/consumer interfaces and package requirements. Findings: finding.f46."
+
+[file.f057]
+path = "services/agent/crates/layerx-client/tests/rpc_scaffold.rs"
+lines = 36
+verdict = "clean"
+note = "Read entire RPC scaffold export checks; it claims module availability rather than verified evidence."
+
+[file.f058]
+path = "services/agent/crates/layerx-client/tests/rpc_scaffold_late.rs"
+lines = 19
+verdict = "clean"
+note = "Read entire later RPC scaffold checks; export presence agrees with the implemented module boundary."
+
+[file.f059]
+path = "services/agent/crates/layerx-client/tests/sequencer.rs"
+lines = 931
+verdict = "issues"
+note = "Read the entire file, including error and test paths, against its declared producer/consumer interfaces and package requirements. Findings: finding.f38."
+
+[file.f060]
+path = "services/agent/crates/layerx-client/tests/sequencer_reads.rs"
+lines = 286
+verdict = "issues"
+note = "Read the entire file, including error and test paths, against its declared producer/consumer interfaces and package requirements. Findings: finding.f45."
+
+[file.f061]
+path = "services/agent/crates/layerx-client/tests/sequencer_receipts.rs"
+lines = 447
+verdict = "clean"
+note = "Read complete receipt decoding tests, including the Go-produced 24-field receipted vector, signingKey, paymentDenom and committed extra fields; field counts agree."
+
+[file.f062]
+path = "services/agent/crates/layerx-client/tests/snapshot_binding_v2.rs"
+lines = 140
+verdict = "clean"
+note = "Read complete SnapshotBindingV2 encoding/binding tests; structural binding coverage does not itself prove validator or storage evidence, covered by the AI finality finding."
+
+[file.f063]
+path = "services/agent/crates/layerx-client/tests/storage_witness.rs"
+lines = 173
+verdict = "clean"
+note = "Read complete Go-produced ICS23 storage witness vector, changed value/key/store-root/app-root refusals and canonical decode checks."
+
+[file.f064]
+path = "services/agent/crates/layerx-client/tests/stream_rpc.rs"
+lines = 188
+verdict = "clean"
+note = "Read complete stream event-order and gap tests through the JSON-RPC subscription result boundary."
+
+[file.f065]
+path = "services/agent/crates/layerx-client/tests/submit_rpc.rs"
+lines = 192
+verdict = "clean"
+note = "Read complete raw submission success/error tests; returned submitted hash is treated as a transport acknowledgement."
+
+[file.f066]
+path = "services/agent/crates/layerx-client/tests/subscription.rs"
+lines = 170
+verdict = "clean"
+note = "Read complete WebSocket subscribe/unsubscribe and malformed notification tests; total wait behavior remains the source finding."
+
+[file.f067]
+path = "services/agent/crates/layerx-client/tests/supply_receipt.rs"
+lines = 60
+verdict = "clean"
+note = "Read complete signed supply receipt round trip and tamper refusal without a retired transport dependency."
+
+[file.f068]
+path = "services/agent/crates/layerx-client/tests/withdrawal_rpc.rs"
+lines = 188
+verdict = "issues"
+note = "Read the entire file, including error and test paths, against its declared producer/consumer interfaces and package requirements. Findings: finding.f43."
+
+[file.f069]
+path = "services/agent/crates/layerx-types/Cargo.toml"
+lines = 10
+verdict = "clean"
+note = "Read complete shared-types manifest and declared dependencies/build integration."
+
+[file.f070]
+path = "services/agent/crates/layerx-types/build.rs"
+lines = 566
+verdict = "clean"
+note = "Read entire build-time generator and header/protocol extraction; this is maintained generator source, not generated output."
+
+[file.f071]
+path = "services/agent/crates/layerx-types/src/account.rs"
+lines = 260
+verdict = "clean"
+note = "Read complete account enums, canonical account fields and validation; no new tenant or endpoint assumption is introduced."
+
+[file.f072]
+path = "services/agent/crates/layerx-types/src/activity.rs"
+lines = 577
+verdict = "clean"
+note = "Read complete canonical activity domain types and builders; retained wire data types do not themselves start or address a separate daemon."
+
+[file.f073]
+path = "services/agent/crates/layerx-types/src/amount.rs"
+lines = 109
+verdict = "clean"
+note = "Read complete checked amount arithmetic and conversions, including overflow refusal."
+
+[file.f074]
+path = "services/agent/crates/layerx-types/src/batch.rs"
+lines = 42
+verdict = "clean"
+note = "Read full canonical batch commitments; these data commitments are distinct from the retired standalone sequencer service and remain consumable as historical/native batch data."
+
+[file.f075]
+path = "services/agent/crates/layerx-types/src/checkpoint.rs"
+lines = 104
+verdict = "issues"
+note = "Read the entire file, including error and test paths, against its declared producer/consumer interfaces and package requirements. Findings: finding.f30."
+
+[file.f076]
+path = "services/agent/crates/layerx-types/src/clock.rs"
+lines = 117
+verdict = "clean"
+note = "Read complete protocol clock and typed timestamp domain checks; authority is supplied by the caller rather than a wall-clock fallback."
+
+[file.f077]
+path = "services/agent/crates/layerx-types/src/clock_protocol.rs"
+lines = 107
+verdict = "clean"
+note = "Read complete clock protocol request/response frame codec and length/version validation."
+
+[file.f078]
+path = "services/agent/crates/layerx-types/src/error.rs"
+lines = 78
+verdict = "clean"
+note = "Read complete LayerError and ErrorClass variants and stable mappings against the declared error registry."
+
+[file.f079]
+path = "services/agent/crates/layerx-types/src/guest_abi.rs"
+lines = 67
+verdict = "clean"
+note = "Read complete supported guest ABI versions and rejection behavior against the programs host ABI declarations."
+
+[file.f080]
+path = "services/agent/crates/layerx-types/src/ids.rs"
+lines = 85
+verdict = "clean"
+note = "Read complete fixed identifier lengths, parsing and explicit conversions against shared identifiers."
+
+[file.f081]
+path = "services/agent/crates/layerx-types/src/intent.rs"
+lines = 934
+verdict = "clean"
+note = "Read complete intent variants and exact-field/versioned binary encoding and decoding, including malformed lengths and trailing bytes."
+
+[file.f082]
+path = "services/agent/crates/layerx-types/src/json.rs"
+lines = 481
+verdict = "clean"
+note = "Read complete bounded JSON parser, duplicate/shape validation and serialization helpers used by configuration readers."
+
+[file.f083]
+path = "services/agent/crates/layerx-types/src/lib.rs"
+lines = 41
+verdict = "issues"
+note = "Read the entire file, including error and test paths, against its declared producer/consumer interfaces and package requirements. Findings: finding.f33."
+
+[file.f084]
+path = "services/agent/crates/layerx-types/src/limits.rs"
+lines = 28
+verdict = "clean"
+note = "Read all shared canonical byte-count bounds; deployment total-size inconsistency is recorded at its lifecycle encoder."
+
+[file.f085]
+path = "services/agent/crates/layerx-types/src/paxai/admission.rs"
+lines = 153
+verdict = "clean"
+note = "Read complete PAXAI admission encoding and version/length/actor constraints against program ABI fields."
+
+[file.f086]
+path = "services/agent/crates/layerx-types/src/paxai/mod.rs"
+lines = 2
+verdict = "clean"
+note = "Read complete PAXAI module exports and schema constants; guest domain values remain explicit inputs."
+
+[file.f087]
+path = "services/agent/crates/layerx-types/src/paxai/worker.rs"
+lines = 48
+verdict = "clean"
+note = "Read complete worker authorization/consent encodings and strict lengths/version handling."
+
+[file.f088]
+path = "services/agent/crates/layerx-types/src/payload.rs"
+lines = 1248
+verdict = "clean"
+note = "Read complete module registry and payload dispatch, program payload validation and trading codecs; MAX_PAYLOAD_BYTES is enforced at Payload::new."
+
+[file.f089]
+path = "services/agent/crates/layerx-types/src/policy.rs"
+lines = 13
+verdict = "clean"
+note = "Read complete signing/read/fee policy types; policy labels cannot themselves construct a Verified value."
+
+[file.f090]
+path = "services/agent/crates/layerx-types/src/program_call.rs"
+lines = 211
+verdict = "clean"
+note = "Read complete NativeProgramCall layout, resource bounds, guest ABI validation and canonical decode/encode behavior."
+
+[file.f091]
+path = "services/agent/crates/layerx-types/src/program_lifecycle.rs"
+lines = 833
+verdict = "issues"
+note = "Read the entire file, including error and test paths, against its declared producer/consumer interfaces and package requirements. Findings: finding.f12."
+
+[file.f092]
+path = "services/agent/crates/layerx-types/src/programs_activity.rs"
+lines = 137
+verdict = "clean"
+note = "Read complete programs activity ordinals, registry entries and resource declarations against the native module ABI."
+
+[file.f093]
+path = "services/agent/crates/layerx-types/src/programs_module_abi.rs"
+lines = 118
+verdict = "clean"
+note = "Read complete native programs module ABI encodings, selectors and limits against lifecycle/call layouts."
+
+[file.f094]
+path = "services/agent/crates/layerx-types/src/receipt.rs"
+lines = 141
+verdict = "clean"
+note = "Read complete canonical receipt domain and signed protocol receipt fields; private verified receipt construction remains separate."
+
+[file.f095]
+path = "services/agent/crates/layerx-types/src/result.rs"
+lines = 213
+verdict = "clean"
+note = "Read complete known result codes, retry classes and unknown-code preservation against declared result/error semantics."
+
+[file.f096]
+path = "services/agent/crates/layerx-types/src/rung.rs"
+lines = 47
+verdict = "issues"
+note = "Read the entire file, including error and test paths, against its declared producer/consumer interfaces and package requirements. Findings: finding.f48."
+
+[file.f097]
+path = "services/agent/crates/layerx-types/src/settlement.rs"
+lines = 396
+verdict = "issues"
+note = "Read the entire file, including error and test paths, against its declared producer/consumer interfaces and package requirements. Findings: finding.f31."
+
+[file.f098]
+path = "services/agent/crates/layerx-types/src/test_support.rs"
+lines = 102
+verdict = "clean"
+note = "Read complete shared test helpers and declared subprocess behavior; no production trust or endpoint configuration is installed here."
+
+[file.f099]
+path = "services/agent/crates/layerx-types/src/vectors.rs"
+lines = 517
+verdict = "issues"
+note = "Read complete corpus loader, root discovery, coverage checks and source-header extraction; current/historical checkpoint classification is recorded separately. Findings: finding.f34."
+
+[file.f100]
+path = "services/agent/crates/layerx-types/src/verify.rs"
+lines = 214
+verdict = "issues"
+note = "Read the entire file, including error and test paths, against its declared producer/consumer interfaces and package requirements. Findings: finding.f32."
+
+[file.f101]
+path = "services/agent/crates/layerx-types/tests/activity.rs"
+lines = 216
+verdict = "clean"
+note = "Read all activity builder and canonical field tests, including invalid/default and mutation refusal cases."
+
+[file.f102]
+path = "services/agent/crates/layerx-types/tests/errors.rs"
+lines = 319
+verdict = "clean"
+note = "Read all stable error-class mappings and retry/error serialization assertions."
+
+[file.f103]
+path = "services/agent/crates/layerx-types/tests/harness.rs"
+lines = 46
+verdict = "clean"
+note = "Read complete harness compilation probe and shared workspace/toolchain checks."
+
+[file.f104]
+path = "services/agent/crates/layerx-types/tests/ids.rs"
+lines = 128
+verdict = "clean"
+note = "Read all fixed identifier parse/length/zero and formatting assertions."
+
+[file.f105]
+path = "services/agent/crates/layerx-types/tests/proof_types.rs"
+lines = 326
+verdict = "issues"
+note = "Read the entire file, including error and test paths, against its declared producer/consumer interfaces and package requirements. Findings: finding.f50."
+
+[file.f106]
+path = "services/agent/crates/layerx-types/tests/receipt.rs"
+lines = 107
+verdict = "clean"
+note = "Read complete receipt field/value preservation tests; cryptographic authority is not claimed by these domain carriers."
+
+[file.f107]
+path = "services/agent/crates/layerx-types/tests/rung.rs"
+lines = 65
+verdict = "clean"
+note = "Read all three rung names, wire ranks, ordering and retired-name refusal assertions."
+
+[file.f108]
+path = "services/agent/crates/layerx-types/tests/trading_payload.rs"
+lines = 442
+verdict = "clean"
+note = "Read complete trading payload vectors, canonical round trips and range/variant/truncation refusals."
+
+[file.f109]
+path = "services/agent/crates/layerx-types/tests/vectors.rs"
+lines = 136
+verdict = "clean"
+note = "Read full corpus coverage and generator-consistency tests; historical codec vectors remain byte-format data, not a running daemon endpoint."
+
+[file.f110]
+path = "services/agent/crates/layerx-types/tests/verification.rs"
+lines = 135
+verdict = "issues"
+note = "Read the entire file, including error and test paths, against its declared producer/consumer interfaces and package requirements. Findings: finding.f49."
+
+[finding.f01]
+file = "services/agent/crates/layerx-client/src/ai_market.rs"
+line = 1748
+class = "interface-mismatch"
+severity = "high"
+observed = "OperationJournal::resolve persists receipt.global_sequence(), but finalize compares that sequence to CommitFinality.block_height and marks the operation Finalized. A sequence of 7 executed at height 150 can therefore be covered by an unrelated commit at height 7."
+expected = "Receipt sequence and execution height are separate coordinates in pax_sequencerReceipt. Finality must establish that the committed MsgSequenceBatch covers the signed receipt sequence and resulting state root, at or after its execution height."
+proposal = "In layerx-client/src/ai_market.rs persist the authenticated execution height and coverage facts in a versioned journal record. Finalize only with a verified covering block and matching receipt root; migrate existing records without inventing missing evidence. Exercise sequence 7 at height 150 across reopen."
+owner_domain = 9
+interface = "9.rs-client-ai-market-operationjournal-j44"
+
+[finding.f02]
+file = "services/agent/crates/layerx-client/src/rpc/module_state.rs"
+line = 48
+class = "interface-mismatch"
+severity = "high"
+observed = "module_state obtains two eth_call answers and compares their bytes, block hash and stateRoot with caller-supplied context. No storage witness is requested or verified, so a server can return the same false value twice under the genuine block root."
+expected = "Requirements 9252.1, 9252.2 and 92513.1 require the derived module slot value to be verified with an ICS23 storage witness under the committed block stateRoot. Repeating a response does not bind it to that root."
+proposal = "Wire SequencerEndpoint::storage_witness and storage_witness::verify_storage_witness into rpc/module_state.rs using the module slot derivation and a verified committed header. Return only the witnessed value, and refuse a different slot, value, store root or app hash."
+owner_domain = 9
+interface = "9.rs-client-read-module-state"
+
+[finding.f03]
+file = "services/agent/crates/layerx-client/src/rpc/evidence.rs"
+line = 42
+class = "interface-mismatch"
+severity = "high"
+observed = "proof_bundle ignores _address and _slots and returns ProofBundle containing only landing_block. proof_bundle_with_history delegates to the same operation, so distinct requested storage keys produce indistinguishable bundles without any storage evidence."
+expected = "Requirement 9265.1 declares a bundle containing requested proof material and the landing block; its replacement requirement 92513.1 requires verified ICS23 storage witnesses under the committed block stateRoot."
+proposal = "Extend rpc/evidence.rs to acquire the requested address and slot witnesses from the node, verify them under a verified committed root, and retain their identities and values with the landing block. Refuse absent or mismatched evidence and cover every requested slot."
+owner_domain = 9
+interface = "9.rs-client-evidence-proof-bundle"
+
+[finding.f04]
+file = "services/agent/crates/layerx-client/src/ai_market.rs"
+line = 156
+class = "security"
+severity = "high"
+observed = "CommitFinality::new accepts arbitrary nonzero block/app hashes and a proof digest. ObservedSnapshot::finalize copies the capture root into FinalityEvidence and assigns FINALIZED_RANK; bind_snapshot checks structural consistency but verifies neither a Comet commit nor an ICS23 witness relating those hashes to that root."
+expected = "A proof-bound finalized market view must originate from the block commit verifier and a program-state witness for the same root. The public finalized API must not upgrade caller assertions into verified finality merely because their digests are nonzero."
+proposal = "Have ai_market.rs consume an opaque verified commit plus verified program-state witness from the real node evidence path. Bind chain, height, block, app root and captured program root before constructing FinalizedSnapshot; keep unverified digest carriers explicitly unverified and test foreign-root evidence."
+owner_domain = 9
+
+[finding.f05]
+file = "services/agent/crates/layerx-client/src/rpc/receipt.rs"
+line = 207
+class = "interface-mismatch"
+severity = "high"
+observed = "lookup_authenticated discards the blockNumber/blockHash of SequencerReceipt::Committed, then promotes to Rung::Committed from an unsigned eth_getTransactionReceipt when its status agrees and height is at least execution.height. No Comet commit or sequence/state-root coverage is verified."
+expected = "The shared Rung::Committed contract requires verified block commitment. Requirement 9262.2 describes the narrower height/status check that this code satisfies, but that check alone cannot establish the evidence promised by Rung and the merged-network brief."
+proposal = "In rpc/receipt.rs retain the producer covering-block coordinates, verify that block commit against the validator set and establish signed receipt sequence/root coverage before promotion. Preserve Receipted on missing evidence; align requirement 9262.2 with the shared rung contract and permit a proven later covering block."
+owner_domain = 9
+interface = "9.rs-client-receipt-lookup-authenticated"
+
+[finding.f06]
+file = "services/agent/crates/layerx-client/src/px.rs"
+line = 247
+class = "interface-mismatch"
+severity = "high"
+observed = "decode_balances requires asset_id, denom, custody, paxeer and layerx in every row and requires joined_limit. The live gateway paxeer.rs::get_balances emits account, height and balances whose rows contain only denom and exact decimal amount, so ordinary served balances are rejected as Malformed."
+expected = "px_getBalances in services/platform/hosted/gateway/openrpc.json and its running dispatch agree on the bank coin-list shape. Requirement 9244.1 requires the Rust consumer to decode every served field of this same method."
+proposal = "Replace the obsolete joined-balance carrier in layerx-client/src/px.rs with the gateway account/height/coin-list contract, preserving the exact decimal amounts. Drive the real gateway producer through JSON-RPC into PxEndpoint::balances for bound accounts, zero balances and refusal cases."
+owner_domain = 9
+interface = "8.rpc-gateway-px-getbalances"
+
+[finding.f07]
+file = "services/agent/crates/layerx-client/src/px.rs"
+line = 272
+class = "interface-mismatch"
+severity = "high"
+observed = "decode_assets requires each px_listAssets row to carry nullable layerx and paxeer custody objects and decodes asset_id as exactly 32 unprefixed bytes. The live paxeer.rs::list_assets produces flat kind/denom/name/symbol/decimals/supply metadata with optional paused/verification and a returned height."
+expected = "The gateway OpenRPC asset-table declaration and real producer must round-trip into PxEndpoint::list_assets and payments::get_asset. A successful nonempty flat metadata table must not be reported as Malformed."
+proposal = "Change PxAssetEntry and decode_assets in px.rs to the current flat asset schema, retain height and optional authenticated metadata, and represent asset identifiers according to the declared producer contract. Migrate payments callers and verify with live producer responses rather than former custody joins."
+owner_domain = 9
+interface = "8.rpc-gateway-px-listassets"
+
+[finding.f08]
+file = "services/agent/crates/layerx-client/src/sequencer.rs"
+line = 857
+class = "interface-mismatch"
+severity = "high"
+observed = "decode_history_page accepts exactly items, next_cursor and indexedHeight; history then claims the served page has no chain height. The registered gateway history.rs::served always adds account, chainHeight and freshness through envelope, so valid gateway history is rejected before the additional head read."
+expected = "px_getHistory and its OpenRPC contract return the account and page freshness beside items, cursor and both heights. The Rust history consumer must accept and preserve the real envelope and its snapshot coordinates."
+proposal = "Update HistoryPage and decode_history_page in sequencer.rs to decode the registered gateway envelope including account, chainHeight and readiness freshness. Remove the conflicting extra head sample or label it separately, and prove the actual gateway route through rpc::history::history."
+owner_domain = 9
+interface = "8.rpc-gateway-px-gethistory"
+
+[finding.f09]
+file = "services/agent/crates/layerx-client/src/px.rs"
+line = 169
+class = "interface-mismatch"
+severity = "high"
+observed = "quantity limits hexadecimal values to 32 digits and returns u128; PxPaxeerAccount.balance and bank balance carriers also use u128. The gateway serves eth_getBalance uint256 and decimal bank uint256 values, so valid balances at or above 2^128 cannot round-trip."
+expected = "The gateway declares full on-chain 256-bit balance values and exact decimal bank amounts. Rust must retain the producer range without reducing a valid quantity to Malformed or silently narrowing it."
+proposal = "Use a checked 32-byte uint256 or exact canonical decimal representation in px.rs balance carriers and all consuming APIs. Cover 2^128, the uint256 maximum and one out-of-range value using the gateway producer and public decoder."
+owner_domain = 9
+interface = "8.rpc-gateway-px-getbalances"
+
+[finding.f10]
+file = "services/agent/crates/layerx-client/src/px.rs"
+line = 213
+class = "interface-mismatch"
+severity = "medium"
+observed = "decode_account reads the Paxeer address, balance and nonce but drops paxeer.height. PxPaxeerAccount has no height field, so downstream callers cannot identify the committed snapshot the gateway pinned for those reads."
+expected = "Requirement 9244.1 says account decodes every served field. The gateway get_account returns height together with balance and nonce so consumers can retain the read coordinate."
+proposal = "Add the served height to PxPaxeerAccount in px.rs, validate it and carry it through account consumers. Assert that the real gateway height survives the public API and cannot be substituted by a later head query."
+owner_domain = 9
+interface = "9.rs-client-px-pxendpoint-j44"
+
+[finding.f11]
+file = "services/agent/crates/layerx-client/src/ai_market.rs"
+line = 1569
+class = "restart-recovery"
+severity = "medium"
+observed = "OperationJournal is Clone and permits multiple opens, but persist uses one fixed .partial path and File::create without a lock or generation check. record_signed can overwrite an existing later state, and load rewrites Submitting to Unknown even if another instance is actively submitting."
+expected = "A durable exact-byte journal must preserve monotonic lifecycle state and recover interrupted work without racing a live writer. Atomic rename protects one replacement, not concurrent transitions or stale record snapshots."
+proposal = "Serialize each operation with process-safe ownership, exclusive unique temporary files and generation-checked monotonic updates in ai_market.rs. Make repeated signed registration idempotent without overwriting later states, and recover Submitting only after acquiring ownership; exercise concurrent opens and stale writes."
+owner_domain = 9
+
+[finding.f12]
+file = "services/agent/crates/layerx-types/src/program_lifecycle.rs"
+line = 155
+class = "runtime-risk"
+severity = "medium"
+observed = "validate_code permits WASM up to 1048576 bytes, and NativeProgramDeploy::encode appends the 104-byte header and optional interface without checking the final payload size. It can successfully encode a deployment later rejected by Payload::new at 524288 bytes."
+expected = "Brief fact 6 and decision 2483 require the entire deployment payload to fit 524288 bytes including the 104-byte envelope and any additional interface bytes; a successful deployment encoder should respect that product bound."
+proposal = "Apply the checked final encoded payload limit in program_lifecycle.rs for deployment and applicable upgrades. Budget the fixed header and optional interface before allocation, and cover exactly fitting, one-byte-over and interface-bearing payloads against the downstream native admission path."
+owner_domain = 9
+
+[finding.f13]
+file = "services/agent/crates/layerx-agentd/src/prepare/mod.rs"
+line = 450
+class = "retired-reference"
+severity = "medium"
+observed = "The public legacy preparation module remains exported by pub use legacy::* at line 953. prepare_activity_for_protocol still builds UnsignedEnvelope and canonical kernel bytes, while restore_canonical reconstructs that retired preparation path."
+expected = "Requirement 22063.1 explicitly removes legacy preparation modules, canonical restore, kernel envelope encoders and canonical-byte binders from the daemon; ordinary writes are prepared as type-2 transactions."
+proposal = "Complete the call/disclosure migration in layerx-agentd/src/prepare/mod.rs and its callers, migrate durable records with explicit version handling, then remove the legacy module and exports. Preserve validation, expiry and recovery behavior through real EIP-1559 preparation tests."
+owner_domain = 9
+
+[finding.f14]
+file = "services/agent/crates/layerx-agentd/src/prepare/disclose.rs"
+line = 23
+class = "retired-reference"
+severity = "medium"
+observed = "decode_and_bind and verify_binding still bind canonical kernel activity bytes through disclosure::bind and bind_budget_mutation, and validate Prepared.canonical_bytes instead of binding the prepared type-2 call."
+expected = "Requirements 22056 and 22063 require disclosure facts and their digest to come from the EIP-1559 call and forbid the canonical-byte binder in daemon preparation."
+proposal = "Replace the legacy binder in prepare/disclose.rs with the shared call-bound disclosure path, migrate callers to the call and sender, and keep mutation refusal tests for calldata, actor, nonce, fees and digest before removing the retired implementation."
+owner_domain = 9
+
+[finding.f15]
+file = "services/agent/crates/layerx-agentd/src/prepare/expiry.rs"
+line = 118
+class = "retired-reference"
+severity = "medium"
+observed = "PreparationLifecycle::register_inner still reads expiry and payload hash from prepared.envelope, and retains a separate PreparationAuthorization path. Lifecycle storage therefore remains coupled to the legacy kernel preparation exported by prepare/mod.rs."
+expected = "Requirements 22056.2, 22058.1 and 22063.1 require lifecycle facts to be derived from the call and bound disclosure and remove the second authorization carrier and kernel preparation dependency."
+proposal = "Migrate expiry.rs registration, durable restoration and admission to the call-bound preparation facts, with tenant/session identity retained in its owning store. Prove reservation release and unresolved signed-byte recovery after reopen before deleting envelope-based fields."
+owner_domain = 9
+
+[finding.f16]
+file = "services/agent/crates/layerx-agentd/src/prepare/expiry.rs"
+line = 822
+class = "runtime-risk"
+severity = "medium"
+observed = "PreparationLifecycle stores every registration in a BTreeMap, and sweep_retention only clears terminal signed_bytes. It never removes terminal records or their other metadata, so a long-running daemon accumulates one retained entry per historical preparation."
+expected = "Retention must bound completed preparation memory while preserving unresolved signed bytes and the idempotency information needed for safe redelivery. Discarding only transaction bytes does not bound lifecycle metadata."
+proposal = "Define a bounded terminal-history policy in prepare/expiry.rs backed by durable idempotency records, evict eligible terminal entries after the retention horizon and retain unresolved operations. Exercise repeated completion/sweep/restart without losing duplicate protection."
+owner_domain = 9
+
+[finding.f17]
+file = "services/agent/crates/layerx-agentd/src/prepare/restore_tests.rs"
+line = 35
+class = "test-gap"
+severity = "medium"
+observed = "The restoration suite proves restore_canonical against kernel envelope bytes and PreparationAuthorization. It therefore preserves precisely the old restore surface that requirement 22063 says must disappear."
+expected = "Durable preparation recovery must decode the stored type-2 call and rebind its disclosure, with no legacy canonical envelope restore or second signing authorization carrier."
+proposal = "Migrate prepare/restore_tests.rs alongside the daemon call-bound restoration path. Produce and persist a real prepared call, reopen storage, then assert restored facts and refusals for modified call bytes, digest, tenant and session generation."
+owner_domain = 9
+
+[finding.f18]
+file = "services/agent/crates/layerx-client/src/lib.rs"
+line = 9
+class = "retired-reference"
+severity = "medium"
+observed = "The crate describes itself as the LayerX Node Interface and publicly exports lni, leaving a separate kernel protocol boundary reachable beside the merged JSON-RPC client."
+expected = "The audit brief removes the separate LayerX interface; retired component lni and requirement 22044 retain the generic frame codec under frame while retiring the kernel protocol module."
+proposal = "Migrate remaining callers to the node JSON-RPC or generic frame boundary, remove the public lni export from layerx-client/src/lib.rs, and describe the merged node and hosted gateway responsibilities in the crate documentation."
+owner_domain = 9
+
+[finding.f19]
+file = "services/agent/crates/layerx-client/src/lni/mod.rs"
+line = 1
+class = "retired-reference"
+severity = "medium"
+observed = "lni/mod.rs still advertises the sole versioned boundary to the LayerX core and exports the complete handshake, schema, ABI and capability surface."
+expected = "The merged network has no separate LayerX interface, and retired component lni removes this protocol. Requirement 22044 preserves only reusable frame and socket behavior under the frame module."
+proposal = "Remove this LNI surface from layerx-client/src/lni/mod.rs after moving live consumers to JSON-RPC and any reusable frame primitive to frame. Replace handshake/capability authority with explicit chain identity, receipt-key pins and verified committed node evidence."
+owner_domain = 9
+
+[finding.f20]
+file = "services/agent/crates/layerx-client/src/lni/abi.rs"
+line = 74
+class = "retired-reference"
+severity = "medium"
+observed = "lni/abi.rs still exposes opaque provider callbacks and requires services/agent/include/layerx_lni_abi.h in its safety contract, a header listed for retirement with the separate LNI boundary."
+expected = "The merged network has no separate LayerX interface, and retired component lni removes this protocol. Requirement 22044 preserves only reusable frame and socket behavior under the frame module."
+proposal = "Remove this LNI surface from layerx-client/src/lni/abi.rs after moving live consumers to JSON-RPC and any reusable frame primitive to frame. Replace handshake/capability authority with explicit chain identity, receipt-key pins and verified committed node evidence."
+owner_domain = 9
+
+[finding.f21]
+file = "services/agent/crates/layerx-client/src/lni/capabilities.rs"
+line = 20
+class = "retired-reference"
+severity = "medium"
+observed = "Capabilities::negotiate still intersects advertisements with lni_schema_v1 and exposes the retired node protocol capability set as a public client API."
+expected = "The merged network has no separate LayerX interface, and retired component lni removes this protocol. Requirement 22044 preserves only reusable frame and socket behavior under the frame module."
+proposal = "Remove this LNI surface from layerx-client/src/lni/capabilities.rs after moving live consumers to JSON-RPC and any reusable frame primitive to frame. Replace handshake/capability authority with explicit chain identity, receipt-key pins and verified committed node evidence."
+owner_domain = 9
+
+[finding.f22]
+file = "services/agent/crates/layerx-client/src/lni/handshake.rs"
+line = 46
+class = "retired-reference"
+severity = "medium"
+observed = "NodeInfo still negotiates a separate interface version, Sequencer role, sealed batch, finalised checkpoint and authorised sequencer key through the old node-info exchange."
+expected = "The merged network has no separate LayerX interface, and retired component lni removes this protocol. Requirement 22044 preserves only reusable frame and socket behavior under the frame module."
+proposal = "Remove this LNI surface from layerx-client/src/lni/handshake.rs after moving live consumers to JSON-RPC and any reusable frame primitive to frame. Replace handshake/capability authority with explicit chain identity, receipt-key pins and verified committed node evidence."
+owner_domain = 9
+
+[finding.f23]
+file = "services/agent/crates/layerx-client/src/lni/refusal.rs"
+line = 14
+class = "retired-reference"
+severity = "low"
+observed = "decode_core_refusal still decodes the retired LNI five-byte terminal error envelope and exports that boundary as a production node refusal decoder."
+expected = "The merged network has no separate LayerX interface, and retired component lni removes this protocol. Requirement 22044 preserves only reusable frame and socket behavior under the frame module."
+proposal = "Remove this LNI surface from layerx-client/src/lni/refusal.rs after moving live consumers to JSON-RPC and any reusable frame primitive to frame. Replace handshake/capability authority with explicit chain identity, receipt-key pins and verified committed node evidence."
+owner_domain = 9
+
+[finding.f24]
+file = "services/agent/crates/layerx-client/src/lni/report.rs"
+line = 18
+class = "retired-reference"
+severity = "medium"
+observed = "CapabilityReport still presents an accepted LNI handshake and old schema capability intersection as the basis for client availability reporting."
+expected = "The merged network has no separate LayerX interface, and retired component lni removes this protocol. Requirement 22044 preserves only reusable frame and socket behavior under the frame module."
+proposal = "Remove this LNI surface from layerx-client/src/lni/report.rs after moving live consumers to JSON-RPC and any reusable frame primitive to frame. Replace handshake/capability authority with explicit chain identity, receipt-key pins and verified committed node evidence."
+owner_domain = 9
+
+[finding.f25]
+file = "services/agent/crates/layerx-client/src/lni/schema.rs"
+line = 70
+class = "retired-reference"
+severity = "medium"
+observed = "The source-controlled LNI schema still declares Submit, PreparationState, FinalityEvidenceRegister, Checkpoint, ProgramHeadAttest and other retired kernel message capabilities."
+expected = "The merged network has no separate LayerX interface, and retired component lni removes this protocol. Requirement 22044 preserves only reusable frame and socket behavior under the frame module."
+proposal = "Remove this LNI surface from layerx-client/src/lni/schema.rs after moving live consumers to JSON-RPC and any reusable frame primitive to frame. Replace handshake/capability authority with explicit chain identity, receipt-key pins and verified committed node evidence."
+owner_domain = 9
+
+[finding.f26]
+file = "services/agent/crates/layerx-client/src/rpc/history.rs"
+line = 78
+class = "retired-reference"
+severity = "medium"
+observed = "ReadContext and HistoryProof retain interface_version, handshake_sequencer_key, sealed-batch/checkpoint Head coordinates and a signed batch header proof even though the public history function reads the gateway JSON-RPC page."
+expected = "Merged history must use the gateway page and its declared node coordinates; a new RPC module should not continue publishing the retired LNI handshake and checkpoint proof context as its current evidence contract."
+proposal = "Migrate live users of rpc/history.rs context and proof carriers to verified block/receipt and storage-witness types, delete unreferenced legacy carriers and retain only the registered history envelope and its documented proof semantics."
+owner_domain = 9
+
+[finding.f27]
+file = "services/agent/crates/layerx-client/src/rpc/payments.rs"
+line = 12
+class = "retired-reference"
+severity = "medium"
+observed = "SnapshotContext still imports lni::schema::Version and publishes interface_version, correlation_id and minimum_sequence in the JSON-RPC payments module, preserving a dependency on the retired kernel interface."
+expected = "Merged payment reads use the hosted gateway contract and committed block coordinates. Requirement 22044 and retired component lni remove the kernel interface dependency after moving generic frames."
+proposal = "Replace or remove the old SnapshotContext in rpc/payments.rs after migrating its callers to an explicit committed-height/root context. Keep gateway asset metadata and fee estimates aligned with the current node and OpenRPC contracts."
+owner_domain = 9
+
+[finding.f28]
+file = "services/agent/crates/layerx-client/src/rpc/mod.rs"
+line = 5
+class = "retired-reference"
+severity = "medium"
+observed = "The public RPC Head type models chain_sequence, sealed_batch and finalised_checkpoint, so head-sensitive client context still exposes the previous kernel checkpoint model."
+expected = "The merged chain head and finality coordinates are the committed block height, block hash and application root; no separate sealed-batch/checkpoint authority is configured."
+proposal = "Replace rpc::Head and its consumers with a committed-block context derived from verified node evidence, carry observed sequence separately where needed, and remove old checkpoint fields once caller migrations are complete."
+owner_domain = 9
+
+[finding.f29]
+file = "services/agent/crates/layerx-client/src/rpc/withdrawal.rs"
+line = 31
+class = "wiring-gap"
+severity = "medium"
+observed = "withdrawal::get_asset requires PxAssetEntry.paxeer to contain custody pointer, enabled and paused fields. The current px_listAssets producer emits flat metadata and does not declare that custody object, so fixing only the upstream decoder still leaves registry without its required source."
+expected = "Requirement 9255.1 requires registry to derive its configuration from real served asset data. Every custody eligibility fact must have a live node or gateway producer rather than an obsolete joined fixture."
+proposal = "Wire rpc/withdrawal.rs to the current asset schema and the authoritative native withdrawal/configuration read for any required eligibility facts. Agree that interface with the gateway owner and prove an eligible asset and each refusal through the actual producer."
+owner_domain = 9
+
+[finding.f30]
+file = "services/agent/crates/layerx-types/src/checkpoint.rs"
+line = 6
+class = "retired-reference"
+severity = "medium"
+observed = "The shared checkpoint module still declares GUARANTOR_ATTESTATION_FIELDS, GuarantorAttestation and checkpoint certificate state carrying settlement contract and guarantor authority."
+expected = "The merged network finalizes at validator block commitment; the retired guarantor runtime and checkpoint authority must not remain the current shared finality contract."
+proposal = "Migrate current users of layerx-types/src/checkpoint.rs to committed header/validator and storage witness types. Isolate any necessary historical archive codec with explicit historical naming and remove guarantor authority from current client evidence."
+owner_domain = 9
+
+[finding.f31]
+file = "services/agent/crates/layerx-types/src/settlement.rs"
+line = 7
+class = "retired-reference"
+severity = "medium"
+observed = "The public settlement module still parses layerx/checkpoint-settlement/1 from contracts/config/checkpoint-settlement.json and defines bonded guarantor settlement domains as shared verifier configuration."
+expected = "Retired component settlement-domain replaces that configuration with chain id 125 and the validator set at the committed height; separate checkpoint settlement is not merged-network finality."
+proposal = "Migrate settlement.rs callers to the chain identity and validator-set trust configuration, remove the active settlement-domain loader and document any historical decoding separately. Preserve strict configuration validation and avoid silently selecting a new trust root."
+owner_domain = 9
+
+[finding.f32]
+file = "services/agent/crates/layerx-types/src/verify.rs"
+line = 38
+class = "retired-reference"
+severity = "medium"
+observed = "VerificationLevel still exposes SETTLEMENT_ANCHORED and documents CHECKPOINT_FINALISED as a threshold checkpoint certificate. EvidenceIds and Verified retain checkpoint/settlement provenance, while rung maps the old checkpoint rank to Committed."
+expected = "Retired checkpoint-evidence removes settlement anchoring, and retained finality must mean a verified block commit plus the relevant state witness. Shared labels must describe the evidence consumers actually require."
+proposal = "Migrate verify.rs public levels, provenance and callers to the declared agent-api major transition, preserving compatible historical decoding explicitly where required. Define Committed only from verified committed block evidence and remove settlement authority from active policy comparisons."
+owner_domain = 9
+
+[finding.f33]
+file = "services/agent/crates/layerx-types/src/lib.rs"
+line = 26
+class = "retired-reference"
+severity = "medium"
+observed = "The shared types crate still publicly exports settlement and checkpoint modules as ordinary current domain types, making the retired settlement-domain and guarantor configuration available to new consumers."
+expected = "Current shared type exports must describe the merged block-commit network. Retired checkpoint/settlement APIs require caller migration and explicit historical isolation rather than continued default authority."
+proposal = "After migrating their consumers, remove the retired default exports in layerx-types/src/lib.rs and expose any required historical wire readers under an explicitly historical boundary with no current finality privileges."
+owner_domain = 9
+
+[finding.f34]
+file = "services/agent/crates/layerx-types/src/vectors.rs"
+line = 23
+class = "retired-reference"
+severity = "low"
+observed = "TYPE_PROTOCOL_VERSIONS includes CheckpointCertificate among current domain definitions and vectors publicly exports checkpoint, treating the retired certificate format as part of the active shared corpus contract."
+expected = "Historical checkpoint vectors may be retained for archive decoding, but active conformance should distinguish them from the merged network block-commit evidence and current protocol definitions."
+proposal = "Classify the checkpoint corpus as historical in layerx-types/src/vectors.rs and update coverage consumers to require current committed-block evidence separately, retaining old vectors without presenting their certificate authority as current."
+owner_domain = 9
+
+[finding.f35]
+file = "services/agent/crates/layerx-client/tests/module_reads_rpc.rs"
+line = 86
+class = "test-gap"
+severity = "medium"
+observed = "The module-state tests claim storage-slot proof coverage, but exchanges supplies eth_call twice and block reads only. The other-slot refusal varies returned bytes/hash/root rather than producing a witness for another derived slot."
+expected = "Requirements 9252 and 92513 require actual storage witness verification, including a wrong derived key. A repeated eth_call fixture cannot exercise or establish that property."
+proposal = "Replace these exchanges with output from the actual storage witness producer and drive the public module_state path. Assert valid same-root decoding and refusals for a changed slot, value, store root and application root."
+owner_domain = 9
+
+[finding.f36]
+file = "services/agent/crates/layerx-client/tests/evidence_rpc.rs"
+line = 30
+class = "test-gap"
+severity = "medium"
+observed = "proof_bundle_reads_eth_get_proof_and_the_landing_block serves only eth_getBlockByNumber responses and asserts a bundle containing only that block. Its name promises proof acquisition that the exercised path never performs."
+expected = "Requirements 9265.1 and 92513.1 require requested storage evidence under the committed root, as well as a landing block, with a real producer-to-consumer proof."
+proposal = "Exercise the actual node storage witness producer through proof_bundle and assert the requested address, every slot and authenticated values survive. Keep landing-block refusals and add missing/wrong-root witness refusals without replacing the proof verifier."
+owner_domain = 9
+
+[finding.f37]
+file = "services/agent/crates/layerx-client/tests/ai_market_rpc.rs"
+line = 176
+class = "test-gap"
+severity = "medium"
+observed = "signed_receipt constructs a receipted JSON view without paymentDenom. The production sequencer decoder requires that field and verifies its asset digest, so this fixture is rejected before journal resolution reaches its intended assertions."
+expected = "Requirement 22082.1 and rpc/sequencer_receipt.go require a paymentDenom-bearing receipt view whose asset agrees with the canonical signed receipt. Missing paymentDenom is a refusal case, not a success fixture."
+proposal = "Generate ai_market_rpc.rs success views through the real sequencer receipt producer and carry its paymentDenom into the signed receipt asset. Keep an explicit missing-denomination refusal and prove journal resolution and restart on the actual served shape."
+owner_domain = 9
+
+[finding.f38]
+file = "services/agent/crates/layerx-client/tests/sequencer.rs"
+line = 125
+class = "test-gap"
+severity = "medium"
+observed = "receipted_members omits paymentDenom and supplies receipt bytes 0x00025201000200aabbccdd while success tests expect ExecutedReceipt decoding. The current decoder requires denomination and a canonical receipt whose asset matches it."
+expected = "The success fixture must be emitted by rpc/sequencer_receipt.go and agree with the canonical signed receipt, including all required denomination fields; malformed legacy bytes belong only in rejection cases."
+proposal = "Use the current Go-produced sequencer receipt vectors for success cases in tests/sequencer.rs and preserve separate missing-field, invalid-asset and truncated-byte refusals. Reconcile all expected receipt fields with that producer."
+owner_domain = 9
+
+[finding.f39]
+file = "services/agent/crates/layerx-client/tests/ai_market_commit.rs"
+line = 480
+class = "test-gap"
+severity = "medium"
+observed = "journal_finalize_records_the_block_hash edits encoded journal bytes to set global_sequence to 12, then accepts a commit at block height 12. It never supplies a signed receipt whose execution height differs from its sequence, hiding the coordinate confusion in finalize."
+expected = "Journal finality must be proven from an authenticated receipt and its covering committed block, with independent sequence and height and durable recovery of their relationship."
+proposal = "Produce a real signed receipt with sequence 7 and execution height 150, resolve it through the public journal path, reopen the journal and reject a commit below that execution height or without batch coverage before accepting the proven covering commit."
+owner_domain = 9
+
+[finding.f40]
+file = "services/agent/crates/layerx-client/tests/proof_client.rs"
+line = 492
+class = "test-gap"
+severity = "medium"
+observed = "The proof serves wallet endpoint/available.json and hand-written network/history fixtures instead of invoking the registered gateway producers. Its balance/assets fixtures retain the old joined schema and its history lacks the real envelope, so the proof passes over shapes the running gateway no longer emits."
+expected = "Requirement 21042.1 and brief fact 7 require the real producer, transport and consumer path. A recorded fixture from a different producer revision cannot prove the current gateway interface round-trip."
+proposal = "Drive the registered gateway account, bank balance, flat asset and enveloped history producers through real JSON-RPC into the public Rust client in proof_client.rs. Keep repeated reads, corruption refusals and journal reopen, and obtain market finality from verified node evidence."
+owner_domain = 9
+
+[finding.f41]
+file = "services/agent/crates/layerx-client/tests/px_reads.rs"
+line = 131
+class = "test-gap"
+severity = "medium"
+observed = "Balance fixtures require joined_limit and per-asset custody/paxeer/layerx joins, and asset fixtures use nested halves instead of the live bank coin list and flat asset metadata."
+expected = "Brief fact 7 and the registered gateway OpenRPC contract require each success test to exercise the shape emitted by the real running producer, including optional fields and read coordinates."
+proposal = "Regenerate success bodies from gateway paxeer.rs get_balances/list_assets and assert height, exact uint256 amounts and flat metadata through PxEndpoint. Retain malformed producer-shape and unavailable cases."
+owner_domain = 9
+
+[finding.f42]
+file = "services/agent/crates/layerx-client/tests/payments_rpc.rs"
+line = 71
+class = "test-gap"
+severity = "medium"
+observed = "Payment asset fixtures use nested layerx and paxeer custody entries that the current px_listAssets producer does not return."
+expected = "Brief fact 7 and the registered gateway OpenRPC contract require each success test to exercise the shape emitted by the real running producer, including optional fields and read coordinates."
+proposal = "Drive list_assets and get_asset with the real gateway flat metadata producer and reconcile returned identifiers, optional metadata and height. Keep absent-asset and malformed-response refusals."
+owner_domain = 9
+
+[finding.f43]
+file = "services/agent/crates/layerx-client/tests/withdrawal_rpc.rs"
+line = 88
+class = "test-gap"
+severity = "medium"
+observed = "Withdrawal registry fixtures supply pointer/enabled/custody-cap fields in a px_listAssets paxeer object absent from the current gateway contract."
+expected = "Brief fact 7 and the registered gateway OpenRPC contract require each success test to exercise the shape emitted by the real running producer, including optional fields and read coordinates."
+proposal = "Replace obsolete custody-join success fixtures with the actual authoritative withdrawal configuration producer and flat asset table, then assert eligibility and refusal behavior through registry."
+owner_domain = 9
+
+[finding.f44]
+file = "services/agent/crates/layerx-client/tests/history_rpc.rs"
+line = 72
+class = "test-gap"
+severity = "medium"
+observed = "History success fixtures contain only items, next_cursor and indexedHeight, followed by an extra eth_blockNumber request, while the actual gateway already returns account, chainHeight and freshness."
+expected = "Brief fact 7 and the registered gateway OpenRPC contract require each success test to exercise the shape emitted by the real running producer, including optional fields and read coordinates."
+proposal = "Use the registered gateway history route and assert the full page coordinates and readiness metadata survive rpc::history::history. Retain cursor validation and upstream refusals without stripping producer fields."
+owner_domain = 9
+
+[finding.f45]
+file = "services/agent/crates/layerx-client/tests/sequencer_reads.rs"
+line = 188
+class = "test-gap"
+severity = "medium"
+observed = "Sequencer history fixtures omit the account/chainHeight/freshness envelope and treat a chainHeight field as malformed instead of decoding the gateway producer."
+expected = "Brief fact 7 and the registered gateway OpenRPC contract require each success test to exercise the shape emitted by the real running producer, including optional fields and read coordinates."
+proposal = "Update history read assertions to the current OpenRPC envelope produced by history.rs::served, retain its returned height and distinguish a separately sampled head if needed. Test actual malformed metadata and cursor refusals."
+owner_domain = 9
+
+[finding.f46]
+file = "services/agent/crates/layerx-client/tests/receipt_rpc.rs"
+line = 345
+class = "test-gap"
+severity = "medium"
+observed = "Committed-rung success cases supply only an eth_getTransactionReceipt with matching status and height and assert Committed. They never present or verify a validator commit or prove coverage of the signed sequence/state root."
+expected = "The shared committed rung promises verified block commitment. The narrow height/status acceptance exercised here does not prove that promise or protect against forged node landing data."
+proposal = "Extend receipt_rpc.rs with real signed receipt and covering block/validator evidence through the public verification path. Refuse wrong block hash, missing commit, foreign validator authority and uncovered sequence; accept a valid later covering block."
+owner_domain = 9
+
+[finding.f47]
+file = "services/agent/crates/layerx-client/src/subscription.rs"
+line = 203
+class = "runtime-risk"
+severity = "medium"
+observed = "receive loops indefinitely over Ping and Pong messages. Socket read/write timeouts bound each I/O, but a peer sending control messages before each timeout can prevent next or close from ever returning application data or a deadline failure."
+expected = "A network-facing client operation must have a bounded total wait for its requested response, including control traffic and unsubscribe. Per-I/O inactivity timeouts alone do not provide that bound."
+proposal = "Track an absolute operation deadline in subscription.rs and apply the remaining budget to reads and control-frame flushing, with an explicit cancellation option for streaming waits. Exercise control traffic that never produces the requested response."
+owner_domain = 9
+
+[finding.f48]
+file = "services/agent/crates/layerx-types/src/rung.rs"
+line = 7
+class = "doc-drift"
+severity = "medium"
+observed = "Rung::Committed documentation says the verified Comet commit is at the receipt height. The actual sequencer receipt producer coveringHeight can select a later committed block whose MsgSequenceBatch covers the receipt sequence and resulting root."
+expected = "Committed means verified coverage of the signed receipt by a committed block, which can be later than execution. Product documentation and shared type semantics must agree with the real producer lifecycle."
+proposal = "Clarify layerx-types/src/rung.rs to require verified covering-block evidence, preserving the receipt execution height separately, and align receipt consumers and requirement 9262.2 with that distinction."
+owner_domain = 9
+
+[finding.f49]
+file = "services/agent/crates/layerx-types/tests/verification.rs"
+line = 101
+class = "test-gap"
+severity = "medium"
+observed = "The verification suite explicitly preserves SETTLEMENT_ANCHORED as a sixth active rank and checks its ordering above checkpoint finality, despite the retirement of settlement anchoring from the merged agent evidence model."
+expected = "Retired checkpoint-evidence removes settlement anchoring; current tests should assert merged committed evidence and only test old labels in an explicitly historical compatibility decoder."
+proposal = "Migrate tests/verification.rs with the public evidence-type transition, retain current rung and malformed-label assertions, and place necessary historical rank decoding under an isolated compatibility test without current authority privileges."
+owner_domain = 9
+
+[finding.f50]
+file = "services/agent/crates/layerx-types/tests/proof_types.rs"
+line = 245
+class = "test-gap"
+severity = "medium"
+observed = "The proof drives the six-level legacy VerificationLevel lattice through extracted consumer declarations and treats checkpoint finality as the budget evidence floor. It proves label transport but supplies no committed header or storage witness."
+expected = "A label proof is useful for serialization but must not stand in for merged receipt/state finality. Requirement 21051.1 and brief fact 7 require current types and their actual consumer boundary to agree."
+proposal = "Migrate proof_types.rs to the current shared evidence/rung contract, retain exact retry-code transport checks, and exercise actual current consumer modules. Add committed-block/witness evidence where the consumer claims verified state rather than treating a legacy label as proof."
+owner_domain = 9
+
+[finding.f51]
+file = "docs/site/docs/agents/mcp.md"
+line = 64
+class = "doc-drift"
+severity = "medium"
+observed = "The Serving paragraph states that layerx-mcp with a binding document serves a peer-admitted Unix socket. The real binary selects that listener only when the binding declares one; without a listener it serves the same daemon session on standard input/output."
+expected = "Operators need the binding-dependent transport selection documented accurately: a valid binding without listener configuration starts the standard-input/output server rather than opening a Unix endpoint."
+proposal = "Clarify docs/site/docs/agents/mcp.md Serving to describe both binding cases, required listener fields for Unix service and the standard-input/output mode. Preserve the valid standalone binary invocation and document the CLI alternative consistently."
+owner_domain = 9
+
+[finding.f52]
+file = "docs/site/docs/agents/running.md"
+line = 512
+class = "doc-drift"
+severity = "medium"
+observed = "The signed-transaction instructions send eth_sendRawTransaction to /rpc. Lines 96-99 still require an absolute local node_endpoint path and the page retains a separate sequencer trust-anchor configuration and legacy verification ladder."
+expected = "The finished network is one paxd BFT chain, EVM chain id 125, final at verified block commitment. Public node JSON-RPC uses root URLs; px_ joins belong to the hosted gateway, with no standalone LayerX router or guarantor finality."
+proposal = "Rewrite both copies around the current node RPC URL/chain-id configuration, root public node endpoints and hosted gateway joins. Replace old socket-handshake and checkpoint/settlement authority guidance with pinned receipt keys and verified committed-block evidence."
+owner_domain = 9
+
+[finding.f53]
+file = "docs/wiki/RunningAnAgent.md"
+line = 512
+class = "doc-drift"
+severity = "medium"
+observed = "The signed-transaction instructions send eth_sendRawTransaction to /rpc. Lines 96-99 still require an absolute local node_endpoint path and the page retains a separate sequencer trust-anchor configuration and legacy verification ladder."
+expected = "The finished network is one paxd BFT chain, EVM chain id 125, final at verified block commitment. Public node JSON-RPC uses root URLs; px_ joins belong to the hosted gateway, with no standalone LayerX router or guarantor finality."
+proposal = "Rewrite both copies around the current node RPC URL/chain-id configuration, root public node endpoints and hosted gateway joins. Replace old socket-handshake and checkpoint/settlement authority guidance with pinned receipt keys and verified committed-block evidence."
+owner_domain = 9
+
+[finding.f54]
+file = "docs/site/docs/agents/agentd.md"
+line = 13
+class = "doc-drift"
+severity = "medium"
+observed = "The daemon guide requires a real sequencer handshake and layerx-sequencer-authority-v1 trust file; its Protocol evidence section describes authorised batch headers and guarantor/checkpoint policy as current write authority."
+expected = "The finished network is one paxd BFT chain, EVM chain id 125, final at verified block commitment. Public node JSON-RPC uses root URLs; px_ joins belong to the hosted gateway, with no standalone LayerX router or guarantor finality."
+proposal = "Rewrite startup and protocol evidence around NodeRpc chain identity, governed receipt-key pins and validator commit/storage witness verification. Update budget and recovery sections to call-bound preparation and the actual committed budget producer."
+owner_domain = 9
+
+[finding.f55]
+file = "docs/wiki/Agentd.md"
+line = 13
+class = "doc-drift"
+severity = "medium"
+observed = "The daemon guide requires a real sequencer handshake and layerx-sequencer-authority-v1 trust file; its Protocol evidence section describes authorised batch headers and guarantor/checkpoint policy as current write authority."
+expected = "The finished network is one paxd BFT chain, EVM chain id 125, final at verified block commitment. Public node JSON-RPC uses root URLs; px_ joins belong to the hosted gateway, with no standalone LayerX router or guarantor finality."
+proposal = "Rewrite startup and protocol evidence around NodeRpc chain identity, governed receipt-key pins and validator commit/storage witness verification. Update budget and recovery sections to call-bound preparation and the actual committed budget producer."
+owner_domain = 9
+
+[finding.f56]
+file = "docs/site/docs/platform/hosted-node.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The hosted node guide describes a standalone sequencer pod built from layerxd, local LNI bootstrap and guarantor authority; its bootstrap example configures the former network rather than the single merged chain."
+expected = "The finished network is one paxd BFT chain, EVM chain id 125, final at verified block commitment. Public node JSON-RPC uses root URLs; px_ joins belong to the hosted gateway, with no standalone LayerX router or guarantor finality."
+proposal = "Replace the retired layerxd/sequencer provisioning path with the paxd embedded-kernel deployment, chain id 125 and current node/gateway root endpoints. Remove LNI and guarantor secret/setup instructions and document validator commit recovery."
+owner_domain = 8
+
+[finding.f57]
+file = "docs/wiki/HostedNode.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The hosted node guide describes a standalone sequencer pod built from layerxd, local LNI bootstrap and guarantor authority; its bootstrap example configures the former network rather than the single merged chain."
+expected = "The finished network is one paxd BFT chain, EVM chain id 125, final at verified block commitment. Public node JSON-RPC uses root URLs; px_ joins belong to the hosted gateway, with no standalone LayerX router or guarantor finality."
+proposal = "Replace the retired layerxd/sequencer provisioning path with the paxd embedded-kernel deployment, chain id 125 and current node/gateway root endpoints. Remove LNI and guarantor secret/setup instructions and document validator commit recovery."
+owner_domain = 8
+
+[finding.f58]
+file = "docs/wiki/Mcp.md"
+line = 29
+class = "doc-drift"
+severity = "medium"
+observed = "The MCP catalogue describes checkpoint.get as a finalised checkpoint certificate for a batch and availability.get as verified chunks for a batch. Its preparation descriptions and required canonical_bytes/signature parameters still present kernel-activity signing rather than the merged type-2 transaction flow."
+expected = "The finished network is one paxd BFT chain, EVM chain id 125, final at verified block commitment. Public node JSON-RPC uses root URLs; px_ joins belong to the hosted gateway, with no standalone LayerX router or guarantor finality."
+proposal = "Reconcile the wiki catalogue with the actual registered MCP tools and document type-2 call preparation, node receipt rungs and committed-block/state-witness reads. Keep the daemon tenant/scope requirements and link the current CLI serving command."
+owner_domain = 9
+
+[finding.f59]
+file = "README.md"
+line = 47
+class = "doc-drift"
+severity = "medium"
+observed = "The architecture paragraph describes layerxd as a separate C17 daemon whose checkpoints settle through layerxAnchor; later build instructions still promote make layerxd as a current runtime path."
+expected = "The finished network is one paxd BFT chain, EVM chain id 125, final at verified block commitment. Public node JSON-RPC uses root URLs; px_ joins belong to the hosted gateway, with no standalone LayerX router or guarantor finality."
+proposal = "Update the architecture and quick-start to one paxd network with an embedded kernel and block-commit finality. Replace standalone layerxd build/run guidance with current node and client entrypoints and root public JSON-RPC URLs."
+owner_domain = 1
+
+[finding.f60]
+file = "docs/QUALIFICATION.md"
+line = 80
+class = "doc-drift"
+severity = "medium"
+observed = "Qualification guidance still treats guarantor/checkpoint settlement and separate-network evidence as the release authority, leaving the merged validator commit and witness path unclear."
+expected = "The finished network is one paxd BFT chain, EVM chain id 125, final at verified block commitment. Public node JSON-RPC uses root URLs; px_ joins belong to the hosted gateway, with no standalone LayerX router or guarantor finality."
+proposal = "Rewrite the finality and network qualification statements around real paxd validator commits and storage witness verification. Preserve useful isolation, fault and recovery coverage but replace retired guarantor/anchor gates with their merged producers."
+owner_domain = 17
+
+[finding.f61]
+file = "docs/site/docs/overview/unified-network.md"
+line = 129
+class = "doc-drift"
+severity = "medium"
+observed = "The overview calls https://api-mainnet-beta.paxeer.network/rpc the router URL, advertises /rpc/schema, and describes a separate C layerxd sequencer/consensus system with checkpoint/guarantor settlement."
+expected = "The finished network is one paxd BFT chain, EVM chain id 125, final at verified block commitment. Public node JSON-RPC uses root URLs; px_ joins belong to the hosted gateway, with no standalone LayerX router or guarantor finality."
+proposal = "Replace the topology, endpoint and evidence sections with one paxd BFT chain, root api1-api14/mainnet-beta RPC endpoints, node namespaces and hosted gateway px_ methods. Explain native receipt and state finality through verified committed blocks."
+owner_domain = 1
+
+[finding.f62]
+file = "docs/site/docs/overview/payments.md"
+line = 18
+class = "doc-drift"
+severity = "medium"
+observed = "The payments guide uses router /rpc endpoints and later lx_getSequence/lx_sendActivity reads and writes; its receipt policy still names sequencer-key and checkpoint/settlement evidence rather than the merged receipt rungs."
+expected = "The finished network is one paxd BFT chain, EVM chain id 125, final at verified block commitment. Public node JSON-RPC uses root URLs; px_ joins belong to the hosted gateway, with no standalone LayerX router or guarantor finality."
+proposal = "Rewrite payment examples with signed type-2 writes to root node JSON-RPC, the current gateway asset/balance shape, pinned receipt keys and verified block-commit rungs. Reconcile the MCP tool count and availability claims with the registered catalogue."
+owner_domain = 9
+
+[finding.f63]
+file = "spec/layerx-merge/contracts/agent-rust-api.md"
+line = 1
+class = "doc-drift"
+severity = "medium"
+observed = "The contract states its signatures are frozen at revision 2a1033aa2. Its client tables still cite retired FrameTransport read/evidence/receipt paths although the current implementations moved under rpc and use JSON-RPC."
+expected = "The finished network is one paxd BFT chain, EVM chain id 125, final at verified block commitment. Public node JSON-RPC uses root URLs; px_ joins belong to the hosted gateway, with no standalone LayerX router or guarantor finality."
+proposal = "Regenerate the affected client and preparation contract rows from the reconciled current registry, preserving the valid AI-market EIP-1559 amendment. State the live storage-witness and committed-block evidence requirements instead of retired LNI signatures."
+owner_domain = 9
+
+[finding.f64]
+file = "spec/layerx-merge/contracts/clients.md"
+line = 1143
+class = "doc-drift"
+severity = "medium"
+observed = "The Client path proof section presents recorded wallet and local network/history fixture bodies as current responses. Those bodies omit the current gateway bank/flat-asset/history-envelope shapes, so the prose overstates current producer-path coverage."
+expected = "The finished network is one paxd BFT chain, EVM chain id 125, final at verified block commitment. Public node JSON-RPC uses root URLs; px_ joins belong to the hosted gateway, with no standalone LayerX router or guarantor finality."
+proposal = "Update clients.md after the real gateway-to-Rust proof is repaired; document the current balances/assets/history fields and evidence authority. Replace the router wording in operations with hosted gateway and root node roles, and distinguish label binding from cryptographic finality."
+owner_domain = 9
+
+[doc.d01]
+path = "docs/site/docs/agents/mcp.md"
+status = "stale"
+notes = "Line 64 describes the standalone binary as always serving a Unix socket, but its binding-dependent path serves standard input/output when no listener is declared. Document both transport modes and the listener configuration; the standalone binary itself exists."
+
+[doc.d02]
+path = "docs/site/docs/agents/running.md"
+status = "misleading"
+notes = "Lines 512: The signed-transaction instructions send eth_sendRawTransaction to /rpc. Lines 96-99 still require an absolute local node_endpoint path and the page retains a separate sequencer trust-anchor configuration and legacy verification ladder. Rewrite both copies around the current node RPC URL/chain-id configuration, root public node endpoints and hosted gateway joins. Replace old socket-handshake and checkpoint/settlement authority guidance with pinned receipt keys and verified committed-block evidence."
+
+[doc.d03]
+path = "docs/wiki/RunningAnAgent.md"
+status = "misleading"
+notes = "Lines 512: The signed-transaction instructions send eth_sendRawTransaction to /rpc. Lines 96-99 still require an absolute local node_endpoint path and the page retains a separate sequencer trust-anchor configuration and legacy verification ladder. Rewrite both copies around the current node RPC URL/chain-id configuration, root public node endpoints and hosted gateway joins. Replace old socket-handshake and checkpoint/settlement authority guidance with pinned receipt keys and verified committed-block evidence."
+
+[doc.d04]
+path = "docs/site/docs/agents/agentd.md"
+status = "stale"
+notes = "Lines 13: The daemon guide requires a real sequencer handshake and layerx-sequencer-authority-v1 trust file; its Protocol evidence section describes authorised batch headers and guarantor/checkpoint policy as current write authority. Rewrite startup and protocol evidence around NodeRpc chain identity, governed receipt-key pins and validator commit/storage witness verification. Update budget and recovery sections to call-bound preparation and the actual committed budget producer."
+
+[doc.d05]
+path = "docs/wiki/Agentd.md"
+status = "stale"
+notes = "Lines 13: The daemon guide requires a real sequencer handshake and layerx-sequencer-authority-v1 trust file; its Protocol evidence section describes authorised batch headers and guarantor/checkpoint policy as current write authority. Rewrite startup and protocol evidence around NodeRpc chain identity, governed receipt-key pins and validator commit/storage witness verification. Update budget and recovery sections to call-bound preparation and the actual committed budget producer."
+
+[doc.d06]
+path = "docs/site/docs/platform/hosted-node.md"
+status = "misleading"
+notes = "Lines 3: The hosted node guide describes a standalone sequencer pod built from layerxd, local LNI bootstrap and guarantor authority; its bootstrap example configures the former network rather than the single merged chain. Replace the retired layerxd/sequencer provisioning path with the paxd embedded-kernel deployment, chain id 125 and current node/gateway root endpoints. Remove LNI and guarantor secret/setup instructions and document validator commit recovery."
+
+[doc.d07]
+path = "docs/wiki/HostedNode.md"
+status = "misleading"
+notes = "Lines 3: The hosted node guide describes a standalone sequencer pod built from layerxd, local LNI bootstrap and guarantor authority; its bootstrap example configures the former network rather than the single merged chain. Replace the retired layerxd/sequencer provisioning path with the paxd embedded-kernel deployment, chain id 125 and current node/gateway root endpoints. Remove LNI and guarantor secret/setup instructions and document validator commit recovery."
+
+[doc.d08]
+path = "docs/wiki/Mcp.md"
+status = "stale"
+notes = "Lines 29-31 describe checkpoint certificates and batch availability chunks; lines 34-36 and 69-72 describe canonical kernel activity preparation/signatures. Rewrite these around committed blocks, storage evidence and the current type-2 preparation/approval boundary while retaining valid MCP tool names."
+
+[doc.d09]
+path = "README.md"
+status = "misleading"
+notes = "Lines 47: The architecture paragraph describes layerxd as a separate C17 daemon whose checkpoints settle through layerxAnchor; later build instructions still promote make layerxd as a current runtime path. Update the architecture and quick-start to one paxd network with an embedded kernel and block-commit finality. Replace standalone layerxd build/run guidance with current node and client entrypoints and root public JSON-RPC URLs."
+
+[doc.d10]
+path = "docs/QUALIFICATION.md"
+status = "stale"
+notes = "Lines 80: Qualification guidance still treats guarantor/checkpoint settlement and separate-network evidence as the release authority, leaving the merged validator commit and witness path unclear. Rewrite the finality and network qualification statements around real paxd validator commits and storage witness verification. Preserve useful isolation, fault and recovery coverage but replace retired guarantor/anchor gates with their merged producers."
+
+[doc.d11]
+path = "docs/site/docs/overview/unified-network.md"
+status = "misleading"
+notes = "Lines 129: The overview calls https://api-mainnet-beta.paxeer.network/rpc the router URL, advertises /rpc/schema, and describes a separate C layerxd sequencer/consensus system with checkpoint/guarantor settlement. Replace the topology, endpoint and evidence sections with one paxd BFT chain, root api1-api14/mainnet-beta RPC endpoints, node namespaces and hosted gateway px_ methods. Explain native receipt and state finality through verified committed blocks."
+
+[doc.d12]
+path = "docs/site/docs/overview/payments.md"
+status = "misleading"
+notes = "Lines 18: The payments guide uses router /rpc endpoints and later lx_getSequence/lx_sendActivity reads and writes; its receipt policy still names sequencer-key and checkpoint/settlement evidence rather than the merged receipt rungs. Rewrite payment examples with signed type-2 writes to root node JSON-RPC, the current gateway asset/balance shape, pinned receipt keys and verified block-commit rungs. Reconcile the MCP tool count and availability claims with the registered catalogue."
+
+[doc.d13]
+path = "spec/layerx-merge/contracts/agent-rust-api.md"
+status = "stale"
+notes = "Lines 1: The contract states its signatures are frozen at revision 2a1033aa2. Its client tables still cite retired FrameTransport read/evidence/receipt paths although the current implementations moved under rpc and use JSON-RPC. Regenerate the affected client and preparation contract rows from the reconciled current registry, preserving the valid AI-market EIP-1559 amendment. State the live storage-witness and committed-block evidence requirements instead of retired LNI signatures."
+
+[doc.d14]
+path = "spec/layerx-merge/contracts/clients.md"
+status = "stale"
+notes = "Lines 1143: The Client path proof section presents recorded wallet and local network/history fixture bodies as current responses. Those bodies omit the current gateway bank/flat-asset/history-envelope shapes, so the prose overstates current producer-path coverage. Update clients.md after the real gateway-to-Rust proof is repaired; document the current balances/assets/history fields and evidence authority. Replace the router wording in operations with hosted gateway and root node roles, and distinguish label binding from cryptographic finality."
+
+[doc.d15]
+path = "services/platform/hosted/gateway/openrpc.json"
+status = "accurate"
+notes = "The inspected px_getAccount, px_getBalances, px_listAssets, px_getNetwork and px_getHistory declarations match the registered gateway producers. The Rust consumer disagreements are findings on px.rs and sequencer.rs."

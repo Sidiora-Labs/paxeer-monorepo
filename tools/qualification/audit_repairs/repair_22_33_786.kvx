@@ -1,0 +1,60 @@
+[repair]
+task = "22.33.786"
+requirement = "22998.1"
+audit_record = "spec/layerx-merge/programme/audit/records/22.30.174.kvx"
+base_revision = "399c122802fbe3326c62ef9251760c3e53ee4060"
+reviewed_revision = "2c21d5625769fdcf7e1a8f5a9f88bc779f922c98"
+decision = 2525
+implementation = "Add focused offline regression proofs and this repair record; consume the README rewrite already supplied by owner task 22.31.470 without changing README.md or any other production source."
+
+[finding.doc-1]
+audit = "22.30.174"
+file = "README.md"
+line = 47
+class = "doc-drift"
+severity = "medium"
+owner_task = "22.31.470"
+owner_domain = 16
+observed = "The audit described a separate layerxd daemon, checkpoint settlement, make layerxd and a future draft merge. The inherited README instead describes the integrated paxd network and committed-block finality."
+expected = "One paxd BFT network, EVM chain 125, api1..api14 public root JSON-RPC, current node and gateway contracts, signed transaction and committed receipt flows, embedded Programs and database tenant domains, retired custody/checkpoint executors and no separate daemon or checkpoint deployment."
+resolution = "Assert all expected facts against README.md as 22.31.470 left it, tie documented commands and contracts to committed production sources, and preserve historical anchor reads as archive-only until store deletion."
+tests = ["test_doc_1_merged_paxd_network_programs_and_tenant_domains", "test_doc_1_public_root_rpc_and_chain_probe", "test_doc_1_transaction_transport_and_committed_receipt_consumer", "test_doc_1_gateway_contract_is_distinct_from_public_node", "test_doc_1_retired_executors_and_no_standalone_deployment", "test_doc_1_operator_build_and_start_match_declared_producers"]
+wiring_requests = []
+wiring_policy = "Any missing README fact requires a one-line request naming README.md, domain 16 and task 22.31.470; no README edit is authorized here. All expected source facts were present on inspection, so no wiring request is needed."
+
+[proof]
+source_facts = "The tests read the real README and production files: node/app.go and modules/lxphost/host.go embed the host; node/sequencer/consensus_source.go supplies blocks; modules/evm/config/config.go maps mainnet to 125; rpc/rpcstack.go dispatches the root path. The actual curl example is tokenized and its JSON-RPC request, HTTPS root URL and expected 0x7d result are checked."
+producer_transport_consumer = "rpc/send.go decodes signed bytes and accepts locally or forwards; node/sequencer/accepter.go acknowledges WAL release before publishing the send record; rpc/sequencer_receipt.go defines submitted/receipted/committed and attaches a covering committed block. Tests compare these source facts with the README transaction flow and its committed eth_getTransactionReceipt/eth_call guidance."
+contracts_and_commands = "Parse the real gateway OpenRPC manifest and receipt transaction-hash parameter; distinguish hosted deployment credentials from public node method availability. Check retired executor guards, native archive prerequisites, version source, chain.mk paxd output, node CLI registration, parsed version/start examples and linked operator source paths."
+review_only = "This documentation gate does not execute Go/C/Rust builds, CLI startup, transactions, consensus, cryptographic verification, WAL restart/recovery or live network requests. It proves documented source connections, not runtime behavior, final deployment, endpoint availability or operational provisioning. No stateful component or interface is changed; restart and interface execution tests do not apply. Shell examples are tokenized without executing commands; no shell script, unit or build manifest is modified."
+
+[baseline]
+working_tree = "Initial git status/diff showed only runner-prepared .cgignore and spec/layerx-merge/spec.kvx bookkeeping. Both scoped artifacts were absent; prior task work was not replaced or reverted."
+ledger = "No /out/run/gates.jsonl existed and gate.json recorded zero builds and verifies, with two repair cycles available."
+pre_change_verify = "The pre-change verify was not run: explicit implementation-first ordering and exclusive hf-done verification supersede the older baseline-run clause. No baseline test failure or pass is claimed. README.md remains unchanged by this task, so the declared gate consumes the inherited production documentation."
+
+[qualification]
+build_cmd = "python3 --version"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_786.py"
+gate = "hf-build followed by hf-done; no manual pytest, cg completion, commit or push."
+evidence_ledger = "/out/run/gates.jsonl"
+evidence = "The last hf-done JSON and private /out/run/gates.jsonl name the exact verified content-derived revision, command, exit and log. Build and verify must pass on the same candidate revision. This record is finalized before qualification; embedding its own candidate hash would change that hash. Only passing declared gate evidence establishes closure."
+
+[format]
+policy = "No Python or KVX formatter is configured for these paths. After complete implementation, apply .editorconfig UTF-8, LF, final newline and trailing whitespace conventions only to the two scoped files."
+
+[gotcha.1]
+observed = "Combined broad reads exceeded tool output limits and guessed sibling repair paths were absent; Codify cached context was much broader than this task."
+resolution = "Use bounded task-specific reads, actual working-tree state and the private gate ledger; record notes here because GOTCHA.kvx and spec files are outside scope."
+
+[gotcha.2]
+observed = "The generic audit baseline clause conflicts with the explicit build-before-hf-done order and single verification budget."
+resolution = "Follow the explicit gate order and disclose the unrun baseline rather than spending an unauthorized run or inventing failure evidence."
+
+[qualification.repair_1]
+revision = "5faea46458ddc6cc9b5956244b1716a611589d77"
+command = "cg spec done 22.33.786 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Two tests failed because the Markdown section extractor treated the fenced curl comment '# Expected result' as a heading; five tests passed."
+repair = "Track Markdown fences when extracting sections so shell comments remain in the section; keep every source assertion unchanged, then rebuild and verify the repaired candidate."

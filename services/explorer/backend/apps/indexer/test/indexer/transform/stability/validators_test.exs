@@ -1,6 +1,6 @@
 if Application.compile_env(:explorer, :chain_type) == :stability do
   defmodule Indexer.Transform.Stability.ValidatorsTest do
-    use ExUnit.Case, async: true
+    use ExUnit.Case, async: false
 
     alias Indexer.Transform.Stability.Validators
 

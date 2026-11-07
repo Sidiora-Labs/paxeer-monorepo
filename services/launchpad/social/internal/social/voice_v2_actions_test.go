@@ -206,13 +206,23 @@ CREATE TABLE indexer_canonical_creations_v1(pool text PRIMARY KEY,token text NOT
 	control.Provider = &voice.LiveKit{}
 	control.Gates = voice.Gates{ProviderQualified: true, EjectionQualified: true, ACLQualified: true, RetentionQualified: true}
 	assertError(request(router, nil, base+"/tickets", ticketBody), 403, "SCOPE_DENIED")
-	assertError(request(router, &guest, base+"/tickets", ticketBody), 503, "DEPENDENCY_UNAVAILABLE")
+	assertError(request(router, &guest, base+"/tickets", ticketBody), 403, "SCOPE_DENIED")
+	var guestParticipants int
+	if err := db.QueryRow(ctx, `SELECT count(*) FROM voice_participants WHERE room_id=$1 AND wallet=$2`, id, guestWallet).Scan(&guestParticipants); err != nil || guestParticipants != 0 {
+		t.Fatalf("private guest denial changed participant state: %d; %v", guestParticipants, err)
+	}
+	// The owner is legitimately admitted to its private room. Provider failure
+	// and cleanup must operate on that admitted identity, never an uninvited guest.
+	participant := host
+	leaveBody = `{"clientSessionId":"` + participant.SessionID + `"}`
+	ticketBody = `{"role":"speaker","clientSessionId":"` + participant.SessionID + `"}`
+	assertError(request(router, &participant, base+"/tickets", ticketBody), 503, "DEPENDENCY_UNAVAILABLE")
 	var role, grant string
 	var muted, revoked bool
 	var revision int64
 	readParticipant := func() {
 		t.Helper()
-		if err := db.QueryRow(ctx, `SELECT role,muted,revoked,grant_state,revision FROM voice_participants WHERE room_id=$1 AND wallet=$2`, id, guestWallet).Scan(&role, &muted, &revoked, &grant, &revision); err != nil {
+		if err := db.QueryRow(ctx, `SELECT role,muted,revoked,grant_state,revision FROM voice_participants WHERE room_id=$1 AND wallet=$2`, id, participant.Wallet).Scan(&role, &muted, &revoked, &grant, &revision); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -228,7 +238,7 @@ CREATE TABLE indexer_canonical_creations_v1(pool text PRIMARY KEY,token text NOT
 		t.Fatal("unmapped moderation changed participant")
 	}
 	assertError(request(router, nil, base+":leave", leaveBody), 403, "SCOPE_DENIED")
-	assertError(request(router, &guest, base+":leave", leaveBody), 503, "DEPENDENCY_UNAVAILABLE")
+	assertError(request(router, &participant, base+":leave", leaveBody), 503, "DEPENDENCY_UNAVAILABLE")
 	readParticipant()
 	if !muted || !revoked || grant != "revoking" || revision != 2 {
 		t.Fatalf("leave did not persist cleanup intent: %s %t %t %s %d", role, muted, revoked, grant, revision)
@@ -237,7 +247,7 @@ CREATE TABLE indexer_canonical_creations_v1(pool text PRIMARY KEY,token text NOT
 	if _, err := db.Exec(ctx, `INSERT INTO voice_recordings(id,room_id,state,purpose,policy_version,delete_at) VALUES($1,$2,'consent_pending','Explicit purpose','v2',now()+interval '1 day')`, recordingID, id); err != nil {
 		t.Fatal(err)
 	}
-	assertError(request(router, &guest, base+"/tickets", ticketBody), 403, "SCOPE_DENIED")
+	assertError(request(router, &participant, base+"/tickets", ticketBody), 403, "SCOPE_DENIED")
 	readParticipant()
 	if !muted || !revoked || grant != "revoking" || revision != 2 {
 		t.Fatal("ticket without consent changed revoked participant")
@@ -247,6 +257,9 @@ CREATE TABLE indexer_canonical_creations_v1(pool text PRIMARY KEY,token text NOT
 		t.Fatalf("actions invented consent or moderation authority: %d %d %d; %v", consents, bans, ejections, err)
 	}
 
+	participant = guest
+	leaveBody = `{"clientSessionId":"` + participant.SessionID + `"}`
+	ticketBody = `{"role":"speaker","clientSessionId":"` + participant.SessionID + `"}`
 	provider := v2VoiceActionsLiveKit(t)
 	control.Provider = provider
 	created = request(router, &host, "/v2/voice-rooms", `{"scopeType":"pool","scopeId":"`+poolID+`","title":"Live actions room","visibility":"public"}`)

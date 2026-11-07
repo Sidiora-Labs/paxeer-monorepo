@@ -71,8 +71,9 @@ type SubscribeArgs struct {
 }
 
 // UnsubscribeArgs are the parameters to remove a subscription.
-// The subscriber ID must be populated, and at least one of the client ID or
-// the registered query.
+// The subscriber ID must be populated. The subscription ID selects a single
+// subscription, optionally constrained by a non-nil query. Without an ID, the
+// registered query is matched exactly, including query.All.
 type UnsubscribeArgs struct {
 	Subscriber string       // subscriber ID chosen by the client (required)
 	ID         string       // subscription ID (assigned by the server)
@@ -220,7 +221,7 @@ func (s *Server) SubscribeWithArgs(ctx context.Context, args SubscribeArgs) (*Su
 	return sub, nil
 }
 
-// Unsubscribe removes the subscription for the given client and/or query.  It
+// Unsubscribe removes the subscription for the given client and ID or query. It
 // returns ErrSubscriptionNotFound if no such subscription exists.
 func (s *Server) Unsubscribe(ctx context.Context, args UnsubscribeArgs) error {
 	if err := args.Validate(); err != nil {
@@ -232,20 +233,15 @@ func (s *Server) Unsubscribe(ctx context.Context, args UnsubscribeArgs) error {
 		return ErrServerStopped
 	}
 
-	// TODO(creachadair): Do we need to support unsubscription for an "empty"
-	// query?  I believe that case is not possible by the Query grammar, but we
-	// should make sure.
-	//
-	// Revisit this logic once we are able to remove indexing by query.
-
-	var evict subInfoSet
-	if args.Subscriber != "" {
-		evict = s.subs.index.findClientID(args.Subscriber)
-		if args.Query != nil {
-			evict = evict.withQuery(args.Query.String())
+	evict := make(subInfoSet)
+	for si := range s.subs.index.findClientID(args.Subscriber) {
+		if args.ID != "" && si.subID != args.ID {
+			continue
 		}
-	} else {
-		evict = s.subs.index.findQuery(args.Query.String())
+		if (args.ID == "" || args.Query != nil) && si.query.String() != args.Query.String() {
+			continue
+		}
+		evict.add(si)
 	}
 
 	if len(evict) == 0 {
@@ -272,17 +268,24 @@ func (s *Server) UnsubscribeAll(ctx context.Context, clientID string) error {
 	return nil
 }
 
-// NumClients returns the number of clients.
+// NumClients returns the number of clients, or zero after shutdown.
 func (s *Server) NumClients() int {
 	s.subs.RLock()
 	defer s.subs.RUnlock()
+	if s.subs.index == nil {
+		return 0
+	}
 	return len(s.subs.index.byClient)
 }
 
-// NumClientSubscriptions returns the number of subscriptions the client has.
+// NumClientSubscriptions returns the number of subscriptions the client has,
+// or zero after shutdown.
 func (s *Server) NumClientSubscriptions(clientID string) int {
 	s.subs.RLock()
 	defer s.subs.RUnlock()
+	if s.subs.index == nil {
+		return 0
+	}
 	return len(s.subs.index.findClientID(clientID))
 }
 

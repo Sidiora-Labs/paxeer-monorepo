@@ -294,16 +294,15 @@ public sealed record AgentEnvelopeResult(string RequestId, JsonValue Value, Json
 
 public sealed class AgentEnvelopeTransport : IPlatformTransport, IDisposable
 {
-    private const int EnvelopeVersion = 2;
+    private const int EnvelopeVersion = 1;
     public const string RoutePath = "/v1/agent/rpc";
     public const string DaemonRoutePath = "/rpc";
     public const int MaximumRequestBytes = 1_048_576;
     private const int MaximumResponseBytes = 8 * 1024 * 1024;
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
-    private static readonly HashSet<string> BootstrapOperations = new(StringComparer.Ordinal) { "agent.register", "session.open" };
     private static readonly string[] Levels =
     [
-        "Unverified", "SequencerSigned", "BatchIncluded", "StateProven", "CheckpointFinalised", "SettlementAnchored",
+        "submitted", "receipted", "committed",
     ];
     private readonly Uri _endpoint;
     private readonly HttpClient _httpClient;
@@ -418,8 +417,7 @@ public sealed class AgentEnvelopeTransport : IPlatformTransport, IDisposable
     {
         if (descriptor.Plane != PlatformPlane.Agent || call.PathParameters.Count != 0 ||
             call.Request is not JsonValue.ObjectValue) throw Invalid();
-        var bootstrap = BootstrapOperations.Contains(descriptor.Name);
-        if (!bootstrap && _credential is null) throw new PlatformSdkException(SdkErrorCode.CapabilityRefusal, RetryClass.Never);
+        if (_credential is null) throw new PlatformSdkException(SdkErrorCode.CapabilityRefusal, RetryClass.Never);
         if (descriptor.RequiresIdempotency)
         {
             if (call.IdempotencyKey is not { } key || !Hex32(key.Value))
@@ -436,8 +434,7 @@ public sealed class AgentEnvelopeTransport : IPlatformTransport, IDisposable
             writer.WritePropertyName("request");
             JsonSerializer.Serialize(writer, call.Request, JsonOptions);
             writer.WritePropertyName("credential");
-            if (bootstrap) writer.WriteNullValue();
-            else _credential!.Write(writer);
+            _credential.Write(writer);
             if (call.IdempotencyKey is { } idempotency) writer.WriteString("idempotency_key", idempotency.Value);
             else writer.WriteNull("idempotency_key");
             writer.WriteEndObject();
@@ -470,17 +467,15 @@ public sealed class AgentEnvelopeTransport : IPlatformTransport, IDisposable
         catch (PlatformSdkException) { throw Decode(requestId); }
         if (document is not JsonValue.ObjectValue map) throw Decode(requestId);
         var envelope = map.Value;
-        if (!envelope.TryGetValue("version", out var responseVersion) ||
-            responseVersion is not JsonValue.IntegerValue { Value: EnvelopeVersion }) throw Decode(requestId);
         if (envelope.ContainsKey("class"))
         {
             if (status is >= 200 and < 300 ||
-                !Exact(envelope, "version", "class", "protocol_result_code", "retriability", "request_id", "reason")) throw Decode(requestId);
+                !Exact(envelope, "class", "protocol_result_code", "retriability", "request_id", "reason")) throw Decode(requestId);
             var echoed = TryText(envelope, "request_id");
             if (echoed != requestId && echoed != "0") throw Decode(requestId);
             throw ServiceError(envelope, requestId);
         }
-        if (status != 200 || !Exact(envelope, "version", "request_id", "value", "verification_status") ||
+        if (status != 200 || !Exact(envelope, "request_id", "value", "verification_status") ||
             TryText(envelope, "request_id") != requestId || envelope["value"] is JsonValue.NullValue ||
             !ValidVerification(envelope["verification_status"])) throw Decode(requestId);
         return new AgentEnvelopeResult(requestId, envelope["value"], envelope["verification_status"]);
@@ -492,10 +487,14 @@ public sealed class AgentEnvelopeTransport : IPlatformTransport, IDisposable
         var status = map.Value;
         return TryText(status, "state") switch
         {
-            "achieved" => Exact(status, "state", "level") && Level(TryText(status, "level")) >= 0,
+            "achieved" => Exact(status, "state", "rung") && Level(TryText(status, "rung")) >= 0,
             "unverified" => Exact(status, "state", "requested", "achieved", "reason") &&
                 Level(TryText(status, "achieved")) is var achieved && achieved >= 0 &&
                 achieved < Level(TryText(status, "requested")) && ValidReason(TryText(status, "reason")),
+            "pending" => Exact(status, "state", "requested", "achieved") &&
+                Level(TryText(status, "achieved")) is var pending && pending >= 0 &&
+                pending < Level(TryText(status, "requested")),
+            "absent" => Exact(status, "state", "requested") && Level(TryText(status, "requested")) >= 0,
             _ => false,
         };
     }

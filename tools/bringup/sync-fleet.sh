@@ -99,6 +99,13 @@ Environment:
                       BRINGUP_NEVER_PLACE and RETAINED_ON_VALIDATOR lists
                       name hosts and public names the rollout skips
   CHECK_LIVE_TIMEOUT  seconds per request or short remote command, default 30
+  SYNC_FLEET_JOURNAL private durable source journal, default
+                      /var/lib/paxeer-bringup/resync.json
+  SYNC_FLEET_CONNECT_TIMEOUT seconds for transfer connections, default 10
+  SYNC_FLEET_TRANSFER_TIMEOUT seconds for each transfer/mutation, default 1800
+  SYNC_FLEET_RECOVERY_TIMEOUT seconds for durable reconciliation, default 120
+  SYNC_FLEET_STATE    private durable owner directory; reuse it after a timeout
+                      or interrupted resync, default $HOME/.local/state/bringup-fleet
   SYNC_FLEET_SETTLE   seconds to wait for a restarted node to come within ten
                       blocks of the head, default 1800
   HPX_HOME            the node home on every host, default /root/.paxeer
@@ -130,6 +137,17 @@ stamp="$(date -u +%Y%m%dT%H%M%SZ)"
 report="${SYNC_FLEET_REPORT:-$HOME/sync-fleet-rollout-$stamp.txt}"
 dry_run=0
 failures=0
+transfer_connect="${SYNC_FLEET_CONNECT_TIMEOUT:-10}"
+transfer_total="${SYNC_FLEET_TRANSFER_TIMEOUT:-1800}"
+fleet_state="${SYNC_FLEET_STATE:-$HOME/.local/state/bringup-fleet}"
+for deadline in "$transfer_connect" "$transfer_total" "${SYNC_FLEET_RECOVERY_TIMEOUT:-120}"; do
+	[[ "$deadline" =~ ^[1-9][0-9]*$ ]] && [ "$deadline" -le 86400 ] || { echo "sync-fleet: invalid transfer deadline" >&2; exit 2; }
+done
+[ "$transfer_connect" -le "$transfer_total" ] || { echo "sync-fleet: connection deadline exceeds transfer deadline" >&2; exit 2; }
+
+fleet_scp() {
+	timeout --signal=TERM --kill-after=5s "${transfer_total}s" scp -q -o BatchMode=yes -o "ConnectTimeout=$transfer_connect" -o ServerAliveInterval=5 -o ServerAliveCountMax=2 -- "$@"
+}
 
 # say <line>: one result line on stdout.
 say() {
@@ -152,7 +170,8 @@ remote() {
 		echo "ssh -- $label $shown"
 		return 0
 	fi
-	ssh -n -o BatchMode=yes -- "$dest" "$cmd"
+	timeout --signal=TERM --kill-after=5s "${transfer_total}s" ssh -n -o BatchMode=yes -o "ConnectTimeout=$transfer_connect" -o ServerAliveInterval=5 -o ServerAliveCountMax=2 -- "$dest" \
+		"timeout --signal=TERM --kill-after=5s ${transfer_total}s sh -c $(printf '%q' "$cmd")"
 }
 
 # poll_heads: asks the sixteen public names for eth_blockNumber at once and
@@ -319,13 +338,40 @@ cmd_restart() {
 	done
 }
 
+# The operator journal records the source before stop, and is reconciled
+# before survey or another destination. Its directory must survive a rerun.
+resync_journal="${SYNC_FLEET_JOURNAL:-/var/lib/paxeer-bringup/resync.json}"
+resync_inspector="${BRINGUP_INSPECT_BIN:-bringup-inspect}"
+resync_record() { "$resync_inspector" resync-journal "$resync_journal" "$@"; }
+resync_restore_source() {
+	local pending source original phase actual action
+	pending="$(resync_record pending)" || return 1
+	[ -n "$pending" ] || return 0
+	read -r source original phase <<<"$pending"
+	resync_record phase restoring || return 1
+	actual="$(timeout 15s ssh -n -o BatchMode=yes -o ConnectTimeout=8 -- "$source" "systemctl show $unit -p ActiveState --value")" || return 1
+	action="$(resync_record recovery "$actual")" || return 1
+	# Bound the entire restoration, including a hung SSH or systemd operation.
+	# The shared state machine never starts an originally inactive/failed unit.
+	if [ "$action" = start ]; then
+		actual="$(timeout 45s ssh -n -o BatchMode=yes -o ConnectTimeout=8 -- "$source" "systemctl start --no-block $unit && timeout 30s sh -c 'until systemctl is-active --quiet $unit; do sleep 1; done' && systemctl show $unit -p ActiveState --value")" || return 1
+	fi
+	resync_record restored "$actual"
+}
+resync_exit() {
+	local status=$?
+	trap - EXIT INT TERM HUP
+	resync_restore_source || status=1
+	exit "$status"
+}
+
 # resync_target <k> <source k>: the whole copy for one target; prints its
 # line. The source is started again whatever the copy did, and the target is
 # started again whatever the swap did.
 resync_target() {
 	local k="$1" label="RPC_HOSTS[$1]" dest="${dests[$1]}" src="${dests[$2]}" slabel="RPC_HOSTS[$2]"
 	local name="${names[$1]}" sname="${names[$2]}" inc="data.incoming-$stamp" stale="data.stale-$stamp"
-	local size free need mode status=0 lag sha binary=kept state
+	local size free need mode status=0 lag sha binary=kept state original=active
 	local excludes="--exclude=priv_validator_state.json --exclude=snapshots"
 	if [ "$dest" = "$ARCHIVE_HOST" ]; then
 		fail "resync $label $name the archive host keeps its history"
@@ -346,30 +392,58 @@ resync_target() {
 		fail "resync $label $name source=$sname free=$free need=$need"
 		return 0
 	fi
+	if [ "$dry_run" -eq 0 ]; then
+		# The installed owner durably records original unit states before stopping
+		# either host. Its SSH streams and remote descendants share the deadlines.
+		if ! python3 - "$src" "$dest" "$home" "$paxd" "$bin" "$release_sha256" <<'PYPLAN' | bringup_inspect fleet-resync "$fleet_state"; then
+import json,os,sys,uuid
+print(json.dumps(dict(zip(('Source','Target','Home','Binary','Asset','SHA256'), (*sys.argv[1:5],os.path.abspath(sys.argv[5]),sys.argv[6])), ID=uuid.uuid4().hex)))
+PYPLAN
+			fail "resync $label $name transfer failed; recovery state=$fleet_state; rerun resync to reconcile before another target"
+			return 0
+		fi
+		if ! lag="$(wait_within "$sname")" || ! lag="$(wait_within "$name")"; then
+			fail "resync $label $name committed-head wait lag=$lag"
+		else
+			say "resync $label $name source=$sname mode=stream binary=installed unit=original-state-restored lag=$lag"
+		fi
+		return 0
+	fi
 	mode=stream
 	if ssh_read "$src" "ssh -n -o BatchMode=yes -o ConnectTimeout=8 -- $dest true" >/dev/null; then
 		mode=rsync
 	fi
-	if ! remote "$slabel" "$src" "systemctl stop $unit"; then
+	if [ "$dry_run" -eq 0 ]; then
+		original="$(ssh_read "$src" "systemctl show $unit -p ActiveState --value")" || { fail "resync $label source state unavailable"; return 1; }
+		resync_record prepare "$src" "$dest" "$original" || return 1
+	fi
+	if [ "$original" = active ] && ! remote "$slabel" "$src" "systemctl stop $unit"; then
 		fail "resync $label $name source=$sname the source unit did not stop"
+		resync_restore_source || return 1
 		return 0
 	fi
+	if [ "$dry_run" -eq 0 ]; then resync_record phase copying || return 1; fi
 	if [ "$mode" = rsync ]; then
 		remote "$slabel" "$src" "rsync -a --partial $excludes $home/data/ $dest:$home/$inc/" "$dest" "$label" || status=$?
 	elif [ "$dry_run" -eq 1 ]; then
 		say "ssh -n -- $slabel tar -C $home $excludes -cf - data | ssh -- $label mkdir -p $home/$inc && tar -C $home/$inc --strip-components=1 -xf -"
 	else
-		ssh -n -o BatchMode=yes -- "$src" "tar -C $home $excludes -cf - data" |
-			ssh -o BatchMode=yes -- "$dest" "mkdir -p $home/$inc && tar -C $home/$inc --strip-components=1 -xf -" || status=$?
+		timeout --signal=TERM --kill-after=5s "${transfer_total}s" ssh -n -o BatchMode=yes -o "ConnectTimeout=$transfer_connect" -- "$src" "timeout ${transfer_total}s tar -C $home $excludes -cf - data" |
+			timeout --signal=TERM --kill-after=5s "${transfer_total}s" ssh -o BatchMode=yes -o "ConnectTimeout=$transfer_connect" -- "$dest" "timeout ${transfer_total}s sh -c 'mkdir -p $home/$inc && tar -C $home/$inc --strip-components=1 -xf -'" || status=$?
 	fi
-	remote "$slabel" "$src" "systemctl start $unit" || status=$?
+	if [ "$dry_run" -eq 1 ]; then
+		remote "$slabel" "$src" "systemctl start $unit" || status=$?
+	elif ! resync_restore_source; then
+		fail "resync $label $name source=$sname recovery pending; refusing another destination"
+		return 1
+	fi
 	if [ "$status" -ne 0 ]; then
 		fail "resync $label $name source=$sname mode=$mode copy failed exit=$status"
 		return 0
 	fi
 	if [ "$dry_run" -eq 1 ]; then
 		say "wait until $sname is within $rpc_max_lag blocks of the head"
-	elif ! lag="$(wait_within "$sname")"; then
+	elif [ "$original" = active ] && ! lag="$(wait_within "$sname")"; then
 		fail "resync $label $name source=$sname lag=$lag the source did not return to the head"
 		return 0
 	fi
@@ -380,7 +454,7 @@ resync_target() {
 		if [ "$dry_run" -eq 1 ]; then
 			say "scp -q -- $bin $label:$paxd.new-$stamp"
 		else
-			scp -q -o BatchMode=yes -- "$bin" "$dest:$paxd.new-$stamp" || status=$?
+			fleet_scp "$bin" "$dest:$paxd.new-$stamp" || status=$?
 		fi
 		[ "$status" -ne 0 ] || remote "$label" "$dest" "set -e; [ \"\$(sha256sum $paxd.new-$stamp | cut -d' ' -f1)\" = $release_sha256 ]; cp -p $paxd $paxd.pre-$stamp; chmod 0755 $paxd.new-$stamp; mv -f $paxd.new-$stamp $paxd" || status=$?
 	fi
@@ -401,9 +475,30 @@ resync_target() {
 }
 
 cmd_resync() {
+	mkdir -p "$(dirname "$resync_journal")"
+	chmod 0700 "$(dirname "$resync_journal")"
+	exec 8>"$resync_journal.lock"
+	flock -x 8
+	# Recovery is required even for a later dry-run; it is an explicit retained
+	# obligation, never admitted as a new simulated destination.
+	if [ "$dry_run" -eq 1 ] && [ -e "$resync_journal" ]; then
+		fail "resync retained source needs recovery; rerun without --dry-run"
+		return 1
+	fi
+	if [ "$dry_run" -eq 0 ]; then
+		trap resync_exit EXIT
+		trap 'exit 130' INT
+		trap 'exit 143' TERM
+		trap 'exit 129' HUP
+		resync_restore_source || { fail "resync retained source recovery failed"; return 1; }
+	fi
 	local -a dests names ssh_status targets=()
 	local -A heads
 	local top k lag src="" best=-1
+	if [ "$dry_run" -eq 0 ] && ! bringup_inspect fleet-recover "$fleet_state"; then
+		fail "resync pending recovery refused; reuse state=$fleet_state before another destination"
+		return 0
+	fi
 	survey
 	for k in "${!dests[@]}"; do
 		[ "${names[$k]}" != none ] || continue
@@ -426,7 +521,7 @@ cmd_resync() {
 		return 0
 	fi
 	for k in "${targets[@]}"; do
-		resync_target "$k" "$src"
+		resync_target "$k" "$src" || return 1
 	done
 }
 
@@ -453,7 +548,7 @@ rollout_steps() {
 		if [ "$dry_run" -eq 1 ]; then
 			say "scp -q -- $bin $label:$staged"
 		else
-			scp -q -o BatchMode=yes -- "$bin" "$dest:$staged" || status=$?
+			fleet_scp "$bin" "$dest:$staged" || status=$?
 		fi
 		if [ "$status" -ne 0 ]; then
 			fail "rollout $label $name stage scp=$status"
@@ -582,22 +677,14 @@ verify_asset() {
 # from PAXD_RELEASE_URL into PAXD_RELEASE_DIR, verifies the asset and sets
 # bin and want_sha; status 1 with the reason on stderr otherwise.
 release_asset() {
-	local asset="paxd-$1-linux-amd64" dir="${PAXD_RELEASE_DIR:-$HOME/paxd-release-$1}" f
+	local dir="${PAXD_RELEASE_DIR:-$HOME/paxd-release-$1}" result
 	if [ -z "${PAXD_RELEASE_URL:-}" ]; then
 		echo "sync-fleet: PAXD_RELEASE_URL is unset" >&2
 		return 1
 	fi
-	mkdir -p "$dir"
-	for f in SHA256SUMS "$asset"; do
-		if ! curl -fsSL --retry 3 -o "$dir/$f.part" -- "${PAXD_RELEASE_URL%/}/$f"; then
-			echo "sync-fleet: could not fetch $f of $1" >&2
-			return 1
-		fi
-		mv -f "$dir/$f.part" "$dir/$f"
-	done
-	want_sha="$(verify_asset "$dir" "$asset")" || return 1
-	chmod 0755 "$dir/$asset"
-	bin="$dir/$asset"
+	result="$(bringup_inspect fleet-release "$PAXD_RELEASE_URL" "$1" "$dir")" || return 1
+	bin="${result%$'\n'*}" want_sha="${result##*$'\n'}"
+	[ -f "$bin" ] && [[ "$want_sha" =~ ^[0-9a-f]{64}$ ]] || return 1
 }
 
 # The dispatch below runs only when this file is executed.

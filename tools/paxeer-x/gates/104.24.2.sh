@@ -26,6 +26,15 @@ if ((${#candidates[@]} != 1)); then
     echo 'PAXEER_X_GATE tests=0 skipped=0'
     exit 1
 fi
+python3 - "$root" "${candidates[0]}" <<'MANIFEST'
+from pathlib import Path
+import sys
+root = Path(sys.argv[1])
+sys.dont_write_bytecode = True
+sys.path.insert(0, str(root / "tools/paxeer-x/gates"))
+from compiler_manifest import require_manifest
+require_manifest(root, "104.24.2", [sys.argv[2]])
+MANIFEST
 umask 077
 mkdir -p "$root/.logs/paxeer-x"
 log="$(mktemp "$root/.logs/paxeer-x/migration-v2-connected.XXXXXX.log")"

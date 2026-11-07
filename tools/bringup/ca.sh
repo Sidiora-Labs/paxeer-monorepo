@@ -42,19 +42,21 @@ inventory [<service>]
           nothing: for a box row the presence of cert.pem, key.der,
           cert.der, ca.der, identity.p12 and password under
           LAYERX_TLS_DIR/<service> on the box over ssh, and whether the
-          retained certificate chains to the row's CA; for a Railway row the
+          retained bundle is consistent and its certificate belongs to the
+          row's CA; for a Railway row the
           presence of the eight PREFIX_* variables on each service of the row
-          and verification of the deployed public PREFIX_CERT against the
-          same CA.
+          and protected verification of every certificate/key encoding,
+          PKCS12 password and issuer before the public certificate is
+          verified against the same CA.
           Only names, fingerprints and day counts are printed; no key,
           password or secret value is printed. One line per row:
           "inventory <service> target=<target> custody=volume|secrets
-          state=present|absent|partial|incompatible|foreign|unreadable
+          state=present|expired|absent|partial|inconsistent|incompatible|foreign|unreadable
           [fingerprint=<sha256> expires_in=<days>d]
           producer=tools/bringup/ca.sh issue <service>".
           A row whose CA directory is not readable here (an attestor row
           without LAYERX_ATTESTOR_CA_DIR) or whose box or service cannot be
-          read is unreadable. Exits 1 when any row is unreadable or foreign.
+          read is unreadable. Exits 1 when any row is unreadable, foreign or inconsistent.
 
 issue <service>
           inventories the service first. Retained material that is present,
@@ -118,6 +120,7 @@ install-server requires the retained request directory and explicit expected
           caller; no symlink components or arbitrary server roles are accepted.
 
 Environment:
+  BRINGUP_INSPECT_BIN installed bringup-inspect validator (also required on boxes)
   CHECK_LIVE_TIMEOUT   seconds per ssh or railway call, default 30
   LAYERX_CA_DIR        the CA directory, default /etc/layerx/ca
   LAYERX_ATTESTOR_CA_DIR
@@ -158,42 +161,10 @@ railway_bin="${LAYERX_RAILWAY_BIN:-$HOME/.railway/bin/railway}"
 # ca_services: every certificate the bring-up issues, after the issue_cert
 # calls of services/platform/hosted/tests/beta-cluster.sh: service, target, custody,
 # common name, extended key usage, fixed SAN list. The network names of a row
-# (<service>.railway.internal, the box names) come from the names file; a
+# (private network hosts and box names) come from the names file; a
 # service reached on loopback carries localhost and 127.0.0.1.
 ca_services() {
-	cat <<'EOF'
-pending-core box:KERNEL_HOST volume layerx-pending-core serverAuth DNS:layerx-pending-core,DNS:localhost,IP:127.0.0.1
-pending-core-admin box:KERNEL_HOST volume layerx-pending-core-admin serverAuth DNS:layerx-pending-core-admin
-receipt-authority box:KERNEL_HOST volume layerx-receipt-authority serverAuth DNS:layerx-receipt-authority,DNS:authority,DNS:localhost,IP:127.0.0.1
-agent-boundary box:KERNEL_HOST volume layerx-agent-boundary serverAuth DNS:layerx-agent-boundary,DNS:component,DNS:localhost,IP:127.0.0.1
-agentd box:KERNEL_HOST volume layerx-agentd serverAuth DNS:layerx-agentd,DNS:localhost,IP:127.0.0.1
-agentd-client box:KERNEL_HOST volume layerx-agentd-client clientAuth -
-paxeer-boundary-loopback box:KERNEL_HOST volume paxeer-boundary serverAuth DNS:paxeer-boundary,DNS:paxeer-boundary-loopback,DNS:localhost,IP:127.0.0.1
-paxeer-boundary-public box:KERNEL_HOST volume paxeer-observer-boundary serverAuth DNS:paxeer-observer-boundary,DNS:paxeer-boundary-public,DNS:localhost,IP:127.0.0.1
-human box:KERNEL_HOST volume layerx-human serverAuth DNS:layerx-human,DNS:localhost,IP:127.0.0.1
-human-event-client box:KERNEL_HOST volume layerx-human-events clientAuth URI:urn:layerx:webhooks:role:producer
-human-attestor-client box:KERNEL_HOST volume layerx-human-components clientAuth -
-human-kms box:KERNEL_HOST volume layerx-human-kms serverAuth DNS:layerx-human-kms,DNS:localhost,IP:127.0.0.1
-human-kms-client box:KERNEL_HOST volume layerx-human-components clientAuth -
-human-kms-executor box:KERNEL_HOST volume layerx-human-movement clientAuth -
-gateway-redis railway:redis-router REDIS_TLS layerx-gateway-redis serverAuth DNS:layerx-gateway-redis,DNS:localhost,IP:127.0.0.1
-gateway-client railway:router ENDPOINT_CLIENT layerx-gateway clientAuth URI:urn:layerx:webhooks:role:producer
-identity railway:identity IDENTITY_TLS layerx-identity serverAuth DNS:layerx-identity,DNS:identity,DNS:localhost,IP:127.0.0.1
-internal-kms railway:internal-kms INTERNAL_TLS kms serverAuth DNS:kms,DNS:localhost,IP:127.0.0.1
-internal-journeys railway:internal-journeys INTERNAL_TLS journeys serverAuth DNS:journeys,DNS:localhost,IP:127.0.0.1
-internal-payments railway:internal-payments INTERNAL_TLS payments serverAuth DNS:payments,DNS:localhost,IP:127.0.0.1
-internal-approvals railway:internal-approvals INTERNAL_TLS approvals serverAuth DNS:approvals,DNS:localhost,IP:127.0.0.1
-internal-programs railway:internal-programs INTERNAL_TLS programs serverAuth DNS:programs,DNS:localhost,IP:127.0.0.1
-internal-redis railway:redis-internal REDIS_TLS redis serverAuth DNS:redis,DNS:localhost,IP:127.0.0.1
-registry box:REGISTRY_HOST volume layerx-program-registry serverAuth DNS:layerx-program-registry,DNS:localhost,IP:127.0.0.1
-registry-event-client box:REGISTRY_HOST volume layerx-registry-events clientAuth URI:urn:layerx:webhooks:role:producer
-indexer railway:indexer INDEXER_TLS layerx-indexer serverAuth DNS:layerx-indexer,DNS:localhost,IP:127.0.0.1
-interop-client railway:interop INTEROP_CLIENT layerx-interop-gateway clientAuth -
-developer railway:webhooks-public,webhooks-ingress WEBHOOKS_INGRESS_TLS layerx-developer serverAuth DNS:layerx-webhooks,DNS:localhost,IP:127.0.0.1
-developer-client railway:webhooks-public,webhooks-ingress WEBHOOKS_CLIENT layerx-developer clientAuth -
-dashboard-client railway:dashboard DASHBOARD_CLIENT layerx-dashboard clientAuth -
-ramp-client railway:ramp RAMP_CLIENT layerx-reference-ramp clientAuth -
-EOF
+	cat "$repo_root/tools/bringup/ca-services.tsv"
 }
 
 # local_services: identities issue-local makes on the operator host for an
@@ -324,7 +295,7 @@ table_check() {
 # single quote so it runs the same through box_ssh and here.
 identity_files="cert.pem:CERT key.pem:KEY ca.pem:CA cert.der:CERT_DER key.der:KEY_DER ca.der:CA_DER identity.p12:P12 password:PASSWORD"
 derive_cmd() {
-	printf '%s' "openssl x509 -in cert.pem -outform DER -out cert.der && openssl pkcs8 -topk8 -nocrypt -in key.pem -outform DER -out key.der && openssl x509 -in ca.pem -outform DER -out ca.der && openssl rand -hex 32 >password && openssl pkcs12 -export -inkey key.pem -in cert.pem -certfile ca.pem -name $1 -passout file:password -out identity.p12"
+	printf '%s' "openssl x509 -in cert.pem -outform DER -out cert.der && openssl pkcs8 -topk8 -nocrypt -in key.pem -outform DER -out key.der && openssl x509 -in ca.pem -outform DER -out ca.der && openssl rand -hex 32 >password && openssl pkcs12 -export -keypbe AES-256-CBC -certpbe AES-256-CBC -macalg sha256 -inkey key.pem -in cert.pem -certfile ca.pem -name $1 -passout file:password -out identity.p12"
 }
 
 # box_host <variable>: prints the ssh host alias the private hosts file
@@ -357,16 +328,7 @@ railway_set() {
 # printed.
 railway_read() {
 	timeout "$timeout" "$railway_bin" variable list --service "$1" --environment "$railway_env" --json </dev/null 2>/dev/null |
-		python3 -c '
-import base64, json, sys
-doc = json.load(sys.stdin)
-if isinstance(doc, list):
-    doc = {v.get("name"): v.get("value") for v in doc}
-print(" ".join(sorted(k for k in doc if k)))
-cert = doc.get(sys.argv[1] + "_CERT") or ""
-if cert:
-    sys.stdout.write(base64.b64decode(cert, validate=True).decode("ascii"))
-' "$2" 2>/dev/null
+		bringup_inspect bundle-railway "$2"
 }
 
 ca_init() {
@@ -496,12 +458,12 @@ certificate_usage_matches() {
 			[ "$eku" = "TLS Web Server Authentication" ] &&
 				[[ ", $sans, " == *", DNS:layerx-human-kms, "* ]] &&
 				[ "$sans" = "$(printf '%s' "$want_sans" | sed 's/,/, /g; s/IP:/IP Address:/g')" ] &&
-				openssl verify -purpose sslserver -verify_hostname layerx-human-kms -verify_ip 127.0.0.1 \
+				openssl verify -no_check_time -purpose sslserver -verify_hostname layerx-human-kms -verify_ip 127.0.0.1 \
 					-CAfile "$row_ca/ca.pem" <<<"$cert" >/dev/null 2>&1
 			;;
 		clientAuth)
 			[ "$eku" = "TLS Web Client Authentication" ] && [ -z "$sans" ] &&
-				openssl verify -purpose sslclient -CAfile "$row_ca/ca.pem" <<<"$cert" >/dev/null 2>&1
+				openssl verify -no_check_time -purpose sslclient -CAfile "$row_ca/ca.pem" <<<"$cert" >/dev/null 2>&1
 			;;
 		*) return 1 ;;
 		esac
@@ -510,11 +472,11 @@ certificate_usage_matches() {
 		roles="$(openssl x509 -noout -ext subjectAltName <<<"$cert" 2>/dev/null |
 			tr ',' '\n' | sed 's/^[[:space:]]*//' | grep '^URI:urn:layerx:webhooks:role:' || true)"
 		[ "$roles" = URI:urn:layerx:webhooks:role:producer ] &&
-			openssl verify -purpose sslclient -CAfile "$row_ca/ca.pem" <<<"$cert" >/dev/null 2>&1
+			openssl verify -no_check_time -purpose sslclient -CAfile "$row_ca/ca.pem" <<<"$cert" >/dev/null 2>&1
 		;;
 	developer)
-		host="$(service_row developer | awk '{print $6}' | tr ',' '\n' | sed -n 's/^DNS:\(.*\.railway\.internal\)$/\1/p' | head -n 1)"
-		[ -n "$host" ] && openssl verify -purpose sslserver -verify_hostname "$host" \
+		host="$(awk -F= '$1 == "DEVELOPER" {print $2}' "$names_file" | tr ',' '\n' | sed -n 's/^DNS://p' | head -n 1)"
+		[ -n "$host" ] && openssl verify -no_check_time -purpose sslserver -verify_hostname "$host" \
 			-CAfile "$row_ca/ca.pem" <<<"$cert" >/dev/null 2>&1
 		;;
 	*) return 0 ;;
@@ -525,83 +487,64 @@ certificate_usage_matches() {
 # <fingerprint> <days>" for a retained public certificate, <missing> the
 # count of its absent companion files.
 cert_state() {
-	local fingerprint days
-	if [ -z "$2" ] || [ ! -r "$2/ca.pem" ] ||
-		! fingerprint="$(openssl x509 -noout -fingerprint -sha256 <<<"$4" 2>/dev/null | cut -d= -f2)" ||
-		! days="$(days_left <<<"$4" 2>/dev/null)"; then
+	local cn eku sans state fingerprint days
+	read -r _ _ _ cn eku sans <<<"$(service_row "$1")"
+	if ! read -r state fingerprint days <<<"$(bringup_inspect certificate-state "$2/ca.pem" "$cn" "$eku" "$sans" <<<"$4")"; then
 		echo "unreadable - -"
-	elif ! openssl verify -CAfile "$2/ca.pem" <<<"$4" >/dev/null 2>&1; then
-		echo "foreign $fingerprint $days"
-	elif ! certificate_usage_matches "$1" "$4" "$2"; then
-		echo "incompatible $fingerprint $days"
-	elif [ "$3" -gt 0 ]; then
+	elif [ "$state" = present ] && [ "$3" -gt 0 ]; then
 		echo "partial $fingerprint $days"
 	else
-		echo "present $fingerprint $days"
+		echo "$state $fingerprint $days"
+	fi
+}
+
+inventory_report() {
+	local cn eku sans result
+	read -r _ _ _ cn eku sans <<<"$(service_row "$1")"
+	if ! result="$(bringup_inspect inventory-report "$2/ca.pem" "$cn" "$eku" "$sans" <<<"$3")"; then
+		echo "unreadable - -"
+	else
+		echo "$result"
 	fi
 }
 
 # inventory_box <service> <host variable> <row ca dir>: the state of the
 # identity under LAYERX_TLS_DIR/<service> on the box.
 inventory_box() {
-	local service="$1" dir="$tls_dir/$1" host answer missing cert
+	local service="$1" dir="$tls_dir/$1" host answer cert
 	if ! host="$(box_host "$2")"; then
 		echo "unreadable - -"
 		return
 	fi
-	answer="$(box_ssh "$host" "if [ -d $dir ]; then cd $dir && for f in key.der cert.der ca.der identity.p12 password; do [ -s \$f ] || echo missing=\$f; done && if [ -s cert.pem ]; then cat cert.pem; else echo missing=cert.pem; fi; else echo directory=absent; fi; echo inventory=done" </dev/null)" || answer=""
-	if [[ "$answer" != *inventory=done* ]]; then
-		echo "unreadable - -"
-		return
-	fi
-	if [[ "$answer" == *directory=absent* ]]; then
-		echo "absent - -"
-		return
-	fi
-	missing="$(grep -c '^missing=' <<<"$answer" || true)"
-	cert="$(sed -n '/-----BEGIN CERTIFICATE-----/,/-----END CERTIFICATE-----/p' <<<"$answer")"
-	if [ -z "$cert" ]; then
-		[ "$missing" -ge 6 ] && echo "absent - -" || echo "partial - -"
-		return
-	fi
-	cert_state "$service" "$3" "$missing" "$cert"
+	# The installed validator reads every encoding inside custody. Only the
+	# classification and public certificate leave the box, never a key.
+	[[ "$dir" =~ ^/[A-Za-z0-9_./-]+$ ]] || { echo "unreadable - -"; return; }
+	answer="$(box_ssh "$host" "if [ -d $dir ]; then bringup-inspect bundle-local $dir; else echo bundle=absent; fi" </dev/null)" || answer=""
+	inventory_report "$service" "$3" "$answer"
 }
 
 # inventory_railway <service> <services> <prefix> <row ca dir>: the state of
 # the PREFIX_* variables on every Railway service of the row; services that
 # disagree make the row partial unless one is unreadable or foreign.
 inventory_railway() {
-	local service="$1" prefix="$3" svc answer listed cert file have want state result="" states=""
+	local service="$1" svc answer cert state result="" states=""
 	for svc in ${2//,/ }; do
-		if ! answer="$(railway_read "$svc" "$prefix")"; then
+		if ! answer="$(railway_read "$svc" "$3")"; then
 			state="unreadable - -"
 		else
-			listed="$(head -n 1 <<<"$answer")"
-			cert="$(tail -n +2 <<<"$answer")"
-			have=0
-			want=0
-			for file in $identity_files; do
-				want=$((want + 1))
-				[[ " $listed " != *" ${prefix}_${file#*:} "* ]] || have=$((have + 1))
-			done
-			if [ "$have" -eq 0 ]; then
-				state="absent - -"
-			elif [ -z "$cert" ]; then
-				state="partial - -"
-			else
-				state="$(cert_state "$service" "$4" $((want - have)) "$cert")"
-			fi
+			state="$(inventory_report "$service" "$4" "$answer")"
 		fi
 		states="$states${state%% *} "
 		if [ -z "$result" ]; then
 			result="$state"
 		elif [ "$result" != "$state" ]; then
-			result="partial - -"
+			result="inconsistent - -"
 		fi
 	done
 	case " $states" in
 	*" unreadable "*) echo "unreadable - -" ;;
-	*" foreign "*) [[ "$result" == foreign* ]] && echo "$result" || echo "foreign - -" ;;
+	*" foreign "*) echo "foreign - -" ;;
+	*" inconsistent "*) echo "inconsistent - -" ;;
 	*) echo "$result" ;;
 	esac
 }
@@ -636,7 +579,7 @@ ca_inventory() {
 		else
 			echo "inventory $service target=$target custody=$custody state=$state producer=tools/bringup/ca.sh issue $service"
 		fi
-		case "$state" in unreadable | foreign) failures=$((failures + 1)) ;; esac
+		case "$state" in unreadable | foreign | inconsistent) failures=$((failures + 1)) ;; esac
 	done <<<"$rows"
 	[ "$failures" -eq 0 ] || exit 1
 }
@@ -669,29 +612,17 @@ ca_issue() {
 		exit 1
 	}
 	read -r state fingerprint days <<<"$(inventory_row "$service" "$target" "$custody" "$ca_dir")"
-	case "$state" in
-	unreadable)
-		echo "ca: $service on $target: the retained material cannot be inventoried; nothing is issued before it is" >&2
+	local action action_days="$days"
+	[ "$action_days" != - ] || action_days=0
+	action="$(bringup_inspect identity-action "$state" "$action_days" "$renew_days")" || {
+		echo "ca: $service on $target: retained material is $state; restore the original identity before issuing" >&2
 		exit 1
-		;;
-	foreign)
-		echo "ca: $service on $target: the retained certificate $fingerprint does not chain to $ca_dir/ca.pem; issuing beside it would make a second, incompatible authority, so remove it deliberately first" >&2
-		exit 1
-		;;
-	partial)
-		if [ "$custody" != volume ]; then
-			echo "ca: $service on $target: retained variable material is partial; restore the original identity before issuing" >&2
-			exit 1
-		fi
-		;;
-	present)
-		if [ "$days" -gt "$renew_days" ]; then
-			[ "$custody" = volume ] || custody=secrets
-			echo "reused $service target=$target custody=$custody fingerprint=$fingerprint expires_in=${days}d"
-			return
-		fi
-		;;
-	esac
+	}
+	if [ "$action" = reuse ]; then
+		[ "$custody" = volume ] || custody=secrets
+		echo "reused $service target=$target custody=$custody fingerprint=$fingerprint expires_in=${days}d"
+		return
+	fi
 	if [ "$(stat -f -c %T /dev/shm 2>/dev/null)" != tmpfs ]; then
 		echo "ca: /dev/shm is not a tmpfs; signing material is only ever written to memory here" >&2
 		exit 1
@@ -794,7 +725,7 @@ ca_issue_local() {
 		sh -c "$(derive_cmd "$cn")"
 		rm -f csr.pem ext.cnf
 	)
-	openssl verify -purpose sslclient -CAfile "$work/ca.pem" "$work/cert.pem" >/dev/null 2>&1 ||
+	openssl verify -no_check_time -purpose sslclient -CAfile "$work/ca.pem" "$work/cert.pem" >/dev/null 2>&1 ||
 		local_refuse "the issued certificate does not verify against the CA"
 	[ "$(openssl x509 -in "$work/cert.pem" -noout -pubkey)" = "$(openssl pkey -in "$work/key.pem" -pubout 2>/dev/null)" ] ||
 		local_refuse "the issued certificate does not match its key"
@@ -1142,6 +1073,8 @@ ca_install_server() {
 	echo "installed $1 custody=local"
 }
 
+[ "${BASH_SOURCE[0]}" = "$0" ] || return 0
+
 mode="${1:-}"
 case "$mode" in
 -h | --help)
@@ -1197,6 +1130,7 @@ issue)
 esac
 
 tools=(openssl awk)
+case "$mode" in inventory | issue) tools+=("${BRINGUP_INSPECT_BIN:-bringup-inspect}") ;; esac
 case "$mode" in
 request-server | sign-server | install-server) tools+=(python3 stat realpath mktemp flock) ;;
 esac

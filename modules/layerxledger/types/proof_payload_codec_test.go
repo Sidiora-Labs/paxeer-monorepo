@@ -226,7 +226,27 @@ func TestProofPayloadCodec(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, register, again)
 	require.Equal(t, lxphost.Code(-411), n.execute(t, issuer, 0x00010001, again, [32]byte{6}).ResultCode)
-	require.Equal(t, lxphost.Code(-403), n.execute(t, issuer, 0x00010005, send, key).ResultCode)
+	globalBefore, err := lxphost.NextSequence(n.ctx, n.key)
+	require.NoError(t, err)
+	identityBefore, err := n.host.ReadIdentitySequence(n.ctx, issuer.did)
+	require.NoError(t, err)
+	duplicate, err := n.submit(t, issuer, 0x00010005, send, key)
+	require.ErrorIs(t, err, lxphost.Code(-302), "decision 2337 preserves successful payment references across restart")
+	require.Empty(t, duplicate.Encoded)
+	globalAfter, err := lxphost.NextSequence(n.ctx, n.key)
+	require.NoError(t, err)
+	require.Equal(t, globalBefore, globalAfter)
+	identityAfter, err := n.host.ReadIdentitySequence(n.ctx, issuer.did)
+	require.NoError(t, err)
+	require.Equal(t, identityBefore, identityAfter)
+	assertBalances()
+	pausedArgs := sendArgs
+	pausedArgs.Sequence = account.NextSequence
+	pausedArgs.IdempotencyKey = [32]byte{10}
+	pausedArgs.ContextHash, err = codec.DomainHash(codec.DomainContextHash, append(contextMaterial, pausedArgs.IdempotencyKey[:]...))
+	require.NoError(t, err)
+	pausedSend := proofPayloadSend(t, pausedArgs, issuer)
+	require.Equal(t, lxphost.Code(-403), n.execute(t, issuer, 0x00010005, pausedSend, pausedArgs.IdempotencyKey).ResultCode)
 	assertBalances()
 	// Repeat each active producer after restart; output must remain independent
 	// of any cached host state and of previous payload buffers.

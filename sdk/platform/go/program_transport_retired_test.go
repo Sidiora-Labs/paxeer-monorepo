@@ -1,11 +1,15 @@
 package layerx
 
 import (
+	"bytes"
 	"context"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"reflect"
 	"strings"
 	"testing"
 )
@@ -131,9 +135,6 @@ func TestProgramOperationsNeverCallProgramsRestIngress(t *testing.T) {
 					wantCode, wantRequests := ErrorUnavailableCapability, 0
 					if useRPC {
 						wantCode, wantRequests = ErrorTransportFailure, 1
-						if operation == "program.wind-down" {
-							wantCode, wantRequests = ErrorInvalidArgument, 0
-						}
 					}
 					if code := programErrorCode(err); code != wantCode {
 						t.Fatalf("operation error = %v, want %s", err, wantCode)
@@ -167,5 +168,119 @@ func TestProgramOperationsNeverCallProgramsRestIngress(t *testing.T) {
 				t.Fatalf("retired operation dispatched: error=%v requests=%d", err, len(recording.requests))
 			}
 		})
+	}
+}
+
+func TestProgramWindDownPreparesBroadcastsAndObservesNativeActivity(t *testing.T) {
+	data, err := os.ReadFile("testdata/repair141/native-deprecate.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var fixture struct {
+		From, Calldata, RawTransaction, TransactionHash, R, S string
+		YParity                                               uint64
+	}
+	if err := json.Unmarshal(data, &fixture); err != nil {
+		t.Fatal(err)
+	}
+	signed := sequencerFixtureBytes(t, fixture.RawTransaction)
+	expectedHash := receiptKeccak256(signed)
+	var methods []string
+	programs := repair141Programs(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/" || r.Method != http.MethodPost || strings.HasPrefix(r.URL.Path, "/v1/programs") {
+			t.Error("retired or unexpected ingress")
+			http.Error(w, "route", 400)
+			return
+		}
+		var request programRPCRecord
+		if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+			t.Error(err)
+			return
+		}
+		methods = append(methods, request.Method)
+		var result any
+		switch request.Method {
+		case "eth_chainId":
+			result = "0x7d"
+		case "eth_getTransactionCount":
+			result = "0x7"
+		case "eth_gasPrice":
+			result = "0x64"
+		case "eth_maxPriorityFeePerGas":
+			result = "0x2"
+		case "eth_estimateGas":
+			var tx ProgramTransaction
+			if len(request.Params) != 2 || json.Unmarshal(request.Params[0], &tx) != nil || tx.Data != fixture.Calldata || tx.To != layerxProgramsAddress || tx.ChainID != "0x7d" || tx.From != fixture.From || string(request.Params[1]) != `"pending"` {
+				t.Error("deprecate transaction not authorized at native precompile")
+			}
+			result = "0x493e0"
+		case "eth_sendRawTransaction":
+			if len(request.Params) != 1 || string(request.Params[0]) != fmt.Sprintf("%q", fixture.RawTransaction) {
+				t.Error("externally signed bytes changed")
+			}
+			result = fixture.TransactionHash
+		case "eth_getTransactionByHash", "pax_sequencerReceipt":
+			if len(request.Params) != 1 || string(request.Params[0]) != fmt.Sprintf("%q", fixture.TransactionHash) {
+				t.Error("activity identity changed")
+			}
+			if request.Method == "eth_getTransactionByHash" {
+				result = map[string]string{"hash": fixture.TransactionHash}
+			} else {
+				result = map[string]string{"rung": "submitted"}
+			}
+		default:
+			t.Errorf("unexpected native wind-down method %s", request.Method)
+			http.Error(w, "method", 400)
+			return
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{"jsonrpc": "2.0", "id": request.ID, "result": result})
+	}), ReceiptKeys{})
+	copy(programs.sender[:], sequencerFixtureBytes(t, fixture.From))
+	value := NativeProgramWindDown{ProgramID: [32]byte{0x42}, Operation: 2, ExitProgram: [32]byte{0x42}, DeadlineBatch: 1000}
+	prepared, err := programs.WindDown(context.Background(), value, nil, IdempotencyKey{})
+	if err != nil || prepared.State != ProgramSubmissionPrepared || prepared.Transaction == nil {
+		t.Fatalf("native deprecate preparation: %+v %v", prepared, err)
+	}
+	tx := prepared.Transaction
+	if tx.Data != fixture.Calldata || !strings.HasPrefix(tx.Data, "0x86ba1a99") || tx.To != layerxProgramsAddress {
+		t.Fatalf("wrong deprecate selector: %+v", tx)
+	}
+	// Bind all prepared signing fields to the externally signed EIP-1559 fixture.
+	var envelope []byte
+	for _, quantity := range []string{tx.ChainID, tx.Nonce, tx.MaxPriorityFeePerGas, tx.MaxFeePerGas, tx.Gas} {
+		number, ok := receiptQuantity(quantity, 256)
+		if !ok {
+			t.Fatal("invalid prepared quantity")
+		}
+		envelope = append(envelope, committedRLP(number.Bytes(), false)...)
+	}
+	envelope = append(envelope, committedRLP(sequencerFixtureBytes(t, tx.To), false)...)
+	if tx.Value != "0x0" || len(tx.AccessList) != 0 {
+		t.Fatal("signed fixture value or access list mismatch")
+	}
+	envelope = append(envelope, committedRLP(nil, false)...)
+	envelope = append(envelope, committedRLP(sequencerFixtureBytes(t, tx.Data), false)...)
+	envelope = append(envelope, committedRLP(nil, true)...)
+	for _, quantity := range []string{fmt.Sprintf("0x%x", fixture.YParity), fixture.R, fixture.S} {
+		number, ok := receiptQuantity(quantity, 256)
+		if !ok {
+			t.Fatal("invalid fixture signature")
+		}
+		envelope = append(envelope, committedRLP(number.Bytes(), false)...)
+	}
+	if !bytes.Equal(signed, append([]byte{2}, committedRLP(envelope, true)...)) {
+		t.Fatal("signed transaction differs from native preparation")
+	}
+	broadcast, err := programs.Broadcast(context.Background(), signed)
+	if err != nil || broadcast.State != ProgramSubmissionPending || broadcast.TransactionHash != expectedHash || fixture.TransactionHash != portableHex(expectedHash[:]) {
+		t.Fatalf("native deprecate broadcast: %+v %v", broadcast, err)
+	}
+	activity, err := programs.Activity(context.Background(), expectedHash)
+	if err != nil || activity.State != ProgramSubmissionPending || activity.TransactionHash != expectedHash || activity.SequencerReceipt != nil {
+		t.Fatalf("native deprecate activity: %+v %v", activity, err)
+	}
+	expected := []string{"eth_chainId", "eth_getTransactionCount", "eth_gasPrice", "eth_maxPriorityFeePerGas", "eth_estimateGas", "eth_sendRawTransaction", "eth_getTransactionByHash", "pax_sequencerReceipt"}
+	if !reflect.DeepEqual(methods, expected) {
+		t.Fatalf("native wind-down RPC path: %v", methods)
 	}
 }

@@ -26,6 +26,9 @@ use std::sync::Arc;
 #[cfg_attr(feature = "mockall", automock)]
 #[async_trait]
 pub trait SmartContractsApi: Send + Sync {
+    /// Scope subsequent paginated calls to the producer's validated next-page cursor.
+    fn with_cursor(&self, cursor: super::pagination::PageCursor) -> Box<dyn SmartContractsApi>;
+
     /// GET /api/v2/smart-contracts/{address_hash}
     ///
     ///
@@ -55,11 +58,15 @@ pub trait SmartContractsApi: Send + Sync {
 
 pub struct SmartContractsApiClient {
     configuration: Arc<configuration::Configuration>,
+    cursor: Option<super::pagination::PageCursor>,
 }
 
 impl SmartContractsApiClient {
     pub fn new(configuration: Arc<configuration::Configuration>) -> Self {
-        Self { configuration }
+        Self {
+            configuration,
+            cursor: None,
+        }
     }
 }
 
@@ -82,6 +89,13 @@ pub struct GetSmartContractsParams {
 
 #[async_trait]
 impl SmartContractsApi for SmartContractsApiClient {
+    fn with_cursor(&self, cursor: super::pagination::PageCursor) -> Box<dyn SmartContractsApi> {
+        Box::new(Self {
+            configuration: self.configuration.clone(),
+            cursor: Some(cursor),
+        })
+    }
+
     async fn get_smart_contract(
         &self,
         params: GetSmartContractParams,
@@ -94,7 +108,7 @@ impl SmartContractsApi for SmartContractsApiClient {
 
         let local_var_uri_str = format!(
             "{}/api/v2/smart-contracts/{address_hash}",
-            local_var_configuration.base_path,
+            local_var_configuration.rest_origin()?,
             address_hash = crate::apis::urlencode(address_hash)
         );
         let mut local_var_req_builder =
@@ -105,11 +119,14 @@ impl SmartContractsApi for SmartContractsApiClient {
                 .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
         }
 
-        let local_var_req = local_var_req_builder.build()?;
+        let local_var_req = local_var_req_builder
+            .timeout(local_var_configuration.request_timeout)
+            .build()?;
         let local_var_resp = local_var_client.execute(local_var_req).await?;
 
         let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
+        let local_var_content =
+            super::read_bounded(local_var_resp, local_var_configuration.max_response_bytes).await?;
 
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             let local_var_entity: Option<GetSmartContractSuccess> =
@@ -144,7 +161,7 @@ impl SmartContractsApi for SmartContractsApiClient {
 
         let local_var_uri_str = format!(
             "{}/api/v2/smart-contracts",
-            local_var_configuration.base_path
+            local_var_configuration.rest_origin()?
         );
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::GET, local_var_uri_str.as_str());
@@ -164,11 +181,17 @@ impl SmartContractsApi for SmartContractsApiClient {
                 .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
         }
 
-        let local_var_req = local_var_req_builder.build()?;
+        let mut local_var_req = local_var_req_builder
+            .timeout(local_var_configuration.request_timeout)
+            .build()?;
+        if let Some(cursor) = &self.cursor {
+            cursor.apply(&mut local_var_req)?;
+        }
         let local_var_resp = local_var_client.execute(local_var_req).await?;
 
         let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
+        let local_var_content =
+            super::read_bounded(local_var_resp, local_var_configuration.max_response_bytes).await?;
 
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             let local_var_entity: Option<GetSmartContractsSuccess> =
@@ -203,7 +226,7 @@ impl SmartContractsApi for SmartContractsApiClient {
 
         let local_var_uri_str = format!(
             "{}/api/v2/smart-contracts/counters",
-            local_var_configuration.base_path
+            local_var_configuration.rest_origin()?
         );
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::GET, local_var_uri_str.as_str());
@@ -213,11 +236,14 @@ impl SmartContractsApi for SmartContractsApiClient {
                 .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
         }
 
-        let local_var_req = local_var_req_builder.build()?;
+        let local_var_req = local_var_req_builder
+            .timeout(local_var_configuration.request_timeout)
+            .build()?;
         let local_var_resp = local_var_client.execute(local_var_req).await?;
 
         let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
+        let local_var_content =
+            super::read_bounded(local_var_resp, local_var_configuration.max_response_bytes).await?;
 
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             let local_var_entity: Option<GetSmartContractsCountersSuccess> =

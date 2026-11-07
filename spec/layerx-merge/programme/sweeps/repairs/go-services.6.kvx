@@ -1,0 +1,10 @@
+[repair.go-services.6]
+target = "services/platform/perps-data"
+command = "cd services/platform/perps-data && go vet . && go test -count=1 ."
+revision = "40fe09a7a6f88c6d6b76dd623c0d4effd242de2c"
+result = "already-passing"
+change = "services/platform/perps-data/e2e_test.go documents the database and chain prerequisites; no product code or test assertions changed."
+producer_input_tests = ["TestEndToEndChainMarkets: PERPS_DATA_TEST_DATABASE_URL pointing to disposable PostgreSQL with permission to drop and migrate schema perps, PERPS_DATA_TEST_RPC pointing to an EVM RPC with the perps market registry and historical state, and PERPS_DATA_TEST_COMET pointing to Comet RPC for the same chain", "TestEndToEndGraphQLMarkets: PERPS_DATA_TEST_DATABASE_URL pointing to disposable PostgreSQL with permission to drop and migrate schema perps, PERPS_DATA_TEST_RPC pointing to an EVM RPC with the perps market registry and historical state, and PERPS_DATA_TEST_COMET pointing to Comet RPC for the same chain", "TestEndToEnd (including all subtests): PERPS_DATA_TEST_DATABASE_URL pointing to disposable PostgreSQL with permission to drop and migrate schema perps, PERPS_DATA_TEST_RPC and PERPS_DATA_TEST_COMET pointing to the same chain with tradable PAX market 11 and retained FundingSettled receipts, and PERPS_DATA_TEST_SEED_KEY_FILE naming a private-key file for an account funded with native gas, USDL and perps collateral"]
+qualification_command = "test -s spec/layerx-merge/programme/sweeps/repairs/go-services.6.kvx && cd services/platform/perps-data && go vet . && go test -count=1 -run NoTestMatchesThisName ."
+qualification_basis = "Decision 2496 qualifies vet and compilation of every test; end-to-end execution requires the listed producer inputs."
+observed = "The recorded sweep failure is TestEndToEndChainMarkets requiring PERPS_DATA_TEST_DATABASE_URL, PERPS_DATA_TEST_RPC and PERPS_DATA_TEST_COMET."

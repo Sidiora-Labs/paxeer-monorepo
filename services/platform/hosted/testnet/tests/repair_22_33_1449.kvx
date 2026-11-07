@@ -1,0 +1,12 @@
+[repair.22.33.1449]
+finding = "doc-testnet-readme"
+source_revision = "e3d7e5828b39e4182e9559fb6bc28d74c2f37e0f"
+control_proof = "doc_testnet_readme_control_contract_round_trip"
+native_inputs_proof = "doc_testnet_readme_native_smoke_inputs"
+receipt_proof = "doc_testnet_readme_node_receipt_inspection"
+proof = "Production control readiness/admission producers and HTTP codecs cross a loopback connection; the consumer checks the README tables against emitted dependencies and journeys, including each dependency failure and a release mismatch. Native inputs and receipt guidance are checked against the real configuration, smoke caller and Python consumers."
+baseline = "Not run: the explicit execution order requires complete implementation before any build/test and verification only through hf-done; repair_22_33_1449.rs did not exist in the starting tree. No baseline test failure is claimed."
+qualification = "The hf-build/hf-done private gate ledger records the exact verified candidate revision, command, exit code and log location; this record alone does not claim qualification."
+wiring_request = "Domain 8 (fm-platform): services/platform/hosted/tests/beta-cluster.sh must export LAYERX_TEST_ASSET=uhpx, LAYERX_TEST_NODE_URL (HTTPS root node RPC) and LAYERX_TEST_RECEIPT_KEYS_FILE (independent px_getReceiptKeys keys object with numeric height bounds); align its signer and genesis funding with the merged native bank path."
+inherited_interface = "services/platform/hosted/testnet/tests/payment-journey.py still imports the retired _decode_protocol_receipt when verifying a payment; the owning smoke/payment repair must migrate it to the current SDK verifier before a live end-to-end smoke can qualify. This doc-drift gate does not claim live smoke qualification."
+gotcha = "The smoke shell passed --network-id and --encoder, but the current payment parser requires --evm-chain-id and has no encoder argument; source the EVM chain from .evm_chain_id and remove the obsolete encoder input."

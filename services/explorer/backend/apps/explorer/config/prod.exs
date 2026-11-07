@@ -1,11 +1,16 @@
 import Config
 
+# Database TLS options (config/database_tls.exs) carry a verification function
+# and are applied from config/runtime/prod.exs at startup. They must not be
+# imported here: `mix release` refuses function terms in build-time config.
+# No Explorer.Repo module may carry ssl_opts here; repair_22_31_473_test.exs
+# checks the entire production umbrella configuration and the runtime policy.
+
 # Configures the database
 config :explorer, Explorer.Repo,
   prepare: :unnamed,
   timeout: :timer.seconds(60),
-  migration_lock: nil,
-  ssl_opts: [verify: :verify_none]
+  migration_lock: nil
 
 for repo <- [
       # Configures API the database
@@ -38,8 +43,7 @@ for repo <- [
     ] do
   config :explorer, repo,
     prepare: :unnamed,
-    timeout: :timer.seconds(60),
-    ssl_opts: [verify: :verify_none]
+    timeout: :timer.seconds(60)
 end
 
 config :explorer, Explorer.Tracer, env: "production", disabled?: true

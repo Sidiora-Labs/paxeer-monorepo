@@ -37,3 +37,14 @@ native-tls = "0.2"
 serde_json = "1"
 sha2 = "0.10"
 
+[[test]]
+name = "pay2e"
+path = "pay2e_test.rs"
+
+[[test]]
+name = "repair_22_33_1568"
+path = "tests/repair_22_33_1568.rs"
+
+[dev-dependencies]
+base64 = "0.22.1"
+getrandom = "0.3.4"

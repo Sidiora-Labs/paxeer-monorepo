@@ -1,0 +1,6 @@
+[repair.c-kernel-make.11]
+target = "test-state-root"
+command = "make -s test-state-root"
+revision = "c31683c61b87eea00be98941431a38949fe5068b"
+result = "repaired"
+change = "Under decision 101, lxp_test_state_root.c replaces the retired idempotency-table overflow case with account-registry overflow rejection and verifies that restoring the valid store preserves its state root. All other state-root assertions remain."

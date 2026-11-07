@@ -1,15 +1,15 @@
 // Layer 2 — RPC endpoint list + viem fallback transport factory.
 //
-// Paxeer operates 200+ owned RPC nodes; we currently expose two
-// public hostnames and let viem's `fallback()` rotate between them
-// with per-request ranking. The single-endpoint config that shipped
-// before this change took the whole UI down whenever the default
-// node had a degraded ~10 % error rate during reorg-heavy windows.
+// Defaults are api1 through api14 and the api-mainnet-beta aggregate
+// endpoint, all serving chain-125 JSON-RPC at the root path. viem's
+// `fallback()` ranks these endpoints and rotates between healthy nodes.
+// The aggregate endpoint is the public alias; inclusion in this configured
+// set does not assert availability measured by a live probe.
 //
 // Order of precedence:
 //
 //   1. `NEXT_PUBLIC_PAXEER_RPC_URLS` (comma-separated) — full override.
-//   2. `NEXT_PUBLIC_PAXEER_RPC_URL` (single) — back-compat single host.
+//   2. `NEXT_PUBLIC_PAXEER_RPC_URL` (single) — preferred host plus defaults.
 //   3. Hard-coded defaults below.
 //
 // Adding endpoints is a no-code change once an operator wires the env
@@ -18,9 +18,13 @@
 
 import { fallback, http, type Transport } from "viem";
 
-const DEFAULT_PAXEER_RPCS: readonly string[] = Array.from(
-  { length: 16 }, (_, i) => `https://api${i + 1}.mainnet-beta.paxeer.network`,
-);
+const DEFAULT_PAXEER_RPCS: readonly string[] = [
+  ...Array.from(
+    { length: 14 },
+    (_, i) => `https://api${i + 1}.mainnet-beta.paxeer.network`,
+  ),
+  "https://api-mainnet-beta.paxeer.network",
+];
 
 // JSON-RPC endpoints that must never serve reads, no matter what a
 // deploy env pins:
@@ -34,7 +38,12 @@ const DEFAULT_PAXEER_RPCS: readonly string[] = Array.from(
 //     while eth_getTransactionReceipt kept returning null). It remains
 //     the SPOT REST/WS data API host; only JSON-RPC moved off it, to
 //     stats.paxscan.io.
-const LEGACY_RPC_HOSTS = [".rpcpaxeer.online", "rpcpaxeer.online", "api.hyperpax.xyz", "stats.paxscan.io"];
+const LEGACY_RPC_HOSTS = [
+  ".rpcpaxeer.online",
+  "rpcpaxeer.online",
+  "api.hyperpax.xyz",
+  "stats.paxscan.io",
+];
 
 function isLegacyRpcUrl(url: string): boolean {
   try {
@@ -99,7 +108,12 @@ export function buildPaxeerTransport(): Transport {
     }),
   );
   return fallback(transports, {
-    rank: { interval: 30_000, sampleCount: 3, timeout: 1_000, weights: { latency: 0.5, stability: 0.5 } },
+    rank: {
+      interval: 30_000,
+      sampleCount: 3,
+      timeout: 1_000,
+      weights: { latency: 0.5, stability: 0.5 },
+    },
     retryCount: 2,
     retryDelay: 200,
   });

@@ -1,0 +1,13 @@
+[repair.22.33.682]
+finding = "distribution-gateway-disabled"
+proving_test = "TestRepairM_682_DistributionGatewaySuite"
+additional_tests = ["TestRepairM_682_KeeperUpdatesReachGateway", "TestRepairM_682_RewardQueriesAreIsolated", "TestRepairM_682_BlockHeightHeaders"]
+implementation = "Restore the complete gateway suite with real auth, bank, staking and distribution keepers, default distribution genesis, fee allocation, a loopback gRPC server and the production HTTP gateway and JSON codec; retain every existing request and response assertion."
+baseline_revision = "9d1a06c7f3635f5556023760af7a75ee9755efdd"
+baseline = "Not executed: the task's ordered gate instructions prohibit verification before complete implementation and prohibit running verify_cmd outside hf-done; no baseline test failure is claimed."
+qualification = "hf-done records the verified candidate revision, command, exit and private log in /out/run/gates.jsonl and the task's generated done record."
+wiring_requests = []
+
+[gotcha.protobuf_decimal_clone]
+symptom = "gogo proto.Clone panics with merger not found for type:big.Word on SDK decimal coin fields. Brand-new empty responses must be allocated without cloning populated custom numeric values."
+repair = "Allocate an empty message of the expected concrete type, decode the real gateway response using the SDK codec, and preserve exact response equality assertions."

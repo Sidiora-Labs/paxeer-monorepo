@@ -2,7 +2,7 @@ use layerx_crypto::disclosure::call::{bind_call, ConstructMethod};
 use layerx_crypto::disclosure::{AmountRole, CounterpartyRole, DisclosureError};
 use layerx_crypto::evm_transaction::Eip1559Call;
 use layerx_crypto::payments::Payment;
-use layerx_crypto::send::{encode_send_envelope, EnvelopeOptions};
+use layerx_crypto::send::{ledger_payment_call, CallOptions};
 use layerx_types::payload::ModuleId;
 
 const SENDER: [u8; 20] = [0xa1; 20];
@@ -237,18 +237,15 @@ fn ledger_send_call_discloses_the_send_payload_fields() -> Result<(), Box<dyn st
     let calls = fixtures()?;
     let send = &calls[0];
     let payload = hex(include_str!("fixtures/payments/native-1-5.hex"));
-    let options = EnvelopeOptions {
-        actor: "did:layerx:alice",
-        public_key: [0; 32],
-        protocol_version: 3,
-        network_id: 17,
-        identity_sequence: 7,
-        idempotency_key: [4; 32],
-        fee_limit: 20,
-        not_before: 10,
-        not_after: 100,
+    let options = CallOptions {
+        from: SENDER,
+        chain_id: send.chain_id,
+        nonce: send.nonce,
+        max_priority_fee_per_gas: send.max_priority_fee_per_gas,
+        max_fee_per_gas: send.max_fee_per_gas,
+        gas_limit: send.gas_limit,
     };
-    let activity = encode_send_envelope(&payload, &options)?.disclosure;
+    let activity = ledger_payment_call(&payload, &options)?.disclosure;
     let disclosure = bind_call(send, SENDER)?;
     assert_eq!(disclosure.counterparties, activity.counterparties);
     assert_eq!(disclosure.amounts, activity.amounts);
@@ -976,6 +973,112 @@ fn daemon_precompile_constructors_bind() -> Result<(), Box<dyn std::error::Error
         changed.idempotency_key[0] ^= 1;
         assert!(reencode(&changed).is_err());
         assert!(validate_canonical(&changed, &canonical).is_err());
+    }
+    Ok(())
+}
+
+fn monetary_transport(
+    call: &Eip1559Call,
+) -> Result<layerx_crypto::disclosure::Disclosure, Box<dyn std::error::Error>> {
+    use layerx_crypto::evm_transaction::{decode_signed, recover_sender};
+    let account = layerx_crypto::account_derivation::derive_from_seed(&[7; 64], 0)?;
+    let raw = call.sign(account.evm_secret().expect("transaction key"))?;
+    let (received, signature) = decode_signed(&raw)?;
+    let sender = recover_sender(&received, &signature)?;
+    assert_eq!(sender, account.evm_address());
+    assert_eq!(&received, call);
+    Ok(bind_call(&received, sender)?)
+}
+
+#[test]
+pub(crate) fn monetary_call_tests_miss_common_view_program_execution_fee(
+) -> Result<(), Box<dyn std::error::Error>> {
+    use layerx_crypto::disclosure::call::{
+        encode_program_call, CallFeeContext, ExecutionFeeBound, GasFeeBound,
+    };
+    use layerx_types::intent::ProgramId;
+    use layerx_types::program_call::{NativeProgramCall, Resources};
+    let native = NativeProgramCall {
+        program_id: ProgramId::new([0x31; 32]),
+        guest_abi: 5,
+        entrypoint: b"layerx_call",
+        calldata: &[1, 2, 3, 4],
+        capabilities: &[0, 0],
+        access_declaration: b"LayerX/programs/access-declaration/v1\0\0",
+        response_capacity: 16,
+        resources: Resources([1000, 2000, 3000, 4, 5, 6, 7]),
+    };
+    for execution_fee in [0, 73, u128::MAX] {
+        let data = encode_program_call(&native, execution_fee);
+        let call = call(0x101d, data[..4].try_into()?, &data[4..]);
+        let disclosure = monetary_transport(&call)?;
+        let view = disclosure.call_monetary(CallFeeContext::ProgramExecution {
+            fee_asset: [0x72; 32],
+        })?;
+        assert_eq!(
+            view.gas_fee_bound,
+            GasFeeBound {
+                chain_id: 125,
+                amount_wei: 3_000_000
+            }
+        );
+        assert_eq!(
+            view.execution_fee_bound,
+            Some(ExecutionFeeBound {
+                asset: [0x72; 32],
+                amount_base_units: execution_fee
+            })
+        );
+        assert!(view
+            .to_string()
+            .contains(&format!("Execution fee bound: {execution_fee} base units")));
+        assert!(view.to_string().contains("Gas fee bound: 3000000 wei"));
+        assert!(disclosure.call_monetary(CallFeeContext::GasOnly).is_err());
+        let mut changed = disclosure;
+        changed.fee_limit = 1;
+        assert!(changed
+            .call_monetary(CallFeeContext::ProgramExecution {
+                fee_asset: [0x72; 32]
+            })
+            .is_err());
+    }
+    Ok(())
+}
+
+#[test]
+pub(crate) fn monetary_call_tests_miss_common_view_bank_denomination_and_uint256(
+) -> Result<(), Box<dyn std::error::Error>> {
+    use layerx_crypto::disclosure::call::{encode_bank_send, CallFeeContext, CallMonetaryAmount};
+    let account = layerx_crypto::account_derivation::derive_from_seed(&[7; 64], 0)?;
+    let denomination = format!("layerx/{}", "03".repeat(32));
+    for amount in [[0xff; 32], {
+        let mut value = [0; 32];
+        value[15] = 1;
+        value
+    }] {
+        let data = encode_bank_send(account.evm_address(), [0xb2; 20], &denomination, amount);
+        let call = call(0x1001, data[..4].try_into()?, &data[4..]);
+        let disclosure = monetary_transport(&call)?;
+        let view = disclosure.call_monetary(CallFeeContext::GasOnly)?;
+        assert_eq!(
+            view.amounts,
+            vec![CallMonetaryAmount::Bank {
+                role: AmountRole::Transfer,
+                denom: denomination.clone(),
+                value: amount
+            }]
+        );
+        assert_eq!(view.gas_fee_bound.amount_wei, 3_000_000);
+        assert_eq!(view.execution_fee_bound, None);
+        assert!(view.to_string().contains(&denomination));
+        assert!(view.to_string().contains(if amount == [0xff; 32] {
+            "115792089237316195423570985008687907853269984665640564039457584007913129639935"
+        } else {
+            "340282366920938463463374607431768211456"
+        }));
+        let mut altered = disclosure;
+        altered.counterparties[1].account[0] ^= 1;
+        assert!(altered.call_monetary(CallFeeContext::GasOnly).is_err());
     }
     Ok(())
 }

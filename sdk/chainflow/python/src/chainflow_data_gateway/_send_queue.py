@@ -39,46 +39,49 @@ class SendQueue:
         """Send every queued message via *send*.
 
         If *send* raises, the failing message and all subsequent messages
-        are re-queued and the error is re-raised.
+        are re-queued and the error is re-raised. In-flight unsent messages
+        retain their byte reservation until each send succeeds.
         """
         with self._lock:
             pending = list(self._queue)
             self._queue.clear()
-            self._bytes = 0
 
-        for i, (data, _byte_length) in enumerate(pending):
+        for i, (data, byte_length) in enumerate(pending):
             try:
                 send(data)
-            except Exception:
+            except BaseException:
                 with self._lock:
                     remaining = pending[i:]
                     self._queue = remaining + self._queue
-                    self._bytes = sum(bl for _, bl in self._queue)
                 raise
+            else:
+                with self._lock:
+                    self._bytes -= byte_length
 
     async def flush_async(self, send: typing.Callable[[str], typing.Awaitable[object]]) -> None:
         """Async variant of :meth:`flush_sync`."""
         with self._lock:
             pending = list(self._queue)
             self._queue.clear()
-            self._bytes = 0
 
-        for i, (data, _byte_length) in enumerate(pending):
+        for i, (data, byte_length) in enumerate(pending):
             try:
                 await send(data)
-            except Exception:
+            except BaseException:
                 with self._lock:
                     remaining = pending[i:]
                     self._queue = remaining + self._queue
-                    self._bytes = sum(bl for _, bl in self._queue)
                 raise
+            else:
+                with self._lock:
+                    self._bytes -= byte_length
 
     def drain(self) -> list[str]:
         """Remove and return all queued messages."""
         with self._lock:
             items = [data for data, _ in self._queue]
+            self._bytes -= sum(byte_length for _, byte_length in self._queue)
             self._queue.clear()
-            self._bytes = 0
             return items
 
     def __len__(self) -> int:

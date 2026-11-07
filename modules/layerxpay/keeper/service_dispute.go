@@ -17,15 +17,24 @@ const (
 )
 
 func (k Keeper) serviceDisputeEscrow(ctx sdk.Context, agreementID [32]byte, method string) (types.EscrowRecord, error) {
-	agreement, found := k.GetAgreement(ctx, agreementID)
+	agreement, found, err := k.ServiceViews().GetAgreement(ctx, agreementID)
+	if err != nil {
+		return types.EscrowRecord{}, err
+	}
 	if !found {
 		return types.EscrowRecord{}, submitCodeError(method, lxphost.Code(-706))
 	}
-	escrow, found := k.GetEscrow(ctx, agreement.EscrowID)
+	escrow, found, err := k.GetEscrow(ctx, agreement.EscrowID)
+	if err != nil {
+		return types.EscrowRecord{}, err
+	}
 	if !found || escrow.EscrowID != agreement.EscrowID || escrow.Owner != agreement.Buyer || escrow.Beneficiary != agreement.Provider {
 		return types.EscrowRecord{}, submitCodeError(method, serviceEscrowLinkMismatch)
 	}
-	offer, found := k.GetOffer(ctx, agreement.OfferID)
+	offer, found, err := k.ServiceViews().GetOffer(ctx, agreement.OfferID)
+	if err != nil {
+		return types.EscrowRecord{}, err
+	}
 	if !found || escrow.AssetID != offer.AssetID {
 		return types.EscrowRecord{}, submitCodeError(method, serviceEscrowLinkMismatch)
 	}
@@ -62,7 +71,10 @@ func (k Keeper) ServiceDisputeResolve(ctx sdk.Context, caller common.Address, di
 	if err != nil {
 		return lxphost.Receipt{}, err
 	}
-	dispute, found := k.GetDispute(ctx, disputeID)
+	dispute, found, err := k.ServiceViews().GetDispute(ctx, disputeID)
+	if err != nil {
+		return lxphost.Receipt{}, err
+	}
 	if !found {
 		return lxphost.Receipt{}, submitCodeError(method, lxphost.Code(-706))
 	}

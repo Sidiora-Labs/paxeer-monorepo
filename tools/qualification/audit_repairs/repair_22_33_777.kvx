@@ -1,0 +1,42 @@
+[task.22.33.777]
+audit = "22.30.174"
+base_revision = "04c1e9407e75f7ac92c260452f2232ab07bf3ef1"
+repair = "Replace standalone sequencer probes and the unwired kernel rule with merged paxd consensus readiness, node RPC availability and blackbox scrape availability. HOSTS and COMET_RPC_PORT render named per-node /status and /health targets through the production readiness.py writer; the installer installs that helper and Python. The node_consensus blackbox module requires HTTP 200, catching_up=false and positive latest_block_height from paxd /status. Preserve existing consensus-height stall and metrics-down escalation; node readiness remains critical after 1m, RPC and probe transport outages critical after 2m. No primary/standby role configuration remains. Non-readiness services and their rule fixtures retain their contracts."
+producer_transport_consumer = "The pytest module loads the same render_targets function invoked by render.sh using the committed hosts.env.example, writes actual discovery JSON, loads the actual Prometheus file_sd and blackbox relabel configuration through the production deployed_labels consumer, and runs the production bind_rule_tests consumer to produce the actual promtool input. Validate deployed host/job/instance labels, both node target paths, scrape module and address-to-param-to-instance-to-blackbox relabels, deployment volume mounts and the rule selector consuming the emitted job. test.sh runs this mandatory preflight on its real rendered targets before invoking promtool. Tests reject empty, missing, mislabelled and misconfigured producers and a restored kernel-only alert."
+source_proof = "Parse Prometheus, blackbox, compose, rules and promtool fixture YAML and rendered discovery JSON with their real parsers. Check source declarations of paxd status/health routes, JSON field names and Autobahn catch-up condition, strict shell error handling, guarded render invocation, installed helper/Python dependency and fixture-bind-before-promtool ordering. hf-build runs bash -n tools/ops/monitoring/render.sh exactly as declared. Pytest lexes shell source and checks its guarded command arguments without a Bash subprocess. Assert all three readiness rules have pending, firing and recovery specifications and that each firing expectation uses deployed labels; probe-scrape outage cases cover both node jobs."
+review_only = "This gate does not execute paxd, Prometheus, promtool, blackbox_exporter, Docker, installers, shell rendering, Bash parsing of test.sh/install.sh, alert routing, email delivery or a live endpoint. Exact PromQL evaluation and for-duration firing/recovery are specified in rules_test.yml and wired to the existing real promtool call in test.sh, but are not claimed as executed by the Python-only qualification. Blackbox response regex predicates are checked against the real declared source fields and explicit predicate vectors, not a claim that a node response was produced in this gate. Node /status readiness denotes positive applied height and catching_up=false; continued block progress is separately guarded by ChainHeightStalled. No restart-recovery or interface-mismatch finding is included in this task."
+baseline = "No pre-change verification was run: the explicit order requires the entire implementation first, hf-build before hf-done, and forbids running verify_cmd by hand. No test is claimed to have failed before this change. Initial git status/diff contained runner-prepared .cgignore and spec task-start bookkeeping only; the private gate ledger had no previous build or verify rows. Preserve both setup changes untouched. No formatter is configured for Python or Bash in these paths; retain existing conventions and repository whitespace/final-newline rules. YAML uses the repository's two-space indentation."
+evidence = "The final hf-done JSON and its private gate ledger row are the authoritative record of the verified candidate revision, exact command, exit and log path. hf-build and hf-done must record the same candidate revision. A source file cannot embed its own content-derived candidate revision; do not edit this record after the passing gate to insert one. The runner retains the exact evidence and publishes the task, without any worker commit or push."
+wiring_requests = ["spec/layerx-merge/contracts/operations.md, owning domain 16: regenerate the monitoring interface inventory with node-readyz, node-health, COMET_RPC_PORT and current alert names, marking the old sequencer/kernel monitoring contracts retired (the separately recorded doc-registry-snapshot finding).", "Operator-managed Grafana dashboards and alert-routing configuration outside this repository slice, owning domain 16: migrate selectors for sequencer-readyz/kernel-readyz and primary/standby roles to node-readyz/node-health with host/instance labels and route NodeNotReady, NodeRPCDown and NodeReadinessProbeDown as critical; no dashboard file exists under tools/ops/monitoring.", "/etc/paxeer-monitoring/hosts.env and fleet firewall configuration, owning domain 16: enumerate all merged nodes in HOSTS, set COMET_RPC_PORT to their consensus RPC port and allow only the monitoring host to reach /status and /health; retain the current consensus metrics scrape."]
+
+[finding.monitoring-retired-jobs]
+test = "test_monitoring_retired_jobs"
+closed_by = "Actual merged-node file_sd targets, blackbox modules, emitted labels and deployment mounts replace retired sequencer scrape jobs."
+
+[finding.monitoring-retired-render]
+test = "test_monitoring_retired_render"
+closed_by = "Production per-host target writer is invoked by the strict shell renderer and installed with Python; obsolete sequencer URL inputs and target files are no longer declared or consumed."
+
+[finding.monitoring-unwired-kernel]
+test = "test_monitoring_unwired_kernel"
+closed_by = "NodeNotReady consumes probe_success from the rendered node-readyz producer with status body predicates grounded in the actual paxd status route/fields."
+
+[finding.monitoring-retired-alerts]
+test = "test_monitoring_retired_alerts"
+closed_by = "Current node readiness, RPC and probe scrape outage rules preserve critical escalation and consensus stall coverage without sequencer roles."
+
+[finding.monitoring-fixture-shape]
+test = "test_monitoring_fixture_shape"
+closed_by = "The production fixture consumer derives labels from rendered discovery targets and validates every readiness alert has a deployed producer before promtool firing checks; pytest proves real label transport and fixture expectations and rejects broken wiring."
+
+[gotcha.1]
+symptom = "The requested baseline verify conflicts with the explicit implementation-first order and the prohibition on manual verify_cmd execution."
+resolution = "Follow the explicit gate order and claim no pre-change test result; root GOTCHA.kvx and spec logs are outside task scope, so record the conflict here."
+
+[gotcha.2]
+symptom = "The task asks for shell bash -n checks but also requires the pytest gate to need no external binary or subprocess toolchain."
+resolution = "Use the declared hf-build bash -n for render.sh and Python shell lexing/source assertions inside pytest; explicitly retain other shell syntax/runtime validation as review-only."
+
+[gotcha.3]
+symptom = "The narrow graph excludes current consensus source, and initial broad workflow/audit reads exceeded the output budget."
+resolution = "Read the exact monitoring findings and current consensus routes, status implementation and response declarations from their committed paths; no extra gates or out-of-scope edits."

@@ -17,6 +17,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/layerxproof/verify"
 	evmkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/keeper"
 	seqkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/sequencer/keeper"
+	seqtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/sequencer/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/client"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 	"github.com/ethereum/go-ethereum/common"
@@ -78,16 +79,6 @@ func (errSequencerReceiptNotServed) ErrorCode() int { return sequencerNotServedC
 
 var _ rpc.Error = errSequencerReceiptNotServed{}
 
-type errReceiptKeysNotServed struct{}
-
-func (errReceiptKeysNotServed) Error() string {
-	return ReceiptKeysMethod + " served by sequencer"
-}
-
-func (errReceiptKeysNotServed) ErrorCode() int { return sequencerNotServedCode }
-
-var _ rpc.Error = errReceiptKeysNotServed{}
-
 // SequencerSend is the sequencer's record of one sent transaction.
 type SequencerSend struct {
 	// Nonce is the transaction nonce.
@@ -137,6 +128,8 @@ type SequencerReceiptLog struct {
 }
 
 // SequencerReceiptView is the decoded receipt and its pinned signing public key.
+// Sponsor is the summary address, including zero when reverted execution emitted
+// no Sponsored event. The address is serialized as a string, never JSON null.
 type SequencerReceiptView struct {
 	Seq               hexutil.Uint64        `json:"seq"`
 	Height            hexutil.Uint64        `json:"height"`
@@ -148,7 +141,7 @@ type SequencerReceiptView struct {
 	GasUsed           hexutil.Uint64        `json:"gasUsed"`
 	CumulativeGasUsed hexutil.Uint64        `json:"cumulativeGasUsed"`
 	EffectiveGasPrice hexutil.Uint64        `json:"effectiveGasPrice"`
-	PaymentDenom      string                `json:"paymentDenom"`
+	PaymentDenom      string                `json:"paymentDenom"` // SHA-256 of this denomination is the signed receipt asset.
 	FeeDenom          string                `json:"feeDenom"`
 	FeeAmount         *hexutil.Big          `json:"feeAmount"`
 	Sponsor           common.Address        `json:"sponsor"`
@@ -180,6 +173,12 @@ type SequencerReceiptResult struct {
 // The node produces px_getReceiptKeys and the gateway relays its governed
 // keyId/publicKey height ranges; signingKey beside a receipt is never a trust pin.
 func (r *SequencerReceiptResult) Verify(pins ...seqkeeper.ReceiptKeys) error {
+	if r == nil {
+		return mismatch("nil receipt result")
+	}
+	if r.Rung != RungSubmitted && r.SequencerReceiptView == nil {
+		return fmt.Errorf("%w: %s answer has no receipt", ErrSequencerReceiptMismatch, r.Rung)
+	}
 	switch r.Rung {
 	case RungSubmitted:
 		if r.SequencerReceiptView != nil || r.BlockNumber != nil || r.BlockHash != nil {
@@ -194,14 +193,14 @@ func (r *SequencerReceiptResult) Verify(pins ...seqkeeper.ReceiptKeys) error {
 		if r.BlockNumber == nil || r.BlockHash == nil {
 			return fmt.Errorf("%w: a committed answer has no block", ErrSequencerReceiptMismatch)
 		}
+		if *r.BlockNumber == 0 || *r.BlockHash == (common.Hash{}) {
+			return fmt.Errorf("%w: a committed answer has an empty block", ErrSequencerReceiptMismatch)
+		}
 		if uint64(*r.BlockNumber) < uint64(r.Height) {
 			return fmt.Errorf("%w: committed block %d is below the receipt height %d", ErrSequencerReceiptMismatch, *r.BlockNumber, r.Height)
 		}
 	default:
 		return fmt.Errorf("%w: unknown rung %q", ErrSequencerReceiptMismatch, r.Rung)
-	}
-	if r.SequencerReceiptView == nil {
-		return fmt.Errorf("%w: %s answer has no receipt", ErrSequencerReceiptMismatch, r.Rung)
 	}
 	if r.PaymentDenom == "" {
 		return mismatch("missing paymentDenom in older receipt view")
@@ -215,7 +214,7 @@ func (r *SequencerReceiptResult) Verify(pins ...seqkeeper.ReceiptKeys) error {
 		ReturnData: r.ReturnData,
 		LogData:    logData,
 		VMError:    r.VMError,
-	})
+	}, r.PaymentDenom)
 	if err != nil {
 		return err
 	}
@@ -265,6 +264,16 @@ func newSequencerReceiptAPI(tmClient client.LocalClient, ctxProvider func(int64)
 	if err := option.validate(); err != nil {
 		return nil, err
 	}
+	// Ordinary nodes own the same governed sequencer store as the proposer.
+	if option.Keeper == nil {
+		for _, key := range ctxProvider(LatestCtxHeight).MultiStore().StoreKeys() {
+			if key.Name() == seqtypes.StoreKey {
+				keeper := seqkeeper.NewKeeper(key)
+				option.Keeper = &keeper
+				break
+			}
+		}
+	}
 	return &SequencerReceiptAPI{tmClient: tmClient, ctxProvider: ctxProvider, option: option, connectionType: connectionType}, nil
 }
 
@@ -287,7 +296,7 @@ func (a *SequencerReceiptAPI) SequencerReceipt(ctx context.Context, txHash commo
 	if send.Receipt == nil {
 		return &SequencerReceiptResult{Rung: RungSubmitted, TxHash: txHash, Nonce: hexutil.Uint64(send.Nonce)}, nil
 	}
-	view, decoded, err := decodeSequencerReceipt(send)
+	view, decoded, err := decodeSequencerReceipt(send, evmkeeper.BaseDenom)
 	if err != nil {
 		return nil, err
 	}
@@ -327,7 +336,21 @@ func (a *SequencerReceiptAPI) SequencerReceipt(ctx context.Context, txHash commo
 }
 
 func (a *SequencerReceiptAPI) receiptKeys() (seqkeeper.ReceiptKeys, error) {
-	pinned, err := a.option.Keeper.ReceiptKeys(a.ctxProvider(LatestCtxHeight))
+	if a.option.Keeper == nil {
+		return nil, pxChainUnavailable("receipt_keys_unavailable")
+	}
+	ctx := a.ctxProvider(LatestCtxHeight)
+	configured := false
+	for _, key := range ctx.MultiStore().StoreKeys() {
+		if key.Name() == seqtypes.StoreKey {
+			configured = ctx.KVStore(key).Has(seqtypes.ReceiptKeysKey)
+			break
+		}
+	}
+	if !configured {
+		return nil, pxChainUnavailable("receipt_keys_unavailable")
+	}
+	pinned, err := a.option.Keeper.ReceiptKeys(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -337,6 +360,9 @@ func (a *SequencerReceiptAPI) receiptKeys() (seqkeeper.ReceiptKeys, error) {
 			KeyId: bytes.Clone(pin.KeyId[:]), PublicKey: bytes.Clone(pin.PublicKey[:]),
 			FirstHeight: pin.FirstHeight, LastHeight: pin.LastHeight,
 		}
+	}
+	if err := keys.Validate(); err != nil {
+		return nil, pxChainUnavailable("receipt_keys_unavailable")
 	}
 	return keys, nil
 }
@@ -349,7 +375,8 @@ type ReceiptKey struct {
 	LastHeight  uint64        `json:"lastHeight"`
 }
 
-// ReceiptKeysResult carries the node's governed receipt keys, including an empty list.
+// ReceiptKeysResult is the object envelope for the node's governed receipt keys.
+// Heights are JSON numbers; an empty key set is encoded as {"keys": []}.
 type ReceiptKeysResult struct {
 	Keys []ReceiptKey `json:"keys"`
 }
@@ -364,24 +391,9 @@ func (a *receiptKeysAPI) GetReceiptKeys(ctx context.Context) (result *ReceiptKey
 	defer func() {
 		recordMetricsWithError(ctx, ReceiptKeysMethod, a.receipts.connectionType, startTime, returnErr, recover())
 	}()
-	if a.receipts.option.Source == nil {
-		if a.receipts.option.ForwardURL == nil {
-			return nil, errReceiptKeysNotServed{}
-		}
-		recordRedirectedRequest(ctx, ReceiptKeysMethod, string(a.receipts.connectionType))
-		c, err := rpc.DialContext(ctx, a.receipts.option.ForwardURL.String())
-		if err != nil {
-			return nil, fmt.Errorf("rpc.DialContext(%q): %w", a.receipts.option.ForwardURL.String(), err)
-		}
-		defer c.Close()
-		if err := c.CallContext(ctx, &result, ReceiptKeysMethod); err != nil {
-			return nil, err
-		}
-		return result, nil
-	}
 	keys, err := a.receipts.receiptKeys()
 	if err != nil {
-		return nil, err
+		return nil, pxChainUnavailable("receipt_keys_unavailable")
 	}
 	result = &ReceiptKeysResult{Keys: make([]ReceiptKey, len(keys))}
 	for i, key := range keys {
@@ -503,7 +515,7 @@ func addr32(word [32]byte, name string) (common.Address, error) {
 
 // decodeSequencerReceipt decodes send.Receipt and derives every JSON field from the decoded
 // receipt, checking the execution outputs of send against the digests the receipt binds.
-func decodeSequencerReceipt(send *SequencerSend) (*SequencerReceiptView, *codec.Receipt, error) {
+func decodeSequencerReceipt(send *SequencerSend, paymentDenom string) (*SequencerReceiptView, *codec.Receipt, error) {
 	decoded, err := codec.DecodeReceipt(send.Receipt)
 	if err != nil {
 		return nil, nil, fmt.Errorf("%w: %v", ErrSequencerReceiptInvalid, err)
@@ -550,7 +562,7 @@ func decodeSequencerReceipt(send *SequencerSend) (*SequencerReceiptView, *codec.
 		Index:             hexutil.Uint(binary.BigEndian.Uint32(body[24:28])),
 		ContractAddress:   common.BytesToAddress(body[28:48]),
 		Sponsor:           common.BytesToAddress(body[48:68]),
-		PaymentDenom:      evmkeeper.BaseDenom,
+		PaymentDenom:      paymentDenom,
 		KeyID:             common.Hash(decoded.ContextHash),
 		Receipt:           decoded.CanonicalBytes(),
 	}
@@ -562,8 +574,11 @@ func decodeSequencerReceipt(send *SequencerSend) (*SequencerReceiptView, *codec.
 		return nil, nil, invalidReceipt("fee denom length %d in a %d-byte summary", denomLength, len(body))
 	}
 	view.FeeDenom = string(body[sequencerSummaryFixedBytes:])
+	if len(paymentDenom) == 0 || len(paymentDenom) > sequencerMaxFeeDenomBytes {
+		return nil, nil, mismatch("payment denom is %d bytes, want 1..%d", len(paymentDenom), sequencerMaxFeeDenomBytes)
+	}
 	if sha256.Sum256([]byte(view.PaymentDenom)) != decoded.Asset {
-		return nil, nil, invalidReceipt("asset is not the payment asset digest")
+		return nil, nil, mismatch("asset is not the payment asset digest")
 	}
 	fee := decoded.FeeCharged.Bytes()
 	view.FeeAmount = (*hexutil.Big)(new(big.Int).SetBytes(fee[:]))

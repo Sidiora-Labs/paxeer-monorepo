@@ -221,7 +221,7 @@ func projectionStatsBatch(model *store.AccountingReadModel) http.HandlerFunc {
 }
 
 // rankingsRequest validates GET /v2/rankings/{category}: a contract category
-// and no query string. On failure it has already written the v2 error.
+// and bounded first-snapshot parameters. On failure it has written the v2 error.
 func rankingsRequest(w http.ResponseWriter, r *http.Request) (string, bool) {
 	category := chi.URLParam(r, "category")
 	valid := false
@@ -253,6 +253,11 @@ func rankingsRequest(w http.ResponseWriter, r *http.Request) (string, bool) {
 			WriteV2APIError(w, r, 422, "FIELD_INVALID")
 			return "", false
 		}
+	}
+	// Rankings are replacement snapshots and never issue continuation cursors.
+	if r.URL.Query().Get("cursor") != "" {
+		WriteV2APIError(w, r, 400, "CURSOR_INVALID")
+		return "", false
 	}
 	return category, true
 }

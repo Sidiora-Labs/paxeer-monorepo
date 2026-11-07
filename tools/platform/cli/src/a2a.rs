@@ -31,6 +31,295 @@ const ADMISSION_CAPACITY: usize = 32;
 const CARD_ROUTES: [&str; 2] = ["/.well-known/agent-card.json", "/.well-known/agent.json"];
 const STATE_FILE: &str = "service.json";
 
+/// Durable task identities survive ambiguous submission and service restarts.
+pub(crate) struct TaskLedger {
+    entries: BTreeMap<String, Value>,
+    path: Option<std::path::PathBuf>,
+    _lock: Option<fs::File>,
+}
+impl std::ops::Deref for TaskLedger {
+    type Target = BTreeMap<String, Value>;
+    fn deref(&self) -> &Self::Target {
+        &self.entries
+    }
+}
+impl std::ops::DerefMut for TaskLedger {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.entries
+    }
+}
+impl TaskLedger {
+    pub(crate) fn open(path: &Path) -> Result<Self, String> {
+        use std::os::unix::fs::{MetadataExt as _, OpenOptionsExt as _};
+        let mut options = fs::OpenOptions::new();
+        options
+            .read(true)
+            .write(true)
+            .create(true)
+            .mode(0o600)
+            .custom_flags(rustix::fs::OFlags::NOFOLLOW.bits() as i32);
+        let lock = options
+            .open(path.with_extension("lock"))
+            .map_err(|e| format!("task ledger lock: {e}"))?;
+        let meta = lock.metadata().map_err(|e| e.to_string())?;
+        if !meta.is_file()
+            || meta.mode() & 0o077 != 0
+            || meta.uid() != rustix::process::geteuid().as_raw()
+        {
+            return Err("task ledger lock must be caller-owned and private".into());
+        }
+        rustix::fs::flock(&lock, rustix::fs::FlockOperation::NonBlockingLockExclusive)
+            .map_err(|e| format!("task ledger is already open: {e}"))?;
+        let entries = match fs::symlink_metadata(path) {
+            Ok(meta) => {
+                if !meta.is_file()
+                    || meta.mode() & 0o077 != 0
+                    || meta.uid() != rustix::process::geteuid().as_raw()
+                {
+                    return Err("task ledger must be a caller-owned private regular file".into());
+                }
+                serde_json::from_slice::<BTreeMap<String, Value>>(
+                    &fs::read(path).map_err(|e| e.to_string())?,
+                )
+                .map_err(|e| format!("invalid task ledger: {e}"))?
+            }
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => BTreeMap::new(),
+            Err(e) => return Err(e.to_string()),
+        };
+        if entries.len() > MAX_TRACKED_TASKS
+            || entries.iter().any(|(id, task)| {
+                task["id"] != *id
+                    || task
+                        .pointer("/status/state")
+                        .and_then(Value::as_str)
+                        .is_none()
+            })
+        {
+            return Err("invalid task ledger identities or capacity".into());
+        }
+        Ok(Self {
+            entries,
+            path: Some(path.to_owned()),
+            _lock: Some(lock),
+        })
+    }
+    #[cfg(test)]
+    fn memory() -> Self {
+        Self {
+            entries: BTreeMap::new(),
+            path: None,
+            _lock: None,
+        }
+    }
+    fn persist(&self) -> Result<(), String> {
+        let Some(path) = &self.path else {
+            return Ok(());
+        };
+        let parent = path.parent().ok_or("task ledger has no parent")?;
+        let mut temporary = tempfile::NamedTempFile::new_in(parent).map_err(|e| e.to_string())?;
+        serde_json::to_writer(temporary.as_file_mut(), &self.entries).map_err(|e| e.to_string())?;
+        temporary.as_file().sync_all().map_err(|e| e.to_string())?;
+        temporary.persist(path).map_err(|e| e.to_string())?;
+        fs::File::open(parent)
+            .and_then(|f| f.sync_all())
+            .map_err(|e| e.to_string())
+    }
+    fn reserve(&mut self, id: &str, task: Value) -> Result<(), String> {
+        let previous = self.entries.clone();
+        if self.entries.len() >= MAX_TRACKED_TASKS {
+            let terminal = self
+                .entries
+                .iter()
+                .find(|(_, task)| {
+                    matches!(
+                        task.pointer("/status/state").and_then(Value::as_str),
+                        Some("completed" | "failed" | "rejected")
+                    )
+                })
+                .map(|(id, _)| id.clone());
+            let Some(id) = terminal else {
+                return Err("task capacity reached; unresolved transactions are retained".into());
+            };
+            self.entries.remove(&id);
+        }
+        self.entries.insert(id.to_owned(), task);
+        if let Err(error) = self.persist() {
+            self.entries = previous;
+            return Err(error);
+        }
+        Ok(())
+    }
+    pub(crate) fn reconcile(&mut self, runtime: &Runtime) -> Result<(), String> {
+        let Some(policy) = &runtime.policy else {
+            return Ok(());
+        };
+        for task in self.entries.values_mut() {
+            if !matches!(
+                task.pointer("/status/state").and_then(Value::as_str),
+                Some("submitted" | "unknown")
+            ) {
+                continue;
+            }
+            let Some(hash) = task
+                .get("txHash")
+                .and_then(Value::as_str)
+                .map(str::to_owned)
+            else {
+                continue;
+            };
+            match runtime.rpc("pax_sequencerReceipt", json!([hash])) {
+                Ok(receipt) => {
+                    let expected = crate::programs::transaction_hash(&hash)?;
+                    if let Ok((verified, _)) = layerx_sdk::rpc_verification::verify_node_receipt(
+                        &receipt, expected, policy,
+                    ) {
+                        let facts = verified
+                            .protocol()
+                            .ok_or("recovered receipt omitted protocol facts")?;
+                        task["status"]["state"] = json!(if facts.result_code() != 0 {
+                            "failed"
+                        } else {
+                            "completed"
+                        });
+                        task["reconciliation"] = receipt;
+                    }
+                }
+                Err(_) => break, // Retain unresolved work without resubmitting or blocking startup on every task.
+            }
+        }
+        self.persist()
+    }
+}
+
+pub(crate) struct Runtime {
+    client: crate::http::Client,
+    network_id: u32,
+    environment: String,
+    faucet_endpoint: Option<String>,
+    policy: Option<layerx_sdk::rpc_verification::ReceiptPolicy>,
+}
+impl Runtime {
+    pub(crate) fn connect(
+        endpoint: &str,
+        network_id: u32,
+        credential: Option<Zeroizing<String>>,
+    ) -> Result<Self, String> {
+        let endpoint = layerx_platform_cli::chains::node_endpoint(endpoint)?;
+        let client = match credential {
+            Some(key) => crate::http::Client::new_gateway(endpoint, key)?,
+            None => crate::http::Client::new(endpoint, None)?,
+        };
+        Ok(Self {
+            client,
+            network_id,
+            environment: String::new(),
+            faucet_endpoint: None,
+            policy: None,
+        })
+    }
+    pub(crate) fn with_policy(
+        mut self,
+        policy: layerx_sdk::rpc_verification::ReceiptPolicy,
+    ) -> Result<Self, String> {
+        if policy.network_id != self.network_id || policy.protocol_version != 2 {
+            return Err("task receipt policy does not match the node".into());
+        }
+        self.policy = Some(policy);
+        Ok(self)
+    }
+    #[cfg(test)]
+    fn loopback(endpoint: &str, network_id: u32) -> Result<Self, String> {
+        Self::connect(endpoint, network_id, None)
+    }
+    fn rpc(&self, method: &str, params: Value) -> Result<Value, String> {
+        let request = layerx_platform_cli::rpc::request(method, &params)?;
+        let response = self.client.post("/", &request, None)?;
+        layerx_platform_cli::rpc::decode_response(method, &response)
+    }
+    fn signed_hash(&self, arguments: &Value) -> Result<String, String> {
+        use layerx_crypto::evm_transaction::{decode_signed, recover_sender, transaction_hash};
+        if arguments.as_object().is_none_or(|a| a.len() != 1) {
+            return Err("activity.submit requires only raw_transaction".into());
+        }
+        let raw = arguments["raw_transaction"]
+            .as_str()
+            .and_then(|r| r.strip_prefix("0x"))
+            .ok_or("activity.submit requires signed raw_transaction hex")?;
+        let bytes = crate::encoding::hex_decode("raw transaction", raw)?;
+        let (call, signature) = decode_signed(&bytes).map_err(|e| e.to_string())?;
+        recover_sender(&call, &signature).map_err(|e| e.to_string())?;
+        if call.chain_id != u64::from(self.network_id) {
+            return Err("raw transaction chain id does not match the active environment".into());
+        }
+        Ok(format!("0x{}", hex_encode(&transaction_hash(&bytes))))
+    }
+    fn invoke(&self, tool: ToolDefinition, arguments: &Value) -> Result<Value, String> {
+        let result = self.invoke_task(tool, arguments)?;
+        if result["rung"] == "unknown" {
+            return Err(format!("submission {} is indeterminate", result["txHash"]));
+        }
+        Ok(result)
+    }
+    fn invoke_task(&self, tool: ToolDefinition, arguments: &Value) -> Result<Value, String> {
+        match tool.name {
+            "activity.submit" => {
+                let hash = self.signed_hash(arguments)?;
+                let request = layerx_platform_cli::rpc::request(
+                    "eth_sendRawTransaction",
+                    &json!([arguments["raw_transaction"]]),
+                )?;
+                let response = match self.client.post("/", &request, None) {
+                    Ok(response) => response,
+                    Err(detail) => {
+                        return Ok(json!({"txHash":hash,"rung":"unknown","detail":detail}))
+                    }
+                };
+                match layerx_platform_cli::rpc::decode_response("eth_sendRawTransaction", &response)
+                {
+                    Ok(returned) if returned == hash => {
+                        Ok(json!({"txHash":hash,"rung":"submitted"}))
+                    }
+                    Err(detail)
+                        if response["jsonrpc"] == "2.0"
+                            && response["id"] == 1
+                            && response.get("result").is_none()
+                            && response["error"]["code"].as_i64().is_some()
+                            && response["error"]["message"].as_str().is_some() =>
+                    {
+                        Err(detail)
+                    }
+                    outcome => Ok(
+                        json!({"txHash":hash,"rung":"unknown","detail":format!("indeterminate node response: {outcome:?}")}),
+                    ),
+                }
+            }
+            "receipt.get" => {
+                if arguments.as_object().is_none_or(|a| a.len() != 1) {
+                    return Err("receipt.get requires only activity_id".into());
+                }
+                self.rpc("pax_sequencerReceipt", json!([arguments["activity_id"]]))
+            }
+            "faucet.request" => {
+                let endpoint = self
+                    .faucet_endpoint
+                    .as_deref()
+                    .ok_or("faucet.request requires an explicit hosted faucet service endpoint")?;
+                let token = crate::credential::token(&self.environment)?
+                    .ok_or("identity_session_required")?;
+                let did = arguments["did"].as_str().ok_or("missing faucet DID")?;
+                let key = arguments["public_key"]
+                    .as_str()
+                    .ok_or("missing faucet public key")?;
+                let key = key.to_ascii_lowercase();
+                let claim =
+                    crate::faucet::decode(&crate::faucet::claim(endpoint, token, did, &key)?)?;
+                Ok(json!({"did":did,"public_key":key,"claim":claim}))
+            }
+            _ => Err("skill is not served by this deployment".into()),
+        }
+    }
+}
+
 #[derive(Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 struct ServiceState {
@@ -77,6 +366,8 @@ pub fn endpoint(listen: &str) -> Result<SocketAddr, String> {
 
 #[derive(Clone, Copy)]
 pub struct ServeRequest<'a> {
+    pub receipt_policy: Option<&'a Path>,
+    pub faucet_endpoint: Option<&'a str>,
     pub gateway_credential: &'a str,
     pub key: &'a str,
     pub source: Option<&'a str>,
@@ -88,6 +379,8 @@ pub struct ServeRequest<'a> {
 
 pub fn serve(configuration: &Configuration, request: ServeRequest<'_>) -> Result<(), String> {
     let ServeRequest {
+        receipt_policy,
+        faucet_endpoint,
         gateway_credential,
         key,
         source,
@@ -98,14 +391,23 @@ pub fn serve(configuration: &Configuration, request: ServeRequest<'_>) -> Result
     } = request;
     let address = endpoint(listen)?;
     let tools = toolset::surface(mode)?;
-    let runtime = Arc::new(toolset::Runtime::new(
-        configuration,
-        gateway_credential,
-        key,
-        source,
-        asset,
-        mode,
-    )?);
+    let _validated =
+        toolset::Runtime::new(configuration, gateway_credential, key, source, asset, mode)?;
+    let (_, profile) = configuration.active_environment()?;
+    let mut runtime = Runtime::connect(
+        &profile.endpoint,
+        profile.network_id,
+        Some(
+            crate::credential::gateway(gateway_credential)?
+                .ok_or("gateway credential is absent")?,
+        ),
+    )?;
+    if let Some(path) = receipt_policy {
+        runtime = runtime.with_policy(crate::programs::read_lifecycle_policy(path)?)?;
+    }
+    runtime.environment = configuration.current_environment.clone();
+    runtime.faucet_endpoint = faucet_endpoint.map(str::to_owned);
+    let runtime = Arc::new(runtime);
     let card = Arc::new(agent_card(
         &configuration.current_environment,
         &address.to_string(),
@@ -116,7 +418,9 @@ pub fn serve(configuration: &Configuration, request: ServeRequest<'_>) -> Result
     let authorization = Arc::new(crate::install::a2a::read_authorization(authorization_file)?);
     let listener =
         TcpListener::bind(address).map_err(|error| format!("could not bind {listen}: {error}"))?;
-    let tasks = Arc::new(Mutex::new(BTreeMap::<String, Value>::new()));
+    let mut ledger = TaskLedger::open(&authorization_file.with_extension("tasks.json"))?;
+    ledger.reconcile(&runtime)?;
+    let tasks = Arc::new(Mutex::new(ledger));
     let (sender, receiver) = sync_channel::<TcpStream>(ADMISSION_CAPACITY);
     let receiver = Arc::new(Mutex::new(receiver));
     for index in 0..WORKER_COUNT {
@@ -143,11 +447,8 @@ pub fn serve(configuration: &Configuration, request: ServeRequest<'_>) -> Result
                 {
                     continue;
                 }
-                let response = match read_request(&mut stream) {
-                    Ok(request) => route(&runtime, &tools, &card, &tasks, &authorization, &request),
-                    Err(error) => encode(400, &json!({"error": error})),
-                };
-                let _ = write_response(&mut stream, &response);
+                let _ =
+                    serve_connection(&runtime, &tools, &card, &tasks, &authorization, &mut stream);
             })
             .map_err(|error| format!("could not start A2A worker {index}: {error}"))?;
     }
@@ -175,11 +476,35 @@ pub fn serve(configuration: &Configuration, request: ServeRequest<'_>) -> Result
     Ok(())
 }
 
-fn route(
-    runtime: &toolset::Runtime,
+pub(crate) fn serve_connection(
+    runtime: &Runtime,
     tools: &[ToolDefinition],
     card: &Value,
-    tasks: &Mutex<BTreeMap<String, Value>>,
+    tasks: &Mutex<TaskLedger>,
+    authorization: &str,
+    stream: &mut TcpStream,
+) -> Result<(), String> {
+    let response = match read_request_head(stream) {
+        Ok(head) if head.request.method == "POST" && !authorized(&head.request, authorization) => {
+            encode(
+                401,
+                &json!({"error": "valid bearer authorization is required"}),
+            )
+        }
+        Ok(head) => match read_request_body(stream, head) {
+            Ok(request) => route(runtime, tools, card, tasks, authorization, &request),
+            Err(error) => encode(400, &json!({"error":error})),
+        },
+        Err(error) => encode(400, &json!({"error":error})),
+    };
+    write_response(stream, &response).map_err(|e| e.to_string())
+}
+
+fn route(
+    runtime: &Runtime,
+    tools: &[ToolDefinition],
+    card: &Value,
+    tasks: &Mutex<TaskLedger>,
     authorization: &str,
     request: &Request,
 ) -> Response {
@@ -209,10 +534,10 @@ fn authorized(request: &Request, expected: &str) -> bool {
         && presented.as_bytes().ct_eq(expected.as_bytes()).unwrap_u8() == 1
 }
 
-fn dispatch(
-    runtime: &toolset::Runtime,
+pub(crate) fn dispatch(
+    runtime: &Runtime,
     tools: &[ToolDefinition],
-    tasks: &Mutex<BTreeMap<String, Value>>,
+    tasks: &Mutex<TaskLedger>,
     body: &[u8],
 ) -> Value {
     let Ok(message) = serde_json::from_slice::<Value>(body) else {
@@ -237,9 +562,9 @@ fn dispatch(
 }
 
 fn send(
-    runtime: &toolset::Runtime,
+    runtime: &Runtime,
     tools: &[ToolDefinition],
-    tasks: &Mutex<BTreeMap<String, Value>>,
+    tasks: &Mutex<TaskLedger>,
     identifier: Value,
     parameters: &Value,
 ) -> Value {
@@ -302,17 +627,65 @@ fn send(
             "activity.submit requires signed raw_transaction hex",
         );
     }
-    let outcome = toolset::invoke_task(runtime, tool, &instruction.arguments);
-    let task = build_task(&ids, &context, message, tool.name, &timestamp, outcome);
-    let Ok(mut tasks) = tasks.lock() else {
-        return failure(identifier, -32603, "the task ledger is unavailable");
+    let hash = if tool.name == "activity.submit" {
+        match runtime.signed_hash(&instruction.arguments) {
+            Ok(hash) => Some(hash),
+            Err(error) => {
+                let rejected =
+                    build_task(&ids, &context, message, tool.name, &timestamp, Err(error));
+                let Ok(mut ledger) = tasks.lock() else {
+                    return failure(identifier, -32603, "the task ledger is unavailable");
+                };
+                if let Err(error) = ledger.reserve(&ids.0, rejected.clone()) {
+                    return failure(identifier, -32005, &error);
+                }
+                return success(identifier, rejected);
+            }
+        }
+    } else {
+        None
     };
-    if tasks.len() >= MAX_TRACKED_TASKS {
-        if let Some(evicted) = tasks.keys().next().cloned() {
-            tasks.remove(&evicted);
+    let mut pending = build_task(
+        &ids,
+        &context,
+        message,
+        tool.name,
+        &timestamp,
+        Ok(json!({"rung":"unknown","txHash":hash})),
+    );
+    if let Some(hash) = &hash {
+        pending["txHash"] = json!(hash);
+    }
+    {
+        let Ok(mut ledger) = tasks.lock() else {
+            return failure(identifier, -32603, "the task ledger is unavailable");
+        };
+        if let Err(error) = ledger.reserve(&ids.0, pending) {
+            return failure(identifier, -32005, &error);
         }
     }
-    tasks.insert(ids.0.clone(), task.clone());
+    let outcome = runtime.invoke_task(tool, &instruction.arguments);
+    let mut task = build_task(&ids, &context, message, tool.name, &timestamp, outcome);
+    if let Some(hash) = hash {
+        task["txHash"] = json!(hash);
+    }
+    let Ok(mut ledger) = tasks.lock() else {
+        return failure(identifier, -32603, "the task ledger is unavailable");
+    };
+    let previous = ledger.insert(ids.0.clone(), task.clone());
+    if let Err(error) = ledger.persist() {
+        if let Some(previous) = previous {
+            ledger.insert(ids.0.clone(), previous);
+        }
+        return failure(
+            identifier,
+            -32603,
+            &format!(
+                "task {} retained for recovery; journal update failed: {error}",
+                ids.0
+            ),
+        );
+    }
     success(identifier, task)
 }
 
@@ -374,7 +747,7 @@ fn gateway_state(value: &Value) -> Option<&str> {
         .and_then(Value::as_str)
 }
 
-fn cancel(tasks: &Mutex<BTreeMap<String, Value>>, identifier: Value, parameters: &Value) -> Value {
+fn cancel(tasks: &Mutex<TaskLedger>, identifier: Value, parameters: &Value) -> Value {
     let Some(name) = parameters.get("id").and_then(Value::as_str) else {
         return failure(identifier, -32602, "the request did not name a task");
     };
@@ -398,7 +771,7 @@ fn cancel(tasks: &Mutex<BTreeMap<String, Value>>, identifier: Value, parameters:
     }
 }
 
-fn fetch(tasks: &Mutex<BTreeMap<String, Value>>, identifier: Value, parameters: &Value) -> Value {
+fn fetch(tasks: &Mutex<TaskLedger>, identifier: Value, parameters: &Value) -> Value {
     let Some(name) = parameters.get("id").and_then(Value::as_str) else {
         return failure(identifier, -32602, "the request did not name a task");
     };
@@ -483,9 +856,24 @@ fn request_line(start: &str) -> Result<(&str, &str), String> {
     Ok((method, path))
 }
 
+struct RequestHead {
+    request: Request,
+    bytes: Zeroizing<Vec<u8>>,
+    header_end: usize,
+    length: usize,
+    has_length: bool,
+    content_type: Option<String>,
+}
+
+#[cfg(test)]
 fn read_request(stream: &mut TcpStream) -> Result<Request, String> {
-    let (mut bytes, header_end) = read_headers(stream)?;
-    let mut chunk = [0_u8; 4096];
+    let head = read_request_head(stream)?;
+    read_request_body(stream, head)
+}
+
+fn read_request_head(stream: &mut TcpStream) -> Result<RequestHead, String> {
+    let (bytes, header_end) = read_headers(stream)?;
+    let bytes = Zeroizing::new(bytes);
     let headers = std::str::from_utf8(&bytes[..header_end])
         .map_err(|_| "the request headers are not UTF-8".to_string())?;
     let mut lines = headers.split("\r\n");
@@ -533,7 +921,7 @@ fn read_request(stream: &mut TcpStream) -> Result<Request, String> {
             if content_type.is_some() {
                 return Err("the request contains an ambiguous content type".into());
             }
-            content_type = Some(value);
+            content_type = Some(value.to_owned());
         } else if name.eq_ignore_ascii_case("authorization") {
             if authorization.is_some() || value.len() > 256 {
                 return Err("the request contains ambiguous authorization".into());
@@ -546,17 +934,43 @@ fn read_request(stream: &mut TcpStream) -> Result<Request, String> {
     if !has_host {
         return Err("the request has no host header".into());
     }
-    if method == "POST" && (!has_length || content_type != Some("application/json")) {
+    let request = Request {
+        method: method.to_owned(),
+        path: path.to_owned(),
+        authorization,
+        body: Vec::new(),
+    };
+    Ok(RequestHead {
+        request,
+        bytes,
+        header_end,
+        length,
+        has_length,
+        content_type,
+    })
+}
+
+fn read_request_body(stream: &mut TcpStream, head: RequestHead) -> Result<Request, String> {
+    let RequestHead {
+        mut request,
+        mut bytes,
+        header_end,
+        length,
+        has_length,
+        content_type,
+    } = head;
+    if request.method == "POST"
+        && (!has_length || content_type.as_deref() != Some("application/json"))
+    {
         return Err("POST requires one application/json body with an explicit length".into());
     }
-    if method != "POST" && length != 0 {
+    if request.method != "POST" && length != 0 {
         return Err("a non-POST request may not carry a body".into());
     }
     if length > MAX_REQUEST_BYTES {
         return Err("the request body exceeds the transport limit".into());
     }
-    let method = method.to_owned();
-    let path = path.to_owned();
+    let mut chunk = [0_u8; 4096];
     while bytes.len() - header_end < length {
         let read = stream
             .read(&mut chunk)
@@ -572,13 +986,8 @@ fn read_request(stream: &mut TcpStream) -> Result<Request, String> {
     if bytes.len() != header_end + length {
         return Err("the request carries bytes beyond its declared body".into());
     }
-    let body = bytes[header_end..header_end + length].to_vec();
-    Ok(Request {
-        method,
-        path,
-        authorization,
-        body,
-    })
+    request.body = bytes[header_end..header_end + length].to_vec();
+    Ok(request)
 }
 
 fn write_response(stream: &mut TcpStream, response: &Response) -> std::io::Result<()> {
@@ -962,7 +1371,6 @@ fn civil_date(days: u64) -> (u64, u64, u64) {
 
 #[cfg(test)]
 mod submission_outcome_tests {
-    use std::collections::BTreeMap;
     use std::io::Read as _;
     use std::net::{Shutdown, TcpListener};
     use std::sync::Mutex;
@@ -974,8 +1382,9 @@ mod submission_outcome_tests {
     use serde_json::{json, Value};
 
     use super::{dispatch, encode, read_headers, write_response, MAX_REQUEST_BYTES};
+    use super::{Runtime, TaskLedger};
     use crate::encoding::hex_encode;
-    use crate::toolset::{self, Runtime};
+    use crate::toolset;
 
     fn node_response(
         listener: &TcpListener,
@@ -1003,7 +1412,7 @@ mod submission_outcome_tests {
             let (mut bytes, header_end) = read_headers(&mut stream)?;
             let headers =
                 std::str::from_utf8(&bytes[..header_end]).map_err(|error| error.to_string())?;
-            assert_eq!(headers.lines().next(), Some("POST /rpc HTTP/1.1"));
+            assert_eq!(headers.lines().next(), Some("POST / HTTP/1.1"));
             let fields: Vec<_> = headers
                 .lines()
                 .filter_map(|line| line.split_once(':'))
@@ -1045,7 +1454,7 @@ mod submission_outcome_tests {
     fn call(
         runtime: &Runtime,
         tools: &[ToolDefinition],
-        tasks: &Mutex<BTreeMap<String, Value>>,
+        tasks: &Mutex<TaskLedger>,
         method: &str,
         params: Value,
     ) -> Value {
@@ -1093,7 +1502,7 @@ mod submission_outcome_tests {
         let listener = TcpListener::bind("127.0.0.1:0")?;
         listener.set_nonblocking(true)?;
         let runtime = Runtime::loopback(&format!("http://{}", listener.local_addr()?), 125)?;
-        let tasks = Mutex::new(BTreeMap::new());
+        let tasks = Mutex::new(TaskLedger::memory());
         for (response, state) in [
             (None, "unknown"),
             (
@@ -1205,13 +1614,24 @@ mod submission_outcome_tests {
                 assert!(task["status"]["message"]["parts"][0]["text"]
                     .as_str()
                     .is_some_and(|detail| detail.contains("nonce too low")));
+                assert_eq!(task["txHash"], hash);
+                assert_eq!(
+                    call(
+                        &runtime,
+                        &tools,
+                        &tasks,
+                        "tasks/get",
+                        json!({"id":task["id"]})
+                    )["result"],
+                    *task
+                );
             }
             assert!(
                 matches!(listener.accept(), Err(error) if error.kind() == std::io::ErrorKind::WouldBlock)
             );
 
             let node = node_response(&listener, response)?;
-            let mcp = toolset::invoke(&runtime, submit, &arguments);
+            let mcp = runtime.invoke(submit, &arguments);
             assert_eq!(
                 node.join().map_err(|_| "node reader panicked")??,
                 json!({"jsonrpc":"2.0", "id":1, "method":"eth_sendRawTransaction", "params":[encoded]})
@@ -1245,7 +1665,7 @@ mod submission_outcome_tests {
             let sent = call(&runtime, &tools, &tasks, "message/send", message(&invalid));
             assert_eq!(sent["result"]["status"]["state"], "rejected");
             assert!(sent["result"].get("artifacts").is_none());
-            assert!(toolset::invoke(&runtime, submit, &invalid).is_err());
+            assert!(runtime.invoke(submit, &invalid).is_err());
             assert!(
                 matches!(listener.accept(), Err(error) if error.kind() == std::io::ErrorKind::WouldBlock)
             );

@@ -294,6 +294,10 @@ export const SponsoredQuoteBody = SponsoredConstruction.pick({
   calls: true,
 })
   .extend({
+    did: z
+      .string()
+      .regex(/^did:layerx:[0-9a-f]{64}$/)
+      .optional(),
     maxTokenAmount: SponsorUint,
     gasCost: SponsorUint,
     token: SponsorAddress,
@@ -487,7 +491,9 @@ export async function walletSponsorRoutes(
       const wallet = await owned(req, parsed.data.account);
       if (BigInt(parsed.data.chainId) !== BigInt(wallet.chain_id))
         throw new StationAdapterError(403, 'sponsored_construction_mismatch');
-      await callerIdentity(parsed.data.account as Hex);
+      const did = await callerIdentity(parsed.data.account as Hex);
+      if (parsed.data.did !== undefined && parsed.data.did !== did)
+        throw new StationAdapterError(403, 'wallet_identity_mismatch');
       return reply.header('Cache-Control', 'no-store').send(await station.quote(parsed.data));
     } catch (error) {
       if (error instanceof StationAdapterError) {

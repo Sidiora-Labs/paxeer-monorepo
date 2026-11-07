@@ -1,8 +1,11 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
+import { once } from "node:events";
 import { readFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import { resolve } from "node:path";
+import test from "node:test";
+import { LayerXApplicationStateError } from "../../support/runtime.mjs";
 import { decodeNativeProgramDeploy } from "@sidiora/layerx-sdk";
 import {
   BUY_OPERATION,
@@ -23,7 +26,6 @@ const listingId = "c41d8a2f60e9b7530d1a8c4f92b6e70a35d8c1f4a6b90e23d7c58f1a4b6d9
 const asset = "0100000000000000000000000000000000000000000000000000000000000000";
 const seller = "7f2a91c604db85e3a0c7f16d928e40b5c73a61f8d20e94b7c5a3106df82b49ec";
 const receiptDigest = "a5c3901e7bd426f80c19a3f56d82b4e70931cf6a8d25e40b7c1936af52d8e0b4";
-const stateRoot = "1f6b04c982a37e5d0b48f1c62a9d370e85b4c1f6a2d83e07b95c4f1a6d20e38b";
 const did = "did:layerx:marketplace-reference";
 
 const deployment = canonicalNativeProgramDeploy({ programId, abiVersion: 2, codeHash, wasm });
@@ -88,251 +90,125 @@ assert.throws(
   (error) => error.state === "refused" && error.message === "invalid_signing_key_did",
 );
 
-const stateBody = {
-  ok: true,
-  result: {
-    network_mode: "emulator",
-    batch_cadence: "instant",
-    state_root: stateRoot,
-    canonical_state_root: stateRoot,
-    receipt_state_root: "83b1d07a4c96e2f5108b3d6a97c40e2158fb7d3c609a2e4b81d75c3f0a6e9b12",
-    next_sequence: 41,
-    batch_number: 7,
-    timestamp_ms: 1_700_000_000_000,
-    cells: [{ key: "00".repeat(32), value_hi: 0, value_lo: 12 }],
-    accounts: [
-      { id: "11".repeat(32), name: "agent:did:layerx:other:main", balance_hi: 0, balance_lo: 5, next_sequence: 2 },
-      { id: "22".repeat(32), name: `agent:${did}:main`, balance_hi: 0, balance_lo: 900, next_sequence: 19 },
-    ],
-  },
-  trace: "emu-0000000000000001",
-};
+const transcript = JSON.parse(await readFile(new URL(
+  "../../test/marketplace-chain-125.fixture.json", import.meta.url,
+), "utf8"));
+const heads = transcript.exchanges.filter(({ request }) => request.method === "eth_getBlockByNumber");
+const nonces = transcript.exchanges.filter(({ request }) => request.method === "eth_getTransactionCount");
 
-const emulatorSequence = {
-  ok: true,
-  result: {
-    did,
-    next_sequence: "23",
-    observed_head_sequence: "41",
-    state_root: stateRoot,
-    verification: "emulator_core_snapshot",
-  },
-  trace: "emu-0000000000000002",
-};
-
-const requests = [];
-const state = createServer((request, response) => {
-  requests.push({ method: request.method, url: request.url, authorization: request.headers.authorization });
-  if (request.url === "/v1/state") {
-    response.writeHead(200, { "content-type": "application/json" }).end(JSON.stringify(stateBody));
-    return;
-  }
-  if (request.url === `/v1/dids/${did}/sequence`) {
-    response.writeHead(200, { "content-type": "application/json" }).end(JSON.stringify(emulatorSequence));
-    return;
-  }
-  response.writeHead(404, { "content-type": "application/json" }).end(JSON.stringify({ ok: false }));
-});
-await new Promise((ready) => state.listen(0, "127.0.0.1", ready));
-
-try {
-  const endpoint = `http://127.0.0.1:${state.address().port}`;
-  const anchor = await readLifecycleAnchor({ endpoint, token: "reference-token", did });
-  assert.deepEqual(requests, [
-    { method: "GET", url: "/v1/state", authorization: "Bearer reference-token" },
-    { method: "GET", url: `/v1/dids/${did}/sequence`, authorization: "Bearer reference-token" },
-  ]);
-  assert.equal(anchor.identitySequence, 23n);
-  assert.equal(anchor.notBefore, 1_700_000_000_000n);
-  assert.equal(anchor.expiresAt, 1_700_000_000_000n + LIFECYCLE_WINDOW_MS);
-  assert.equal(anchor.previousStateRoot, stateRoot);
-
-  await assert.rejects(
-    readLifecycleAnchor({ endpoint, token: "reference-token", did: "did:layerx:absent" }),
-    (error) => error.state === "refused" && error.message === "identity_sequence_http_404",
-  );
-} finally {
-  await new Promise((closed) => state.close(closed));
+async function rootListener(t, entries, { reply, status = 200 } = {}) {
+  const requests = [];
+  const failures = [];
+  const server = createServer(async (request, response) => {
+    try {
+      const chunks = [];
+      for await (const chunk of request) chunks.push(chunk);
+      const message = JSON.parse(Buffer.concat(chunks).toString("utf8"));
+      const recorded = entries[requests.length];
+      requests.push({
+        method: request.method, path: request.url,
+        authorization: request.headers.authorization,
+        contentType: request.headers["content-type"], message,
+      });
+      assert.ok(recorded, "no unexpected RPC calls");
+      assert.deepEqual(requests.at(-1), {
+        method: "POST", path: "/", authorization: "Bearer reference-token",
+        contentType: "application/json", message: { ...recorded.request, id: 1 },
+      });
+      const body = reply !== undefined && requests.length === entries.length
+        ? reply : { ...recorded.response, id: 1 };
+      response.writeHead(requests.length === entries.length ? status : 200, { "content-type": "application/json" })
+        .end(JSON.stringify(body));
+    } catch (error) {
+      failures.push(error);
+      response.writeHead(500, { "content-type": "application/json" }).end(JSON.stringify({
+        jsonrpc: "2.0", id: 1, error: { code: -32603, message: error.message },
+      }));
+    }
+  });
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  t.after(async () => {
+    await new Promise((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
+    assert.deepEqual(failures, []);
+    assert.equal(requests.length, entries.length, "all expected calls reached the retained root listener");
+  });
+  return { endpoint: `http://127.0.0.1:${server.address().port}/rpc`, requests };
 }
 
-const mismatchedSequence = createServer((request, response) => {
-  const body = request.url === "/v1/state"
-    ? stateBody
-    : { ...emulatorSequence, result: { ...emulatorSequence.result, did: "did:layerx:other" } };
-  response.writeHead(200, { "content-type": "application/json" }).end(JSON.stringify(body));
-});
-await new Promise((ready) => mismatchedSequence.listen(0, "127.0.0.1", ready));
-try {
-  await assert.rejects(
-    readLifecycleAnchor({
-      endpoint: `http://127.0.0.1:${mismatchedSequence.address().port}`,
-      token: "reference-token",
-      did,
-    }),
-    (error) => error.state === "unknown" && error.message === "identity_sequence_named_another_did",
-  );
-} finally {
-  await new Promise((closed) => mismatchedSequence.close(closed));
+function anchorOptions(endpoint) {
+  return { endpoint, token: "reference-token", did, evmAddress: transcript.sender };
 }
 
-const hostedState = {
-  ok: true,
-  result: {
-    network_mode: "hosted",
-    canonical_state_root: stateRoot,
-    state_root: stateRoot,
-    receipt_state_root: "83b1d07a4c96e2f5108b3d6a97c40e2158fb7d3c609a2e4b81d75c3f0a6e9b12",
-    receipt_digest: "2c7e5a10b94df386021c7e5b8a43d6f019bc5e27a806d14f93b2c6e05a1d7f48",
-    batch_number: 8_412,
-    observed_sequence: 5_190_744,
-    timestamp_ms: 1_700_000_500_000,
-    verification: "sequencer-signed-batch-header-and-receipt-inclusion",
-  },
-  trace: "gw-0000000000000002",
-};
-
-const hostedAccounts = {
-  ok: true,
-  result: {
-    did,
-    accounts: [
-      {
-        account_id: "33".repeat(32),
-        name: `agent:${did}:budget:daily`,
-        asset_id: asset,
-        balance: "120",
-        next_sequence: "4",
-        frozen: false,
-        canonical_value: "44".repeat(16),
-        proof_material: "55".repeat(16),
-        observed_head_sequence: "5190744",
-        batch_number: "8412",
-        verification: "settlement_anchored",
-      },
-      {
-        account_id: "66".repeat(32),
-        name: `agent:${did}:main`,
-        asset_id: asset,
-        balance: "7400",
-        next_sequence: "57",
-        frozen: false,
-        canonical_value: "77".repeat(16),
-        proof_material: "88".repeat(16),
-        observed_head_sequence: "5190744",
-        batch_number: "8412",
-        verification: "settlement_anchored",
-      },
-    ],
-    verification: "settlement_anchored",
-  },
-  trace: "gw-0000000000000003",
-};
-
-const hostedIdentitySnapshot = {
-  did,
-  next_sequence: "61",
-  observed_head_sequence: "5190744",
-  state_root: stateRoot,
-  verification: "authenticated_node_snapshot",
-};
-
-const hostedRequests = [];
-const hostedRpcBodies = [];
-const hostedGateway = (identitySnapshot) => createServer((request, response) => {
-  hostedRequests.push({ method: request.method, url: request.url, authorization: request.headers.authorization });
-  if (request.url === "/v1/state") {
-    response.writeHead(200, { "content-type": "application/json" }).end(JSON.stringify(hostedState));
-    return;
-  }
-  if (request.url === `/v1/dids/${did}/accounts`) {
-    response.writeHead(200, { "content-type": "application/json" }).end(JSON.stringify(hostedAccounts));
-    return;
-  }
-  if (request.method === "POST" && request.url === "/rpc") {
-    const chunks = [];
-    request.on("data", (chunk) => chunks.push(chunk));
-    request.once("end", () => {
-      hostedRpcBodies.push(JSON.parse(Buffer.concat(chunks).toString("utf8")));
-      response.writeHead(200, { "content-type": "application/json" })
-        .end(JSON.stringify({ jsonrpc: "2.0", id: 1, result: identitySnapshot }));
+async function marketplaceAnchorConsumesRecordedNodeResponses(t) {
+  assert.equal(IDENTITY_SEQUENCE_SELECTOR, "pending");
+  assert.equal(transcript.source.chain.chainId, 125);
+  for (const [index, environment] of ["emulator", "hosted"].entries()) {
+    await t.test(environment, async (t) => {
+      const node = await rootListener(t, [heads[index], nonces[index]]);
+      const anchor = await readLifecycleAnchor(anchorOptions(node.endpoint));
+      const block = heads[index].response.result;
+      const timestamp = BigInt(block.timestamp) * 1000n;
+      assert.deepEqual(anchor, {
+        identitySequence: BigInt(nonces[index].response.result),
+        notBefore: timestamp,
+        expiresAt: timestamp + LIFECYCLE_WINDOW_MS,
+        previousStateRoot: block.stateRoot.slice(2),
+      });
+      assert.equal(Object.isFrozen(anchor), true);
+      assert.deepEqual(node.requests.map(({ message }) => message), [
+        { jsonrpc: "2.0", id: 1, method: "eth_getBlockByNumber", params: ["latest", false] },
+        { jsonrpc: "2.0", id: 1, method: "eth_getTransactionCount", params: [transcript.sender, "pending"] },
+      ]);
     });
-    return;
   }
-  response.writeHead(404, { "content-type": "application/json" }).end(JSON.stringify({ ok: false }));
-});
-
-const hosted = hostedGateway(hostedIdentitySnapshot);
-await new Promise((ready) => hosted.listen(0, "127.0.0.1", ready));
-
-try {
-  const endpoint = `http://127.0.0.1:${hosted.address().port}`;
-  const anchor = await readLifecycleAnchor({ endpoint, token: "hosted-token", did });
-  assert.deepEqual(hostedRequests, [
-    { method: "GET", url: "/v1/state", authorization: "Bearer hosted-token" },
-    { method: "POST", url: "/rpc", authorization: "Bearer hosted-token" },
-  ]);
-  assert.deepEqual(hostedRpcBodies, [
-    { jsonrpc: "2.0", id: 1, method: "lx_getSequence", params: [did, IDENTITY_SEQUENCE_SELECTOR] },
-  ]);
-  assert.equal(IDENTITY_SEQUENCE_SELECTOR, "identity");
-  assert.equal(anchor.identitySequence, 61n);
-  assert.equal(anchor.notBefore, 1_700_000_500_000n);
-  assert.equal(anchor.expiresAt, 1_700_000_500_000n + LIFECYCLE_WINDOW_MS);
-  assert.equal(anchor.previousStateRoot, stateRoot);
-} finally {
-  await new Promise((closed) => hosted.close(closed));
 }
 
-const unauthenticated = hostedGateway({ ...hostedIdentitySnapshot, verification: "settlement_anchored" });
-await new Promise((ready) => unauthenticated.listen(0, "127.0.0.1", ready));
-try {
-  await assert.rejects(
-    readLifecycleAnchor({
-      endpoint: `http://127.0.0.1:${unauthenticated.address().port}`,
-      token: "hosted-token",
-      did,
-    }),
-    (error) => error.state === "unknown"
-      && error.message === "identity_sequence_snapshot_unauthenticated",
-  );
-} finally {
-  await new Promise((closed) => unauthenticated.close(closed));
+async function marketplaceAnchorRefusesInvalidIdentity(t) {
+  const node = await rootListener(t, []);
+  for (const evmAddress of [undefined, "", did, "0x1234"]) {
+    await assert.rejects(readLifecycleAnchor({ ...anchorOptions(node.endpoint), evmAddress }), {
+      name: "LayerXApplicationStateError", state: "refused", message: "invalid_signing_key_evm_address",
+    });
+  }
+  await assert.rejects(readLifecycleAnchor({ ...anchorOptions(node.endpoint), did: "marketplace-reference" }), {
+    name: "LayerXApplicationStateError", state: "refused", message: "invalid_signing_key_did",
+  });
+  assert.deepEqual(node.requests, []);
 }
 
-const unknownMode = createServer((request, response) => {
-  response.writeHead(200, { "content-type": "application/json" })
-    .end(JSON.stringify({ ...hostedState, result: { ...hostedState.result, network_mode: "mirror" } }));
-});
-await new Promise((ready) => unknownMode.listen(0, "127.0.0.1", ready));
-try {
-  await assert.rejects(
-    readLifecycleAnchor({ endpoint: `http://127.0.0.1:${unknownMode.address().port}`, token: "hosted-token", did }),
-    (error) => error.state === "unknown" && error.message === "program_state_omitted_network_mode",
-  );
-} finally {
-  await new Promise((closed) => unknownMode.close(closed));
+async function marketplaceAnchorRejectsUntrustedNodeResponses(t) {
+  const block = heads[0].response.result;
+  const cases = [
+    { name: "mismatched sequence envelope", nonce: true, reply: { jsonrpc: "2.0", id: 2, result: "0x1" }, message: "identity_sequence_rpc_refused" },
+    { name: "unauthenticated snapshot cannot replace nonce", nonce: true,
+      reply: { jsonrpc: "2.0", id: 1, result: { did, next_sequence: "61", verification: "settlement_anchored" } },
+      message: "invalid_identity_next_sequence" },
+    { name: "unknown state shape", reply: { jsonrpc: "2.0", id: 1, result: { network_mode: "mirror" } }, message: "invalid_program_state_block" },
+    { name: "malformed root", reply: { jsonrpc: "2.0", id: 1, result: { ...block, stateRoot: "0x1234" } }, message: "invalid_program_state_block" },
+    { name: "noncanonical timestamp", reply: { jsonrpc: "2.0", id: 1, result: { ...block, timestamp: "0x01" } }, message: "invalid_program_state_timestamp" },
+    { name: "noncanonical nonce", nonce: true, reply: { jsonrpc: "2.0", id: 1, result: "0x01" }, message: "invalid_identity_next_sequence" },
+    { name: "unavailable state", status: 503, reply: { jsonrpc: "2.0", id: 1, error: { code: -32000, message: "state unavailable" } }, state: "pending", message: "identity_sequence_http_503" },
+    { name: "refused nonce", nonce: true, status: 404, reply: { jsonrpc: "2.0", id: 1, error: { code: -32000, message: "not found" } }, state: "refused", message: "identity_sequence_http_404" },
+    ...[false, true].map((nonce) => ({
+      name: nonce ? "missing nonce method" : "missing block method", nonce,
+      reply: { jsonrpc: "2.0", id: 1, error: { code: -32601, message: "method not found" } },
+      state: "refused", message: `${nonce ? "eth_getTransactionCount" : "eth_getBlockByNumber"}: JSON-RPC error -32601`,
+    })),
+  ];
+  for (const scenario of cases) {
+    await t.test(scenario.name, async (t) => {
+      const node = await rootListener(t, scenario.nonce ? [heads[0], nonces[0]] : [heads[0]], scenario);
+      await assert.rejects(readLifecycleAnchor(anchorOptions(node.endpoint)), (error) => {
+        assert.ok(error instanceof LayerXApplicationStateError);
+        assert.equal(error.state, scenario.state ?? "unknown");
+        assert.equal(error.message, scenario.message);
+        return true;
+      });
+    });
+  }
 }
 
-const refusing = createServer((request, response) => {
-  response.writeHead(503, { "content-type": "application/json" })
-    .end(JSON.stringify({ ok: false, error: { code: "principal_state_proof_unavailable", retry: "never" } }));
-});
-await new Promise((ready) => refusing.listen(0, "127.0.0.1", ready));
-try {
-  await assert.rejects(
-    readLifecycleAnchor({ endpoint: `http://127.0.0.1:${refusing.address().port}`, token: "reference-token", did }),
-    (error) => error.state === "pending" && error.message === "program_state_http_503",
-  );
-} finally {
-  await new Promise((closed) => refusing.close(closed));
-}
-
-process.stdout.write(`${JSON.stringify({
-  test: "marketplace-deploy-payload",
-  payloadBytes: deployment.payload.length,
-  listCalldataBytes: listRequest.calldata.length,
-  buyCalldataBytes: buyRequest.calldata.length,
-  stateRequests: requests.length,
-  hostedRequests: hostedRequests.length,
-  identitySequenceReads: hostedRpcBodies.length,
-})}\n`);
+test(marketplaceAnchorConsumesRecordedNodeResponses);
+test(marketplaceAnchorRefusesInvalidIdentity);
+test(marketplaceAnchorRejectsUntrustedNodeResponses);

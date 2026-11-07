@@ -30,7 +30,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: interop-x402-${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event_name == 'push' && github.sha || github.ref }}
   cancel-in-progress: true
 
 env:

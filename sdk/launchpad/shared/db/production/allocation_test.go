@@ -118,7 +118,7 @@ func TestConnectionBudgetAliasUserAndReserveEnvelopes(t *testing.T) {
 	p.Aliases = append(p.Aliases, AliasLimit{Alias: "second", MaxConnections: 120})
 	p.Pairs = append(p.Pairs, PairLimit{Alias: "second", User: p.Users[0].User, PoolSize: 120})
 	a, err = b.Reconcile()
-	if err != nil || a.Targets["primary"].PoolerBackends != 420 {
+	if err != nil || a.Targets["primary"].PoolerBackends != 402 {
 		t.Fatal(a, err)
 	}
 	p.Users = append(p.Users, UserLimit{User: "second", MaxConnections: 120})

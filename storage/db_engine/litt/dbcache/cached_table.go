@@ -136,17 +136,16 @@ func (c *cachedTable) CacheAwareGet(
 	stringKey := util.UnsafeBytesToString(key)
 
 	value, exists = c.writeCache.Get(stringKey)
-	if exists {
-		// The value was recently written
-		hot = true
-		return value, exists, hot, err
-	} else {
+	if !exists {
 		value, exists = c.readCache.Get(stringKey)
-		if exists {
-			// The value was recently read
-			hot = true
-			return value, exists, hot, err
+	}
+	if exists {
+		// GC can remove primary keys and aliases while their values remain cached.
+		exists, err = c.base.Exists(key)
+		if err != nil || !exists {
+			return nil, false, false, err
 		}
+		return value, true, true, nil
 	}
 
 	value, exists, hot, err = c.base.CacheAwareGet(key, onlyReadFromCache)
@@ -162,16 +161,6 @@ func (c *cachedTable) CacheAwareGet(
 }
 
 func (c *cachedTable) Exists(key []byte) (exists bool, err error) {
-	_, exists = c.writeCache.Get(util.UnsafeBytesToString(key))
-	if exists {
-		return true, nil
-	}
-
-	_, exists = c.readCache.Get(util.UnsafeBytesToString(key))
-	if exists {
-		return true, nil
-	}
-
 	return c.base.Exists(key)
 }
 

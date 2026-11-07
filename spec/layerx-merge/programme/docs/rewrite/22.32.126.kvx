@@ -1,0 +1,33 @@
+[manifest]
+task = "22.32.126"
+domain = 14
+owner_role = "fm-web-explorer-bridge"
+pages = 3
+
+[page.1]
+path = "contracts/launchpad/README.md"
+status = "misleading"
+bytes = 23947
+source_1 = "record 22.30.117 [doc.7] (stale): Full architecture and operation sections reviewed; the default administrator governance explanation at line 114 contradicts the token-governance deployment summary at lines 244-245."
+source_2 = "record 22.30.133 [doc.2] (stale): Read in full; the administrator default at line 116 contradicts token/multisig implications in Deployment Details at lines 244-245. No separate LayerX endpoint is prescribed."
+source_3 = "record 22.30.140 [doc.002] (misleading): Line 124 overstates poolId coverage of central events; lines 244-245 imply token/multisig governance contrary to the administrator-mode default explained on line 116. Operator safety and restart sections remain useful."
+source_4 = "record 22.30.145 [doc.08] (misleading): Read the full launchpad overview and current admin governance description. Lines 244-245 contradict the default GOVERNANCE_MODE=admin path at line 116; see launchpad-governance-summary."
+source_5 = "record 22.30.150 [doc.004] (misleading): AIRDROP at line 217 describes iteration over current holders, and deployment details at lines 244-245 promise token governance/multisig defaults; findings 012 and 024 propose the snapshot-claim and actual authority model."
+source_6 = "record 22.30.167 [doc.10] (stale): Administrator-only default governance is explained at line 116 but Deployment Details still unconditionally advertises SID token governance; mode-specific operator guidance must agree."
+source_7 = "record 22.30.17 [doc.08] (stale): All 295 lines including recovery reviewed for the separate Solidity launchpad; line 244 unconditional SID governance conflicts with default administrator mode at line 116."
+source_8 = "record 22.30.31 [doc.001] (stale): Line 55 denies multi-token paths; the current advanced provider executes swapMultiHop. Delimit the core-only design statement and describe the optional routing layer."
+
+[page.2]
+path = "contracts/launchpad/docs/interfaces/IEventEmitter.md"
+status = "misleading"
+bytes = 16725
+source_1 = "record 22.30.140 [doc.005] (misleading): Typed event/function shapes match the declared interface, including TokenTransfer without poolId. Line 708 incorrectly promises idempotent reinitializeV2 behavior; repeated execution reverts Unauthorized."
+
+[page.3]
+path = "contracts/launchpad/operations/README.md"
+status = "misleading"
+bytes = 16250
+source_1 = "record 22.30.145 [doc.09] (misleading): Read deployment, verification, incident inspection, recovery and release-qualification guidance in full. The contracts/ working directory at lines 11 and 28 selects the unrelated parent project; see launchpad-runbook-working-directory."
+source_2 = "record 22.30.150 [doc.008] (stale): Authority and deployment journal guidance describes default administrator governance accurately, but commands at lines 11 onward select contracts/ instead of contracts/launchpad/; finding 016 proposes consistent workspace paths."
+source_3 = "record 22.30.182 [doc.05] (misleading): Deployment authority, private keys, journal identity and delayed recovery are described, but lines 11, 28 and 81 select contracts/ instead of contracts/launchpad/; see launchpad-working-directory."
+source_4 = "record 22.30.31 [doc.003] (stale): Lines 11, 28 and 81 use contracts/ as the command directory; scripts and the Hardhat project are under contracts/launchpad. The incident and local-evidence boundaries are otherwise retained."

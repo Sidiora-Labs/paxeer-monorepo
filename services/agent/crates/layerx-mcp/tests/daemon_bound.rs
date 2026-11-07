@@ -124,6 +124,7 @@ fn enrol(root: &Path) -> [u8; 32] {
         root,
         served()
             .iter()
+            .chain(catalogue::SESSION_TOOLS.iter())
             .map(|tool| tool.required_scope.to_owned())
             .collect(),
     )
@@ -303,6 +304,28 @@ fn exchange(session: &mut Session<DaemonBoundary>, requests: &[Value]) -> Vec<Va
         .collect()
 }
 
+fn assert_closed_input_schema(schema: &Value, tool_name: &str) {
+    if let Some(branches) = schema.get("oneOf") {
+        let branches = branches
+            .as_array()
+            .expect("oneOf must contain schema branches");
+        assert!(
+            !branches.is_empty(),
+            "tool {tool_name} has no input branches"
+        );
+        for branch in branches {
+            assert_closed_input_schema(branch, tool_name);
+        }
+    } else {
+        assert_eq!(schema.get("type").and_then(Value::as_str), Some("object"));
+        assert_eq!(
+            schema.get("additionalProperties").and_then(Value::as_bool),
+            Some(false),
+            "tool {tool_name} has an open input schema"
+        );
+    }
+}
+
 #[test]
 fn the_served_catalogue_is_the_daemon_catalogue_and_every_tool_is_fully_described() {
     let full = catalogue::surface(DeploymentMode::Full);
@@ -321,9 +344,9 @@ fn the_served_catalogue_is_the_daemon_catalogue_and_every_tool_is_fully_describe
             .filter(|tool| tool.kind == ToolKind::Read)
             .count()
     );
-    for tool in served() {
-        let listing = catalogue::listing(*tool)
-            .unwrap_or_else(|| panic!("tool {} has no listing", tool.name));
+    for tool in catalogue::surface(DeploymentMode::Full) {
+        let listing =
+            catalogue::listing(tool).unwrap_or_else(|| panic!("tool {} has no listing", tool.name));
         assert_eq!(
             listing.pointer("/name").and_then(Value::as_str),
             Some(tool.name)
@@ -331,20 +354,7 @@ fn the_served_catalogue_is_the_daemon_catalogue_and_every_tool_is_fully_describe
         assert!(catalogue::description(tool.name).is_some());
         let schema = catalogue::input_schema(tool.name)
             .unwrap_or_else(|| panic!("tool {} has no schema", tool.name));
-        let branches = schema
-            .pointer("/oneOf")
-            .and_then(Value::as_array)
-            .map_or_else(|| vec![&schema], |branches| branches.iter().collect());
-        for branch in branches {
-            assert_eq!(
-                branch
-                    .pointer("/additionalProperties")
-                    .and_then(Value::as_bool),
-                Some(false),
-                "tool {} has an open input schema",
-                tool.name
-            );
-        }
+        assert_closed_input_schema(&schema, tool.name);
         assert_eq!(
             listing
                 .pointer("/annotations/readOnlyHint")
@@ -515,12 +525,12 @@ fn assert_daemon_handshake(initialize: &Value, listed: &Value) {
         .pointer("/result/_meta/layerx~1write_tools")
         .and_then(Value::as_u64)
         .unwrap_or_default();
-    assert_eq!(reads.saturating_add(writes), 22);
+    assert_eq!(reads.saturating_add(writes), 33);
     let tools = listed
         .pointer("/result/tools")
         .and_then(Value::as_array)
         .unwrap_or_else(|| panic!("tools absent"));
-    assert_eq!(tools.len(), 22);
+    assert_eq!(tools.len(), 33);
 }
 
 fn assert_daemon_read(read: &Value, program: &str) {
@@ -677,6 +687,7 @@ fn a_read_only_binding_never_exposes_a_write_tool() {
         listed.len(),
         served()
             .iter()
+            .chain(catalogue::SESSION_TOOLS.iter())
             .filter(|tool| tool.kind == ToolKind::Read)
             .count()
     );
@@ -793,7 +804,7 @@ fn the_protocol_socket_refuses_every_unprotected_endpoint_and_serves_an_admitted
             .pointer("/result/tools")
             .and_then(Value::as_array)
             .map(Vec::len),
-        Some(22)
+        Some(33)
     );
     let _ = fs::remove_dir_all(root);
 }
@@ -905,6 +916,7 @@ fn daemon_enrolment_writes_the_binding_the_served_path_opens() {
         permitted_activity_types: BTreeSet::from([7]),
         scopes: served()
             .iter()
+            .chain(catalogue::SESSION_TOOLS.iter())
             .map(|tool| tool.required_scope.to_owned())
             .collect(),
         expiry_sequence: 300,
@@ -1012,7 +1024,7 @@ fn web_section() -> Value {
         "payer_address": payer_address,
         "receiver_address": receiver_address,
         "network": network,
-        "sequencer_public_key": "5e".repeat(32),
+        "receipt_key_index": [{"keyId": "2a".repeat(32), "publicKey": "5e".repeat(32), "firstHeight": 0, "lastHeight": 9}],
         "sequencer_id": "2a".repeat(32),
         "first_batch_number": 0,
         "last_batch_number": 9,
@@ -1100,7 +1112,7 @@ fn the_web_section_is_closed_and_typed() {
         (
             "sequencer_public_key",
             json!("5e"),
-            "field sequencer_public_key",
+            "field web.sequencer_public_key is retired; use receipt_key_index",
         ),
         ("pending_attempts", json!(256), "field web.pending_attempts"),
         ("timeout_ms", json!("5000"), "field timeout_ms"),
@@ -1165,4 +1177,19 @@ fn listener_applies_the_declared_group_and_keeps_replacement_files() {
         b"replacement"
     );
     fs::remove_dir_all(root).unwrap_or_else(|error| panic!("cleanup: {error}"));
+}
+
+#[path = "support/session_transport.rs"]
+mod session_transport;
+
+#[test]
+fn session_only_scopes_describe_list_and_call_over_transport() {
+    session_transport::session_tools_bind_describe_and_acknowledge();
+    session_transport::session_tools_authenticated_daemon_codec();
+    session_transport::all_session_tools_through_daemon_and_mcp();
+}
+
+#[test]
+fn session_only_read_only_transport_enforces_restrictions() {
+    session_transport::session_tools_read_only_filtering();
 }

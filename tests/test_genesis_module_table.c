@@ -243,6 +243,68 @@ static int check_storage_retirement_registration(void)
     return 0;
 }
 
+static int check_guest_abi_v5_registration(void)
+{
+    static const uint8_t key[32] = LXP_PROGRAMS_GUEST_ABI_V5_PARAMETER;
+    static const uint8_t retirement_key[32] = LXP_PROGRAMS_STORAGE_RETIREMENT_PARAMETER;
+    static const uint16_t versions[] = {
+        LXP_PROTOCOL_VERSION_OCCUPANCY, LXP_PROTOCOL_VERSION_STATE_COMMITMENT
+    };
+    lxp_genesis_manifest manifest;
+    lxp_genesis_module_plan plan;
+    const lxp_module_iface *retirement =
+        programs_module_registration_v4_storage_retirement();
+    for (size_t version = 0U; version < sizeof(versions) / sizeof(versions[0]);
+         ++version) {
+        for (uint8_t enabled = 0U; enabled <= 1U; ++enabled) {
+            for (uint8_t retire = 0U; retire <= 1U; ++retire) {
+                draft_manifest(&manifest, key, enabled);
+                manifest.protocol_version = versions[version];
+                if (retire != 0U) {
+                    manifest.parameters[2] = manifest.parameters[1];
+                    manifest.parameters[1] = manifest.parameters[0];
+                    memcpy(manifest.parameters[1].key, retirement_key, 32U);
+                    manifest.parameters[1].value[31] = 1U;
+                    manifest.parameter_count = 3U;
+                }
+                REQUIRE(lxp_genesis_module_plan_resolve(&manifest, &plan) == LXP_OK);
+                const lxp_module_iface *iface = plan.modules[0];
+                REQUIRE(iface == (enabled ? programs_module_registration_v5() :
+                    retire ? retirement : programs_module_registration_v4()));
+                REQUIRE(iface->abi_version == (enabled ? 5U : 4U));
+                if (enabled != 0U) {
+                    REQUIRE(iface->activity_type_count == retirement->activity_type_count);
+                    REQUIRE(memcmp(iface->activity_types, retirement->activity_types,
+                        retirement->activity_type_count * sizeof(retirement->activity_types[0])) == 0);
+                    size_t retirement_count = 0U;
+                    for (size_t type = 0U; type < iface->activity_type_count; ++type)
+                        if (iface->activity_types[type] == LX_PROGRAMS_STORAGE_RETIREMENT)
+                            ++retirement_count;
+                    REQUIRE(retirement_count == 1U);
+                }
+            }
+        }
+    }
+    draft_manifest(&manifest, key, 2U);
+    REQUIRE(lxp_genesis_module_plan_resolve(&manifest, &plan) == LXP_ERR_NON_CANONICAL);
+    manifest.parameters[0].value[31] = 1U;
+    for (size_t i = 0U; i < 31U; ++i) {
+        manifest.parameters[0].value[i] = 1U;
+        REQUIRE(lxp_genesis_module_plan_resolve(&manifest, &plan) == LXP_ERR_NON_CANONICAL);
+        manifest.parameters[0].value[i] = 0U;
+    }
+    manifest.parameters[0].module_id = LXP_MODULE_PROGRAMS;
+    REQUIRE(lxp_genesis_module_plan_resolve(&manifest, &plan) == LXP_ERR_NON_CANONICAL);
+    manifest.parameters[0].module_id = LXP_MODULE_GOVERNANCE;
+    manifest.parameters[2] = manifest.parameters[0];
+    manifest.parameter_count = 3U;
+    REQUIRE(lxp_genesis_module_plan_resolve(&manifest, &plan) == LXP_ERR_SEQUENCE_REUSED);
+    manifest.parameter_count = 2U;
+    manifest.parameters[0].key[31] = 1U;
+    REQUIRE(lxp_genesis_module_plan_resolve(&manifest, &plan) == LXP_ERR_UNKNOWN_MODULE);
+    return 0;
+}
+
 static int check_no_handover_type(void)
 {
     lxp_genesis_module_plan plan;
@@ -279,6 +341,9 @@ static lxp_result build(const uint8_t *enable_key, uint8_t flag,
     if (public_key_for(signer_private_key, signer_public_key) != 0)
         return LXP_ERR_BAD_SIGNATURE;
     draft_manifest(&draft, enable_key, flag);
+    /* Merged node initialization has no guarantor registration. */
+    draft.guarantor_count = 0U;
+    memset(draft.guarantors, 0, sizeof(draft.guarantors));
     programs_parameters(signer_public_key, asset_id, &metering, &fees);
     return lxp_genesis_build_fresh_empty(
         &draft, asset_id, &metering, &fees, signer_private_key, arena,
@@ -339,6 +404,32 @@ static int check_kernel(const built_genesis *built,
                 expected = true;
         REQUIRE(lxp_authority_allowance_policy(&kernel, &enforced) == LXP_OK);
         REQUIRE(enforced == expected);
+    }
+    /* The real producer's signed genesis and snapshot enable the embedded
+     * kernel directly, with no settlement registration or finalised flag. */
+    {
+        bool enabled = false;
+        lxp_snapshot_manifest_record changed_snapshot = built->snapshot_manifest;
+        static lxp_genesis_manifest changed_manifest;
+        static uint8_t verification_bytes[8388608U];
+        lxp_arena verification;
+        REQUIRE(lxp_arena_init(&verification, verification_bytes, sizeof(verification_bytes)) == LXP_OK);
+        REQUIRE(built->manifest.guarantor_count == 0U);
+        REQUIRE(lxp_genesis_initialized_verify(&built->manifest, NULL, 42U,
+            &built->snapshot_manifest, &kernel, &verification, &enabled) == LXP_OK && enabled);
+        REQUIRE(lxp_genesis_initialized_verify(&built->manifest, NULL, 43U,
+            &built->snapshot_manifest, &kernel, &verification, &enabled) == LXP_ERR_ROOT_MISMATCH && !enabled);
+        changed_snapshot.canonical_state_root[0] ^= 1U;
+        REQUIRE(lxp_genesis_initialized_verify(&built->manifest, NULL, 42U,
+            &changed_snapshot, &kernel, &verification, &enabled) == LXP_ERR_ROOT_MISMATCH && !enabled);
+        changed_snapshot = built->snapshot_manifest;
+        changed_snapshot.receipt_state_root[0] ^= 1U;
+        REQUIRE(lxp_genesis_initialized_verify(&built->manifest, NULL, 42U,
+            &changed_snapshot, &kernel, &verification, &enabled) == LXP_ERR_ROOT_MISMATCH && !enabled);
+        changed_manifest = built->manifest;
+        changed_manifest.signature[0] ^= 1U;
+        REQUIRE(lxp_genesis_initialized_verify(&changed_manifest, NULL, 42U,
+            &built->snapshot_manifest, &kernel, &verification, &enabled) != LXP_OK && !enabled);
     }
     REQUIRE(accounts.count == LXP_GENESIS_FRESH_SYSTEM_ACCOUNT_COUNT);
     REQUIRE(memcmp(kernel.current_state_root,
@@ -590,10 +681,8 @@ static int check_public_fixture(const char *directory, uint16_t fee_version)
     lxp_genesis_module_plan plan;
     lxp_snapshot_manifest_record snapshot_manifest, changed;
     lxp_byte_span snapshot;
-    lxp_genesis_bootstrap_registration registration = {0};
     lxp_fee_params fee_schedule;
     bool fee_authority = false;
-    bool enabled = false;
     REQUIRE(fixture_read(directory, "sequencer.public", public_key, sizeof(public_key), &length) == 0 && length == sizeof(public_key));
     REQUIRE(fixture_read(directory, "genesis.manifest", manifest_bytes, sizeof(manifest_bytes), &length) == 0);
     REQUIRE(lxp_genesis_parse(manifest_bytes, length, LXP_GENESIS_INPUT_MANIFEST, &manifest) == LXP_OK);
@@ -639,20 +728,17 @@ static int check_public_fixture(const char *directory, uint16_t fee_version)
     REQUIRE(memcmp(kernel.current_state_root, manifest.genesis_receipt_state_root, 32U) == 0);
     REQUIRE(memcmp(kernel.current_state_root, snapshot_manifest.receipt_state_root, 32U) == 0);
     REQUIRE(memcmp(root, kernel.current_state_root, 32U) != 0);
-    registration.network_id = manifest.network_id;
-    memcpy(registration.settlement_anchor, manifest.genesis_receipt_state_root, 32U);
-    memcpy(registration.state_root, manifest.genesis_receipt_state_root, 32U);
-    registration.finalised = true;
-    REQUIRE(lxp_genesis_bootstrap_verify(&manifest, &registration, 77U, true,
-        &snapshot_manifest, &kernel, &arena, &enabled) == LXP_OK && enabled);
+    /* Pinned pre-merge fixture compatibility checks its signed codec and
+     * snapshot transport only; it is not a startup authorization contract. */
+    REQUIRE(lxp_snapshot_verify_root(&kernel, &snapshot_manifest) == LXP_OK);
     changed = snapshot_manifest;
     changed.canonical_state_root[0] ^= 1U;
-    REQUIRE(lxp_genesis_bootstrap_verify(&manifest, &registration, 77U, true,
-        &changed, &kernel, &arena, &enabled) == LXP_ERR_ROOT_MISMATCH && !enabled);
+    REQUIRE(lxp_snapshot_load(snapshot.bytes, snapshot.length, &changed,
+        &kernel) == LXP_ERR_SNAPSHOT_MISMATCH);
     changed = snapshot_manifest;
     changed.receipt_state_root[0] ^= 1U;
-    REQUIRE(lxp_genesis_bootstrap_verify(&manifest, &registration, 77U, true,
-        &changed, &kernel, &arena, &enabled) == LXP_ERR_ROOT_MISMATCH && !enabled);
+    REQUIRE(lxp_snapshot_load(snapshot.bytes, snapshot.length, &changed,
+        &kernel) == LXP_ERR_SNAPSHOT_MISMATCH);
     REQUIRE(memcmp(kernel.current_state_root, snapshot_manifest.receipt_state_root, 32U) == 0);
     REQUIRE(lxp_state_root(&kernel, root) == LXP_OK && memcmp(root, snapshot_manifest.canonical_state_root, 32U) == 0);
     REQUIRE(lxp_state_store_destroy(&state) == LXP_OK);
@@ -666,6 +752,7 @@ static int check_allowance_policy(void)
     static built_genesis legacy, active, repeated;
     static lxp_kernel kernel;
     lxp_genesis_manifest changed;
+    lxp_genesis_guarantor historical_guarantor;
     lxp_genesis_module_plan plan;
     lxp_byte_span encoded;
     lxp_arena arena;
@@ -716,8 +803,17 @@ static int check_allowance_policy(void)
     kernel.module_kv[1] = kernel.module_kv[0];
     kernel.module_kv_count = 2U;
     REQUIRE(lxp_authority_allowance_policy(&kernel, &enforced) == LXP_ERR_VERSION_UNSUPPORTED);
+    draft_manifest(&changed, NULL, 0U);
+    historical_guarantor = changed.guarantors[0];
     changed = active.manifest;
+    REQUIRE(changed.guarantor_count == 0U);
     changed.protocol_version = LXP_PROTOCOL_VERSION_OCCUPANCY;
+    /* A merged manifest first fails the historical guarantor requirement. */
+    REQUIRE(lxp_genesis_encode(&changed, true, &arena, &encoded) == LXP_ERR_NON_CANONICAL);
+    /* With a historical guarantor, the same downgrade reaches the native
+     * fee-authority version guard. Neither refusal authorizes old startup. */
+    changed.guarantor_count = 1U;
+    changed.guarantors[0] = historical_guarantor;
     REQUIRE(lxp_genesis_encode(&changed, true, &arena, &encoded) == LXP_ERR_VERSION_UNSUPPORTED);
     changed = active.manifest;
     changed.parameters[0].module_id = LXP_MODULE_ASSET;
@@ -829,6 +925,8 @@ static int check_public_fixture_v4(void)
 
 int main(int argc, char **argv)
 {
+    REQUIRE(lxp_test_register("genesis.module-table.guest-abi-v5-registration",
+                              check_guest_abi_v5_registration) == 0);
     REQUIRE(lxp_test_register("genesis.module-table.storage-retirement-registration",
                               check_storage_retirement_registration) == 0);
     REQUIRE(lxp_test_register("genesis.module-table.storage-retirement-roundtrip",

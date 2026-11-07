@@ -1,0 +1,41 @@
+[manifest]
+task = "22.32.62"
+domain = 6
+owner_role = "fm-chain-modules"
+pages = 6
+
+[page.1]
+path = "interchain/modules/apps/transfer/spec/01_concepts.md"
+status = "stale"
+bytes = 8037
+source_1 = "record 22.30.57 [doc.13] (stale): Read in full: token tracing and multi-hop explanation; REST route/envelope and noncanonical channel examples need correction."
+
+[page.2]
+path = "interchain/modules/apps/transfer/spec/02_state.md"
+status = "stale"
+bytes = 364
+source_1 = "record 22.30.57 [doc.14] (stale): Read in full: port raw-byte encoding disagrees with the documented ProtocolBuffer(string) value."
+
+[page.3]
+path = "interchain/modules/apps/transfer/spec/05_events.md"
+status = "stale"
+bytes = 1992
+source_1 = "record 22.30.57 [doc.17] (stale): Read in full: timeout event type and refund attribute keys differ from the real callback emitter; receive sender is also omitted."
+
+[page.4]
+path = "interchain/modules/apps/transfer/spec/06_metrics.md"
+status = "stale"
+bytes = 1122
+source_1 = "record 22.30.57 [doc.18] (stale): Read in full: last-value gauges, parallel legacy/OpenTelemetry names and the int64 recording limit are not described accurately."
+
+[page.5]
+path = "interchain/modules/apps/transfer/spec/07_params.md"
+status = "misleading"
+bytes = 1180
+source_1 = "record 22.30.57 [doc.19] (misleading): Read in full: bank SendEnabled is incorrectly presented as a per-denom inbound IBC freeze; module ReceiveEnabled is the actual receive gate."
+
+[page.6]
+path = "interchain/modules/core/spec/01_concepts.md"
+status = "stale"
+bytes = 11251
+source_1 = "record 22.30.58 [doc.3] (stale): Read all 214 lines. Lines 25-27, 37 and 209-211 disagree with subject/substitute recovery, hyphenated connection IDs and either-deadline timeout behavior."

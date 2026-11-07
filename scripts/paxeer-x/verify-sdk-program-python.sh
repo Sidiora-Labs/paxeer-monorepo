@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 python_sdk_task_root=$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd)
-export PYTHONPATH="$python_sdk_task_root/agent/sdk/python${PYTHONPATH:+:$PYTHONPATH}"
+export PYTHONPATH="$python_sdk_task_root/services/agent/sdk/python${PYTHONPATH:+:$PYTHONPATH}"
 export PYTHONDONTWRITEBYTECODE=1
 exec python3 - "$python_sdk_task_root" <<'PY'
 import importlib.util

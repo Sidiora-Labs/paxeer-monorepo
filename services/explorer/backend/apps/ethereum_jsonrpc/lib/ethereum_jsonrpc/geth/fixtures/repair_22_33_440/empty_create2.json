@@ -1,0 +1,144 @@
+{
+  "node": "Geth/v1.15.11-stable-36b2371c/linux-amd64/go1.24.2",
+  "runtime": "0x60a5600060806000f55000",
+  "tx": {
+    "blockHash": "0xf76140b773468b4627cf0e1677d5c76e3eb1062b338269ce74f52c03fa3e5548",
+    "blockNumber": "0xe",
+    "from": "0x64951db68abc1c7c37977fc068ed51cf1173adcd",
+    "gas": "0x300000",
+    "gasPrice": "0x95af18a",
+    "maxFeePerGas": "0x15622815",
+    "maxPriorityFeePerGas": "0x1",
+    "hash": "0x989f4044c1b1f73ed600e0c7a83f98a0a1af6fe6db4030bc4af1614ce0412770",
+    "input": "0x",
+    "nonce": "0xc",
+    "to": "0x460fb225733b9032af6d68c4bc338fcbce1e0837",
+    "transactionIndex": "0x0",
+    "value": "0x7",
+    "type": "0x2",
+    "accessList": [],
+    "chainId": "0x539",
+    "v": "0x0",
+    "r": "0xc1e4b63ebedd28185ad2f6d11eb8f4fb0331f99a1930f4dc8dfe00d507c4fc49",
+    "s": "0x102f31d6071d5f2402a8d8e24efd887e0b6d5a883bf0b4d1abb99c96dccd272",
+    "yParity": "0x0"
+  },
+  "receipt": {
+    "blockHash": "0xf76140b773468b4627cf0e1677d5c76e3eb1062b338269ce74f52c03fa3e5548",
+    "blockNumber": "0xe",
+    "contractAddress": null,
+    "cumulativeGasUsed": "0xcf16",
+    "effectiveGasPrice": "0x95af18a",
+    "from": "0x64951db68abc1c7c37977fc068ed51cf1173adcd",
+    "gasUsed": "0xcf16",
+    "logs": [],
+    "logsBloom": "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+    "status": "0x1",
+    "to": "0x460fb225733b9032af6d68c4bc338fcbce1e0837",
+    "transactionHash": "0x989f4044c1b1f73ed600e0c7a83f98a0a1af6fe6db4030bc4af1614ce0412770",
+    "transactionIndex": "0x0",
+    "type": "0x2"
+  },
+  "result": {
+    "gas": 53014,
+    "failed": false,
+    "returnValue": "0x",
+    "structLogs": [
+      {
+        "pc": 0,
+        "op": "PUSH1",
+        "gas": 3124728,
+        "gasCost": 3,
+        "depth": 1,
+        "stack": []
+      },
+      {
+        "pc": 2,
+        "op": "PUSH1",
+        "gas": 3124725,
+        "gasCost": 3,
+        "depth": 1,
+        "stack": [
+          "0xa5"
+        ]
+      },
+      {
+        "pc": 4,
+        "op": "PUSH1",
+        "gas": 3124722,
+        "gasCost": 3,
+        "depth": 1,
+        "stack": [
+          "0xa5",
+          "0x0"
+        ]
+      },
+      {
+        "pc": 6,
+        "op": "PUSH1",
+        "gas": 3124719,
+        "gasCost": 3,
+        "depth": 1,
+        "stack": [
+          "0xa5",
+          "0x0",
+          "0x80"
+        ]
+      },
+      {
+        "pc": 8,
+        "op": "CREATE2",
+        "gas": 3124716,
+        "gasCost": 32000,
+        "depth": 1,
+        "stack": [
+          "0xa5",
+          "0x0",
+          "0x80",
+          "0x0"
+        ]
+      },
+      {
+        "pc": 9,
+        "op": "POP",
+        "gas": 3092716,
+        "gasCost": 2,
+        "depth": 1,
+        "stack": [
+          "0x6fb5c902233277f4b4c2bf88155b1e8cf963f87"
+        ]
+      },
+      {
+        "pc": 10,
+        "op": "STOP",
+        "gas": 3092714,
+        "gasCost": 0,
+        "depth": 1,
+        "stack": []
+      }
+    ]
+  },
+  "callTracer": {
+    "from": "0x64951db68abc1c7c37977fc068ed51cf1173adcd",
+    "gas": "0x300000",
+    "gasUsed": "0xcf16",
+    "to": "0x460fb225733b9032af6d68c4bc338fcbce1e0837",
+    "input": "0x",
+    "calls": [
+      {
+        "from": "0x460fb225733b9032af6d68c4bc338fcbce1e0837",
+        "gas": "0x2e7429",
+        "gasUsed": "0x0",
+        "to": "0x06fb5c902233277f4b4c2bf88155b1e8cf963f87",
+        "input": "0x",
+        "value": "0x0",
+        "type": "CREATE2"
+      }
+    ],
+    "value": "0x7",
+    "type": "CALL"
+  },
+  "codes": {
+    "0x06fb5c902233277f4b4c2bf88155b1e8cf963f87": "0x"
+  }
+}

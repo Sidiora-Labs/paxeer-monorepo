@@ -287,6 +287,9 @@ func (k Keeper) IsUpgradeActiveAtHeight(ctx sdk.Context, name string, height int
 	return doneHeight > 0 && height >= doneHeight
 }
 
+// GetClosestUpgrade returns the upgrade with the minimum completed height at or
+// above height, or ("", 0) if none qualifies. Equal heights select the
+// lexicographically greatest name, the first entry in reverse name-key order.
 func (k Keeper) GetClosestUpgrade(ctx sdk.Context, height int64) (string, int64) {
 	iter := sdk.KVStoreReversePrefixIterator(ctx.KVStore(k.storeKey), []byte{types.DoneByte})
 	defer func() { _ = iter.Close() }()
@@ -297,7 +300,10 @@ func (k Keeper) GetClosestUpgrade(ctx sdk.Context, height int64) (string, int64)
 	)
 	for ; iter.Valid(); iter.Next() {
 		upgradeHeight := int64(sdk.BigEndianToUint64(iter.Value())) //nolint:gosec // stored by SetDone from block heights which are always non-negative
-		if !found || (upgradeHeight >= height && upgradeHeight < closest.BlockHeight) {
+		if upgradeHeight < height {
+			continue
+		}
+		if !found || upgradeHeight < closest.BlockHeight {
 			found = true
 			name := parseDoneKey(iter.Key())
 			closest = upgrade{Name: name, BlockHeight: upgradeHeight}
@@ -416,7 +422,33 @@ func (k Keeper) DumpUpgradeInfoWithInfoToDisk(height int64, name string, info st
 		return err
 	}
 
-	return os.WriteFile(upgradeInfoFilePath, bz, 0o600)
+	dir, err := os.Open(filepath.Dir(upgradeInfoFilePath))
+	if err != nil {
+		return err
+	}
+	defer dir.Close()
+
+	tmp, err := os.CreateTemp(filepath.Dir(upgradeInfoFilePath), UpgradeInfoFileName+".tmp-*")
+	if err != nil {
+		return err
+	}
+	tmpPath := tmp.Name()
+	defer os.Remove(tmpPath)
+	if _, err := tmp.Write(bz); err != nil {
+		_ = tmp.Close()
+		return err
+	}
+	if err := tmp.Sync(); err != nil {
+		_ = tmp.Close()
+		return err
+	}
+	if err := tmp.Close(); err != nil {
+		return err
+	}
+	if err := os.Rename(tmpPath, upgradeInfoFilePath); err != nil {
+		return err
+	}
+	return dir.Sync()
 }
 
 // GetUpgradeInfoPath returns the upgrade info file path
@@ -439,6 +471,8 @@ func (k Keeper) getHomeDir() string {
 // written to disk by the old binary when panicking. An error is returned if
 // the upgrade path directory cannot be created or if the file exists and
 // cannot be read or if the upgrade info fails to unmarshal.
+// Interrupted writes leave temporary siblings which are never promoted on read:
+// only the atomically published file is authoritative (or no plan if absent).
 func (k Keeper) ReadUpgradeInfoFromDisk() (store.UpgradeInfo, error) {
 	var upgradeInfo store.UpgradeInfo
 

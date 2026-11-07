@@ -1,0 +1,8 @@
+[task.22.33.658]
+findings = ["continuous-vesting-invalid-time", "vesting-failed-funding-metrics"]
+continuous-vesting-invalid-time = "TestRepairM_658_ContinuousEndTime: past and equal end times reject without changing account or bank stores; a future end time creates a valid funded account that unlocks at its end time."
+vesting-failed-funding-metrics = "TestRepairM_658_FailedFundingMetrics: real continuous and delayed creation transactions fail bank funding with insufficient funds, leave no committed account or balance changes, and emit neither metric; subsequent successful transactions emit both metrics. Shared with TestCreateVestingAccountFailedFundingRecordsNoMetrics in otel_metrics_test.go."
+path = "Production transaction encoder/decoder and registered node message service router to vesting handler, account keeper, bank keeper, in-memory stores and OTel manual reader, using the committed repair301 dispatch and store fixtures."
+baseline = "Not run: explicit task gate order forbids verification before complete implementation and forbids running verify_cmd by hand. No pre-change test failure is claimed."
+wiring_requests = []
+evidence = "The runner records the qualified candidate revision, command, exit and private log through hf-build and hf-done."

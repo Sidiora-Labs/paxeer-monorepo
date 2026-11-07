@@ -1,0 +1,35 @@
+[task]
+id = "22.31.139"
+audit = "22.30.75"
+base_revision = "630bbaef660d5fa23f2d56d1c74264a6fcaa9325"
+qualification = "hf-build, then hf-done; exact candidate revision, command, exit and private log are recorded by the runner in /out/run/gates.jsonl and the final evidence line."
+baseline = "Not run: the explicit ordered gate instructions prohibit tests before implementation and prohibit invoking verify_cmd outside hf-done; do_7 contradicts that order. No pre-change test failures are claimed."
+
+[finding.wal-recovered-tail-write]
+test = "TestRepair_139_wal_recovered_tail_write"
+repair = "One framing decoder validates contiguous segments, rejects interior corruption, and locates the final valid offset; open truncates and syncs only a damaged final append before enabling writes. The real writer emits every fault-injection frame; each torn header/payload and CRC/codec fault is followed by recovery, an acknowledged write and a second reopen."
+
+[finding.snapshot-durable-publish]
+test = "TestRepair_139_snapshot_durable_publish"
+repair = "Checksummed versioned images are published via private create_new temporary files, file sync, atomic rename and directory sync. Legacy images remain readable. Invalid recovery images are rejected; fallback requires an intact WAL originating at segment zero and a checkpoint covering the rejected height. Tests restart PerfDb, preserve the prior inode during same-height replacement, ignore an interrupted temporary image, recover through retained WAL, reject missing coverage, and exercise concurrent publication."
+
+[finding.relational-state-persistence]
+test = "TestRepair_139_relational_state_persistence"
+repair = "CompleteStateSnapshot extends the legacy snapshot with versioned relational state. DurableRelationalStore validates and fsyncs versioned mutations before applying them to real AlertStore, ApiKeyStore, CompetitionStore and ReferralEngine instances. Shutdown and reopen restore allocator high-water marks, deletions, user/hash indexes, memberships, scores and registered custom tier settings; retained WAL also recovers mutations after the last snapshot and supports corrupt-snapshot fallback. Legacy engine loading refuses to silently discard a complete relational image."
+boundary = "Storage persistence is implemented and tested; existing PerfDb public fields cannot be made durable without the engine owner wiring this boundary. The legacy StateSnapshot and WalEntry shapes are retained so out-of-scope exhaustive matches and struct literals compile unchanged."
+
+[wiring.engine]
+request = "services/platform/perf-db/src/engine.rs — owning domain 8 (fm-platform): route every public relational mutation through DurableRelationalStore, restore CompleteStateSnapshot relational data on open, capture it on snapshot/shutdown, and replace direct mutable store exposure with this durable boundary; prove the entire engine shutdown/reopen path in the engine task."
+
+[wiring.referrals]
+request = "services/platform/perf-db/src/relational/referrals.rs — owning domain 8 (fm-platform): replace the static-only tier-name interface with an owned-name restore interface; until then callers must register their static custom tier names explicitly when opening durable storage, and unknown names fail instead of leaking allocations or reverting to defaults."
+
+[wiring.competitions]
+request = "services/platform/perf-db/src/relational/competitions.rs — owning domain 8 (fm-platform): expose exact ranked-entry restoration if ranked records become publicly writable; the current store has no rank setter, so storage rejects nonempty rank values rather than silently losing them."
+
+[wiring.coverage]
+request = "services/platform/perf-db/src/engine.rs — owning domain 8 (fm-platform): persist exact snapshot WAL cursors and use them for retention before pruning logs; this storage repair conservatively requires retained segment zero and covering checkpoints for legacy snapshot fallback and retains the entire relational WAL."
+
+[gotcha.scope]
+symptom = "The prescribed Go package gate targets Rust storage sources and originally has no Go package; a baseline verify requirement also contradicts the explicit implementation-first gate order."
+action = "The in-scope Go package invokes a Rust probe linked to the actual perfdb crate, with each named Go test running and asserting its real restart scenario. No alternate database implementation or mocked component is used. No baseline, out-of-scope ledger/spec edits, commits or pushes are performed."

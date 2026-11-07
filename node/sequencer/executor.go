@@ -1,6 +1,7 @@
 package sequencer
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"math/big"
@@ -106,6 +107,7 @@ type Accepted struct {
 	TxIndex        int
 	TimestampMs    int64
 	Result         *abci.ExecTxResult
+	BeforeContext  sdk.Context
 	ReceiptContext sdk.Context
 }
 
@@ -259,7 +261,7 @@ func (s *sequential) Open(height int64, timestampMs int64) error {
 		ChainID:         s.chainID,
 		Height:          height,
 		Time:            time.UnixMilli(timestampMs).UTC(),
-		AppHash:         s.host.CommitMultiStore().LastCommitID().Hash,
+		AppHash:         bytes.Clone(s.host.CommitMultiStore().LastCommitID().Hash),
 		LastBlockId:     s.host.LastBlockID(),
 		ProposerAddress: append([]byte(nil), s.proposer...),
 	}

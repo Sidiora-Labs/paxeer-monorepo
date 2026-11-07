@@ -1,0 +1,9 @@
+[repair.22.33.415]
+finding = "migration-rollback-runbook"
+source = "services/explorer/services/libs/blockscout-db/migration/README.md"
+change = "Name the initial migration's unsupported down operation and exact production error; retain backup/restore and explicitly disposable recreation as recovery procedures."
+tests = ["services/explorer/services/libs/blockscout-db/migration/tests/repair_22_33_415.rs::migration_rollback_runbook_matches_registered_migration", "services/explorer/services/libs/blockscout-db/migration/tests/repair_22_33_415.rs::migration_rollback_runbook_requires_backup_restore_or_disposable_recreation"]
+proof = "Call down on the real migration returned by Migrator::migrations with SeaORM's disconnected connection, assert the exact unsupported-operation error, and check that the runbook documents it and the approved recovery choices; backup/restore execution is not claimed."
+baseline = "Not run: the ordered gate instructions prohibit tests before full implementation and require the sole verify through hf-done. No pre-change failing tests are claimed; the inherited README already warned against down, refresh and reset."
+wiring_requests = "None: the proposal is fully inside the authorized migration directory; spec and GOTCHA ledgers are outside scope and were not edited."
+evidence = "The private hf-build/hf-done ledger names the verified candidate revision, exact command, exit code and log location; this record alone does not claim qualification."

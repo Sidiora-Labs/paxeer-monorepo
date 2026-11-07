@@ -145,6 +145,9 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 		}
 	}()
 	st := store.New(pool)
+	if err = st.EnsureHolderBalanceIndex(ctx); err != nil {
+		return nil, err
+	}
 
 	// Event consumers (driven synchronously by the webhook dispatch).
 	swapConsumer := consumer.NewSwapConsumer(st, rdb, logger)
@@ -183,6 +186,12 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 			return nil, err
 		}
 		if err = d.validate(); err != nil {
+			return nil, err
+		}
+		if err = st.SetAccountingProjection(d.ProjectionVersion); err != nil {
+			return nil, err
+		}
+		if err = rdb.Del(ctx, "platform:metrics").Err(); err != nil {
 			return nil, err
 		}
 		rpc, err = ethclient.DialContext(ctx, cfg.RPCURL)
@@ -227,7 +236,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 			return nil, e
 		}
 		reactions = analytics.ReactionAuthority{Pool: pool, Schema: d.Schema}
-		projector, e := analytics.NewProjector(reactions, risk.ProjectionModelV1{}, analytics.PostgresRiskInputs{Authority: reactions})
+		projector, e := NewAnalyticsProjector(reactions, d.Phase2.HolderSchema, "indexer", d.SourceStream, d.ProjectionVersion)
 		if e != nil {
 			return nil, e
 		}
@@ -286,7 +295,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 		holderCursor := ""
 		jobs = append(jobs, statsRuntimeJob{name: "canonical transfer holders", run: func(ctx context.Context) error {
 			return retryStatsJob(ctx, time.Duration(d.Phase2.HolderIntervalMS)*time.Millisecond, runtimeHealth, "transfer holders", func(ctx context.Context) error {
-				return catchUpStatsHolders(ctx, pool, holders, d.SourceStream, d.Phase2.HolderTokenBatch, d.Phase2.HolderTransferBatch, &holderCursor)
+				return catchUpStatsHolders(ctx, pool, holders, d.SourceStream, d.Phase2.HolderTokenBatch, d.Phase2.HolderTransferBatch, &holderCursor, projector.RefreshTokenInputs)
 			})
 		}})
 		jobs = append(jobs, statsRuntimeJob{name: "analytics expiry", run: func(ctx context.Context) error {
@@ -341,12 +350,32 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 				return err
 			})
 		}})
+		multihopJob, e := canonicalMultihopJob(pool, cfg, d, guard, logger, runtimeHealth)
+		if e != nil {
+			return nil, e
+		}
+		jobs = append(jobs, multihopJob)
 		legacy := &consumer.CanonicalLegacyBridge{Pool: pool, ProjectionSchema: d.Schema, SourceSchema: "indexer", SourceStream: d.SourceStream, ProjectionVersion: d.ProjectionVersion, Market: marketConsumer, Swap: swapConsumer, Holder: holderTracker, Batch: cfg.LegacyBridgeBatch}
 		runtimeHealth.set("legacy read model", errors.New("legacy read model awaiting canonical replay"))
 		jobs = append(jobs, statsRuntimeJob{name: "canonical legacy read model", run: func(ctx context.Context) error {
 			return retryStatsJob(ctx, time.Duration(cfg.LegacyBridgeIntervalMS)*time.Millisecond, runtimeHealth, "legacy read model", func(ctx context.Context) error {
 				_, err := legacy.RunOnce(ctx)
 				return err
+			})
+		}})
+
+		legacyWindowCursor := ""
+		runtimeHealth.set("legacy windows", errors.New("legacy windows awaiting initial refresh"))
+		jobs = append(jobs, statsRuntimeJob{name: "legacy idle windows", run: func(ctx context.Context) error {
+			return retryStatsJob(ctx, expiry.Interval, runtimeHealth, "legacy windows", func(ctx context.Context) error {
+				more, err := RefreshLegacyWindows(ctx, st, time.Now().Unix(), &legacyWindowCursor)
+				if err != nil {
+					return err
+				}
+				if more {
+					return errors.New("legacy window sweep in progress")
+				}
+				return nil
 			})
 		}})
 		jobs = append(jobs, statsRuntimeJob{name: "platform precompute", run: func(ctx context.Context) error {
@@ -501,6 +530,11 @@ func (a *App) Close() {
 // bucket_traders cleanup loop, both stopping when ctx is cancelled (parity with
 // the TS setInterval timers registered in registerPlatformRoutes).
 func (a *App) startBackgroundJobs(ctx context.Context) {
+	cursor := ""
+	go a.loop(ctx, time.Second, "legacy idle windows", func(c context.Context) error {
+		_, err := RefreshLegacyWindows(c, a.store, time.Now().Unix(), &cursor)
+		return err
+	})
 	go a.loop(ctx, platformPrecomputeInterval, "platform precompute", func(c context.Context) error {
 		return httpapi.PrecomputePlatformMetrics(c, a.store, a.redis)
 	})
@@ -857,7 +891,7 @@ func (d statsPhase2Document) validate(policy delivery.Policy) error {
 	}
 	return nil
 }
-func catchUpStatsHolders(ctx context.Context, pool *pgxpool.Pool, repository *holdings.Repository, stream string, tokenLimit, transferLimit int, after *string) error {
+func catchUpStatsHolders(ctx context.Context, pool *pgxpool.Pool, repository *holdings.Repository, stream string, tokenLimit, transferLimit int, after *string, coverageChanged ...func(context.Context, string) error) error {
 	if ctx == nil || pool == nil || repository == nil || stream == "" || after == nil || tokenLimit < 1 || tokenLimit > 100 || transferLimit < 1 || transferLimit > 1000 {
 		return holdings.ErrIntegrity
 	}
@@ -904,6 +938,14 @@ func catchUpStatsHolders(ctx context.Context, pool *pgxpool.Pool, repository *ho
 		if result.More || result.Coverage != "complete" {
 			return consumer.ErrAccountingSourceUnavailable
 		}
+		for _, refresh := range coverageChanged {
+			if refresh == nil {
+				return analytics.ErrInvalidInput
+			}
+			if err = refresh(ctx, token); err != nil {
+				return err
+			}
+		}
 		*after = token
 	}
 	if _, err = repository.DeleteExpiredSnapshots(ctx, 100); err != nil {
@@ -913,4 +955,24 @@ func catchUpStatsHolders(ctx context.Context, pool *pgxpool.Pool, repository *ho
 		return consumer.ErrAccountingSourceUnavailable
 	}
 	return nil
+}
+
+// NewAnalyticsProjector is shared by the live market effect and expiry worker;
+// every recomputation derives and persists canonical inputs in that transaction.
+func NewAnalyticsProjector(authority analytics.ReactionAuthority, holderSchema, sourceSchema, stream, version string) (*analytics.Projector, error) {
+	inputs := analytics.CanonicalRiskInputs{Authority: authority, HolderSchema: holderSchema, SourceSchema: sourceSchema, SourceStream: stream, ProjectionVersion: version}
+	return analytics.NewProjector(authority, risk.ProjectionModelV1{}, inputs)
+}
+
+// RefreshLegacyWindows is the bounded clock-driven pass shared by production
+// readiness and development maintenance. A failed pass never advances its cursor.
+func RefreshLegacyWindows(ctx context.Context, st *store.Store, now int64, cursor *string) (bool, error) {
+	if st == nil || cursor == nil {
+		return false, errors.New("stats: legacy window store and cursor required")
+	}
+	next, more, err := st.RefreshIdleWindows(ctx, now, *cursor, 100)
+	if err == nil {
+		*cursor = next
+	}
+	return more, err
 }

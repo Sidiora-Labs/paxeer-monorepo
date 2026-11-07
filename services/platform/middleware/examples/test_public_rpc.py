@@ -42,7 +42,12 @@ def payment_listener(receipt):
                 "eth_sendRawTransaction": PAYMENT["receiptJson"]["txHash"],
                 "pax_sequencerReceipt": receipt,
             }
-            if body["method"] not in results or self.path != "/rpc":
+            gateway = self.server.role == "gateway"
+            if (
+                body["method"] not in results
+                or self.path != ("/rpc" if gateway else "/")
+                or (body["method"] == "px_resolveAccount") != gateway
+            ):
                 self.send_error(400, "unexpected RPC request")
                 return
             payload = json.dumps({
@@ -58,15 +63,20 @@ def payment_listener(receipt):
         def log_message(self, format, *args):
             pass
 
-    with ThreadingHTTPServer(("127.0.0.1", 0), Listener) as server:
-        thread = threading.Thread(target=server.serve_forever, daemon=True)
-        thread.start()
+    with ThreadingHTTPServer(("127.0.0.1", 0), Listener) as gateway, ThreadingHTTPServer(("127.0.0.1", 0), Listener) as node:
+        gateway.role = "gateway"
+        node.role = "node"
+        threads = [threading.Thread(target=server.serve_forever, daemon=True) for server in (gateway, node)]
+        for thread in threads:
+            thread.start()
         try:
-            yield f"http://127.0.0.1:{server.server_port}/rpc", requests
+            yield (f"http://127.0.0.1:{gateway.server_port}/rpc", f"http://127.0.0.1:{node.server_port}/"), requests
         finally:
-            server.shutdown()
-            thread.join(timeout=5)
-            assert not thread.is_alive()
+            gateway.shutdown()
+            node.shutdown()
+            for thread in threads:
+                thread.join(timeout=5)
+                assert not thread.is_alive()
 
 
 def run_example(url, *arguments):
@@ -76,7 +86,7 @@ def run_example(url, *arguments):
     }
     environment["PYTHONPATH"] = str(ROOT / "services/agent/sdk/python")
     return subprocess.run(
-        [sys.executable, str(EXAMPLE), "--rpc", url, "--did", DID, *arguments],
+        [sys.executable, str(EXAMPLE), "--gateway", url[0], "--rpc", url[1], "--did", DID, *arguments],
         env=environment, capture_output=True, text=True, timeout=10,
     )
 
@@ -154,16 +164,16 @@ def test_python_example_verifies_receipted_payment(tmp_path, case):
             "jsonrpc": "2.0", "id": 1,
             "method": "px_resolveAccount", "params": [DID],
         }),
-        ("/rpc", {
-            "jsonrpc": "2.0", "id": 2, "method": "eth_getTransactionCount",
+        ("/", {
+            "jsonrpc": "2.0", "id": 1, "method": "eth_getTransactionCount",
             "params": [PAYMENT["receiptJson"]["from"], "pending"],
         }),
-        ("/rpc", {
-            "jsonrpc": "2.0", "id": 3, "method": "eth_sendRawTransaction",
+        ("/", {
+            "jsonrpc": "2.0", "id": 2, "method": "eth_sendRawTransaction",
             "params": [PAYMENT["rawTransaction"]],
         }),
-        ("/rpc", {
-            "jsonrpc": "2.0", "id": 4, "method": "pax_sequencerReceipt",
+        ("/", {
+            "jsonrpc": "2.0", "id": 3, "method": "pax_sequencerReceipt",
             "params": [PAYMENT["receiptJson"]["txHash"]],
         }),
     ]

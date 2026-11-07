@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 
 import { copyEntry } from "../../../copy/runtime.ts";
 import { formatCopy } from "../../../copy/format.ts";
@@ -19,6 +19,7 @@ import { LoadingSurface, OfflineSurface, StillCheckingSurface } from "../../stat
 import {
   HOME_ROUTE,
   MOVE_CURRENCY,
+  MOVE_AMOUNT_VALIDATION_MESSAGE,
   OTHER_ACCOUNT_OPTION,
   authorizeMoveNativeAccess,
   clearPendingMove,
@@ -319,6 +320,7 @@ export function MoveMoney() {
   const [destinationChoice, setDestinationChoice] = useState("");
   const [otherAccount, setOtherAccount] = useState("");
   const [amountText, setAmountText] = useState("");
+  const amountErrorId = useId();
   const [quote, setQuote] = useState<QuoteState>({ kind: "idle" });
   const [notice, setNotice] = useState<string | undefined>(undefined);
   const [phase, setPhase] = useState<MovePhase>({ kind: "wizard" });
@@ -362,6 +364,7 @@ export function MoveMoney() {
 
   const agents = agentLoad.kind === "loaded" ? agentLoad.agents : [];
   const amount = parseMoveAmount(amountText);
+  const amountInvalid = amountText.length > 0 && amount === undefined;
   const destination =
     destinationChoice === OTHER_ACCOUNT_OPTION
       ? otherAccount.trim().length > 0
@@ -554,14 +557,24 @@ export function MoveMoney() {
       label: stepCopy[1].label,
       title: stepCopy[1].title,
       render: () => (
-        <KitTextField
-          label={formatCopy("move.amount.hint", { currency: MOVE_CURRENCY })}
-          inputMode="numeric"
-          value={amountText}
-          onChange={(event) => {
-            setAmountText(event.target.value);
-          }}
-        />
+        <div className="flex flex-col gap-2">
+          <KitTextField
+            label={formatCopy("move.amount.hint", { currency: MOVE_CURRENCY })}
+            inputMode="numeric"
+            value={amountText}
+            error={amountInvalid}
+            aria-invalid={amountInvalid}
+            aria-describedby={amountInvalid ? amountErrorId : undefined}
+            onChange={(event) => {
+              setAmountText(event.target.value);
+            }}
+          />
+          {amountInvalid ? (
+            <p id={amountErrorId} role="alert" className="text-sm text-destructive">
+              {MOVE_AMOUNT_VALIDATION_MESSAGE}
+            </p>
+          ) : null}
+        </div>
       ),
       canContinue: () => amount !== undefined,
     },

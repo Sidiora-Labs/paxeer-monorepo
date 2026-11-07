@@ -79,21 +79,26 @@ defmodule BlockScoutWeb.AddressContractVerificationController do
         conn,
         %{
           "smart_contract" => smart_contract,
-          "file" => files,
           "verification_type" => "json:standard"
-        }
+        } = params
       ) do
-    files_array = PublishHelper.prepare_files_array(files)
+    files_array = PublishHelper.prepare_files_array(params["file"])
 
     with %Plug.Upload{path: path} <- PublishHelper.get_one_json(files_array),
-         {:ok, json_input} <- File.read(path) do
-      Que.add(SolidityPublisherWorker, {"json_web", smart_contract, json_input, conn})
+         {:read, {:ok, json_input}} <- {:read, File.read(path)},
+         {:queue, {:ok, %Que.Job{}}} <-
+           {:queue, enqueue_standard_json(smart_contract, json_input, conn)} do
+      send_resp(conn, 204, "")
     else
-      _ ->
-        nil
-    end
+      nil ->
+        conn |> put_status(:unprocessable_entity) |> json(%{error: "Please attach a JSON compiler input file."})
 
-    send_resp(conn, 204, "")
+      {:read, {:error, _}} ->
+        conn |> put_status(:unprocessable_entity) |> json(%{error: "Unable to read JSON compiler input file."})
+
+      _ ->
+        conn |> put_status(:service_unavailable) |> json(%{error: "Unable to queue verification."})
+    end
   end
 
   def create(
@@ -151,6 +156,12 @@ defmodule BlockScoutWeb.AddressContractVerificationController do
     Que.add(SolidityPublisherWorker, {"", %{}, %{}, conn})
 
     send_resp(conn, 204, "")
+  end
+
+  defp enqueue_standard_json(smart_contract, json_input, conn) do
+    Que.add(SolidityPublisherWorker, {"json_web", smart_contract, json_input, conn})
+  catch
+    :exit, _ -> {:error, :queue_unavailable}
   end
 
   defp check_in_sourcify(address_hash_string, files_array, conn) do

@@ -1,0 +1,8 @@
+[task.22.31.106]
+finding = "cached-db-write-publication-order"
+repair = "One mutex shared by Set, Delete and every cached-batch Commit serializes backing writes through cache publication."
+tests = ["TestRepair_106_SetPublicationOrder", "TestRepair_106_DeletePublicationOrder", "TestRepair_106_BatchSetPublicationOrder", "TestRepair_106_BatchDeletePublicationOrder"]
+proof = "Each test pauses a real standard-cache publication after a real Pebble write, competes with each of the four write variants, and checks backing reads, cached reads, BatchGet and iterators after both writers finish."
+baseline = "Not run: the explicit gate order requires complete implementation and hf-build before hf-done, and forbids running verify_cmd by hand. No pre-change test failures are claimed."
+wiring_requests = []
+evidence = "The bounded hf-build and hf-done gate ledger and final task result record the candidate revision, command, exit code and private log location."

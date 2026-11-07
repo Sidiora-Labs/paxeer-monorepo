@@ -13,7 +13,7 @@
 #
 # Usage:
 #   ./fleet-keygen.sh                      # servers from registry /api/nodes
-#   SERVERS='203.0.113.10 203.0.113.11' ./fleet-keygen.sh
+#   SERVERS='192.0.2.10 198.51.100.11' ./fleet-keygen.sh  # documentation addresses
 #   SERVERS_FILE=ips.txt ./fleet-keygen.sh
 #   HPX_PUSH=0 ./fleet-keygen.sh           # skip push (servers already updated)
 # =============================================================================
@@ -39,6 +39,8 @@ err(){  printf "%b\n" "${C_R}[-]${C_RST} $*" >&2; }
 die(){  err "$@"; exit 1; }
 hr(){   printf "%b\n" "${C_D}----------------------------------------------------------------------${C_RST}"; }
 
+command -v python3 >/dev/null 2>&1 || die "missing python3"
+command -v flock >/dev/null 2>&1 || die "missing flock"
 command -v jq   >/dev/null 2>&1 || die "missing jq"
 command -v curl >/dev/null 2>&1 || die "missing curl"
 command -v ssh  >/dev/null 2>&1 || die "missing ssh"
@@ -53,13 +55,17 @@ discover_servers(){
     curl -fsS --max-time 12 "${MIRROR}/api/nodes" 2>/dev/null | jq -r '.nodes[].ip' 2>/dev/null
 }
 
-mapfile -t SERVERS_ARR < <(discover_servers | sort -u)
+exec 9>"${WORKDIR}/workflow.lock"
+flock -n 9 || die "another fleet workflow owns $WORKDIR"
+discovered=$(discover_servers) || die "server discovery failed"
+mapfile -t SERVERS_ARR < <(printf '%s\n' "$discovered" | sed '/^$/d' | sort -u)
 [ "${#SERVERS_ARR[@]}" -gt 0 ] || die "no servers (set SERVERS='ip ip ...' | SERVERS_FILE=<file> | ensure registry reachable)"
 
 hr; info "${C_B}Fleet keygen${C_RST}  targets=${#SERVERS_ARR[@]}  push=${PUSH}"
 info "${SERVERS_ARR[*]}"; hr
 
-: > "${OPERATORS_FILE}.tmp"
+roster=$(python3 "${SELF_DIR}/fleet_state.py" "$WORKDIR" begin "${SERVERS_ARR[@]}") || die "cannot persist intended roster"
+mapfile -t SERVERS_ARR <<<"$roster"
 declare -i okc=0 failc=0
 for ip in "${SERVERS_ARR[@]}"; do
     printf "  %-16s " "$ip"
@@ -72,15 +78,14 @@ for ip in "${SERVERS_ARR[@]}"; do
             || { printf "%b\n" "${C_R}install failed${C_RST}"; failc+=1; continue; }
     fi
     # 2) run keygen, capture the machine-readable OPERATOR line
-    line=$($SSH "${SSH_USER}@${ip}" 'hpx validator keygen 2>/dev/null | grep "^OPERATOR "' 2>/dev/null)
-    if [ -z "$line" ]; then printf "%b\n" "${C_R}no OPERATOR line (keygen failed)${C_RST}"; failc+=1; continue; fi
-    mon=$(awk '{print $2}' <<<"$line"); acc=$(awk '{print $3}' <<<"$line"); val=$(awk '{print $4}' <<<"$line")
-    [ -n "$acc" ] || { printf "%b\n" "${C_R}parse failed${C_RST}"; failc+=1; continue; }
-    printf '%s\t%s\t%s\t%s\n' "$mon" "$ip" "$acc" "$val" >> "${OPERATORS_FILE}.tmp"
-    printf "%b\n" "${C_G}${acc}${C_RST}"; okc+=1
+    line=$($SSH "${SSH_USER}@${ip}" "bash -o pipefail -c 'hpx validator keygen 2>/dev/null | grep \"^OPERATOR \"'" 2>/dev/null)
+    if [ "$?" -ne 0 ] || ! python3 "${SELF_DIR}/fleet_state.py" "$WORKDIR" record "$ip" "$line"; then
+        printf "%b\n" "${C_R}unresolved; known identity retained${C_RST}"; failc+=1; continue
+    fi
+    printf "%b\n" "${C_G}verified${C_RST}"; okc+=1
 done
 
-sort -u "${OPERATORS_FILE}.tmp" > "$OPERATORS_FILE"; rm -f "${OPERATORS_FILE}.tmp"
+python3 "${SELF_DIR}/fleet_state.py" "$WORKDIR" complete || die "incomplete roster; retry unresolved hosts before funding"
 hr
 ok "keygen OK on ${okc} host(s); ${failc} failed"
 ok "operators -> ${OPERATORS_FILE}  (n=$(wc -l < "$OPERATORS_FILE"))"

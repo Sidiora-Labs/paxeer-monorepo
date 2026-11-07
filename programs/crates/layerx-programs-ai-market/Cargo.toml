@@ -13,15 +13,15 @@ crate-type = ["cdylib", "rlib"]
 layerx-program-sdk = { path = "../../sdk/rust" }
 sha2.workspace = true
 
-[target.'cfg(target_arch = "wasm32")'.dependencies]
-spin = { version = "=0.9.9", default-features = false, features = ["spin_mutex"] }
-
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 ed25519-dalek = { version = "=2.2.0", default-features = false }
 
 [dev-dependencies]
+layerx-wire = { path = "../../../services/agent/crates/layerx-wire" }
 ed25519-dalek = { version = "=2.2.0", default-features = false }
+layerx-committed-proof = { path = "../../../services/interop/crates/layerx-committed-proof" }
 layerx-programs-runtime = { path = "../layerx-programs-runtime" }
+serde_json = "=1.0.151"
 
 [lints]
 workspace = true

@@ -1,0 +1,2020 @@
+#include <stdio.h>
+extern int hf_client_authority_guard(const char *operation, FILE *output);
+/*
+ * MCP (Model Context Protocol) stdio server + auto-install.
+ *
+ * `cg mcp`         — newline-delimited JSON-RPC 2.0 on stdin/stdout,
+ *                    exposing the graph as tools. The graph is incrementally
+ *                    refreshed before reads when configured, with source
+ *                    validation reported independently of refresh status.
+ * `cg mcp-install` — writes/merges Hyperfide into the MCP configs of popular
+ *                    coding agents (Claude Code, Cursor, VS Code, Windsurf,
+ *                    Gemini CLI, Codex CLI).
+ */
+#include "cg.h"
+#include "sem_flow.h"
+#include "sem_search.h"
+#include "sem_inspect.h"
+#include "answer_health.h"
+#include <unistd.h>
+#include <sys/stat.h>
+#include <dirent.h>
+#include <ctype.h>
+
+/* ---------------- tool table ---------------- */
+
+typedef struct {
+    Cg *cg;
+    const SysInfo *si;
+    const char *args;      /* arguments object, or NULL */
+} CallCtx;
+
+/* codify-v15 1.2: path (a glob or a list of them), lang and no_tests
+ * narrow search_code and get_context exactly as the CLI flags do; the
+ * filter is cleared after the call so the next tool starts wide */
+static void mcp_filter(const CallCtx *c, QueryFilter *f) {
+    memset(f, 0, sizeof *f);
+    if (!c->args) return;
+    char *raw = json_get_raw(c->args, "path");
+    if (raw && raw[0] == '[') {
+        char **items = NULL;
+        int n = json_array_items(raw, &items);
+        for (int i = 0; i < n; i++) {
+            char *v = json_string_value(items[i]);
+            if (v && v[0] && f->npaths < QF_MAX_PATHS)
+                snprintf(f->paths[f->npaths++], sizeof f->paths[0], "%s", v);
+            free(v);
+            free(items[i]);
+        }
+        free(items);
+    } else if (raw) {
+        char *v = json_string_value(raw);
+        if (v && v[0]) snprintf(f->paths[f->npaths++], sizeof f->paths[0], "%s", v);
+        free(v);
+    }
+    free(raw);
+    char *lang = json_get_string(c->args, "lang");
+    char *nt = json_get_raw(c->args, "no_tests");
+    char *argv[4] = { "x", NULL, NULL, NULL };
+    int argc = 1;
+    if (lang && lang[0]) { argv[argc++] = "--lang"; argv[argc++] = lang; }
+    if (nt && strcmp(nt, "true") == 0) argv[argc++] = "--no-tests";
+    QueryFilter g;
+    if (argc > 1 && query_filter_parse(&argc, argv, &g) == 0) {
+        memcpy(f->lang, g.lang, sizeof f->lang);
+        f->no_tests = g.no_tests;
+    }
+    free(lang);
+    free(nt);
+}
+
+static int t_search(void *v) {
+    CallCtx *c = v;
+    char *q = c->args ? json_get_string(c->args, "query") : NULL;
+    if (!q) { printf("{\"error\":\"missing query\"}\n"); return 1; }
+    int limit = (int)json_get_int(c->args, "limit", 20);
+    QueryFilter f;
+    mcp_filter(c, &f);
+    char *kind = json_get_string(c->args, "kind");
+    char *name = json_get_string(c->args, "name");
+    sem_search_filter_set(c->cg, kind, name);
+    cg_filter_set(c->cg, &f);
+    int rc = cmd_search(c->cg, q, limit > 0 ? limit : 20, true);
+    cg_filter_set(c->cg, NULL);
+    sem_search_filter_set(c->cg, NULL, NULL);
+    free(kind); free(name);
+    free(q);
+    return rc;
+}
+static int t_context(void *v) {
+    CallCtx *c = v;
+    char *q = c->args ? json_get_string(c->args, "query") : NULL;
+    if (!q) { printf("{\"error\":\"missing query\"}\n"); return 1; }
+    int budget = (int)json_get_int(c->args, "budget", 4000);
+    char *budget_raw = c->args ? json_get_raw(c->args, "budget") : NULL;
+    if (budget_raw) budget = answer_health_query_budget(budget);
+    free(budget_raw);
+    int limit = (int)json_get_int(c->args, "limit", 8);
+    QueryFilter f;
+    mcp_filter(c, &f);
+    char *kind = json_get_string(c->args, "kind");
+    char *name = json_get_string(c->args, "name");
+    sem_search_filter_set(c->cg, kind, name);
+    cg_filter_set(c->cg, &f);
+    int rc = cmd_context(c->cg, q, budget > 0 ? budget : 4000,
+                         limit > 0 ? limit : 8, true);
+    cg_filter_set(c->cg, NULL);
+    sem_search_filter_set(c->cg, NULL, NULL);
+    free(kind); free(name);
+    free(q);
+    return rc;
+}
+
+/* find_files: cg files through the same argv the CLI parses */
+static int t_files(void *v) {
+    CallCtx *c = v;
+    char *pat = c->args ? json_get_string(c->args, "pattern") : NULL;
+    char *lang = c->args ? json_get_string(c->args, "lang") : NULL;
+    char *dirs = c->args ? json_get_raw(c->args, "dirs") : NULL;
+    long depth = c->args ? json_get_int(c->args, "depth", 0) : 0;
+    long limit = c->args ? json_get_int(c->args, "limit", 0) : 0;
+    char dbuf[24], lbuf[24];
+    char *argv[12];
+    int argc = 0;
+    argv[argc++] = "files";
+    if (dirs && strcmp(dirs, "true") == 0) argv[argc++] = "--dirs";
+    if (pat && pat[0]) argv[argc++] = pat;
+    if (lang && lang[0]) { argv[argc++] = "--lang"; argv[argc++] = lang; }
+    if (depth > 0) {
+        snprintf(dbuf, sizeof dbuf, "%ld", depth);
+        argv[argc++] = "--depth"; argv[argc++] = dbuf;
+    }
+    if (limit > 0) {
+        snprintf(lbuf, sizeof lbuf, "%ld", limit);
+        argv[argc++] = "-n"; argv[argc++] = lbuf;
+    }
+    argv[argc] = NULL;
+    int rc = cmd_files(c->cg, argc, argv, true);
+    free(pat); free(lang); free(dirs);
+    return rc;
+}
+
+static int t_survey(void *v) {
+    CallCtx *c = v;
+    char *scope = c->args ? json_get_string(c->args, "scope") : NULL;
+    int budget = (int)json_get_int(c->args, "budget", 16000);
+    int rc = cmd_survey(c->cg, scope, budget > 0 ? budget : 16000, true);
+    free(scope);
+    return rc;
+}
+
+static int t_anchors(void *v) {
+    CallCtx *c = v;
+    char *st = c->args ? json_get_raw(c->args, "stale") : NULL;
+    char *un = c->args ? json_get_raw(c->args, "uncovered") : NULL;
+    int rc = cmd_anchors(c->cg, st && strcmp(st, "true") == 0,
+                         un && strcmp(un, "true") == 0, true);
+    free(st); free(un);
+    return rc;
+}
+static int t_symbol(void *v) {
+    CallCtx *c = v;
+    char *n = c->args ? json_get_string(c->args, "name") : NULL;
+    if (!n) { printf("{\"error\":\"missing name\"}\n"); return 1; }
+    int rc = cmd_symbol(c->cg, n, true);
+    free(n);
+    return rc;
+}
+static int t_impact(void *v) {
+    CallCtx *c = v;
+    char *n = c->args ? json_get_string(c->args, "name") : NULL;
+    if (!n) { printf("{\"error\":\"missing name\"}\n"); return 1; }
+    int depth = (int)json_get_int(c->args, "depth", 3);
+    int budget = (int)json_get_int(c->args, "budget", 8000);
+    char *budget_raw = c->args ? json_get_raw(c->args, "budget") : NULL;
+    if (budget_raw) budget = answer_health_query_budget(budget);
+    free(budget_raw);
+    int rc = cmd_impact(c->cg, n, depth > 0 ? depth : 3,
+                        budget > 0 ? budget : 8000, true);
+    free(n);
+    return rc;
+}
+static int t_flow(void *v) {
+    CallCtx *c = v;
+    char *mode = c->args ? json_get_string(c->args, "mode") : NULL;
+    char *name = c->args ? json_get_string(c->args, "name") : NULL;
+    char *target = c->args ? json_get_string(c->args, "target") : NULL;
+    SemFlowLimits lim = {
+        .depth = (int)json_get_int(c->args, "depth", 3),
+        .nodes = (int)json_get_int(c->args, "max_nodes", 64),
+        .edges = (int)json_get_int(c->args, "max_edges", 128),
+        .time_ms = (int)json_get_int(c->args, "max_ms", 200),
+        .output_bytes = (int)json_get_int(c->args, "max_output", 16000),
+    };
+    int rc = sem_flow_query(c->cg, mode, name, target, lim, true);
+    free(mode); free(name); free(target);
+    return rc;
+}
+static int t_inspect_hierarchy(void *v) {
+    CallCtx *c=v;
+    char *name=c->args?json_get_string(c->args,"name"):NULL;
+    if (!name || !*name) { free(name); puts("{\"error\":\"missing name\"}"); return 1; }
+    int limit=c->args?(int)json_get_int(c->args,"limit",20):20;
+    int rc=cmd_sem_hierarchy(c->cg,name,limit,true);
+    free(name);
+    return rc;
+}
+static int t_inspect_unreferenced(void *v) {
+    CallCtx *c=v;
+    char *path=c->args?json_get_string(c->args,"path"):NULL;
+    int limit=c->args?(int)json_get_int(c->args,"limit",20):20;
+    int rc=cmd_sem_unreferenced(c->cg,path,limit,true);
+    free(path);
+    return rc;
+}
+static int t_routes(void *v) {
+    CallCtx *c = v;
+    char *f = c->args ? json_get_string(c->args, "filter") : NULL;
+    int rc = cmd_routes(c->cg, f, true);
+    free(f);
+    return rc;
+}
+static int t_status(void *v)  { CallCtx *c = v; return answer_health_status(c->cg, true); }
+static int t_index_status(void *v) {
+    CallCtx *c = v;
+    StrBuf b; sb_init(&b);
+    sb_putc(&b, '{'); answer_health_append(&b, c->cg, NULL);
+    sb_putc(&b, '}'); puts(b.p); sb_free(&b);
+    return 0;
+}
+static int t_state(void *v)   { CallCtx *c = v; return cmd_state(c->cg, true); }
+/* codify-v15 3.3: the projection's last build and its live findings by branch */
+static int t_projection_status(void *v) {
+    CallCtx *c = v;
+    char *argv[] = { "status", NULL };
+    return cmd_projection(c->cg, c->si, 1, argv, NULL, true);
+}
+static int t_integrate(void *v) {
+    CallCtx *c = v;
+    char *action = c->args ? json_get_string(c->args, "action") : NULL;
+    int rc = cmd_integrate(c->cg, action ? action : "detect", true, false);
+    free(action);
+    return rc;
+}
+static int t_event_ingest(void *v) {
+    CallCtx *c = v;
+    char *source = c->args ? json_get_string(c->args, "source") : NULL;
+    char *payload = c->args ? json_get_object(c->args, "payload") : NULL;
+    if (!payload && c->args) payload = json_get_string(c->args, "payload");
+    if (!payload) { free(source); printf("{\"error\":\"missing payload\"}\n"); return 1; }
+    int rc = runtime_event_ingest(c->cg, source ? source : "mcp", payload,
+                                  true);
+    free(source); free(payload);
+    return rc;
+}
+static int t_event_history(void *v) {
+    CallCtx *c = v;
+    int limit = c->args ? (int)json_get_int(c->args, "limit", 20) : 20;
+    char lim[24]; snprintf(lim, sizeof lim, "%d", limit);
+    char *a[] = { "history", "-n", lim };
+    return cmd_event(c->cg, 3, a, true);
+}
+static int t_progress(void *v) {
+    CallCtx *c = v;
+    return runtime_progress(c->cg, true);
+}
+static int t_work_open(void *v) {
+    CallCtx *c = v;
+    char *task = c->args ? json_get_string(c->args, "task") : NULL;
+    int rc = work_open(c->cg, task, true);
+    free(task);
+    return rc;
+}
+static int t_work_update(void *v) {
+    CallCtx *c = v;
+    char *revision = c->args ? json_get_string(c->args, "revision") : NULL;
+    if (!revision) { printf("{\"error\":\"missing revision\"}\n"); return 1; }
+    int rc = work_update(c->cg, revision, true);
+    free(revision);
+    return rc;
+}
+static int t_work_close(void *v) {
+    CallCtx *c = v;
+    char *task = c->args ? json_get_string(c->args, "task") : NULL;
+    char *raw = c->args ? json_get_string(c->args, "evidence") : NULL;
+    char *items[64]; int n = 0;
+    if (raw) {
+        char *save = NULL;
+        for (char *p = strtok_r(raw, ";", &save); p && n < 64;
+             p = strtok_r(NULL, ";", &save)) items[n++] = p;
+    }
+    int rc = work_close(c->cg, task, n, items, true);
+    free(task); free(raw);
+    return rc;
+}
+static int t_changes(void *v) {
+    CallCtx *c = v;
+    int limit = c->args ? (int)json_get_int(c->args, "limit", 0) : 0;
+    return cmd_changes(c->cg, limit, true);
+}
+static int t_log(void *v) {
+    CallCtx *c = v;
+    int limit = c->args ? (int)json_get_int(c->args, "limit", 20) : 20;
+    return cmd_log(c->cg, limit > 0 ? limit : 20, true);
+}
+static int t_commit(void *v) {
+    CallCtx *c = v;
+    char *m = c->args ? json_get_string(c->args, "message") : NULL;
+    if (!m) { printf("{\"error\":\"missing message\"}\n"); return 1; }
+    int rc = cmd_commit(c->cg, m, false);
+    free(m);
+    return rc;
+}
+
+/* spec tools: cmd_spec (and cmd_handoff/cmd_resume) report refusals on
+ * stderr, which cg_capture does not see — temporarily fold stderr into the
+ * captured stdout so the agent gets the explanation, not just isError:true */
+static int fold_stderr(void) {
+    fflush(stderr);
+    int saved = dup(2);
+    dup2(1, 2);
+    return saved;
+}
+static void unfold_stderr(int saved) {
+    fflush(stdout);
+    fflush(stderr);
+    dup2(saved, 2);
+    close(saved);
+}
+static int run_spec(int argc, char **argv, bool json) {
+    int saved = fold_stderr();
+    int rc = cmd_spec(argc, argv, json);
+    unfold_stderr(saved);
+    return rc;
+}
+
+static int t_spec_status(void *v) {
+    (void)v;
+    char *a[] = { "status" };
+    return run_spec(1, a, true);
+}
+static int t_spec_reconcile(void *v) {
+    CallCtx *c = v;
+    char *repair = c->args ? json_get_raw(c->args, "repair") : NULL;
+    bool mutate = repair && strcmp(repair, "true") == 0;
+    char *a[] = { "reconcile", "--repair" };
+    int rc = run_spec(mutate ? 2 : 1, a, true);
+    free(repair);
+    return rc;
+}
+static int t_spec_next(void *v) {
+    (void)v;
+    char *a[] = { "next" };
+    return run_spec(1, a, true);
+}
+static int t_spec_start(void *v) {
+    CallCtx *c = v;
+    char *id = c->args ? json_get_string(c->args, "id") : NULL;
+    if (!id) { printf("{\"error\":\"missing id\"}\n"); return 1; }
+    char *a[] = { "start", id };
+    int rc = run_spec(2, a, true);
+    free(id);
+    return rc;
+}
+static int t_spec_mode(void *v) {
+    CallCtx *c = v;
+    char *mode = c->args ? json_get_string(c->args, "mode") : NULL;
+    if (!mode) { printf("{\"error\":\"missing mode\"}\n"); return 1; }
+    char *a[] = { "mode", mode };
+    int rc = run_spec(2, a, true);
+    free(mode);
+    return rc;
+}
+static int t_spec_implemented(void *v) {
+    CallCtx *c = v;
+    char *id = c->args ? json_get_string(c->args, "id") : NULL;
+    if (!id) { printf("{\"error\":\"missing id\"}\n"); return 1; }
+    char *force = c->args ? json_get_raw(c->args, "force") : NULL;
+    if (force) {
+        free(force); free(id);
+        printf("{\"error\":\"spec_implemented does not support force\"}\n");
+        return 1;
+    }
+    char *a[] = { "implemented", id };
+    int rc = run_spec(2, a, true);
+    free(id);
+    return rc;
+}
+static int t_spec_done(void *v) {
+    CallCtx *c = v;
+    char *id = c->args ? json_get_string(c->args, "id") : NULL;
+    if (!id) { printf("{\"error\":\"missing id\"}\n"); return 1; }
+    char *force = c->args ? json_get_raw(c->args, "force") : NULL;
+    bool f = force && strcmp(force, "true") == 0;
+    free(force);
+    char *a[] = { "done", id, "--force" };
+    int rc = run_spec(f ? 3 : 2, a, true);
+    free(id);
+    return rc;
+}
+static int t_spec_render(void *v) {
+    CallCtx *c = v;
+    char *check = c->args ? json_get_raw(c->args, "check") : NULL;
+    bool chk = check && strcmp(check, "true") == 0;
+    free(check);
+    char *a[] = { "render", "--check" };
+    return run_spec(chk ? 2 : 1, a, true);
+}
+static int t_spec_trace(void *v) {
+    CallCtx *c = v;
+    char *id = c->args ? json_get_string(c->args, "id") : NULL;
+    char *a[] = { "trace", id };
+    int rc = run_spec(id ? 2 : 1, a, true);
+    free(id);
+    return rc;
+}
+
+static int t_docs(void *v, const char *action) {
+    CallCtx *c = v;
+    char *argv[] = { (char *)action };
+    return cmd_docs(c->cg, 1, argv, true);
+}
+static int t_docs_status(void *v) { return t_docs(v, "status"); }
+static int t_docs_plan(void *v)   { return t_docs(v, "plan"); }
+static int t_docs_packet(void *v) { return t_docs(v, "packet"); }
+static int t_docs_check(void *v)  { return t_docs(v, "check"); }
+static int t_docs_trace(void *v)  { return t_docs(v, "trace"); }
+static int t_docs_close(void *v)  { return t_docs(v, "close"); }
+static int t_remember(void *v) {
+    CallCtx *c = v;
+    char *text = c->args ? json_get_string(c->args, "text") : NULL;
+    if (!text) { printf("{\"error\":\"missing text\"}\n"); return 1; }
+    char *type = c->args ? json_get_string(c->args, "type") : NULL;
+    char *task = c->args ? json_get_string(c->args, "task") : NULL;
+    char *symbols = c->args ? json_get_string(c->args, "symbols") : NULL;
+    char *files = c->args ? json_get_string(c->args, "files") : NULL;
+    if (!task) task = spec_active_tag();
+    int rc = cmd_remember(c->cg, text, type, task, symbols, files, true);
+    free(text); free(type); free(task); free(symbols); free(files);
+    return rc;
+}
+static int t_recall(void *v) {
+    CallCtx *c = v;
+    char *q = c->args ? json_get_string(c->args, "query") : NULL;
+    char *task = c->args ? json_get_string(c->args, "task") : NULL;
+    char *type = c->args ? json_get_string(c->args, "type") : NULL;
+    int limit = c->args ? (int)json_get_int(c->args, "limit", 10) : 10;
+    int rc = cmd_recall(c->cg, q, task, type, limit > 0 ? limit : 10, true);
+    free(q); free(task); free(type);
+    return rc;
+}
+static int t_memory_export(void *v) {
+    CallCtx *c = v;
+    MemExportOpts o = {0};
+    char *path = c->args ? json_get_string(c->args, "path") : NULL;
+    char *task = c->args ? json_get_string(c->args, "task") : NULL;
+    char *type = c->args ? json_get_string(c->args, "type") : NULL;
+    char *branch = c->args ? json_get_string(c->args, "branch") : NULL;
+    o.outfile = path;
+    o.task = task;
+    o.type = type;
+    o.branch = branch;
+    o.since_days = c->args ? (int)json_get_int(c->args, "since", 0) : 0;
+    int saved = fold_stderr();
+    int rc = cmd_memory_export(c->cg, &o, true);
+    unfold_stderr(saved);
+    free(path); free(task); free(type); free(branch);
+    return rc;
+}
+static int t_memory_import(void *v) {
+    CallCtx *c = v;
+    MemImportOpts o = {0};
+    char *path = c->args ? json_get_string(c->args, "path") : NULL;
+    char *from = c->args ? json_get_string(c->args, "from") : NULL;
+    char *data = c->args ? json_get_string(c->args, "data") : NULL;
+    char *retask = c->args ? json_get_string(c->args, "retask") : NULL;
+    char *dry = c->args ? json_get_raw(c->args, "dry_run") : NULL;
+    char *keep = c->args ? json_get_raw(c->args, "keep_branch") : NULL;
+    if (path && strcmp(path, "-") == 0) {
+        /* stdin is this server's request stream */
+        printf("{\"error\":\"path - (stdin) is not available over MCP; "
+               "pass the export text as data\"}\n");
+        free(path); free(from); free(data); free(retask); free(dry);
+        free(keep);
+        return 1;
+    }
+    o.file = path;
+    o.from = from;
+    o.data = data;
+    o.retask = retask;
+    o.dry_run = dry && strcmp(dry, "true") == 0;
+    o.keep_branch = keep && strcmp(keep, "true") == 0;
+    int saved = fold_stderr();
+    int rc = cmd_memory_import(c->cg, &o, true);
+    unfold_stderr(saved);
+    free(path); free(from); free(data); free(retask); free(dry); free(keep);
+    return rc;
+}
+
+static int t_show(void *v) {
+    CallCtx *c = v;
+    char *n = c->args ? json_get_string(c->args, "name") : NULL;
+    if (!n) { printf("{\"error\":\"missing name\"}\n"); return 1; }
+    char *fv = json_get_raw(c->args, "full");
+    bool full = fv && (strcmp(fv, "true") == 0 || strcmp(fv, "1") == 0);
+    free(fv);
+    int rc = cmd_show(c->cg, n, full, true);
+    free(n);
+    return rc;
+}
+static int t_why(void *v) {
+    CallCtx *c = v;
+    char *n = c->args ? json_get_string(c->args, "name") : NULL;
+    if (!n) { printf("{\"error\":\"missing name\"}\n"); return 1; }
+    int rc = cmd_why(c->cg, n, true);
+    free(n);
+    return rc;
+}
+static int t_test_impact(void *v) {
+    CallCtx *c = v;
+    char *n = c->args ? json_get_string(c->args, "name") : NULL;
+    int rc = cmd_test_impact(c->cg, n, true);
+    free(n);
+    return rc;
+}
+static int t_brief(void *v)  { CallCtx *c = v; return cmd_brief(c->cg, true); }
+static int t_review(void *v) { CallCtx *c = v; return cmd_review(c->cg, true); }
+static int t_check(void *v)  { CallCtx *c = v; return cmd_check(c->cg, true, false); }
+static int t_guard(void *v) {
+    CallCtx *c = v;
+    char *p = c->args ? json_get_string(c->args, "path") : NULL;
+    char *argv[1] = { p };
+    int rc = cmd_guard(c->cg, p ? 1 : 0, p ? argv : NULL, true, false);
+    free(p);
+    return rc;
+}
+static int t_git_sync(void *v) {
+    CallCtx *c = v;
+    int limit = c->args ? (int)json_get_int(c->args, "limit", 500) : 500;
+    return cmd_git_sync(c->cg, limit > 0 ? limit : 500, true);
+}
+static int t_spec_wave(void *v) {
+    (void)v;
+    char *a[] = { "wave" };
+    return run_spec(1, a, true);
+}
+static int t_spec_lint(void *v) {
+    (void)v;
+    char *a[] = { "lint" };
+    return run_spec(1, a, true);
+}
+static int t_spec_new(void *v) {
+    CallCtx *c = v;
+    char *f = c->args ? json_get_string(c->args, "feature") : NULL;
+    if (!f) { printf("{\"error\":\"missing feature\"}\n"); return 1; }
+    char *a[] = { "new", f };
+    int rc = run_spec(2, a, true);
+    free(f);
+    return rc;
+}
+static int t_spec_add(void *v) {
+    CallCtx *c = v;
+    char *id = c->args ? json_get_string(c->args, "id") : NULL;
+    char *title = c->args ? json_get_string(c->args, "title") : NULL;
+    if (!id || !title) {
+        free(id); free(title);
+        printf("{\"error\":\"id and title are required\"}\n");
+        return 1;
+    }
+    char *wave = json_get_string(c->args, "wave");
+    char *req  = json_get_string(c->args, "requires");
+    char *sym  = json_get_string(c->args, "symbols");
+    char *tch  = json_get_string(c->args, "touches");
+    char *vfy  = json_get_string(c->args, "verify_cmd");
+    char *dos  = json_get_string(c->args, "do");
+    char *rqs  = json_get_string(c->args, "reqs");
+    char *a[20];
+    int n = 0;
+    a[n++] = "add"; a[n++] = id; a[n++] = "--title"; a[n++] = title;
+    if (wave) { a[n++] = "--wave";     a[n++] = wave; }
+    if (req)  { a[n++] = "--requires"; a[n++] = req;  }
+    if (sym)  { a[n++] = "--symbols";  a[n++] = sym;  }
+    if (tch)  { a[n++] = "--touches";  a[n++] = tch;  }
+    if (vfy)  { a[n++] = "--verify";   a[n++] = vfy;  }
+    if (dos)  { a[n++] = "--do";       a[n++] = dos;  }
+    if (rqs)  { a[n++] = "--reqs";     a[n++] = rqs;  }
+    int rc = run_spec(n, a, true);
+    free(id); free(title); free(wave); free(req); free(sym); free(tch);
+    free(vfy); free(dos); free(rqs);
+    return rc;
+}
+static int t_spec_claim(void *v) {
+    CallCtx *c = v;
+    char *id = c->args ? json_get_string(c->args, "id") : NULL;
+    if (!id) { printf("{\"error\":\"missing id\"}\n"); return 1; }
+    char *agent = json_get_string(c->args, "agent");
+    long ttl = json_get_int(c->args, "ttl", 30);
+    char ttlbuf[24];
+    snprintf(ttlbuf, sizeof ttlbuf, "%ld", ttl > 0 ? ttl : 30);
+    char *a[] = { "claim", id, "--agent",
+                  agent && agent[0] ? agent : (char *)cg_agent_name(NULL),
+                  "--ttl", ttlbuf };
+    int rc = run_spec(6, a, true);
+    free(id); free(agent);
+    return rc;
+}
+static int t_spec_release(void *v) {
+    CallCtx *c = v;
+    char *id = c->args ? json_get_string(c->args, "id") : NULL;
+    if (!id) { printf("{\"error\":\"missing id\"}\n"); return 1; }
+    char *agent = json_get_string(c->args, "agent");
+    char *force = json_get_raw(c->args, "force");
+    bool f = force && strcmp(force, "true") == 0;
+    free(force);
+    char *a[] = { "release", id, "--agent",
+                  agent && agent[0] ? agent : (char *)cg_agent_name(NULL),
+                  "--force" };
+    int rc = run_spec(f ? 5 : 4, a, true);
+    free(id); free(agent);
+    return rc;
+}
+static int t_spec_ready(void *v) {
+    (void)v;
+    char *a[] = { "ready" };
+    return run_spec(1, a, true);
+}
+static int t_spec_claim_next(void *v) {
+    CallCtx *c = v;
+    char *agent = c->args ? json_get_string(c->args, "agent") : NULL;
+    long ttl = c->args ? json_get_int(c->args, "ttl", 30) : 30;
+    char ttlbuf[24];
+    snprintf(ttlbuf, sizeof ttlbuf, "%ld", ttl > 0 ? ttl : 30);
+    char *a[] = { "claim-next", "--agent",
+                  agent && agent[0] ? agent : (char *)cg_agent_name(NULL),
+                  "--ttl", ttlbuf };
+    int rc = run_spec(5, a, true);
+    free(agent);
+    return rc;
+}
+static int t_handoff(void *v) {
+    CallCtx *c = v;
+    char *task = c->args ? json_get_string(c->args, "task") : NULL;
+    char *done = c->args ? json_get_string(c->args, "done") : NULL;
+    char *next = c->args ? json_get_string(c->args, "next") : NULL;
+    char *blocked = c->args ? json_get_string(c->args, "blocked") : NULL;
+    char *note = c->args ? json_get_string(c->args, "note") : NULL;
+    int saved = fold_stderr();
+    int rc = cmd_handoff(c->cg, task, done, next, blocked, note, true);
+    unfold_stderr(saved);
+    free(task); free(done); free(next); free(blocked); free(note);
+    return rc;
+}
+static int t_resume(void *v) {
+    CallCtx *c = v;
+    char *task = c->args ? json_get_string(c->args, "task") : NULL;
+    int saved = fold_stderr();
+    int rc = cmd_resume(c->cg, task, true, false);
+    unfold_stderr(saved);
+    free(task);
+    return rc;
+}
+/* Jev-backed: these three fail loudly without OPENROUTER_API_KEY, and the
+ * reason travels to the client as the call's error text. */
+static int t_memory_classify(void *v) {
+    CallCtx *c = v;
+    char *sel = c->args ? json_get_string(c->args, "select") : NULL;
+    int limit = c->args ? (int)json_get_int(c->args, "limit", 0) : 0;
+    int saved = fold_stderr();
+    int rc = cmd_memory_classify(c->cg, sel, limit, true);
+    unfold_stderr(saved);
+    free(sel);
+    return rc;
+}
+static int t_skills_list(void *v) {
+    CallCtx *c = v;
+    char *a[] = { "cg", "skills", "list" };
+    return cmd_skills(c->cg, 3, a, true);
+}
+static int t_skills_promote(void *v) {
+    CallCtx *c = v;
+    char *id = c->args ? json_get_string(c->args, "id") : NULL;
+    if (!id) { printf("{\"error\":\"missing id\"}\n"); return 1; }
+    char *a[] = { "cg", "skills", "promote", id };
+    int saved = fold_stderr();
+    int rc = cmd_skills(c->cg, 4, a, true);
+    unfold_stderr(saved);
+    free(id);
+    return rc;
+}
+static int t_codemap(void *v) {
+    CallCtx *c = v;
+    int budget = (int)json_get_int(c->args, "budget", 0);
+    char *js = c->args ? json_get_raw(c->args, "json") : NULL;
+    CodemapOpts o = { .budget = budget > 0 ? budget : 0, .outfile = "-",
+                      .json = js && strcmp(js, "true") == 0 };
+    free(js);
+    return cmd_codemap(c->cg, &o);
+}
+
+/* ---- Asks (hyperfide-v21 3.5): an agent raises and reads Asks; only a
+ * person answers them (`hyperfide ask answer`, the console), so no answer
+ * tool exists here. Everything goes through ask.c's store. */
+
+/* a JSON string-or-array argument as malloc'd strings into v (cap n) */
+static int mcp_str_list(const char *args, const char *key, char **v, int cap) {
+    char *raw = args ? json_get_raw(args, key) : NULL;
+    int n = 0;
+    if (raw && raw[0] == '[') {
+        char **items = NULL;
+        int k = json_array_items(raw, &items);
+        for (int i = 0; i < k; i++) {
+            char *s = json_string_value(items[i]);
+            if (s && s[0] && n < cap) v[n++] = s; else free(s);
+            free(items[i]);
+        }
+        free(items);
+    } else if (raw) {
+        char *s = json_string_value(raw);
+        if (s && s[0] && n < cap) v[n++] = s; else free(s);
+    }
+    free(raw);
+    return n;
+}
+static int t_ask_raise(void *v) {
+    CallCtx *c = v;
+    static const char *const KEY[] = { "body", "recommend", "task", "attempt",
+                                       "session", "sandbox" };
+    static const char *const FLAG[] = { "--body", "--recommend", "--task",
+                                        "--attempt", "--session", "--sandbox" };
+    char *kind = c->args ? json_get_string(c->args, "kind") : NULL;
+    char *title = c->args ? json_get_string(c->args, "title") : NULL;
+    if (!kind || !title) {
+        free(kind); free(title);
+        printf("{\"error\":\"kind and title are required\"}\n");
+        return 1;
+    }
+    char *opts[32], *chain[16], *vals[6];
+    int nopt = mcp_str_list(c->args, "options", opts, 32);
+    int nchain = mcp_str_list(c->args, "chain", chain, 16);
+    StrBuf cj; sb_init(&cj);
+    for (int i = 0; i < nchain; i++) {
+        if (i) sb_putc(&cj, ',');
+        sb_puts(&cj, chain[i]);
+    }
+    /* deadline: the CLI's 90s/5m/2h/1d/@EPOCH, or a number of seconds */
+    char *draw = json_get_raw(c->args, "deadline");
+    char *deadline = draw && draw[0] == '"' ? json_string_value(draw) : NULL;
+    if (draw && !deadline && strcmp(draw, "null") != 0) {
+        size_t len = strlen(draw) + 2;
+        deadline = malloc(len);
+        snprintf(deadline, len, "%ss", draw);
+    }
+    free(draw);
+    char *a[5 + 2 * 32 + 2 * 8];
+    int n = 0;
+    a[n++] = "cg"; a[n++] = "ask"; a[n++] = "raise";
+    a[n++] = kind; a[n++] = title;
+    for (int i = 0; i < nopt; i++) { a[n++] = "--option"; a[n++] = opts[i]; }
+    for (int i = 0; i < 6; i++) {
+        vals[i] = json_get_string(c->args, KEY[i]);
+        if (vals[i] && vals[i][0]) { a[n++] = (char *)FLAG[i]; a[n++] = vals[i]; }
+    }
+    if (nchain) { a[n++] = "--chain"; a[n++] = cj.p; }
+    if (deadline) { a[n++] = "--deadline"; a[n++] = deadline; }
+    int saved = fold_stderr();
+    int rc = cmd_ask(c->cg, n, a, true);
+    unfold_stderr(saved);
+    for (int i = 0; i < nopt; i++) free(opts[i]);
+    for (int i = 0; i < nchain; i++) free(chain[i]);
+    for (int i = 0; i < 6; i++) free(vals[i]);
+    sb_free(&cj); free(deadline); free(kind); free(title);
+    return rc;
+}
+/* one Ask by id, or a task's open Asks and whether one of them blocks it */
+static int t_ask_status(void *v) {
+    CallCtx *c = v;
+    long id = c->args ? json_get_int(c->args, "id", 0) : 0;
+    StrBuf b; sb_init(&b);
+    if (id > 0) {
+        sb_puts(&b, "{\"ask\":");
+        if (!ask_json(c->cg, id, &b)) {
+            sb_free(&b);
+            printf("{\"error\":\"no Ask #%ld\"}\n", id);
+            return 1;
+        }
+        sb_puts(&b, "}\n");
+    } else {
+        char *task = c->args ? json_get_string(c->args, "task") : NULL;
+        const char *t = task && task[0] ? task : getenv("CG_TASK");
+        if (!t || !t[0]) {
+            free(task);
+            sb_free(&b);
+            printf("{\"error\":\"pass id, or task (CG_TASK is not set)\"}\n");
+            return 1;
+        }
+        StrBuf rows; sb_init(&rows);
+        ask_list_json(c->cg, false, t, &rows);
+        sb_puts(&b, "{\"task\":");
+        sb_json_str(&b, t);
+        sb_printf(&b, ",\"blocked\":%s,\"asks\":%s}\n",
+                  strstr(rows.p, "\"blocking\":true") ? "true" : "false",
+                  rows.p);
+        sb_free(&rows);
+        free(task);
+    }
+    fputs(b.p, stdout);
+    sb_free(&b);
+    return 0;
+}
+static int t_ask_list(void *v) {
+    CallCtx *c = v;
+    char *all = c->args ? json_get_raw(c->args, "all") : NULL;
+    char *task = c->args ? json_get_string(c->args, "task") : NULL;
+    StrBuf b; sb_init(&b);
+    sb_puts(&b, "{\"asks\":");
+    ask_list_json(c->cg, all && strcmp(all, "true") == 0,
+                  task && task[0] ? task : NULL, &b);
+    sb_puts(&b, "}\n");
+    fputs(b.p, stdout);
+    sb_free(&b);
+    free(all); free(task);
+    return 0;
+}
+static int t_approvals_list(void *v) {
+    CallCtx *c = v;
+    char *all = c->args ? json_get_raw(c->args, "all") : NULL;
+    char *a[] = { "cg", "fleet", "approvals", "--all" };
+    int rc = cmd_fleet_approvals(c->cg, all && strcmp(all, "true") == 0 ? 4 : 3,
+                                 a, true);
+    free(all);
+    return rc;
+}
+
+/* codify-v15 1.2: the narrowing search_code and get_context share */
+#define S_QFILTER "\"path\":{\"type\":[\"string\",\"array\"],\"items\":" \
+                 "{\"type\":\"string\"},\"description\":\"only paths under " \
+                 "this glob or directory (a string or a list)\"},\"lang\":" \
+                 "{\"type\":\"string\",\"description\":\"only files of this " \
+                 "language (c, python, ts, ...)\"},\"no_tests\":{\"type\":" \
+                 "\"boolean\",\"description\":\"leave test files out\"}," \
+                 "\"kind\":{\"type\":\"string\",\"description\":\"symbol kind\"}," \
+                 "\"name\":{\"type\":\"string\",\"description\":\"symbol name filter\"},"
+#define S_QUERY  "{\"type\":\"object\",\"properties\":{\"query\":{\"type\":\"string\"}," \
+                 S_QFILTER \
+                 "\"limit\":{\"type\":\"integer\"}},\"required\":[\"query\"]}"
+#define S_CTX    "{\"type\":\"object\",\"properties\":{\"query\":{\"type\":\"string\"}," \
+                 "\"budget\":{\"type\":\"integer\",\"description\":" \
+                 "\"token budget, default 4000\"}," S_QFILTER \
+                 "\"limit\":{\"type\":\"integer\"}},\"required\":[\"query\"]}"
+#define S_FILES  "{\"type\":\"object\",\"properties\":{\"pattern\":{\"type\":" \
+                 "\"string\",\"description\":\"a glob (src/**/*.go), path words " \
+                 "(sync gate), or a directory; omit for the top level\"}," \
+                 "\"dirs\":{\"type\":\"boolean\",\"description\":\"directories " \
+                 "with file and line counts and dominant language instead\"}," \
+                 "\"depth\":{\"type\":\"integer\",\"description\":\"levels for " \
+                 "dirs, default 2\"},\"lang\":{\"type\":\"string\"}," \
+                 "\"limit\":{\"type\":\"integer\",\"description\":\"rows, " \
+                 "default 40\"}}}"
+#define S_SURVEY "{\"type\":\"object\",\"properties\":{\"scope\":{\"type\":" \
+                 "\"string\",\"description\":\"path prefix or prose query; omit " \
+                 "for the whole tree\"},\"budget\":{\"type\":\"integer\"," \
+                 "\"description\":\"token budget, default 16000\"}}}"
+#define S_ANCHORS "{\"type\":\"object\",\"properties\":{\"stale\":{\"type\":" \
+                 "\"boolean\",\"description\":\"only stale anchors\"}," \
+                 "\"uncovered\":{\"type\":\"boolean\",\"description\":" \
+                 "\"only the uncovered backfill list\"}}}"
+#define S_NAME   "{\"type\":\"object\",\"properties\":{\"name\":{\"type\":\"string\"}}," \
+                 "\"required\":[\"name\"]}"
+#define S_IMPACT "{\"type\":\"object\",\"properties\":{\"name\":{\"type\":\"string\"}," \
+                 "\"depth\":{\"type\":\"integer\"}," \
+                 "\"budget\":{\"type\":\"integer\",\"description\":" \
+                 "\"token budget, default 8000\"}},\"required\":[\"name\"]}"
+#define S_FLOW "{\"type\":\"object\",\"properties\":{\"mode\":{\"type\":\"string\"," \
+               "\"enum\":[\"callers\",\"callees\",\"impact\",\"paths\"]}," \
+               "\"name\":{\"type\":\"string\"},\"target\":{\"type\":\"string\"}," \
+               "\"depth\":{\"type\":\"integer\"},\"max_nodes\":{\"type\":\"integer\"}," \
+               "\"max_edges\":{\"type\":\"integer\"},\"max_ms\":{\"type\":\"integer\"}," \
+               "\"max_output\":{\"type\":\"integer\"}},\"required\":[\"mode\",\"name\"]}"
+#define S_INSPECT_HIERARCHY "{\"type\":\"object\",\"properties\":{\"name\":{\"type\":\"string\"}," \
+                            "\"limit\":{\"type\":\"integer\"}},\"required\":[\"name\"]}"
+#define S_INSPECT_UNUSED "{\"type\":\"object\",\"properties\":{\"path\":{\"type\":\"string\"}," \
+                         "\"limit\":{\"type\":\"integer\"}}}"
+#define S_FILTER "{\"type\":\"object\",\"properties\":{\"filter\":{\"type\":\"string\"}}}"
+#define S_EMPTY  "{\"type\":\"object\",\"properties\":{}}"
+#define S_INTEGRATE "{\"type\":\"object\",\"properties\":{" \
+                    "\"action\":{\"type\":\"string\",\"enum\":[" \
+                    "\"detect\",\"plan\",\"apply\",\"doctor\"]}}," \
+                    "\"required\":[\"action\"]}"
+#define S_EVENT "{\"type\":\"object\",\"properties\":{" \
+                "\"source\":{\"type\":\"string\"}," \
+                "\"payload\":{\"type\":\"object\"}}," \
+                "\"required\":[\"payload\"]}"
+#define S_WORK_OPEN "{\"type\":\"object\",\"properties\":{" \
+                    "\"task\":{\"type\":\"string\"}}}"
+#define S_WORK_UPDATE "{\"type\":\"object\",\"properties\":{" \
+                      "\"revision\":{\"type\":\"string\"}}," \
+                      "\"required\":[\"revision\"]}"
+#define S_WORK_CLOSE "{\"type\":\"object\",\"properties\":{" \
+                     "\"task\":{\"type\":\"string\"}," \
+                     "\"evidence\":{\"type\":\"string\"," \
+                     "\"description\":\"semicolon separated CLAUSE=PROOF pairs\"}}}"
+#define S_RECONCILE "{\"type\":\"object\",\"properties\":{" \
+                    "\"repair\":{\"type\":\"boolean\"," \
+                    "\"description\":\"explicitly return orphaned declarations to pending\"}}}"
+#define S_LIMIT  "{\"type\":\"object\",\"properties\":{\"limit\":{\"type\":\"integer\"}}}"
+#define S_MSG    "{\"type\":\"object\",\"properties\":{\"message\":{\"type\":\"string\"}}," \
+                 "\"required\":[\"message\"]}"
+#define S_TASKID "{\"type\":\"object\",\"properties\":{\"id\":{\"type\":\"string\"," \
+                 "\"description\":\"dotted task id, e.g. 16.7\"}},\"required\":[\"id\"]}"
+#define S_TASKDN "{\"type\":\"object\",\"properties\":{\"id\":{\"type\":\"string\"," \
+                 "\"description\":\"dotted task id, e.g. 16.7\"}," \
+                 "\"force\":{\"type\":\"boolean\"}},\"required\":[\"id\"]}"
+#define S_MODE   "{\"type\":\"object\",\"properties\":{\"mode\":{" \
+                 "\"type\":\"string\",\"enum\":[\"prod\",\"standard\"]}}," \
+                 "\"required\":[\"mode\"]}"
+#define S_CHECK  "{\"type\":\"object\",\"properties\":{\"check\":{\"type\":\"boolean\"}}}"
+#define S_TRACE  "{\"type\":\"object\",\"properties\":{\"id\":{\"type\":\"string\"," \
+                 "\"description\":\"dotted task id; omit for all tasks\"}}}"
+#define S_REMEMBER "{\"type\":\"object\",\"properties\":{" \
+                 "\"text\":{\"type\":\"string\"}," \
+                 "\"type\":{\"type\":\"string\",\"description\":" \
+                 "\"decision|constraint|outcome|preference|fact (default fact)\"}," \
+                 "\"task\":{\"type\":\"string\",\"description\":" \
+                 "\"feature/id; defaults to the in-progress spec task\"}," \
+                 "\"symbols\":{\"type\":\"string\"}," \
+                 "\"files\":{\"type\":\"string\"}},\"required\":[\"text\"]}"
+#define S_FEATURE "{\"type\":\"object\",\"properties\":{\"feature\":" \
+                 "{\"type\":\"string\"}},\"required\":[\"feature\"]}"
+#define S_PATHOPT "{\"type\":\"object\",\"properties\":{\"path\":" \
+                 "{\"type\":\"string\",\"description\":" \
+                 "\"repo-relative path; omit to check the whole worktree\"}}}"
+#define S_SHOW   "{\"type\":\"object\",\"properties\":{\"name\":{\"type\":\"string\"}," \
+                 "\"full\":{\"type\":\"boolean\",\"description\":" \
+                 "\"return whole body, no 40-line cap\"}},\"required\":[\"name\"]}"
+#define S_NAMEOPT "{\"type\":\"object\",\"properties\":{\"name\":" \
+                 "{\"type\":\"string\",\"description\":" \
+                 "\"symbol name; omit to use your uncommitted changes\"}}}"
+#define S_CLAIM  "{\"type\":\"object\",\"properties\":{" \
+                 "\"id\":{\"type\":\"string\"}," \
+                 "\"agent\":{\"type\":\"string\"}," \
+                 "\"ttl\":{\"type\":\"integer\",\"description\":" \
+                 "\"lease minutes (default 30)\"}},\"required\":[\"id\"]}"
+#define S_ADD    "{\"type\":\"object\",\"properties\":{" \
+                 "\"id\":{\"type\":\"string\",\"description\":\"dotted id\"}," \
+                 "\"title\":{\"type\":\"string\"}," \
+                 "\"wave\":{\"type\":\"string\"}," \
+                 "\"requires\":{\"type\":\"string\",\"description\":\"comma separated ids\"}," \
+                 "\"symbols\":{\"type\":\"string\"}," \
+                 "\"touches\":{\"type\":\"string\"}," \
+                 "\"verify_cmd\":{\"type\":\"string\"}," \
+                 "\"do\":{\"type\":\"string\",\"description\":\"semicolon separated steps\"}," \
+                 "\"reqs\":{\"type\":\"string\"}},\"required\":[\"id\",\"title\"]}"
+#define S_RECALL "{\"type\":\"object\",\"properties\":{" \
+                 "\"query\":{\"type\":\"string\",\"description\":" \
+                 "\"free text; omit for most recent\"}," \
+                 "\"task\":{\"type\":\"string\"},\"type\":{\"type\":\"string\"}," \
+                 "\"limit\":{\"type\":\"integer\"}}}"
+#define S_MEMEXPORT "{\"type\":\"object\",\"properties\":{" \
+                 "\"path\":{\"type\":\"string\",\"description\":" \
+                 "\"write the JSONL here instead of returning it\"}," \
+                 "\"task\":{\"type\":\"string\",\"description\":" \
+                 "\"a task tag, or a prefix such as a feature name\"}," \
+                 "\"type\":{\"type\":\"string\"}," \
+                 "\"branch\":{\"type\":\"string\"}," \
+                 "\"since\":{\"type\":\"integer\",\"description\":" \
+                 "\"only memories from the last N days\"}}}"
+#define S_MEMIMPORT "{\"type\":\"object\",\"properties\":{" \
+                 "\"path\":{\"type\":\"string\",\"description\":" \
+                 "\"an export file\"}," \
+                 "\"from\":{\"type\":\"string\",\"description\":" \
+                 "\"another Hyperfide project's directory, read-only\"}," \
+                 "\"data\":{\"type\":\"string\",\"description\":" \
+                 "\"the export text itself\"}," \
+                 "\"dry_run\":{\"type\":\"boolean\"}," \
+                 "\"keep_branch\":{\"type\":\"boolean\",\"description\":" \
+                 "\"keep branch names this graph does not track\"}," \
+                 "\"retask\":{\"type\":\"string\",\"description\":" \
+                 "\"OLD=NEW task-tag prefix rewrite\"}}}"
+#define S_CLAIMNEXT "{\"type\":\"object\",\"properties\":{" \
+                 "\"agent\":{\"type\":\"string\",\"description\":" \
+                 "\"claiming agent name (default CG_AGENT or 'agent')\"}," \
+                 "\"ttl\":{\"type\":\"integer\",\"description\":" \
+                 "\"lease minutes (default 30)\"}}}"
+#define S_RELEASE "{\"type\":\"object\",\"properties\":{" \
+                 "\"id\":{\"type\":\"string\"}," \
+                 "\"agent\":{\"type\":\"string\"}," \
+                 "\"force\":{\"type\":\"boolean\",\"description\":" \
+                 "\"release even when another agent holds the lease\"}}," \
+                 "\"required\":[\"id\"]}"
+#define S_HANDOFF "{\"type\":\"object\",\"properties\":{" \
+                 "\"task\":{\"type\":\"string\",\"description\":" \
+                 "\"feature/id or id; defaults to your current task\"}," \
+                 "\"done\":{\"type\":\"string\"}," \
+                 "\"next\":{\"type\":\"string\"}," \
+                 "\"blocked\":{\"type\":\"string\"}," \
+                 "\"note\":{\"type\":\"string\"}}}"
+#define S_RESUME "{\"type\":\"object\",\"properties\":{" \
+                 "\"task\":{\"type\":\"string\",\"description\":" \
+                 "\"feature/id or id; defaults to your current task\"}}}"
+#define S_CLASSIFY "{\"type\":\"object\",\"properties\":{" \
+                 "\"select\":{\"type\":\"string\",\"description\":" \
+                 "\"a memory id, --all, or --unclassified (the default)\"}," \
+                 "\"limit\":{\"type\":\"integer\",\"description\":" \
+                 "\"most memories to classify in one call (default 50)\"}}}"
+#define S_PROMOTE "{\"type\":\"object\",\"properties\":{" \
+                 "\"id\":{\"type\":\"string\",\"description\":" \
+                 "\"memory id to render as a SKILL.md\"}},\"required\":[\"id\"]}"
+#define S_CODEMAP "{\"type\":\"object\",\"properties\":{" \
+                  "\"budget\":{\"type\":\"integer\",\"description\":" \
+                  "\"token budget, default 8000\"},\"json\":{\"type\":" \
+                  "\"boolean\",\"description\":\"structured map instead " \
+                  "of markdown\"}}}"
+
+#define S_ASK_RAISE "{\"type\":\"object\",\"properties\":{" \
+    "\"kind\":{\"type\":\"string\",\"enum\":[\"secret\",\"variable\"," \
+    "\"permission\",\"decision\",\"question\"]}," \
+    "\"title\":{\"type\":\"string\",\"description\":\"the question in one " \
+    "sentence\"},\"body\":{\"type\":\"string\",\"description\":\"context: " \
+    "what is blocked and what you finished anyway\"}," \
+    "\"options\":{\"type\":\"array\",\"items\":{\"type\":\"string\"}," \
+    "\"description\":\"the choices (permission defaults to approve, " \
+    "reject)\"},\"recommend\":{\"type\":\"string\",\"description\":\"the " \
+    "option you recommend; required for decision and question\"}," \
+    "\"deadline\":{\"type\":[\"string\",\"integer\"],\"description\":" \
+    "\"90s, 5m, 2h, 1d, @EPOCH, or seconds from now\"}," \
+    "\"chain\":{\"type\":\"array\",\"items\":{\"type\":\"string\"}," \
+    "\"description\":\"escalation chain, first to answer first\"}," \
+    "\"task\":{\"type\":\"string\"},\"attempt\":{\"type\":\"string\"}," \
+    "\"session\":{\"type\":\"string\"},\"sandbox\":{\"type\":\"string\"}}," \
+    "\"required\":[\"kind\",\"title\"]}"
+#define S_ASK_STATUS "{\"type\":\"object\",\"properties\":{" \
+    "\"id\":{\"type\":[\"integer\",\"string\"],\"description\":\"the " \
+    "Ask ask_raise returned (its ask_id in distributed mode)\"}," \
+    "\"task\":{\"type\":\"string\",\"description\":\"without " \
+    "id: this task's open Asks (defaults to CG_TASK)\"}}}"
+#define S_ASK_LIST "{\"type\":\"object\",\"properties\":{" \
+    "\"all\":{\"type\":\"boolean\",\"description\":\"every Ask, newest " \
+    "first, not only open ones\"},\"task\":{\"type\":\"string\"}}}"
+#define S_APPROVALS "{\"type\":\"object\",\"properties\":{" \
+    "\"all\":{\"type\":\"boolean\",\"description\":\"decided approvals " \
+    "too, newest first\"}}}"
+
+/* Tool annotations let a client decide what it may run without asking. A
+ * read-only tool can be auto-approved; without the hint every search prompts
+ * the user, which is the difference between a usable and an annoying agent. */
+#define A_READ  "{\"readOnlyHint\":true,\"destructiveHint\":false," \
+                "\"idempotentHint\":true,\"openWorldHint\":false}"
+#define A_WRITE "{\"readOnlyHint\":false,\"destructiveHint\":false," \
+                "\"idempotentHint\":false,\"openWorldHint\":false}"
+#define A_MUTATE "{\"readOnlyHint\":false,\"destructiveHint\":true," \
+                "\"idempotentHint\":false,\"openWorldHint\":false}"
+
+/* Short on purpose: it collapses a burst of tool calls, not an edit made
+ * by a host without hooks followed by a query a few seconds later. */
+#define MCP_FRESH_MS 1500
+#define MCP_GATE_WAIT_MS 1500
+
+static const struct {
+    const char *name, *desc, *schema, *annotations, *title;
+    int (*fn)(void *);
+    bool sync_first;
+} TOOLS[] = {
+    { "search_code",
+      "Full-text + trigram search over symbols and file contents. A phrase "
+      "matches names (snake_case and camelCase words), doc comments and "
+      "bodies, ranked in that order, source before tests. Returns "
+      "matching definitions with locations and file hits with the "
+      "matching line. Use this, grep_code, find_files, and get_context "
+      "before any shell search (cg search on the CLI).",
+      S_QUERY, A_READ, "Search code", t_search, true },
+    { "grep_code",
+      "Line search: where a literal string (or, with regex=true, a POSIX "
+      "extended regex) occurs, each hit as path:line: text placed in its "
+      "enclosing symbol, files ranked by hit count with source before "
+      "tests, capped by limit and the token budget with the omitted count. "
+      "Use this instead of a shell grep or rg: a trigram index picks the "
+      "candidate files, the text is read as it is on disk, and the answer "
+      "is a fraction of the tokens. Narrow with path, lang, no_tests, "
+      "symbol, or kind. Reach for it before any shell search (cg grep on "
+      "the CLI).",
+      GREP_CODE_SCHEMA, A_READ, "Grep code", t_grep, true },
+    { "get_context",
+      "One-call surgical context for a query: top symbol definitions with "
+      "code snippets, their callers and callees, entry points, and related "
+      "routes, filled to the token budget. A query naming an indexed file "
+      "returns its outline (purpose, every symbol with line and signature, "
+      "imports, dependents); a directory lists its files. Use this first "
+      "when exploring unfamiliar code, before any shell search or file "
+      "read.",
+      S_CTX, A_READ, "Get context", t_context, true },
+    { "find_files",
+      "Find files by glob (src/**/*.go), by the words of their path (sync "
+      "gate finds syncgate.c and sync_gate.py), or list a directory; each "
+      "row has path, language, lines and symbol count. dirs=true maps the "
+      "tree instead: directories with file and line counts and dominant "
+      "language, largest first. Use instead of ls or find, before any "
+      "shell search (cg files on the CLI).",
+      S_FILES, A_READ, "Find files", t_files, true },
+    { "survey",
+      "Wide, cheap orientation over many files: each file's purpose line "
+      "and its documented symbols with signatures — never bodies. Covers "
+      "~100 files per call; undocumented files and symbols are named as "
+      "uncovered. Use before get_context when the area is unfamiliar.",
+      S_SURVEY, A_READ, "Survey", t_survey, true },
+    { "anchors",
+      "Anchor health: doc comments gone stale (their code moved on) and "
+      "uncovered symbols ranked by coordination score — fan-out × extent × "
+      "distinct referencing files. The backfill work list: anchor from the "
+      "top; a score of zero is a self-evident leaf that needs none.",
+      S_ANCHORS, A_READ, "Anchors", t_anchors, true },
+    { "get_symbol",
+      "Definition(s) of a symbol by name: location, code snippet, reference "
+      "count.",
+      S_NAME, A_READ, "Get symbol", t_symbol, true },
+    { "impact_analysis",
+      "Impact radius of a symbol before changing it: transitive callers "
+      "(who breaks) and callees (what it depends on) to the given depth.",
+      S_IMPACT, A_READ, "Impact analysis", t_impact, true },
+    { "flow",
+      "Traverse typed relations among symbols with bounded depth, nodes, "
+      "edges, time and output. Includes source evidence, heuristic labels "
+      "and unresolved dynamic boundaries.",
+      S_FLOW, A_READ, "Semantic flow", t_flow, true },
+    { "inspect_hierarchy",
+      "Bounded ancestors, subtypes and implementations from typed relations, "
+      "including ambiguous symbol matches.",
+      S_INSPECT_HIERARCHY, A_READ, "Inspect hierarchy", t_inspect_hierarchy, true },
+    { "inspect_unreferenced",
+      "Unreferenced symbols and bounded reachability from known roots, with "
+      "export, framework, reflection, generated and uncertainty exclusions. "
+      "No deletion proof.",
+      S_INSPECT_UNUSED, A_READ, "Inspect unreferenced symbols", t_inspect_unreferenced, true },
+    { "list_routes",
+      "Framework-aware HTTP routes (URL pattern -> handler) detected across "
+      "the codebase, optionally filtered.",
+      S_FILTER, A_READ, "List routes", t_routes, true },
+    { "vcs_status",
+      "Working-tree status vs the last Hyperfide snapshot (added/modified/"
+      "deleted files).",
+      S_EMPTY, A_READ, "Working tree status", t_status, false },
+    { "index_status",
+      "Branch-scoped extraction coverage, parser inventory, durable pending "
+      "reconciliation and bounded source-validation limits. Query tools "
+      "also report freshness for their contributing files.",
+      S_EMPTY, A_READ, "Index status", t_index_status, false },
+    { "state",
+      "Truthful state across independent authorities: Git working tree, "
+      "Hyperfide snapshot, spec declarations, this agent's live attempt, and "
+      "stale declarations. Use this when diagnosing apparent task drift.",
+      S_EMPTY, A_READ, "Agent control-plane state", t_state, false },
+    { "projection_status",
+      "The projection of every in-flight branch folded onto the base: the "
+      "last build and its age, and the live conflict findings grouped by "
+      "branch with each branch's worktree. Read it before editing code "
+      "another branch is changing.",
+      S_EMPTY, A_READ, "Projection status", t_projection_status, false },
+    { "integrate",
+      "Detect capabilities, plan exact paths without writes, apply "
+      "recoverable agent integrations, or diagnose incomplete and stale "
+      "configuration across every supported coding host.",
+      S_INTEGRATE, A_WRITE, "Integrate coding agents", t_integrate, false },
+    { "event_ingest",
+      "Normalize and persist one native agent lifecycle event with a stable "
+      "fingerprint, workspace revision, and explicit evidence delta.",
+      S_EVENT, A_WRITE, "Ingest lifecycle event", t_event_ingest, false },
+    { "event_history",
+      "Recent normalized lifecycle events across hosts, sessions, and "
+      "attempts, including activity and evidence deltas.",
+      S_LIMIT, A_READ, "Lifecycle event history", t_event_history, false },
+    { "progress_status",
+      "Latest runtime activity for the current attempt or session. "
+      "Heartbeats and output changes stay distinct from implementation "
+      "progress.",
+      S_EMPTY, A_READ, "Runtime progress status", t_progress, false },
+    { "work_open",
+      "Open one compact task-aware work packet with criteria, allowed scope, "
+      "independent state, memories, focused graph context, tests, and latest "
+      "runtime evidence. Returns an opaque revision for delta updates.",
+      S_WORK_OPEN, A_WRITE, "Open work packet", t_work_open, true },
+    { "work_update",
+      "Return only state, lifecycle evidence, and workspace paths changed "
+      "since an opaque work revision.",
+      S_WORK_UPDATE, A_WRITE, "Update work packet", t_work_update, false },
+    { "work_close",
+      "Pair every task criterion with recorded evidence or an explicit "
+      "unverified result. Evidence uses CLAUSE=PROOF pairs.",
+      S_WORK_CLOSE, A_WRITE, "Close work packet", t_work_close, false },
+    { "change_impact",
+      "Impact radius of uncommitted edits: symbols in changed files plus "
+      "their external callers. Run before committing.",
+      S_LIMIT, A_READ, "Change impact", t_changes, true },
+    { "vcs_log",
+      "Snapshot history (Hyperfide's local version control).",
+      S_LIMIT, A_READ, "Snapshot history", t_log, false },
+    { "vcs_commit",
+      "Snapshot the working tree into Hyperfide's local, content-addressed "
+      "version control. Automatically tagged with the in-progress spec task "
+      "when one exists.",
+      S_MSG, A_WRITE, "Snapshot the tree", t_commit, false },
+    { "spec_status",
+      "Task board of the active Ion spec feature (spec/<feature>/spec.kvx): "
+      "workflow mode, separate done/implemented totals, current in-progress "
+      "task, and the next eligible task.",
+      S_EMPTY, A_READ, "Task board", t_spec_status, false },
+    { "spec_reconcile",
+      "Diagnose declarations that claim in-progress work without a live "
+      "attempt. Read-only by default; repair must be explicitly true and "
+      "returns only orphaned declarations to pending.",
+      S_RECONCILE, A_WRITE, "Reconcile task state", t_spec_reconcile, false },
+    { "spec_next",
+      "The next eligible spec task — lowest wave whose `requires` are all "
+      "done (or implemented in Prod mode) — with its implementation bullets "
+      "and expanded acceptance criteria. Call before starting new work.",
+      S_EMPTY, A_READ, "Next task", t_spec_next, false },
+    { "spec_mode",
+      "Set the repository spec workflow to Prod mode or standard mode. Prod "
+      "mode lets implemented prerequisites unlock later implementation.",
+      S_MODE, A_WRITE, "Set workflow mode", t_spec_mode, false },
+    { "spec_start",
+      "Mark a spec task in_progress in spec.kvx (enforces one-at-a-time and "
+      "met `requires`) and refresh the markdown mirror. Do this before "
+      "implementing the task.",
+      S_TASKID, A_WRITE, "Start a task", t_spec_start, false },
+    { "spec_implemented",
+      "Prod mode only: run non-executing symbol/touched-path graph checks and "
+      "mark coding complete with qualification pending. Never executes "
+      "verify_cmd and has no force bypass.",
+      S_TASKID, A_WRITE, "Mark coding complete", t_spec_implemented, false },
+    { "spec_done",
+      "Qualify an in-progress or implemented task: run verify_cmd and graph "
+      "checks, mark done only on success, refresh the mirror, and report the "
+      "next task. Failed qualification preserves implemented status.",
+      S_TASKDN, A_WRITE, "Qualify a task", t_spec_done, false },
+    { "spec_render",
+      "Regenerate the spec system's IDE pointer files and markdown mirror "
+      "from the kvx sources (check:true only reports staleness).",
+      S_CHECK, A_WRITE, "Render spec mirror", t_spec_render, false },
+    { "spec_trace",
+      "Trace spec tasks to code: declared symbols resolved in the graph "
+      "(location, refs), touched paths matched against actual changes, and "
+      "commits tagged with the task. One task by id, or all tasks.",
+      S_TRACE, A_READ, "Trace task to code", t_spec_trace, false },   /* trace refreshes its own graph */
+    { "docs_status",
+      "Documentation closure state, configured audiences and targets, and "
+      "whether deterministic verification has passed.",
+      S_EMPTY, A_READ, "Documentation status", t_docs_status, false },
+    { "docs_plan",
+      "Read-only documentation plan: baseline mode, configured targets, and "
+      "the existing documentation inventory.",
+      S_EMPTY, A_READ, "Plan documentation", t_docs_plan, false },
+    { "docs_packet",
+      "Build the bounded evidence packet, provenance map, claims ledger, and "
+      "required-coverage ledger used by the documentation agent.",
+      S_EMPTY, A_WRITE, "Build documentation packet", t_docs_packet, false },
+    { "docs_check",
+      "Deterministically validate documentation scope, links, claims, "
+      "audience coverage, and required changed symbols and routes.",
+      S_EMPTY, A_WRITE, "Check documentation", t_docs_check, false },
+    { "docs_trace",
+      "Trace documentation claims to evidence, source task snapshots, the "
+      "documentation snapshot, and the incremental baseline.",
+      S_EMPTY, A_READ, "Trace documentation", t_docs_trace, false },
+    { "docs_close",
+      "Run documentation checks, close @docs through its fenced owner, create "
+      "the attributed snapshot, and advance the incremental baseline.",
+      S_EMPTY, A_WRITE, "Close documentation", t_docs_close, false },
+    { "remember",
+      "Save a durable project memory — a decision, constraint, outcome, "
+      "preference, or fact worth knowing in later sessions — into Hyperfide's "
+      "database. Automatically linked to the in-progress spec task unless "
+      "a task is given. Never store secrets.",
+      S_REMEMBER, A_WRITE, "Save a memory", t_remember, false },
+    { "recall",
+      "Search project memories: full-text over the body, ranked by relevance "
+      "then recency, filterable by task (feature/id) and type. Call at "
+      "session start and before starting a task to load prior decisions "
+      "and outcomes.",
+      S_RECALL, A_READ, "Search memories", t_recall, false },
+    { "memory_export",
+      "Export memories as JSONL — a header line, then one object per memory "
+      "keyed by a content id — to carry decisions to another project. "
+      "Filter by task (or prefix), type, branch, and age in days.",
+      S_MEMEXPORT, A_READ, "Export memories", t_memory_export, false },
+    { "memory_import",
+      "Import memories from an export (path or data) or straight from "
+      "another Hyperfide project (from). Adds only what this graph lacks, by "
+      "content id, keeps creation time and class, restores supersession, "
+      "and reports imported, skipped, and invalid counts. dry_run writes "
+      "nothing.",
+      S_MEMIMPORT, A_WRITE, "Import memories", t_memory_import, false },
+    { "get_source",
+      "The body of one symbol, by name — not the whole file. Use instead of "
+      "reading a file when you only need a single function.",
+      S_SHOW, A_READ, "Show symbol source", t_show, true },
+    { "why",
+      "Provenance for a symbol: where it is defined, the snapshots that "
+      "changed it, the spec tasks those snapshots implemented, and the "
+      "decisions recorded along the way. Ask before changing unfamiliar code.",
+      S_NAME, A_READ, "Why does this exist", t_why, true },
+    { "test_impact",
+      "Which tests reference a symbol — or, with no name, every symbol in "
+      "your uncommitted changes. Use to pick what to run instead of the "
+      "whole suite, and to see what has no coverage at all.",
+      S_NAMEOPT, A_READ, "Tests covering this change", t_test_impact, true },
+    { "brief",
+      "Session state in one call: project root, the active or next spec "
+      "task with its criteria, uncommitted paths, and recent decisions. "
+      "Call this first in a new session.",
+      S_EMPTY, A_READ, "Session brief", t_brief, true },
+    { "review",
+      "The change paired with what it claims to do: changed paths, the "
+      "symbols in them, callers outside the change that are now at risk, "
+      "and the active task's acceptance criteria. Call before spec_done.",
+      S_EMPTY, A_READ, "Review the change", t_review, true },
+    { "guard",
+      "Report edits that fall outside the scope the in-progress task "
+      "declared in its `touches`. Advisory: it never fails the call.",
+      S_PATHOPT, A_READ, "Check edit scope", t_guard, true },
+    { "check",
+      "The full repository gate in one call: spec render staleness, spec "
+      "lint, task evidence, claim consistency, and worktree state.",
+      S_EMPTY, A_READ, "Repository check", t_check, true },
+    { "spec_wave",
+      "Every eligible task in the current wave, not just the first. Use "
+      "when dispatching several agents at once; in parallel mode each task "
+      "also reports the paths it claims.",
+      S_EMPTY, A_READ, "Current wave", t_spec_wave, false },
+    { "spec_lint",
+      "Validate the plan: requires cycles, requires pointing at unknown "
+      "tasks, tasks with no acceptance criteria, and touches globs that "
+      "cannot match anything.",
+      S_EMPTY, A_READ, "Lint the spec", t_spec_lint, false },
+    { "spec_new",
+      "Scaffold a new feature spec (and spec/workflow.kvx when the repo has "
+      "none) and make it the active feature. The first step of planning.",
+      S_FEATURE, A_WRITE, "New feature spec", t_spec_new, false },
+    { "spec_add",
+      "Add a task to the active feature, preserving every other byte of the "
+      "kvx file. Declare `symbols` and `touches` so spec_done can verify the "
+      "work against the graph.",
+      S_ADD, A_WRITE, "Add a task", t_spec_add, false },
+    { "spec_claim",
+      "Claim a task with an owning agent and an expiring lease, so parallel "
+      "agents do not collide. Refuses when another agent holds it or its "
+      "declared paths overlap a live claim.",
+      S_CLAIM, A_WRITE, "Claim a task", t_spec_claim, false },
+    { "git_sync",
+      "Ingest git history into the graph: commits, authors, and per-file "
+      "churn for provenance. Search and context ranking do not use churn.",
+      S_LIMIT, A_WRITE, "Ingest git history", t_git_sync, false },
+    { "spec_ready",
+      "Every eligible task across all waves, each with whether its declared "
+      "paths conflict with a live claim. The dispatch view for parallel "
+      "work: what could start right now, and what would collide.",
+      S_EMPTY, A_READ, "All eligible tasks", t_spec_ready, false },
+    { "spec_claim_next",
+      "Atomically claim the first eligible task whose declared paths are "
+      "disjoint from every in-progress task and live lease, mark it "
+      "in_progress, and return the task with its lease and related "
+      "memories. Empty frontier returns empty:true.",
+      S_CLAIMNEXT, A_WRITE, "Claim next task", t_spec_claim_next, false },
+    { "spec_release",
+      "Release a task's lease. Owner-checked: refuses when another agent "
+      "holds it unless force is set.",
+      S_RELEASE, A_WRITE, "Release a claim", t_spec_release, false },
+    { "handoff",
+      "Record session state against a task before stopping: what got done, "
+      "what comes next, what is blocked, plus the dirty paths. Supersedes "
+      "the previous handoff so resume reads exactly one note.",
+      S_HANDOFF, A_WRITE, "Hand off a task", t_handoff, false },
+    { "resume",
+      "Pick a task back up: the task packet, the latest handoff, task-"
+      "scoped memories, uncommitted paths, and the lease holder. Call at "
+      "session start when continuing earlier work.",
+      S_RESUME, A_READ, "Resume a task", t_resume, false },
+    { "memory_classify",
+      "Ask Jev what each memory is — skill, decision, constraint, fact, or "
+      "noise — with a confidence, store the verdict on the row, and return "
+      "the skill candidates. Needs OPENROUTER_API_KEY. Advisory: the class "
+      "never decides anything on its own.",
+      S_CLASSIFY, A_WRITE, "Classify memories", t_memory_classify, false },
+    { "skills_list",
+      "Memories classed as skills and which of them have been rendered "
+      "under .agents/skills, with the generated path and whether it has "
+      "drifted from the memory.",
+      S_EMPTY, A_READ, "List skills", t_skills_list, false },
+    { "skills_promote",
+      "Render one memory as a portable .agents/skills/<slug>/SKILL.md "
+      "carrying Hyperfide's ownership marker and a link back to the memory. "
+      "Never overwrites a file Hyperfide did not generate.",
+      S_PROMOTE, A_WRITE, "Promote a memory to a skill", t_skills_promote,
+      false },
+    { "ask_raise",
+      "Raise an Ask instead of defaulting: a secret, variable, permission, "
+      "decision or question for a person, with options, the one you "
+      "recommend, a deadline and an escalation chain. secret, variable and "
+      "permission block the task until answered; decision and question "
+      "proceed on the recommendation and are flagged ([asks] in the "
+      "workflow). Never put a secret's value here. Returns the Ask.",
+      S_ASK_RAISE, A_WRITE, "Raise an Ask", t_ask_raise, false },
+    { "ask_status",
+      "One Ask by id (state, answer, whether it blocks, overdue, decided by "
+      "default), or without id a task's open Asks and whether the task is "
+      "blocked on one. Poll this after ask_raise; a person answers.",
+      S_ASK_STATUS, A_READ, "Ask status", t_ask_status, false },
+    { "ask_list",
+      "Open Asks (all=true: every Ask, newest first), optionally one "
+      "task's, each with kind, options, recommendation, policy and state.",
+      S_ASK_LIST, A_READ, "List Asks", t_ask_list, false },
+    { "approvals_list",
+      "Fleet approvals waiting on a person (all=true: decided ones too), "
+      "each with gate, subject, state and its permission Ask.",
+      S_APPROVALS, A_READ, "List approvals", t_approvals_list, false },
+    { "codemap",
+      "The repository map as CODEMAP.md would hold it: overview with build "
+      "and test commands, layout, entry points, modules with their most-"
+      "referenced symbols, directory dependencies, tests, and workflow "
+      "pointers. Writes nothing; read it first in an unfamiliar repo.",
+      S_CODEMAP, A_READ, "Repository map", t_codemap, true },
+};
+#define NTOOLS ((int)(sizeof TOOLS / sizeof TOOLS[0]))
+
+/* hyperfide-v21 3.14: the Ask tools are one surface in both modes. The
+ * distributed MCP server (hyperfide/client.c) lists these same entries and
+ * routes their calls to the control service; route-derived tools never
+ * take these names. */
+static const char *const ASK_TOOL_NAMES[] = { "ask_raise", "ask_status",
+                                              "ask_list", "approvals_list" };
+int mcp_ask_tool(int i, const char **name, const char **desc,
+                 const char **schema, const char **annotations,
+                 const char **title) {
+    if (i < 0 || i >= (int)(sizeof ASK_TOOL_NAMES / sizeof *ASK_TOOL_NAMES))
+        return 0;
+    for (int t = 0; t < NTOOLS; t++)
+        if (strcmp(TOOLS[t].name, ASK_TOOL_NAMES[i]) == 0) {
+            *name = TOOLS[t].name; *desc = TOOLS[t].desc;
+            *schema = TOOLS[t].schema; *annotations = TOOLS[t].annotations;
+            *title = TOOLS[t].title;
+            return 1;
+        }
+    return 0;
+}
+
+/* ---------------- resources and prompts ---------------- */
+
+/* Documents a client can attach directly, rather than calling a tool and
+ * pasting the result. The spec is the source of truth for how to work here,
+ * so it belongs in context, not behind a function call. */
+static const struct {
+    const char *uri, *rel, *name, *desc, *mime;
+} RESOURCES[] = {
+    { "hyperfide://spec/workflow", "spec/workflow.kvx", "Spec workflow",
+      "How work is driven in this repository: principles, loop, hard rules.",
+      "text/plain" },
+    { "hyperfide://tasks", "spec/tasks.md", "Task board",
+      "Rendered task list for the active feature.", "text/markdown" },
+    { "hyperfide://agent-context", CG_AGENT_CONTEXT, "Graph context",
+      "Generated orientation: languages, layout, entry points, key symbols. "
+      "Owned only by cg agentmd.", "text/markdown" },
+    { NULL, NULL, NULL, NULL, NULL }
+};
+
+/* The workflow loop, shipped as prompts so Hyperfide's opinion reaches any
+ * client — not only the ones whose users read the README. */
+static const struct { const char *name, *title, *desc, *body; } PROMPTS[] = {
+    { "start-work", "Start the next task",
+      "Load session state, take the next eligible task, and gather context.",
+      "Use Hyperfide to begin the next piece of work in this repository:\n"
+      "1. Call `brief` for project state, the active task, and prior decisions.\n"
+      "2. Call `spec_next` (or `spec_wave` if you are dispatching several "
+      "agents) and pick a task.\n"
+      "3. Call `spec_start` with its id.\n"
+      "4. Call `get_context` for the area the task names, and `why` for any "
+      "symbol you are about to change. Use `grep_code`, `find_files`, "
+      "`search_code`, and `get_context` before any shell search (on the "
+      "CLI: `cg grep`, `cg files`).\n"
+      "5. Restate the task's acceptance criteria before writing code.\n"
+      "Do not begin editing until you have done all five." },
+    { "review-change", "Review the current change",
+      "Check uncommitted work against the criteria it claims to satisfy.",
+      "Review the current uncommitted change in this repository:\n"
+      "1. Call `review` for the changed symbols, at-risk callers, and the "
+      "active task's acceptance criteria.\n"
+      "2. Call `test_impact` to see which tests cover the change and which "
+      "symbols have no coverage.\n"
+      "3. Call `guard` to find edits outside the task's declared scope.\n"
+      "For each acceptance criterion, state plainly whether the change "
+      "satisfies it and cite the symbol that does so. Name anything "
+      "unverified rather than assuming it passes." },
+    { "close-task", "Close out a task",
+      "Snapshot, qualify, and record what was learned.",
+      "Finish the in-progress task in this repository:\n"
+      "1. Call `review` and resolve anything it raises.\n"
+      "2. Call `remember` for any decision or constraint discovered while "
+      "working, so the next session does not rediscover it.\n"
+      "3. Call `vcs_commit` with a message describing the change.\n"
+      "4. Call `spec_done` with the task id.\n"
+      "If `spec_done` refuses, do not force it and do not weaken the spec to "
+      "match the code — report exactly which check failed and why." },
+    { "orient", "Orient in an unfamiliar repository",
+      "Build a working picture of a codebase you have not seen before.",
+      "Orient yourself in this repository before doing anything else:\n"
+      "1. Call `brief`, then read `hyperfide://agent-context` when present.\n"
+      "2. Call `list_routes` to find the externally reachable surface.\n"
+      "3. Call `get_context` for each area the task at hand touches; use "
+      "`grep_code`, `find_files`, and `search_code` before any shell search "
+      "(on the CLI: `cg grep`, `cg files`).\n"
+      "4. Call `recall` for decisions already made about those areas.\n"
+      "Summarise what the project is, how it is laid out, and where the code "
+      "you need lives — citing paths from the graph, not guesses." },
+    { NULL, NULL, NULL, NULL }
+};
+
+/* Emit the client-facing annotation object for tool `i`. Kept as a function
+ * so the hint policy lives in one place rather than being inlined into the
+ * tools/list writer. */
+static void mcp_tool_annotations(int i, StrBuf *b) {
+    sb_puts(b, TOOLS[i].annotations);
+}
+
+/* A resource's file in this tree. The table names the default layout;
+ * codify.kvx may have moved the spec and context directories. */
+static void mcp_resource_abs(Cg *cg, const char *rel, char *out, size_t cap) {
+    if (!strncmp(rel, "spec/", 5))
+        path_format(out, cap, "%s/%s/%s", cg->root, config_spec_rel(cg->root),
+                    rel + 5);
+    else if (!strcmp(rel, CG_AGENT_CONTEXT))
+        config_context_path(cg->root, "agent-context.md", out, cap);
+    else
+        path_format(out, cap, "%s/%s", cg->root, rel);
+}
+
+/* Build the resources/list payload: the fixed documents that exist, plus one
+ * entry per feature spec found under the spec directory. */
+static void mcp_list_resources(Cg *cg, StrBuf *r) {
+    sb_puts(r, "{\"resources\":[");
+    int nr = 0;
+    for (int i = 0; RESOURCES[i].uri; i++) {
+        char abs[4700];
+        struct stat rst;
+        mcp_resource_abs(cg, RESOURCES[i].rel, abs, sizeof abs);
+        if (stat(abs, &rst) != 0) continue;
+        if (nr++) sb_putc(r, ',');
+        sb_puts(r, "{\"uri\":");         sb_json_str(r, RESOURCES[i].uri);
+        sb_puts(r, ",\"name\":");        sb_json_str(r, RESOURCES[i].name);
+        sb_puts(r, ",\"description\":"); sb_json_str(r, RESOURCES[i].desc);
+        sb_puts(r, ",\"mimeType\":");    sb_json_str(r, RESOURCES[i].mime);
+        sb_putc(r, '}');
+    }
+    char specdir[4600];
+    config_spec_dir(cg->root, specdir, sizeof specdir);
+    DIR *d = opendir(specdir);
+    if (d) {
+        struct dirent *e;
+        while ((e = readdir(d))) {
+            if (e->d_name[0] == '.') continue;
+            char kv[4800];
+            struct stat kst;
+            if (!path_format(kv, sizeof kv, "%s/%s/spec.kvx", specdir, e->d_name)) continue;
+            if (stat(kv, &kst) != 0) continue;
+            char uri[512], nm[300];
+            snprintf(uri, sizeof uri, "hyperfide://spec/%s", e->d_name);
+            snprintf(nm, sizeof nm, "spec: %s", e->d_name);
+            if (nr++) sb_putc(r, ',');
+            sb_puts(r, "{\"uri\":");  sb_json_str(r, uri);
+            sb_puts(r, ",\"name\":"); sb_json_str(r, nm);
+            sb_puts(r, ",\"description\":\"Feature spec (kvx source of "
+                       "truth)\",\"mimeType\":\"text/plain\"}");
+        }
+        closedir(d);
+    }
+    sb_puts(r, "]}");
+}
+
+/* Build the prompts/list payload — the workflow loop, as prompts. */
+static void mcp_list_prompts(StrBuf *r) {
+    sb_puts(r, "{\"prompts\":[");
+    for (int i = 0; PROMPTS[i].name; i++) {
+        if (i) sb_putc(r, ',');
+        sb_puts(r, "{\"name\":");        sb_json_str(r, PROMPTS[i].name);
+        sb_puts(r, ",\"title\":");       sb_json_str(r, PROMPTS[i].title);
+        sb_puts(r, ",\"description\":"); sb_json_str(r, PROMPTS[i].desc);
+        sb_puts(r, ",\"arguments\":[]}");
+    }
+    sb_puts(r, "]}");
+}
+
+/* ---------------- the tool table, shared ---------------- */
+
+void mcp_tools_json(StrBuf *r) {
+    sb_puts(r, "{\"tools\":[");
+    for (int i = 0; i < NTOOLS; i++) {
+        if (i) sb_putc(r, ',');
+        sb_puts(r, "{\"name\":");
+        sb_json_str(r, TOOLS[i].name);
+        sb_puts(r, ",\"title\":");
+        sb_json_str(r, TOOLS[i].title);
+        sb_puts(r, ",\"description\":");
+        sb_json_str(r, TOOLS[i].desc);
+        sb_printf(r, ",\"inputSchema\":%s,\"annotations\":", TOOLS[i].schema);
+        mcp_tool_annotations(i, r);
+        sb_putc(r, '}');
+    }
+    sb_puts(r, "]}");
+}
+
+int mcp_call_tool(Cg *cg, const SysInfo *si, const char *name,
+                  const char *args_json, char **out) {
+    *out = NULL;
+    int ti = -1;
+    for (int i = 0; name && i < NTOOLS; i++)
+        if (strcmp(TOOLS[i].name, name) == 0) { ti = i; break; }
+    if (ti < 0) return -1;
+    if (TOOLS[ti].sync_first && config_auto_sync(cg->root)) {
+        /* fresh, not re-walked: agents call these tools in bursts, so a
+         * pass from the last few seconds answers, and a pass running
+         * elsewhere is joined by note. The server shares the machine with
+         * the agent's own build, so it never takes more than a quarter of
+         * the cores. */
+        IndexOpts o = {0};
+        o.max_age_ms = MCP_FRESH_MS;
+        o.lock_wait_ms = MCP_GATE_WAIT_MS;
+        o.workers_cap = si->cores_effective / 4 > 2 ? si->cores_effective / 4 : 2;
+        o.quiet = true;
+        IndexStats st;
+        cg_index_ex(cg, si, &o, &st);
+    }
+    CallCtx ctx = { cg, si, args_json && args_json[0] ? args_json : NULL };
+    int rc = cg_capture(out, TOOLS[ti].fn, &ctx);
+    if (rc == 0 && *out &&
+        (strcmp(name, "search_code") == 0 ||
+         strcmp(name, "get_context") == 0 ||
+         strcmp(name, "find_files") == 0 ||
+         strcmp(name, "survey") == 0 ||
+         strcmp(name, "grep_code") == 0 ||
+         strcmp(name, "get_symbol") == 0 ||
+         strcmp(name, "impact_analysis") == 0 ||
+         strcmp(name, "list_routes") == 0 ||
+         strcmp(name, "inspect_hierarchy") == 0 ||
+         strcmp(name, "inspect_unreferenced") == 0 ||
+         strcmp(name, "flow") == 0)) {
+        int requested = args_json &&
+            (strcmp(name, "get_context") == 0 ||
+             strcmp(name, "impact_analysis") == 0) ?
+            (int)json_get_int(args_json, "budget", 0) : 0;
+        size_t max_bytes = requested > 0 && requested < 1000000 ?
+            (size_t)requested * 4 : 0;
+        char *enriched = answer_health_json_limit(cg, *out, max_bytes);
+        free(*out);
+        *out = enriched;
+    }
+    return rc == 0 ? 0 : 1;
+}
+
+/* cg tool list | call <name> [json-args]: the MCP tools without a client.
+ * The editor's serve connection runs every tool call through this. */
+int cmd_tool(Cg *cg, const SysInfo *si, int argc, char **argv, bool json) {
+    if (argc >= 1 && strcmp(argv[0], "list") == 0) {
+        if (json) {
+            StrBuf r; sb_init(&r);
+            mcp_tools_json(&r);
+            puts(r.p);
+            sb_free(&r);
+        } else {
+            for (int i = 0; i < NTOOLS; i++)
+                printf("%-20s %s\n", TOOLS[i].name, TOOLS[i].title);
+        }
+        return 0;
+    }
+    if (argc >= 2 && strcmp(argv[0], "call") == 0) {
+        const char *args = argc >= 3 ? argv[2] : NULL;
+        char *stdin_args = NULL;
+        if (args && strcmp(args, "-") == 0) {
+            StrBuf b; sb_init(&b);
+            char buf[4096];
+            size_t n;
+            while ((n = fread(buf, 1, sizeof buf - 1, stdin)) > 0) {
+                buf[n] = 0;
+                sb_puts(&b, buf);
+            }
+            stdin_args = b.p;
+            args = stdin_args;
+        }
+        if (args && args[0] && args[strspn(args, " \t\r\n")] != '{') {
+            fprintf(stderr, "cg tool: arguments must be a JSON object\n");
+            free(stdin_args);
+            return 2;
+        }
+        char *out = NULL;
+        int rc = mcp_call_tool(cg, si, argv[1], args, &out);
+        free(stdin_args);
+        if (rc < 0) {
+            fprintf(stderr, "cg tool: unknown tool '%s' (cg tool list)\n",
+                    argv[1]);
+            return 2;
+        }
+        if (out) fputs(out, stdout);
+        free(out);
+        return rc;
+    }
+    fprintf(stderr, "usage: cg tool list [--json] | call <name> [json-args|-]\n");
+    return 2;
+}
+
+/* ---------------- server loop ---------------- */
+
+static void send_line(StrBuf *b) {
+    fwrite(b->p, 1, b->len, stdout);
+    fputc('\n', stdout);
+    fflush(stdout);
+    sb_free(b);
+}
+
+static void reply_result(const char *id, const char *result_json) {
+    StrBuf b; sb_init(&b);
+    sb_printf(&b, "{\"jsonrpc\":\"2.0\",\"id\":%s,\"result\":%s", id, result_json);
+    sb_putc(&b, '}');
+    send_line(&b);
+}
+
+static void reply_error(const char *id, int code, const char *msg) {
+    StrBuf b; sb_init(&b);
+    sb_printf(&b, "{\"jsonrpc\":\"2.0\",\"id\":%s,\"error\":{\"code\":%d,"
+                  "\"message\":", id, code);
+    sb_json_str(&b, msg);
+    sb_puts(&b, "}}");
+    send_line(&b);
+}
+
+int cmd_mcp(Cg *cg, const SysInfo *si) {
+    { int authority_rc = hf_client_authority_guard("mcp", stderr); if (authority_rc) return authority_rc; }
+    char *line = NULL;
+    size_t cap = 0;
+    ssize_t n;
+    while ((n = getline(&line, &cap, stdin)) > 0) {
+        if (n <= 1) continue;
+        char *method = json_get_string(line, "method");
+        char *id = json_get_raw(line, "id");
+        if (!method) { free(id); continue; }
+
+        if (strcmp(method, "initialize") == 0 && id) {
+            char *params = json_get_object(line, "params");
+            char *ver = params ? json_get_string(params, "protocolVersion") : NULL;
+            /* Negotiate: echo the client's version only when we actually
+             * speak it, otherwise answer with our newest. Echoing blindly
+             * claims support for revisions this server has never seen. */
+            static const char *SUPPORTED[] = {
+                CG_MCP_VERSION, "2025-06-18", "2025-03-26", "2024-11-05",
+                NULL
+            };
+            const char *agreed = SUPPORTED[0];
+            for (int i = 0; ver && SUPPORTED[i]; i++)
+                if (strcmp(ver, SUPPORTED[i]) == 0) { agreed = SUPPORTED[i]; break; }
+            StrBuf r; sb_init(&r);
+            sb_puts(&r, "{\"protocolVersion\":");
+            sb_json_str(&r, agreed);
+            sb_puts(&r, ",\"capabilities\":{"
+                        "\"tools\":{\"listChanged\":false},"
+                        "\"resources\":{\"listChanged\":false,\"subscribe\":false},"
+                        "\"prompts\":{\"listChanged\":false}},"
+                        "\"serverInfo\":{\"name\":\"hyperfide\",\"version\":\""
+                        CG_VERSION "\"},"
+                        "\"instructions\":\"Hyperfide is this repository's "
+                        "local control plane. Start task work with `work_open`; "
+                        "keep its opaque revision and call `work_update` for "
+                        "deltas. Use `state` when authorities disagree and "
+                        "`progress_status` before continuing repeated work. "
+                        "Call `work_close` to pair every criterion with evidence "
+                        "or an unverified result, then `vcs_commit` and "
+                        "`spec_done`. Use `survey`, `get_context`, and `why` for "
+                        "code; `remember` for durable decisions. Never claim "
+                        "completion from activity alone.\"}");
+            reply_result(id, r.p);
+            sb_free(&r);
+            free(ver); free(params);
+        } else if (strcmp(method, "tools/list") == 0 && id) {
+            StrBuf r; sb_init(&r);
+            mcp_tools_json(&r);
+            reply_result(id, r.p);
+            sb_free(&r);
+        } else if (strcmp(method, "tools/call") == 0 && id) {
+            char *params = json_get_object(line, "params");
+            char *name = params ? json_get_string(params, "name") : NULL;
+            char *args = params ? json_get_object(params, "arguments") : NULL;
+            char *out = NULL;
+            int rc = mcp_call_tool(cg, si, name, args, &out);
+            if (rc < 0) {
+                reply_error(id, -32602, "unknown tool");
+            } else {
+                StrBuf r; sb_init(&r);
+                sb_puts(&r, "{\"content\":[{\"type\":\"text\",\"text\":");
+                sb_json_str(&r, out ? out : "");
+                sb_printf(&r, "}],\"isError\":%s}", rc == 0 ? "false" : "true");
+                reply_result(id, r.p);
+                sb_free(&r);
+            }
+            free(out);
+            free(params); free(name); free(args);
+        } else if (strcmp(method, "resources/list") == 0 && id) {
+            /* The plan and the generated agent brief are documents, not tool
+             * calls. Exposing them as resources lets a client attach them to
+             * context directly instead of round-tripping through a tool. */
+            StrBuf r; sb_init(&r);
+            mcp_list_resources(cg, &r);
+            reply_result(id, r.p);
+            sb_free(&r);
+        } else if (strcmp(method, "resources/read") == 0 && id) {
+            char *params = json_get_object(line, "params");
+            char *uri = params ? json_get_string(params, "uri") : NULL;
+            char rel[1024] = "";
+            /* Preserve legacy resource references against the same implementation. */
+            char canonical_uri[2048];
+            const char *lookup=uri;
+            if(uri&&!strncmp(uri,"codify://",9)){
+                snprintf(canonical_uri,sizeof canonical_uri,"hyperfide://%s",uri+9);lookup=canonical_uri;
+            }
+            for (int i = 0; lookup && RESOURCES[i].uri; i++)
+                if (strcmp(lookup, RESOURCES[i].uri) == 0)
+                    snprintf(rel, sizeof rel, "%s", RESOURCES[i].rel);
+            if (lookup && !rel[0] && strncmp(lookup, "hyperfide://spec/", 17) == 0) {
+                const char *feature=lookup+17;bool valid=*feature&&strcmp(feature,".")&&strcmp(feature,"..");
+                for(const unsigned char *p=(const unsigned char *)feature;*p;p++)
+                    if(!isalnum(*p)&&*p!='-'&&*p!='_'&&*p!='.')valid=false;
+                if(valid)snprintf(rel,sizeof rel,"spec/%s/spec.kvx",feature);
+            }
+            if (!rel[0]) {
+                reply_error(id, -32602, "unknown resource");
+            } else {
+                char abs[4900];
+                mcp_resource_abs(cg, rel, abs, sizeof abs);
+                char *body = read_entire_file(abs, NULL);
+                if (!body) {
+                    reply_error(id, -32602, "resource not readable");
+                } else {
+                    StrBuf r; sb_init(&r);
+                    sb_puts(&r, "{\"contents\":[{\"uri\":");
+                    sb_json_str(&r, uri);
+                    sb_puts(&r, ",\"mimeType\":\"text/plain\",\"text\":");
+                    sb_json_str(&r, body);
+                    sb_puts(&r, "}]}");
+                    reply_result(id, r.p);
+                    sb_free(&r);
+                    free(body);
+                }
+            }
+            free(uri); free(params);
+        } else if (strcmp(method, "prompts/list") == 0 && id) {
+            StrBuf r; sb_init(&r);
+            mcp_list_prompts(&r);
+            reply_result(id, r.p);
+            sb_free(&r);
+        } else if (strcmp(method, "prompts/get") == 0 && id) {
+            char *params = json_get_object(line, "params");
+            char *name = params ? json_get_string(params, "name") : NULL;
+            const char *body = NULL, *desc = NULL;
+            for (int i = 0; name && PROMPTS[i].name; i++)
+                if (strcmp(name, PROMPTS[i].name) == 0) {
+                    body = PROMPTS[i].body;
+                    desc = PROMPTS[i].desc;
+                }
+            if (!body) {
+                reply_error(id, -32602, "unknown prompt");
+            } else {
+                StrBuf r; sb_init(&r);
+                sb_puts(&r, "{\"description\":");
+                sb_json_str(&r, desc);
+                sb_puts(&r, ",\"messages\":[{\"role\":\"user\","
+                            "\"content\":{\"type\":\"text\",\"text\":");
+                sb_json_str(&r, body);
+                sb_puts(&r, "}}]}");
+                reply_result(id, r.p);
+                sb_free(&r);
+            }
+            free(name); free(params);
+        } else if (strcmp(method, "ping") == 0 && id) {
+            reply_result(id, "{}");
+        } else if (id) {
+            reply_error(id, -32601, "method not found");
+        }
+        /* notifications (no id) are accepted silently */
+        free(method);
+        free(id);
+    }
+    free(line);
+    return 0;
+}
+
+/* ---------------- auto-install into agent configs ---------------- */
+
+static int self_path(char *out, size_t cap) {
+    ssize_t n = readlink("/proc/self/exe", out, cap - 1);
+    if (n <= 0) return -1;
+    out[n] = 0;
+    return 0;
+}
+
+static char *server_entry(const char *bin, bool vscode_style) {
+    StrBuf b; sb_init(&b);
+    sb_puts(&b, "\"codify\":{");
+    if (vscode_style) sb_puts(&b, "\"type\":\"stdio\",");
+    sb_puts(&b, "\"command\":");
+    sb_json_str(&b, bin);
+    sb_puts(&b, ",\"args\":[\"mcp\"]}");
+    return b.p;
+}
+
+/* merge `entry` under `root_key` in a JSON config file; create if missing */
+static void install_json(const char *path, const char *root_key,
+                         const char *entry, const char *agent) {
+    char *body = read_entire_file(path, NULL);
+    if (!body) {
+        char dir[4096];
+        snprintf(dir, sizeof dir, "%s", path);
+        char *slash = strrchr(dir, '/');
+        if (slash) { *slash = 0; mkdirs(dir); }
+        StrBuf b; sb_init(&b);
+        sb_printf(&b, "{\n  \"%s\": {\n    %s\n  }\n}\n", root_key, entry);
+        if (write_entire_file(path, b.p, b.len) == 0)
+            printf("  ✓ %-12s %s (created)\n", agent, path);
+        else
+            printf("  ✗ %-12s cannot write %s\n", agent, path);
+        sb_free(&b);
+        return;
+    }
+    if (strstr(body, "\"codify\"")) {
+        printf("  • %-12s already configured (%s)\n", agent, path);
+        free(body);
+        return;
+    }
+    char needle[128];
+    snprintf(needle, sizeof needle, "\"%s\"", root_key);
+    char *k = strstr(body, needle);
+    char *brace = k ? strchr(k + strlen(needle), '{') : NULL;
+    if (brace) {
+        /* splice entry right after the opening brace */
+        const char *p = brace + 1;
+        while (*p == ' ' || *p == '\t' || *p == '\n' || *p == '\r') p++;
+        bool empty = (*p == '}');
+        StrBuf b; sb_init(&b);
+        size_t head = (size_t)(brace + 1 - body);
+        for (size_t i = 0; i < head; i++) sb_putc(&b, body[i]);
+        sb_printf(&b, "\n    %s%s", entry, empty ? "\n  " : ",");
+        sb_puts(&b, body + head);
+        if (write_entire_file(path, b.p, b.len) == 0)
+            printf("  ✓ %-12s %s (merged)\n", agent, path);
+        else
+            printf("  ✗ %-12s cannot write %s\n", agent, path);
+        sb_free(&b);
+    } else {
+        printf("  ! %-12s %s exists but has no \"%s\" section — add manually:\n"
+               "      \"%s\": { %s }\n", agent, path, root_key, root_key, entry);
+    }
+    free(body);
+}
+
+int cmd_mcp_install(Cg *cg) {
+    return cmd_integrate(cg, "apply", false, true);
+
+    /* Legacy implementation retained below as a source reference while the
+     * compatibility entry point delegates to the recoverable registry. */
+    char bin[4096];
+    if (self_path(bin, sizeof bin) != 0)
+        snprintf(bin, sizeof bin, "cg");
+    char *std = server_entry(bin, false);
+    char *vsc = server_entry(bin, true);
+    const char *home = getenv("HOME");
+    char path[4600];
+
+    printf("connecting Hyperfide MCP server (%s mcp) to coding agents:\n", bin);
+
+    /* project-scoped configs */
+    snprintf(path, sizeof path, "%s/.mcp.json", cg->root);
+    install_json(path, "mcpServers", std, "claude-code");
+    snprintf(path, sizeof path, "%s/.cursor/mcp.json", cg->root);
+    install_json(path, "mcpServers", std, "cursor");
+    snprintf(path, sizeof path, "%s/.vscode/mcp.json", cg->root);
+    install_json(path, "servers", vsc, "vscode");
+    snprintf(path, sizeof path, "%s/.gemini/settings.json", cg->root);
+    install_json(path, "mcpServers", std, "gemini-cli");
+    snprintf(path, sizeof path, "%s/.zed/settings.json", cg->root);
+    install_json(path, "context_servers", std, "zed");
+    snprintf(path, sizeof path, "%s/.opencode/opencode.json", cg->root);
+    install_json(path, "mcp", std, "opencode");
+
+    /* user-scoped configs */
+    if (home) {
+        snprintf(path, sizeof path, "%s/.codeium/windsurf/mcp_config.json", home);
+        install_json(path, "mcpServers", std, "windsurf");
+        snprintf(path, sizeof path,
+                 "%s/.config/Code/User/globalStorage/saoudrizwan.claude-dev/"
+                 "settings/cline_mcp_settings.json", home);
+        install_json(path, "mcpServers", std, "cline");
+        snprintf(path, sizeof path, "%s/.continue/config.json", home);
+        install_json(path, "mcpServers", std, "continue");
+
+        snprintf(path, sizeof path, "%s/.codex/config.toml", home);
+        char *toml = read_entire_file(path, NULL);
+        if (toml && strstr(toml, "mcp_servers.codegraph")) {
+            printf("  • %-12s already configured (%s)\n", "codex-cli", path);
+        } else {
+            char dir[4600];
+            snprintf(dir, sizeof dir, "%s/.codex", home);
+            mkdirs(dir);
+            FILE *f = fopen(path, "a");
+            if (f) {
+                fprintf(f, "%s[mcp_servers.codegraph]\ncommand = \"%s\"\n"
+                           "args = [\"mcp\"]\n", toml ? "\n" : "", bin);
+                fclose(f);
+                printf("  ✓ %-12s %s (appended)\n", "codex-cli", path);
+            } else {
+                printf("  ✗ %-12s cannot write %s\n", "codex-cli", path);
+            }
+        }
+        free(toml);
+    }
+    free(std);
+    free(vsc);
+    printf("\nrestart your agent (or reload MCP servers) to pick up the "
+           "connection.\n");
+    return 0;
+}

@@ -1,3 +1,6 @@
+#[path = "support/gateway_22_33_1546.rs"]
+mod producer_repair;
+
 use std::io::{BufRead, BufReader, Read, Write};
 use std::net::TcpListener;
 use std::thread::JoinHandle;
@@ -78,28 +81,24 @@ fn expected_identities() -> PxResolvedIdentities {
     }
 }
 
-fn custody_json() -> Value {
-    json!({
-        "asset_id": "ab".repeat(32), "denom": "upax",
-        "pointer": format!("0x{}", "cd".repeat(20)),
-        "enabled": true, "paused": false,
-        "minimum_deposit": "7", "custody_cap": u128::MAX.to_string(),
-        "custodied": "0x10000000000000001", "released": "9", "pending": 10
-    })
+fn asset_json() -> Value {
+    json!({"asset_id": "bank:upax", "kind": "bank", "denom": "upax",
+           "name": "Paxeer", "symbol": "PAX", "decimals": 18,
+           "supply": u128::MAX.to_string(), "paused": false,
+           "verification": "authenticated_committed_snapshot"})
 }
 
-fn expected_custody() -> PxCustodyAsset {
-    PxCustodyAsset {
-        asset_id: [0xab; 32],
-        denom: "upax".to_owned(),
-        pointer: [0xcd; 20],
-        enabled: true,
-        paused: false,
-        minimum_deposit: 7,
-        custody_cap: u128::MAX,
-        custodied: 0x1_0000_0000_0000_0001,
-        released: 9,
-        pending: 10,
+fn expected_asset() -> PxAssetEntry {
+    PxAssetEntry {
+        asset_id: "bank:upax".to_owned(),
+        kind: "bank".to_owned(),
+        denom: Some("upax".to_owned()),
+        name: Some("Paxeer".to_owned()),
+        symbol: Some("PAX".to_owned()),
+        decimals: Some(18),
+        supply: Some(Uint256::from_decimal(&u128::MAX.to_string()).must()),
+        paused: Some(false),
+        verification: Some("authenticated_committed_snapshot".to_owned()),
     }
 }
 
@@ -115,6 +114,8 @@ impl<T> Must<T> for Option<T> {
 
 #[test]
 fn account_and_balances_read_px_methods_and_decode_every_field() {
+    producer_repair::balances();
+    producer_repair::assets();
     let account = format!("0x{}", "12".repeat(20));
     let native = json!({
         "account_id": "56".repeat(32), "name": "agent:main", "sequence": "17",
@@ -123,24 +124,21 @@ fn account_and_balances_read_px_methods_and_decode_every_field() {
     });
     let account_result = json!({
         "account": identities_json(),
-        "paxeer": {"address": account, "balance": "0xffffffffffffffffffffffffffffffff", "nonce": "0xffffffffffffffff"},
+        "paxeer": {"address": account, "balance": "0xffffffffffffffffffffffffffffffff", "nonce": "0xffffffffffffffff", "height": 150},
         "layerx": native
     });
-    let row_native = json!({"account_id": "56".repeat(32), "amount": "123", "locked": "4"});
     let balances_result = json!({
-        "account": identities_json(), "joined_limit": 16,
+        "account": identities_json(), "height": 150,
         "balances": [
-            {"asset_id": "ab".repeat(32), "denom": "upax", "custody": custody_json(),
-             "paxeer": {"denom": "upax", "amount": "340282366920938463463374607431768211455"},
-             "layerx": row_native},
-            {"asset_id": "ef".repeat(32), "denom": null, "custody": null, "paxeer": null, "layerx": null}
+            {"denom": "upax", "amount": u128::MAX.to_string()},
+            {"denom": "other", "amount": "0"}
         ]
     });
     let mut exchanges = vec![
         ("px_getAccount", account_result.clone()),
         ("px_getBalances", balances_result.clone()),
     ];
-    for name in ["account", "paxeer", "layerx"] {
+    for name in ["account", "paxeer"] {
         let mut malformed = account_result.clone();
         malformed.as_object_mut().must().remove(name);
         exchanges.push(("px_getAccount", malformed));
@@ -158,7 +156,10 @@ fn account_and_balances_read_px_methods_and_decode_every_field() {
     }
     for (name, invalid) in [
         ("address", json!("0x12")),
-        ("balance", json!("340282366920938463463374607431768211456")),
+        (
+            "balance",
+            json!("115792089237316195423570985008687907853269984665640564039457584007913129639936"),
+        ),
         ("nonce", json!("0x10000000000000000")),
     ] {
         let mut malformed = account_result.clone();
@@ -166,30 +167,29 @@ fn account_and_balances_read_px_methods_and_decode_every_field() {
         exchanges.push(("px_getAccount", malformed));
     }
     let bad_accounts = exchanges.len() - 2;
-    for name in ["account", "balances", "joined_limit"] {
+    for name in ["account", "balances", "height"] {
         let mut malformed = balances_result.clone();
         malformed.as_object_mut().must().remove(name);
         exchanges.push(("px_getBalances", malformed));
     }
-    for name in ["asset_id", "denom", "custody", "paxeer", "layerx"] {
+    for name in ["denom", "amount"] {
         let mut malformed = balances_result.clone();
         malformed["balances"][0].as_object_mut().must().remove(name);
         exchanges.push(("px_getBalances", malformed));
     }
-    for name in fields(custody_json()).keys() {
-        let mut malformed = balances_result.clone();
-        malformed["balances"][0]["custody"]
-            .as_object_mut()
-            .must()
-            .remove(name);
-        exchanges.push(("px_getBalances", malformed));
-    }
     for invalid in [json!("-1"), json!("01"), json!(1.5), Value::Null] {
         let mut malformed = balances_result.clone();
-        malformed["balances"][0]["paxeer"]["amount"] = invalid;
+        malformed["balances"][0]["amount"] = invalid;
         exchanges.push(("px_getBalances", malformed));
     }
     let bad_balances = exchanges.len() - 2 - bad_accounts;
+    let mut without_native = account_result.clone();
+    assert!(without_native
+        .as_object_mut()
+        .must()
+        .remove("layerx")
+        .is_some());
+    exchanges.push(("px_getAccount", without_native));
     let unbound = json!({"evm_address": null, "pax_address": null, "layerx_did": null,
                          "layerx_account": null, "bound": false});
     exchanges.push((
@@ -198,7 +198,7 @@ fn account_and_balances_read_px_methods_and_decode_every_field() {
     ));
     exchanges.push((
         "px_getBalances",
-        json!({"account": unbound, "balances": [], "joined_limit": "16"}),
+        json!({"account": unbound, "balances": [], "height": 151}),
     ));
 
     let (url, handle) = serve(exchanges);
@@ -209,8 +209,9 @@ fn account_and_balances_read_px_methods_and_decode_every_field() {
             account: expected_identities(),
             paxeer: Some(PxPaxeerAccount {
                 address: [0x12; 20],
-                balance: u128::MAX,
-                nonce: u64::MAX
+                balance: Uint256::from_decimal(&u128::MAX.to_string()).must(),
+                nonce: u64::MAX,
+                height: 150
             }),
             layerx: Some(fields(native)),
         }
@@ -219,24 +220,15 @@ fn account_and_balances_read_px_methods_and_decode_every_field() {
         endpoint.balances(&account).must(),
         PxAccountBalances {
             account: expected_identities(),
-            joined_limit: 16,
+            height: 150,
             balances: vec![
                 PxAssetBalance {
-                    asset_id: [0xab; 32],
-                    denom: Some("upax".to_owned()),
-                    custody: Some(expected_custody()),
-                    paxeer: Some(PxPaxeerAssetBalance {
-                        denom: "upax".to_owned(),
-                        amount: u128::MAX
-                    }),
-                    layerx: Some(fields(row_native))
+                    denom: "upax".to_owned(),
+                    amount: Uint256::from_decimal(&u128::MAX.to_string()).must()
                 },
                 PxAssetBalance {
-                    asset_id: [0xef; 32],
-                    denom: None,
-                    custody: None,
-                    paxeer: None,
-                    layerx: None
+                    denom: "other".to_owned(),
+                    amount: Uint256::from_decimal("0").must()
                 }
             ],
         }
@@ -247,6 +239,19 @@ fn account_and_balances_read_px_methods_and_decode_every_field() {
     for _ in 0..bad_balances {
         assert_eq!(endpoint.balances(&account), Err(SequencerError::Malformed));
     }
+    assert_eq!(
+        endpoint.account(&account).must(),
+        PxAccountJoin {
+            account: expected_identities(),
+            paxeer: Some(PxPaxeerAccount {
+                address: [0x12; 20],
+                balance: Uint256::from_decimal(&u128::MAX.to_string()).must(),
+                nonce: u64::MAX,
+                height: 150
+            }),
+            layerx: None,
+        }
+    );
     let empty_identities = PxResolvedIdentities {
         evm_address: None,
         pax_address: None,
@@ -267,11 +272,11 @@ fn account_and_balances_read_px_methods_and_decode_every_field() {
         PxAccountBalances {
             account: empty_identities,
             balances: vec![],
-            joined_limit: 16
+            height: 151
         }
     );
     let seen = handle.join().must();
-    assert_eq!(seen.len(), 4 + bad_accounts + bad_balances);
+    assert_eq!(seen.len(), 5 + bad_accounts + bad_balances);
     for params in seen {
         assert_eq!(params, json!([account]));
     }
@@ -279,12 +284,9 @@ fn account_and_balances_read_px_methods_and_decode_every_field() {
 
 #[test]
 fn list_assets_and_network_read_px_methods_and_refuse_anchor_fields() {
-    let metadata = json!({"asset_id": "ab".repeat(32), "name": "Paxeer", "symbol": "PAX",
-                          "decimals": 18, "supply": "123456789", "metadata": {"tags": ["native"]}});
-    let assets = json!({"assets": [
-        {"asset_id": "ab".repeat(32), "layerx": metadata, "paxeer": custody_json()},
-        {"asset_id": "ef".repeat(32), "layerx": null, "paxeer": null}
-    ], "joined_limit": "0x10"});
+    let absent = json!({"asset_id": "bank:other", "kind": "bank", "denom": "other",
+                        "name": null, "symbol": null, "decimals": null, "supply": null});
+    let assets = json!({"assets": [asset_json(), absent], "height": 150, "joined_limit": 16});
     let native_head = json!({"node_info": {"version": "1", "height": "9"}});
     let network = json!({"network_id": "paxeer:mainnet", "paxeer": {"chain_id": "0x7d", "latest_block": "0x10"},
                          "consensus": {"latest_height": 9, "latest_block_hash": "12".repeat(32),
@@ -320,21 +322,23 @@ fn list_assets_and_network_read_px_methods_and_refuse_anchor_fields() {
     malformed["layerx"] = json!([]);
     exchanges.push(("px_getNetwork", malformed));
     let bad_networks = exchanges.len() - 2;
-    for name in ["assets", "joined_limit"] {
+    for name in ["assets", "joined_limit", "height"] {
         let mut malformed = assets.clone();
         malformed.as_object_mut().must().remove(name);
         exchanges.push(("px_listAssets", malformed));
     }
-    for name in ["asset_id", "layerx", "paxeer"] {
+    for name in [
+        "asset_id", "kind", "denom", "name", "symbol", "decimals", "supply",
+    ] {
         let mut malformed = assets.clone();
         malformed["assets"][0].as_object_mut().must().remove(name);
         exchanges.push(("px_listAssets", malformed));
     }
     let mut malformed = assets.clone();
-    malformed["assets"][0]["paxeer"]["enabled"] = json!("true");
+    malformed["assets"][0]["paused"] = json!("true");
     exchanges.push(("px_listAssets", malformed));
     let mut malformed = assets.clone();
-    malformed["assets"][0]["layerx"] = json!([]);
+    malformed["assets"][0]["name"] = json!([]);
     exchanges.push(("px_listAssets", malformed));
     let mut malformed = assets;
     malformed["assets"] = json!(vec![Value::Null; 1025]);
@@ -346,7 +350,10 @@ fn list_assets_and_network_read_px_methods_and_refuse_anchor_fields() {
     let mut with_native = network;
     with_native["layerx"] = native_head.clone();
     exchanges.push(("px_getNetwork", with_native));
-    exchanges.push(("px_listAssets", json!({"assets": [], "joined_limit": 16})));
+    exchanges.push((
+        "px_listAssets",
+        json!({"assets": [], "height": 151, "joined_limit": 16}),
+    ));
 
     let (url, handle) = serve(exchanges);
     let endpoint = PxEndpoint::new(&url, &[]).must();
@@ -354,16 +361,19 @@ fn list_assets_and_network_read_px_methods_and_refuse_anchor_fields() {
         endpoint.list_assets().must(),
         PxAssetTable {
             joined_limit: 16,
+            height: 150,
             assets: vec![
+                expected_asset(),
                 PxAssetEntry {
-                    asset_id: [0xab; 32],
-                    layerx: Some(fields(metadata)),
-                    paxeer: Some(expected_custody())
-                },
-                PxAssetEntry {
-                    asset_id: [0xef; 32],
-                    layerx: None,
-                    paxeer: None
+                    asset_id: "bank:other".to_owned(),
+                    kind: "bank".to_owned(),
+                    denom: Some("other".to_owned()),
+                    name: None,
+                    symbol: None,
+                    decimals: None,
+                    supply: None,
+                    paused: None,
+                    verification: None
                 },
             ]
         }
@@ -402,6 +412,7 @@ fn list_assets_and_network_read_px_methods_and_refuse_anchor_fields() {
         endpoint.list_assets().must(),
         PxAssetTable {
             assets: vec![],
+            height: 151,
             joined_limit: 16
         }
     );

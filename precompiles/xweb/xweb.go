@@ -378,7 +378,7 @@ func (p PrecompileExecutor) request(ctx sdk.Context, method *abi.Method, caller 
 }
 
 // RequestFromProgram accepts a hosted program's request on the EVM state branch
-// and publishes its logs. Program requests have no timeout, so deadline is zero.
+// and publishes the committed kind and call sequence in its program-only log.
 func (p Precompile) RequestFromProgram(evm *vm.EVM, call *xwebkeeper.ProgramCall, topic, data []byte, readOnly bool) (err error) {
 	if !bytes.Equal(topic, []byte(xwebkeeper.ProgramRequestTopic)) {
 		return nil
@@ -420,13 +420,8 @@ func (p Precompile) RequestFromProgram(evm *vm.EVM, call *xwebkeeper.ProgramCall
 		return errors.New("xweb: accepted program request is missing")
 	}
 	input := data[xwebkeeper.ProgramRequestHeaderBytes:]
-	requester := x.evmKeeper.GetEVMAddressOrDefault(ctx, call.Principal)
-	if err := x.log(evm, "XWebRequested", []common.Hash{topicUint64(id), common.BytesToHash(requester.Bytes())},
-		request.Kind, input, uint64(0), wei(request.Amount), uint64(0)); err != nil {
-		return err
-	}
 	return x.log(evm, "XWebProgramRequested", []common.Hash{common.Hash(call.ProgramID), topicUint64(id)},
-		types.OriginProgram, input, uint64(0))
+		request.Kind, input, request.Sequence)
 }
 
 func (p PrecompileExecutor) refund(ctx sdk.Context, method *abi.Method, args []interface{}, evm *vm.EVM) ([]byte, error) {

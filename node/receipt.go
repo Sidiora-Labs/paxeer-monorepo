@@ -15,6 +15,7 @@ import (
 	authsigning "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/auth/signing"
 	receiptstore "github.com/Sidiora-Labs/Paxeer-X-Network/storage/ledger_db/receipt"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/utils"
+	wasmkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/wasm/x/wasm/keeper"
 	wasmtypes "github.com/Sidiora-Labs/Paxeer-X-Network/wasm/x/wasm/types"
 	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
@@ -299,7 +300,7 @@ func (app *App) translateCW721Event(ctx sdk.Context, wasmEvent abci.Event, point
 			cw721TransferCounterMap[ownerEventKey] = currentCounter + 1
 			ownerEvents, ok := ownerEventsMap[ownerEventKey]
 			if !ok || len(ownerEvents) <= currentCounter {
-				return nil, fmt.Errorf("%w: missing CW721 owner event for %s", ErrSyntheticReceiptTranslation, ownerEventKey)
+				return nil, fmt.Errorf("%w: %w: missing owner event for %s", ErrSyntheticReceiptTranslation, wasmkeeper.ErrCW721OwnerLookup, ownerEventKey)
 			}
 			ownerPaxAddrStr, found := GetAttributeValue(ownerEvents[currentCounter], wasmtypes.AttributeKeyOwner)
 			if !found {

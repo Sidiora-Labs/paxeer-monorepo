@@ -53,6 +53,12 @@ defmodule Explorer.Chain.Cache.MinMissingBlockNumber do
         corrected_to
 
       true ->
+        {:ok, _} =
+          LastFetchedCounter.upsert(%{
+            counter_type: "min_missing_block_number",
+            value: max(max_block_number + 1, 0)
+          })
+
         schedule_next_consolidation(@increased_interval)
         @default_last_fetched_number
     end

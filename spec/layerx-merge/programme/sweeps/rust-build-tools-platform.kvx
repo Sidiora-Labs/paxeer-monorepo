@@ -1,5 +1,5 @@
 [sweep.rust-build-tools-platform]
-revision = "1fea7069e58b649760bb1afcabdb9c4caec5ea4c"
+revision = "ace3608260f2ec826292dab08cd058031efe2f46"
 command = "cargo build --locked --manifest-path tools/platform/Cargo.toml -p TARGET --all-targets"
 targets_total = 3
 targets_passed = 3

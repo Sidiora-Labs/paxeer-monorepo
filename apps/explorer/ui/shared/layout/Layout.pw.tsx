@@ -6,9 +6,7 @@ import * as pwConfig from 'playwright/utils/config';
 
 import Layout from './Layout';
 
-// FIXME: at the moment, in the docker container playwright make screenshot before the page is completely loaded
-// I cannot figure out the reason, so I skip this test for now
-test.skip('base view +@mobile', async({ render, mockEnvs, mockApiResponse }) => {
+test('base view +@mobile', async({ render, mockEnvs, mockApiResponse }) => {
   await mockEnvs([
     [
       'NEXT_PUBLIC_MAINTENANCE_ALERT_MESSAGE',
@@ -17,24 +15,45 @@ test.skip('base view +@mobile', async({ render, mockEnvs, mockApiResponse }) => 
   ]);
   await mockApiResponse('general:homepage_indexing_status', indexingStatus);
   const component = await render(<Layout>Page Content</Layout>);
+  await expect(component.locator('main')).toHaveText('Page Content');
+  await expect(component.locator('footer')).toBeVisible();
+  await expect(component.getByText(/10% Blocks Indexed/)).toBeVisible();
+  await component.evaluate(async() => {
+    await document.fonts.ready;
+  });
   await expect(component).toHaveScreenshot();
 });
 
-// FIXME: at the moment, in the docker container playwright make screenshot before the page is completely loaded
-// I cannot figure out the reason, so I skip this test for now
-test.describe.skip('xxl screen', () => {
+test.describe('xxl screen', () => {
   test.use({ viewport: pwConfig.viewport.xxl });
 
-  test('vertical navigation', async({ render }) => {
+  test('vertical navigation', async({ render, mockEnvs, mockApiResponse }) => {
+    await mockEnvs([
+      [ 'NEXT_PUBLIC_NAVIGATION_LAYOUT', 'vertical' ],
+    ]);
+    await mockApiResponse('general:homepage_indexing_status', indexingStatus);
     const component = await render(<Layout>Page Content</Layout>);
+    await expect(component.locator('main')).toHaveText('Page Content');
+    await expect(component.locator('footer')).toBeVisible();
+    await expect(component.getByText(/10% Blocks Indexed/)).toBeVisible();
+    await component.evaluate(async() => {
+      await document.fonts.ready;
+    });
     await expect(component).toHaveScreenshot();
   });
 
-  test('horizontal navigation', async({ render, mockEnvs }) => {
+  test('horizontal navigation', async({ render, mockEnvs, mockApiResponse }) => {
     await mockEnvs([
       [ 'NEXT_PUBLIC_NAVIGATION_LAYOUT', 'horizontal' ],
     ]);
+    await mockApiResponse('general:homepage_indexing_status', indexingStatus);
     const component = await render(<Layout>Page Content</Layout>);
+    await expect(component.locator('main')).toHaveText('Page Content');
+    await expect(component.locator('footer')).toBeVisible();
+    await expect(component.getByText(/10% Blocks Indexed/)).toBeVisible();
+    await component.evaluate(async() => {
+      await document.fonts.ready;
+    });
     await expect(component).toHaveScreenshot();
   });
 });

@@ -74,11 +74,20 @@ class Phase4Tests(unittest.TestCase):
             p.final_release_closure([], [dict(gate='9.1')], closure_authority=authority, readiness_authority={}, inventory=self.inventory, context=self.context, trust=self.trust, artifact_root=self.root, dependencies=self.dependencies, authority={}, audit_authority={}, now=self.now)
 
     def test_closure_manifest_uses_all200_lane_tasks_and_real_serial_gate_commands(self):
-        gates = p.required_release_gates(DIRECTORY.parents[3]/'launchpad/spec/production-system/spec.kvx')
+        source = DIRECTORY.parents[3]/'spec/layerx-merge/spec.kvx'
+        gates = p.required_release_gates(source)
         self.assertEqual(sum(g['kind']=='parallel_lane' for g in gates.values()),200)
         self.assertIn('9.1',gates)
         self.assertIn('4.99',gates)
         self.assertTrue(all('--require-current-source' in gate['command'] for gate in gates.values()))
+        self.assertEqual(len(gates),208)
+        self.assertTrue(all(gate['reference']['class']=='retired-reference' and 'decision.1803' in gate['reference']['reason'] for gate in gates.values()))
+        manifest=json.loads((DIRECTORY/'final-integrated-gate-readiness.json').read_text())
+        for task,gate in gates.items():
+            self.assertEqual(gate['reference'],manifest['mandatory_gates'][task]['reference'])
+            self.assertEqual(gate['command'],manifest['mandatory_gates'][task]['verify_cmd'])
+        with self.assertRaisesRegex(p.Rejected,'retired release reference cannot qualify'):
+            p.verify_integrated_gate({},gates['9.1'],{},context={},trust={},artifact_root=self.root,now=self.now,capture_sha256='0'*64)
 
     def test_pinned_actual_object_bytes_reject_tamper(self):
         path = self.root/'object.json'

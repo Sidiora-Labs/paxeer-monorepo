@@ -13,6 +13,48 @@ export class LayerXApplicationStateError extends Error {
   }
 }
 
+const TRANSPORT_TIMEOUT_MS = 10_000;
+const TRANSPORT_RESPONSE_BYTES = 4 * 1024 * 1024;
+
+export async function boundedJsonRequest(url, request, limits = {}) {
+  const timeoutMs = limits.timeoutMs ?? TRANSPORT_TIMEOUT_MS;
+  const maximum = limits.maxResponseBytes ?? TRANSPORT_RESPONSE_BYTES;
+  if (!Number.isSafeInteger(timeoutMs) || timeoutMs <= 0 || timeoutMs > TRANSPORT_TIMEOUT_MS
+    || !Number.isSafeInteger(maximum) || maximum <= 0 || maximum > TRANSPORT_RESPONSE_BYTES) {
+    throw new Error("invalid_transport_limits");
+  }
+  const controller = new AbortController();
+  const deadline = setTimeout(() => controller.abort(), timeoutMs);
+  let reader;
+  try {
+    const response = await fetch(secureUrl(url), { ...request, redirect: "error", signal: controller.signal });
+    reader = response.body?.getReader();
+    if (reader === undefined) throw new Error("missing_response_body");
+    const declared = response.headers.get("content-length");
+    if (declared !== null && (!/^[0-9]+$/u.test(declared) || Number(declared) > maximum)) {
+      throw new Error("response_too_large");
+    }
+    const chunks = [];
+    let size = 0;
+    for (;;) {
+      const part = await reader.read();
+      if (part.done) break;
+      size += part.value.byteLength;
+      if (size > maximum) throw new Error("response_too_large");
+      chunks.push(part.value);
+    }
+    const body = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(Buffer.concat(chunks, size)));
+    return { ok: response.ok, status: response.status, body };
+  } finally {
+    clearTimeout(deadline);
+    controller.abort();
+    if (reader !== undefined) {
+      await reader.cancel().catch(() => undefined);
+      reader.releaseLock();
+    }
+  }
+}
+
 export const requiredEnvironment = (name) => {
   if (!/^[A-Z][A-Z0-9_]{0,127}$/u.test(name)) throw new Error("invalid_environment_binding");
   const value = process.env[name];
@@ -93,8 +135,9 @@ export function receiptKeysFromEnvironment(name) {
 export class SequencerReceiptClient {
   #receiptKeys;
 
-  constructor(rpcUrl, receiptKeys) {
+  constructor(rpcUrl, receiptKeys, transportLimits = {}) {
     this.rpcUrl = secureUrl(rpcUrl).toString();
+    this.transportLimits = Object.freeze({ ...transportLimits });
     if (!Array.isArray(receiptKeys) || receiptKeys.length === 0) throw new Error("invalid_receipt_keys");
     this.#receiptKeys = receiptKeys.map((key) => {
       if (!(key.keyId instanceof Uint8Array) || key.keyId.length !== 32
@@ -114,12 +157,12 @@ export class SequencerReceiptClient {
     let response;
     let body;
     try {
-      response = await fetch(this.rpcUrl, {
+      response = await boundedJsonRequest(this.rpcUrl, {
         method: "POST",
         headers: { accept: "application/json", "content-type": "application/json" },
         body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "pax_sequencerReceipt", params: [txHash] }),
-      });
-      body = await response.json();
+      }, this.transportLimits);
+      body = response.body;
     } catch {
       throw new LayerXApplicationStateError("unknown", "sequencer_receipt_unreachable");
     }
@@ -139,8 +182,9 @@ export class SequencerReceiptClient {
     }
     const signedReceipt = receiptBytes(result.receipt);
     for (const key of this.#receiptKeys) {
+      let verified;
       try {
-        await verifySequencerReceipt(signedReceipt, raw, [key]);
+        verified = await verifySequencerReceipt(signedReceipt, raw, [key]);
       } catch {
         continue;
       }
@@ -149,7 +193,8 @@ export class SequencerReceiptClient {
         verificationLevel: "receipted",
         rawTransaction: receiptHex(raw),
         signedReceipt: receiptHex(signedReceipt),
-        receiptDigest: receiptHex(keccak256(signedReceipt)),
+        receiptDigest: receiptHex(verified.receiptDigest),
+        receiptJson: structuredClone(result),
         receiptKey: {
           keyId: receiptHex(key.keyId),
           publicKey: receiptHex(key.publicKey),

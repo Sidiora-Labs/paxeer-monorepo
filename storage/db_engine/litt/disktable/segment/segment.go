@@ -123,10 +123,18 @@ func CreateSegment(
 		return nil, fmt.Errorf("failed to open metadata file: %v", err)
 	}
 
-	keys, err := createKeyFile(logger, index, segmentPaths[0], false)
+	keys, err := createKeyFile(logger, index, segmentPaths[0], false, fsync)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open key file: %v", err)
 	}
+	keepKeys := false
+	defer func() {
+		if !keepKeys {
+			if err := keys.file.Close(); err != nil {
+				logger.Error("failed to close key file after segment creation failed", "error", err)
+			}
+		}
+	}()
 
 	keyFileSize := keys.Size()
 
@@ -185,6 +193,7 @@ func CreateSegment(
 
 	go segment.keyFileControlLoop()
 
+	keepKeys = true
 	return segment, nil
 }
 
@@ -363,7 +372,7 @@ func (s *Segment) sealLoadedSegment(now time.Time) error {
 			"count", len(badKeys),
 		)
 
-		swapFile, err := createKeyFile(s.logger, s.index, s.keys.segmentPath, true)
+		swapFile, err := createKeyFile(s.logger, s.index, s.keys.segmentPath, true, s.fsync)
 		if err != nil {
 			return fmt.Errorf("failed to create swap key file: %w", err)
 		}
@@ -467,8 +476,8 @@ func (s *Segment) SetNextSegment(nextSegment *Segment) {
 // (KeyKindStandalone vs. KeyKindPrimary) and on the last secondary (KeyKindFinalSecondary) is what
 // lets recovery distinguish a fully-written group from a torn write.
 func (s *Segment) Write(data *types.PutRequest) (keyCount uint32, keyFileSize uint64, err error) {
-	if s.metadata.sealed {
-		return 0, 0, fmt.Errorf("segment is sealed, cannot write data")
+	if err := s.checkWriteCapacity(data); err != nil {
+		return 0, 0, err
 	}
 
 	// Shard assignment is round-robin: each successive call deposits the value into the next shard,
@@ -481,31 +490,8 @@ func (s *Segment) Write(data *types.PutRequest) (keyCount uint32, keyFileSize ui
 	}
 	currentSize := s.shardSizes[shard]
 
-	if currentSize > math.MaxUint32 {
-		// No matter the configuration, we absolutely cannot permit a value to be written if the first byte of the
-		// value would be beyond position 2^32. This is because we only have 32 bits in an address to store the
-		// position of a value's first byte.
-		return 0, 0,
-			fmt.Errorf("value file already contains %d bytes, cannot add a new value", currentSize)
-	}
 	firstByteIndex := uint32(currentSize)
 	valueLen := uint64(len(data.Value))
-	if uint64(firstByteIndex)+valueLen > math.MaxUint32 {
-		return 0, 0,
-			fmt.Errorf("value of length %d would push value file past 2^32 bytes (current size %d)",
-				valueLen, currentSize)
-	}
-
-	// Validate every secondary key's address fits in uint32 *before* sending anything, so we never
-	// produce a partial write.
-	for _, sk := range data.SecondaryKeys {
-		end := uint64(firstByteIndex) + uint64(sk.Offset) + uint64(sk.Length)
-		if end > math.MaxUint32 {
-			return 0, 0,
-				fmt.Errorf("secondary key range [%d, %d) would exceed 2^32 byte addressable range",
-					uint64(firstByteIndex)+uint64(sk.Offset), end)
-		}
-	}
 
 	n := len(data.SecondaryKeys)
 	totalKeys := uint32(1 + n) //nolint:gosec // n bounded by caller validation
@@ -569,6 +555,35 @@ func (s *Segment) Write(data *types.PutRequest) (keyCount uint32, keyFileSize ui
 	}
 
 	return s.keyCount, s.keyFileSize, nil
+}
+
+// HasCapacity reports whether the next round-robin shard can address the entire primary/secondary
+// group. Like Write, it must be called by the owner of the mutable segment. It does not change state.
+func (s *Segment) HasCapacity(data *types.PutRequest) bool {
+	return s.checkWriteCapacity(data) == nil
+}
+
+func (s *Segment) checkWriteCapacity(data *types.PutRequest) error {
+	if s.metadata.sealed {
+		return fmt.Errorf("segment is sealed, cannot write data")
+	}
+	currentSize := s.shardSizes[s.nextShard]
+	if currentSize > math.MaxUint32 {
+		return fmt.Errorf("value file already contains %d bytes, cannot add a new value", currentSize)
+	}
+	valueLen := uint64(len(data.Value))
+	if currentSize+valueLen > math.MaxUint32 {
+		return fmt.Errorf("value of length %d would push value file past 2^32 bytes (current size %d)",
+			valueLen, currentSize)
+	}
+	for _, sk := range data.SecondaryKeys {
+		end := currentSize + uint64(sk.Offset) + uint64(sk.Length)
+		if end > math.MaxUint32 {
+			return fmt.Errorf("secondary key range [%d, %d) would exceed 2^32 byte addressable range",
+				currentSize+uint64(sk.Offset), end)
+		}
+	}
+	return nil
 }
 
 // keyRecordSize returns the number of bytes a key file record consumes given a key of the supplied
@@ -893,11 +908,13 @@ func (s *Segment) handleKeyFileFlushRequest(request *keyFileFlushRequest, unflus
 		err := s.keys.seal()
 		if err != nil {
 			s.errorMonitor.Panic(fmt.Errorf("failed to seal key file: %w", err))
+			return
 		}
 	} else {
 		err := s.keys.flush()
 		if err != nil {
 			s.errorMonitor.Panic(fmt.Errorf("failed to flush key file: %w", err))
+			return
 		}
 	}
 

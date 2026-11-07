@@ -20,6 +20,7 @@ use serde_aux::prelude::*;
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize, derive_new::new)]
 pub struct Holder {
     #[serde(default)]
+    #[serde(rename = "address")]
     pub address_hash: Option<models::AddressParam>,
 
     pub value: String,

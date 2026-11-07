@@ -1,0 +1,28 @@
+[task]
+id = "22.33.284"
+base_revision = "58a590675bbe54c704c3f54c5ef49c6397e5992d"
+proof = "repair-22-33-284.spec.ts uses a loopback WebSocket producer, protocol fixtures, JSON and Brotli encoders, the production parser, formatter and hook."
+baseline = "Not run: the explicit implementation-first order and bounded gates prohibit unchanged-tree verification; no pre-change test failure is claimed."
+evidence = "The runner records the final candidate revision, exact command, exit code and private evidence path in its hf-build/hf-done ledger."
+wiring = "None: Flashblocks.handleAlertLinkClick in apps/explorer/ui/blocks/Flashblocks.tsx (domain 14) already invokes resume; resume now reconnects an errored or disconnected feed."
+
+[finding.flashblock-text-frame]
+tests = ["flashblockTextAndBinaryFrames", "flashblockBlobFrames", "flashblockMalformedFrameReportsError", "flashblockUnsupportedBinaryReportsError"]
+
+[finding.flashblock-tail-flush]
+tests = ["flashblockTailFlushDuringSilence"]
+
+[finding.flashblock-reconnect]
+tests = ["flashblockReconnectResubscribesAndRecovers", "flashblockReopenCancelsOldSubscription", "flashblockSubscriptionTimeoutIsBounded"]
+
+[gotcha.1]
+observed = "jsdom Blob lacks the standard browser arrayBuffer API."
+resolution = "The Blob codec proof uses Node's real web Blob; the hook receives actual text and ArrayBuffer frames over loopback WebSockets."
+
+[gotcha.2]
+observed = "Sandbox pnpm 11 and 10 refuse exec in this Yarn-configured app (and npm-configured workspace root)."
+resolution = "Install dependencies with the declared Yarn 1.22.22 and run the unchanged pnpm exec gates with pnpm 8.15.9."
+
+[gotcha.3]
+observed = "Node 20 Buffer declarations are incompatible with the TypeScript 5.9 compression InputType used by the declared build."
+resolution = "Encode fixture JSON with the standard TextEncoder before Brotli compression, preserving the bytes without a type cast."

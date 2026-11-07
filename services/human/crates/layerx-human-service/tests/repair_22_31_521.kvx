@@ -1,0 +1,149 @@
+[repair]
+task = "22.31.521"
+requirement = "22998.1"
+base_revision = "3b65013ae1452a2d8e05851c0d02513a1de58c33"
+clock_source = "layerx_human_test_support::StepClock via Clock::sample(Duration::from_secs(1)), nonzero generation, TimestampSeconds(reading.unix_seconds()); mirrors layerx_agentd::human_runtime approvals boundary"
+nonce_clock = "112000 epoch milliseconds: established Decisions::approve time of 112 seconds"
+notification_clock = "10000 epoch milliseconds: established ApprovalLifecycle::observed_at_ms of 10000"
+assertions = "All existing tests and assertions retained"
+
+[site.nonce_approval]
+path = "services/human/crates/layerx-human-service/tests/decide_nonces.rs"
+symbol = "AgentdDecisions::approval"
+change = "ApprovalService::get fourth argument reads self.decision_time()"
+
+[site.nonce_budget]
+path = "services/human/crates/layerx-human-service/tests/decide_nonces.rs"
+symbol = "AgentdDecisions::verified_budget_after"
+change = "ApprovalService::get fourth argument reads self.decision_time(); after the real hold read succeeds, return VerifiedBudgetAfter as tests/decide.rs does: remaining 975, Rung::Committed, evidence digest [9; 32], observed_at_sequence equal to the requested at_sequence"
+reason = "Attempt 4 ruling and gotcha 3107: Decisions::approve now requires a verified budget before reaching the nonce check; preserve every nonce and release assertion"
+
+[site.nonce_approve]
+path = "services/human/crates/layerx-human-service/tests/decide_nonces.rs"
+symbol = "AgentdDecisions::approve"
+change = "DecisionRequest::current_time reads self.decision_time()"
+
+[site.nonce_reject]
+path = "services/human/crates/layerx-human-service/tests/decide_nonces.rs"
+symbol = "AgentdDecisions::reject"
+change = "DecisionRequest::current_time reads self.decision_time()"
+
+[site.nonce_approved_read]
+path = "services/human/crates/layerx-human-service/tests/decide_nonces.rs"
+symbol = "decide_at"
+change = "Approved hold get fourth argument reads boundary.decision_time()"
+
+[site.nonce_stale_read]
+path = "services/human/crates/layerx-human-service/tests/decide_nonces.rs"
+symbol = "decide_at"
+change = "Unreleased hold get fourth argument reads boundary.decision_time()"
+
+[site.notification_approval]
+path = "services/human/crates/layerx-human-service/tests/repair_22_31_159.rs"
+symbol = "AgentdBoundary::approval"
+change = "ApprovalService::get fourth argument reads self.decision_time()"
+
+[site.notification_round_trip]
+path = "services/human/crates/layerx-human-service/tests/repair_22_31_159.rs"
+symbol = "round_trip"
+change = "Initial hold get fourth argument reads boundary.decision_time()"
+
+[site.nonce_payload]
+path = "services/human/crates/layerx-human-service/tests/decide_nonces.rs"
+symbol = "ledger_payload"
+change = "Compile a real signed LxpSend intent as journey_faults.rs does and pass compiled.payload().as_bytes() to PrecompileCall::ledger_transfer in pending_nonce; retain nonce 7, head height 88 and every existing assertion"
+reason = "Attempt 3 ruling and gotcha 3102: call-bound disclosure rejects the old arbitrary ledger payload as malformed"
+
+[site.timed_hold_setup]
+paths = ["services/human/crates/layerx-human-service/tests/decide_nonces.rs", "services/human/crates/layerx-human-service/tests/repair_22_31_159.rs"]
+symbols = ["decide_at", "round_trip"]
+change = "Use hold_at with the existing sequence windows wrapped in ApprovalSequence and the boundary StepClock reading for admission; the retired sequence-only hold entry returns ClockRequired"
+
+[attempt_3.first_qualification]
+revision = "bc3d16b6fda06692f2581daa013463dc80da38d5"
+command = "cg spec done 22.31.521 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Payload preparation succeeds, then both nonce cases fail at the retired sequence-only hold entry with ClockRequired"
+repair = "Pass the established boundary clock reading to hold_at in both fixtures without changing sequence windows or assertions"
+
+[gates]
+results = "Authoritative results are the build and verify rows in the private ledger; each records the exact candidate revision, command, exit code and log"
+private_ledger = "/out/run/gates.jsonl"
+verified_revision = "/out/run/gates.jsonl: last kind=verify row, revision field"
+build_command = "cargo build --locked --manifest-path services/human/crates/layerx-human-service/Cargo.toml --test decide_nonces --test repair_22_31_159"
+build_result = "/out/run/gates.jsonl: last kind=build row"
+build_log = "/out/run/gates.jsonl: last kind=build row, log field"
+verify_command = "cargo test --locked --manifest-path services/human/crates/layerx-human-service/Cargo.toml --test decide_nonces --test repair_22_31_159"
+verify_gate = "cg spec done 22.31.521 -f layerx-merge --root /work/paxeer-monorepo"
+verify_result = "/out/run/gates.jsonl: last kind=verify row"
+verify_log = "/out/run/gates.jsonl: last kind=verify row, log field"
+evidence_policy = "Private ledger references avoid changing the candidate after qualification or claiming a gate before it runs"
+
+[attempt_4.qualification]
+build_result = "/out/run/gates.jsonl: last kind=build row records revision, command, exit and log"
+verify_result = "/out/run/gates.jsonl: last kind=verify row records revision, command, exit and log; this is the authoritative verified revision"
+notification_budget = "AgentdBoundary::verified_budget_after already verifies a real state leaf and returns a committed budget at the requested sequence; retained unchanged"
+
+[attempt_4.first_qualification]
+revision = "37e5cd5cbc44934d3f04c9067bbd948cb015af67"
+command = "cg spec done 22.31.521 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Both nonce cases pass; the three 159 cases fail because AgentStore refuses the fixture's stream directory permissions (gotcha 3096)"
+repair = "Create the stream directory with DirBuilderExt::mode(0o700), as component_frame.rs does; preserve all store checks and assertions"
+
+[site.notification_private_store]
+path = "services/human/crates/layerx-human-service/tests/repair_22_31_159.rs"
+symbol = "round_trip"
+change = "Create the agent stream directory with mode 0700 required by the real AgentStore"
+
+[attempt_2.gate_result.build]
+revision = "cc5be133e37707e2c007ae16d7f20a46affb8c88"
+command = "cargo build --locked --manifest-path services/human/crates/layerx-human-service/Cargo.toml --test decide_nonces --test repair_22_31_159"
+exit = 0
+log = "/out/logs/build-1.log"
+
+[attempt_2.gate_result.verify]
+revision = "cc5be133e37707e2c007ae16d7f20a46affb8c88"
+command = "cg spec done 22.31.521 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+
+[attempt_2.qualification]
+verify_command = "cargo test --locked --manifest-path services/human/crates/layerx-human-service/Cargo.toml --test decide_nonces --test repair_22_31_159"
+verify_exit = 101
+observed = "Both decide_nonces cases fail at the unchanged pending_nonce(7, 7) preparation with Disclosure(MalformedPayload), before any changed decision-time call; Cargo stops before repair_22_31_159 executes."
+assumption = "The existing preparation fixture failure is unrelated to the decision-time signature repair; its preparation and assertions remain unchanged under the instruction to record unrelated failures without chasing them."
+status = "implemented_not_qualified"
+
+[attempt_5.qualification]
+base_revision = "1c423688bf5ced46198671e6635f4e51a064f090"
+change = "Create stream_root with DirBuilder::new().recursive(true).mode(0o700).create(&stream_root), creating its missing parent and retaining the protected store's private permissions; all other Rust code and assertions stand"
+reason = "Attempt 5 ruling and gotcha 3096: support::directory returns a path whose parent does not yet exist"
+build_result = "/out/run/gates.jsonl: last kind=build row records exact revision, command, exit and private log"
+verify_result = "/out/run/gates.jsonl: last kind=verify row records exact verified revision, command, exit and private log"
+evidence_policy = "The private ledger records results after each gate without changing the qualified candidate"
+
+[attempt_5.gate_result.build]
+revision = "f7ff48f3d6bf68f4d07b972c6a1619a4cfb3f7c3"
+command = "cargo build --locked --manifest-path services/human/crates/layerx-human-service/Cargo.toml --test decide_nonces --test repair_22_31_159"
+exit = 0
+log = "/out/logs/build-1.log"
+
+[attempt_5.gate_result.verify]
+revision = "f7ff48f3d6bf68f4d07b972c6a1619a4cfb3f7c3"
+command = "cg spec done 22.31.521 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Both nonce cases pass; all three 159 cases pass store creation and fail the existing assert!(!delivery.payload().contains(\"Amount:\")) at repair_22_31_159.rs:265; Cargo exits 101"
+assumption = "The pre-existing notification payload assertion is unrelated to decision time or recursive private directory creation; preserve it, record the failure without chasing it, and leave the task implemented_not_qualified"
+
+[attempt_6.qualification]
+base_revision = "124f642568ebfdb55ed2a6180eea61c06c4516b5"
+decision = "2580 supersedes attempt_5.gate_result.verify's instruction to preserve the obsolete text-channel assertion: 22.31.523 added approval binding lines"
+change = "When text contains Amount:, require the exact base-unit Amount line immediately followed by the exact Asset line, matching repair_22_31_523.rs; always reject the rendered amount-space-asset money form; retain the JSON assertion and every other assertion"
+retained = "All eight decision-time sites, StepClock readings, compiled send payload, verified budget boundary, recursive 0700 stream root and nonce assertions stand"
+build_result = "/out/run/gates.jsonl: last kind=build row records exact revision, command, exit and private log"
+verify_result = "/out/run/gates.jsonl: last kind=verify row records exact verified revision, command, exit and private log"
+evidence_policy = "Read the private gate ledger for actual results; keep the candidate unchanged between build and verify and after qualification"

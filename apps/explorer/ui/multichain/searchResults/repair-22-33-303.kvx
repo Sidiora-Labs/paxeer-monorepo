@@ -1,0 +1,15 @@
+[repair.22.33.303]
+base_revision = "117197c811684e097104c96b29e872d45034cebb"
+test_file = "apps/explorer/ui/multichain/searchResults/repair-22-33-303.spec.ts"
+qualification = "The runner's hf-build and hf-done ledger records the exact candidate revision, command, exit code and private evidence log."
+baseline = "Not run: the explicit implementation-first gate order prohibits the unchanged-tree verification requested by step 6; no baseline failures are claimed."
+wiring_requests = []
+
+[finding.search-failure-empty]
+tests = ["selectedFailureShowsRetryAndRecoversWithSearchContext", "partialFailureKeepsSuccessfulResultsAndRetriesOnlyFailedCategory", "refetchFailureKeepsCachedResultsUntilRetryRecovers", "allFailuresAreVisibleAndNeverReportedAsEmpty", "successfulEmptySearchStillShowsEmptyState"]
+path = "Loopback HTTP producer -> real useApiInfiniteQuery/useApiFetch -> SearchResultTabContent -> real alert, retry button and SearchResultsList; retry preserves q and chain_id on the wire."
+
+[finding.search-view-all-context]
+tests = ["viewAllClickPreservesTenantQueryAndChainThroughDestinationRequest", "viewAllPreservesAllChainsAndUnfilteredSearch"]
+path = "SearchResults passes term and chain through SearchResultTabContent -> SearchResultsTabAll -> real route codec and Link; clicking produces the detailed route, which drives the real API hook and detailed results consumer."
+route_codec = "The real nextjs-routes codec stringifies explicit undefined query values; omit chain_id entirely when no chain selection exists."

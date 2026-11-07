@@ -5,6 +5,7 @@ from base64 import b64decode
 from binascii import Error as BinasciiError
 from dataclasses import dataclass
 from enum import StrEnum
+from hashlib import sha256
 from os import environ
 from re import fullmatch, search
 from typing import Mapping
@@ -102,11 +103,14 @@ def assert_no_published_secrets(environment: Mapping[str, str]) -> None:
             raise IntegrationError(IntegrationErrorCode.CLIENT_RUNTIME_REFUSED)
 
 
-def read_declared_config(environment: Mapping[str, str] | None = None) -> DeclaredConfig:
+def read_declared_config(
+    environment: Mapping[str, str] | None = None, *, purpose_hash: str | None = None
+) -> DeclaredConfig:
     values = dict(environ if environment is None else environment)
     assert_no_published_secrets(values)
     scheme = _required(values, "LAYERX_X402_SCHEME")
     network = _required(values, "LAYERX_X402_NETWORK")
+    resource_url = _required(values, "LAYERX_RESOURCE_URL")
     requirements = PaymentRequirements(
         scheme=scheme,
         network=network,
@@ -114,10 +118,17 @@ def read_declared_config(environment: Mapping[str, str] | None = None) -> Declar
         asset=_required(values, "LAYERX_ASSET"),
         pay_to=_required(values, "LAYERX_PAY_TO"),
         max_timeout_seconds=_positive_integer(_required(values, "LAYERX_PAYMENT_TIMEOUT_SECONDS")),
+        extra={"layerx": {
+            "commitment": "receipted",
+            "purposeHash": (
+                offer_purpose_hash(resource_url) if purpose_hash is None else _hex32(purpose_hash).hex()
+            ),
+        }},
+        has_extra=True,
     )
     payment_required = PaymentRequired(
         resource=ResourceInfo(
-            url=_required(values, "LAYERX_RESOURCE_URL"),
+            url=resource_url,
             description=_optional(values, "LAYERX_RESOURCE_DESCRIPTION"),
             mime_type=_optional(values, "LAYERX_RESOURCE_MIME_TYPE"),
             service_name=_optional(values, "LAYERX_RESOURCE_SERVICE_NAME"),
@@ -237,3 +248,7 @@ def _is_published_name(name: str) -> bool:
 
 def _looks_like_key_material(name: str) -> bool:
     return search(r"(^|_)(TOKEN|SECRET|PRIVATE|CREDENTIAL|PASSWORD|SIGNING_KEY|API_KEY)(_|$)", name) is not None
+
+
+def offer_purpose_hash(resource_url: str) -> str:
+    return sha256(("layerx-fastapi-purpose:" + resource_url).encode("utf-8")).hexdigest()

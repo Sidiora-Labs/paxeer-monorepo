@@ -1,3 +1,5 @@
+Code.require_file("repair_22_33_555_support.exs", __DIR__)
+
 defmodule Indexer.Fetcher.InternalTransactionTest do
   use EthereumJSONRPC.Case, async: false
   use Explorer.DataCase
@@ -34,6 +36,13 @@ defmodule Indexer.Fetcher.InternalTransactionTest do
   @moduletag [capture_log: true, no_geth: true]
 
   @lookback_blocks 100
+
+  for variant <- [EthereumJSONRPC.Geth, EthereumJSONRPC.PaxeerX] do
+    @tag no_geth: false
+    test "012: #{inspect(variant)} imports a recorded Paxeer trace after restart and retry" do
+      Indexer.Fetcher.Repair2233555.assert_trace_recovery(unquote(variant))
+    end
+  end
 
   test "does not try to fetch pending transactions from Indexer.Fetcher.PendingTransaction", %{
     json_rpc_named_arguments: json_rpc_named_arguments

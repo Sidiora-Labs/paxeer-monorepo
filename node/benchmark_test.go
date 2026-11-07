@@ -2,10 +2,14 @@ package app
 
 import (
 	"context"
+	"math/big"
 	"testing"
 	"time"
 
+	evmcfg "github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/config"
+	evmtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/node/benchmark"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/stretchr/testify/require"
 )
 
@@ -38,8 +42,10 @@ func TestBenchmarkHelperMethods(t *testing.T) {
 
 func TestInitBenchmark_PanicsOnLiveChainID(t *testing.T) {
 
-	chainID := "pacific-1"
-	liveEVMChainID := int64(1329) // pacific-1's EVM chain ID (live)
+	chainID := "hyperpax_125-1"
+	liveEVMChainID := int64(125)
+	require.Equal(t, liveEVMChainID, evmcfg.GetEVMChainID(chainID).Int64())
+	require.True(t, evmcfg.IsLiveEVMChainID(liveEVMChainID))
 
 	// Create a minimal App struct
 	app := &App{
@@ -49,7 +55,7 @@ func TestInitBenchmark_PanicsOnLiveChainID(t *testing.T) {
 	ctx := context.Background()
 
 	// Test that InitBenchmark panics with live chain ID
-	require.Panics(t, func() {
+	require.PanicsWithValue(t, "benchmark not allowed on live chains", func() {
 		app.InitBenchmark(ctx, chainID, liveEVMChainID)
 	}, "InitBenchmark should panic on live chain ID")
 
@@ -59,26 +65,18 @@ func TestInitBenchmark_PanicsOnLiveChainID(t *testing.T) {
 
 func TestInitBenchmark_AllLiveChainIDs(t *testing.T) {
 
-	liveChainIDs := []struct {
-		chainID     string
-		evmChainID  int64
-		description string
-	}{
-		{"pacific-1", 1329, "pacific-1"},
-		{"atlantic-2", 1328, "atlantic-2"},
-		{"arctic-1", 713715, "arctic-1"},
-	}
-
-	for _, tc := range liveChainIDs {
-		t.Run(tc.description, func(t *testing.T) {
+	require.NotEmpty(t, evmcfg.EVMChainIDMapping)
+	for evmChainID, chainID := range evmcfg.EVMChainIDMapping {
+		t.Run(chainID, func(t *testing.T) {
 			app := &App{
 				encodingConfig: MakeEncodingConfig(),
 			}
 			ctx := context.Background()
 
-			require.Panics(t, func() {
-				app.InitBenchmark(ctx, tc.chainID, tc.evmChainID)
-			}, "InitBenchmark should panic on live chain ID: %s", tc.description)
+			require.PanicsWithValue(t, "benchmark not allowed on live chains", func() {
+				app.InitBenchmark(ctx, chainID, evmChainID)
+			}, "InitBenchmark should panic on live chain ID: %s", chainID)
+			require.Nil(t, app.benchmarkManager)
 		})
 	}
 }
@@ -107,18 +105,44 @@ func TestInitBenchmark_Success(t *testing.T) {
 	// Verify we can get the proposal channel
 	require.NotNil(t, app.benchmarkManager.ProposalChannel(), "proposal channel should be available")
 
-	// Consume a proposal to verify the channel is working
+	for range benchmark.WarmupBlocks {
+		app.RecordBenchmarkCommitTime(time.Millisecond)
+	}
 	select {
 	case proposal, ok := <-app.benchmarkManager.ProposalChannel():
-		if ok {
-			require.NotNil(t, proposal, "Proposal should not be nil")
-			// EVMTransfer scenario doesn't need deployment, so should get load txs immediately
-			t.Logf("Received proposal with %d txs", len(proposal))
+		require.True(t, ok, "proposal channel closed before producing transactions")
+		require.NotEmpty(t, proposal)
+		for _, wire := range proposal {
+			tx, err := app.GetTxConfig().TxDecoder()(wire)
+			require.NoError(t, err)
+			require.Len(t, tx.GetMsgs(), 1)
+			msg, ok := tx.GetMsgs()[0].(*evmtypes.MsgEVMTransaction)
+			require.True(t, ok)
+			require.NoError(t, msg.ValidateBasic())
+			eth, data := msg.AsTransaction()
+			require.NotNil(t, eth)
+			require.NotNil(t, data)
+			require.Equal(t, big.NewInt(evmChainID), eth.ChainId())
+			require.NotNil(t, eth.To())
+			require.Empty(t, eth.Data())
+			require.Positive(t, eth.Gas())
+			_, err = types.Sender(types.LatestSignerForChainID(eth.ChainId()), eth)
+			require.NoError(t, err)
 		}
 	case <-time.After(5 * time.Second):
-		t.Log("Timeout waiting for proposal (may be in setup phase)")
+		t.Fatal("benchmark did not produce a proposal")
 	}
-
-	// Cancel context to stop the generator
 	cancel()
+	timer := time.NewTimer(5 * time.Second)
+	defer timer.Stop()
+	for {
+		select {
+		case _, ok := <-app.benchmarkManager.ProposalChannel():
+			if !ok {
+				return
+			}
+		case <-timer.C:
+			t.Fatal("benchmark generator did not stop after cancellation")
+		}
+	}
 }

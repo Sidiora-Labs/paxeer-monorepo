@@ -1,0 +1,1089 @@
+# Pre-upgrade audit of the smart-contract verifier server; source snapshot is the audited base revision.
+
+[audit.22.30.161]
+task = "22.30.161"
+revision = "2b99f88520e4e809ad5593f3bee2df74fe355d7b"
+files_reviewed = 122
+findings = 27
+docs_reviewed = 10
+upgrade_ready = false
+blocking = ["post-actions-dropped","absolute-source-path-write","health-unknown-service"]
+interfaces_reviewed = 141
+review_basis = "Requirement 22998.1 and decision 2515; 96 produced and 45 consumed registry rows. Public verification is stateless compilation/source comparison, not a node RPC or receipt-finality service. Historical Solidity/Vyper fixtures do not wire separate chains, tenant databases or retired daemons into this server."
+
+[file.001]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/Cargo.toml"
+lines = 43
+verdict = "clean"
+note = "Read full manifest. Server uses the workspace launcher dependency, which resolves to crates.io 0.17.0; local generated proto and verifier libraries are linked by workspace paths. Test targets and features are declared; no manifest change is proposed."
+
+[file.002]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/README.md"
+lines = 359
+verdict = "issues"
+note = "Read full page and cross-checked request/response examples against current v2 proto and handlers. Stale API examples, response-family claims and incomplete default configuration are recorded below."
+
+[file.003]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/config/base.toml"
+lines = 65
+verdict = "issues"
+note = "Read all active and commented tables. Active listen ports, body size, schedules, paths, metric and Sourcify fields agree with Settings and their registry spellings; removed extension examples and absent Zksync documentation are covered by findings."
+
+[file.004]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/src/lib.rs"
+lines = 12
+verdict = "clean"
+note = "Read full module exports. Public server services, Settings and run entry point resolve to the implementations registered in run.rs; no retired runtime reference."
+
+[file.005]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/src/main.rs"
+lines = 8
+verdict = "clean"
+note = "Read full executable entry point. Settings::build precedes run; configuration errors are fatal and no settings or credentials are printed here."
+
+[file.006]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/src/metrics.rs"
+lines = 17
+verdict = "issues"
+note = "Read full counter declaration and label ordering. Both registry metric IDs name the same Prometheus family; caller-controlled chain cardinality and omitted handler instrumentation are recorded."
+
+[file.007]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/src/proto.rs"
+lines = 1
+verdict = "clean"
+note = "Read full proto re-export module. It reuses the generated v2 transport types rather than introducing a third request/response shape."
+
+[file.008]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/src/run.rs"
+lines = 141
+verdict = "issues"
+note = "Read full HTTP and gRPC registration and startup sequence. Each enabled verifier is mounted on both transports; the declared 13 package HTTP routes resolve through generated route functions. Startup recovery and compilation admission findings remain."
+
+[file.009]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/src/services/common.rs"
+lines = 116
+verdict = "clean"
+note = "Read full fetcher factories and error-conversion macros. List/S3 settings reach their owning fetchers; BadRequest becomes INVALID_ARGUMENT and InvalidContent becomes an ordinary verification/compilation failure. Version lists sort descending. No retired URL."
+
+[file.010]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/src/services/health.rs"
+lines = 18
+verdict = "issues"
+note = "Read full Health implementation and the producer health.proto. The request service name is ignored in conflict with the declared unknown-service error contract."
+
+[file.011]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/src/services/mod.rs"
+lines = 11
+verdict = "clean"
+note = "Read full service-module declarations and exports; enabled implementations are reachable from run.rs and no orphan module or retired runtime is introduced."
+
+[file.012]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/src/services/solidity_verifier.rs"
+lines = 201
+verdict = "issues"
+note = "Read full Solidity handler implementation including batch, version listing and standalone method lookup. Traced actual request conversions, compiler selection and result mapping; path confinement, cache recovery and ignored requested post-actions have findings."
+
+[file.013]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/src/services/sourcify_verifier.rs"
+lines = 123
+verdict = "issues"
+note = "Read full Sourcify direct/import handlers and traced both library HTTP client paths, request wrappers and source responses. Address/index validation and import timeout wiring have findings; the route is registered."
+
+[file.014]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/src/services/vyper_verifier.rs"
+lines = 137
+verdict = "clean"
+note = "Read full Vyper initialization, multipart and standard-json handlers, error mapping and sorted version listing. Shared cache/admission and metrics risks are recorded at their common owning paths; blueprint mapping is preserved."
+
+[file.015]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/src/services/zksync_solidity_verifier.rs"
+lines = 192
+verdict = "issues"
+note = "Read full Zksync constructor, three fetchers, request/response oneofs, compiler listings and match conversion. Types match the local proto and backend decoder; missing global verification-counter updates are recorded."
+
+[file.016]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/src/settings.rs"
+lines = 199
+verdict = "clean"
+note = "Read full Settings definitions, defaults, validation and helpers. Compared all 45 produced config leaves and 45 derived environment names with registry and config loader prefix SMART_CONTRACT_VERIFIER plus separator __. List/S3 enum tags and NonZero types agree; missing public default documentation and linked-launcher provenance are recorded at their owning pages."
+
+[file.017]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/src/types/batch_verification.rs"
+lines = 137
+verdict = "issues"
+note = "Read full batch response conversion and oneof/error mappings; JSON artifact strings and match enum conversion agree with proto consumers. First-success selection can discard a better full match."
+
+[file.018]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/src/types/errors.rs"
+lines = 8
+verdict = "clean"
+note = "Read full StandardJsonParseError variants and displays; BadRequest and InvalidContent identifiers agree with both produced error-code rows and actual Zksync conversion handling."
+
+[file.019]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/src/types/lookup_methods.rs"
+lines = 56
+verdict = "clean"
+note = "Read full lookup request/response wrappers and source-map/file-ID conversion. The standalone handler consumes compiled ABI and bytecode; no live chain RPC call is made by the wrapper."
+
+[file.020]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/src/types/mod.rs"
+lines = 16
+verdict = "clean"
+note = "Read full type module wiring and re-exports. All handler imports resolve to the intended wrappers and response processors."
+
+[file.021]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/src/types/source.rs"
+lines = 74
+verdict = "clean"
+note = "Read full Sourcify source conversion and serialized compiler settings. ABI is a JSON string, source paths/content remain a map, libraries and match type map to the declared Source shape."
+
+[file.022]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/src/types/sourcify.rs"
+lines = 76
+verdict = "issues"
+note = "Read full direct Sourcify conversion and its unit test. Unchecked signed-to-unsigned chosen_contract and unconstrained address forwarding are recorded."
+
+[file.023]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/src/types/sourcify_from_etherscan.rs"
+lines = 78
+verdict = "issues"
+note = "Read full Etherscan wrapper and its unit test; hex parsing accepts a short address which the test asserts as valid. The product address-length gap is recorded."
+
+[file.024]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/src/types/verification_result.rs"
+lines = 244
+verdict = "issues"
+note = "Read full solo result selection, artifact JSON encoding, bytecode part splitting, constructor/library extraction and errors. Full match ranking is explicit; requested method lookup is always absent and internal errors expose debug details."
+
+[file.025]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/src/types/verify_response.rs"
+lines = 130
+verdict = "clean"
+note = "Read full success/failure VerifyResponse wrapper and serialization helpers; Sourcify failure remains an HTTP-success verification failure while transport errors are returned separately."
+
+[file.026]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/src/types/zksolc_standard_json.rs"
+lines = 46
+verdict = "clean"
+note = "Read full Zksync standard-json wrapper and conversion tests. Compiler objects, code hex, optional constructor bytes and raw standard-json input reach the real library request; parse failures retain the declared BadRequest/InvalidContent distinction."
+
+[file.027]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/contracts/ERC677/abi.json"
+lines = 873
+verdict = "generated"
+note = "Compiler-generated ABI fixture. Inspected the entry types and signature shape against its accompanying historical source and the verifier's ABI JSON encoding; no live merged-network contract is configured by this data."
+
+[file.028]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/contracts/ERC677/source.sol"
+lines = 1163
+verdict = "vendored"
+note = "Historical Etherscan ERC677/token flattened source, submitted 2020-04-14. Retained as compiler-verification test input, with no deployment or live network call. Reviewed the hand-authored harness envelope, input settings and expected response shapes where present; imported payload is treated as vendored rather than a clean implementation claim."
+
+[file.029]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/contracts/contract_from_factory/abi.json"
+lines = 27
+verdict = "generated"
+note = "Compiler-generated ABI fixture. Inspected the entry types and signature shape against its accompanying historical source and the verifier's ABI JSON encoding; no live merged-network contract is configured by this data."
+
+[file.030]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/contracts/contract_from_factory/source.sol"
+lines = 18
+verdict = "clean"
+note = "Read full Factory and ContractFromFactory fixture. Its bytes32 constructor and Name getter agree with the generated ABI consumed by legacy verifier tests; compilation-only example, not a deployed network factory."
+
+[file.031]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/contracts/contract_with_lib/abi.json"
+lines = 47
+verdict = "generated"
+note = "Compiler-generated ABI fixture. Inspected the entry types and signature shape against its accompanying historical source and the verifier's ABI JSON encoding; no live merged-network contract is configured by this data."
+
+[file.032]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/contracts/contract_with_lib/source.sol"
+lines = 25
+verdict = "clean"
+note = "Read full library-linking fixture and corresponding ABI. BadSafeMath intentionally adds twice the operand for distinguishable bytecode; it is verification input, not a live ledger implementation."
+
+[file.033]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/contracts/home_bridge/source.sol"
+lines = 259
+verdict = "clean"
+note = "Read full historical HomeBridge/ValidatorProxy compilation fixture. Test use compiles source for bytecode comparison only; its validator state, tx.origin and transfer examples are not a running merged-network bridge or custody path."
+
+[file.034]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/contracts/issue_3082/source.sol"
+lines = 594
+verdict = "vendored"
+note = "Imported issue_3082 historical distribution/token and ownership source. Retained as compiler-verification test input, with no deployment or live network call. Reviewed the hand-authored harness envelope, input settings and expected response shapes where present; imported payload is treated as vendored rather than a clean implementation claim."
+
+[file.035]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/contracts/issue_4758/source.sol"
+lines = 1718
+verdict = "vendored"
+note = "Etherscan Crypto stamp 3.1 On-Chain Shop source with Capacity Blockchain Solutions attribution. Retained as compiler-verification test input, with no deployment or live network call. Reviewed the hand-authored harness envelope, input settings and expected response shapes where present; imported payload is treated as vendored rather than a clean implementation claim."
+
+[file.036]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/contracts/issue_5114/source.sol"
+lines = 686
+verdict = "vendored"
+note = "Historical OpenZeppelin proxy, ERC1967 and UpgradeableBeacon source used by issue_5114. Retained as compiler-verification test input, with no deployment or live network call. Reviewed the hand-authored harness envelope, input settings and expected response shapes where present; imported payload is treated as vendored rather than a clean implementation claim."
+
+[file.037]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/contracts/issue_5127/source.sol"
+lines = 554
+verdict = "vendored"
+note = "Historical IPauseable/blacklist/token source flattened by hardhat v2.7.0. Retained as compiler-verification test input, with no deployment or live network call. Reviewed the hand-authored harness envelope, input settings and expected response shapes where present; imported payload is treated as vendored rather than a clean implementation claim."
+
+[file.038]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/contracts/issue_5430_5434/source.sol"
+lines = 1
+verdict = "clean"
+note = "Read full one-line nightly-regression source. The contract returns one; missing execution coverage is owned by the ignored test finding, not a source defect."
+
+[file.039]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/contracts/issue_5431/source.sol"
+lines = 28
+verdict = "clean"
+note = "Read full Owner fixture including constructor and owner-only mutation. Source is retained solely for metadata-free constructor verification, not a deployed authorization service."
+
+[file.040]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/contracts/issue_5636/source.sol"
+lines = 12
+verdict = "clean"
+note = "Read full creation-code fixture. Contract B stores type(A).creationCode; it exercises embedded code metadata, not a live program registration path."
+
+[file.041]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/contracts/issue_5748/abi.json"
+lines = 21
+verdict = "generated"
+note = "Compiler-generated ABI fixture. Inspected the entry types and signature shape against its accompanying historical source and the verifier's ABI JSON encoding; no live merged-network contract is configured by this data."
+
+[file.042]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/contracts/issue_5748/standard_input.json"
+lines = 22
+verdict = "clean"
+note = "Read full standard-json library-linking input including both inline source files, remappings and linked address. Field shapes agree with the real compiler input and library-aware expected output."
+
+[file.043]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/contracts/issue_6275/standard_input.json"
+lines = 101
+verdict = "vendored"
+note = "Imported Rubic MultichainProxy, bridge-base and OpenZeppelin standard-json source bundle. Retained as compiler-verification test input, with no deployment or live network call. Reviewed the hand-authored harness envelope, input settings and expected response shapes where present; imported payload is treated as vendored rather than a clean implementation claim."
+
+[file.044]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/contracts/issue_with_constructor_args/source.sol"
+lines = 573
+verdict = "vendored"
+note = "Historical OpenZeppelin storage-slot/ERC1967 proxy source for constructor-argument regression. Retained as compiler-verification test input, with no deployment or live network call. Reviewed the hand-authored harness envelope, input settings and expected response shapes where present; imported payload is treated as vendored rather than a clean implementation claim."
+
+[file.045]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/contracts/issue_with_creation_code/standard_input.json"
+lines = 40
+verdict = "vendored"
+note = "Imported PancakeFactory and associated ERC20 standard-json compilation bundle. Retained as compiler-verification test input, with no deployment or live network call. Reviewed the hand-authored harness envelope, input settings and expected response shapes where present; imported payload is treated as vendored rather than a clean implementation claim."
+
+[file.046]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/contracts/library/source.sol"
+lines = 7
+verdict = "clean"
+note = "Read full Foo library fixture; its external pure string return is compiled for link-reference and ABI verification only."
+
+[file.047]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/contracts/match_type_full/standard_input.json"
+lines = 15
+verdict = "clean"
+note = "Read full Storage standard-json input. Solidity language, relative source path and optimizer settings match the full-match harness configuration."
+
+[file.048]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/contracts/match_type_partial/standard_input.json"
+lines = 15
+verdict = "clean"
+note = "Read full Storage standard-json input. This deliberately shares source with the full case; the test's altered bytecode metadata distinguishes a partial match."
+
+[file.049]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/contracts/simple_storage/abi.json"
+lines = 30
+verdict = "generated"
+note = "Compiler-generated ABI fixture. Inspected the entry types and signature shape against its accompanying historical source and the verifier's ABI JSON encoding; no live merged-network contract is configured by this data."
+
+[file.050]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/contracts/simple_storage/source.sol"
+lines = 13
+verdict = "clean"
+note = "Read full legacy SimpleStorage fixture and its ABI; uint setter/getter signatures agree with compiler/test expectations."
+
+[file.051]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/contracts/solidity_0.4.10/source.sol"
+lines = 9
+verdict = "clean"
+note = "Read full pre-standard-json Main fixture. The old constructor syntax is intentional for solc 0.4.10 compatibility coverage; confinement weakness is in the compiler input writer."
+
+[file.052]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/contracts/solidity_0.4.18/standard_input.json"
+lines = 13
+verdict = "clean"
+note = "Read full old Solidity standard-json fixture including combined A/B/Main sources. The test exercises real compiler-era output rather than a node API."
+
+[file.053]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/contracts/solidity_0.5.14/source.sol"
+lines = 6
+verdict = "clean"
+note = "Read full Solidity 0.5.14 fixture. The small A getter is compilation input for the deployed-bytecode-only regression."
+
+[file.054]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/contracts/solidity_0.5.9_smart_contract/source.sol"
+lines = 76
+verdict = "clean"
+note = "Read full historical token compilation fixture. Token/StandardToken/TestToken source is test data, not a configured merged-network token deployment."
+
+[file.055]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/contracts/solidity_5.11_new_whisper_metadata/source.sol"
+lines = 412
+verdict = "vendored"
+note = "Historical Etherscan FIXED token source with Bok Consulting attribution. Retained as compiler-verification test input, with no deployment or live network call. Reviewed the hand-authored harness envelope, input settings and expected response shapes where present; imported payload is treated as vendored rather than a clean implementation claim."
+
+[file.056]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/contracts/storage/metadata.json"
+lines = 88
+verdict = "generated"
+note = "Compiler-generated Solidity 0.8.7 Storage metadata including ABI, source hashes and compiler settings. The target source path matches the historical fixture; its former direct Sourcify consumer is entirely commented, recorded under sourcify-route-tests-commented."
+
+[file.057]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/contracts/storage/source.sol"
+lines = 29
+verdict = "clean"
+note = "Read full documented Storage source and matched its compiler metadata target contracts/1_Storage.sol. The dev-run-script annotation is historical compiler input, not an executed server script."
+
+[file.058]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/contracts/with_immutable_assignment/source.sol"
+lines = 20
+verdict = "clean"
+note = "Read full immutable-assignment fixture. Constructor environment values and immutable slots are intentional compilation comparison inputs, not persisted server state."
+
+[file.059]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/contracts/yul/standard_input.json"
+lines = 13
+verdict = "clean"
+note = "Read full Yul standard-json input. Object/runtime nesting and create2 payload are real compiler input for the Yul verification route, not a daemon or sequencer hook."
+
+[file.060]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/integration/batch_solidity.rs"
+lines = 61
+verdict = "clean"
+note = "Read full batch integration test runner: both multipart and standard-json requests flow through TestServer/generated HTTP routes; success, abstract failure and compile/parse error result families are asserted."
+
+[file.061]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/integration/main.rs"
+lines = 59
+verdict = "clean"
+note = "Read full integration target module wiring; batch and transformation modules are included in the active test binary."
+
+[file.062]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/integration/transformations.rs"
+lines = 80
+verdict = "clean"
+note = "Read full bytecode transformation integration assertions. Actual batch handler results are compared to persisted generated artifacts and match values; no separate RPC service is assumed."
+
+[file.063]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/integration/types/batch_solidity.rs"
+lines = 393
+verdict = "clean"
+note = "Read full batch fixture structs, request builders and expected-response conversion. Empty-code failure cases and per-contract result ordering match the proto producer; no hidden third response schema."
+
+[file.064]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/integration/types/mod.rs"
+lines = 36
+verdict = "clean"
+note = "Read full integration type module declarations; each used helper is connected to its test target."
+
+[file.065]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/integration/types/transformations.rs"
+lines = 238
+verdict = "clean"
+note = "Read full transformation fixture types and route builders. Match values and transformations use actual compiler/library types with expected JSON artifacts, not mocked transport payloads."
+
+[file.066]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/lookup_methods.rs"
+lines = 129
+verdict = "clean"
+note = "Read full lookup tests including real compilation, AST/source-map/file-ID inputs and generated Actix route invocation. The standalone interface is exercised; post-verification invocation remains missing in the handler."
+
+[file.067]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/solidity.rs"
+lines = 469
+verdict = "clean"
+note = "Read full Solidity route tests, fixture loading and response validation including complete/partial source selection. These exercise current response artifacts through generated routes; no test gate was executed by this audit."
+
+[file.068]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/solidity_multiple.rs"
+lines = 717
+verdict = "issues"
+note = "Read full historical Solidity multi-file regression tests and bytecode/ABI helpers. The nightly case remains explicitly ignored; commented regressions provide no evidence and are not counted as executed tests."
+
+[file.069]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/solidity_multiple_types.rs"
+lines = 92
+verdict = "clean"
+note = "Read full legacy multi-file input/options helper. Constructor and deployed-bytecode-only options control real compiler comparison; ignore_creation_tx_input selects input mode rather than skipping a test."
+
+[file.070]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/solidity_types.rs"
+lines = 363
+verdict = "clean"
+note = "Read full current Solidity test-case traits and multipart/standard-json request producers. Optional metadata and JSON artifact decoding agree with the generated transport types."
+
+[file.071]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/sourcify.rs"
+lines = 149
+verdict = "issues"
+note = "Read full file. All Sourcify route test code is commented, including an obsolete extension constructor, so it supplies no executable route assertions."
+
+[file.072]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/sourcify_from_etherscan.rs"
+lines = 167
+verdict = "issues"
+note = "Read full file and active import refusal case. Successful and not-verified scenarios are commented, and the active case relies on mutable public chain policy."
+
+[file.073]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/standard_json.rs"
+lines = 409
+verdict = "clean"
+note = "Read full standard-json route tests including Yul, libraries, old compiler cases and status/body error assertions. Supplied inputs are real compiler data; audit qualification does not claim those tests ran."
+
+[file.074]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/standard_json_types.rs"
+lines = 64
+verdict = "clean"
+note = "Read full standard-json input helper. Constructor arguments and runtime-only modes map to the legacy route's declared bytecode type."
+
+[file.075]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/test_cases_batch_solidity/basic_multi_part.json"
+lines = 80
+verdict = "generated"
+note = "Fixture includes compiler-generated bytecode, ABI/source maps and artifact values. Reviewed its complete hand-authored request/settings, expected result envelope and the real Rust consumer; generated values are retained as compiler evidence, not reviewed as network implementation. Case: basic_multi_part."
+
+[file.076]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/test_cases_batch_solidity/basic_standard_json.json"
+lines = 75
+verdict = "generated"
+note = "Fixture includes compiler-generated bytecode, ABI/source maps and artifact values. Reviewed its complete hand-authored request/settings, expected result envelope and the real Rust consumer; generated values are retained as compiler evidence, not reviewed as network implementation. Case: basic_standard_json."
+
+[file.077]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/test_cases_batch_solidity/compilation_error.json"
+lines = 22
+verdict = "generated"
+note = "Fixture includes compiler-generated bytecode, ABI/source maps and artifact values. Reviewed its complete hand-authored request/settings, expected result envelope and the real Rust consumer; generated values are retained as compiler evidence, not reviewed as network implementation. Case: compilation_error."
+
+[file.078]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/test_cases_batch_solidity/failure_abstract_contract.json"
+lines = 16
+verdict = "generated"
+note = "Fixture includes compiler-generated bytecode, ABI/source maps and artifact values. Reviewed its complete hand-authored request/settings, expected result envelope and the real Rust consumer; generated values are retained as compiler evidence, not reviewed as network implementation. Case: failure_abstract_contract."
+
+[file.079]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/test_cases_batch_solidity/invalid_standard_json.json"
+lines = 21
+verdict = "generated"
+note = "Fixture includes compiler-generated bytecode, ABI/source maps and artifact values. Reviewed its complete hand-authored request/settings, expected result envelope and the real Rust consumer; generated values are retained as compiler evidence, not reviewed as network implementation. Case: invalid_standard_json."
+
+[file.080]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/test_cases_batch_solidity/runtime_match_only_invalid_constructor_arguments.json"
+lines = 64
+verdict = "generated"
+note = "Fixture includes compiler-generated bytecode, ABI/source maps and artifact values. Reviewed its complete hand-authored request/settings, expected result envelope and the real Rust consumer; generated values are retained as compiler evidence, not reviewed as network implementation. Case: runtime_match_only_invalid_constructor_arguments."
+
+[file.081]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/test_cases_lookup_methods/import/AbstractContract.sol"
+lines = 10
+verdict = "clean"
+note = "Read full abstract-contract lookup fixture; its abstract public function declarations supply real inherited AST and method identifier inputs."
+
+[file.082]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/test_cases_lookup_methods/import/DerivedContract.sol"
+lines = 21
+verdict = "clean"
+note = "Read full derived-contract lookup fixture; inheritance and override resolution are tested with the actual compiler output."
+
+[file.083]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/test_cases_lookup_methods/import/config.json"
+lines = 4
+verdict = "clean"
+note = "Read full import lookup config; the compiler version and DerivedContract selection feed the real compilation and lookup harness."
+
+[file.084]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/test_cases_lookup_methods/multiple_metadata/Main.sol"
+lines = 20
+verdict = "clean"
+note = "Read full factory/nested-contract lookup fixture; multiple metadata sections are intentional inputs to method discovery."
+
+[file.085]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/test_cases_lookup_methods/multiple_metadata/config.json"
+lines = 4
+verdict = "clean"
+note = "Read full multiple-metadata lookup config; selected real compiler version agrees with fixture syntax."
+
+[file.086]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/test_cases_lookup_methods/simple/Greeter.sol"
+lines = 18
+verdict = "clean"
+note = "Read full Greeter lookup fixture; greet and setGreeting method locations are obtained from actual compiler output before route invocation."
+
+[file.087]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/test_cases_lookup_methods/simple/config.json"
+lines = 4
+verdict = "clean"
+note = "Read full simple lookup config; version selection feeds real compilation, without a node RPC endpoint."
+
+[file.088]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/test_cases_solidity/both_partial_and_full_verification_sources.json"
+lines = 66
+verdict = "vendored"
+note = "Imported Circle FiatTokenProxy and OpenZeppelin source bundle with generated bytecode and artifacts. Retained as compiler-verification test input, with no deployment or live network call. Reviewed the hand-authored harness envelope, input settings and expected response shapes where present; imported payload is treated as vendored rather than a clean implementation claim."
+
+[file.089]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/test_cases_solidity/cancun.json"
+lines = 54
+verdict = "generated"
+note = "Fixture includes compiler-generated bytecode, ABI/source maps and artifact values. Reviewed its complete hand-authored request/settings, expected result envelope and the real Rust consumer; generated values are retained as compiler evidence, not reviewed as network implementation. Case: cancun."
+
+[file.090]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/test_cases_solidity/constructor_arguments_and_abstract_contract.json"
+lines = 54
+verdict = "vendored"
+note = "Historical Bittrex UserWallet/AbstractSweeper source embedded alongside generated compiler artifacts. Retained as compiler-verification test input, with no deployment or live network call. Reviewed the hand-authored harness envelope, input settings and expected response shapes where present; imported payload is treated as vendored rather than a clean implementation claim."
+
+[file.091]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/test_cases_solidity/immutables.json"
+lines = 36
+verdict = "generated"
+note = "Fixture includes compiler-generated bytecode, ABI/source maps and artifact values. Reviewed its complete hand-authored request/settings, expected result envelope and the real Rust consumer; generated values are retained as compiler evidence, not reviewed as network implementation. Case: immutables."
+
+[file.092]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/test_cases_solidity/libraries_linked_by_compiler.json"
+lines = 60
+verdict = "generated"
+note = "Fixture includes compiler-generated bytecode, ABI/source maps and artifact values. Reviewed its complete hand-authored request/settings, expected result envelope and the real Rust consumer; generated values are retained as compiler evidence, not reviewed as network implementation. Case: libraries_linked_by_compiler."
+
+[file.093]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/test_cases_solidity/libraries_manually_linked.json"
+lines = 57
+verdict = "issues"
+note = "Reviewed all hand-authored envelope, input, manual link mapping and expected artifact structure. Bytecode, ABI and source maps are compiler-generated portions; the misleading metadata comment is recorded."
+
+[file.094]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/test_cases_solidity/no_metadata_hash.json"
+lines = 57
+verdict = "generated"
+note = "Fixture includes compiler-generated bytecode, ABI/source maps and artifact values. Reviewed its complete hand-authored request/settings, expected result envelope and the real Rust consumer; generated values are retained as compiler evidence, not reviewed as network implementation. Case: no_metadata_hash."
+
+[file.095]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/test_cases_solidity/simple_storage.json"
+lines = 36
+verdict = "generated"
+note = "Fixture includes compiler-generated bytecode, ABI/source maps and artifact values. Reviewed its complete hand-authored request/settings, expected result envelope and the real Rust consumer; generated values are retained as compiler evidence, not reviewed as network implementation. Case: simple_storage."
+
+[file.096]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/test_cases_solidity/two_cbor_auxdata.json"
+lines = 44
+verdict = "generated"
+note = "Fixture includes compiler-generated bytecode, ABI/source maps and artifact values. Reviewed its complete hand-authored request/settings, expected result envelope and the real Rust consumer; generated values are retained as compiler evidence, not reviewed as network implementation. Case: two_cbor_auxdata."
+
+[file.097]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/test_cases_solidity_transformations/constructor_arguments.json"
+lines = 68
+verdict = "generated"
+note = "Fixture includes compiler-generated bytecode, ABI/source maps and artifact values. Reviewed its complete hand-authored request/settings, expected result envelope and the real Rust consumer; generated values are retained as compiler evidence, not reviewed as network implementation. Case: constructor_arguments."
+
+[file.098]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/test_cases_solidity_transformations/full_match.json"
+lines = 60
+verdict = "generated"
+note = "Fixture includes compiler-generated bytecode, ABI/source maps and artifact values. Reviewed its complete hand-authored request/settings, expected result envelope and the real Rust consumer; generated values are retained as compiler evidence, not reviewed as network implementation. Case: full_match."
+
+[file.099]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/test_cases_solidity_transformations/immutables.json"
+lines = 71
+verdict = "generated"
+note = "Fixture includes compiler-generated bytecode, ABI/source maps and artifact values. Reviewed its complete hand-authored request/settings, expected result envelope and the real Rust consumer; generated values are retained as compiler evidence, not reviewed as network implementation. Case: immutables."
+
+[file.100]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/test_cases_solidity_transformations/libraries_linked_by_compiler.json"
+lines = 66
+verdict = "generated"
+note = "Fixture includes compiler-generated bytecode, ABI/source maps and artifact values. Reviewed its complete hand-authored request/settings, expected result envelope and the real Rust consumer; generated values are retained as compiler evidence, not reviewed as network implementation. Case: libraries_linked_by_compiler."
+
+[file.101]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/test_cases_solidity_transformations/libraries_manually_linked.json"
+lines = 84
+verdict = "generated"
+note = "Fixture includes compiler-generated bytecode, ABI/source maps and artifact values. Reviewed its complete hand-authored request/settings, expected result envelope and the real Rust consumer; generated values are retained as compiler evidence, not reviewed as network implementation. Case: libraries_manually_linked."
+
+[file.102]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/test_cases_solidity_transformations/metadata_hash_absent.json"
+lines = 63
+verdict = "generated"
+note = "Fixture includes compiler-generated bytecode, ABI/source maps and artifact values. Reviewed its complete hand-authored request/settings, expected result envelope and the real Rust consumer; generated values are retained as compiler evidence, not reviewed as network implementation. Case: metadata_hash_absent."
+
+[file.103]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/test_cases_solidity_transformations/partial_match.json"
+lines = 84
+verdict = "generated"
+note = "Fixture includes compiler-generated bytecode, ABI/source maps and artifact values. Reviewed its complete hand-authored request/settings, expected result envelope and the real Rust consumer; generated values are retained as compiler evidence, not reviewed as network implementation. Case: partial_match."
+
+[file.104]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/test_cases_solidity_transformations/partial_match_double_auxdata.json"
+lines = 93
+verdict = "generated"
+note = "Fixture includes compiler-generated bytecode, ABI/source maps and artifact values. Reviewed its complete hand-authored request/settings, expected result envelope and the real Rust consumer; generated values are retained as compiler evidence, not reviewed as network implementation. Case: partial_match_double_auxdata."
+
+[file.105]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/test_cases_vyper/arguments.json"
+lines = 26
+verdict = "generated"
+note = "Fixture includes compiler-generated bytecode, ABI/source maps and artifact values. Reviewed its complete hand-authored request/settings, expected result envelope and the real Rust consumer; generated values are retained as compiler evidence, not reviewed as network implementation. Case: arguments."
+
+[file.106]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/test_cases_vyper/blueprint.json"
+lines = 20
+verdict = "generated"
+note = "Fixture includes compiler-generated bytecode, ABI/source maps and artifact values. Reviewed its complete hand-authored request/settings, expected result envelope and the real Rust consumer; generated values are retained as compiler evidence, not reviewed as network implementation. Case: blueprint."
+
+[file.107]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/test_cases_vyper/erc20.json"
+lines = 26
+verdict = "vendored"
+note = "Imported CurveTokenV1 Vyper ERC20 source with attributed upstream URL and compiler outputs. Retained as compiler-verification test input, with no deployment or live network call. Reviewed the hand-authored harness envelope, input settings and expected response shapes where present; imported payload is treated as vendored rather than a clean implementation claim."
+
+[file.108]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/test_cases_vyper/erc667.json"
+lines = 8
+verdict = "vendored"
+note = "Imported Vyper upstream ERC721 example (filename erc667) with generated bytecode. Retained as compiler-verification test input, with no deployment or live network call. Reviewed the hand-authored harness envelope, input settings and expected response shapes where present; imported payload is treated as vendored rather than a clean implementation claim."
+
+[file.109]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/test_cases_vyper/simple.json"
+lines = 7
+verdict = "generated"
+note = "Fixture includes compiler-generated bytecode, ABI/source maps and artifact values. Reviewed its complete hand-authored request/settings, expected result envelope and the real Rust consumer; generated values are retained as compiler evidence, not reviewed as network implementation. Case: simple."
+
+[file.110]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/test_cases_vyper/standard_json_contracts_with_integrity_hashes.json"
+lines = 29
+verdict = "generated"
+note = "Fixture includes compiler-generated bytecode, ABI/source maps and artifact values. Reviewed its complete hand-authored request/settings, expected result envelope and the real Rust consumer; generated values are retained as compiler evidence, not reviewed as network implementation. Case: standard_json_contracts_with_integrity_hashes."
+
+[file.111]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/test_cases_vyper/standard_json_interfaces_in_sources.json"
+lines = 58
+verdict = "vendored"
+note = "Imported Snekmate Vyper modules/interfaces with integrity hashes and generated compiler bytecode. Retained as compiler-verification test input, with no deployment or live network call. Reviewed the hand-authored harness envelope, input settings and expected response shapes where present; imported payload is treated as vendored rather than a clean implementation claim."
+
+[file.112]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/test_cases_vyper/standard_json_with_interfaces.json"
+lines = 40
+verdict = "vendored"
+note = "Imported explorer Arbitrage Vyper source with Router/ERC20/SFRXETH interfaces and generated bytecode. Retained as compiler-verification test input, with no deployment or live network call. Reviewed the hand-authored harness envelope, input settings and expected response shapes where present; imported payload is treated as vendored rather than a clean implementation claim."
+
+[file.113]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/test_cases_vyper/with_interfaces.json"
+lines = 18
+verdict = "vendored"
+note = "Imported explorer Arbitrage Vyper source/interfaces with generated bytecode and constructor argument data. Retained as compiler-verification test input, with no deployment or live network call. Reviewed the hand-authored harness envelope, input settings and expected response shapes where present; imported payload is treated as vendored rather than a clean implementation claim."
+
+[file.114]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/test_cases_zksync_solidity/era_solidity_0.8.28.json"
+lines = 31
+verdict = "generated"
+note = "Fixture includes compiler-generated bytecode, ABI/source maps and artifact values. Reviewed its complete hand-authored request/settings, expected result envelope and the real Rust consumer; generated values are retained as compiler evidence, not reviewed as network implementation. Case: era_solidity_0.8.28."
+
+[file.115]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/test_cases_zksync_solidity/simple_standard_json.json"
+lines = 31
+verdict = "generated"
+note = "Fixture includes compiler-generated bytecode, ABI/source maps and artifact values. Reviewed its complete hand-authored request/settings, expected result envelope and the real Rust consumer; generated values are retained as compiler evidence, not reviewed as network implementation. Case: simple_standard_json."
+
+[file.116]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/test_cases_zksync_solidity/zksolc_1_3_5.json"
+lines = 31
+verdict = "generated"
+note = "Fixture includes compiler-generated bytecode, ABI/source maps and artifact values. Reviewed its complete hand-authored request/settings, expected result envelope and the real Rust consumer; generated values are retained as compiler evidence, not reviewed as network implementation. Case: zksolc_1_3_5."
+
+[file.117]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/versions.rs"
+lines = 57
+verdict = "clean"
+note = "Read full version-list route tests and real compiler-list setup. Solidity and Vyper results are sorted descending and serialized through the generated endpoint types; no runtime chain ID is inferred from compiler versions."
+
+[file.118]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/vyper.rs"
+lines = 541
+verdict = "clean"
+note = "Read full Vyper route tests including multipart, flattened and standard-json, constructor bytes, interfaces, blueprint and 0.4-era cases. Assertions preserve real artifact shapes; optional fixture fields control which artifacts the producer supports."
+
+[file.119]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/vyper_types.rs"
+lines = 401
+verdict = "clean"
+note = "Read full Vyper request builders and case trait implementations. Blueprint flags, optional artifacts, constructor args, source/interface maps and settings agree with the producer types."
+
+[file.120]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/zksync_integration/main.rs"
+lines = 53
+verdict = "clean"
+note = "Read full Zksync integration target wiring; its live route tests are included."
+
+[file.121]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/zksync_integration/types.rs"
+lines = 223
+verdict = "clean"
+note = "Read full Zksync fixture/request and response validation helpers. Nested compiler objects, oneof result families and serialized artifact strings agree with actual library output."
+
+[file.122]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/zksync_integration/zksync_solidity.rs"
+lines = 128
+verdict = "clean"
+note = "Read full Zksync integration scenarios for ordinary and era Solidity plus zksolc 1.3.5 artifact limits. The real service/Actix route and typed expected match details are used."
+
+[finding.post-actions-dropped]
+file = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/src/types/verification_result.rs"
+line = 97
+class = "interface-mismatch"
+severity = "high"
+observed = "Both Solidity solo requests declare post_actions=['lookup-methods'] in proto/v2/smart-contract-verifier.proto:128-147. The library proto_conversions.rs drops that field, and the successful response here always sets PostActionResponses.lookup_methods=None. HTTP clients and gRPC callers receive no requested lookup result; the standalone LookupMethods route is wired but is never invoked by verification."
+expected = "The multipart and standard-json verification interfaces must preserve the requested supported post-action and return its result for the selected verified contract, as VerifyResponse.PostActionResponses promises in the protobuf contract."
+proposal = "Carry post_actions through smart-contract-verifier/src/proto_conversions.rs and the server Solidity handlers; run find_methods against the selected contract's actual bytecode, ABI, source map and file IDs, then populate lookup_methods. Add real compiler-to-HTTP and gRPC regression coverage for both request formats and reject unsupported actions explicitly."
+owner_domain = 14
+interface = "14.http-verifier-post-api-v2-verifier-solidity-sources-verify-multi-part"
+related_interfaces = ["14.http-verifier-post-api-v2-verifier-solidity-sources-verify-standard-json","14.http-verifier-post-api-v2-verifier-solidity-methods-lookup"]
+
+[finding.absolute-source-path-write]
+file = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/src/services/solidity_verifier.rs"
+line = 77
+class = "security"
+severity = "high"
+observed = "The public multipart conversion accepts arbitrary source_files names as PathBuf; standard-json and batch conversions also retain paths. For solc versions below 0.4.11, verify/solc_compiler.rs:77 calls solc_compiler_cli::InputFiles, which joins a temporary directory with each name, rejects only ParentDir components, and File::create writes it. An absolute name replaces the temporary prefix and can truncate or overwrite any file writable by the verifier before compilation succeeds."
+expected = "Untrusted verification source names must remain inside a fresh compilation directory. Failed verification must not modify compiler caches, configuration or any other service state outside that directory."
+proposal = "Fix smart-contract-verifier/src/verify/solc_compiler_cli.rs to reject rooted and parent paths before writes and enforce confinement during creation, including symlink handling. Apply consistent validation to all request formats and prove through real old-solc HTTP requests that absolute and traversal inputs cannot alter an external sentinel or cached compiler."
+owner_domain = 14
+interface = "14.http-verifier-post-api-v2-verifier-solidity-sources-verify-multi-part"
+related_interfaces = ["14.http-verifier-post-api-v2-verifier-solidity-sources-verify-standard-json","14.http-verifier-post-api-v2-verifier-solidity-sources-batch-verify-multi-part","14.http-verifier-post-api-v2-verifier-solidity-sources-batch-verify-standard-json"]
+
+[finding.health-unknown-service]
+file = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/src/services/health.rs"
+line = 12
+class = "interface-mismatch"
+severity = "high"
+observed = "HealthService::check ignores HealthCheckRequest.service and always returns SERVING. A gRPC request naming a nonexistent or disabled verifier therefore reports success even though run.rs omits that service from both routers."
+expected = "The declared Health.Check protobuf explicitly requires NOT_FOUND for an unknown service at proto/v2/health.proto:43-45. Only the whole server and registered, available services may be reported as serving."
+proposal = "Pass the registered service set from src/run.rs into HealthService, preserve the empty-name server probe, and return tonic::Status::not_found for unknown names. Exercise the real gRPC router with enabled, disabled and unknown service names and retain the HTTP /health probe."
+owner_domain = 14
+interface = "14.grpcs-verifier-health-check"
+
+[finding.compiler-cache-trust-after-restart]
+file = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/src/services/solidity_verifier.rs"
+line = 46
+class = "restart-recovery"
+severity = "medium"
+observed = "Solidity and Vyper warm their pools with load_from_dir. The library compiler/download_cache.rs:add_versions trusts a parseable version directory whenever its solc path exists, without the download hash or FileValidator used for a fresh fetch. Defaults place these executables in predictable /tmp directories. A corrupt or replaced cached executable is accepted after restart and repeatedly executed instead of revalidated."
+expected = "Compiler integrity must remain equivalent across a fresh download and a restart. An invalid on-disk cache entry must not bypass the list digest and compiler validation."
+proposal = "Update smart-contract-verifier/src/compiler/download_cache.rs and the fetcher API to revalidate persisted executable digests and version identity before admission; use private compiler directories with safe ownership and permissions. Add a real restart case with an altered cache executable that is refused and replaced only by a verified download."
+owner_domain = 14
+interface = "14.cfg-verifier-solidity-compilers-dir"
+
+[finding.startup-requires-live-compiler-catalogues]
+file = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/src/run.rs"
+line = 85
+class = "restart-recovery"
+severity = "medium"
+observed = "run initializes every enabled verifier before starting listeners. ListFetcher::new constructs VersionsRefresher with an immediate remote fetch; even Solidity/Vyper cache loading happens only after that fetch succeeds. A failed compiler catalogue, including any default-enabled Zksync provider, prevents all verifier endpoints and health from starting despite existing compiler files; catalogue state is only in memory."
+expected = "Restart recovery should have a defined, bounded availability policy for cached verified compilers and each enabled provider. An unrelated catalogue outage should not silently make every verification route unavailable."
+proposal = "Persist authenticated last-known catalogue metadata in smart-contract-verifier/src/compiler/fetcher_versions.rs, validate it on restart, and define explicit provider readiness and catalogue expiry. Add bounded fetch deadlines and a real warm-cache restart test with an unavailable catalogue; keep unavailable compiler versions visibly refused rather than inventing success."
+owner_domain = 14
+interface = "14.cfg-verifier-zksync-solidity-enabled"
+
+[finding.compilation-admission-unbounded]
+file = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/src/run.rs"
+line = 83
+class = "runtime-risk"
+severity = "medium"
+observed = "The shared Semaphore limits simultaneous compiler calls but imposes no queue bound or wait deadline. The library EvmCompilersPool::compile awaits acquire and compiler execution without a task deadline; the old-solc process also awaits output without a timeout. HTTP max_body_size limits one body, not queued request memory or compiler duration, so expensive requests can occupy every slot and accumulate waiters across languages."
+expected = "Verification must have explicit resource and admission bounds so a caller cannot indefinitely starve other verification requests with long compilations or an unbounded queue."
+proposal = "Add bounded admission and queue deadlines at the server/compiler-pool boundary, enforce compiler wall time and output/resource limits, and terminate and reap timed-out child processes. Return a documented busy/deadline error and prove with real compiler processes that capacity recovers after cancellation and exhaustion."
+owner_domain = 14
+interface = "14.cfg-verifier-compilers-max-threads"
+
+[finding.metric-chain-cardinality]
+file = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/src/metrics.rs"
+line = 15
+class = "runtime-risk"
+severity = "medium"
+observed = "count_verify_contract creates persistent IntCounterVec children using the raw caller-supplied chain_id. Solidity and Vyper copy metadata.chain_id before conversion, and Sourcify copies its chain string. No label vocabulary, length bound or normalization limits the set; repeated otherwise valid verification requests can create arbitrarily many permanent metric series."
+expected = "The declared four-label verification counter must have bounded cardinality and remain scrapeable under untrusted request metadata; chain ID 125 must have a consistent canonical label."
+proposal = "Normalize and bound chain labels in src/metrics.rs using an explicit configured chain set and a fixed unknown bucket, while retaining useful chain details in bounded logs. Exercise real handler requests with many distinct metadata chain values and assert a fixed maximum number of exported series."
+owner_domain = 14
+interface = "14.met-rs-smart-contract-verifier-server-smart-contract-verifier-verify-contract"
+
+[finding.batch-selects-first-match]
+file = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/src/types/batch_verification.rs"
+line = 70
+class = "runtime-risk"
+severity = "medium"
+observed = "Batch response conversion chooses value.into_iter().next() instead of ranking matches. The library emits successes in compilation-artifact order. Solo conversion in verification_result.rs:54-85 prefers full matches, and the both_partial_and_full_verification_sources fixture demonstrates inputs with multiple matching sources. Batch callers can receive a partial parent contract even when the same compilation contains a full match."
+expected = "The same verified bytecode should yield the best available match and corresponding source identity in solo and batch APIs, rather than depend on artifact filename ordering."
+proposal = "Share the match-ranking policy between src/types/batch_verification.rs and verification_result.rs. Extend the real batch HTTP integration cases with the existing partial/full proxy compilation and assert that both batch formats return the full FiatTokenProxy source and its match evidence."
+owner_domain = 14
+interface = "14.http-verifier-post-api-v2-verifier-solidity-sources-batch-verify-multi-part"
+related_interfaces = ["14.http-verifier-post-api-v2-verifier-solidity-sources-batch-verify-standard-json"]
+
+[finding.negative-sourcify-contract-index]
+file = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/src/types/sourcify.rs"
+line = 42
+class = "runtime-risk"
+severity = "medium"
+observed = "The Sourcify wrapper casts chosen_contract from signed i32 to usize with 'as'. A negative JSON/protobuf value becomes a very large positive index, which sourcify/api.rs then converts to an upstream chosenContract string instead of rejecting it at the public boundary."
+expected = "A chosen contract index must preserve its nonnegative numeric meaning across protobuf, server conversion and the Sourcify HTTP request. Invalid indices should produce a client error before upstream work."
+proposal = "Use a checked nonnegative conversion in src/types/sourcify.rs and define the accepted index range. Add real HTTP and gRPC boundary cases for -1, zero and the maximum accepted value, proving negative inputs return INVALID_ARGUMENT/400 without an upstream request."
+owner_domain = 14
+interface = "14.http-verifier-post-api-v2-verifier-sourcify-sources-verify"
+
+[finding.sourcify-address-length]
+file = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/src/types/sourcify_from_etherscan.rs"
+line = 40
+class = "runtime-risk"
+severity = "medium"
+observed = "DisplayBytes decoding verifies hex syntax but accepts arbitrary address lengths. The conversion test at line 60 positively asserts an 18-byte address; the direct Sourcify wrapper similarly forwards an unconstrained string. The upstream VerifyFromEtherscanRequest stores Bytes and forwards that value, so no 20-byte address check intervenes."
+expected = "EVM contract addresses passed to verification/import must be exactly 20 bytes. A converter test must use the same address shape that a chain and the upstream verifier accept."
+proposal = "Validate addresses with a fixed-width EVM address type in both Sourcify wrappers before forwarding. Correct the conversion test to a real 20-byte address and add short, long and malformed address rejection cases on the real public routes with documented 400/INVALID_ARGUMENT responses."
+owner_domain = 14
+interface = "14.http-verifier-post-api-v2-verifier-sourcify-sources-verify-from-etherscan"
+related_interfaces = ["14.http-verifier-post-api-v2-verifier-sourcify-sources-verify"]
+
+[finding.sourcify-route-tests-commented]
+file = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/sourcify.rs"
+line = 19
+class = "test-gap"
+severity = "medium"
+observed = "The entire direct Sourcify test file, including FULL/PARTIAL success and failure cases, is commented out. Its obsolete constructor still refers to settings.extensions.sourcify, which no longer exists, so these lines do not compile or execute as tests and provide no coverage of the registered public route."
+expected = "An interface without a real-path test is a test gap under brief check_7. Requirement 22998.1 also forbids presenting removed or skipped assertions as evidence of a passing inventory target."
+proposal = "Restore executable tests in tests/sourcify.rs using the current constructor and an actual controlled Sourcify deployment with real compiled/deployed contracts and merged-chain configuration. Assert full/partial results, invalid input and upstream failure through the generated Actix route; keep all intended assertions active."
+owner_domain = 14
+interface = "14.http-verifier-post-api-v2-verifier-sourcify-sources-verify"
+
+[finding.etherscan-import-success-untested]
+file = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/sourcify_from_etherscan.rs"
+line = 21
+class = "test-gap"
+severity = "medium"
+observed = "should_return_200 and contract_not_verified_fail are commented out. The only active route case is chain_not_supported_fail against the default public Sourcify server and chain 2221, whose supported-chain policy can change externally. No executable test proves a successful import, its source response, or the declared negative contract lookup."
+expected = "The import interface needs reproducible real producer-to-route success and refusal coverage. Public third-party chain policy alone is not evidence that the verification source conversion round-trips."
+proposal = "Replace the commented Goerli-dependent cases with active scenarios against a controlled real Sourcify/import deployment and a reproducible supported chain explorer. Verify a real contract source result and an actual not-verified refusal, and configure the unsupported-chain case explicitly instead of relying on public chain 2221 policy."
+owner_domain = 14
+interface = "14.http-verifier-post-api-v2-verifier-sourcify-sources-verify-from-etherscan"
+
+[finding.nightly-regression-ignored]
+file = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/solidity_multiple.rs"
+line = 559
+class = "test-gap"
+severity = "medium"
+observed = "The Linux issue_5430_5434 regression is annotated #[ignore] because its nightly compiler list is unavailable. Its one-line source fixture is present, but a default test invocation cannot exercise this historical verifier failure."
+expected = "Requirement 22998.1 requires failed inventory targets to pass without deleted, skipped, ignored or weakened tests. A passing service test command alone would leave this regression unqualified."
+proposal = "Provide a verified, reproducible real nightly compiler catalogue for tests/solidity_multiple.rs, make issue_5430_5434 an active test, and retain its verification assertions. Record the actual service target command and revision when it passes; do not treat this audit record's grammar gate as that service-test evidence."
+owner_domain = 14
+interface = "14.http-verifier-post-api-v2-verifier-solidity-sources-verify-multi-part"
+
+[finding.obsolete-extension-config]
+file = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/config/base.toml"
+line = 58
+class = "config-drift"
+severity = "medium"
+observed = "The supplied base configuration advertises commented extensions.solidity.sig_provider, extensions.vyper.sig_provider and extensions.sourcify.sig_provider tables. Settings uses deny_unknown_fields and declares no extensions field, and current constructors accept no signature-provider extension. Enabling these examples makes configuration loading fail."
+expected = "Operator-facing configuration examples must contain supported keys and show a working signature-provider integration if one is offered; obsolete optional tables must not cause startup failure when followed."
+proposal = "Remove the obsolete extension examples from config/base.toml and config/base.env, or implement and document an intentional replacement integration with matching Settings and constructor wiring. Qualify the published example through Settings::build with only supported sections."
+owner_domain = 14
+
+[finding.undocumented-enabled-zksync]
+file = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/README.md"
+line = 16
+class = "doc-drift"
+severity = "medium"
+observed = "The README says base.toml contains all available options and reproduces a purported complete configuration, but neither it nor base.toml documents zksync_solidity. ZksyncSoliditySettings defaults enabled=true and creates three compiler fetchers and two cache directories on every normal startup. Tracing and the expanded Zksync environment keys are also absent from the advertised complete examples."
+expected = "Operators must be able to see which verifiers and remote dependencies start by default, configure or disable each, and set the exact registry configuration/environment names."
+proposal = "Update server README.md, config/base.toml and config/base.env with zksync_solidity enablement, both compiler directories, refresh schedules, all three list/S3 fetchers and tracing options. Explain their defaults and startup dependency behavior and check the examples against the actual Settings loader."
+owner_domain = 14
+interface = "14.cfg-verifier-zksync-solidity-enabled"
+
+[finding.obsolete-request-examples]
+file = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/README.md"
+line = 133
+class = "doc-drift"
+severity = "medium"
+observed = "The Solidity multipart example supplies libraries at lines 132-135 even though the protobuf reserves that former field and conversion has no libraries member. The Vyper example advertises optimizations at lines 175-176 although its protobuf also reserves that removed field. Integrators following these examples believe settings are applied when no corresponding current request field exists."
+expected = "Examples must use the actual producer/consumer request schema. Library linking and Vyper compiler optimization must be explained using supported settings rather than removed fields."
+proposal = "Rewrite README.md request examples from the current v2 protobuf: describe inferred library links and standard-json settings.libraries, remove the obsolete Vyper flag and show its supported compiler settings. Add links to Vyper standard-json, batch and Zksync request contracts."
+owner_domain = 14
+interface = "14.http-verifier-post-api-v2-verifier-solidity-sources-verify-multi-part"
+
+[finding.response-family-docs]
+file = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/README.md"
+line = 211
+class = "doc-drift"
+severity = "medium"
+observed = "The README states that all verification requests have the same response format, then documents only VerifyResponse.status/source. Registered batch handlers return BatchVerifyResponse with compilationFailure or contractVerificationResults, and Zksync returns verificationSuccess, verificationFailure or compilationFailure oneofs. Those shapes are already consumed by distinct client decoders."
+expected = "Integrators must select the correct response family, error codes and serialized artifact fields for solo, batch and Zksync verification, and must not interpret a missing status field as a generic failure."
+proposal = "Split README.md response documentation by the current protobuf response families, include real representative successful and failed responses for each and explain HTTP/gRPC transport errors versus verification failures."
+owner_domain = 14
+interface = "14.http-verifier-post-api-v2-zksync-verifier-solidity-sources-verify-standard-json"
+
+[finding.internal-errors-exposed]
+file = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/src/types/verification_result.rs"
+line = 21
+class = "security"
+severity = "medium"
+observed = "process_error returns the full debug rendering of Error::Internal in Status::internal; batch_verification.rs does the same. That includes the anyhow context chain for filesystem, compiler download and deserialization failures. The same detailed error is already logged, so public HTTP/gRPC callers unnecessarily receive internal paths and dependency diagnostics."
+expected = "Public failure responses should expose a stable useful error and correlation identifier, while operational context and internal filesystem/network details remain in service logs."
+proposal = "Sanitize internal-error responses in src/types/verification_result.rs and batch_verification.rs, retain full structured server logs with an identifier, and specify the public transport error body. Exercise an actual failing compiler fetch/cache path through the route and assert internal paths and detailed causes are absent."
+owner_domain = 14
+
+[finding.site-premerge-cluster]
+file = "docs/site/docs/operators/beta-cluster.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The page describes chain 125 plus a separate LayerX Network daemon, explicitly mounts a profile for layerxd --custody-profile at line 50, and provisions sequencer-id/first-batch/last-batch secrets at line 68. Its deployment topology and sequencer trust instructions describe the pre-merge runtime alongside the verifier image."
+expected = "Brief facts 1-3 require one paxd BFT network with the kernel inside the node, no running layerxd or separate sequencer, and public node JSON-RPC at the api host root paths."
+proposal = "Rewrite docs/site/docs/operators/beta-cluster.md and its mirrored operator instructions around the merged paxd deployment and committed-block finality. Remove retired daemon/sequencer provisioning, document actual verifier service connectivity for chain 125, and distinguish the hosted gateway from public node RPC."
+owner_domain = 8
+
+[finding.wiki-premerge-cluster]
+file = "docs/wiki/BetaCluster.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The page describes chain 125 plus a separate LayerX Network daemon, explicitly mounts a profile for layerxd --custody-profile at line 42, and provisions sequencer-id/first-batch/last-batch secrets at line 60. Its deployment topology and sequencer trust instructions describe the pre-merge runtime alongside the verifier image."
+expected = "Brief facts 1-3 require one paxd BFT network with the kernel inside the node, no running layerxd or separate sequencer, and public node JSON-RPC at the api host root paths."
+proposal = "Rewrite docs/wiki/BetaCluster.md and its mirrored operator instructions around the merged paxd deployment and committed-block finality. Remove retired daemon/sequencer provisioning, document actual verifier service connectivity for chain 125, and distinguish the hosted gateway from public node RPC."
+owner_domain = 8
+
+[finding.launcher-provenance-docs]
+file = "spec/layerx-merge/contracts/explorer-services-config.md"
+line = 68
+class = "doc-drift"
+severity = "low"
+observed = "The verifier configuration tables and verifier-http.md transport notes cite services/libs/blockscout-service-launcher as their defining producer. Server Cargo.toml uses the workspace launcher dependency; the workspace manifest and Cargo.lock resolve registry blockscout-service-launcher 0.17.0, not that local source. The local launch API has since changed, so its implementation cannot prove the server's linked transport/config behavior."
+expected = "An interface contract must identify the actual dependency version used by its consumer. Matching field names in another unlinked local crate are insufficient evidence of transport and configuration agreement."
+proposal = "Ground the verifier launcher rows in the resolved 0.17.0 producer, including its configuration loader and HTTP error mapping, or intentionally migrate the workspace to the local launcher and qualify the integration. Update interfaces.kvx and regenerate explorer-services-config.md and verifier-http.md from that actual provenance."
+owner_domain = 14
+interface = "14.cfg-verifier-server-http-max-body-size"
+
+[finding.manual-link-fixture-comment]
+file = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/test_cases_solidity/libraries_manually_linked.json"
+line = 2
+class = "doc-drift"
+severity = "low"
+observed = "The fixture comment claims compilation with bytecodeHash=none, but input.settings contains no metadata override and both expected artifact maps contain IPFS CBOR hashes. Its actual purpose and manually_linked_libraries field are manual Journal linking with ordinary hashed metadata."
+expected = "Fixture descriptions must match their actual compiler input and expected artifacts so maintainers do not mistake manual library linking coverage for metadata-free compilation coverage."
+proposal = "Correct the comment in tests/test_cases_solidity/libraries_manually_linked.json to describe manual Journal linking and IPFS metadata. Preserve all generated bytecode and expected artifact assertions; keep metadata-free behavior covered by the separate no_metadata_hash case."
+owner_domain = 14
+
+[finding.verification-counter-misses-routes]
+file = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/src/services/zksync_solidity_verifier.rs"
+line = 105
+class = "wiring-gap"
+severity = "medium"
+observed = "The global smart_contract_verifier_verify_contract counter is incremented only by solo Solidity/Vyper and Sourcify handlers. Zksync verification and both Solidity batch handlers return without counting any result; early parse and transport errors also bypass the solo count. The metric's help describes contract verifications without disclosing these omissions."
+expected = "Operators need verification totals and outcomes that cover every registered verification family, with a documented per-contract versus per-request meaning for batches."
+proposal = "Instrument the common server boundary or each omitted handler with bounded labels and count batch items consistently. Document error/status semantics in explorer-metrics.md and assert real solo, batch and Zksync requests change the appropriate exported counters."
+owner_domain = 14
+interface = "14.met-verifier-smart-contract-verifier-verify-contract"
+
+[finding.sourcify-import-timeout-drift]
+file = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/src/services/sourcify_verifier.rs"
+line = 27
+class = "config-drift"
+severity = "medium"
+observed = "The server passes sourcify.request_timeout to SourcifyApiClient::new, but the library applies it only to reqwest_client. The separate sourcify::ClientBuilder used by verify_from_etherscan and get_source_files_any receives api_url and max_retries but no request_timeout. After the chains preflight, the import route's two remaining upstream calls therefore do not use the configured timeout."
+expected = "The configured Sourcify request timeout, documented as the maximum wait in seconds, must apply consistently to all upstream requests of both public Sourcify verification routes."
+proposal = "Thread request_timeout into the actual Sourcify library client or inject one consistently configured HTTP client in smart-contract-verifier/src/sourcify/api_client.rs. Prove through the real import route and a controlled real upstream that preflight, import and source retrieval each honor the configured deadline, and document retry versus total operation limits."
+owner_domain = 14
+interface = "14.cfg-verifier-sourcify-request-timeout"
+
+[finding.client-router-wording]
+file = "spec/layerx-merge/contracts/clients.md"
+line = 18
+class = "doc-drift"
+severity = "low"
+observed = "The client operation table describes hosted px_* state reads as calls 'through the router'. Those cited implementations are in services/platform/hosted/gateway, while the audit brief explicitly removes the separate router interface from the merged network."
+expected = "Client documentation must identify px_* as hosted gateway methods and keep them distinct from the node's root-path JSON-RPC namespaces, without presenting a retired router surface."
+proposal = "Amend the state-read row in contracts/clients.md to name the hosted gateway and link its actual OpenRPC contract; state that node JSON-RPC uses the root path on the api mainnet-beta hosts, with no unified /rpc router endpoint."
+owner_domain = 8
+
+[finding.manual-library-response-docs]
+file = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/README.md"
+line = 322
+class = "doc-drift"
+severity = "medium"
+observed = "The compiler-settings transition section says all former contract_libraries values can be recovered from compiler_settings, and line 359 directs clients solely to compilerSettings[libraries]. Current verification_result.rs extracts manually linked libraries from match values and returns Source.libraries; the libraries_manually_linked fixture intentionally has empty input.settings.libraries but a detected Journal address."
+expected = "Client guidance must preserve actual deployed library addresses for both compiler-linked and manually linked contracts. Empty compiler settings must not be documented as proof that no libraries were linked."
+proposal = "Update README.md transition guidance to describe the current Source.libraries response and the distinction between compiler-provided and detected manual links. Demonstrate both linking cases using the existing real compiler fixtures so integrators retain every verified library address."
+owner_domain = 14
+interface = "14.http-verifier-post-api-v2-verifier-solidity-sources-verify-standard-json"
+
+[finding.negative-optimization-runs]
+file = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/src/services/solidity_verifier.rs"
+line = 77
+class = "runtime-risk"
+severity = "medium"
+observed = "VerifySolidityMultiPartRequest.optimization_runs is optional int32, but the linked proto_conversions.rs maps it with value as u32. The server performs no preceding range check, so -1 becomes 4294967295 optimization runs instead of a rejected input. The batch producer uses uint32, and standard-json accepts native compiler settings, making signed multipart behavior inconsistent."
+expected = "Optimization run counts must retain their numeric meaning through the public request and compiler input. Negative counts must be rejected before compilation rather than reinterpreted as enormous positive work requests."
+proposal = "Use a checked conversion and an explicitly documented resource bound in smart-contract-verifier/src/proto_conversions.rs, shared with request validation for the other input formats. Add real multipart HTTP and gRPC cases asserting -1 is INVALID_ARGUMENT/400 and boundary values preserve their compiler settings."
+owner_domain = 14
+interface = "14.http-verifier-post-api-v2-verifier-solidity-sources-verify-multi-part"
+
+[doc.01]
+path = "docs/site/docs/operators/beta-cluster.md"
+status = "stale"
+notes = "Read entire page (128 lines). Lines 3, 50 and 68 retain the separate daemon/custody profile and sequencer trust topology; lines 90-92 describe the old explorer/kernel boundary. Rewrite as proposed in site-premerge-cluster."
+
+[doc.02]
+path = "docs/wiki/BetaCluster.md"
+status = "stale"
+notes = "Read entire page (114 lines). Lines 3, 42 and 60 retain layerxd and sequencer provisioning; this mirror needs the same merged-paxd rewrite as the site operator page."
+
+[doc.03]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/README.md"
+status = "stale"
+notes = "Read entire page. Lines 16/95 overstate completeness of configuration, 133 and 176 advertise removed request fields, and 211 incorrectly merges distinct response families. Findings name concrete replacements."
+
+[doc.04]
+path = "spec/layerx-merge/contracts/verifier-http.md"
+status = "stale"
+notes = "Read route/method contract page and compared all package HTTP routes, generated proto rules, Rust HTTP client and backend caller. Names and response families are wired; launcher implementation citations refer to an unlinked local crate, as launcher-provenance-docs records. Health's unknown-service promise is violated by its handler."
+
+[doc.05]
+path = "spec/layerx-merge/contracts/explorer-services-config.md"
+status = "stale"
+notes = "Reviewed cfg-verifier and env-verifier tables and their frozen-rule context for all package configuration/env rows. Leaf names, types and environment spelling agree with Settings; local launcher provenance is not the registry 0.17.0 dependency actually resolved by the server."
+
+[doc.06]
+path = "spec/layerx-merge/contracts/explorer-metrics.md"
+status = "accurate"
+notes = "Reviewed verifier section, lines 139-161, and page provenance. Counter name and four labels match metrics.rs; operational coverage and cardinality defects are recorded as implementation findings rather than invented signature changes."
+
+[doc.07]
+path = "spec/layerx-merge/contracts/clients.md"
+status = "stale"
+notes = "Reviewed verifier error and metric sections at 1063-1072 and 1103-1112 plus client-path context. The stable inventory describes two error variants and one server metric, but supplies no producer-to-consumer proof for the disabled Sourcify cases. State-read wording at line 18 still calls hosted px methods a router; a wording finding is recorded."
+
+[doc.08]
+path = "spec/layerx-merge/contracts/evm-rpc.md"
+status = "accurate"
+notes = "Reviewed eth-getstorageat and eth-sign sections and their RPC context. Storage results are hex bytes; eth_sign is refused for unsafe keyring use on live chains. Slice matches are historical source comments only, not live requests to either method or the library mirror."
+
+[doc.09]
+path = "spec/layerx-merge/contracts/launchpad.md"
+status = "accurate"
+notes = "Reviewed sol-upgradeablebeacon interface table. implementation() returns address and Upgraded(address indexed implementation) agree with historical beacon source embedded in issue_5114; that compiler fixture is not a live launchpad consumer."
+
+[doc.10]
+path = "spec/layerx-merge/contracts/address-inventory.md"
+status = "accurate"
+notes = "Reviewed ERC721, CW721ERC721Pointer, IERC165 and IERC721 signature rows cited by the package. address/uint256/bytes4/bool ABI shapes and safeTransferFrom selector agree with imported fixture declarations; no live pointer/precompile call is made by these verifier inputs."

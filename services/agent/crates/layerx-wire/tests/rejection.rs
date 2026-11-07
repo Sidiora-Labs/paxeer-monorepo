@@ -1,10 +1,11 @@
+#[path = "support/corpus.rs"]
+mod replay_corpus;
+
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
 
-use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration, ModuleRegistry};
 use layerx_types::result::{KnownResult, ResultCode};
-use layerx_types::vectors::{CodecVector, Corpus};
-use layerx_wire::activity::decode_signed;
+use layerx_types::vectors::CodecVector;
 use layerx_wire::decode::Decoder;
 use layerx_wire::limits::enforce;
 use layerx_wire::{check_ordered_keys, WireError};
@@ -45,19 +46,6 @@ fn run_vector(vector: &CodecVector) -> Result<(), WireError> {
     }
 }
 
-fn registry() -> ModuleRegistry {
-    let Ok(kind) = ActivityType::new(ModuleId::Asset, 1) else {
-        panic!("valid activity type rejected");
-    };
-    let Ok(registration) = ModuleRegistration::new(ModuleId::Asset, &[kind]) else {
-        panic!("valid registration rejected");
-    };
-    let Ok(registry) = ModuleRegistry::new(&[registration]) else {
-        panic!("valid registry rejected");
-    };
-    registry
-}
-
 /// Executes the published corpus and returns the exact rejection-code coverage.
 ///
 /// # Panics
@@ -66,24 +54,22 @@ fn registry() -> ModuleRegistry {
 /// differently from the core-declared result.
 #[must_use]
 pub fn rejection_corpus() -> BTreeSet<i32> {
-    let Ok(corpus) = Corpus::load(&repository_root()) else {
-        panic!("published corpus failed to load");
-    };
-    corpus
-        .adversarial_codec
-        .iter()
-        .map(|vector| {
-            let Err(error) = run_vector(vector) else {
-                panic!("adversarial vector accepted: {}", vector.name);
-            };
-            assert_eq!(
-                error.result, vector.expected_result,
-                "vector {}",
-                vector.name
-            );
-            error.result.raw()
-        })
-        .collect()
+    native_submission::codec_vectors(include_str!(
+        "../../../../../tests/vectors/codec/adversarial.lxv"
+    ))
+    .iter()
+    .map(|vector| {
+        let Err(error) = run_vector(vector) else {
+            panic!("adversarial vector accepted: {}", vector.name);
+        };
+        assert_eq!(
+            error.result, vector.expected_result,
+            "vector {}",
+            vector.name
+        );
+        error.result.raw()
+    })
+    .collect()
 }
 
 #[test]
@@ -93,10 +79,10 @@ fn published_rejection_corpus_matches_core_classes() {
 
 #[test]
 fn generated_noncanonical_mutations_are_rejected() {
-    let Ok(corpus) = Corpus::load(&repository_root()) else {
-        panic!("published corpus failed to load");
-    };
-    let canonical = &corpus.valid_codec[0].bytes;
+    let vectors = native_submission::codec_vectors(include_str!(
+        "../../../../../tests/vectors/codec/valid.lxv"
+    ));
+    let canonical = &vectors[0].bytes;
     let mut appended = canonical.clone();
     appended.push(0);
     let mut decoder = Decoder::new(&appended, 0);
@@ -126,25 +112,7 @@ fn generated_noncanonical_mutations_are_rejected() {
         Err(ResultCode::from(KnownResult::LengthLimit))
     );
 
-    let template = &corpus.replay.canonical_activities[0];
-    let mut unknown_version = template.clone();
-    unknown_version[1] = 2;
-    let mut unknown_activity = template.clone();
-    unknown_activity[14..18].copy_from_slice(&0x0009_0001_u32.to_be_bytes());
-    let mut unknown_field = template.clone();
-    unknown_field[5] = 13;
-    assert_eq!(
-        decode_signed(&unknown_version, &registry()).map_err(|error| error.result),
-        Err(ResultCode::from(KnownResult::VersionUnsupported))
-    );
-    assert_eq!(
-        decode_signed(&unknown_activity, &registry()).map_err(|error| error.result),
-        Err(ResultCode::from(KnownResult::UnknownActivity))
-    );
-    assert_eq!(
-        decode_signed(&unknown_field, &registry()).map_err(|error| error.result),
-        Err(ResultCode::from(KnownResult::UnknownField))
-    );
+    native_submission::wire_rejection_tests_native_mutations_and_disclosures();
 }
 
 #[test]
@@ -198,8 +166,12 @@ fn hostile_lengths_are_constant_work_and_allocation_bounded() {
 #[test]
 fn rejection_taxonomy_coverage_has_no_silent_gap() {
     let mut covered = rejection_corpus();
+    let mut invalid_utf8 = Decoder::new(&[0, 0, 0, 1, 0xff], 0);
+    let error = invalid_utf8.text(1).unwrap_err();
+    assert_eq!(error.result, KnownResult::NonCanonical.into());
+    covered.insert(error.result.raw());
+    historical_compatibility::historical_envelope_rejections_retain_the_exact_taxonomy();
     covered.extend([
-        KnownResult::NonCanonical.raw(),
         KnownResult::UnknownField.raw(),
         KnownResult::VersionUnsupported.raw(),
         KnownResult::UnknownActivity.raw(),
@@ -216,4 +188,52 @@ fn rejection_taxonomy_coverage_has_no_silent_gap() {
         KnownResult::UnknownActivity.raw(),
     ]);
     assert_eq!(covered, required);
+}
+
+#[path = "repair_22_33_1523.rs"]
+mod native_submission;
+
+mod historical_compatibility {
+    use super::*;
+    use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration, ModuleRegistry};
+    use layerx_wire::activity::decode_signed;
+    fn registry() -> ModuleRegistry {
+        let Ok(kind) = ActivityType::new(ModuleId::Asset, 1) else {
+            panic!("valid activity type rejected");
+        };
+        let Ok(registration) = ModuleRegistration::new(ModuleId::Asset, &[kind]) else {
+            panic!("valid registration rejected");
+        };
+        let Ok(registry) = ModuleRegistry::new(&[registration]) else {
+            panic!("valid registry rejected");
+        };
+        registry
+    }
+
+    // Archive rejection classes are retained independently of native submission
+    // qualification. These are never used as native transaction error codes.
+    #[test]
+    pub fn historical_envelope_rejections_retain_the_exact_taxonomy() {
+        let corpus = replay_corpus::load(&repository_root())
+            .unwrap_or_else(|error| panic!("historical corpus: {error:?}"));
+        let template = &corpus.replay.canonical_activities[0];
+        let mut unknown_version = template.clone();
+        unknown_version[1] = 2;
+        let mut unknown_activity = template.clone();
+        unknown_activity[14..18].copy_from_slice(&0x0009_0001_u32.to_be_bytes());
+        let mut unknown_field = template.clone();
+        unknown_field[5] = 13;
+        assert_eq!(
+            decode_signed(&unknown_version, &registry()).map_err(|error| error.result),
+            Err(ResultCode::from(KnownResult::VersionUnsupported))
+        );
+        assert_eq!(
+            decode_signed(&unknown_activity, &registry()).map_err(|error| error.result),
+            Err(ResultCode::from(KnownResult::UnknownActivity))
+        );
+        assert_eq!(
+            decode_signed(&unknown_field, &registry()).map_err(|error| error.result),
+            Err(ResultCode::from(KnownResult::UnknownField))
+        );
+    }
 }

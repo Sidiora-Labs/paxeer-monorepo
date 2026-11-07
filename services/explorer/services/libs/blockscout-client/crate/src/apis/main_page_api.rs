@@ -69,7 +69,7 @@ impl MainPageApi for MainPageApiClient {
 
         let local_var_uri_str = format!(
             "{}/api/v2/main-page/indexing-status",
-            local_var_configuration.base_path
+            local_var_configuration.rest_origin()?
         );
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::GET, local_var_uri_str.as_str());
@@ -79,11 +79,14 @@ impl MainPageApi for MainPageApiClient {
                 .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
         }
 
-        let local_var_req = local_var_req_builder.build()?;
+        let local_var_req = local_var_req_builder
+            .timeout(local_var_configuration.request_timeout)
+            .build()?;
         let local_var_resp = local_var_client.execute(local_var_req).await?;
 
         let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
+        let local_var_content =
+            super::read_bounded(local_var_resp, local_var_configuration.max_response_bytes).await?;
 
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             let local_var_entity: Option<GetIndexingStatusSuccess> =
@@ -115,7 +118,7 @@ impl MainPageApi for MainPageApiClient {
 
         let local_var_uri_str = format!(
             "{}/api/v2/main-page/blocks",
-            local_var_configuration.base_path
+            local_var_configuration.rest_origin()?
         );
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::GET, local_var_uri_str.as_str());
@@ -125,11 +128,14 @@ impl MainPageApi for MainPageApiClient {
                 .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
         }
 
-        let local_var_req = local_var_req_builder.build()?;
+        let local_var_req = local_var_req_builder
+            .timeout(local_var_configuration.request_timeout)
+            .build()?;
         let local_var_resp = local_var_client.execute(local_var_req).await?;
 
         let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
+        let local_var_content =
+            super::read_bounded(local_var_resp, local_var_configuration.max_response_bytes).await?;
 
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             let local_var_entity: Option<GetMainPageTokensSuccess> =
@@ -161,7 +167,7 @@ impl MainPageApi for MainPageApiClient {
 
         let local_var_uri_str = format!(
             "{}/api/v2/main-page/transactions",
-            local_var_configuration.base_path
+            local_var_configuration.rest_origin()?
         );
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::GET, local_var_uri_str.as_str());
@@ -171,11 +177,14 @@ impl MainPageApi for MainPageApiClient {
                 .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
         }
 
-        let local_var_req = local_var_req_builder.build()?;
+        let local_var_req = local_var_req_builder
+            .timeout(local_var_configuration.request_timeout)
+            .build()?;
         let local_var_resp = local_var_client.execute(local_var_req).await?;
 
         let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
+        let local_var_content =
+            super::read_bounded(local_var_resp, local_var_configuration.max_response_bytes).await?;
 
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             let local_var_entity: Option<GetMainPageTxsSuccess> =
@@ -253,14 +262,14 @@ impl ResponseContent<GetMainPageTokensSuccess> {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum GetMainPageTxsSuccess {
-    Status200(Box<Vec<models::Transaction>>),
+    Status200(Box<Vec<super::feed::FeedItem>>),
 
     UnknownValue(serde_json::Value),
 }
 
 // changed
 impl ResponseContent<GetMainPageTxsSuccess> {
-    pub fn try_as_success(&self) -> Option<&Vec<models::Transaction>> {
+    pub fn try_as_success(&self) -> Option<&Vec<super::feed::FeedItem>> {
         match &self.entity {
             Some(GetMainPageTxsSuccess::Status200(data)) => Some(data),
             _ => None,
@@ -269,7 +278,7 @@ impl ResponseContent<GetMainPageTxsSuccess> {
 
     pub fn try_parse_as_success_model(
         &self,
-    ) -> Result<Vec<models::Transaction>, serde_json_path_to_error::Error> {
+    ) -> Result<Vec<super::feed::FeedItem>, serde_json_path_to_error::Error> {
         serde_json_path_to_error::from_str(&self.content)
     }
 }

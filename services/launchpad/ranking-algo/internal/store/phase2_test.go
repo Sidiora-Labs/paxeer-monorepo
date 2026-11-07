@@ -104,10 +104,17 @@ func TestCompletedRunActualPostgresAndRedis(t *testing.T) {
 	if err = publication.Complete(ctx, snapshots); err != nil {
 		t.Fatal("idempotent retry", err)
 	}
+	assertHeavyMembership(t, snapshots)
 	for _, table := range []string{"category_heads", "snapshots", "publication_outbox"} {
 		var count int
-		if err = pool.QueryRow(ctx, "SELECT count(*) FROM "+publication.table(table)).Scan(&count); err != nil || count != 5 {
+		if err = pool.QueryRow(ctx, "SELECT count(*) FROM "+publication.table(table)).Scan(&count); err != nil || count != len(ranker.HeavyCategoryNames()) {
 			t.Fatalf("%s count=%d err=%v", table, count, err)
+		}
+	}
+	for _, snapshot := range snapshots {
+		head, err := publication.Current(ctx, snapshot.Category())
+		if err != nil || head.RunID != snapshot.RunID() || head.OutputDigest != snapshot.OutputDigest() {
+			t.Fatalf("heavy head %s: %+v %v", snapshot.Category(), head, err)
 		}
 	}
 	header, err := publication.Current(ctx, "trending")
@@ -240,6 +247,7 @@ func newPhase3Fixture(t *testing.T) phase3Fixture {
 	if err != nil {
 		t.Fatal(err)
 	}
+	assertHeavyMembership(t, snapshots)
 	return phase3Fixture{ctx, publication, input, snapshots, dsn, schema, recovery}
 }
 
@@ -340,7 +348,7 @@ func TestPhase3KilledWorkerRecoversOutboxAndDuplicatePublication(t *testing.T) {
 		t.Fatal("worker exited without the requested kill")
 	}
 	var pending int
-	if err = f.publication.pool.QueryRow(f.ctx, "SELECT count(*) FROM "+f.publication.table("publication_outbox")+" WHERE published_at IS NULL").Scan(&pending); err != nil || pending != 5 {
+	if err = f.publication.pool.QueryRow(f.ctx, "SELECT count(*) FROM "+f.publication.table("publication_outbox")+" WHERE published_at IS NULL").Scan(&pending); err != nil || pending != len(ranker.HeavyCategoryNames()) {
 		t.Fatalf("committed intents=%d err=%v", pending, err)
 	}
 	freshPool, err := pgxpool.New(f.ctx, f.dsn)
@@ -360,7 +368,7 @@ func TestPhase3KilledWorkerRecoversOutboxAndDuplicatePublication(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for i := 0; i < 5; i++ {
+	for i := 0; i < len(ranker.HeavyCategoryNames()); i++ {
 		worked, err := fresh.DispatchOnce(f.ctx, publisher, streamName, 3)
 		if err != nil || !worked {
 			t.Fatalf("restart dispatch %d: %v", i, err)
@@ -370,20 +378,27 @@ func TestPhase3KilledWorkerRecoversOutboxAndDuplicatePublication(t *testing.T) {
 		t.Fatal("outbox failed to drain", err)
 	}
 	info, err = stream.Info(f.ctx)
-	if err != nil || info.State.Msgs != 5 {
+	if err != nil || info.State.Msgs != uint64(len(ranker.HeavyCategoryNames())) {
 		t.Fatalf("persisted events=%v err=%v", info, err)
 	}
-	for sequence := uint64(1); sequence <= 5; sequence++ {
+	consumed := map[string]bool{}
+	for sequence := uint64(1); sequence <= uint64(len(f.snapshots)); sequence++ {
 		message, err := stream.GetMsg(f.ctx, sequence)
 		if err != nil {
 			t.Fatal(err)
 		}
 		var event struct {
 			EventID string `json:"eventId"`
+			Topic   string `json:"topic"`
 		}
 		if err = json.Unmarshal(message.Data, &event); err != nil || event.EventID == "" {
 			t.Fatal("ranking event identity missing", err)
 		}
+		category := strings.TrimPrefix(event.Topic, "market.rankings.")
+		if consumed[category] {
+			t.Fatalf("duplicate category %s", category)
+		}
+		consumed[category] = true
 		for replay := 0; replay < 2; replay++ {
 			ack, err := publisher.Publish(f.ctx, message.Subject, event.EventID, message.Data)
 			if err != nil || ack.Sequence != sequence {
@@ -392,10 +407,15 @@ func TestPhase3KilledWorkerRecoversOutboxAndDuplicatePublication(t *testing.T) {
 		}
 	}
 	info, err = stream.Info(f.ctx)
-	if err != nil || info.State.Msgs != 5 {
+	if err != nil || info.State.Msgs != uint64(len(ranker.HeavyCategoryNames())) {
 		t.Fatal("duplicate ranking events changed persisted stream", err)
 	}
-	t.Logf("actual killed worker exit=%v log=%s recovered_categories=5 duplicate_replays=10", child.ProcessState.ExitCode(), logPath)
+	for _, snapshot := range f.snapshots {
+		if !consumed[snapshot.Category()] {
+			t.Fatalf("missing consumed category %s", snapshot.Category())
+		}
+	}
+	t.Logf("actual killed worker exit=%v log=%s recovered_categories=%d duplicate_replays=%d", child.ProcessState.ExitCode(), logPath, len(ranker.HeavyCategoryNames()), 2*len(ranker.HeavyCategoryNames()))
 }
 
 func TestPhase3RollbackEmptyAndCompetingCompletions(t *testing.T) {
@@ -459,7 +479,27 @@ func TestPhase3RollbackEmptyAndCompetingCompletions(t *testing.T) {
 			t.Fatal("empty category confused with cold start", err)
 		}
 	}
-	if err = f.publication.pool.QueryRow(f.ctx, "SELECT count(*) FROM "+f.publication.table("publication_outbox")+" WHERE run_id=$1", in.RunID).Scan(&count); err != nil || count != 5 {
+	if err = f.publication.pool.QueryRow(f.ctx, "SELECT count(*) FROM "+f.publication.table("publication_outbox")+" WHERE run_id=$1", in.RunID).Scan(&count); err != nil || count != len(ranker.HeavyCategoryNames()) {
 		t.Fatal("duplicate completed empty intents", err)
+	}
+}
+
+func assertHeavyMembership(t *testing.T, snapshots []ranker.Snapshot) {
+	t.Helper()
+	want := ranker.HeavyCategoryNames()
+	if len(snapshots) != len(want) {
+		t.Fatalf("heavy categories=%d want=%d", len(snapshots), len(want))
+	}
+	seen := map[string]bool{}
+	for _, snapshot := range snapshots {
+		if seen[snapshot.Category()] {
+			t.Fatalf("duplicate heavy category %s", snapshot.Category())
+		}
+		seen[snapshot.Category()] = true
+	}
+	for _, category := range want {
+		if !seen[category] {
+			t.Fatalf("missing heavy category %s", category)
+		}
 	}
 }

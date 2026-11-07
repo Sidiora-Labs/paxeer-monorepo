@@ -4,114 +4,151 @@ order: 1
 
 # Concepts
 
+The `transfer` module implements ICS20 fungible token transfers through IBC channels.
+On Paxeer, it runs in the same network as the EVM and kernel: Paxeer mainnet-beta
+uses EVM chain id `125` (`0x7d`), and its kernel participates in block proposal.
+A receipt is final when its block is committed. IBC transfers to a counterparty
+chain still require packet and acknowledgement proofs verified by IBC clients.
+
 ## Acknowledgements
 
-ICS20 uses the recommended acknowledgement format as specified by [ICS 04](https://github.com/cosmos/ibc/tree/master/spec/core/ics-004-channel-and-packet-semantics#acknowledgement-envelope).
+ICS20 uses the acknowledgement envelope described in
+[ICS 04](https://github.com/cosmos/ibc/tree/master/spec/core/ics-004-channel-and-packet-semantics#acknowledgement-envelope).
+The [application callbacks](../ibc_module.go) return a synchronous acknowledgement:
 
-A successful receive of a transfer packet will result in a Result Acknowledgement being written
-with the value `[]byte(byte(1))` in the `Response` field.
+- Success sets `Response` to `Acknowledgement_Result{Result: []byte{1}}`, encoded
+  as JSON `{"result":"AQ=="}`.
+- A packet JSON decoding failure returns
+  `{"error":"cannot unmarshal ICS-20 transfer packet data"}`.
+- A receive-keeper failure uses [NewErrorAcknowledgement](../types/ack.go) to
+  return `{"error":"ABCI code: <code>: error handling packet on destination chain: see events for details"}`.
+  The ABCI code is included instead of a potentially nondeterministic error log.
 
-An unsuccessful receive of a transfer packet will result in an Error Acknowledgement being written
-with the error message in the `Response` field.
+An error acknowledgement causes a refund when relayed to the sending chain.
+A proven timeout also refunds the sender; a successful acknowledgement does not.
+See [Events](05_events.md) for the callback attributes and
+[core packet concepts](../../../core/spec/01_concepts.md#sending-receiving-acknowledging-packets)
+for the commitment lifecycle.
 
 ## Denomination Trace
 
-The denomination trace corresponds to the information that allows a token to be traced back to its
-origin chain. It contains a sequence of port and channel identifiers ordered from the most recent to
-the oldest in the timeline of transfers.
+A denomination trace consists of `path` and `base_denom`. The path contains
+port/channel pairs, newest first. The base denomination can itself contain
+slashes. [ParseDenomTrace](../types/trace.go) recognizes leading pairs with
+canonical channel identifiers such as `channel-0`; names such as `channelToA`
+are not suitable trace examples for this implementation.
 
-This information is included on the token denomination field in the form of a hash to prevent an
-unbounded denomination length. For example, the token `transfer/channelToA/uatom` will be displayed
-as `ibc/7F1D3FCF4AE79E1554D670D1AD949A9BA4E4A3C76C63093E17E446A46061A7A2`.
+For a non-empty path, the bank denomination is `ibc/{HASH}`, where `HASH` is the
+uppercase hexadecimal SHA-256 hash of `path + "/" + base_denom`. For example,
+`transfer/channel-0/uatom` becomes `ibc/27394FB092D2ECCD56123C74F36E4C1F926001CEADA9CA97EA622B25F41E5EB2`.
+A trace with an empty path uses its base denomination directly. The full trace is stored as described in
+[State](02_state.md); packet data carries the full denomination path rather
+than the `ibc/` hash.
 
-Each send to any chain other than the one it was previously received from is a movement forwards in
-the token's timeline. This causes trace to be added to the token's history and the destination port
-and destination channel to be prefixed to the denomination. In these instances the sender chain is
-acting as the "source zone". When the token is sent back to the chain it previously received from, the
-prefix is removed. This is a backwards movement in the token's timeline and the sender chain is
-acting as the "sink zone".
+The source/sink role is relative to a transfer's channel, not a permanent label
+for a chain:
 
-It is strongly recommended to read the full details of [ADR 001: Coin Source Tracing](https://github.com/cosmos/ibc-go/blob/main/docs/architecture/adr-001-coin-source-tracing.md) to understand the implications and context of the IBC token representations.
+- If the outgoing full denomination does not start with the sending port/channel
+  prefix, the sender escrows the coins. The receiver prefixes its own destination
+  port/channel pair, records the trace and mints vouchers.
+- If it does start with that prefix, the sender burns the vouchers. The receiver
+  removes the packet's source port/channel prefix and unescrows the corresponding
+  coins from its destination-channel escrow account.
+
+These operations are implemented in [the transfer keeper](../keeper/relay.go).
+See [State Transitions](03_state_transitions.md) and
+[ADR 001: Coin Source Tracing](https://github.com/cosmos/ibc-go/blob/main/docs/architecture/adr-001-coin-source-tracing.md)
+for the tracing model.
 
 ### UX suggestions for clients
 
-For clients (wallets, exchanges, applications, block explorers, etc) that want to display the source of the token, it is recommended to use the following
-alternatives for each of the cases below:
+Wallets, exchanges and explorers should resolve the stored trace and channel
+metadata rather than infer the origin from a ticker or a channel number.
+Identifiers are local to each chain; the two ends of a channel need not share
+an identifier.
 
 #### Direct connection
 
-If the denomination trace contains a single identifier prefix pair (as in the example above), then
-the easiest way to retrieve the chain and light client identifier is to map the trace information
-directly. In summary, this requires querying the channel from the denomination trace identifiers,
-and then the counterparty client state using the counterparty port and channel identifiers from the
-retrieved channel.
+For a voucher on chain B with trace `transfer/channel-0/uatom`, use B's IBC query
+service to find the counterparty chain A. Where a Cosmos gRPC gateway is enabled,
+the proto-defined HTTP requests are:
 
-A general pseudo algorithm would look like the following:
+1. `GET /ibc/apps/transfer/v1/denom_traces/27394FB092D2ECCD56123C74F36E4C1F926001CEADA9CA97EA622B25F41E5EB2`
+   returns `{"denom_trace":{"path":"transfer/channel-0","base_denom":"uatom"}}`.
+2. `GET /ibc/core/channel/v1/channels/channel-0/ports/transfer`
+   returns a `channel` object plus `proof` and `proof_height`. Read
+   `channel.counterparty.port_id` and `channel.counterparty.channel_id` to learn
+   A's channel end, and `channel.connection_hops` for B's connection identifiers.
+3. `GET /ibc/core/channel/v1/channels/channel-0/ports/transfer/client_state`
+   returns `identified_client_state`, `proof` and `proof_height`. The nested
+   `identified_client_state.client_id` identifies B's client of A;
+   `identified_client_state.client_state` is a protobuf `Any`. For a Tendermint
+   client, its decoded `chain_id` identifies A.
+4. To inspect A's view of B, query A's service with the counterparty port/channel
+   from step 2. Do not use A's local channel identifier against B's service.
 
-1. Query the full denomination trace.
-2. Query the channel with the `portID/channelID` pair, which corresponds to the first destination of the
-   token.
-3. Query the client state using the identifiers pair. Note that this query will return a `"Not
-   Found"` response if the current chain is not connected to this channel.
-4. Retrieve the the client identifier or chain identifier from the client state (eg: on
-   Tendermint clients) and store it locally.
+The routes and envelopes are declared in the
+[transfer query proto](../../../../proto/ibc/applications/transfer/v1/query.proto)
+and [channel query proto](../../../../proto/ibc/core/channel/v1/query.proto).
+The denom-trace query returns gRPC `InvalidArgument` for an invalid hash and
+`NotFound` when the trace is absent. Channel and client queries can also fail
+when their referenced state is missing; the client-state response is not a flat
+object containing a client ID and chain ID.
 
-Using the gRPC gataway client service the steps above would be, with a given IBC token `ibc/7F1D3FCF4AE79E1554D670D1AD949A9BA4E4A3C76C63093E17E446A46061A7A2` stored on `chainB`:
+These are Cosmos query-service routes, available on a configured gRPC gateway.
+Their declaration does not establish their availability on public Ethereum
+JSON-RPC hosts. Public Paxeer JSON-RPC uses the HTTPS root path, for example
+`https://api1.mainnet-beta.paxeer.network`, with EVM chain id `125`.
 
-1. `GET /ibc_transfer/v1beta1/denom_traces/7F1D3FCF4AE79E1554D670D1AD949A9BA4E4A3C76C63093E17E446A46061A7A2` -> `{"path": "transfer/channelToA", "base_denom": "uatom"}`
-2. `GET /ibc/channel/v1beta1/channels/channelToA/ports/transfer/client_state"` -> `{"client_id": "clientA", "chain-id": "chainA", ...}`
-3. `GET /ibc/channel/v1beta1/channels/channelToA/ports/transfer"` -> `{"channel_id": "channelToA", port_id": "transfer", counterparty: {"channel_id": "channelToB", port_id": "transfer"}, ...}`
-4. `GET /ibc/channel/v1beta1/channels/channelToB/ports/transfer/client_state" -> {"client_id": "clientB", "chain-id": "chainB", ...}`
-
-Then, the token transfer chain path for the `uatom` denomination would be: `chainA` -> `chainB`.
+The denom-trace response above is checked against a packet-produced voucher,
+the registered query service and the generated HTTP gateway in
+`TestRepairM_1206_QueryShape` in [the repair tests](../repair_m1206_test.go).
 
 ### Multiple hops
 
-The multiple channel hops case applies when the token has passed through multiple chains between the original source and final destination chains.
+Here A, B and C are external IBC chains with separate clients, channels and
+bank stores. Tenant namespaces inside Paxeer are not additional IBC chains
+and do not add denomination-trace hops.
 
-The IBC protocol doesn't know the topology of the overall network (i.e connections between chains and identifier names between them). For this reason, in the the multiple hops case, a particular chain in the timeline of the individual transfers can't query the chain and client identifiers of the other chains.
+For transfers `A -> B -> C`, suppose B receives on `transfer/channel-0` and C
+receives on `transfer/channel-7`. C stores the trace
+`transfer/channel-7/transfer/channel-0/uatom`. The outer pair belongs to C and
+identifies its channel to B; after following that hop, the next pair must be
+interpreted on B. A direct C-to-A connection, if one exists, does not identify
+the B-to-A channel used by this voucher.
 
-Take for example the following sequence of transfers `A -> B -> C` for an IBC token, with a final prefix path (trace info) of `transfer/channelChainC/transfer/channelChainB`. What the paragraph above means is that is that even in the case that chain `C` is directly connected to chain `A`, querying the port and channel identifiers that chain `B` uses to connect to chain `A` (eg: `transfer/channelChainA`) can be completely different from the one that chain `C` uses to connect to chain `A` (eg: `transfer/channelToChainA`).
-
-Thus the proposed solution for clients that the IBC team recommends are the following:
-
-- **Connect to all chains**: Connecting to all the chains in the timeline would allow clients to
-  perform the queries outlined in the [direct connection](#direct-connection) section to each
-  relevant chain. By repeatedly following the port and channel denomination trace transfer timeline,
-  clients should always be able to find all the relevant identifiers. This comes at the tradeoff
-  that the client must connect to nodes on each of the chains in order to perform the queries.
-- **Relayer as a Service (RaaS)**: A longer term solution is to use/create a relayer service that
-  could map the denomination trace to the chain path timeline for each token (i.e `origin chain ->
-  chain #1 -> ... -> chain #(n-1) -> final chain`). These services could provide merkle proofs in
-  order to allow clients to optionally verify the path timeline correctness for themselves by
-  running light clients. If the proofs are not verified, they should be considered as trusted third
-  parties services. Additionally, client would be advised in the future to use RaaS that support the
-  largest number of connections between chains in the ecosystem. Unfortunately, none of the existing
-  public relayers (in [Golang](https://github.com/cosmos/relayer) and
-  [Rust](https://github.com/informalsystems/ibc-rs)), provide this service to clients.
-
-::: tip
-The only viable alternative for clients (at the time of writing) to tokens with multiple connection hops, is to connect to all chains directly and perform relevant queries to each of them in the sequence.
-:::
+To reconstruct the path, repeat the [direct-connection queries](#direct-connection)
+on each relevant chain, interpreting one local pair at a time. An indexer or
+relayer service may cache this mapping for clients. Treat such a service's
+unverified mappings as third-party information; verify state proofs with the
+appropriate light clients when trustless attribution is required. This module
+does not expose a global network-topology query or automatically forward a
+packet over all the hops in a trace.
 
 ## Locked Funds
 
-In some [exceptional cases](https://github.com/cosmos/ibc-go/blob/main/docs/architecture/adr-026-ibc-client-recovery-mechanisms.md#exceptional-cases), a client state associated with a given channel cannot be updated. This causes that funds from fungible tokens in that channel will be permanently locked and thus can no longer be transferred.
+A frozen or expired client can prevent packet, acknowledgement and timeout
+proofs from being processed, leaving funds unavailable until the required
+client and channel operations can proceed. The recovery mechanism is a
+`ClientUpdateProposal` naming a non-active subject client and an active
+substitute with a strictly greater latest height. The client implementation
+checks compatibility and copies the required state; governance does not simply
+supply a replacement header. See
+[Client Misbehaviour](../../../core/spec/01_concepts.md#client-misbehaviour).
+Recovery is conditional on these checks and does not reopen closed channels.
 
-To mitigate this, a client update governance proposal can be submitted to update the frozen client
-with a new valid header. Once the proposal passes the client state will be unfrozen and the funds
-from the associated channels will then be unlocked. This mechanism only applies to clients that
-allow updates via governance, such as Tendermint clients.
-
-In addition to this, it's important to mention that a token must be sent back along the exact route
-that it took originally un order to return it to its original form on the source chain (eg: the
-Cosmos Hub for the `uatom`). Sending a token back to the same chain across a different channel will
-**not** move the token back across its timeline. If a channel in the chain history closes before the
-token can be sent back across that channel, then the token will not be returnable to its original
-form.
-
+To recover the original denomination, send vouchers back through the exact
+channel route in reverse order. Sending them to the same chain through another
+channel adds a different trace rather than releasing the original escrow. If
+an intermediate channel closes, normal reverse-route redemption through that
+channel is unavailable. Closing a channel does not itself return all outstanding
+vouchers; timeout refunds require proof that the individual packet was not
+received.
 
 ## Security Considerations
 
-For safety, no other module must be capable of minting tokens with the `ibc/` prefix. The IBC
-transfer module needs a subset of the denomination space that only it can create tokens in.
+Only the transfer module should mint denominations in the `ibc/` namespace.
+Other modules must not be allowed to forge vouchers backed by transfer escrow.
+The module's [send and receive parameters](07_params.md) apply to all
+transfer channels; they do not replace packet proof verification or channel
+capability checks.

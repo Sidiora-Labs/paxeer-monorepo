@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -128,9 +129,13 @@ func NewGenesisAssembler(homeDir, bucket, region, chainID string, s3Factory S3Cl
 // S3 coordinates are derived from the sidecar's environment.
 func (a *GenesisAssembler) Handler() engine.TaskHandler {
 	return engine.TypedHandlerWithResult(func(ctx context.Context, cfg AssembleGenesisRequest) (*AssembleGenesisResult, error) {
+		unlock, err := lockRecovery(ctx, a.homeDir, ".sei-sidecar-assembly-lock")
+		if err != nil {
+			return nil, err
+		}
+		defer unlock()
 		if markerExists(a.homeDir, assembleMarkerFile) {
-			assembleLog.Debug("already completed, skipping")
-			return nil, nil
+			return a.recoverAssembly(cfg)
 		}
 
 		if cfg.AccountBalance == "" {
@@ -148,37 +153,13 @@ func (a *GenesisAssembler) Handler() engine.TaskHandler {
 			}
 		}
 
+		stage, err := a.prepareAssembly(ctx, cfg)
+		if err != nil {
+			return nil, err
+		}
 		nodes := cfg.nodeNames()
 
-		if err := a.downloadGentxFiles(ctx, cfg, nodes); err != nil {
-			return nil, err
-		}
-
-		if err := a.verifyAssembledGentxs(nodes); err != nil {
-			return nil, err
-		}
-
-		if err := a.addMissingGenesisAccounts(cfg.AccountBalance); err != nil {
-			return nil, err
-		}
-
-		if err := a.addExternalGenesisAccounts(cfg.Accounts); err != nil {
-			return nil, err
-		}
-
-		if err := a.collectGentxs(); err != nil {
-			return nil, err
-		}
-
-		if err := a.applyOverrides(cfg.Overrides); err != nil {
-			return nil, err
-		}
-
-		if err := a.populateGenesisValidators(); err != nil {
-			return nil, err
-		}
-
-		genesisHash, err := a.uploadGenesis(ctx, cfg)
+		genesisHash, err := stage.uploadGenesis(ctx, cfg)
 		if err != nil {
 			return nil, err
 		}
@@ -187,7 +168,14 @@ func (a *GenesisAssembler) Handler() engine.TaskHandler {
 			return nil, err
 		}
 
-		if err := writeMarker(a.homeDir, assembleMarkerFile); err != nil {
+		data, err := os.ReadFile(filepath.Join(stage.homeDir, "config", "genesis.json"))
+		if err != nil {
+			return nil, err
+		}
+		if err := durableJSONFile(filepath.Join(a.homeDir, "config"), "genesis.json", data); err != nil {
+			return nil, err
+		}
+		if err := a.persistAssembly(cfg, genesisHash); err != nil {
 			return nil, err
 		}
 
@@ -648,31 +636,19 @@ func (a *GenesisAssembler) uploadPeers(ctx context.Context, cfg AssembleGenesisR
 		if err != nil {
 			return seis3.ClassifyS3Error("assemble-and-upload-genesis", a.bucket, key, a.region, err)
 		}
-		data, err := io.ReadAll(output.Body)
+		data, err := io.ReadAll(io.LimitReader(output.Body, maxGentxBytes+1))
 		_ = output.Body.Close()
 		if err != nil {
 			return fmt.Errorf("assemble-genesis: reading identity for %s: %w", nodeName, err)
 		}
 
-		var identity struct {
-			NodeKey json.RawMessage `json:"node_key"`
-		}
-		if err := json.Unmarshal(data, &identity); err != nil {
-			return fmt.Errorf("assemble-genesis: parsing identity for %s: %w", nodeName, err)
-		}
-
-		var nodeKey struct {
-			ID string `json:"id"`
-		}
-		if err := json.Unmarshal(identity.NodeKey, &nodeKey); err != nil {
-			return fmt.Errorf("assemble-genesis: parsing node_key for %s: %w", nodeName, err)
-		}
-		if nodeKey.ID == "" {
-			return fmt.Errorf("assemble-genesis: empty node ID for %s", nodeName)
+		identity, err := decodePublicIdentity(data)
+		if err != nil {
+			return fmt.Errorf("assemble-genesis: invalid identity for %s: %w", nodeName, err)
 		}
 
 		dns := fmt.Sprintf("%s-0.%s.%s.svc.cluster.local", nodeName, nodeName, cfg.Namespace)
-		peers = append(peers, fmt.Sprintf("%s@%s:26656", nodeKey.ID, dns))
+		peers = append(peers, fmt.Sprintf("%s@%s:26656", identity.NodeKey.ID, dns))
 	}
 
 	peersJSON, err := json.Marshal(peers)
@@ -698,4 +674,153 @@ func (a *GenesisAssembler) uploadPeers(ctx context.Context, cfg AssembleGenesisR
 		return seis3.ClassifyS3Error("assemble-and-upload-genesis", a.bucket, peersKey, a.region, err)
 	}
 	return nil
+}
+
+type assemblyCompletion struct {
+	ChainID     string                `json:"chainId"`
+	Bucket      string                `json:"bucket"`
+	RequestHash string                `json:"requestHash"`
+	Result      AssembleGenesisResult `json:"result"`
+}
+
+func assemblyRequestHash(cfg AssembleGenesisRequest) (string, error) {
+	data, err := json.Marshal(cfg)
+	if err != nil {
+		return "", err
+	}
+	sum := sha256.Sum256(data)
+	return hex.EncodeToString(sum[:]), nil
+}
+
+func (a *GenesisAssembler) persistAssembly(cfg AssembleGenesisRequest, hash string) error {
+	if !canonicalGenesisHash(hash) {
+		return fmt.Errorf("assemble-genesis: invalid published digest")
+	}
+	requestHash, err := assemblyRequestHash(cfg)
+	if err != nil {
+		return err
+	}
+	data, err := json.Marshal(assemblyCompletion{ChainID: a.chainID, Bucket: a.bucket, RequestHash: requestHash, Result: AssembleGenesisResult{GenesisHash: hash}})
+	if err != nil {
+		return err
+	}
+	return durableJSONFile(a.homeDir, assembleMarkerFile, data)
+}
+
+func (a *GenesisAssembler) recoverAssembly(cfg AssembleGenesisRequest) (*AssembleGenesisResult, error) {
+	dir, err := openConfinedDir(a.homeDir, false)
+	if err != nil {
+		return nil, err
+	}
+	defer dir.Close()
+	data, err := confinedRead(dir, assembleMarkerFile, 16384)
+	if err != nil {
+		return nil, err
+	}
+	var completion assemblyCompletion
+	if err := json.Unmarshal(data, &completion); err != nil {
+		return nil, fmt.Errorf("assemble-genesis: legacy or corrupt completion: %w", err)
+	}
+	hash, err := assemblyRequestHash(cfg)
+	if err != nil {
+		return nil, err
+	}
+	if completion.ChainID != a.chainID || completion.Bucket != a.bucket || completion.RequestHash != hash || !canonicalGenesisHash(completion.Result.GenesisHash) {
+		return nil, fmt.Errorf("assemble-genesis: completion does not match this request")
+	}
+	return &completion.Result, nil
+}
+
+const assemblyOperationFile = ".sei-sidecar-assembly-operation.json"
+const assemblyStageDir = ".sei-sidecar-assembly-stage"
+
+type assemblyOperation struct {
+	ChainID     string `json:"chainId"`
+	Bucket      string `json:"bucket"`
+	Region      string `json:"region"`
+	RequestHash string `json:"requestHash"`
+	Input       []byte `json:"input"`
+	StageHash   string `json:"stageHash,omitempty"`
+}
+
+func (a *GenesisAssembler) prepareAssembly(ctx context.Context, cfg AssembleGenesisRequest) (*GenesisAssembler, error) {
+	hash, err := assemblyRequestHash(cfg)
+	if err != nil {
+		return nil, err
+	}
+	var op assemblyOperation
+	data, err := readRecoveryFile(a.homeDir, assemblyOperationFile)
+	if errors.Is(err, os.ErrNotExist) {
+		input, err := os.ReadFile(filepath.Join(a.homeDir, "config", "genesis.json"))
+		if err != nil {
+			return nil, err
+		}
+		op = assemblyOperation{ChainID: a.chainID, Bucket: a.bucket, Region: a.region, RequestHash: hash, Input: input}
+		if err := saveRecovery(a.homeDir, assemblyOperationFile, op); err != nil {
+			return nil, err
+		}
+	} else if err != nil {
+		return nil, err
+	} else if err := json.Unmarshal(data, &op); err != nil {
+		return nil, fmt.Errorf("assemble-genesis: corrupt operation: %w", err)
+	}
+	if op.ChainID != a.chainID || op.Bucket != a.bucket || op.Region != a.region || op.RequestHash != hash || len(op.Input) == 0 {
+		return nil, fmt.Errorf("assemble-genesis: operation does not match this request")
+	}
+	stage := *a
+	stage.homeDir = filepath.Join(a.homeDir, assemblyStageDir)
+	configDir := filepath.Join(stage.homeDir, "config")
+	if err := ensureRecoveryDir(configDir); err != nil {
+		return nil, err
+	}
+	if op.StageHash != "" {
+		data, err := readRecoveryFile(configDir, "genesis.json")
+		if err != nil {
+			return nil, err
+		}
+		if recoveryHash(data) != op.StageHash {
+			return nil, fmt.Errorf("assemble-genesis: staged genesis digest mismatch")
+		}
+		return &stage, nil
+	}
+	// Every incomplete build starts from the same immutable input, including
+	// after a crash between adding external accounts and collecting gentxs.
+	if err := durableJSONFile(configDir, "genesis.json", op.Input); err != nil {
+		return nil, err
+	}
+	nodes := cfg.nodeNames()
+	if err := stage.downloadGentxFiles(ctx, cfg, nodes); err != nil {
+		return nil, err
+	}
+	if err := stage.verifyAssembledGentxs(nodes); err != nil {
+		return nil, err
+	}
+	if err := stage.addMissingGenesisAccounts(cfg.AccountBalance); err != nil {
+		return nil, err
+	}
+	if err := stage.addExternalGenesisAccounts(cfg.Accounts); err != nil {
+		return nil, err
+	}
+	if err := stage.collectGentxs(); err != nil {
+		return nil, err
+	}
+	if err := stage.applyOverrides(cfg.Overrides); err != nil {
+		return nil, err
+	}
+	if err := stage.populateGenesisValidators(); err != nil {
+		return nil, err
+	}
+	data, err = os.ReadFile(filepath.Join(configDir, "genesis.json"))
+	if err != nil {
+		return nil, err
+	}
+	// Persist the exact stage before the first externally visible upload.
+	if err := durableJSONFile(configDir, "genesis.json", data); err != nil {
+		return nil, err
+	}
+	op.StageHash = recoveryHash(data)
+	if err := saveRecovery(a.homeDir, assemblyOperationFile, op); err != nil {
+		return nil, err
+	}
+	return &stage, nil
 }

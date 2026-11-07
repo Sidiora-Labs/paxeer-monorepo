@@ -15,6 +15,8 @@
 {{define "notfound"}}{{template "head" .Title}}<p>The page you asked for is not here. <a href="/">Back to the markets</a>.</p>
 {{template "foot"}}{{end}}
 
+{{define "tx_link"}}{{$hash := .}}{{with tx .}}<a href="{{.}}">{{$hash}}</a>{{else}}{{$hash}}{{end}}{{end}}
+
 {{define "account_link"}}<a href="/accounts/{{lower .}}">{{.}}</a>{{end}}
 
 {{define "markets"}}{{template "head" .Title}}<section id="totals">
@@ -74,7 +76,7 @@
 {{if .Funding}}<table>
 <thead><tr><th>Block</th><th>Rate per second</th><th>Rate 24h</th><th>Time</th><th>Transaction</th></tr></thead>
 <tbody>
-{{range .Funding}}<tr><td>{{.BlockNumber}}</td><td>{{usd .RatePerSecond}}</td><td>{{usd .Rate24h}}</td><td>{{when .BlockTimestamp}}</td><td><a href="{{tx .TxHash}}">{{.TxHash}}</a></td></tr>
+{{range .Funding}}<tr><td>{{.BlockNumber}}</td><td>{{usd .RatePerSecond}}</td><td>{{usd .Rate24h}}</td><td>{{when .BlockTimestamp}}</td><td>{{template "tx_link" .TxHash}}</td></tr>
 {{end}}</tbody>
 </table>{{else}}<p class="empty">No funding rate updates yet.</p>{{end}}
 </section>
@@ -94,7 +96,7 @@
 {{if .Positions}}<table>
 <thead><tr><th>Position</th><th>Market</th><th>Side</th><th>Size (USD)</th><th>Leverage</th><th>Entry price</th><th>Collateral (USD)</th><th>Collateral (USDL)</th><th>Opened</th><th>Transaction</th></tr></thead>
 <tbody>
-{{range .Positions}}<tr><td>{{.PositionID}}</td><td>{{with .Market}}<a href="/markets/{{lower .Symbol}}">{{.Symbol}}</a>{{end}}</td><td>{{side .IsLong}}</td><td>{{usd .SizeUsd}}</td><td>{{usd .Leverage}}</td><td>{{usd .EntryPrice}}</td><td>{{usd .CollateralUsd}}</td><td>{{usdl .CollateralAmount}}</td><td>{{when .OpenedAt}}</td><td>{{with .OpenTxHash}}<a href="{{tx .}}">{{.}}</a>{{else}}-{{end}}</td></tr>
+{{range .Positions}}<tr><td>{{.PositionID}}</td><td>{{with .Market}}<a href="/markets/{{lower .Symbol}}">{{.Symbol}}</a>{{end}}</td><td>{{side .IsLong}}</td><td>{{usd .SizeUsd}}</td><td>{{usd .Leverage}}</td><td>{{usd .EntryPrice}}</td><td>{{usd .CollateralUsd}}</td><td>{{usdl .CollateralAmount}}</td><td>{{when .OpenedAt}}</td><td>{{with .OpenTxHash}}{{template "tx_link" .}}{{else}}-{{end}}</td></tr>
 {{end}}</tbody>
 </table>{{else}}<p class="empty">No open positions.</p>{{end}}
 </section>
@@ -103,7 +105,7 @@
 {{if .Orders}}<table>
 <thead><tr><th>Order</th><th>Market</th><th>Type</th><th>Side</th><th>Trigger price</th><th>Size (USD)</th><th>Status</th><th>Placed</th><th>Transaction</th></tr></thead>
 <tbody>
-{{range .Orders}}<tr><td>{{.OrderID}}</td><td>{{.MarketID}}</td><td>{{with .OrderTypeName}}{{.}}{{else}}-{{end}}</td><td>{{side .IsLong}}</td><td>{{usd .TriggerPrice}}</td><td>{{usd .SizeUsd}}</td><td>{{.Status}}</td><td>{{when .PlacedAt}}</td><td>{{with .PlacedTxHash}}<a href="{{tx .}}">{{.}}</a>{{else}}-{{end}}</td></tr>
+{{range .Orders}}<tr><td>{{.OrderID}}</td><td>{{.MarketID}}</td><td>{{with .OrderTypeName}}{{.}}{{else}}-{{end}}</td><td>{{side .IsLong}}</td><td>{{usd .TriggerPrice}}</td><td>{{usd .SizeUsd}}</td><td>{{.Status}}</td><td>{{when .PlacedAt}}</td><td>{{with .PlacedTxHash}}{{template "tx_link" .}}{{else}}-{{end}}</td></tr>
 {{end}}</tbody>
 </table>{{else}}<p class="empty">No active orders.</p>{{end}}
 </section>
@@ -112,7 +114,7 @@
 {{if .Fills}}<table>
 <thead><tr><th>Position</th><th>Market</th><th>Type</th><th>Size (USD)</th><th>Execution price</th><th>Gross PnL (USD)</th><th>Fees (USD)</th><th>Funding (USD)</th><th>Time</th><th>Transaction</th></tr></thead>
 <tbody>
-{{range .Fills}}<tr><td>{{.PositionID}}</td><td>{{.MarketID}}</td><td>{{with .TradeTypeName}}{{.}}{{else}}-{{end}}</td><td>{{usd .SizeUsd}}</td><td>{{usd .ExecutionPrice}}</td><td>{{usd .GrossPnl}}</td><td>{{usd .TotalFeesUsd}}</td><td>{{usd .FundingPaidUsd}}</td><td>{{when .BlockTimestamp}}</td><td><a href="{{tx .TxHash}}">{{.TxHash}}</a></td></tr>
+{{range .Fills}}<tr><td>{{.PositionID}}</td><td>{{.MarketID}}</td><td>{{with .TradeTypeName}}{{.}}{{else}}-{{end}}</td><td>{{usd .SizeUsd}}</td><td>{{usd .ExecutionPrice}}</td><td>{{usd .GrossPnl}}</td><td>{{usd .TotalFeesUsd}}</td><td>{{usd .FundingPaidUsd}}</td><td>{{when .BlockTimestamp}}</td><td>{{template "tx_link" .TxHash}}</td></tr>
 {{end}}</tbody>
 </table>{{else}}<p class="empty">No fills.</p>{{end}}
 </section>
@@ -121,7 +123,7 @@
 {{if .Funding}}<table>
 <thead><tr><th>Position</th><th>Market</th><th>Payment (USD)</th><th>New collateral (USD)</th><th>Time</th><th>Transaction</th></tr></thead>
 <tbody>
-{{range .Funding}}<tr><td>{{.PositionID}}</td><td>{{.MarketID}}</td><td>{{usd .FundingPaymentUsd}}</td><td>{{usd .NewCollateralUsd}}</td><td>{{when .BlockTimestamp}}</td><td><a href="{{tx .TxHash}}">{{.TxHash}}</a></td></tr>
+{{range .Funding}}<tr><td>{{.PositionID}}</td><td>{{.MarketID}}</td><td>{{usd .FundingPaymentUsd}}</td><td>{{usd .NewCollateralUsd}}</td><td>{{when .BlockTimestamp}}</td><td>{{template "tx_link" .TxHash}}</td></tr>
 {{end}}</tbody>
 </table>{{else}}<p class="empty">No funding payments.</p>{{end}}
 </section>
@@ -130,7 +132,7 @@
 {{if .Liquidations}}<table>
 <thead><tr><th>Position</th><th>Market</th><th>Price</th><th>Penalty (USD)</th><th>Keeper</th><th>Time</th><th>Transaction</th></tr></thead>
 <tbody>
-{{range .Liquidations}}<tr><td>{{.PositionID}}</td><td>{{.MarketID}}</td><td>{{usd .Price}}</td><td>{{usd .Penalty}}</td><td>{{.Keeper}}</td><td>{{when .BlockTimestamp}}</td><td><a href="{{tx .TxHash}}">{{.TxHash}}</a></td></tr>
+{{range .Liquidations}}<tr><td>{{.PositionID}}</td><td>{{.MarketID}}</td><td>{{usd .Price}}</td><td>{{usd .Penalty}}</td><td>{{.Keeper}}</td><td>{{when .BlockTimestamp}}</td><td>{{template "tx_link" .TxHash}}</td></tr>
 {{end}}</tbody>
 </table>{{else}}<p class="empty">No liquidations.</p>{{end}}
 </section>
@@ -139,7 +141,7 @@
 {{if .Collateral}}<table>
 <thead><tr><th>Event</th><th>Token</th><th>Amount (USDL)</th><th>Block</th><th>Time</th><th>Transaction</th></tr></thead>
 <tbody>
-{{range .Collateral}}<tr><td>{{.EventType}}</td><td>{{.TokenAddress}}</td><td>{{usdl .Amount}}</td><td>{{.BlockNumber}}</td><td>{{when .BlockTimestamp}}</td><td><a href="{{tx .TxHash}}">{{.TxHash}}</a></td></tr>
+{{range .Collateral}}<tr><td>{{.EventType}}</td><td>{{.TokenAddress}}</td><td>{{usdl .Amount}}</td><td>{{.BlockNumber}}</td><td>{{when .BlockTimestamp}}</td><td>{{template "tx_link" .TxHash}}</td></tr>
 {{end}}</tbody>
 </table>{{else}}<p class="empty">No collateral events.</p>{{end}}
 </section>

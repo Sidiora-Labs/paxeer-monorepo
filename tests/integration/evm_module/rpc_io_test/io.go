@@ -7,7 +7,10 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"reflect"
+	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -56,26 +59,39 @@ type ioxPair struct {
 func parseIOFile(content string) ([]ioxPair, error) {
 	var pairs []ioxPair
 	var curReq []byte
+	pending := false
+	requestLine := 0
+	lineNumber := 0
 	lastIdx := -1
 	inBinding := false
 
 	for line := range strings.SplitSeq(content, "\n") {
+		lineNumber++
 		trimmed := strings.TrimSpace(strings.TrimSuffix(line, "\r"))
 		if trimmed == "" {
 			continue
 		}
 
 		if after, ok := strings.CutPrefix(trimmed, reqPrefix); ok {
+			if pending {
+				return nil, fmt.Errorf("line %d: request overwrites unmatched request from line %d", lineNumber, requestLine)
+			}
+			pending = true
+			requestLine = lineNumber
 			curReq = []byte(strings.TrimSpace(after))
+			if len(curReq) == 0 {
+				return nil, fmt.Errorf("line %d: empty request", lineNumber)
+			}
 			inBinding = false
 			continue
 		}
 
 		if after, ok := strings.CutPrefix(trimmed, respPrefix); ok {
 			rest := strings.TrimSpace(after)
-			if len(curReq) == 0 {
-				continue
+			if !pending {
+				return nil, fmt.Errorf("line %d: response without request", lineNumber)
 			}
+			pending = false
 			if after, ok := strings.CutPrefix(rest, directivePrefix); ok {
 				rest = strings.TrimSpace(after)
 				var n int
@@ -130,6 +146,9 @@ func parseIOFile(content string) ([]ioxPair, error) {
 			}
 			return nil, fmt.Errorf("unknown directive: %q", trimmed)
 		}
+	}
+	if pending {
+		return nil, fmt.Errorf("EOF: unmatched request from line %d", requestLine)
 	}
 	return pairs, nil
 }
@@ -292,28 +311,383 @@ func sameBlockResult(t *testing.T, actual, reference []byte) bool {
 	return true
 }
 
-func specOnly(t *testing.T, actual, expected []byte) bool {
+func specOnly(t *testing.T, request, actual, expected []byte) bool {
 	t.Helper()
-	var exp, act map[string]json.RawMessage
-	if err := json.Unmarshal(expected, &exp); err != nil {
-		t.Logf("invalid expected JSON: %v", err)
-		return false
-	}
-	if err := json.Unmarshal(actual, &act); err != nil {
-		t.Logf("invalid actual JSON: %v", err)
-		return false
-	}
-	has := func(m map[string]json.RawMessage, k string) bool { _, ok := m[k]; return ok }
-	if has(exp, "result") != has(act, "result") || has(exp, "error") != has(act, "error") {
-		t.Logf("response kind mismatch: expected result=%v error=%v, actual result=%v error=%v",
-			has(exp, "result"), has(exp, "error"), has(act, "result"), has(act, "error"))
-		return false
-	}
-	if _, ok := act["jsonrpc"]; !ok {
-		t.Log("actual missing jsonrpc field")
+	if err := validateRPCResponse(request, actual, expected); err != nil {
+		t.Log(err)
 		return false
 	}
 	return true
+}
+
+// decodeRPC preserves integer precision for IDs, error codes and deterministic values.
+func decodeRPC(body []byte) (map[string]any, error) {
+	var value map[string]any
+	decoder := json.NewDecoder(bytes.NewReader(body))
+	decoder.UseNumber()
+	if err := decoder.Decode(&value); err != nil {
+		return nil, err
+	}
+	if value == nil || !json.Valid(body) {
+		return nil, fmt.Errorf("expected one JSON object")
+	}
+	return value, nil
+}
+
+func validRPCID(value any) bool {
+	switch v := value.(type) {
+	case nil, string:
+		return true
+	case json.Number:
+		return integerPattern.MatchString(string(v))
+	default:
+		return false
+	}
+}
+
+func validateRPCResponse(request, actual, expected []byte) error {
+	req, err := decodeRPC(request)
+	if err != nil {
+		return fmt.Errorf("request: %w", err)
+	}
+	method, ok := req["method"].(string)
+	if !ok || method == "" {
+		return fmt.Errorf("request has no method")
+	}
+	act, err := decodeRPC(actual)
+	if err != nil {
+		return fmt.Errorf("%s response: %w", method, err)
+	}
+	id, hasID := req["id"]
+	responseID, hasResponseID := act["id"]
+	if !hasID || !hasResponseID || !validRPCID(id) || !validRPCID(responseID) || !reflect.DeepEqual(id, responseID) || act["jsonrpc"] != "2.0" {
+		return fmt.Errorf("%s: invalid JSON-RPC version or mismatched id", method)
+	}
+	_, result := act["result"]
+	_, rpcError := act["error"]
+	if result == rpcError {
+		return fmt.Errorf("%s: require exactly one of result and error", method)
+	}
+	if rpcError {
+		if err := validateRPCError(method, act["error"]); err != nil {
+			return err
+		}
+	} else if err := validateMethodResult(method, req, act["result"]); err != nil {
+		return fmt.Errorf("%s result: %w", method, err)
+	}
+	if len(expected) == 0 {
+		return nil
+	}
+	exp, err := decodeRPC(expected)
+	if err != nil {
+		return fmt.Errorf("expected response: %w", err)
+	}
+	_, expectedID := exp["id"]
+	if !expectedID || exp["jsonrpc"] != "2.0" || !reflect.DeepEqual(exp["id"], id) {
+		return fmt.Errorf("invalid fixture version or id")
+	}
+	_, expResult := exp["result"]
+	_, expError := exp["error"]
+	if expResult == expError || expResult != result {
+		return fmt.Errorf("%s: response kind mismatch", method)
+	}
+	if expError {
+		e, ok := exp["error"].(map[string]any)
+		if !ok {
+			return fmt.Errorf("fixture error must be an object")
+		}
+		if _, ok := e["code"]; !ok {
+			return fmt.Errorf("fixture error must declare an exact code")
+		}
+	}
+	// Empty result objects request the method's full schema. Every populated field,
+	// scalar, null, and array is still an exact expectation, including error data.
+	field := "result"
+	if rpcError {
+		field = "error"
+	}
+	if !matchesExpectation(act[field], exp[field]) {
+		return fmt.Errorf("%s: %s differs from deterministic fixture expectation", method, field)
+	}
+	return nil
+}
+
+func matchesExpectation(actual, expected any) bool {
+	if fields, ok := expected.(map[string]any); ok {
+		object, ok := actual.(map[string]any)
+		if !ok {
+			return false
+		}
+		for name, value := range fields {
+			got, exists := object[name]
+			if !exists || !matchesExpectation(got, value) {
+				return false
+			}
+		}
+		return true
+	}
+	if elements, ok := expected.([]any); ok {
+		got, ok := actual.([]any)
+		if !ok || len(got) != len(elements) {
+			return false
+		}
+		for i, value := range elements {
+			if !matchesExpectation(got[i], value) {
+				return false
+			}
+		}
+		return true
+	}
+	return reflect.DeepEqual(actual, expected)
+}
+
+func validateRPCError(method string, value any) error {
+	e, ok := value.(map[string]any)
+	if !ok {
+		return fmt.Errorf("%s: error must be an object", method)
+	}
+	number, ok := e["code"].(json.Number)
+	if !ok {
+		return fmt.Errorf("%s: error code must be an integer", method)
+	}
+	code, err := strconv.ParseInt(string(number), 10, 32)
+	if err != nil {
+		return fmt.Errorf("%s: invalid error code", method)
+	}
+	message, ok := e["message"].(string)
+	if !ok || message == "" {
+		return fmt.Errorf("%s: error message must be nonempty", method)
+	}
+	valid := code == -32700 || (code >= -32603 && code <= -32600) || (code >= -32099 && code <= -32000)
+	if code == 3 && (method == "eth_call" || method == "eth_estimateGas" || method == "eth_createAccessList") {
+		valid = true
+	}
+	if !valid {
+		return fmt.Errorf("%s: undeclared JSON-RPC error code %d", method, code)
+	}
+	if code == 3 {
+		if data, exists := e["data"]; exists && !dataValue(data) {
+			return fmt.Errorf("%s: revert data must be hex bytes", method)
+		}
+	}
+	return nil
+}
+
+type valueRule func(any) bool
+
+var integerPattern = regexp.MustCompile(`^-?(0|[1-9][0-9]*)$`)
+var quantityPattern = regexp.MustCompile(`^0x(0|[1-9a-f][0-9a-f]*)$`)
+var dataPattern = regexp.MustCompile(`^0x([0-9a-fA-F]{2})*$`)
+var decimalPattern = regexp.MustCompile(`^(0|[1-9][0-9]*)$`)
+
+func quantityValue(v any) bool { s, ok := v.(string); return ok && quantityPattern.MatchString(s) }
+func dataValue(v any) bool     { s, ok := v.(string); return ok && dataPattern.MatchString(s) }
+func sizedData(size int) valueRule {
+	return func(v any) bool { s, ok := v.(string); return ok && len(s) == 2+size*2 && dataValue(v) }
+}
+func stringValue(v any) bool { _, ok := v.(string); return ok }
+func boolValue(v any) bool   { _, ok := v.(bool); return ok }
+func arrayOf(rule valueRule) valueRule {
+	return func(v any) bool {
+		a, ok := v.([]any)
+		if !ok {
+			return false
+		}
+		for _, item := range a {
+			if !rule(item) {
+				return false
+			}
+		}
+		return true
+	}
+}
+func objectFields(v any, fields map[string]valueRule) bool {
+	m, ok := v.(map[string]any)
+	if !ok {
+		return false
+	}
+	for key, rule := range fields {
+		value, exists := m[key]
+		if !exists || !rule(value) {
+			return false
+		}
+	}
+	return true
+}
+func nullable(rule valueRule) valueRule { return func(v any) bool { return v == nil || rule(v) } }
+func logValue(v any) bool {
+	return objectFields(v, map[string]valueRule{"address": sizedData(20), "topics": arrayOf(sizedData(32)), "data": dataValue,
+		"blockNumber": nullable(quantityValue), "blockHash": nullable(sizedData(32)), "transactionHash": nullable(sizedData(32)),
+		"transactionIndex": nullable(quantityValue), "logIndex": nullable(quantityValue), "removed": boolValue})
+}
+func transactionValue(v any) bool {
+	return objectFields(v, map[string]valueRule{"hash": sizedData(32), "nonce": quantityValue, "from": sizedData(20), "to": nullable(sizedData(20)),
+		"gas": quantityValue, "value": quantityValue, "input": dataValue, "v": quantityValue, "r": quantityValue, "s": quantityValue,
+		"blockHash": nullable(sizedData(32)), "blockNumber": nullable(quantityValue), "transactionIndex": nullable(quantityValue)})
+}
+func blockValue(v any, full bool) bool {
+	txRule := sizedData(32)
+	if full {
+		txRule = transactionValue
+	}
+	return objectFields(v, map[string]valueRule{"number": nullable(quantityValue), "hash": nullable(sizedData(32)), "parentHash": sizedData(32),
+		"nonce": nullable(sizedData(8)), "sha3Uncles": sizedData(32), "logsBloom": nullable(sizedData(256)), "transactionsRoot": sizedData(32),
+		"stateRoot": sizedData(32), "receiptsRoot": sizedData(32), "miner": sizedData(20), "difficulty": quantityValue, "extraData": dataValue,
+		"size": quantityValue, "gasLimit": quantityValue, "gasUsed": quantityValue, "timestamp": quantityValue,
+		"transactions": arrayOf(txRule), "uncles": arrayOf(sizedData(32))})
+}
+func receiptValue(v any) bool {
+	return objectFields(v, map[string]valueRule{"transactionHash": sizedData(32), "transactionIndex": quantityValue, "blockHash": sizedData(32),
+		"blockNumber": quantityValue, "from": sizedData(20), "to": nullable(sizedData(20)), "cumulativeGasUsed": quantityValue,
+		"gasUsed": quantityValue, "contractAddress": nullable(sizedData(20)), "logs": arrayOf(logValue), "logsBloom": sizedData(256),
+		"status": func(v any) bool { return v == "0x0" || v == "0x1" }})
+}
+func feeHistoryValue(v any, req map[string]any) bool {
+	ratio := func(v any) bool {
+		n, ok := v.(json.Number)
+		if !ok {
+			return false
+		}
+		f, err := n.Float64()
+		return err == nil && f >= 0 && f <= 1
+	}
+	if !objectFields(v, map[string]valueRule{"oldestBlock": quantityValue, "baseFeePerGas": arrayOf(quantityValue), "gasUsedRatio": arrayOf(ratio)}) {
+		return false
+	}
+	m := v.(map[string]any)
+	count := len(m["gasUsedRatio"].([]any))
+	if len(m["baseFeePerGas"].([]any)) != count+1 {
+		return false
+	}
+	params, _ := req["params"].([]any)
+	percentileCount := 0
+	if len(params) > 2 {
+		percentiles, ok := params[2].([]any)
+		if !ok {
+			return false
+		}
+		percentileCount = len(percentiles)
+	}
+	if reward, exists := m["reward"]; exists {
+		if !arrayOf(arrayOf(quantityValue))(reward) {
+			return false
+		}
+		rows := reward.([]any)
+		if len(rows) != count {
+			return false
+		}
+		for _, row := range rows {
+			if len(row.([]any)) != percentileCount {
+				return false
+			}
+		}
+	} else if percentileCount > 0 {
+		return false
+	}
+	if blob, exists := m["baseFeePerBlobGas"]; exists {
+		if !arrayOf(quantityValue)(blob) || len(blob.([]any)) != count+1 {
+			return false
+		}
+	}
+	if blob, exists := m["blobGasUsedRatio"]; exists {
+		if !arrayOf(ratio)(blob) || len(blob.([]any)) != count {
+			return false
+		}
+	}
+	return true
+}
+func traceValue(v any) bool {
+	if objectFields(v, map[string]valueRule{"type": stringValue, "from": sizedData(20), "gas": quantityValue, "gasUsed": quantityValue, "input": dataValue}) {
+		return true
+	}
+	return objectFields(v, map[string]valueRule{"gas": func(v any) bool {
+		n, ok := v.(json.Number)
+		if !ok {
+			return false
+		}
+		i, e := n.Int64()
+		return e == nil && i >= 0
+	}, "failed": boolValue, "returnValue": stringValue, "structLogs": arrayOf(func(v any) bool {
+		return objectFields(v, map[string]valueRule{"op": stringValue, "pc": func(v any) bool { _, ok := v.(json.Number); return ok }})
+	})})
+}
+func validateMethodResult(method string, req map[string]any, result any) error {
+	full := false
+	if params, ok := req["params"].([]any); ok && len(params) > 1 {
+		full, _ = params[1].(bool)
+	}
+	var rule valueRule
+	switch method {
+	case "eth_blockNumber", "eth_chainId", "eth_gasPrice", "eth_maxPriorityFeePerGas", "eth_blobBaseFee", "eth_getBalance", "eth_getTransactionCount", "eth_estimateGas", "eth_estimateGasAfterCalls", "eth_getBlockTransactionCountByHash", "eth_getBlockTransactionCountByNumber", "eth_newFilter", "eth_newBlockFilter", "eth_newPendingTransactionFilter", "pax_newFilter", "pax_newBlockFilter":
+		rule = quantityValue
+	case "eth_call", "eth_getCode", "eth_sign", "eth_signTransaction":
+		rule = dataValue
+	case "eth_getStorageAt", "eth_sendRawTransaction", "eth_sendTransaction":
+		rule = sizedData(32)
+	case "eth_coinbase", "pax_getEVMAddress":
+		rule = sizedData(20)
+	case "eth_accounts":
+		rule = arrayOf(sizedData(20))
+	case "net_version":
+		rule = func(v any) bool { s, ok := v.(string); return ok && decimalPattern.MatchString(s) }
+	case "web3_clientVersion", "echo_echo", "pax_getCosmosTx", "pax_getEvmTx", "pax_getPaxAddress", "eth_getTransactionErrorByHash":
+		rule = stringValue
+	case "eth_syncing":
+		rule = func(v any) bool {
+			return v == false || objectFields(v, map[string]valueRule{"startingBlock": quantityValue, "currentBlock": quantityValue, "highestBlock": quantityValue})
+		}
+	case "eth_uninstallFilter", "pax_uninstallFilter":
+		rule = boolValue
+	case "eth_getBlockByNumber", "eth_getBlockByHash", "pax_getBlockByNumber", "pax_getBlockByHashExcludeTraceFail", "pax_getBlockByNumberExcludeTraceFail":
+		rule = nullable(func(v any) bool { return blockValue(v, full) })
+	case "eth_getTransactionByHash", "eth_getTransactionByBlockHashAndIndex", "eth_getTransactionByBlockNumberAndIndex":
+		rule = nullable(transactionValue)
+	case "eth_getTransactionReceipt", "pax_getTransactionReceiptExcludeTraceFail":
+		rule = nullable(receiptValue)
+	case "eth_getBlockReceipts":
+		rule = nullable(arrayOf(receiptValue))
+	case "eth_getLogs", "eth_getFilterLogs", "pax_getLogs", "pax_getFilterLogs":
+		rule = arrayOf(logValue)
+	case "eth_getFilterChanges", "pax_getFilterChanges":
+		rule = func(v any) bool { return arrayOf(logValue)(v) || arrayOf(sizedData(32))(v) }
+	case "eth_feeHistory":
+		rule = func(v any) bool { return feeHistoryValue(v, req) }
+	case "eth_createAccessList":
+		rule = func(v any) bool {
+			return objectFields(v, map[string]valueRule{"gasUsed": quantityValue, "accessList": arrayOf(func(v any) bool {
+				return objectFields(v, map[string]valueRule{"address": sizedData(20), "storageKeys": arrayOf(sizedData(32))})
+			})})
+		}
+	case "eth_getProof":
+		rule = func(v any) bool {
+			return objectFields(v, map[string]valueRule{"address": sizedData(20), "balance": quantityValue, "nonce": quantityValue, "codeHash": sizedData(32), "storageHash": sizedData(32), "accountProof": arrayOf(dataValue), "storageProof": arrayOf(func(v any) bool {
+				return objectFields(v, map[string]valueRule{"key": quantityValue, "value": quantityValue, "proof": arrayOf(dataValue)})
+			})})
+		}
+	case "debug_traceCall", "debug_traceTransaction":
+		rule = traceValue
+	case "debug_traceBlockByNumber", "debug_traceBlockByHash", "pax_traceBlockByNumberExcludeTraceFail", "pax_traceBlockByHashExcludeTraceFail":
+		rule = arrayOf(func(v any) bool { return objectFields(v, map[string]valueRule{"result": traceValue}) })
+	case "debug_traceStateAccess":
+		rule = func(v any) bool {
+			return objectFields(v, map[string]valueRule{"accessList": arrayOf(func(v any) bool {
+				return objectFields(v, map[string]valueRule{"address": sizedData(20), "storageKeys": arrayOf(sizedData(32))})
+			})})
+		}
+	case "eth_getVMError":
+		rule = nullable(stringValue)
+	case "txpool_content":
+		rule = func(v any) bool {
+			object := func(v any) bool { _, ok := v.(map[string]any); return ok }
+			return objectFields(v, map[string]valueRule{"pending": object, "queued": object})
+		}
+	default:
+		return fmt.Errorf("no success schema declared for %s", method)
+	}
+	if !rule(result) {
+		return fmt.Errorf("invalid method response schema")
+	}
+	return nil
 }
 
 func ioTestsDir() (string, error) {

@@ -1,0 +1,12 @@
+[task.22.31.389]
+finding = "pricefeed-unsigned-sequence"
+status = "decoder implemented; full-path closure requires out-of-scope wiring"
+test = "services/explorer/backend/apps/explorer/test/repair/repair_22_31_389_test.exs: Explorer.Repair.Repair2231389Test"
+proof = "Recorded block 37715713 replays through real HTTP, CosmosRest and PriceFeed persistence; derived boundary cases cover 2^63, uint64 max, refusals and overflow through real HTTP and result decoding."
+provenance = "Boundary cases are explicit mutations of the recorded node transcript, not a claim that the recorded chain emitted those values; producer-originated boundary capture and persistence/presentation qualification remain requested below."
+baseline = "Not run: ordered implementation-before-gates and hf-done-only verification instructions prohibit an unchanged-tree baseline; no pre-change failure is claimed."
+evidence = "The runner's private hf-build/hf-done ledger records the exact candidate revision, command, exit and log; no gate result is claimed in this source record."
+gotcha = "The host Elixir shim has no selected runtime; formatting uses the pinned explorer builder's Elixir formatter with the repository line length of 120."
+wiring_storage = "Domain 14 (explorer): services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x/{price_observation,price_market,price_feed}.ex and apps/explorer/priv/repo/migrations require lossless numeric(20,0) uint64 columns and matching Ecto types/queries for market_id, sequence and source_timestamp_ms, including existing-row migration and SQL range checks."
+wiring_presentation = "Domain 14 (explorer): services/explorer/backend/apps/block_scout_web/lib/block_scout_web/{views/api/v2/paxeer_x/feed_view.ex,schemas/api/v2/paxeer_x/price_feed.ex,channels} must present uint64 values losslessly through REST and sockets after storage wiring, with matching client contracts."
+wiring_producer = "Domain 3 (pricefeed producer), Domain 14 (explorer): api/pricefeed/tx.proto, modules/pricefeed/{types,keeper} and services/explorer/backend/apps/explorer/test/support/fixture/paxeer_x/price_feed require a producer-emitted boundary transcript at sequence 2^63 and an end-to-end persistence/REST/socket proof after the storage/presentation changes; preserve the node uint64 contract."

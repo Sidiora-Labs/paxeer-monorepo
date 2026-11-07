@@ -134,7 +134,7 @@ fn inspections_and_unavailable_budget_reconciliation_are_audited_before_refusal(
     let backlog = VerificationBacklog {
         idempotency_key: [3; 32],
         observed: VerificationLevel::STATE_PROVEN,
-        requested: VerificationLevel::CHECKPOINT_FINALISED,
+        requested: VerificationLevel::COMMITTED,
         queued_at_ms: 1_000,
         attempts: 2,
     };

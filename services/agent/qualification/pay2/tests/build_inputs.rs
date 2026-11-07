@@ -4,6 +4,42 @@ mod build_script;
 use std::{fs, path::Path, process::Command};
 
 #[test]
+fn pay2_funded_scenario_is_registered() {
+    let manifest = include_str!("../Cargo.toml");
+    assert_eq!(
+        manifest
+            .split("[[test]]")
+            .skip(1)
+            .map(|section| section.split("\n[").next().expect("test target section"))
+            .filter(|section| {
+                section
+                    .lines()
+                    .any(|line| line.trim() == "name = \"pay2e\"")
+                    && section
+                        .lines()
+                        .any(|line| line.trim() == "path = \"pay2e_test.rs\"")
+            })
+            .count(),
+        1,
+        "PAY2's funded scenario must compile as a registered Cargo test target"
+    );
+    let manifest_root = Path::new(env!("CARGO_MANIFEST_DIR"));
+    for input in [
+        "tests/support/funded_inputs.rs",
+        "tests/support/funded_scenario.rs",
+        "tests/support/funded_peer.rs",
+        "tests/fixtures/funded_state.json",
+    ] {
+        assert!(
+            !fs::read(manifest_root.join(input))
+                .expect("read funded scenario input")
+                .is_empty(),
+            "funded scenario input {input} must be packaged"
+        );
+    }
+}
+
+#[test]
 fn pay2_lockfile_is_tracked() {
     let manifest = Path::new(env!("CARGO_MANIFEST_DIR"));
     let lockfile = manifest.join("Cargo.lock");
@@ -69,9 +105,19 @@ fn pay2_build_reads_no_deleted_sources() {
     let inputs = build_script::pay2_build_inputs(manifest);
     assert_eq!(
         inputs,
-        [manifest.join("required.rs"), manifest.join("pay2e_test.rs"),],
+        [
+            "Cargo.toml",
+            "required.rs",
+            "pay2e_test.rs",
+            "funded_inputs.rs",
+            "funding.rs",
+            "sequence.rs",
+            "tests/support/registered_scenario.rs",
+        ]
+        .map(|input| manifest.join(input)),
         "PAY2 must retain exactly its live build inputs"
     );
+    build_script::pay2_check_build_inputs(manifest).expect("registered scenario inputs");
     for input in inputs {
         assert!(
             !fs::read_to_string(&input).unwrap().is_empty(),

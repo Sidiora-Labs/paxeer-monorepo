@@ -1,0 +1,16 @@
+[repair.22.33.1229]
+audit = "22.30.59"
+base_revision = "72c91077cb966f1c4c640ded61b4b259f41cad90"
+policy = "An empty new admin explicitly renounces admin authority, consistent with keeper state, README.md and the wasm ChangeAdmin binding; nonempty addresses and senders remain validated. Issuer DID is independent and immutable."
+baseline = "No baseline verify ran: the ordered implementation-first and hf-build/hf-done-only instructions prohibit the contradictory unchanged-tree verify request; the initial ledger had zero build and verify runs. No baseline test failure is claimed."
+evidence = "The runner's hf-build/hf-done ledger records the candidate revision, exact command, exit and private log location; the final response copies its last evidence line."
+
+[finding.8]
+tests = ["TestRepairM_1229_RenunciationCLI", "TestRepairM_1229_RenunciationWasm"]
+proof = "Real CLI/wasm producers, transaction JSON/protobuf codecs, direct signing and signature verification, AppModule.RegisterServices message/query routes, real keepers and disk-store close/reopen prove transfer, renunciation, issuer preservation and former-admin refusals."
+wiring_keeper = "modules/tokenfactory/keeper/admins.go (owner_domain 6, fm-chain-modules): retain the existing empty-admin policy and issuer-preserving setAdmin behavior; both are exercised by this task's proofs, so no production keeper edit is required."
+wiring_readme = "modules/tokenfactory/README.md (owner_domain 6, fm-chain-modules): retain the documented empty-admin renunciation policy; this repair makes the validated CLI/wasm transaction route conform without an out-of-scope documentation edit."
+
+[finding.11]
+test = "TestRepairM_1229_IsolatedValidation"
+proof = "The focused test executes the repaired original TestMsgBurn and TestMsgChangeAdmin tables: fresh constructor results isolate every case, ErrorIs asserts sender/amount/denom/new-admin error identities, a valid baseline remains untouched, and empty-admin success is tested separately from invalid nonempty addresses."

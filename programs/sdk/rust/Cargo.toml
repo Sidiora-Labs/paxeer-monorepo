@@ -14,6 +14,8 @@ doctest = false
 sha2.workspace = true
 
 [dev-dependencies]
+layerx-programs-registry = { path = "../../crates/layerx-programs-registry" }
+layerx-programs-runtime = { path = "../../crates/layerx-programs-runtime" }
 serde_json = "=1.0.151"
 
 [build-dependencies]

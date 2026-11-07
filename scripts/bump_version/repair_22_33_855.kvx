@@ -1,0 +1,36 @@
+[repair.22.33.855]
+mode = "BUILD"
+audit = "22.30.182"
+acceptance = "22998.1"
+paths = ["scripts/bump_version"]
+findings = ["archive-rerun-documentation", "archive-error-documentation", "archive-incomplete", "archive-tag-search"]
+evidence = "The runner records the verified candidate revision, exact command, exit and private log in the hf-build/hf-done ledger; the final response copies hf-done's evidence line."
+baseline = "No pre-change test run: the explicit task order forbids running the verify command by hand or testing before implementation is complete, overriding step 8's conflicting baseline request; no pre-change test failure is claimed."
+wiring_request = "spec/layerx-merge/spec.kvx, owning domain fm-tools-ops/runner: retain this finding-to-test mapping with the qualification receipt; spec edits are outside this task's allowed scope."
+
+[finding.archive-rerun-documentation]
+test = "TestRepairM_855_InterruptedArchiveResumes"
+repair = "Runbook explains partial archives, pending snapshot inspection, resume, marker validation and safe refusal for pre-marker archives; the test checks the runbook and reopens actual interrupted publications."
+
+[finding.archive-error-documentation]
+test = "TestRepairM_855_HistoryErrorsRefusePublication"
+repair = "Runbook describes exact tag-line lookup, fatal history errors, missing history refusal and safe recovery; the test checks those claims against corrupted on-disk Git history without any publication."
+
+[finding.archive-incomplete]
+test = "TestRepairM_855_InterruptedArchiveResumes"
+additional_tests = ["TestRepairM_855_ArchiveSetValidatedBeforePublication", "TestRepairM_855_UnmarkedAndDamagedArchivesRefused", "TestRepairM_855_NormalizationAndNoChanges"]
+repair = "Stage the complete set and registration preconditions, retain an immutable synced manifest for restart, atomically publish archives and registrations, validate output, publish the completion marker last, then regenerate setups."
+
+[finding.archive-tag-search]
+test = "TestRepairM_855_ExactTagLineSelectsBaseline"
+additional_tests = ["TestRepairM_855_HistoryErrorsRefusePublication", "TestRepairM_855_GenuineMissingPathsRemainSupported"]
+repair = "Compare parsed complete trimmed lines; propagate content, tree, scanner and iterator errors; reject unproven shallow introductions before publication."
+
+[gotcha.task_order]
+observed = "The inherited baseline-test step conflicts with the explicit bounded gate order, and inherited root/spec ledger edits conflict with the task scope."
+resolution = "Follow the explicit task order; run only hf-build and hf-done after full implementation and keep this record inside scripts/bump_version."
+
+[gotcha.git_object_errors]
+observed = "The first declared verify failed at the content corruption case because go-git Tree.File translates a missing blob to ErrFileNotFound, and Tree.Tree also masks missing objects."
+repair = "Read explicit tree entries and then load referenced tree/blob objects, treating only an actually absent entry as a history boundary or new path; preserve all test assertions and add nested-tree corruption coverage."
+evidence = "revision a2d96827c4f855424bffa23a3fc174142f5abdb9; cg spec done 22.33.855 -f layerx-merge --root /work/paxeer-monorepo; exit 1; private log /out/logs/verify-1.log"

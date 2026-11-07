@@ -1,0 +1,1466 @@
+# Pre-upgrade source audit; findings are repair proposals, not source changes.
+
+[audit.22.30.54]
+task = "22.30.54"
+revision = "6d2c32a65a1c7989a6a37abf5965929de9769ae4"
+files_reviewed = 148
+findings = 46
+docs_reviewed = 19
+upgrade_ready = false
+blocking = ["durable-head-regression", "legacy-reverse-visible-key"]
+
+[file.001]
+path = "consensus/internal/rpc/core/CONTRIBUTING.md"
+lines = 4
+verdict = "issues"
+note = "Read in full against the package requirements, registered interfaces and real callers. Findings: rpc-contributing-openapi-path."
+
+[file.002]
+path = "consensus/internal/rpc/core/README.md"
+lines = 22
+verdict = "clean"
+note = "Read the complete event query and pagination guide; syntax, page bounds and registered subscriptions agree with the current core handlers."
+
+[file.003]
+path = "consensus/internal/rpc/core/abci.go"
+lines = 36
+verdict = "clean"
+note = "Read app query/info delegation, timeout context and ABCI result wrapping; request and response fields agree with the consensus RPC client."
+
+[file.004]
+path = "consensus/internal/rpc/core/autobahn_indexing_test.go"
+lines = 138
+verdict = "clean"
+note = "Read every test body and helper: Autobahn transaction/block index response fields and registration. Existing assertions agree with their exercised producer/consumer path; this audit does not claim native test execution."
+
+[file.005]
+path = "consensus/internal/rpc/core/autobahn_routes_conformance_test.go"
+lines = 208
+verdict = "clean"
+note = "Read every test body and helper: all registered active-engine routes through real HTTP dispatch and the GigaRouter. Existing assertions agree with their exercised producer/consumer path; this audit does not claim native test execution."
+
+[file.006]
+path = "consensus/internal/rpc/core/blocks.go"
+lines = 447
+verdict = "clean"
+note = "Read all height/range/search/result/header/commit branches, including Autobahn dispatch. The explicit unavailable Commit sentinel is required by 15253.1 and is not a missing CometBFT implementation."
+
+[file.007]
+path = "consensus/internal/rpc/core/blocks_autobahn_blockchain_test.go"
+lines = 168
+verdict = "clean"
+note = "Read every test body and helper: Autobahn blockchain range metadata and bounds. Existing assertions agree with their exercised producer/consumer path; this audit does not claim native test execution."
+
+[file.008]
+path = "consensus/internal/rpc/core/blocks_autobahn_commit_test.go"
+lines = 54
+verdict = "clean"
+note = "Read every test body and helper: required explicit unavailable-commit sentinel and transport response. Existing assertions agree with their exercised producer/consumer path; this audit does not claim native test execution."
+
+[file.009]
+path = "consensus/internal/rpc/core/blocks_autobahn_header_test.go"
+lines = 202
+verdict = "clean"
+note = "Read every test body and helper: Autobahn header selection and height errors. Existing assertions agree with their exercised producer/consumer path; this audit does not claim native test execution."
+
+[file.010]
+path = "consensus/internal/rpc/core/blocks_autobahn_lower_bound_test.go"
+lines = 97
+verdict = "clean"
+note = "Read every test body and helper: earliest retained block bounds and out-of-range responses. Existing assertions agree with their exercised producer/consumer path; this audit does not claim native test execution."
+
+[file.011]
+path = "consensus/internal/rpc/core/blocks_autobahn_results_test.go"
+lines = 268
+verdict = "clean"
+note = "Read every test body and helper: Autobahn block execution results and event shapes. Existing assertions agree with their exercised producer/consumer path; this audit does not claim native test execution."
+
+[file.012]
+path = "consensus/internal/rpc/core/blocks_autobahn_search_test.go"
+lines = 142
+verdict = "clean"
+note = "Read every test body and helper: Autobahn indexed block search, order and pagination. Existing assertions agree with their exercised producer/consumer path; this audit does not claim native test execution."
+
+[file.013]
+path = "consensus/internal/rpc/core/blocks_test.go"
+lines = 118
+verdict = "clean"
+note = "Read every test body and helper: block range normalization and pagination. Existing assertions agree with their exercised producer/consumer path; this audit does not claim native test execution."
+
+[file.014]
+path = "consensus/internal/rpc/core/consensus.go"
+lines = 201
+verdict = "clean"
+note = "Read validator and consensus-state APIs; active-engine branches return declared unavailable behavior rather than using an unpopulated CometBFT state under Autobahn."
+
+[file.015]
+path = "consensus/internal/rpc/core/consensus_autobahn_test.go"
+lines = 127
+verdict = "clean"
+note = "Read every test body and helper: Autobahn validator/consensus endpoint behavior without a CometBFT reactor. Existing assertions agree with their exercised producer/consumer path; this audit does not claim native test execution."
+
+[file.016]
+path = "consensus/internal/rpc/core/dev.go"
+lines = 21
+verdict = "clean"
+note = "Read development/unsafe handlers and their registered exposure conditions; no additional auth or lifecycle disagreement identified in this member."
+
+[file.017]
+path = "consensus/internal/rpc/core/doc.go"
+lines = 46
+verdict = "issues"
+note = "Read in full against the package requirements, registered interfaces and real callers. Findings: rpc-doc-unregistered-dial-methods."
+
+[file.018]
+path = "consensus/internal/rpc/core/env.go"
+lines = 394
+verdict = "clean"
+note = "Read environment dependencies, GigaRouter registration and app/client plumbing; active-engine lookups agree with callers and shared types."
+
+[file.019]
+path = "consensus/internal/rpc/core/env_test.go"
+lines = 90
+verdict = "clean"
+note = "Read every test body and helper: environment option and router wiring. Existing assertions agree with their exercised producer/consumer path; this audit does not claim native test execution."
+
+[file.020]
+path = "consensus/internal/rpc/core/events.go"
+lines = 270
+verdict = "clean"
+note = "Read subscribe/unsubscribe and websocket event lifecycle, cancellation and response forwarding; event names/shapes agree with the transport and client."
+
+[file.021]
+path = "consensus/internal/rpc/core/evidence.go"
+lines = 30
+verdict = "clean"
+note = "Read evidence submission and Autobahn unavailable behavior; accepted encodings and explicit unsupported response agree with the declared route."
+
+[file.022]
+path = "consensus/internal/rpc/core/evidence_autobahn_test.go"
+lines = 75
+verdict = "clean"
+note = "Read every test body and helper: unsupported Autobahn evidence response. Existing assertions agree with their exercised producer/consumer path; this audit does not claim native test execution."
+
+[file.023]
+path = "consensus/internal/rpc/core/health.go"
+lines = 14
+verdict = "clean"
+note = "Read health RPC response; the declared empty health result does not claim a synchronization or upgrade-readiness guarantee."
+
+[file.024]
+path = "consensus/internal/rpc/core/lag_status.go"
+lines = 44
+verdict = "clean"
+note = "Read lag calculations and active-engine branch; block heights and timings use the declared consensus/router values."
+
+[file.025]
+path = "consensus/internal/rpc/core/lag_status_autobahn_test.go"
+lines = 126
+verdict = "clean"
+note = "Read every test body and helper: Autobahn lag height and timing fields. Existing assertions agree with their exercised producer/consumer path; this audit does not claim native test execution."
+
+[file.026]
+path = "consensus/internal/rpc/core/mempool.go"
+lines = 279
+verdict = "clean"
+note = "Read mempool listing, filtering and unsafe flush; result counts and transaction encodings agree with the consensus client."
+
+[file.027]
+path = "consensus/internal/rpc/core/net.go"
+lines = 75
+verdict = "clean"
+note = "Read peer/network and unsafe dialing handlers; configured route exposure and peer request types agree with registration."
+
+[file.028]
+path = "consensus/internal/rpc/core/openapi_routes_test.go"
+lines = 35
+verdict = "clean"
+note = "Read every test body and helper: registered route names against the maintained OpenAPI route document. Existing assertions agree with their exercised producer/consumer path; this audit does not claim native test execution."
+
+[file.029]
+path = "consensus/internal/rpc/core/proof_rpc_routes_test.go"
+lines = 436
+verdict = "clean"
+note = "Read every test body and helper: real route/HTTP request and response contracts. Existing assertions agree with their exercised producer/consumer path; this audit does not claim native test execution."
+
+[file.030]
+path = "consensus/internal/rpc/core/routes.go"
+lines = 130
+verdict = "clean"
+note = "Read the whole registered route map and argument names; node consensus RPC routes are distinct from the retired public /rpc router."
+
+[file.031]
+path = "consensus/internal/rpc/core/routes_gateway_keep_test.go"
+lines = 111
+verdict = "clean"
+note = "Read every test body and helper: separation and preservation of declared gateway and consensus routes. Existing assertions agree with their exercised producer/consumer path; this audit does not claim native test execution."
+
+[file.032]
+path = "consensus/internal/rpc/core/status.go"
+lines = 191
+verdict = "issues"
+note = "Read in full against the package requirements, registered interfaces and real callers. Findings: autobahn-catching-up-stuck, autobahn-status-hidden-read-errors."
+
+[file.033]
+path = "consensus/internal/rpc/core/status_autobahn_test.go"
+lines = 193
+verdict = "clean"
+note = "Read every test body and helper: Autobahn committed/executed height and hash/time status fields; the CatchingUp and ignored-error gaps are recorded on status.go. Existing assertions agree with their exercised producer/consumer path; this audit does not claim native test execution."
+
+[file.034]
+path = "consensus/internal/rpc/core/tx.go"
+lines = 156
+verdict = "clean"
+note = "Read broadcast, lookup, search and proof branches for both engines; transaction bytes, ABCI errors and unavailable proof behavior agree with the registered clients."
+
+[file.035]
+path = "consensus/internal/rpc/core/tx_autobahn_prove_test.go"
+lines = 177
+verdict = "clean"
+note = "Read every test body and helper: transaction lookup and declared Autobahn proof behavior. Existing assertions agree with their exercised producer/consumer path; this audit does not claim native test execution."
+
+[file.036]
+path = "engine/tests/AGENTS.md"
+lines = 190
+verdict = "issues"
+note = "Read in full against the package requirements, registered interfaces and real callers. Findings: state-runbook-recommends-exclusion."
+
+[file.037]
+path = "engine/tests/data/skip_list.json"
+lines = 192
+verdict = "issues"
+note = "Read in full against the package requirements, registered interfaces and real callers. Findings: state-skip-inventory-hides-failures."
+
+[file.038]
+path = "engine/tests/giga_test.go"
+lines = 2768
+verdict = "clean"
+note = "Read Giga test entry points and shared-store setup; executor construction uses the real node path. Differential harness and selection weaknesses are recorded on their owning members."
+
+[file.039]
+path = "engine/tests/harness/builder.go"
+lines = 181
+verdict = "clean"
+note = "Read complete fixture-to-transaction builder, signing and fork/value selection; the builder uses the declared fixture fields and concrete signed EVM transaction types."
+
+[file.040]
+path = "engine/tests/harness/loader.go"
+lines = 119
+verdict = "clean"
+note = "Read fixture discovery, JSON decoding and path selection; loader output agrees with StateTestJSON consumers. Required nonempty qualification selection belongs to the suite finding."
+
+[file.041]
+path = "engine/tests/harness/skip.go"
+lines = 119
+verdict = "clean"
+note = "Read skip inventory decoding and exact/category matching. It faithfully implements the checked-in policy; the disqualifying exclusion policy is recorded on the inventory and runbook."
+
+[file.042]
+path = "engine/tests/harness/types.go"
+lines = 55
+verdict = "clean"
+note = "Read full Ethereum fixture structs and byte/numeric decoding helpers; field encodings agree with builder and comparison consumers."
+
+[file.043]
+path = "engine/tests/request_helpers_test.go"
+lines = 31
+verdict = "clean"
+note = "Read every test body and helper: concrete test transaction construction and shared request helpers. Existing assertions agree with their exercised producer/consumer path; this audit does not claim native test execution."
+
+[file.044]
+path = "engine/tests/state_harness_test.go"
+lines = 662
+verdict = "issues"
+note = "Read in full against the package requirements, registered interfaces and real callers. Findings: state-exception-one-sided-pass, state-suite-zero-execution."
+
+[file.045]
+path = "engine/tests/state_test.go"
+lines = 198
+verdict = "issues"
+note = "Read in full against the package requirements, registered interfaces and real callers. Findings: state-oracle-opt-in."
+
+[file.046]
+path = "modules/sequencer/keeper/activation.go"
+lines = 46
+verdict = "clean"
+note = "Read the complete implementation of activation-height and app-hash persistence, transition checks and restart reads. The module is active merged-network state, not a separate retired sequencer service."
+
+[file.047]
+path = "modules/sequencer/keeper/activation_test.go"
+lines = 97
+verdict = "clean"
+note = "Read the complete test and its assertions for activation-height and app-hash persistence, transition checks and restart reads. The module is active merged-network state, not a separate retired sequencer service."
+
+[file.048]
+path = "modules/sequencer/keeper/genesis_test.go"
+lines = 190
+verdict = "clean"
+note = "Read the complete test and its assertions for genesis validation, state import/export and stored/default parameter round-trip. The module is active merged-network state, not a separate retired sequencer service."
+
+[file.049]
+path = "modules/sequencer/keeper/ics23_admission_evidence_vector_test.go"
+lines = 342
+verdict = "clean"
+note = "Read the complete test and its assertions for ICS23 admission evidence encoding and rejection vectors. The module is active merged-network state, not a separate retired sequencer service."
+
+[file.050]
+path = "modules/sequencer/keeper/keeper.go"
+lines = 289
+verdict = "clean"
+note = "Read the complete implementation of keeper construction, authority and live store dependencies. The module is active merged-network state, not a separate retired sequencer service."
+
+[file.051]
+path = "modules/sequencer/keeper/keeper_test.go"
+lines = 262
+verdict = "clean"
+note = "Read the complete test and its assertions for keeper construction, authority and live store dependencies. The module is active merged-network state, not a separate retired sequencer service."
+
+[file.052]
+path = "modules/sequencer/keeper/leaders.go"
+lines = 36
+verdict = "clean"
+note = "Read the complete implementation of leader rotation validation, canonical ordering and store retrieval. The module is active merged-network state, not a separate retired sequencer service."
+
+[file.053]
+path = "modules/sequencer/keeper/leaders_param.go"
+lines = 66
+verdict = "clean"
+note = "Read the complete implementation of leader parameter validation, canonical ordering and keeper round-trip. The module is active merged-network state, not a separate retired sequencer service."
+
+[file.054]
+path = "modules/sequencer/keeper/leaders_param_test.go"
+lines = 94
+verdict = "clean"
+note = "Read the complete test and its assertions for leader parameter validation, canonical ordering and keeper round-trip. The module is active merged-network state, not a separate retired sequencer service."
+
+[file.055]
+path = "modules/sequencer/keeper/leaders_test.go"
+lines = 131
+verdict = "clean"
+note = "Read the complete test and its assertions for leader rotation validation, canonical ordering and store retrieval. The module is active merged-network state, not a separate retired sequencer service."
+
+[file.056]
+path = "modules/sequencer/keeper/pins.go"
+lines = 23
+verdict = "clean"
+note = "Read the complete implementation of pin metadata validation, owner authority, stored encodings and retrieval. The module is active merged-network state, not a separate retired sequencer service."
+
+[file.057]
+path = "modules/sequencer/keeper/pins_test.go"
+lines = 62
+verdict = "clean"
+note = "Read the complete test and its assertions for pin metadata validation, owner authority, stored encodings and retrieval. The module is active merged-network state, not a separate retired sequencer service."
+
+[file.058]
+path = "modules/sequencer/keeper/proof_sequencer_module_test.go"
+lines = 315
+verdict = "clean"
+note = "Read the complete test and its assertions for real sequencer module wiring and keeper/genesis proof. The module is active merged-network state, not a separate retired sequencer service."
+
+[file.059]
+path = "modules/sequencer/keeper/receipt_keys.go"
+lines = 207
+verdict = "clean"
+note = "Read the complete implementation of receipt key admission, activation ranges, rotation and persisted retrieval. The module is active merged-network state, not a separate retired sequencer service."
+
+[file.060]
+path = "modules/sequencer/keeper/receipt_keys_test.go"
+lines = 316
+verdict = "clean"
+note = "Read the complete test and its assertions for receipt key admission, activation ranges, rotation and persisted retrieval. The module is active merged-network state, not a separate retired sequencer service."
+
+[file.061]
+path = "modules/sequencer/keeper/votes.go"
+lines = 32
+verdict = "clean"
+note = "Read the complete implementation of vote window validation, aggregation and stored vote encoding. The module is active merged-network state, not a separate retired sequencer service."
+
+[file.062]
+path = "modules/sequencer/keeper/votes_test.go"
+lines = 114
+verdict = "clean"
+note = "Read the complete test and its assertions for vote window validation, aggregation and stored vote encoding. The module is active merged-network state, not a separate retired sequencer service."
+
+[file.063]
+path = "modules/sequencer/module.go"
+lines = 271
+verdict = "clean"
+note = "Read the complete implementation of SDK module/interface registration, service wiring, genesis and migration hooks. The module is active merged-network state, not a separate retired sequencer service."
+
+[file.064]
+path = "modules/sequencer/module_test.go"
+lines = 336
+verdict = "clean"
+note = "Read the complete test and its assertions for SDK module/interface registration, service wiring, genesis and migration hooks. The module is active merged-network state, not a separate retired sequencer service."
+
+[file.065]
+path = "modules/sequencer/types/batch_tx.go"
+lines = 60
+verdict = "clean"
+note = "Read the complete implementation of batch transaction fields, validation and SDK message transport. The module is active merged-network state, not a separate retired sequencer service."
+
+[file.066]
+path = "modules/sequencer/types/batch_tx_test.go"
+lines = 153
+verdict = "clean"
+note = "Read the complete test and its assertions for batch transaction fields, validation and SDK message transport. The module is active merged-network state, not a separate retired sequencer service."
+
+[file.067]
+path = "modules/sequencer/types/batch_verify.go"
+lines = 38
+verdict = "clean"
+note = "Read the complete implementation of batch verification, signer/signature and execution-domain checks. The module is active merged-network state, not a separate retired sequencer service."
+
+[file.068]
+path = "modules/sequencer/types/batch_verify_test.go"
+lines = 113
+verdict = "clean"
+note = "Read the complete test and its assertions for batch verification, signer/signature and execution-domain checks. The module is active merged-network state, not a separate retired sequencer service."
+
+[file.069]
+path = "modules/sequencer/types/genesis.go"
+lines = 89
+verdict = "clean"
+note = "Read the complete implementation of genesis validation, state import/export and stored/default parameter round-trip. The module is active merged-network state, not a separate retired sequencer service."
+
+[file.070]
+path = "modules/sequencer/types/genesis_test.go"
+lines = 66
+verdict = "clean"
+note = "Read the complete test and its assertions for genesis validation, state import/export and stored/default parameter round-trip. The module is active merged-network state, not a separate retired sequencer service."
+
+[file.071]
+path = "modules/sequencer/types/keys.go"
+lines = 35
+verdict = "clean"
+note = "Read the complete implementation of module store prefixes, parameter keys and their keeper consumers. The module is active merged-network state, not a separate retired sequencer service."
+
+[file.072]
+path = "modules/sequencer/types/keys_test.go"
+lines = 69
+verdict = "clean"
+note = "Read the complete test and its assertions for module store prefixes, parameter keys and their keeper consumers. The module is active merged-network state, not a separate retired sequencer service."
+
+[file.073]
+path = "modules/sequencer/types/leaders.go"
+lines = 18
+verdict = "clean"
+note = "Read the complete implementation of leader rotation validation, canonical ordering and store retrieval. The module is active merged-network state, not a separate retired sequencer service."
+
+[file.074]
+path = "modules/sequencer/types/leaders_test.go"
+lines = 62
+verdict = "clean"
+note = "Read the complete test and its assertions for leader rotation validation, canonical ordering and store retrieval. The module is active merged-network state, not a separate retired sequencer service."
+
+[file.075]
+path = "modules/sequencer/types/msgs.go"
+lines = 133
+verdict = "clean"
+note = "Read the complete implementation of message validation, addresses, authority and registered handlers. The module is active merged-network state, not a separate retired sequencer service."
+
+[file.076]
+path = "modules/sequencer/types/msgs_test.go"
+lines = 144
+verdict = "clean"
+note = "Read the complete test and its assertions for message validation, addresses, authority and registered handlers. The module is active merged-network state, not a separate retired sequencer service."
+
+[file.077]
+path = "modules/sequencer/types/proof_sequencer_msg_test.go"
+lines = 219
+verdict = "clean"
+note = "Read the complete test and its assertions for real sequencer message registration, validation and dispatch proof. The module is active merged-network state, not a separate retired sequencer service."
+
+[file.078]
+path = "modules/sequencer/types/seqhash.go"
+lines = 26
+verdict = "clean"
+note = "Read the complete implementation of sequence hash domain separation and canonical byte encoding. The module is active merged-network state, not a separate retired sequencer service."
+
+[file.079]
+path = "modules/sequencer/types/seqhash_test.go"
+lines = 34
+verdict = "clean"
+note = "Read the complete test and its assertions for sequence hash domain separation and canonical byte encoding. The module is active merged-network state, not a separate retired sequencer service."
+
+[file.080]
+path = "modules/sequencer/types/txroot.go"
+lines = 15
+verdict = "clean"
+note = "Read the complete implementation of transaction-root construction, ordering and canonical hashing. The module is active merged-network state, not a separate retired sequencer service."
+
+[file.081]
+path = "modules/sequencer/types/txroot_test.go"
+lines = 32
+verdict = "clean"
+note = "Read the complete test and its assertions for transaction-root construction, ordering and canonical hashing. The module is active merged-network state, not a separate retired sequencer service."
+
+[file.082]
+path = "modules/sequencer/types/votes.go"
+lines = 80
+verdict = "clean"
+note = "Read the complete implementation of vote window validation, aggregation and stored vote encoding. The module is active merged-network state, not a separate retired sequencer service."
+
+[file.083]
+path = "modules/sequencer/types/votes_test.go"
+lines = 109
+verdict = "clean"
+note = "Read the complete test and its assertions for vote window validation, aggregation and stored vote encoding. The module is active merged-network state, not a separate retired sequencer service."
+
+[file.084]
+path = "node/wasmbinding/README.md"
+lines = 16
+verdict = "issues"
+note = "Read in full against the package requirements, registered interfaces and real callers. Findings: wasm-binding-doc-pause-omitted."
+
+[file.085]
+path = "node/wasmbinding/bindings/errors.go"
+lines = 12
+verdict = "clean"
+note = "Read the binding error declarations; codes and registrations agree with the local encoder/query rejection consumers."
+
+[file.086]
+path = "node/wasmbinding/bindings/msg.go"
+lines = 46
+verdict = "clean"
+note = "Read custom binding message fields and JSON tags; the concrete module encoders consume the declared shapes."
+
+[file.087]
+path = "node/wasmbinding/encoder.go"
+lines = 50
+verdict = "issues"
+note = "Read in full against the package requirements, registered interfaces and real callers. Findings: wasm-message-ambiguous-variant."
+
+[file.088]
+path = "node/wasmbinding/message_plugin.go"
+lines = 54
+verdict = "clean"
+note = "Read custom message messenger registration, SDK message validation and keeper dispatch; sender authorization is retained on the real path."
+
+[file.089]
+path = "node/wasmbinding/metrics.go"
+lines = 60
+verdict = "clean"
+note = "Read custom message/query instrumentation; metric names and observation paths agree with registered plugin execution."
+
+[file.090]
+path = "node/wasmbinding/queries.go"
+lines = 323
+verdict = "issues"
+note = "Read in full against the package requirements, registered interfaces and real callers. Findings: wasm-oracle-ambiguous-query."
+
+[file.091]
+path = "node/wasmbinding/query_plugin.go"
+lines = 47
+verdict = "clean"
+note = "Read custom query namespace dispatch and error wrapping; registration passes the original payload to the appropriate module query handler."
+
+[file.092]
+path = "node/wasmbinding/test/encoder_test.go"
+lines = 99
+verdict = "clean"
+note = "Read every test body and helper: custom encoder module dispatch and typed message fields. Existing assertions agree with their exercised producer/consumer path; this audit does not claim native test execution."
+
+[file.093]
+path = "node/wasmbinding/test/query_test.go"
+lines = 308
+verdict = "clean"
+note = "Read every test body and helper: custom query dispatch and module response shapes. Existing assertions agree with their exercised producer/consumer path; this audit does not claim native test execution."
+
+[file.094]
+path = "node/wasmbinding/test/stakingext_query_test.go"
+lines = 92
+verdict = "clean"
+note = "Read every test body and helper: staking unbonding delegation query types and JSON response. Existing assertions agree with their exercised producer/consumer path; this audit does not claim native test execution."
+
+[file.095]
+path = "node/wasmbinding/test/tokenfactory_pause_test.go"
+lines = 79
+verdict = "clean"
+note = "Read every test body and helper: real pause query/message behavior and rejection of ambiguous TokenFactory queries. Existing assertions agree with their exercised producer/consumer path; this audit does not claim native test execution."
+
+[file.096]
+path = "node/wasmbinding/wasm.go"
+lines = 51
+verdict = "clean"
+note = "Read complete Wasm options/keeper wiring; custom message and query plugins are installed with the live module dependencies."
+
+[file.097]
+path = "storage/db_engine/pebbledb/batch.go"
+lines = 49
+verdict = "clean"
+note = "Read raw batch mutation, byte-size accounting, sync selection, close and reuse rules; they agree with db_engine batch callers."
+
+[file.098]
+path = "storage/db_engine/pebbledb/db.go"
+lines = 223
+verdict = "issues"
+note = "Read in full against the package requirements, registered interfaces and real callers. Findings: raw-metrics-close-race."
+
+[file.099]
+path = "storage/db_engine/pebbledb/db_test.go"
+lines = 244
+verdict = "clean"
+note = "Read every test body and helper: database operations, version/key/value handling and error behavior for this concrete backend. Existing assertions agree with their exercised producer/consumer path; this audit does not claim native test execution."
+
+[file.100]
+path = "storage/db_engine/pebbledb/iterator.go"
+lines = 69
+verdict = "clean"
+note = "Read raw iterator bounds, reverse movement, key/value access, error and close behavior against the engine iterator interface."
+
+[file.101]
+path = "storage/db_engine/pebbledb/mvcc/batch.go"
+lines = 184
+verdict = "issues"
+note = "Read in full against the package requirements, registered interfaces and real callers. Findings: durable-head-regression, batch-bytes-is-operation-count."
+
+[file.102]
+path = "storage/db_engine/pebbledb/mvcc/bench_test.go"
+lines = 22
+verdict = "clean"
+note = "Read every test body and helper: concrete MVCC benchmark setup and workload encoding. Existing assertions agree with their exercised producer/consumer path; this audit does not claim native test execution."
+
+[file.103]
+path = "storage/db_engine/pebbledb/mvcc/comparator.go"
+lines = 309
+verdict = "clean"
+note = "Read both MVCC encodings, decoding, separator/successor logic and comparator ordering; the explicit format marker selects the appropriate legacy/new ordering."
+
+[file.104]
+path = "storage/db_engine/pebbledb/mvcc/db.go"
+lines = 1104
+verdict = "issues"
+note = "Read in full against the package requirements, registered interfaces and real callers. Findings: rollback-leaves-tombstones, rollback-discards-callback-errors, raw-export-module-identity, prune-dirty-map-restart, metadata-short-version-panic, mvcc-counter-double-count, mvcc-metrics-close-race."
+
+[file.105]
+path = "storage/db_engine/pebbledb/mvcc/db_ascending.go"
+lines = 298
+verdict = "issues"
+note = "Read in full against the package requirements, registered interfaces and real callers. Findings: ascending-prune-dirty-map."
+
+[file.106]
+path = "storage/db_engine/pebbledb/mvcc/db_test.go"
+lines = 48
+verdict = "clean"
+note = "Read every test body and helper: database operations, version/key/value handling and error behavior for this concrete backend. Existing assertions agree with their exercised producer/consumer path; this audit does not claim native test execution."
+
+[file.107]
+path = "storage/db_engine/pebbledb/mvcc/descending_marker_test.go"
+lines = 118
+verdict = "clean"
+note = "Read every test body and helper: real on-disk encoding marker detection and legacy/descending reopen behavior. Existing assertions agree with their exercised producer/consumer path; this audit does not claim native test execution."
+
+[file.108]
+path = "storage/db_engine/pebbledb/mvcc/iterator.go"
+lines = 421
+verdict = "clean"
+note = "Read complete descending iterator positioning and visibility/tombstone handling; the historical initial-key omission is confined to the separately recorded ascending iterator."
+
+[file.109]
+path = "storage/db_engine/pebbledb/mvcc/iterator_ascending.go"
+lines = 398
+verdict = "issues"
+note = "Read in full against the package requirements, registered interfaces and real callers. Findings: legacy-reverse-visible-key."
+
+[file.110]
+path = "storage/db_engine/pebbledb/mvcc/iterator_test.go"
+lines = 65
+verdict = "clean"
+note = "Read every test body and helper: forward/reverse MVCC bounds, visible values and tombstones in the covered cases. Existing assertions agree with their exercised producer/consumer path; this audit does not claim native test execution."
+
+[file.111]
+path = "storage/db_engine/pebbledb/mvcc/metrics.go"
+lines = 205
+verdict = "clean"
+note = "Read all MVCC instrument declarations, units and buckets. Descriptors require bytes and cumulative totals; producer and proof-test disagreements are recorded on their owning files."
+
+[file.112]
+path = "storage/db_engine/pebbledb/mvcc/metrics_test.go"
+lines = 198
+verdict = "clean"
+note = "Read every test body and helper: instrument declarations and observations in the covered database paths. Existing assertions agree with their exercised producer/consumer path; this audit does not claim native test execution."
+
+[file.113]
+path = "storage/db_engine/pebbledb/mvcc/proof_node_metrics_test.go"
+lines = 251
+verdict = "issues"
+note = "Read in full against the package requirements, registered interfaces and real callers. Findings: metrics-proof-accepts-wrong-units."
+
+[file.114]
+path = "storage/db_engine/pebbledb/mvcc/prune_test.go"
+lines = 122
+verdict = "clean"
+note = "Read every test body and helper: physical history pruning and keep-last behavior in the covered live-write scenarios. Existing assertions agree with their exercised producer/consumer path; this audit does not claim native test execution."
+
+[file.115]
+path = "storage/db_engine/pebbledb/pebble_metrics.go"
+lines = 1739
+verdict = "clean"
+note = "Read every raw instrument and collector path, including delta conversion and db labels. Raw counters use deltas; collector join must be repaired with the raw DB close owner."
+
+[file.116]
+path = "storage/db_engine/pebbledb/pebbledb_config.go"
+lines = 35
+verdict = "clean"
+note = "Read option/default translation, caches, compaction levels and cleanup. Pebble v2 Levels is a fixed array, so Levels[0] access is valid."
+
+[file.117]
+path = "storage/db_engine/pebbledb/pebbledb_test_config.go"
+lines = 25
+verdict = "clean"
+note = "Read test-only backend/configuration helpers; they select real Pebble storage with the declared engine configuration."
+
+[file.118]
+path = "storage/db_engine/pebbledb/table_iters.go"
+lines = 19
+verdict = "clean"
+note = "Read table iterator setup, file metadata and resource closure; iterator construction agrees with the raw storage table interfaces."
+
+[file.119]
+path = "storage/tools/Makefile"
+lines = 24
+verdict = "clean"
+note = "Read the complete standalone tools build targets and variables; commands name the actual paxdb and rpc benchmark entry points."
+
+[file.120]
+path = "storage/tools/README.md"
+lines = 47
+verdict = "clean"
+note = "Read the entire tools command inventory and usage. Listed executable names exist; implementation-specific source/path/replay defects are recorded on their owning files."
+
+[file.121]
+path = "storage/tools/bench/benchmark.go"
+lines = 393
+verdict = "issues"
+note = "Read in full against the package requirements, registered interfaces and real callers. Findings: benchmark-step-bound-ignored, reverse-benchmark-retains-iterators, benchmark-unchecked-dimensions."
+
+[file.122]
+path = "storage/tools/cmd/paxdb/benchmark/generate.go"
+lines = 17
+verdict = "clean"
+note = "Read complete generate command flag registration, backend opening and shared benchmark call. Flags reach the shared workload; dimension validation and traversal defects are recorded on bench/benchmark.go."
+
+[file.123]
+path = "storage/tools/cmd/paxdb/benchmark/iteration.go"
+lines = 71
+verdict = "clean"
+note = "Read complete iteration command flag registration, backend opening and shared benchmark call. Flags reach the shared workload; dimension validation and traversal defects are recorded on bench/benchmark.go."
+
+[file.124]
+path = "storage/tools/cmd/paxdb/benchmark/random_read.go"
+lines = 76
+verdict = "clean"
+note = "Read complete random_read command flag registration, backend opening and shared benchmark call. Flags reach the shared workload; dimension validation and traversal defects are recorded on bench/benchmark.go."
+
+[file.125]
+path = "storage/tools/cmd/paxdb/benchmark/reverse_iteration.go"
+lines = 71
+verdict = "clean"
+note = "Read complete reverse_iteration command flag registration, backend opening and shared benchmark call. Flags reach the shared workload; dimension validation and traversal defects are recorded on bench/benchmark.go."
+
+[file.126]
+path = "storage/tools/cmd/paxdb/benchmark/types.go"
+lines = 13
+verdict = "clean"
+note = "Read backend/config constants and helpers; accepted backend names agree with StateStore factory selection."
+
+[file.127]
+path = "storage/tools/cmd/paxdb/benchmark/write.go"
+lines = 76
+verdict = "clean"
+note = "Read complete write command flag registration, backend opening and shared benchmark call. Flags reach the shared workload; dimension validation and traversal defects are recorded on bench/benchmark.go."
+
+[file.128]
+path = "storage/tools/cmd/paxdb/main.go"
+lines = 38
+verdict = "clean"
+note = "Read command tree registration; dump, prune, replay, migration, benchmark and profiling commands are reachable under their declared names."
+
+[file.129]
+path = "storage/tools/cmd/paxdb/operations/dump_db.go"
+lines = 95
+verdict = "issues"
+note = "Read in full against the package requirements, registered interfaces and real callers. Findings: dump-db-ignores-source."
+
+[file.130]
+path = "storage/tools/cmd/paxdb/operations/dump_flatkv.go"
+lines = 217
+verdict = "clean"
+note = "Read FlatKV export selection, iteration and output error handling against actual FlatKV open/path behavior and the command flags."
+
+[file.131]
+path = "storage/tools/cmd/paxdb/operations/dump_flatkv_test.go"
+lines = 137
+verdict = "clean"
+note = "Read every test body and helper: actual FlatKV export contents and command error cases. Existing assertions agree with their exercised producer/consumer path; this audit does not claim native test execution."
+
+[file.132]
+path = "storage/tools/cmd/paxdb/operations/dump_iavl.go"
+lines = 94
+verdict = "issues"
+note = "Read in full against the package requirements, registered interfaces and real callers. Findings: dump-iavl-header-error-hidden."
+
+[file.133]
+path = "storage/tools/cmd/paxdb/operations/flatkv_open.go"
+lines = 404
+verdict = "clean"
+note = "Read explicit FlatKV database path detection/open options and errors; producer path layout and operator source selection agree."
+
+[file.134]
+path = "storage/tools/cmd/paxdb/operations/flatkv_open_test.go"
+lines = 309
+verdict = "clean"
+note = "Read every test body and helper: actual FlatKV source path recognition and open errors. Existing assertions agree with their exercised producer/consumer path; this audit does not claim native test execution."
+
+[file.135]
+path = "storage/tools/cmd/paxdb/operations/flatkv_state_size.go"
+lines = 226
+verdict = "clean"
+note = "Read FlatKV state-size enumeration and output; direct backend opening and key/value byte units agree with the FlatKV reader."
+
+[file.136]
+path = "storage/tools/cmd/paxdb/operations/flatkv_state_size_test.go"
+lines = 298
+verdict = "clean"
+note = "Read every test body and helper: actual FlatKV key/value byte totals and source selection. Existing assertions agree with their exercised producer/consumer path; this audit does not claim native test execution."
+
+[file.137]
+path = "storage/tools/cmd/paxdb/operations/import_flatkv_from_memiavl.go"
+lines = 393
+verdict = "clean"
+note = "Read actual MemIAVL-to-FlatKV source traversal, version handling, namespace keys, output close and error paths; import agrees with both backends."
+
+[file.138]
+path = "storage/tools/cmd/paxdb/operations/import_flatkv_from_memiavl_test.go"
+lines = 363
+verdict = "clean"
+note = "Read every test body and helper: real source/destination import, version and key/value round-trip. Existing assertions agree with their exercised producer/consumer path; this audit does not claim native test execution."
+
+[file.139]
+path = "storage/tools/cmd/paxdb/operations/migrate_evm_status.go"
+lines = 111
+verdict = "clean"
+note = "Read EVM status migration selection, decoding, mutation and error paths against the stored key/value representations."
+
+[file.140]
+path = "storage/tools/cmd/paxdb/operations/module.go"
+lines = 5
+verdict = "issues"
+note = "Read in full against the package requirements, registered interfaces and real callers. Findings: legacy-module-inventory."
+
+[file.141]
+path = "storage/tools/cmd/paxdb/operations/prune.go"
+lines = 68
+verdict = "issues"
+note = "Read in full against the package requirements, registered interfaces and real callers. Findings: prune-db-dir-home-confusion."
+
+[file.142]
+path = "storage/tools/cmd/paxdb/operations/replay_changelog.go"
+lines = 100
+verdict = "issues"
+note = "Read in full against the package requirements, registered interfaces and real callers. Findings: replay-offset-flag-types."
+
+[file.143]
+path = "storage/tools/cmd/paxdb/operations/state_size.go"
+lines = 387
+verdict = "clean"
+note = "Read IAVL state-size collection and byte aggregation; default store coverage depends on AllModules and is recorded on module.go."
+
+[file.144]
+path = "storage/tools/cmd/paxdb/operations/trace_profile_report.go"
+lines = 500
+verdict = "clean"
+note = "Read trace profile input handling and report generation; declared command options and report dimensions agree with the parser."
+
+[file.145]
+path = "storage/tools/rpc_bench/main.go"
+lines = 992
+verdict = "clean"
+note = "Read complete RPC benchmark transport, flags, endpoint parsing, batching and response/error handling; it uses actual JSON-RPC requests and configured timeouts."
+
+[file.146]
+path = "storage/tools/rpc_bench/main_test.go"
+lines = 92
+verdict = "clean"
+note = "Read every test body and helper: RPC benchmark request/response, transport and CLI validation. Existing assertions agree with their exercised producer/consumer path; this audit does not claim native test execution."
+
+[file.147]
+path = "storage/tools/utils/dynamo.go"
+lines = 122
+verdict = "clean"
+note = "Read DynamoDB export/loading, pagination and binary attribute handling; table item field names and iteration agree with the utility consumers."
+
+[file.148]
+path = "storage/tools/utils/utils.go"
+lines = 194
+verdict = "issues"
+note = "Read in full against the package requirements, registered interfaces and real callers. Findings: input-allocation-unbounded."
+
+[finding.durable-head-regression]
+file = "storage/db_engine/pebbledb/mvcc/batch.go"
+line = 74
+class = "restart-recovery"
+severity = "high"
+observed = "Batch.Write unconditionally stores its own version in s/_latest, while Database.ApplyChangesetSync only increases the in-memory latestVersion. Writing height 10 and then height 5 leaves GetLatestVersion at 10 until Close/OpenDB reloads 5. Recovery consumers consequently see a different committed boundary after restart."
+expected = "The latest-version storage key must represent the same successful high-water mark consumed by StateStore callers before and after restart, including the explicitly supported out-of-order writes."
+proposal = "In storage/db_engine/pebbledb/mvcc, serialize the normal data-and-head commit and atomically persist the maximum successful height; keep intentional rollback through its explicit setter. Prove writes at 10 then 5 through the real StateStore and receipt/composite recovery openers, checking head and data again after reopen."
+owner_domain = 5
+interface = "5.key-storage-db-engine-pebbledb-mvcc-latest-version-key"
+
+[finding.legacy-reverse-visible-key]
+file = "storage/db_engine/pebbledb/mvcc/iterator_ascending.go"
+line = 98
+class = "interface-mismatch"
+severity = "high"
+observed = "newAscendingIterator starts reverse traversal at src.Last(). If that physical entry is newer than the requested height it calls Next; nextReverse seeks below MVCCEncodeAscending(currKey, 0), skipping every version of the same logical key. A legacy key z written at heights 1 and 3 disappears from a reverse scan at height 2 even though Get returns its height-1 value."
+expected = "The StateStore returned by OpenDB for an existing unmarked ascending database must yield the same visible key/value set for Get, Iterator and ReverseIterator at each retained height."
+proposal = "In storage/db_engine/pebbledb/mvcc/iterator_ascending.go, seek the current logical key to its newest visible version before advancing to an earlier key. Add bounded and unbounded reverse scans on a real unmarked ascending database with future writes, tombstones and Close/OpenDB; compare complete results with Get and forward traversal."
+owner_domain = 5
+interface = "5.go-storage-db-engine-pebbledb-mvcc-open-db"
+
+[finding.rollback-leaves-tombstones]
+file = "storage/db_engine/pebbledb/mvcc/db.go"
+line = 962
+class = "restart-recovery"
+severity = "medium"
+observed = "DeleteKeysAtVersion delegates enumeration to RawIterate, which skips valTombstoned entries. Setting a key at height 1 and deleting it at height 2, then deleting height 2, leaves the deletion marker in place. No live caller of this helper was found in storage, sdk or node, so this is a defective recovery helper rather than evidence of a currently wired rollback."
+expected = "An operation described as physically deleting keys at one version must remove both values and deletion markers at that version, preserving the preceding visible state."
+proposal = "Give DeleteKeysAtVersion in storage/db_engine/pebbledb/mvcc/db.go an internal physical iterator that includes tombstones and an explicit head-update policy. Verify set/delete/remove-version through the actual database and reopen, including batching boundaries and both on-disk encoding modes."
+owner_domain = 5
+
+[finding.rollback-discards-callback-errors]
+file = "storage/db_engine/pebbledb/mvcc/db.go"
+line = 974
+class = "runtime-risk"
+severity = "medium"
+observed = "The DeleteKeysAtVersion callback prints HardDelete or batch.Write errors and returns true; its caller discards RawIterate's stopped result and generally receives nil rather than the callback error. A failed intermediate batch can therefore terminate enumeration without an actionable deletion failure."
+expected = "A failed recovery mutation must return its original error and must not report a partially traversed version as successfully removed."
+proposal = "In storage/db_engine/pebbledb/mvcc/db.go, capture and propagate the callback error separately from the iterator error, stop committing after failure and describe partial completion. Exercise an actual failing storage operation at an intermediate deletion batch and assert a non-nil caller error."
+owner_domain = 5
+
+[finding.raw-export-module-identity]
+file = "storage/db_engine/pebbledb/mvcc/db.go"
+line = 925
+class = "runtime-risk"
+severity = "medium"
+observed = "RawIterate with an empty storeKey traverses all stores but strips len(storePrefix(\"\")) bytes from every key. That prefix is s/k:/, so s/k:bank/foo becomes ank/foo instead of foo or a qualified bank/foo. The callback has no module argument, and the all-store export cannot reliably reconstruct the original store and key."
+expected = "Raw all-store export must preserve the complete store identity and key encoding so dump/import consumers can reproduce state without collisions or truncated names."
+proposal = "Define a qualified-key convention for empty-store RawIterate in storage/db_engine/types and implement it in mvcc/db.go and storage/tools export consumers. Parse each actual module prefix instead of a fixed empty prefix; round-trip two modules of different name lengths with equal user keys."
+owner_domain = 5
+interface = "5.key-storage-db-engine-pebbledb-mvcc-store-prefix-tpl"
+
+[finding.prune-dirty-map-restart]
+file = "storage/db_engine/pebbledb/mvcc/db.go"
+line = 625
+class = "restart-recovery"
+severity = "medium"
+observed = "pruneDescending skips an entire store when storeKeyDirty lacks an entry. OpenDB initializes an empty in-memory map and Import does not reconstruct the entries. A reopened database can advance its pruning boundary while retaining old versions of every store that has not received another write."
+expected = "Pruning eligibility must survive restart and snapshot import; dormant module histories must obey the same retention policy as recently written modules."
+proposal = "In storage/db_engine/pebbledb/mvcc/db.go, persist or reconstruct store pruning eligibility, or perform a full first scan after open/import before applying the optimization. Verify physical retained versions in populated, stopped/reopened and imported databases with one dormant module."
+owner_domain = 5
+
+[finding.ascending-prune-dirty-map]
+file = "storage/db_engine/pebbledb/mvcc/db_ascending.go"
+line = 151
+class = "restart-recovery"
+severity = "medium"
+observed = "The legacy ascending pruner uses the same volatile storeKeyDirty optimization: an absent entry skips the module. Existing ascending databases opened after a node restart therefore retain dormant historical versions despite a successful Prune call."
+expected = "Opening the legacy format must preserve its pruning and disk-retention guarantees while the node continues to serve that database."
+proposal = "Apply the restart-safe eligibility strategy to storage/db_engine/pebbledb/mvcc/db_ascending.go as well as the descending path. Use a real unmarked legacy database, reopen without another write, prune and inspect the stored historical versions."
+owner_domain = 5
+
+[finding.metadata-short-version-panic]
+file = "storage/db_engine/pebbledb/mvcc/db.go"
+line = 358
+class = "runtime-risk"
+severity = "medium"
+observed = "retrieveVersionKey calls binary.LittleEndian.Uint64 on a nonempty stored value without requiring eight bytes. A metadata value of one through seven bytes panics during OpenDB instead of returning a corruption error; an empty present value also falls through as version zero with nil error."
+expected = "Version metadata is exactly one little-endian uint64 within int64 range; malformed persisted metadata must produce a diagnosable open failure instead of a panic or a fresh-database head."
+proposal = "Validate exact metadata length before decoding in storage/db_engine/pebbledb/mvcc/db.go, distinguishing ErrNotFound from a present malformed value. Reopen real databases with empty, short, oversized and overflowing version metadata and require explicit errors."
+owner_domain = 5
+
+[finding.mvcc-counter-double-count]
+file = "storage/db_engine/pebbledb/mvcc/db.go"
+line = 1080
+class = "runtime-risk"
+severity = "medium"
+observed = "collectAndRecordMetrics adds cumulative Pebble compaction, flush, cache-hit/cache-miss and level byte totals to OpenTelemetry counters on every ten-second poll. Two unchanged snapshots double exported totals. The raw Pebble collector instead converts cumulative snapshots with addDelta, so identical instrument names have different producer semantics."
+expected = "A cumulative metric consumed through the paxdb_pebble meter must count each storage event or byte once, regardless of collection interval or number of exporter scrapes."
+proposal = "Keep a per-database prior snapshot in storage/db_engine/pebbledb/mvcc and add only valid positive deltas, with explicit reset/reopen handling. Verify unchanged and incremented real Pebble snapshots through the Prometheus HTTP consumer and align semantics with pebble_metrics.go."
+owner_domain = 5
+interface = "5.met-paxdb-pebble-pebble-cache-hits-2"
+
+[finding.batch-bytes-is-operation-count]
+file = "storage/db_engine/pebbledb/mvcc/batch.go"
+line = 145
+class = "runtime-risk"
+severity = "medium"
+observed = "writeBatchOps sets batchSize to len(ops), then records it in the pebble_batch_size histogram whose descriptor in mvcc/metrics.go declares unit By and whose Prometheus consumer uses byte buckets. A batch containing large values is reported as only its operation count."
+expected = "The declared byte-size histogram must carry actual encoded bytes consistently across raw Pebble and MVCC producers and the exported pebble_batch_size_bytes series."
+proposal = "Measure the encoded committed batch byte length, including the documented metadata policy, in storage/db_engine/pebbledb/mvcc/batch.go. Keep the descriptor and consumer in agreement, or coordinate a separately named operation-count instrument; prove differently sized real values produce corresponding byte totals."
+owner_domain = 5
+interface = "5.met-paxdb-pebble-pebble-batch-size-2"
+
+[finding.metrics-proof-accepts-wrong-units]
+file = "storage/db_engine/pebbledb/mvcc/proof_node_metrics_test.go"
+line = 146
+class = "test-gap"
+severity = "medium"
+observed = "The HTTP/exporter proof explicitly expects 2*pairs as pebble_batch_size_bytes with the message current producer reports operations as bytes. It also expects twice the unchanged Pebble cache and compaction byte totals after two collections, freezing the producer defects into successful assertions."
+expected = "Requirement 21059.1 and the brief require real producer/transport/consumer evidence with correct metric meanings; a proof must reject mislabeled units and repeated counting."
+proposal = "Repair the producer semantics with the owning storage task, then change storage/db_engine/pebbledb/mvcc/proof_node_metrics_test.go to assert encoded byte sizes and unchanged counter totals after an unchanged collection. Preserve its real database, restart, HTTP scrape, bucket and failure-series assertions."
+owner_domain = 5
+
+[finding.mvcc-metrics-close-race]
+file = "storage/db_engine/pebbledb/mvcc/db.go"
+line = 212
+class = "runtime-risk"
+severity = "medium"
+observed = "Close cancels the metrics context but does not join collectMetricsInBackground before closing and clearing db.storage. A ticker already selected can race collectAndRecordMetrics' unsynchronized storage check and Metrics call with Close, including dereferencing a cleared pointer."
+expected = "Database shutdown must finish background storage access before closing the underlying database and must not race a periodic metrics poll."
+proposal = "Track and join the metrics worker in storage/db_engine/pebbledb/mvcc/db.go before storage.Close, alongside the existing async-write join. Coordinate the lifecycle without holding a lock across worker shutdown; prove close overlapping a real metrics poll and repeated close."
+owner_domain = 5
+
+[finding.raw-metrics-close-race]
+file = "storage/db_engine/pebbledb/db.go"
+line = 207
+class = "runtime-risk"
+severity = "medium"
+observed = "pebbleDB.Close cancels metrics collection and immediately closes the database without waiting for PebbleMetrics.collectLoop. The metrics object retains pm.db, so an in-flight or simultaneously selected tick can still call Metrics on the closed Pebble handle."
+expected = "The raw database adapter must stop and join its owned collector before closing the handle, with the same safe lifecycle required of the MVCC adapter."
+proposal = "Add a collector shutdown/join contract between storage/db_engine/pebbledb/db.go and pebble_metrics.go, await it before closing Pebble, and retain idempotent Close. Verify an actual collector tick overlapping close without access after handle shutdown."
+owner_domain = 5
+
+[finding.dump-db-ignores-source]
+file = "storage/tools/cmd/paxdb/operations/dump_db.go"
+line = 77
+class = "config-drift"
+severity = "medium"
+observed = "DumpDbData accepts dbDir but opens ss.NewStateStore(outputDir, ssConfig). The source flag never reaches the backend; with default DBDirectory, NewStateStore treats the output as a home directory and opens or creates a nested state store there. The requested source can consequently produce a plausible empty dump."
+expected = "The declared dump-db --db-dir argument must select the source database, while --output-dir selects only the destination export files."
+proposal = "Set the explicit backend DBDirectory from dbDir in storage/tools/cmd/paxdb/operations/dump_db.go, use the correct home/path contract, require an existing source and close the backend. Verify distinct populated source and output directories with the real backend and assert exported contents."
+owner_domain = 5
+interface = "5.cli-paxdb-dump-db-flag-db-dir"
+
+[finding.prune-db-dir-home-confusion]
+file = "storage/tools/cmd/paxdb/operations/prune.go"
+line = 56
+class = "config-drift"
+severity = "medium"
+observed = "PruneDB passes the --db-dir value as NewStateStore's home argument while leaving ssConfig.DBDirectory unset. NewStateStore appends data/state_store/cosmos/backend, so a direct database directory can open a different nested empty database while the command announces pruning the supplied path."
+expected = "The prune command must apply the requested retention operation to the exact database directory named by its declared flag and reject an absent source."
+proposal = "Populate DBDirectory explicitly in storage/tools/cmd/paxdb/operations/prune.go, validate the source and height and close the backend. Verify a populated real source with a separate sentinel database and prove only the named database changes."
+owner_domain = 5
+interface = "5.cli-paxdb-prune-flag-db-dir"
+
+[finding.replay-offset-flag-types]
+file = "storage/tools/cmd/paxdb/operations/replay_changelog.go"
+line = 35
+class = "config-drift"
+severity = "medium"
+observed = "ReplayChangelogCmd registers start-offset and end-offset with Int64P, but executeReplayChangelog reads both with GetUint64 and ignores the type errors. Supplied offsets become zero, selecting FirstOffset and LastOffset and replaying a different range, including when no-dry-run applies data."
+expected = "Operator-selected replay bounds must survive CLI parsing unchanged and every flag conversion error must prevent recovery mutation."
+proposal = "Use the same checked offset type from flag registration to WAL Replay in storage/tools/cmd/paxdb/operations/replay_changelog.go; return errors through RunE, validate ordering and close resources. Replay a real WAL with nondefault bounds through Cobra and verify only the selected entries are visited."
+owner_domain = 5
+interface = "5.cli-paxdb-replay-changelog-flag-start-offset"
+
+[finding.benchmark-step-bound-ignored]
+file = "storage/tools/bench/benchmark.go"
+line = 248
+class = "runtime-risk"
+severity = "medium"
+observed = "Both forward and reverse iteration workers declare j := 0 and test j < numIterationSteps but only advance it.Next; j never increments. Every positive iteration-steps request scans to the iterator boundary, so reported latency and step counts describe a different workload."
+expected = "The registered iteration-steps flag must cap each benchmark traversal at the requested number of visible entries in both directions."
+proposal = "Increment and enforce the step bound in both loops of storage/tools/bench/benchmark.go, retaining iterator error/close handling. Exercise the real StateStore with more keys than the requested bound through forward and reverse benchmark commands and assert observed steps."
+owner_domain = 5
+interface = "5.cli-paxdb-iteration-flag-iteration-steps"
+
+[finding.reverse-benchmark-retains-iterators]
+file = "storage/tools/bench/benchmark.go"
+line = 337
+class = "runtime-risk"
+severity = "medium"
+observed = "The reverse benchmark defers iterator.Close inside the long-running worker's operation loop. All completed iterators remain open until that worker exhausts maxOps, retaining database iterator resources proportional to the whole workload."
+expected = "Each completed benchmark operation must release its iterator before the next operation so memory and pinned storage do not distort the measurement or exhaust resources."
+proposal = "Close each reverse iterator at operation completion in storage/tools/bench/benchmark.go, using a short per-operation helper if needed for error-safe cleanup. Verify a multi-operation real database run releases iterators throughout the workload rather than only at worker exit."
+owner_domain = 5
+
+[finding.benchmark-unchecked-dimensions]
+file = "storage/tools/bench/benchmark.go"
+line = 26
+class = "runtime-risk"
+severity = "medium"
+observed = "writeToDBConcurrently divides by concurrency without requiring it to be positive and advances its batch loop by unchecked batchSize. The public read/iteration paths also call rand.Intn(numVersions) and rand.Intn(len(allKVs)); accepted zero dimensions or an empty data directory can panic or make a zero-sized write loop never advance."
+expected = "Storage benchmark commands must reject invalid workload dimensions before starting workers and report an empty input as an explicit operator error."
+proposal = "Validate positive concurrency, batch size, version count and applicable operation/step counts at storage/tools benchmark command boundaries and shared entry points. Reject empty loaded datasets and guard empty summaries; cover actual CLI invocations with zero/negative dimensions and an empty directory."
+owner_domain = 5
+
+[finding.input-allocation-unbounded]
+file = "storage/tools/utils/utils.go"
+line = 82
+class = "security"
+severity = "medium"
+observed = "readByteSlice reads a uint32 from an operator-supplied binary file and allocates that length before checking available input or a record-size limit. A four-byte length can request nearly four GiB and exhaust the benchmark/import process before io.ReadFull detects truncation."
+expected = "Binary key/value ingestion must validate declared lengths before allocation and bound per-record resource use, returning a clear error for oversized or truncated input."
+proposal = "Define supported key/value record limits in storage/tools/utils/utils.go, validate lengths against those limits and remaining file size where available, and return typed errors before allocation. Exercise real encoded files with oversized lengths, truncated payloads and boundary-sized valid entries."
+owner_domain = 5
+
+[finding.dump-iavl-header-error-hidden]
+file = "storage/tools/cmd/paxdb/operations/dump_iavl.go"
+line = 77
+class = "runtime-risk"
+severity = "medium"
+observed = "When Fprintf of a module dump header fails, DumpIAVLData closes the file and returns nil. The command can report success with incomplete output on an actual disk/write failure; scan writes also panic instead of returning a controlled export error."
+expected = "An export is successful only after all selected tree headers and leaves are written and the output is closed successfully; I/O failure must reach the operator."
+proposal = "Propagate header, scan and close failures in storage/tools/cmd/paxdb/operations/dump_iavl.go, stop scanning on the first error and publish output only after success. Verify the actual export path against a failing destination and ensure no incomplete file is represented as a successful backup."
+owner_domain = 5
+
+[finding.legacy-module-inventory]
+file = "storage/tools/cmd/paxdb/operations/module.go"
+line = 3
+class = "wiring-gap"
+severity = "medium"
+observed = "AllModules is a fixed legacy module list that omits merged-network stores such as sequencer and lxphost. DumpIAVLData and StateSize use it for the default all-module operation, silently omitting live stores from operator exports and size reports."
+expected = "An all-store inventory or export must include every mounted merged-network store and must not depend on a pre-merge hard-coded module list."
+proposal = "Discover actual tree/store names from the opened database in storage/tools/cmd/paxdb/operations instead of filtering the default path through AllModules. Preserve explicit module filtering and verify a real database containing sequencer, lxphost and a custom store appears in both export and state-size output."
+owner_domain = 5
+
+[finding.state-exception-one-sided-pass]
+file = "engine/tests/state_harness_test.go"
+line = 260
+class = "test-gap"
+severity = "medium"
+observed = "For ExpectException, RunComparisonTest fails only when neither executor failed. It returns Passed true when V2 fails and Giga succeeds or vice versa. The next branch also accepts any pair of executor errors without comparing their kinds, even when the fixture expects success."
+expected = "The state differential proof must reject executor disagreement and unexpected execution failures; a named expected exception must be demonstrated on both real execution paths."
+proposal = "Require both executors to fail with the expected classified exception in engine/tests/state_harness_test.go. Treat unexpected executor errors as failures and compare error kinds rather than logging common failure as success. Preserve real V2/Giga execution and add cases exercising one-sided and different-error outcomes."
+owner_domain = 5
+
+[finding.state-suite-zero-execution]
+file = "engine/tests/state_harness_test.go"
+line = 570
+class = "test-gap"
+severity = "medium"
+observed = "runStateTestSuite skips when STATE_TEST_DIR is unset and when the selected directory has no loaded tests. A name filter or missing supported posts can also select no executed cases. The generic command documented as running all non-skipped tests can therefore finish without exercising the state comparison."
+expected = "A qualification command for requirement 22998.1 must execute a declared nonempty inventory and fail clearly when configuration or filters select zero cases."
+proposal = "Declare a bounded required state-test selection and executed-case count in engine/tests/state_harness_test.go and its qualification command. Fail an absent/empty required selection, report selected versus executed fixtures and prove the documented real command executes them without weakening assertions or using skips as repairs."
+owner_domain = 5
+
+[finding.state-skip-inventory-hides-failures]
+file = "engine/tests/data/skip_list.json"
+line = 3
+class = "test-gap"
+severity = "medium"
+observed = "The active skip inventory excludes tests labeled gas_mismatch, result_code and other executor divergences, as well as whole categories. runStateTestSuite consumes these exclusions by default, so a green selected suite does not establish repaired behavior for those recorded failing targets."
+expected = "Requirement 22998.1 requires a previously failing target to pass its recorded command without deleting, skipping, ignoring or weakening its tests."
+proposal = "Turn each recorded divergence in engine/tests/data/skip_list.json into an owned repair with its original case and command. Qualify the repaired real executor paths against unchanged expectations and remove only resolved exclusions; publish the exact nonexcluded inventory and revision evidence."
+owner_domain = 5
+
+[finding.state-oracle-opt-in]
+file = "engine/tests/state_test.go"
+line = 196
+class = "test-gap"
+severity = "medium"
+observed = "The default state comparison sets VerifyEthereumSpec only when VERIFY_ETHEREUM_SPEC is true. Equality between two local executors can therefore pass a shared incorrect outcome without checking the fixture's independent expected state and logs."
+expected = "Qualification of supported EVM state behavior must include an independent expected-output oracle as well as agreement between the local execution paths."
+proposal = "Define the supported fixture/spec comparison gate in engine/tests/state_test.go with explicit Paxeer fork and chain-ID adaptations, and require its oracle checks in qualification. Demonstrate a shared local error is rejected while preserving both real executors and the fixture expectations."
+owner_domain = 5
+
+[finding.state-runbook-recommends-exclusion]
+file = "engine/tests/AGENTS.md"
+line = 169
+class = "doc-drift"
+severity = "medium"
+observed = "The state-test instructions tell maintainers to add failing tests to skipped_tests and then verify the category passes; the opening generic command also omits STATE_TEST_DIR even though the implementation skips without it. This workflow can convert a known failure into an excluded test rather than a verified repair."
+expected = "Requirement 22998.1 permits qualification only with original failing tests active and unchanged; documented commands must execute a nonempty declared test selection."
+proposal = "Rewrite engine/tests/AGENTS.md to separate diagnostic inventories from passing qualification, supply explicit selection/oracle variables and prohibit exclusions as a repair. Require the original failure command, executed count and verified revision for every resolved entry."
+owner_domain = 5
+
+[finding.wasm-message-ambiguous-variant]
+file = "node/wasmbinding/encoder.go"
+line = 30
+class = "runtime-risk"
+severity = "medium"
+observed = "CustomEncoder unmarshals several optional message variants and executes the first non-nil switch branch. A JSON object containing both create_denom and mint_tokens is accepted as only create_denom, silently discarding part of the contract's requested operation."
+expected = "A custom Wasm message must identify exactly one operation, with malformed multi-variant input rejected before state mutation and a stable typed error returned to the contract."
+proposal = "Validate exactly one populated variant before dispatch in node/wasmbinding/encoder.go and preserve module authorization/error semantics. Exercise ambiguous and valid payloads through the registered custom message handler and real keeper mutation path."
+owner_domain = 5
+interface = "5.go-node-wasmbinding-custom-encoder"
+
+[finding.wasm-oracle-ambiguous-query]
+file = "node/wasmbinding/queries.go"
+line = 49
+class = "runtime-risk"
+severity = "medium"
+observed = "HandleOracleQuery accepts both exchange_rates and oracle_twaps fields and selects exchange_rates solely by switch order. Unlike the TokenFactory path, which already invokes Validate, the Oracle path does not reject multiple populated alternatives; its consumer can receive a different response shape from the requested TWAP operation."
+expected = "The custom query envelope must select exactly one response type and reject ambiguous variants consistently before invoking a module handler."
+proposal = "Add exactly-one validation for Oracle query alternatives in node/wasmbinding/queries.go, retaining the existing TokenFactory validation. Exercise the registered custom querier with multiple alternatives and verify a typed rejection, then prove each valid query returns its declared module response."
+owner_domain = 5
+interface = "5.go-node-wasmbinding-query-plugin-handle-oracle-query"
+
+[finding.wasm-binding-doc-pause-omitted]
+file = "node/wasmbinding/README.md"
+line = 9
+class = "doc-drift"
+severity = "low"
+observed = "The Token Factory query list documents only authority metadata and creator denoms, and the message list stops at set metadata. It omits the implemented denom_paused query and set_denom_paused message, including the pause-related rejection behavior used by the merged node."
+expected = "The binding guide must describe the pause controls required by 5029.1 and 5029.2 so contract authors can query and handle denom status correctly."
+proposal = "Extend node/wasmbinding/README.md with the exact denom_paused and set_denom_paused JSON shapes, response types, authorization and paused-operation errors, using the real registered query/message tests as examples."
+owner_domain = 5
+
+[finding.autobahn-catching-up-stuck]
+file = "consensus/internal/rpc/core/status.go"
+line = 131
+class = "runtime-risk"
+severity = "medium"
+observed = "Status initializes SyncInfo.CatchingUp to true and only overwrites it from ConsensusReactor.WaitSync. Under Autobahn that CometBFT reactor is absent, so a fully caught-up live node continues reporting catching_up=true to the consensus RPC client."
+expected = "The declared status method must report synchronization state for the active consensus engine, including startup, steady state and recovery, rather than a permanently true placeholder."
+proposal = "Provide the Autobahn synchronization state to consensus/internal/rpc/core/status.go and derive CatchingUp from it when the GigaRouter is active. Verify the real JSON-RPC client response during catch-up, after convergence and after restart without requiring a CometBFT reactor."
+owner_domain = 15
+interface = "15.rpc-consensus-status-j57"
+
+[finding.autobahn-status-hidden-read-errors]
+file = "consensus/internal/rpc/core/status.go"
+line = 68
+class = "runtime-risk"
+severity = "medium"
+observed = "The Autobahn latest-status branch ignores ABCIInfo failure and BlockByNumber failure, then returns a successful ResultStatus with the old zero height or missing latest hash/time. The earliest block path does propagate its error, so the same response can mix trustworthy committed height with silently absent executed-block metadata."
+expected = "A status consumer must be able to distinguish a valid startup boundary from a failed lookup and must receive fields from a coherent readable executed-block snapshot."
+proposal = "Propagate or explicitly classify app/latest-block lookup errors in consensus/internal/rpc/core/status.go, using a documented startup-only empty state if required. Prove the actual RPC response for valid startup, populated head, missing latest block and app-info failure."
+owner_domain = 15
+interface = "15.rpc-consensus-status-j57"
+
+[finding.rpc-doc-unregistered-dial-methods]
+file = "consensus/internal/rpc/core/doc.go"
+line = 39
+class = "doc-drift"
+severity = "low"
+observed = "The package endpoint list advertises dial_seeds and dial_persistent_peers, but neither name is registered in the Routes map. An operator following the package documentation receives an unknown-method response."
+expected = "The RPC endpoint inventory must list only registered method names and describe unsafe peer-management routes using their actual registration and access policy."
+proposal = "Update consensus/internal/rpc/core/doc.go from the registered routes, documenting the actual unsafe dial method names and enablement conditions. Keep the route inventory documentation aligned with the existing route conformance evidence."
+owner_domain = 15
+
+[finding.rpc-contributing-openapi-path]
+file = "consensus/internal/rpc/core/CONTRIBUTING.md"
+line = 3
+class = "doc-drift"
+severity = "low"
+observed = "The contributor instruction points to ../openapi/openapi.yaml relative to consensus/internal/rpc/core, which resolves under consensus/internal/rpc/openapi. The maintained document is consensus/rpc/openapi/openapi.yaml."
+expected = "Contributors changing consensus RPC endpoints must be directed to the actual maintained OpenAPI document and its route consistency check."
+proposal = "Fix the relative link or use an explicit repository-root path in consensus/internal/rpc/core/CONTRIBUTING.md and cite the existing OpenAPI route check so endpoint edits update the consumer-facing document."
+owner_domain = 15
+
+[finding.qualification-retired-model]
+file = "docs/QUALIFICATION.md"
+line = 20
+class = "doc-drift"
+severity = "medium"
+observed = "The qualification matrix and settlement section at lines 79-82 still require DA withholding, guarantor disagreement and emergency exit from a finalized checkpoint; lines 90-100 describe independently qualified Paxeer and LayerX networks."
+expected = "The audit brief specifies one paxd network with an embedded proposing kernel, EVM chain ID 125, final receipts at block commit and root-path public node RPC; the router, separate LayerX service and checkpoint/custody finality model are retired."
+proposal = "Rewrite docs/QUALIFICATION.md around one paxd BFT network, committed-block receipt finality, real producer/consumer and restart evidence, and bounded task gates; label any retained pre-merge qualification instructions as historical."
+owner_domain = 17
+
+[finding.network-overview-two-networks]
+file = "docs/paxeer-network.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The introduction makes Paxeer the separate settlement/custody layer for LayerX, with ordinary LayerX activity elsewhere, periodic checkpoints and guarantor bonds. The module map at line 38 still presents retired anchor/custody components as live."
+expected = "The audit brief specifies one paxd network with an embedded proposing kernel, EVM chain ID 125, final receipts at block commit and root-path public node RPC; the router, separate LayerX service and checkpoint/custody finality model are retired."
+proposal = "Rewrite docs/paxeer-network.md as the single merged network overview: one paxd kernel, EVM chain ID 125, committed-block finality, live module/store inventory and tenant domains; remove active custody/checkpoint and separate-network release directions."
+owner_domain = 17
+
+[finding.fork-runbook-retired-activation]
+file = "docs/runbooks/paxeer-x-fork.md"
+line = 5
+class = "doc-drift"
+severity = "medium"
+observed = "The current-looking validator runbook instructs activation of layerxcustody/layerxanchor stores and precompiles 0x1013/0x1014, and later probes their old success methods. Appended merge-export checks do not clearly separate this older fork plan from the merged upgrade."
+expected = "The audit brief specifies one paxd network with an embedded proposing kernel, EVM chain ID 125, final receipts at block commit and root-path public node RPC; the router, separate LayerX service and checkpoint/custody finality model are retired."
+proposal = "Label the old fork as historical in docs/runbooks/paxeer-x-fork.md and provide the current merged upgrade plan, H/H+1 activation, export/import recovery evidence and expected retired-endpoint refusal probes. Remove old activation instructions from the live operator sequence."
+owner_domain = 5
+
+[finding.unified-page-retired-router]
+file = "docs/site/docs/overview/unified-network.md"
+line = 11
+class = "doc-drift"
+severity = "medium"
+observed = "This overview describes an active cmd/layerxd sequencer and checkpoint/custody bridge between two runtimes, then at lines 129 onward advertises api-mainnet-beta.paxeer.network/rpc as a router with lx_* methods, /rpc/ws and /rpc/schema. These are presented as the current public integration surface."
+expected = "The audit brief specifies one paxd network with an embedded proposing kernel, EVM chain ID 125, final receipts at block commit and root-path public node RPC; the router, separate LayerX service and checkpoint/custody finality model are retired."
+proposal = "Replace docs/site/docs/overview/unified-network.md with the merged paxd/kernel architecture, committed-block receipt finality and root-path node JSON-RPC. Document node namespaces separately from hosted px_ gateway methods and mark retired daemon/router/precompile behavior as historical or refused."
+owner_domain = 17
+
+[finding.quickstart-retired-endpoints]
+file = "docs/site/docs/overview/quickstart.md"
+line = 20
+class = "doc-drift"
+severity = "medium"
+observed = "The quickstart directs users to the old /rpc interface, repeats /rpc and /rpc/ws configuration later, and includes anchor/custody setup and workflows. Those examples assume the retired router and checkpoint trust model."
+expected = "The audit brief specifies one paxd network with an embedded proposing kernel, EVM chain ID 125, final receipts at block commit and root-path public node RPC; the router, separate LayerX service and checkpoint/custody finality model are retired."
+proposal = "Replace docs/site/docs/overview/quickstart.md examples with root-path mainnet-beta node RPC, current node namespaces, tenant-domain setup and committed receipt checks. Remove anchor/custody setup from the active walkthrough and validate every example against its owning declared interface."
+owner_domain = 17
+
+[finding.getting-started-router-url]
+file = "docs/site/docs/overview/getting-started.md"
+line = 10
+class = "doc-drift"
+severity = "medium"
+observed = "The getting-started guide names the old /rpc URL as the integration endpoint and uses the separate LayerX method flow rather than the merged node and hosted gateway contracts."
+expected = "The audit brief specifies one paxd network with an embedded proposing kernel, EVM chain ID 125, final receipts at block commit and root-path public node RPC; the router, separate LayerX service and checkpoint/custody finality model are retired."
+proposal = "Update docs/site/docs/overview/getting-started.md to use the mainnet-beta root node URL and live declared methods, distinguish hosted px_ operations and show a committed transaction/receipt on the single network."
+owner_domain = 17
+
+[finding.payments-checkpoint-finality]
+file = "docs/site/docs/overview/payments.md"
+line = 21
+class = "doc-drift"
+severity = "medium"
+observed = "The payments guide explains receipt/batch inclusion and checkpoint settlement as the trust/finality sequence for payment consumers, preserving the former separate LayerX settlement model."
+expected = "The audit brief specifies one paxd network with an embedded proposing kernel, EVM chain ID 125, final receipts at block commit and root-path public node RPC; the router, separate LayerX service and checkpoint/custody finality model are retired."
+proposal = "Rewrite docs/site/docs/overview/payments.md so payment confirmation follows committed BFT block receipts on Paxeer, with live gateway/node method names, retry/idempotency behavior and tenant-domain accounting examples instead of checkpoint or custody settlement."
+owner_domain = 17
+
+[finding.translation-zh-cn-separate-network]
+file = "docs/site/docs/overview/i18n/zh-cn.md"
+line = 18
+class = "doc-drift"
+severity = "medium"
+observed = "The zh-cn overview still describes ordinary activity on a separate LayerX network with periodic checkpoints settling on Paxeer and no Paxeer transaction per activity; its repository layout also presents cmd/layerxd as a current node component."
+expected = "Translated integration documentation must describe the same single merged paxd network, committed-block receipt finality and retired-component status as the normative network brief."
+proposal = "Rewrite docs/site/docs/overview/i18n/zh-cn.md from the corrected merged-network overview, including root node RPC, tenant domains and current namespaces. Remove live separate-sequencer/checkpoint instructions and review translated examples against the same declared interfaces."
+owner_domain = 17
+
+[finding.translation-ru-separate-network]
+file = "docs/site/docs/overview/i18n/ru.md"
+line = 18
+class = "doc-drift"
+severity = "medium"
+observed = "The ru overview still describes ordinary activity on a separate LayerX network with periodic checkpoints settling on Paxeer and no Paxeer transaction per activity; its repository layout also presents cmd/layerxd as a current node component."
+expected = "Translated integration documentation must describe the same single merged paxd network, committed-block receipt finality and retired-component status as the normative network brief."
+proposal = "Rewrite docs/site/docs/overview/i18n/ru.md from the corrected merged-network overview, including root node RPC, tenant domains and current namespaces. Remove live separate-sequencer/checkpoint instructions and review translated examples against the same declared interfaces."
+owner_domain = 17
+
+[finding.translation-es-separate-network]
+file = "docs/site/docs/overview/i18n/es.md"
+line = 18
+class = "doc-drift"
+severity = "medium"
+observed = "The es overview still describes ordinary activity on a separate LayerX network with periodic checkpoints settling on Paxeer and no Paxeer transaction per activity; its repository layout also presents cmd/layerxd as a current node component."
+expected = "Translated integration documentation must describe the same single merged paxd network, committed-block receipt finality and retired-component status as the normative network brief."
+proposal = "Rewrite docs/site/docs/overview/i18n/es.md from the corrected merged-network overview, including root node RPC, tenant domains and current namespaces. Remove live separate-sequencer/checkpoint instructions and review translated examples against the same declared interfaces."
+owner_domain = 17
+
+[finding.translation-pt-br-separate-network]
+file = "docs/site/docs/overview/i18n/pt-br.md"
+line = 18
+class = "doc-drift"
+severity = "medium"
+observed = "The pt-br overview still describes ordinary activity on a separate LayerX network with periodic checkpoints settling on Paxeer and no Paxeer transaction per activity; its repository layout also presents cmd/layerxd as a current node component."
+expected = "Translated integration documentation must describe the same single merged paxd network, committed-block receipt finality and retired-component status as the normative network brief."
+proposal = "Rewrite docs/site/docs/overview/i18n/pt-br.md from the corrected merged-network overview, including root node RPC, tenant domains and current namespaces. Remove live separate-sequencer/checkpoint instructions and review translated examples against the same declared interfaces."
+owner_domain = 17
+
+[finding.translation-ja-separate-network]
+file = "docs/site/docs/overview/i18n/ja.md"
+line = 18
+class = "doc-drift"
+severity = "medium"
+observed = "The ja overview still describes ordinary activity on a separate LayerX network with periodic checkpoints settling on Paxeer and no Paxeer transaction per activity; its repository layout also presents cmd/layerxd as a current node component."
+expected = "Translated integration documentation must describe the same single merged paxd network, committed-block receipt finality and retired-component status as the normative network brief."
+proposal = "Rewrite docs/site/docs/overview/i18n/ja.md from the corrected merged-network overview, including root node RPC, tenant domains and current namespaces. Remove live separate-sequencer/checkpoint instructions and review translated examples against the same declared interfaces."
+owner_domain = 17
+
+[doc.01]
+path = "docs/QUALIFICATION.md"
+status = "stale"
+notes = "The qualification matrix and settlement section at lines 79-82 still require DA withholding, guarantor disagreement and emergency exit from a finalized checkpoint; lines 90-100 describe independently qualified Paxeer and LayerX networks."
+
+[doc.02]
+path = "docs/paxeer-network.md"
+status = "stale"
+notes = "The introduction makes Paxeer the separate settlement/custody layer for LayerX, with ordinary LayerX activity elsewhere, periodic checkpoints and guarantor bonds. The module map at line 38 still presents retired anchor/custody components as live."
+
+[doc.03]
+path = "docs/runbooks/paxeer-x-fork.md"
+status = "misleading"
+notes = "The current-looking validator runbook instructs activation of layerxcustody/layerxanchor stores and precompiles 0x1013/0x1014, and later probes their old success methods. Appended merge-export checks do not clearly separate this older fork plan from the merged upgrade."
+
+[doc.04]
+path = "docs/site/docs/overview/unified-network.md"
+status = "misleading"
+notes = "This overview describes an active cmd/layerxd sequencer and checkpoint/custody bridge between two runtimes, then at lines 129 onward advertises api-mainnet-beta.paxeer.network/rpc as a router with lx_* methods, /rpc/ws and /rpc/schema. These are presented as the current public integration surface."
+
+[doc.05]
+path = "docs/site/docs/overview/quickstart.md"
+status = "stale"
+notes = "The quickstart directs users to the old /rpc interface, repeats /rpc and /rpc/ws configuration later, and includes anchor/custody setup and workflows. Those examples assume the retired router and checkpoint trust model."
+
+[doc.06]
+path = "docs/site/docs/overview/getting-started.md"
+status = "stale"
+notes = "The getting-started guide names the old /rpc URL as the integration endpoint and uses the separate LayerX method flow rather than the merged node and hosted gateway contracts."
+
+[doc.07]
+path = "docs/site/docs/overview/payments.md"
+status = "stale"
+notes = "The payments guide explains receipt/batch inclusion and checkpoint settlement as the trust/finality sequence for payment consumers, preserving the former separate LayerX settlement model."
+
+[doc.08]
+path = "docs/site/docs/overview/i18n/zh-cn.md"
+status = "stale"
+notes = "Read the complete translated overview; line 18 retains the separate LayerX/checkpoint settlement model and the repository layout still presents cmd/layerxd as live. See the page-specific finding and rewrite proposal."
+
+[doc.09]
+path = "docs/site/docs/overview/i18n/ru.md"
+status = "stale"
+notes = "Read the complete translated overview; line 18 retains the separate LayerX/checkpoint settlement model and the repository layout still presents cmd/layerxd as live. See the page-specific finding and rewrite proposal."
+
+[doc.10]
+path = "docs/site/docs/overview/i18n/es.md"
+status = "stale"
+notes = "Read the complete translated overview; line 18 retains the separate LayerX/checkpoint settlement model and the repository layout still presents cmd/layerxd as live. See the page-specific finding and rewrite proposal."
+
+[doc.11]
+path = "docs/site/docs/overview/i18n/pt-br.md"
+status = "stale"
+notes = "Read the complete translated overview; line 18 retains the separate LayerX/checkpoint settlement model and the repository layout still presents cmd/layerxd as live. See the page-specific finding and rewrite proposal."
+
+[doc.12]
+path = "docs/site/docs/overview/i18n/ja.md"
+status = "stale"
+notes = "Read the complete translated overview; line 18 retains the separate LayerX/checkpoint settlement model and the repository layout still presents cmd/layerxd as live. See the page-specific finding and rewrite proposal."
+
+[doc.13]
+path = "consensus/internal/rpc/core/CONTRIBUTING.md"
+status = "stale"
+notes = "The complete page points to the wrong relative OpenAPI path; see rpc-contributing-openapi-path."
+
+[doc.14]
+path = "consensus/internal/rpc/core/README.md"
+status = "accurate"
+notes = "Read complete event query and pagination guide against the core route registration and handlers; examples match these consensus RPC interfaces."
+
+[doc.15]
+path = "consensus/internal/rpc/core/doc.go"
+status = "stale"
+notes = "Read complete package documentation with the source; advertised dial_seeds and dial_persistent_peers are not registered names."
+
+[doc.16]
+path = "engine/tests/AGENTS.md"
+status = "misleading"
+notes = "Read complete state harness instructions; generic command can skip all cases and the recommended add-failures-to-skips workflow does not qualify a repair under 22998.1."
+
+[doc.17]
+path = "node/wasmbinding/README.md"
+status = "stale"
+notes = "Read complete binding inventory; pause query/message features are implemented but omitted from the documented Token Factory surface."
+
+[doc.18]
+path = "storage/tools/README.md"
+status = "accurate"
+notes = "Read complete command inventory and invocation guide; executable/command names exist. Source defects behind declared flags are separately recorded on the implementations."
+
+[doc.19]
+path = "spec/layerx-merge/contracts/sequencer.md"
+status = "accurate"
+notes = "Read relevant node-storage, node-metrics, node-cli and sequencer contract sections and the package registry signatures. This explicitly frozen baseline distinguishes planned from stable interfaces; it is not a current network deployment runbook. Implementation disagreements are recorded separately."

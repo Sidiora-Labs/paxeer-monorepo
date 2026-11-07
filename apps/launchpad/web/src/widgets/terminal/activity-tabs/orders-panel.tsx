@@ -1,5 +1,5 @@
 'use client';
-import { useState, useSyncExternalStore } from 'react';
+import { useRef, useState, useSyncExternalStore } from 'react';
 import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import type { Operations } from '@kindle/sdk';
 import { ListOrdered, LogIn } from 'lucide-react';
@@ -10,9 +10,11 @@ import { useSessionOperations } from '@/core/market/operations';
 import { isSignedOutError, toUnsupported } from '@/core/market/unsupported';
 import { SignedOutState } from '@/ui/shared/signed-out-state';
 import { exactPriceRatio } from '@/page-modules/token/market-presentation';
-import { accountSession, subscribeAccount, type AccountSession } from '@/widgets/profile/account-transport';
+import { accountSession, assertAccount, subscribeAccount, type AccountSession } from '@/widgets/profile/account-transport';
 import type { Order, OrderCancelResponse, OrderListResponse } from '../../../../../../../sdk/launchpad/packages/production-contracts/src/types.gen';
 import { userFacingMessage } from '@/core/user-facing-error';
+import type { AdvancedProvider } from '@/widgets/meta-ag/advanced-provider';
+import { OrderCancellationReview } from './order-cancellation-review';
 
 export const orderListOperation = 'IF_ORDER_LIST GET /v2/me/orders';
 export const orderCancelOperation = 'IF_ORDER_CANCEL POST /v2/me/orders/{orderId}:cancel';
@@ -44,7 +46,7 @@ function triggerLabel(order: Order): string {
   return /^(0|[1-9][0-9]*)$/.test(numerator) && /^[1-9][0-9]*$/.test(denominator) ? exactPriceRatio(numerator, denominator) : '-';
 }
 
-function OrdersList({ operations, scope, poolAddress }: { operations: Operations; scope: AccountSession; poolAddress: string }) {
+export function OrdersList({ operations, scope, poolAddress, cancellationProvider }: { operations: Operations; scope: AccountSession; poolAddress: string; cancellationProvider?: AdvancedProvider }) {
   const client = useQueryClient();
   const key = terminalOrdersKey(scope);
   const query = useInfiniteQuery({
@@ -55,15 +57,27 @@ function OrdersList({ operations, scope, poolAddress }: { operations: Operations
     retry: false,
     staleTime: 10_000,
   });
-  const [pending, setPending] = useState<Order | null>(null);
+  const [pending, setPending] = useState<{ order: Order; idempotencyKey: string } | null>(null);
+  const [prepared, setPrepared] = useState<OrderCancelResponse | null>(null);
+  const preparing = useRef(false);
   const [signNotice, setSignNotice] = useState<string | null>(null);
   const cancel = useMutation({
-    mutationFn: (order: Order) => cancelOrder(operations, order.orderId),
+    mutationFn: async (intent: NonNullable<typeof pending>) => {
+      assertAccount(scope);
+      const response = await cancelOrder(operations, intent.order.orderId, intent.idempotencyKey);
+      assertAccount(scope);
+      const order = response.data.order;
+      if (order.orderId !== intent.order.orderId || order.chainOrderId !== intent.order.chainOrderId || order.poolAddress.toLowerCase() !== intent.order.poolAddress.toLowerCase() || order.wallet.toLowerCase() !== scope.session.wallet.toLowerCase() || order.kind !== intent.order.kind || order.inputRaw !== intent.order.inputRaw) throw new Error('Cancellation response differs from the reviewed order');
+      if (!response.data.transactionRequest && order.status !== 'cancelled') throw new Error('Order cancellation has not been confirmed');
+      return response;
+    },
     onSuccess: response => {
+      if (response.data.transactionRequest) { setPrepared(response); return; }
       setPending(null);
-      setSignNotice(response.data.transactionRequest ? 'Your order is almost cancelled. Finish cancelling it from your wallet.' : null);
+      setSignNotice(null);
       void client.invalidateQueries({ queryKey: key });
     },
+    onSettled: () => { preparing.current = false; },
   });
 
   if (query.status === 'pending') return <Skeleton variant="rows" rows={3} label="orders" />;
@@ -102,7 +116,7 @@ function OrdersList({ operations, scope, poolAddress }: { operations: Operations
                     <td data-numeric className="text-right tabular-nums text-text-muted">{triggerLabel(order)}</td>
                     <td className="capitalize text-text-muted">{order.status}</td>
                     <td className="font-mono text-text-faint" title={order.orderId}>{order.orderId.slice(0, 8)}</td>
-                    <td className="text-right"><Button size="sm" variant="danger-text" onClick={() => { cancel.reset(); setPending(order); }}>Cancel</Button></td>
+                    <td className="text-right"><Button size="sm" variant="danger-text" disabled={pending !== null} onClick={() => { cancel.reset(); setPrepared(null); setPending({ order, idempotencyKey: crypto.randomUUID() }); }}>Cancel</Button></td>
                   </tr>
                 ))}
               </tbody>
@@ -112,18 +126,18 @@ function OrdersList({ operations, scope, poolAddress }: { operations: Operations
       {query.hasNextPage ? <LoadMore auto={false} hasMore loading={query.isFetchingNextPage} error={query.isFetchNextPageError} label="Load more orders" onLoadMore={() => { void query.fetchNextPage(); }} /> : null}
       <ModalFrame
         open={pending !== null}
-        onClose={() => { if (!cancel.isPending) setPending(null); }}
+        onClose={() => { if (!cancel.isPending && !preparing.current && !prepared) setPending(null); }}
         closeOnScrim={false}
         size="sm"
         title="Cancel this order?"
-        footer={(
+        footer={prepared ? undefined : (
           <div className="flex justify-end gap-2">
-            <Button variant="secondary" size="sm" disabled={cancel.isPending} onClick={() => setPending(null)}>Keep order</Button>
-            <Button variant="danger" size="sm" loading={cancel.isPending} onClick={() => { if (pending) cancel.mutate(pending); }}>Cancel order</Button>
+            <Button variant="secondary" size="sm" disabled={cancel.isPending} onClick={() => { if (!preparing.current) setPending(null); }}>Keep order</Button>
+            <Button variant="danger" size="sm" loading={cancel.isPending} onClick={() => { if (pending && !preparing.current) { preparing.current = true; cancel.mutate(pending); } }}>Cancel order</Button>
           </div>
         )}
       >
-        {pending ? <p className="text-sm text-text-muted">The {pending.kind} order <span className="font-mono text-text">{pending.orderId.slice(0, 8)}</span> will be withdrawn.</p> : null}
+        {pending && prepared?.data.transactionRequest ? <OrderCancellationReview request={prepared.data.transactionRequest} order={pending.order} scope={scope} provider={cancellationProvider} onDismiss={() => { setPrepared(null); setPending(null); }} onConfirmed={outcome => { setPrepared(null); setPending(null); setSignNotice(outcome === 'filled_race' ? 'Your order traded before the cancellation went through.' : null); void client.invalidateQueries({ queryKey: key }); }} /> : pending ? <p className="text-sm text-text-muted">The {pending.order.kind} order <span className="font-mono text-text">{pending.order.orderId.slice(0, 8)}</span> will be withdrawn.</p> : null}
         {cancelMarker ? <UnavailableState variant="inline" title="Order cancellation" operation={cancelMarker.operation} status={cancelMarker.status} /> : null}
         {cancel.isError && !cancelMarker ? <p role="alert" className="mt-2 text-sm text-danger">The order could not be cancelled right now. {userFacingMessage(cancel.error)}</p> : null}
       </ModalFrame>
@@ -132,11 +146,11 @@ function OrdersList({ operations, scope, poolAddress }: { operations: Operations
 }
 
 /** Orders tab: the signed-in wallet's active orders for this pool, with confirmed cancellation. */
-export function OrdersPanel({ poolAddress }: { poolAddress: string }) {
+export function OrdersPanel({ poolAddress, cancellationProvider }: { poolAddress: string; cancellationProvider?: AdvancedProvider }) {
   const operations = useSessionOperations();
   const scope = useSyncExternalStore(subscribeAccount, accountSession, noSession);
   if (!operations || !scope) {
     return <EmptyState icon={LogIn} title="Sign in to see your orders" body="Orders are read from your signed-in account." action={<Button size="sm" onClick={() => openAuthModal('Sign in to see your orders')}>Sign in</Button>} />;
   }
-  return <OrdersList operations={operations} scope={scope} poolAddress={poolAddress} />;
+  return <OrdersList key={`${scope.session.sessionId}:${scope.epoch}`} operations={operations} scope={scope} poolAddress={poolAddress} cancellationProvider={cancellationProvider} />;
 }

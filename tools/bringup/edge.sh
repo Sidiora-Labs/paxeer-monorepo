@@ -37,8 +37,8 @@ add       renders the name: an HTTP name gets
           and the ACME location first, the certbot certificate for the name
           over HTTP-01 when absent (renewed by certbot's timer, which reloads
           nginx), then its TLS server; a stream name gets its port's stream
-          block. Every step runs nginx -t and reloads; a failing nginx -t
-          restores the previous files. Prints
+          block. Every step runs nginx -t and reloads; a refused validation or reload
+          restores the previous acknowledged generation on disk. Prints
           "added <name> mode=<mode> upstream=<host:port> port=<port>".
 register  add <name> railway <host>:<port, default 443> -.
 remove    deletes every site or stream entry of the name and reloads; prints
@@ -75,7 +75,9 @@ Environment:
   EDGE_NGINX_DIR      nginx configuration root, default /etc/nginx
   EDGE_WEBROOT        ACME webroot, default /var/www/certbot
   EDGE_CERT_DIR       certbot live directory, default /etc/letsencrypt/live
-  EDGE_RESOLVER       resolver nginx uses for the upstreams, default 127.0.0.53
+  EDGE_RESOLVER       resolver nginx uses for the upstreams; set EDGE_RESOLVER to the
+                      operator DNS server (example 192.0.2.53); defaults to the
+                      local system resolver
   EDGE_CRON_DIR       where set installs the rpc-health entry, default /etc/cron.d
   EDGE_RPC_MAX_LAG    blocks a pool member may lag the highest, default 20
 
@@ -160,82 +162,9 @@ upstream_tls() {
 # render_http <name> <railway|box|-> <host:port> <sni|-> <tls|plain>: the site
 # of an HTTP name; a plain site carries only the port 80 listener.
 render_http() {
-	local name="$1" kind="$2" up="$3" sni="$4" tls="$5" listen scheme host_header upstream_tls=""
-	case "$kind" in
-	railway)
-		scheme=https
-		host_header="${up%:*}"
-		[ "$sni" = - ] || host_header="$sni"
-		upstream_tls="$(upstream_tls "$host_header" /etc/ssl/certs/ca-certificates.crt)"$'\n'
-		;;
-	box)
-		scheme=http
-		host_header="$name"
-		if [ "$sni" != - ]; then
-			scheme=https
-			upstream_tls="$(upstream_tls "$sni" "$box_ca")"$'\n'
-		fi
-		;;
-	esac
-	echo "$marker"
-	cat <<EOF
-server {
-	listen 80;
-	listen [::]:80;
-	server_name $name;
-
-	location ^~ /.well-known/acme-challenge/ {
-		root $webroot;
-		default_type text/plain;
-		try_files \$uri =404;
-	}
-
-	location / {
-		return 301 https://\$host\$request_uri;
-	}
-}
-EOF
-	[ "$tls" = tls ] || return 0
-	if http_shared; then
-		listen="	listen 127.0.0.1:$loopback_port ssl http2 proxy_protocol;
-	set_real_ip_from 127.0.0.1;
-	real_ip_header proxy_protocol;"
-	else
-		listen="	listen 443 ssl http2;
-	listen [::]:443 ssl http2;"
-	fi
-	cat <<EOF
-
-server {
-$listen
-	server_name $name;
-
-	ssl_certificate $cert_dir/$name/fullchain.pem;
-	ssl_certificate_key $cert_dir/$name/privkey.pem;
-	ssl_protocols TLSv1.2 TLSv1.3;
-
-	client_max_body_size 0;
-	resolver $resolver valid=30s ipv6=off;
-
-	location / {
-		set \$edge_upstream $up;
-		proxy_pass $scheme://\$edge_upstream;
-		proxy_http_version 1.1;
-		proxy_set_header Host $host_header;
-		proxy_set_header X-Forwarded-Host $name;
-		proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-		proxy_set_header X-Real-IP \$remote_addr;
-		proxy_set_header X-Forwarded-Proto \$scheme;
-		proxy_set_header Origin \$http_origin;
-		proxy_set_header Access-Control-Request-Method \$http_access_control_request_method;
-		proxy_set_header Access-Control-Request-Headers \$http_access_control_request_headers;
-		proxy_set_header Upgrade \$http_upgrade;
-		proxy_set_header Connection \$http_connection;
-$upstream_tls		proxy_read_timeout 3600s;
-		proxy_send_timeout 3600s;
-	}
-}
-EOF
+	local shared=0
+	if http_shared; then shared=1; fi
+	"${BRINGUP_INSPECT_BIN:-bringup-inspect}" edge-http "$1" "$2" "$3" "$4" "$5" "$webroot" "$cert_dir" "$resolver" "$shared"
 }
 
 # render_rpc <name> <tls|plain>: the balanced RPC site. Each pool member gets a
@@ -243,92 +172,9 @@ EOF
 # balances over those loopback servers, skipping the members rpc-health marked
 # down.
 render_rpc() {
-	local name="$1" tls="$2" host i=0 down listen
-	render_http "$name" - - - plain
-	[ "$tls" = tls ] || return 0
-	echo
-	echo "upstream edge_rpc_pool {"
-	echo "	least_conn;"
-	while read -r host; do
-		[ -n "$host" ] || continue
-		i=$((i + 1))
-		down=""
-		! grep -qxF -- "$host" "$rpc_down" 2>/dev/null || down=" down"
-		echo "	server 127.0.0.1:$((rpc_member_base + i)) max_fails=2 fail_timeout=10s$down; # $host"
-	done <"$rpc_pool"
-	echo "	keepalive 32;"
-	echo "}"
-	cat <<EOF
-
-map \$http_upgrade \$edge_rpc_connection {
-	default upgrade;
-	'' '';
-}
-EOF
-	i=0
-	while read -r host; do
-		[ -n "$host" ] || continue
-		i=$((i + 1))
-		cat <<EOF
-
-server {
-	listen 127.0.0.1:$((rpc_member_base + i));
-	resolver $resolver valid=30s ipv6=off;
-
-	location / {
-		set \$edge_rpc_member $host;
-		proxy_pass https://\$edge_rpc_member;
-		proxy_http_version 1.1;
-		proxy_set_header Host $host;
-		proxy_set_header X-Forwarded-For \$http_x_forwarded_for;
-		proxy_set_header X-Real-IP \$http_x_real_ip;
-		proxy_set_header Upgrade \$http_upgrade;
-		proxy_set_header Connection \$http_connection;
-		proxy_ssl_server_name on;
-		proxy_ssl_name $host;
-		proxy_ssl_verify on;
-		proxy_ssl_verify_depth 4;
-		proxy_ssl_trusted_certificate /etc/ssl/certs/ca-certificates.crt;
-		proxy_read_timeout 3600s;
-		proxy_send_timeout 3600s;
-	}
-}
-EOF
-	done <"$rpc_pool"
-	if http_shared; then
-		listen="	listen 127.0.0.1:$loopback_port ssl http2 proxy_protocol;
-	set_real_ip_from 127.0.0.1;
-	real_ip_header proxy_protocol;"
-	else
-		listen="	listen 443 ssl http2;
-	listen [::]:443 ssl http2;"
-	fi
-	cat <<EOF
-
-server {
-$listen
-	server_name $name;
-
-	ssl_certificate $cert_dir/$name/fullchain.pem;
-	ssl_certificate_key $cert_dir/$name/privkey.pem;
-	ssl_protocols TLSv1.2 TLSv1.3;
-
-	client_max_body_size 16m;
-
-	location / {
-		proxy_pass http://edge_rpc_pool;
-		proxy_http_version 1.1;
-		proxy_next_upstream error timeout http_502 http_503 http_504;
-		proxy_next_upstream_tries 3;
-		proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-		proxy_set_header X-Real-IP \$remote_addr;
-		proxy_set_header Upgrade \$http_upgrade;
-		proxy_set_header Connection \$edge_rpc_connection;
-		proxy_read_timeout 3600s;
-		proxy_send_timeout 3600s;
-	}
-}
-EOF
+	local shared=0
+	if http_shared; then shared=1; fi
+	"${BRINGUP_INSPECT_BIN:-bringup-inspect}" edge-rpc "$1" "$2" "$webroot" "$cert_dir" "$resolver" "$shared" "$rpc_pool" "$rpc_down"
 }
 
 # render_stream <port>: the stream servers of one port from the manifest. On
@@ -336,50 +182,7 @@ EOF
 # to the loopback HTTP listener, and an inner server strips it again before the
 # bytes reach the app, so the app sees the client's TLS untouched.
 render_stream() {
-	local port="$1" names
-	names="$(awk -v p="$port" '$2 == "stream" && $4 == p {printf "\t%s %s;\n", $1, $3}' "$manifest")"
-	echo "$marker"
-	if [ "$port" = 443 ]; then
-		cat <<EOF
-map \$ssl_preread_server_name \$edge_stream_outer_$port {
-$(awk -v p="$port" -v i="$inner_port" '$2 == "stream" && $4 == p {printf "\t%s 127.0.0.1:%s;\n", $1, i}' "$manifest")
-	default 127.0.0.1:$loopback_port;
-}
-
-map \$ssl_preread_server_name \$edge_stream_$port {
-$names
-}
-
-server {
-	listen $port;
-	listen [::]:$port;
-	ssl_preread on;
-	proxy_protocol on;
-	proxy_pass \$edge_stream_outer_$port;
-}
-
-server {
-	listen 127.0.0.1:$inner_port proxy_protocol;
-	ssl_preread on;
-	resolver $resolver valid=30s ipv6=off;
-	proxy_pass \$edge_stream_$port;
-}
-EOF
-	else
-		cat <<EOF
-map \$ssl_preread_server_name \$edge_stream_$port {
-$names
-}
-
-server {
-	listen $port;
-	listen [::]:$port;
-	ssl_preread on;
-	resolver $resolver valid=30s ipv6=off;
-	proxy_pass \$edge_stream_$port;
-}
-EOF
-	fi
+	"${BRINGUP_INSPECT_BIN:-bringup-inspect}" edge-stream "$1" "$resolver" <"$manifest"
 }
 
 # unrendered_listeners <port>: enabled sites this script did not render that
@@ -406,70 +209,38 @@ claimed_elsewhere() {
 	return 1
 }
 
-# The files every change may touch, saved before it and restored when nginx -t
-# refuses the result.
-snapshot() {
-	backup="$(mktemp -d)"
-	cp -a "$state" "$backup/edge"
-	mkdir -p "$backup/sa" "$backup/se"
-	find "$nginx_dir/sites-available" "$nginx_dir/sites-enabled" -maxdepth 1 \( -type f -o -type l \) -print0 |
-		while IFS= read -r -d '' f; do
-			head -n 1 "$f" 2>/dev/null | grep -qxF "$marker" || continue
-			case "$f" in
-			*/sites-available/*) cp -a "$f" "$backup/sa/" ;;
-			*) cp -a "$f" "$backup/se/" ;;
-			esac
-		done
-	[ ! -e "$stream_root" ] || cp -a "$stream_root" "$backup/stream-root"
-}
-restore() {
-	local f
-	for f in "$nginx_dir"/sites-available/* "$nginx_dir"/sites-enabled/*; do
-		[ -e "$f" ] || [ -L "$f" ] || continue
-		head -n 1 "$f" 2>/dev/null | grep -qxF "$marker" && rm -f -- "$f"
-	done
-	rm -rf -- "${state:?}"
-	cp -a "$backup/edge" "$state"
-	cp -a "$backup/sa/." "$nginx_dir/sites-available/"
-	cp -a "$backup/se/." "$nginx_dir/sites-enabled/"
-	rm -f -- "$stream_root"
-	[ ! -e "$backup/stream-root" ] || cp -a "$backup/stream-root" "$stream_root"
+# A journal outside the transferred edge directory survives a refused reload
+# or an interrupted process. Hold the operation lock across all CLI calls.
+edge_recover() {
+	mkdir -p "$nginx_dir"
+	exec 8>"$nginx_dir/.edge-operation.lock"
+	flock -x 8
+	"${BRINGUP_INSPECT_BIN:-bringup-inspect}" edge-state recover "$nginx_dir"
 }
 
-# apply: nginx -t over the written files, then a reload; on a refusal the
-# snapshot comes back and nginx keeps its previous configuration.
+snapshot() {
+	"${BRINGUP_INSPECT_BIN:-bringup-inspect}" edge-state begin "$nginx_dir"
+}
+restore() {
+	"${BRINGUP_INSPECT_BIN:-bringup-inspect}" edge-state rollback "$nginx_dir"
+}
+
 apply() {
-	local out
-	if ! out="$(nginx -t 2>&1)"; then
-		restore
-		die "nginx -t refused the change, previous files restored: $(tail -n 2 <<<"$out" | tr '\n' ' ')"
+	local out validation=0 reload=-1
+	out="$(nginx -t 2>&1)" || validation=$?
+	if [ "$validation" -eq 0 ]; then
+		reload=0
+		out="$(nginx -s reload 2>&1)" || reload=$?
 	fi
-	nginx -s reload
+	if ! "${BRINGUP_INSPECT_BIN:-bringup-inspect}" edge-reload "$nginx_dir" "$validation" "$reload"; then
+		die "nginx refused the change, previous generation restored: $(tail -n 2 <<<"$out" | tr '\n' ' ')"
+	fi
 }
 
 # map_line <name>[:<port>] <railway|box|stream> <host:port> <sni|->: checks one
 # map line and prints its manifest line.
 map_line() {
-	local name="${1%%:*}" kind="$2" up="$3" sni="$4" port=443 mode=http
-	[ "$name" = "$1" ] || port="${1#*:}"
-	[[ "$name" =~ $dns_re ]] || die "not a DNS name: $1"
-	case "$name" in
-	api[0-9]*.mainnet-beta.paxeer.network | paxscan.io) die "refuse $name: served on its own host" ;;
-	esac
-	[[ "$up" =~ $upstream_re ]] || die "not an upstream host:port for $name: $up"
-	[ "$sni" = - ] || [[ "$sni" =~ $dns_re ]] || die "not a TLS name for $name: $sni"
-	case "$kind" in
-	railway | box) [ "$name" = "$1" ] || die "a public port on $1 applies to stream names only" ;;
-	stream)
-		mode=stream
-		[ "$name" != "$1" ] || port="${up##*:}"
-		[ "$sni" = - ] || die "a stream name passes TLS through and takes no TLS name: $name $sni"
-		;;
-	*) die "unknown mode for $name: $kind (railway, box or stream)" ;;
-	esac
-	[[ "$port" =~ ^[0-9]{1,5}$ ]] && [ "$port" -ge 1 ] && [ "$port" -le 65535 ] || die "not a port for $name: $port"
-	[[ "${up##*:}" =~ ^[0-9]{1,5}$ ]] && [ "${up##*:}" -ge 1 ] && [ "${up##*:}" -le 65535 ] || die "not a port for $name: $up"
-	echo "$name $mode $up $port $kind $sni"
+	"${BRINGUP_INSPECT_BIN:-bringup-inspect}" edge-map "$@"
 }
 
 # read_map <file>: the manifest lines of every map line; blank lines and lines
@@ -555,11 +326,11 @@ edge_add() {
 				--non-interactive --agree-tos --keep-until-expiring \
 				--deploy-hook 'systemctl reload nginx' >/dev/null 2>&1 ||
 				die "certbot could not obtain a certificate for $name; its plain listener stays"
+			snapshot
 			write_all
 			apply
 		fi
 	fi
-	rm -rf -- "${backup:?}"
 	echo "added $name mode=$mode upstream=$up port=$port"
 }
 
@@ -572,7 +343,6 @@ edge_remove() {
 	rm -f -- "$nginx_dir/sites-enabled/$name.conf" "$nginx_dir/sites-available/$name.conf"
 	write_all
 	apply
-	rm -rf -- "${backup:?}"
 	echo "removed $name"
 }
 
@@ -590,6 +360,7 @@ cmd_render() {
 
 # cmd_set <env-file> [--render-only]: registers the served set of the env file.
 cmd_set() {
+	edge_recover
 	local env="$1" only="${2:-}" key name mode port map lines="" rpc_name users
 	[ -z "$only" ] || [ "$only" = --render-only ] || {
 		usage >&2
@@ -631,7 +402,7 @@ cmd_set() {
 	fi
 	mkdir -p "$state" "$webroot" "$nginx_dir/sites-available" "$nginx_dir/sites-enabled"
 	touch "$manifest"
-	snapshot
+	if [ -z "$only" ]; then snapshot; fi
 	if [ -n "${EDGE_RPC_POOL:-}" ]; then
 		tr ' ' '\n' <<<"$EDGE_RPC_POOL" | awk 'NF && !seen[$0]++' >"$rpc_pool"
 		touch "$rpc_down"
@@ -654,11 +425,10 @@ cmd_set() {
 		mv "$state/edge.sh.new" "$state/edge.sh"
 		if [ -s "$rpc_pool" ]; then
 			mkdir -p "$cron_dir"
-			printf '%s\n* * * * * root EDGE_LOCAL=1 EDGE_NGINX_DIR=%q EDGE_CERT_DIR=%q EDGE_RESOLVER=%q flock -n %q %q rpc-health >/dev/null 2>&1\n' \
-				"$marker" "$nginx_dir" "$cert_dir" "$resolver" "$state/rpc-health.lock" "$state/edge.sh" >"$cron_dir/edge-rpc-health"
+			printf '%s\n* * * * * root EDGE_LOCAL=1 EDGE_NGINX_DIR=%q EDGE_CERT_DIR=%q EDGE_RESOLVER=%q %q rpc-health >/dev/null 2>&1\n' \
+				"$marker" "$nginx_dir" "$cert_dir" "$resolver" "$state/edge.sh" >"$cron_dir/edge-rpc-health"
 		fi
 	fi
-	rm -rf -- "${backup:?}"
 	awk 'NF {print "set " $1 " mode=" $5 " upstream=" $3 " sni=" $6 " port=" $4}' <<<"$lines"
 }
 
@@ -684,6 +454,7 @@ cmd_dry_run() {
 # cmd_rpc_health: marks lagging or silent pool members down, re-renders on a
 # change.
 cmd_rpc_health() {
+	edge_recover
 	local host hex height top=-1 max_lag="${EDGE_RPC_MAX_LAG:-20}" up=0 down=0 want
 	declare -A heights=()
 	[ -s "$rpc_pool" ] || die "no RPC pool registered ($rpc_pool)"
@@ -718,16 +489,23 @@ cmd_rpc_health() {
 	printf '%s' "$want" >"$rpc_down"
 	write_all
 	apply
-	rm -rf -- "${backup:?}"
 	echo "rpc pool changed: $up up, $down down, top $top"
 }
 
 cmd_rerender() {
-	[ -s "$manifest" ] || die "no manifest at $manifest"
-	snapshot
+	if [ "${1:-}" = --imported ] || [ "${1:-}" = --locked ]; then
+		[ -e /proc/$$/fd/8 ] && [ /proc/$$/fd/8 -ef "$nginx_dir/.edge-operation.lock" ] || die "rerender requires the inherited mutation lock"
+		flock -x 8
+		if [ "$1" = --locked ]; then "${BRINGUP_INSPECT_BIN:-bringup-inspect}" edge-state recover "$nginx_dir"; fi
+	fi
+	if [ "${1:-}" != --imported ] && [ "${1:-}" != --locked ]; then edge_recover; fi
+	[ -r "$manifest" ] || die "no manifest at $manifest"
+	if [ "${1:-}" != --imported ]; then snapshot; fi
+	if [ "${1:-}" = --reconcile ]; then
+		"${BRINGUP_INSPECT_BIN:-bringup-inspect}" edge-state reconcile "$nginx_dir"
+	fi
 	write_all
 	apply
-	rm -rf -- "${backup:?}"
 	echo "rerendered $(wc -l <"$manifest") names"
 }
 
@@ -744,12 +522,14 @@ render:3)
 	exit 0
 	;;
 list:1) ;;
-set:2 | set:3 | rpc-health:1 | rerender:1)
+set:2 | set:3 | rpc-health:1 | rerender:1 | rerender:2)
 	shift
 	case "$sub" in
 	set) cmd_set "$@" ;;
 	rpc-health) cmd_rpc_health ;;
-	rerender) cmd_rerender ;;
+	rerender)
+		[ "$#" -eq 0 ] || { [ "$#" -eq 1 ] && { [ "$1" = --reconcile ] || [ "$1" = --imported ] || [ "$1" = --locked ]; }; } || exit 2
+		cmd_rerender "$@" ;;
 	esac
 	exit 0
 	;;
@@ -767,6 +547,7 @@ if ! on_edge; then
 	exec timeout 15m ssh -o BatchMode=yes -- "$EDGE_HOST" "EDGE_LOCAL=1 bash -s -- $(printf '%q ' "$@")" <"${BASH_SOURCE[0]}"
 fi
 
+edge_recover
 shift
 case "$sub" in
 add) edge_add "$@" ;;

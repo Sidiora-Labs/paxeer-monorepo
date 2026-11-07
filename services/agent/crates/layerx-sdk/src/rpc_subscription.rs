@@ -1,5 +1,6 @@
+use std::collections::VecDeque;
 use std::io::{self, Read, Write};
-use std::net::{TcpStream, ToSocketAddrs};
+use std::net::{Shutdown, TcpStream, ToSocketAddrs};
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -18,17 +19,35 @@ const SUBSCRIBE_ID: &str = "1";
 const UNSUBSCRIBE_ID: &str = "2";
 const MAX_PENDING_EVENTS: usize = 16;
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+pub struct LogFilter {
+    pub address: Option<[u8; 20]>,
+    pub topics: Vec<Option<[u8; 32]>>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum SubscriptionTopic {
+    Logs(LogFilter),
     Receipts,
     Checkpoints,
     Account,
 }
 
+#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
+pub struct LogPosition {
+    pub block_number: u64,
+    pub transaction_index: u64,
+    pub log_index: u64,
+}
+
 pub struct RpcSubscription {
     socket: WebSocket<MaybeTlsStream<DeadlineStream>>,
     id: String,
-    cursor: Option<u64>,
+    cursor: Option<LogPosition>,
+    replay: VecDeque<Value>,
+    pending: VecDeque<Value>,
+    replay_through: Option<u64>,
+    filter: Value,
 }
 
 impl RpcSubscription {
@@ -37,10 +56,10 @@ impl RpcSubscription {
         &self.id
     }
 
-    /// Feed position last delivered on this subscription, or the position it resumed from.
+    /// Block, transaction and log position last delivered, or the position it resumed from.
     /// Present it to `RpcClient::subscribe_from` after a lost connection to resume the topic.
     #[must_use]
-    pub fn cursor(&self) -> Option<u64> {
+    pub fn cursor(&self) -> Option<LogPosition> {
         self.cursor
     }
 
@@ -49,32 +68,56 @@ impl RpcSubscription {
     /// # Errors
     /// Refuses binary frames, malformed events, mismatched subscriptions and lost connections.
     pub fn next_event(&mut self) -> Result<Option<Value>, RpcError> {
-        let Some(value) = receive_json(&mut self.socket)? else {
-            return Ok(None);
-        };
-        let (result, cursor) = notification(&value, &self.id)?;
-        self.cursor = Some(cursor);
-        Ok(Some(result))
+        for _ in 0..=MAX_REPLAY_LOGS {
+            let result = if let Some(log) = self.replay.pop_front() {
+                log
+            } else {
+                let value = if let Some(value) = self.pending.pop_front() {
+                    value
+                } else {
+                    let Some(value) = receive_json(&mut self.socket)? else {
+                        return Ok(None);
+                    };
+                    value
+                };
+                notification(&value, &self.id)?.0
+            };
+            let cursor = log_position(&result)?;
+            if !matches_filter(&result, &self.filter) {
+                return Err(RpcError::InvalidResponse);
+            }
+            if self.cursor.is_some_and(|previous| cursor <= previous) {
+                if self
+                    .replay_through
+                    .is_some_and(|head| cursor.block_number <= head)
+                {
+                    continue;
+                }
+                return Err(RpcError::InvalidResponse);
+            }
+            self.cursor = Some(cursor);
+            return Ok(Some(result));
+        }
+        Err(RpcError::InvalidResponse)
     }
 
     /// Cancels this subscription on the server and confirms the acknowledgement. Notifications
-    /// already in flight are discarded after advancing the cursor past them.
+    /// already in flight are discarded; the cursor continues to name the last delivered log.
     /// # Errors
     /// Reports refused cancellations, malformed acknowledgements and lost connections.
     pub fn unsubscribe(&mut self) -> Result<(), RpcError> {
         transport(&mut self.socket)?.reset()?;
         self.socket
             .send(Message::Text(
-                json!({"jsonrpc":"2.0", "id":UNSUBSCRIBE_ID, "method":"lx_unsubscribe", "params":[self.id.as_str()]})
+                json!({"jsonrpc":"2.0", "id":UNSUBSCRIBE_ID, "method":"eth_unsubscribe", "params":[self.id.as_str()]})
                     .to_string()
                     .into(),
             ))
             .map_err(|_| RpcError::Transport)?;
         for _ in 0..=MAX_PENDING_EVENTS {
             let value = receive_until(&mut self.socket)?.ok_or(RpcError::Transport)?;
-            if value.get("method").and_then(Value::as_str) == Some("lx_subscription") {
-                let (_, cursor) = notification(&value, &self.id)?;
-                self.cursor = Some(cursor);
+            if value.get("method").and_then(Value::as_str) == Some("eth_subscription") {
+                notification(&value, &self.id)?;
                 continue;
             }
             return cancellation(&value);
@@ -86,28 +129,49 @@ impl RpcSubscription {
     /// Reports a failed connection close.
     pub fn close(&mut self) -> Result<(), RpcError> {
         transport(&mut self.socket)?.reset()?;
-        self.socket.close(None).map_err(|_| RpcError::Transport)
+        let close = self.socket.close(None).map_err(|_| RpcError::Transport);
+        let shutdown = transport(&mut self.socket)?
+            .socket
+            .shutdown(Shutdown::Both)
+            .map_err(|_| RpcError::Transport);
+        close.and(shutdown)
     }
 }
 
-fn parameters(
-    topic: SubscriptionTopic,
-    account: Option<[u8; 32]>,
-    cursor: Option<u64>,
-) -> Result<Value, RpcError> {
-    let mut params = match (topic, account) {
-        (SubscriptionTopic::Receipts, None) => json!(["receipts"]),
-        (SubscriptionTopic::Checkpoints, None) => json!(["checkpoints"]),
-        (SubscriptionTopic::Account, Some(account)) => json!(["account", encode_hex(&account)]),
-        _ => return Err(RpcError::InvalidRequest),
-    };
-    if let Some(cursor) = cursor {
-        params
-            .as_array_mut()
-            .ok_or(RpcError::InvalidRequest)?
-            .push(json!(cursor.to_string()));
+const MAX_REPLAY_LOGS: usize = 10_000;
+const REPLAY_BLOCK_SPAN: u64 = 2_000;
+
+fn parameters(topic: SubscriptionTopic, account: Option<[u8; 32]>) -> Result<Value, RpcError> {
+    if account.is_some() {
+        return Err(RpcError::InvalidRequest);
     }
-    Ok(params)
+    let filter = match topic {
+        SubscriptionTopic::Logs(filter) => filter,
+        SubscriptionTopic::Receipts
+        | SubscriptionTopic::Checkpoints
+        | SubscriptionTopic::Account => return Err(RpcError::InvalidRequest),
+    };
+    if filter.topics.len() > 4 {
+        return Err(RpcError::InvalidRequest);
+    }
+    let mut value = json!({});
+    if let Some(address) = filter.address {
+        value["address"] = json!(format!("0x{}", encode_hex(&address)));
+    }
+    if !filter.topics.is_empty() {
+        value["topics"] = Value::Array(
+            filter
+                .topics
+                .iter()
+                .map(|topic| {
+                    topic.map_or(Value::Null, |topic| {
+                        json!(format!("0x{}", encode_hex(&topic)))
+                    })
+                })
+                .collect(),
+        );
+    }
+    Ok(json!(["logs", value]))
 }
 
 pub(crate) fn connect(
@@ -117,11 +181,11 @@ pub(crate) fn connect(
     clock: Arc<dyn Clock>,
     topic: SubscriptionTopic,
     account: Option<[u8; 32]>,
-    cursor: Option<u64>,
+    cursor: Option<LogPosition>,
 ) -> Result<RpcSubscription, RpcError> {
-    let params = parameters(topic, account, cursor)?;
+    let params = parameters(topic, account)?;
+    let filter = params[1].clone();
     let mut endpoint = endpoint.clone();
-    endpoint.set_path(&format!("{}/ws", endpoint.path().trim_end_matches('/')));
     let secure = endpoint.scheme() == "https";
     endpoint
         .set_scheme(if secure { "wss" } else { "ws" })
@@ -186,14 +250,26 @@ pub(crate) fn connect(
     .map_err(|_| RpcError::Transport)?;
     socket
         .send(Message::Text(
-            json!({"jsonrpc":"2.0", "id":SUBSCRIBE_ID, "method":"lx_subscribe", "params":params})
+            json!({"jsonrpc":"2.0", "id":SUBSCRIBE_ID, "method":"eth_subscribe", "params":params})
                 .to_string()
                 .into(),
         ))
         .map_err(|_| RpcError::Transport)?;
     let response = receive_until(&mut socket)?.ok_or(RpcError::Transport)?;
     let id = acknowledgement(&response)?;
-    Ok(RpcSubscription { socket, id, cursor })
+    let mut subscription = RpcSubscription {
+        socket,
+        id,
+        cursor,
+        replay: VecDeque::new(),
+        pending: VecDeque::new(),
+        replay_through: None,
+        filter,
+    };
+    if let Some(cursor) = cursor {
+        subscription.backfill(cursor)?;
+    }
+    Ok(subscription)
 }
 
 fn receive_json(
@@ -379,28 +455,171 @@ fn cancellation(value: &Value) -> Result<(), RpcError> {
     Ok(())
 }
 
-fn cursor_value(text: &str) -> Option<u64> {
-    let value: u64 = text.parse().ok()?;
-    (value.to_string() == text).then_some(value)
+fn quantity(text: &str) -> Option<u64> {
+    let digits = text.strip_prefix("0x")?;
+    if digits.is_empty()
+        || digits.len() > 16
+        || (digits.len() > 1 && digits.starts_with('0'))
+        || !digits.bytes().all(|byte| byte.is_ascii_hexdigit())
+    {
+        return None;
+    }
+    u64::from_str_radix(digits, 16).ok()
 }
 
-fn notification(value: &Value, id: &str) -> Result<(Value, u64), RpcError> {
-    if value.as_object().is_none_or(|object| object.len() != 3)
-        || value["jsonrpc"] != "2.0"
-        || value["method"] != "lx_subscription"
-        || value["params"]
-            .as_object()
-            .is_none_or(|object| object.len() != 3)
-        || value["params"]["subscription"] != id
-        || !value["params"]["result"].is_object()
+fn fixed_hex(value: &Value, bytes: usize) -> bool {
+    value
+        .as_str()
+        .and_then(|text| text.strip_prefix("0x"))
+        .is_some_and(|digits| {
+            digits.len() == bytes * 2 && digits.bytes().all(|byte| byte.is_ascii_hexdigit())
+        })
+}
+
+fn log_position(log: &Value) -> Result<LogPosition, RpcError> {
+    if !fixed_hex(&log["address"], 20)
+        || !fixed_hex(&log["transactionHash"], 32)
+        || !fixed_hex(&log["blockHash"], 32)
+        || log["removed"] != false
+        || log["topics"].as_array().is_none_or(|topics| {
+            topics.len() > 4 || topics.iter().any(|topic| !fixed_hex(topic, 32))
+        })
+        || log["data"]
+            .as_str()
+            .and_then(|text| text.strip_prefix("0x"))
+            .is_none_or(|data| {
+                data.len() % 2 != 0 || !data.bytes().all(|byte| byte.is_ascii_hexdigit())
+            })
     {
         return Err(RpcError::InvalidResponse);
     }
-    let cursor = value["params"]["cursor"]
-        .as_str()
-        .and_then(cursor_value)
-        .ok_or(RpcError::InvalidResponse)?;
-    Ok((value["params"]["result"].clone(), cursor))
+    let field = |name: &str| {
+        log[name]
+            .as_str()
+            .and_then(quantity)
+            .ok_or(RpcError::InvalidResponse)
+    };
+    Ok(LogPosition {
+        block_number: field("blockNumber")?,
+        transaction_index: field("transactionIndex")?,
+        log_index: field("logIndex")?,
+    })
+}
+
+fn matches_filter(log: &Value, filter: &Value) -> bool {
+    if let Some(address) = filter["address"].as_str() {
+        if !log["address"]
+            .as_str()
+            .is_some_and(|value| value.eq_ignore_ascii_case(address))
+        {
+            return false;
+        }
+    }
+    filter["topics"].as_array().is_none_or(|topics| {
+        topics.iter().enumerate().all(|(index, topic)| {
+            topic.is_null()
+                || topic
+                    .as_str()
+                    .zip(log["topics"][index].as_str())
+                    .is_some_and(|(expected, actual)| expected.eq_ignore_ascii_case(actual))
+        })
+    })
+}
+
+fn notification(value: &Value, id: &str) -> Result<(Value, LogPosition), RpcError> {
+    if value.as_object().is_none_or(|object| object.len() != 3)
+        || value["jsonrpc"] != "2.0"
+        || value["method"] != "eth_subscription"
+        || value["params"]
+            .as_object()
+            .is_none_or(|object| object.len() != 2)
+        || value["params"]["subscription"] != id
+    {
+        return Err(RpcError::InvalidResponse);
+    }
+    let log = &value["params"]["result"];
+    Ok((log.clone(), log_position(log)?))
+}
+
+impl RpcSubscription {
+    fn request(&mut self, id: &str, method: &str, params: Value) -> Result<Value, RpcError> {
+        transport(&mut self.socket)?.reset()?;
+        self.socket
+            .send(Message::Text(
+                json!({"jsonrpc":"2.0", "id":id, "method":method, "params":params})
+                    .to_string()
+                    .into(),
+            ))
+            .map_err(|_| RpcError::Transport)?;
+        for _ in 0..=MAX_REPLAY_LOGS {
+            let value = receive_until(&mut self.socket)?.ok_or(RpcError::Transport)?;
+            if value["method"] == "eth_subscription" {
+                notification(&value, &self.id)?;
+                if self.pending.len() >= MAX_REPLAY_LOGS {
+                    return Err(RpcError::InvalidResponse);
+                }
+                self.pending.push_back(value);
+                continue;
+            }
+            if value.as_object().is_none_or(|object| object.len() != 3)
+                || value["jsonrpc"] != "2.0"
+                || value["id"] != id
+            {
+                return Err(RpcError::InvalidResponse);
+            }
+            if let Some(error) = value.get("error") {
+                return Err(remote(error));
+            }
+            return value
+                .get("result")
+                .cloned()
+                .ok_or(RpcError::InvalidResponse);
+        }
+        Err(RpcError::InvalidResponse)
+    }
+
+    fn backfill(&mut self, cursor: LogPosition) -> Result<(), RpcError> {
+        let head = self.request("3", "eth_blockNumber", json!([]))?;
+        let head = head
+            .as_str()
+            .and_then(quantity)
+            .ok_or(RpcError::InvalidResponse)?;
+        if cursor.block_number > head {
+            return Err(RpcError::InvalidRequest);
+        }
+        self.replay_through = Some(head);
+        let mut from = cursor.block_number;
+        let mut previous = None;
+        loop {
+            let to = from.saturating_add(REPLAY_BLOCK_SPAN - 1).min(head);
+            let mut filter = self.filter.clone();
+            filter["fromBlock"] = json!(format!("0x{from:x}"));
+            filter["toBlock"] = json!(format!("0x{to:x}"));
+            let logs = self.request("4", "eth_getLogs", json!([filter]))?;
+            for log in logs.as_array().ok_or(RpcError::InvalidResponse)? {
+                let position = log_position(log)?;
+                if position.block_number < from
+                    || position.block_number > to
+                    || previous.is_some_and(|prior| position <= prior)
+                    || !matches_filter(log, &self.filter)
+                {
+                    return Err(RpcError::InvalidResponse);
+                }
+                previous = Some(position);
+                if position > cursor {
+                    if self.replay.len() >= MAX_REPLAY_LOGS {
+                        return Err(RpcError::InvalidResponse);
+                    }
+                    self.replay.push_back(log.clone());
+                }
+            }
+            if to == head {
+                break;
+            }
+            from = to.checked_add(1).ok_or(RpcError::InvalidResponse)?;
+        }
+        Ok(())
+    }
 }
 
 pub use agent::{
@@ -899,11 +1118,11 @@ mod tests {
     use super::*;
     #[test]
     fn subscriptions_bind_selectors_acknowledgements_and_notifications() {
-        assert!(parameters(SubscriptionTopic::Account, None, None).is_err());
-        assert!(parameters(SubscriptionTopic::Receipts, Some([1; 32]), None).is_err());
+        assert!(parameters(SubscriptionTopic::Account, None).is_err());
+        assert!(parameters(SubscriptionTopic::Receipts, Some([1; 32])).is_err());
         assert_eq!(
-            parameters(SubscriptionTopic::Checkpoints, None, None).ok(),
-            Some(json!(["checkpoints"]))
+            parameters(SubscriptionTopic::Logs(LogFilter::default()), None).ok(),
+            Some(json!(["logs", {}]))
         );
         assert_eq!(
             acknowledgement(&json!({"jsonrpc":"2.0", "id":"1", "result":"sub"}))
@@ -916,32 +1135,38 @@ mod tests {
             &json!({"jsonrpc":"2.0", "id":"1", "result":{"state":"accepted"}})
         )
         .is_err());
-        let event = json!({"jsonrpc":"2.0", "method":"lx_subscription", "params":{"subscription":"sub", "result":{"state":"pending"}, "cursor":"41"}});
+        let log = valid_log();
+        let event = json!({"jsonrpc":"2.0", "method":"eth_subscription", "params":{"subscription":"sub", "result":log}});
         assert_eq!(
             notification(&event, "sub").ok(),
-            Some((json!({"state":"pending"}), 41))
+            Some((
+                log,
+                LogPosition {
+                    block_number: 41,
+                    transaction_index: 0,
+                    log_index: 0
+                }
+            ))
         );
         assert!(notification(&event, "another-subscription").is_err());
+    }
+
+    fn valid_log() -> Value {
+        json!({"address":format!("0x{}", "11".repeat(20)), "topics":[], "data":"0x", "blockNumber":"0x29", "transactionIndex":"0x0", "logIndex":"0x0", "transactionHash":format!("0x{}", "22".repeat(32)), "blockHash":format!("0x{}", "33".repeat(32)), "removed":false})
     }
 
     #[test]
     fn resume_selectors_carry_a_canonical_cursor_after_the_topic() {
         assert_eq!(
-            parameters(SubscriptionTopic::Receipts, None, Some(41)).ok(),
-            Some(json!(["receipts", "41"]))
+            parameters(SubscriptionTopic::Logs(LogFilter::default()), None).ok(),
+            Some(json!(["logs", {}]))
         );
-        assert_eq!(
-            parameters(SubscriptionTopic::Checkpoints, None, Some(0)).ok(),
-            Some(json!(["checkpoints", "0"]))
-        );
-        assert_eq!(
-            parameters(SubscriptionTopic::Account, Some([0xab; 32]), Some(7)).ok(),
-            Some(json!(["account", "ab".repeat(32), "7"]))
-        );
-        assert_eq!(cursor_value("41"), Some(41));
-        assert_eq!(cursor_value("0"), Some(0));
-        for text in ["041", "", "-1", "+1", "18446744073709551616", " 1"] {
-            assert_eq!(cursor_value(text), None);
+        assert!(parameters(SubscriptionTopic::Checkpoints, None).is_err());
+        assert!(parameters(SubscriptionTopic::Account, Some([0xab; 32])).is_err());
+        assert_eq!(quantity("0x29"), Some(41));
+        assert_eq!(quantity("0x0"), Some(0));
+        for text in ["0x029", "", "-1", "+1", "0x10000000000000000", " 1"] {
+            assert_eq!(quantity(text), None);
         }
     }
 
@@ -955,7 +1180,7 @@ mod tests {
             json!({"subscription":"sub", "result":"pending", "cursor":"41"}),
         ] {
             assert!(notification(
-                &json!({"jsonrpc":"2.0", "method":"lx_subscription", "params":params}),
+                &json!({"jsonrpc":"2.0", "method":"eth_subscription", "params":params}),
                 "sub"
             )
             .is_err());

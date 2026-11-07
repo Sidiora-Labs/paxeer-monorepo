@@ -1,0 +1,20 @@
+[task]
+id = "22.33.468"
+finding = "mobile-block-withdrawal-value"
+proving_tests = ["mobileBlockWithdrawalValue", "mobileBlockWithdrawalValueLoading"]
+test_file = "apps/explorer/ui/withdrawals/beaconChain/repair-22-33-468.spec.ts"
+path = "Committed withdrawal API fixture -> typed block withdrawal items -> production BeaconChainWithdrawalsList -> BeaconChainWithdrawalsListItem -> NativeCoinValue -> mobile DOM under the real Chakra theme at 375px"
+baseline = "Not run: the ordered instructions require complete implementation before testing and forbid invoking verify_cmd outside hf-done. No pre-change failure is claimed; both tests require the Value row that the original block branch omits."
+wiring_requests = []
+evidence = "The private hf-build and hf-done ledger records the exact verified candidate revision, command, exit code and log path; no gate pass is claimed before qualification."
+environment = "Attempt 2 retains the existing implementation and runs hf-build followed by hf-done with the current declared corepack Yarn frozen install, TypeScript check and focused Vitest gate; no manifest change is needed."
+gotcha = "Vitest requires the named function in the callback position as well as the name position for these task-required function registrations to execute."
+formatter = "Repository ESLint --fix formatted the touched TypeScript files. Its valid-title and expect-expect rules do not recognize the task-required named function registrations; no lint pass is claimed and no check is disabled."
+
+[qualification.unrelated]
+revision = "4cbb80caf90bcbac155b99dea22a5e06a5cef018"
+command = "pnpm --dir apps/explorer exec tsc --noEmit -p tsconfig.json"
+exit = 2
+log = "/out/logs/build-1.log"
+observed = "Unchanged ui/marketplace/essentialDapps/revoke/hooks/repair-22-31-381.spec.ts:2 cannot resolve ganache (TS2307); the task-local ChakraProvider children error from the same build is repaired."
+assumption = "Domain 14 owns apps/explorer/ui/marketplace/essentialDapps/revoke/hooks/repair-22-31-381.spec.ts and apps/explorer/package.json: reconcile that test's ganache import with the declared dependencies in a separate task; neither path is in scope here."

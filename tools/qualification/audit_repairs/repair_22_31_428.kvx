@@ -1,0 +1,30 @@
+[task.22.31.428]
+audit = "22.30.181"
+base_revision = "4299cb15eced23eb9a839162acd11e9a937edd05"
+repair = "render.sh passes each bridge config to the production output.py guard, which reads JSON and accepts only one ASCII identifier beginning with an alphanumeric and continuing with alphanumerics, underscores or hyphens. Resolve and enforce strict containment under the explicitly selected canonical output root, rejecting symlinked directories and generated-file targets. Run the existing bridge generator in a fresh private output subdirectory and publish only its known body and proposal filenames. Replace regular files by rename, remove only obsolete known generated files and sidecars, preserve unrelated files and directories, and remove only emptied staging directories. Prepare the three top-level proposals and their sidecars by unlinking only their known regular filenames so later shell redirections cannot truncate external hardlinks."
+runtime_proof = "Pytest executes the actual production output guard in-process against real temporary files, directory entries, symlinks, hardlinks and a FIFO. Config input comes from the committed Solana configuration fixture. Exercise safe names, malformed and non-string JSON names, traversal, sibling-prefix containment, internal and external symlinks, generated leaf links and directories, complete preflight before replacement, selective stale-file removal, unrelated-file preservation, staged byte publication and the actual CLI dispatcher. File-backed committed JSON bytes exercise transport without claiming that the Go producer emitted those bytes; message semantics are outside this filesystem security proof."
+source_proof = "hf-build supplies the single bash -n tools/paxeer-x/gov/render.sh syntax parse. The Python gate checks shell fail-fast mode and ordered guarded commands from configuration through identifier/directory validation, staging, real Go producer arguments, guarded publication and the existing paxd consumer. Compare the deletion allowlist to the three committed templates and the bridge generator's declared body, proposal and indexed hexadecimal cap filenames. No recursive chain-directory deletion remains."
+review_only = "Go generation, Bash execution and paxd transaction construction are not executed by the Python-only gate. Their production invocations and guard ordering are source-proven; native message validity and actual offline transaction acceptance remain review-only. The renderer requires exclusive ownership of the chosen output directory while running; the separate shell/Go processes do not provide a lock against concurrent hostile directory mutation. Publication is per-file, not an atomic bundle; an interrupted or failed generation can leave staging files inside OUT for operator inspection. No recovery or interface-mismatch finding is claimed here."
+baseline = "No pre-change verify ran: step 5's baseline request conflicts with the explicit order requiring complete implementation before formatting/build/testing and hf-build before hf-done, which prohibits running verify_cmd by hand. No pre-change failure is claimed. The initial ledger had no prior gate runs; the initial diff contained runner-prepared .cgignore and spec task-start changes only, which are preserved. No Python, Shell or KVX formatter is configured for these paths; use existing style and .editorconfig whitespace rules."
+evidence = "The final hf-done JSON and private gate ledger name the exact content-derived candidate revision, command, exit and log. This record is finalized before hf-build and hf-done; the same revision must pass both gates. No source changes follow verification. The runner commits and publishes the qualified result."
+wiring_requests = []
+
+[finding.f004]
+file = "tools/paxeer-x/gov/render.sh"
+tests = ["test_f004_safe_identifiers_reach_contained_directory", "test_f004_rejects_traversal_and_nonstring_names", "test_f004_rejects_malformed_configs", "test_f004_rejects_symlinked_directories", "test_f004_resolved_containment_rejects_prefix_siblings", "test_f004_publish_replaces_only_generated_files", "test_f004_rerender_removes_unemitted_optional_proposal", "test_f004_publish_preflights_all_paths_before_replacement", "test_f004_publish_rejects_unselected_destinations_and_stages", "test_f004_top_level_replaces_names_without_following_hardlinks", "test_f004_top_level_preflights_all_generated_targets", "test_f004_output_guard_cli_uses_real_operations", "test_f004_shell_wires_guarded_producer_transport_and_consumer", "test_f004_record_maps_finding_to_executed_tests"]
+
+[gotcha.1]
+symptom = "The baseline verify step conflicts with the task's explicit gate order."
+resolution = "Follow the explicit order and record no pre-change test result; do not edit out-of-scope GOTCHA.kvx or spec files."
+
+[gotcha.2]
+symptom = "Combined workflow and audit reads exceeded output limits."
+resolution = "Read the exact task, finding, workflow rules and relevant gotcha sections separately with bounded outputs."
+
+[gotcha.3]
+symptom = "The bridge producer requires empty output directories and rejects unrelated files in them."
+resolution = "Generate in a fresh output-contained staging directory and publish only known files, preserving operator contents in the existing destination."
+
+[gotcha.4]
+symptom = "The inherited audit-repairs directory contains tracked bytecode caches."
+resolution = "Preserve inherited tracked files and disable writing new bytecode during qualification so the task adds sources only and verification does not change the candidate."

@@ -972,3 +972,12 @@ fn a11_eviction_never_seen_by_this_projection_has_no_archive_locator() -> Checke
     );
     Ok(())
 }
+
+#[path = "support/repair_22_33_1446.rs"]
+mod repair_paths;
+
+#[test]
+fn reputation_committed_membership_rollback_conflict_and_reopen(
+) -> Result<(), Box<dyn std::error::Error>> {
+    Ok(repair_paths::reputation_committed_membership_rollback_conflict_and_reopen()?)
+}

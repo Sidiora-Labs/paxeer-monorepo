@@ -25,11 +25,18 @@ import type { TradeSettlement } from "@/types/perps";
 import { useIsMobile } from "@/hooks/ui/useMobile";
 import {
   fmtUsdCompact as fmtUsd,
+  fmtUsd as fmtUsdFull,
   parse18,
   fmtDate,
   weiOrZero,
   weiToNumber,
 } from "@/ui/utils/format";
+
+import {
+  useSettlementCollateral,
+  settlementPayout,
+  type SettlementCollateral,
+} from "./settlementCollateral";
 
 interface TradeSettlementHistoryProps {
   userAddress: string | undefined;
@@ -39,6 +46,19 @@ interface TradeSettlementHistoryProps {
 export function absUsd(v: string | null | undefined): number {
   const wei = weiOrZero(v);
   return weiToNumber(wei < 0n ? -wei : wei);
+}
+
+export function settlementChartData(
+  settlements: readonly TradeSettlement[],
+  labels: Parameters<typeof marketLabel>[1],
+) {
+  return settlements.slice(0, 20).map((s) => ({
+    label: `${marketLabel(BigInt(s.marketId), labels)} #${s.positionId.slice(0, 6)}`,
+    grossPnl: parse18(s.grossPnl),
+    fees: -absUsd(s.totalFeesUsd),
+    borrowing: -absUsd(s.borrowingFeeUsd),
+    funding: weiToNumber(-weiOrZero(s.fundingPaidUsd)),
+  }));
 }
 
 export function TradeSettlementHistory({
@@ -58,17 +78,21 @@ export function TradeSettlementHistory({
     userAddress ? { userAddress } : undefined,
   );
 
-  const chartData = useMemo(() => {
-    if (!data || data.length === 0) return [];
-    return data.slice(0, 20).map((s) => ({
-      label: `${marketLabel(BigInt(s.marketId), labels)} #${s.positionId.slice(0, 6)}`,
-      grossPnl: parse18(s.grossPnl),
-      fees: -absUsd(s.totalFeesUsd),
-      borrowing: -absUsd(s.borrowingFeeUsd),
-      funding: -absUsd(s.fundingPaidUsd),
-      netPayout: parse18(s.netPayoutTokens),
-    }));
-  }, [data, labels]);
+  const positionIds = useMemo(
+    () => [...new Set(data?.map((s) => s.positionId) ?? [])],
+    [data],
+  );
+  const collateralQueries = useSettlementCollateral(positionIds);
+  const collateralByPosition = new Map<string, SettlementCollateral | Error>();
+  collateralQueries.forEach((query, index) => {
+    if (query.data) collateralByPosition.set(positionIds[index], query.data);
+    else if (query.error)
+      collateralByPosition.set(positionIds[index], query.error);
+  });
+  const chartData = useMemo(
+    () => settlementChartData(data ?? [], labels),
+    [data, labels],
+  );
 
   if (!userAddress) {
     return (
@@ -206,7 +230,11 @@ export function TradeSettlementHistory({
               </tr>
             </thead>
             <tbody>
-              <TradeSettlementRows settlements={data} labels={labels} />
+              <TradeSettlementRows
+                settlements={data}
+                labels={labels}
+                collateralByPosition={collateralByPosition}
+              />
             </tbody>
           </table>
         </div>
@@ -218,15 +246,18 @@ export function TradeSettlementHistory({
 export function TradeSettlementRows({
   settlements,
   labels,
+  collateralByPosition,
 }: {
   settlements: readonly TradeSettlement[];
   labels: Parameters<typeof marketLabel>[1];
+  collateralByPosition?: ReadonlyMap<string, SettlementCollateral | Error>;
 }) {
   return (
     <>
       {settlements.map((s) => {
         const grossPnl = parse18(s.grossPnl);
-        const netPayout = parse18(s.netPayoutTokens);
+        const funding = weiToNumber(-weiOrZero(s.fundingPaidUsd));
+        const collateral = collateralByPosition?.get(s.positionId);
         return (
           <tr
             key={s.id}
@@ -254,13 +285,22 @@ export function TradeSettlementRows({
             <td className="px-4 py-2 text-right font-mono text-red-400 hidden md:table-cell">
               -{fmtUsd(absUsd(s.borrowingFeeUsd))}
             </td>
-            <td className="px-4 py-2 text-right font-mono text-red-400 hidden lg:table-cell">
-              -{fmtUsd(absUsd(s.fundingPaidUsd))}
-            </td>
             <td
-              className={`px-4 py-2 text-right font-mono font-semibold ${netPayout >= 0 ? "text-emerald-500" : "text-red-500"}`}
+              className={`px-4 py-2 text-right font-mono hidden lg:table-cell ${funding > 0 ? "text-emerald-500" : funding < 0 ? "text-red-400" : "text-muted-foreground"}`}
             >
-              {fmtUsd(netPayout)}
+              {funding > 0 ? "+" : ""}
+              {fmtUsdFull(funding)}
+            </td>
+            <td className="px-4 py-2 text-right font-mono font-semibold">
+              {collateral instanceof Error || !collateralByPosition ? (
+                "Collateral unavailable"
+              ) : collateral ? (
+                <span title={collateral.tokenAddress}>
+                  {settlementPayout(s.netPayoutTokens, collateral)}
+                </span>
+              ) : (
+                "Loading collateral…"
+              )}
             </td>
             <td className="px-4 py-2 text-right text-muted-foreground hidden md:table-cell">
               {fmtDate(s.blockTimestamp)}

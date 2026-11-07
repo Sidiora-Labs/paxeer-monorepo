@@ -157,7 +157,7 @@ func TestMicroBatchEqualsSequential(t *testing.T) {
 	for _, i := range arrival {
 		acc, err := h.exec.Accept(txs[i])
 		require.NoError(t, err)
-		require.Equal(t, outs[i].acc, acc)
+		requireSameAccepted(t, outs[i].acc, acc)
 	}
 	for _, bz := range txs[microbatchConflicting:] {
 		acc, err := h.exec.Accept(bz)
@@ -235,4 +235,22 @@ func TestMicroBatchOptionsRefused(t *testing.T) {
 	require.Equal(t, startSeq+1, acc.Seq)
 	require.Equal(t, 1, acc.TxIndex)
 	require.Equal(t, expectedSeqHash(startSeqHash, startSeq+1, acc.ActivityID), acc.SeqHash)
+}
+
+func requireSameAccepted(t *testing.T, want, got *sequencer.Accepted) {
+	t.Helper()
+	require.Equal(t, want.Seq, got.Seq)
+	require.Equal(t, want.PrevSeqHash, got.PrevSeqHash)
+	require.Equal(t, want.SeqHash, got.SeqHash)
+	require.Equal(t, want.ActivityID, got.ActivityID)
+	require.Equal(t, want.Height, got.Height)
+	require.Equal(t, want.TxIndex, got.TxIndex)
+	require.Equal(t, want.TimestampMs, got.TimestampMs)
+	require.Equal(t, want.Result, got.Result)
+	require.NotNil(t, want.ReceiptContext.MultiStore())
+	require.NotNil(t, got.ReceiptContext.MultiStore())
+}
+
+func TestMicroBatchConcurrentPublicSends(t *testing.T) {
+	sequencer.RepairM1144LiveSerialization(t)
 }

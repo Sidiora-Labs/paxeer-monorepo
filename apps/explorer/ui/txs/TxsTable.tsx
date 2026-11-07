@@ -1,7 +1,7 @@
 import React from 'react';
 
 import type { TxsSocketType } from './socket/types';
-import type { Transaction, TransactionsSortingField, TransactionsSortingValue } from 'types/api/transaction';
+import type { TransactionsSortingField, TransactionsSortingValue } from 'types/api/transaction';
 
 import config from 'configs/app';
 import { AddressHighlightProvider } from 'lib/contexts/addressHighlight';
@@ -11,14 +11,16 @@ import useIsMobile from 'lib/hooks/useIsMobile';
 import useLazyRenderedList from 'lib/hooks/useLazyRenderedList';
 import { currencyUnits } from 'lib/units';
 import { TableBody, TableColumnHeader, TableColumnHeaderSortable, TableHeader, TableHeaderSticky, TableRoot, TableRow } from 'toolkit/chakra/table';
+import { LIST_TABLE_STYLES } from 'ui/shared/Page/ListPage';
 import TimeFormatToggle from 'ui/shared/time/TimeFormatToggle';
 
 import type { TxsTranslationQuery } from './noves/useDescribeTxs';
 import TxsSocketNotice from './socket/TxsSocketNotice';
+import type { TransactionFeedItem } from './TxPriceUpdate';
 import TxsTableItem from './TxsTableItem';
 
 type Props = {
-  txs: Array<Transaction>;
+  txs: Array<TransactionFeedItem>;
   sort: TransactionsSortingValue;
   onSortToggle?: (field: TransactionsSortingField) => void;
   top: number;
@@ -68,7 +70,7 @@ const TxsTable = ({
 
   return (
     <AddressHighlightProvider>
-      <TableRoot variant="scan" minWidth={{ base: '1200px', lg: '1080px' }}>
+      <TableRoot variant="scan" css={ LIST_TABLE_STYLES } minWidth={{ base: '1200px', lg: '1080px' }}>
         <TableHeaderComponent top={ stickyHeader ? top : undefined }>
           <TableRow>
             <TableColumnHeader width="48px"></TableColumnHeader>
@@ -79,6 +81,7 @@ const TxsTable = ({
               onSortToggle ? (
                 <TableColumnHeaderSortable
                   width="110px"
+                  isNumeric
                   sortField="block_number"
                   sortValue={ sort }
                   onSortToggle={ onSortToggle }
@@ -86,7 +89,7 @@ const TxsTable = ({
                   Block
                 </TableColumnHeaderSortable>
               ) : (
-                <TableColumnHeader width="110px">Block</TableColumnHeader>
+                <TableColumnHeader width="110px" isNumeric>Block</TableColumnHeader>
               )
             ) }
             <TableColumnHeader width="130px">

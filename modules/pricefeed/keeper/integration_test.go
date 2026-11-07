@@ -94,11 +94,12 @@ func newE2EChain(t *testing.T, tune func(*types.Params)) *e2eChain {
 	require.Len(t, testApp.StakingKeeper.GetBondedValidatorsByPower(ctx), e2eValidators)
 
 	require.NoError(t, keeper.InitV6120(ctx, k))
+	params := k.GetParams(ctx)
+	params.MinSources = 3
 	if tune != nil {
-		params := k.GetParams(ctx)
 		tune(&params)
-		require.NoError(t, k.SetParams(ctx, params))
 	}
+	require.NoError(t, k.SetParams(ctx, params))
 
 	precompile, err := pfprecompile.NewPrecompileWithKeeper(&k, testApp.GetPrecompileKeepers().EVMK())
 	require.NoError(t, err)

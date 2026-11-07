@@ -5,7 +5,6 @@ import (
 	"crypto/ed25519"
 	"crypto/sha256"
 	"encoding/hex"
-	"net"
 	"os"
 	"path/filepath"
 	"sync"
@@ -141,13 +140,12 @@ func TestFailoverRehearsalNoReceiptLost(t *testing.T) {
 		CommittedHeight: 1, LastSeq: secondary.opts.LastSeq,
 	})
 	require.NoError(t, err)
-	listener, err := net.Listen("tcp", "127.0.0.1:0")
-	require.NoError(t, err)
+	listener, auth := repair103TLSListener(t)
 	t.Cleanup(func() { require.NoError(t, listener.Close()) })
 	served := make(chan error, 1)
 	go func() { served <- standby.Serve(listener) }()
 	replicator, err := NewReplicator(ReplicatorConfig{
-		WAL: primary.log, Dial: DialStandby(listener.Addr().String(), 2*time.Second), ReplicationTimeout: 2 * time.Second,
+		WAL: primary.log, Dial: DialStandby(listener.Addr().String(), 2*time.Second, auth), ReplicationTimeout: 2 * time.Second,
 	})
 	require.NoError(t, err)
 	t.Cleanup(replicator.Close)

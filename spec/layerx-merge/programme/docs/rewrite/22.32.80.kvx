@@ -1,0 +1,11 @@
+[manifest]
+task = "22.32.80"
+domain = 8
+owner_role = "fm-platform"
+pages = 1
+
+[page.1]
+path = "sdk/contrib/rosetta/README.md"
+status = "stale"
+bytes = 1527
+source_1 = "record 22.30.74 [doc.rosetta] (stale): Full page read; simapp warning is accurate but line 27 overstates deterministic regeneration; see the matching finding."

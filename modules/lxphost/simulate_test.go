@@ -150,6 +150,10 @@ func TestSimulateMatchesExecuteReceipt(t *testing.T) {
 			require.NotEmpty(t, executed.Encoded)
 			simulated, err := host.Simulate(ctx, activity, authority)
 			require.NoError(t, err)
+			if !tc.refused {
+				require.NotZero(t, executed.KernelGasUsed)
+				require.NotZero(t, simulated.KernelGasUsed)
+			}
 			require.Equal(t, executed.ResultCode, simulated.ResultCode)
 			require.Equal(t, executed.PreviousStateRoot, simulated.PreviousStateRoot)
 			require.Equal(t, executed.ResultingStateRoot, simulated.ResultingStateRoot)
@@ -163,6 +167,22 @@ func TestSimulateMatchesExecuteReceipt(t *testing.T) {
 			require.NotNil(t, simulated.ProgramOutcome)
 			require.Equal(t, sdk.ZeroInt(), simulated.FeeCharged)
 			require.NotEqual(t, simulated.PreviousStateRoot, simulated.ResultingStateRoot)
+		})
+	}
+	for _, bound := range []bool{false, true} {
+		name := "funded_guest"
+		if bound {
+			name = "bound_unsigned_funded_guest"
+		}
+		t.Run(name, func(t *testing.T) {
+			f := repairM909Funded(t)
+			if bound {
+				f.call.Signature = nil
+				f.authority.Bound = true
+			}
+			receipt := simulateFundedParity(t, f.host, f.chain, f.chain.context(2, resolutionBlockTime, 8), f.call, f.authority)
+			require.NotZero(t, receipt.ProgramOutcome.CPUFuel)
+			require.NotZero(t, receipt.KernelGasUsed)
 		})
 	}
 }
@@ -298,4 +318,151 @@ func TestSimulateBindingAuthorityRefusals(t *testing.T) {
 			require.Equal(t, root, chain.commit())
 		})
 	}
+}
+
+// simulateFundedGuest is a committed Wasm fixture, assembled without a toolchain.
+// The guest checks every host result, consumes a receipt and emits its facts,
+// writes storage, and sends two distinct payment legs.
+func simulateFundedGuest(asset, first, second, digest [32]byte) []byte {
+	uleb := func(value int) []byte {
+		var out []byte
+		for {
+			b := byte(value & 127)
+			value >>= 7
+			if value != 0 {
+				b |= 128
+			}
+			out = append(out, b)
+			if value == 0 {
+				return out
+			}
+		}
+	}
+	label := func(value string) []byte { return append(uleb(len(value)), value...) }
+	wasm := []byte{0, 97, 115, 109, 1, 0, 0, 0}
+	section := func(id byte, body []byte) {
+		wasm = append(wasm, id)
+		wasm = append(wasm, uleb(len(body))...)
+		wasm = append(wasm, body...)
+	}
+	section(1, []byte{5, 0x60, 6, 0x7e, 0x7e, 0x7f, 0x7f, 0x7f, 0x7f, 1, 0x7f, 0x60, 4, 0x7f, 0x7f, 0x7f, 0x7f, 1, 0x7f, 0x60, 1, 0x7f, 1, 0x7f, 0x60, 2, 0x7f, 0x7f, 1, 0x7f, 0x60, 5, 0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 1, 0x7f})
+	imports := []byte{4}
+	for i, name := range []string{"transfer_402", "receipt_read", "event_emit", "storage_write_scoped"} {
+		if i == 3 {
+			imports = append(imports, label("layerx_v2")...)
+		} else {
+			imports = append(imports, label("layerx_v1")...)
+		}
+		imports = append(imports, label(name)...)
+		imports = append(imports, 0)
+		if i == 0 {
+			imports = append(imports, 0)
+		} else if i == 3 {
+			imports = append(imports, 4)
+		} else {
+			imports = append(imports, 1)
+		}
+	}
+	section(2, imports)
+	section(3, []byte{2, 2, 3})
+	section(5, []byte{1, 1, 1, 1})
+	exports := []byte{3}
+	for i, name := range []string{"layerx_reserve", "layerx_call", "memory"} {
+		exports = append(exports, label(name)...)
+		if i == 2 {
+			exports = append(exports, 2, 0)
+		} else {
+			exports = append(exports, 0, byte(4+i))
+		}
+	}
+	section(7, exports)
+	body := []byte{0}
+	constant := func(value int) { // Positive signed LEB128 i32.const.
+		body = append(body, 0x41)
+		for {
+			b := byte(value & 127)
+			value >>= 7
+			if value != 0 || b&64 != 0 {
+				b |= 128
+				body = append(body, b)
+			} else {
+				body = append(body, b)
+				break
+			}
+		}
+	}
+	check := func(function byte, expected int) {
+		body = append(body, 0x10, function)
+		constant(expected)
+		body = append(body, 0x47, 0x04, 0x40, 0x00, 0x0b)
+	}
+	for _, value := range []int{256, 32, 512, 116} {
+		constant(value)
+	}
+	check(1, 116)
+	for _, value := range []int{512, 32, 544, 84} {
+		constant(value)
+	}
+	check(2, 0)
+	for _, value := range []int{2, 224, 1, 225, 1} {
+		constant(value)
+	}
+	check(3, 0)
+	for i, destination := range []int{160, 192} {
+		body = append(body, 0x42, 0, 0x42, byte(i+1))
+		for _, value := range []int{128, 32, destination, 32} {
+			constant(value)
+		}
+		check(0, 0)
+	}
+	constant(0)
+	body = append(body, 0x0b)
+	code := []byte{2, 4, 0, 0x41, 0, 0x0b}
+	code = append(code, uleb(len(body))...)
+	code = append(code, body...)
+	section(10, code)
+	data := append([]byte(nil), asset[:]...)
+	data = append(data, first[:]...)
+	data = append(data, second[:]...)
+	data = append(data, 'k', 'v')
+	data = append(data, make([]byte, 30)...)
+	data = append(data, digest[:]...)
+	encoded := []byte{1, 0, 0x41, 0x80, 1, 0x0b}
+	encoded = append(encoded, uleb(len(data))...)
+	section(11, append(encoded, data...))
+	return wasm
+}
+
+func simulateFundedParity(t *testing.T, host *Host, chain *testChain, ctx sdk.Context, activity Activity, authority KernelAuthority) Receipt {
+	t.Helper()
+	before := chain.dump()
+	root := chain.cms.LastCommitID()
+	sequence := append([]byte(nil), chain.get([]byte{lastSequenceKey})...)
+	did, err := DIDID(activity.ActorDID)
+	require.NoError(t, err)
+	identitySequence := append([]byte(nil), chain.get(identitySequenceKey(did))...)
+	simulated, err := host.Simulate(ctx, activity, authority)
+	require.NoError(t, err)
+	require.Zero(t, simulated.ResultCode, "%s", simulated.ResultCode.Error())
+	require.Equal(t, before, chain.dump())
+	require.Equal(t, root, chain.cms.LastCommitID())
+	require.Equal(t, sequence, chain.get([]byte{lastSequenceKey}))
+	require.Equal(t, identitySequence, chain.get(identitySequenceKey(did)))
+	sibling, _ := ctx.CacheContext()
+	executed, err := host.Execute(sibling, activity, authority)
+	require.NoError(t, err)
+	require.Equal(t, Code(0), executed.ResultCode)
+	require.Equal(t, executed, simulated)
+	wire, err := codec.DecodeReceipt(executed.Encoded)
+	require.NoError(t, err)
+	other, err := codec.DecodeReceipt(simulated.Encoded)
+	require.NoError(t, err)
+	require.Equal(t, wire, other)
+	require.NotEmpty(t, wire.Effects)
+	require.True(t, simulated.FeeCharged.IsPositive())
+	require.NotNil(t, simulated.ProgramOutcome)
+	require.Zero(t, simulated.ProgramOutcome.Status)
+	require.Len(t, simulated.Transfers, 2)
+	require.Equal(t, before, chain.dump())
+	return simulated
 }

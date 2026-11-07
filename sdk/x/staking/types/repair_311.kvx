@@ -1,0 +1,36 @@
+[task]
+id = "22.31.311"
+audit = "22.30.168"
+base_revision = "7fc896febbb27d599c34aa9b6e0a81d4a7905759"
+baseline = "No baseline verification was run: the task's explicit gate order requires complete implementation before hf-build and hf-done and forbids a manual verify_cmd run; no TestRepair_311_* tests existed on the initial tree."
+evidence = "The runner records the candidate revision, exact build and verify commands, exits and private log paths in /out/run/gates.jsonl; qualification requires hf-done passing on the built candidate."
+
+[finding.deny-list-grants]
+test = "TestRepair_311_DenyListGrants"
+proof = "Real CLI-generated grant transaction, persisted Any query after closing and reopening LevelDB/application, MsgExec codec decode and real staking delegation; denied/nonmember rejection, allowed success, message routing, remaining limit across a second restart and deletion on exhaustion."
+
+[finding.precompile-share-units]
+test = "TestRepair_311_PrecompileShareUnits"
+proof = "Real validator creation, bonding, 50-percent destination slash, MsgBeginRedelegate, committed store reopen, keeper query, EVM precompile invocation and ABI decode; destination shares equal twice the token balance and retain sdk.Dec encoding."
+legacy_assessment = "GetVersioned registers v6.3.0 and v6.4.0, both of which project Balance into sharesDst; v65 has the same mapping but is not registered by staking/setup.go. Earlier registered versions do not expose redelegations. Current implementation always encodes SharesDst; legacy implementations remain separate replay versions."
+wiring_request_1 = "Owning domain 6: assess replay-compatible remediation for precompiles/staking/legacy/v630/staking.go and precompiles/staking/legacy/v640/staking.go (and unregistered legacy/v65/staking.go) before changing their historical ABI projections."
+wiring_request_2 = "Owning domain 6: replace the equal-value fixture in precompiles/staking/staking_test.go TestPrecompile_Run_Redelegations with the real non-unit-exchange-rate keeper path proven by TestRepair_311_PrecompileShareUnits; expect decimal shares instead of integer token balances."
+
+[finding.historical-sort-contract]
+test = "TestRepair_311_HistoricalSortContract"
+proof = "Real keeper-created bonded validators with unequal nonzero powers and opposing operator/consensus tie order, NewHistoricalInfo producer, keeper codec/storage, close/reopen and ValidateBasic consumer with the same explicit power reduction; also tests alternate reduction and rejects reversed/empty sets."
+api = "ValidateBasic requires the producer's powerReduction; all in-tree callers are the in-scope historical_info_test.go and repair_311_test.go and pass it explicitly."
+
+[qualification.repair]
+revision = "92c8af6151fecd66c8ce9052612a1012e64cc60e"
+command = "cg spec done 22.31.311 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "All three tests stopped in funding because the harness used an uncached PaxDB commitment store, whose Set writes are visible only after commit."
+repair = "Use the real CacheMultiStore for each application context and write that cache before committing and closing the application; retain every behavioral assertion."
+
+[qualification.continuation]
+seed_revision = "d15162cc2963903458043f23f76c9aa274e1dab7"
+observed = "The supplied previous-attempt verification stopped in MsgCreateValidator.ValidateBasic with empty description before reaching the behavioral proofs."
+repair = "Supply a nonempty validator moniker through the real creation message and retain ValidateBasic and every behavioral assertion."
+gotcha = "Real validator creation fixtures must provide a nonempty Description; NewMsgCreateValidator alone does not validate it."

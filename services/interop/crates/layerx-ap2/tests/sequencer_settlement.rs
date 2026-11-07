@@ -1,6 +1,5 @@
-use std::path::PathBuf;
-use std::process::Command;
-use std::sync::atomic::{AtomicU64, Ordering};
+#[path = "support/source_receipt.rs"]
+mod source_receipt;
 
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use base64::Engine as _;
@@ -38,7 +37,7 @@ use sha2::{Digest as _, Sha256};
 const NOW: u64 = 1_700_000_000;
 const FIXTURE: &str = include_str!(concat!(
     env!("CARGO_MANIFEST_DIR"),
-    "/../../../../sdk/platform/conformance/fixtures/sequencer-receipt-v1.json"
+    "/tests/fixtures/ap2-mandate-pay-exact.json"
 ));
 
 fn recorded_case() -> Value {
@@ -47,7 +46,7 @@ fn recorded_case() -> Value {
         .as_array()
         .expect("cases")
         .iter()
-        .find(|case| case["id"] == "V1-layerxledger-pay-exact")
+        .find(|case| case["id"] == "settlement")
         .expect("recorded PaymentExact")
         .clone()
 }
@@ -126,66 +125,7 @@ fn pinned_key(case: &Value) -> SequencerAuthorization {
     )
 }
 
-struct ReceiptKey {
-    directory: PathBuf,
-    public_key: [u8; 32],
-}
-
-impl ReceiptKey {
-    fn new() -> Self {
-        static NEXT: AtomicU64 = AtomicU64::new(0);
-        let directory = std::env::temp_dir().join(format!(
-            "ap2-sequencer-{}-{}",
-            std::process::id(),
-            NEXT.fetch_add(1, Ordering::Relaxed)
-        ));
-        std::fs::create_dir(&directory).expect("private test key directory");
-        let mut der =
-            hex::decode("302e020100300506032b657004220420").expect("Ed25519 PKCS8 prefix");
-        der.extend_from_slice(&[0x35; 32]);
-        std::fs::write(directory.join("key.der"), der).expect("test-only key");
-        let output = Command::new("openssl")
-            .args(["pkey", "-inform", "DER", "-in"])
-            .arg(directory.join("key.der"))
-            .args(["-pubout", "-outform", "DER"])
-            .output()
-            .expect("openssl public key");
-        assert!(
-            output.status.success(),
-            "{}",
-            String::from_utf8_lossy(&output.stderr)
-        );
-        assert_eq!(output.stdout.len(), 44);
-        let public_key = output.stdout[12..].try_into().expect("Ed25519 public key");
-        Self {
-            directory,
-            public_key,
-        }
-    }
-
-    fn sign(&self, message: &[u8]) -> [u8; 64] {
-        std::fs::write(self.directory.join("message"), message).expect("message to sign");
-        let output = Command::new("openssl")
-            .args(["pkeyutl", "-sign", "-rawin", "-keyform", "DER", "-inkey"])
-            .arg(self.directory.join("key.der"))
-            .arg("-in")
-            .arg(self.directory.join("message"))
-            .output()
-            .expect("openssl Ed25519 signer");
-        assert!(
-            output.status.success(),
-            "{}",
-            String::from_utf8_lossy(&output.stderr)
-        );
-        output.stdout.try_into().expect("Ed25519 signature")
-    }
-}
-
-impl Drop for ReceiptKey {
-    fn drop(&mut self) {
-        std::fs::remove_dir_all(&self.directory).expect("remove test key directory");
-    }
-}
+use source_receipt::IntentKey as ReceiptKey;
 
 struct MandateKeys;
 
@@ -258,7 +198,7 @@ fn context() -> VerificationContext<'static> {
 }
 
 fn binding(case: &Value, evidence: &SequencerEvidence) -> LayerXAssetBinding {
-    let log = &evidence.logs[0];
+    let log = source_receipt::payment_log(evidence);
     LayerXAssetBinding {
         currency: "USD".into(),
         minor_unit_exponent: 2,
@@ -390,57 +330,26 @@ fn signed_payload(jwt: &str, key: &VerifyingKey) -> Value {
     .expect("receipt payload")
 }
 
-fn sign_payment_reference(
+fn assert_payment_reference(
     case: &Value,
-    evidence: &mut SequencerEvidence,
+    evidence: &SequencerEvidence,
     payment: &AuthorizedPayment,
-    key: &ReceiptKey,
 ) -> [u8; 32] {
-    let [_, payer, payee] = recorded_payment_topics(case);
-    let old_topics = evidence.logs[0].topics()[1..].concat();
-    let topics = vec![
-        evidence.logs[0].topics()[0],
-        payment.idempotency_key(),
-        payer,
-        payee,
-    ];
-    let positions: Vec<_> = evidence
-        .signed_receipt
-        .windows(old_topics.len())
-        .enumerate()
-        .filter_map(|(index, bytes)| (bytes == old_topics).then_some(index))
-        .collect();
-    assert_eq!(positions.len(), 1, "one signed PaymentExact indexed tuple");
-    evidence.signed_receipt[positions[0]..positions[0] + old_topics.len()]
-        .copy_from_slice(&topics[1..].concat());
-    evidence.logs[0] = SequencerLog::new(
-        evidence.logs[0].address(),
-        topics,
-        evidence.logs[0].data().to_vec(),
-        0,
-    );
-    let unsigned_end = evidence.signed_receipt.len() - 69;
-    let mut hash = Sha256::new();
-    hash.update(b"LXP/v1/receipt\0");
-    hash.update(&evidence.signed_receipt[..unsigned_end]);
-    hash.update([0]);
-    let digest: [u8; 32] = hash.finalize().into();
-    evidence.signed_receipt[unsigned_end + 5..].copy_from_slice(&key.sign(&digest));
-    digest
+    source_receipt::assert_mandate_reference(case, evidence, payment)
 }
 
 #[test]
 fn ap2_execute_settles_receipted_evidence() {
     let case = recorded_case();
-    let mut evidence = recorded_evidence(&case);
+    let evidence = recorded_evidence(&case);
     let binding = binding(&case, &evidence);
     let pair = mandates();
     let principal = PrincipalId::new("buyer").expect("principal");
     let payment = authorized(&principal, &pair, &binding);
-    let key = ReceiptKey::new();
-    let digest = sign_payment_reference(&case, &mut evidence, &payment, &key);
+    let digest = assert_payment_reference(&case, &evidence, &payment);
+    let key = ReceiptKey::new(&case);
     assert_eq!(
-        &evidence.logs[0].topics()[1..],
+        &source_receipt::payment_log(&evidence).topics()[1..],
         &[
             payment.idempotency_key(),
             binding.payer_receipt_account,
@@ -453,12 +362,12 @@ fn ap2_execute_settles_receipted_evidence() {
     let recorded_pin = pinned_key(&case);
     let pins = [SequencerAuthorization::new(
         recorded_pin.sequencer_id(),
-        key.public_key,
+        recorded_pin.public_key(),
         recorded_pin.first_batch_number(),
         recorded_pin.last_batch_number(),
     )];
     let receipt = verify_sequencer_signature(&evidence.signed_receipt, pins.as_slice())
-        .expect("self-signed receipt");
+        .expect("original node-signed receipt");
     verify_logs(&receipt, evidence.logs.clone()).expect("signed PaymentExact log");
     assert_eq!(
         canonical_receipt_digest(&evidence.signed_receipt),
@@ -526,7 +435,10 @@ fn ap2_execute_settles_receipted_evidence() {
             &principal,
             &pair.0,
             &pair.1,
-            &context(),
+            &VerificationContext {
+                now: NOW + 1,
+                ..context()
+            },
             &binding,
             &mut plane,
             &mut payment_signer,
@@ -547,17 +459,17 @@ fn ap2_execute_settles_receipted_evidence() {
 #[test]
 fn ap2_portable_evidence_round_trips_as_v2() {
     let case = recorded_case();
-    let mut evidence = recorded_evidence(&case);
+    let evidence = recorded_evidence(&case);
     let binding = binding(&case, &evidence);
     let pair = mandates();
     let principal = PrincipalId::new("buyer").expect("principal");
     let payment = authorized(&principal, &pair, &binding);
-    let key = ReceiptKey::new();
-    let digest = sign_payment_reference(&case, &mut evidence, &payment, &key);
+    let digest = assert_payment_reference(&case, &evidence, &payment);
+    let key = ReceiptKey::new(&case);
     let recorded_pin = pinned_key(&case);
     let pins = [SequencerAuthorization::new(
         recorded_pin.sequencer_id(),
-        key.public_key,
+        recorded_pin.public_key(),
         recorded_pin.first_batch_number(),
         recorded_pin.last_batch_number(),
     )];
@@ -663,7 +575,7 @@ fn ap2_execute_refuses_a_payee_mismatch() {
     let payment = authorized(&principal, &pair, &binding);
     let mut plane = ReceiptedPlane {
         evidence,
-        key: ReceiptKey::new(),
+        key: ReceiptKey::new(&case),
         executions: 0,
     };
     let trace = TraceId::mint([0x52; 16]);
@@ -699,14 +611,14 @@ fn ap2_execute_refuses_a_payee_mismatch() {
             .len(),
         1
     );
-    let digest = sign_payment_reference(&case, &mut plane.evidence, &payment, &plane.key);
+    let digest = assert_payment_reference(&case, &plane.evidence, &payment);
     assert_eq!(
-        plane.evidence.logs[0].topics()[1],
+        source_receipt::payment_log(&plane.evidence).topics()[1],
         payment.idempotency_key()
     );
     let test_pins = [SequencerAuthorization::new(
         pins[0].sequencer_id(),
-        plane.key.public_key,
+        pins[0].public_key(),
         pins[0].first_batch_number(),
         pins[0].last_batch_number(),
     )];

@@ -1,0 +1,11 @@
+[repair.22.33.1463]
+finding = "ledger-show-false-success"
+audit = "22.30.84"
+base_revision = "e3d7e5828b39e4182e9559fb6bc28d74c2f37e0f"
+tests = ["TestRepairM_1463_PathFailure", "TestRepairM_1463_LedgerDeviceFailure"]
+implementation = "The production device-display helper propagates and wraps GetPath errors; runShowCmd returns its result, so host address output cannot convert a device-display failure into success. Existing device eligibility checks and ordinary host display behavior are preserved."
+proof = "PathFailure uses a real persisted offline Info to exercise path failure without inventing a failing Ledger Info implementation (the built-in Ledger GetPath always succeeds). LedgerDeviceFailure transports the keyring's existing public Ledger metadata fixture through the real Amino codec, in-memory key store, name/address lookup and Cobra command, requiring a visible command failure for unavailable device support across address, text and JSON output; host-only queries succeed."
+baseline = "No pre-change test run: the ordered task instructions prohibit running verify_cmd by hand or before implementation is complete. No baseline failures are claimed."
+qualification_repair = "The first verification caught a test compile error from calling UnmarshalJSON on LegacyAmino; the fixture now uses the existing UnmarshalAsJSON method."
+evidence = "The final task response and private hf-build/hf-done gate ledger name the exact verified candidate revision, command, exit code and log."
+wiring_requests = []

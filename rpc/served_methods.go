@@ -10,6 +10,10 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 )
 
+// ServedMethods lists registered namespaces, including the node-root px account,
+// history, consensus and receipt reads, plus explicit hosted-service refusals.
+// pax_sequencerReceipt retains its compatibility name and is exempt from the
+// legacy pax gate. Refusals remain dispatched methods on both transports.
 func ServedMethods(apis []rpc.API) []string {
 	errorType := reflect.TypeOf((*error)(nil)).Elem()
 	contextType := reflect.TypeOf((*context.Context)(nil)).Elem()

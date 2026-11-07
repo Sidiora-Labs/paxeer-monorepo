@@ -63,13 +63,10 @@ defmodule EthereumJSONRPC.PaxeerX do
   receipts root, and refetches by number when it does not. The fetched body
   supplies the data for import.
 
-  ## 4. `eth_syncing` always errors
+  ## 4. `eth_syncing` reports consensus catch-up
 
-  The RPC registers `eth_syncing` and then rejects it with JSON-RPC error
-  -32000; the node has no notion of a sync target to report. Consensus-level
-  catch-up is not observable over `eth_*` at all. `fetch_syncing_status/1`
-  reports an errored `eth_syncing` as synced, because on this chain the error is
-  the node's steady state and not a degraded one.
+  The node returns `false` when synced or an object with hex progress quantities
+  while catching up. Transport and consensus status errors remain errors.
 
   ## 5. Native coin decimals
 
@@ -96,6 +93,7 @@ defmodule EthereumJSONRPC.PaxeerX do
 
   @cosmos_transaction_type 0xFFFF_FFFF
   @default_cosmos_transaction_type 0x7F
+  @max_stored_transaction_type 0x7FFF_FFFF
 
   @bank_denom_decimals 6
   @evm_denom_decimals 18
@@ -130,13 +128,22 @@ defmodule EthereumJSONRPC.PaxeerX do
   The in-range transaction type Cosmos-originated transactions are stored with.
 
   Read from `config :ethereum_jsonrpc, EthereumJSONRPC.PaxeerX,
-  cosmos_transaction_type: integer`, defaulting to `0x7f`.
+  cosmos_transaction_type: integer`, defaulting to `0x7f` (127), the unused
+  last EIP-2718 byte. Replacements must be in 127..2147483647: supported
+  EVM types are below this range and the database uses a signed 32-bit integer.
   """
   @spec stored_cosmos_transaction_type() :: non_neg_integer()
   def stored_cosmos_transaction_type do
-    case config(:cosmos_transaction_type) do
-      type when is_integer(type) and type >= 0 -> type
-      _ -> @default_cosmos_transaction_type
+    type =
+      :ethereum_jsonrpc
+      |> Application.get_env(__MODULE__, [])
+      |> Keyword.get(:cosmos_transaction_type, @default_cosmos_transaction_type)
+
+    if is_integer(type) and type >= @default_cosmos_transaction_type and type <= @max_stored_transaction_type do
+      type
+    else
+      raise ArgumentError,
+            "cosmos_transaction_type must be an integer in 127..2147483647, outside supported EVM types and wire markers"
     end
   end
 
@@ -285,33 +292,26 @@ defmodule EthereumJSONRPC.PaxeerX do
   end
 
   @doc """
-  Reads `eth_syncing`, reporting an errored call as synced.
-
-  The Paxeer X RPC answers `eth_syncing` with JSON-RPC error -32000 at all
-  times; that is the node's normal answer, not a fault, so it is reported as
-  `{:ok, :synced}`. A node that does answer is read normally, so this stays
-  correct if the method is ever implemented.
+  Reads the node's false/progress contract and preserves operational errors.
   """
   @spec fetch_syncing_status(EthereumJSONRPC.json_rpc_named_arguments()) ::
           {:ok, :synced}
           | {:ok, {:syncing, current_block :: non_neg_integer(), highest_block :: non_neg_integer()}}
           | {:error, reason :: term()}
   def fetch_syncing_status(json_rpc_named_arguments) do
-    %{id: 0, method: "eth_syncing", params: []}
-    |> request()
-    |> json_rpc(json_rpc_named_arguments)
-    |> case do
-      {:ok, false} ->
-        {:ok, :synced}
+    syncing_request = request(%{id: 0, method: "eth_syncing", params: []})
 
-      {:ok, %{"currentBlock" => current_block, "highestBlock" => highest_block}} ->
-        {:ok, {:syncing, quantity_to_integer(current_block), quantity_to_integer(highest_block)}}
+    with {:ok, result} <- json_rpc(syncing_request, json_rpc_named_arguments) do
+      case result do
+        false ->
+          {:ok, :synced}
 
-      {:error, _reason} ->
-        {:ok, :synced}
+        %{"currentBlock" => current_block, "highestBlock" => highest_block} ->
+          {:ok, {:syncing, quantity_to_integer(current_block), quantity_to_integer(highest_block)}}
 
-      {:ok, other} ->
-        {:error, {:unexpected_syncing_result, other}}
+        other ->
+          {:error, {:unexpected_syncing_result, other}}
+      end
     end
   end
 

@@ -8,9 +8,12 @@ use layerx_programs_runtime::test_support::{
     unsigned_leb, OP_CALL, OP_END, OP_LOCAL_GET, TYPE_I32,
 };
 use layerx_programs_runtime::{
-    ABI_V1_MODULE, ABI_V1_VERSION, ABI_V2_VERSION, ABI_V3_MODULE, ABI_V3_VERSION, ABI_V4_MODULE,
-    ABI_V4_VERSION,
+    WasmEngine, ABI_V1_MODULE, ABI_V1_VERSION, ABI_V2_VERSION, ABI_V3_MODULE, ABI_V3_VERSION,
+    ABI_V4_MODULE, ABI_V4_VERSION, ABI_V5_MODULE, ABI_V5_VERSION,
 };
+
+#[path = "support/abi_v5.rs"]
+mod abi_v5;
 
 const SECTION_MEMORY: u8 = 5;
 const SECTION_EXPORT: u8 = 7;
@@ -166,9 +169,26 @@ fn v4_artifact_importing_outside_the_host_set_is_refused() {
 }
 
 #[test]
-fn versions_above_v4_keep_the_unsupported_refusal() {
+fn v5_admits_market_step_adjudicate_through_real_import_validation() {
+    let market = abi_v5::program_importing(ABI_V5_MODULE, "market_step_adjudicate", 6);
+    let engine = WasmEngine::declared().expect("declared runtime engine");
+    assert!(engine.validate_v5(&market).is_ok());
+    assert_eq!(lint_artifact_for_abi(&market, ABI_V5_VERSION), Vec::new());
+    for version in [
+        ABI_V1_VERSION,
+        ABI_V2_VERSION,
+        ABI_V3_VERSION,
+        ABI_V4_VERSION,
+    ] {
+        assert!(lint_artifact_for_abi(&market, version)
+            .contains(&undeclared(ABI_V5_MODULE, "market_step_adjudicate")));
+    }
+}
+
+#[test]
+fn versions_outside_v1_through_v5_keep_the_unsupported_refusal() {
     let web = program_importing(ABI_V4_MODULE, "web_read");
-    for version in [ABI_V4_VERSION + 1, u16::MAX, 0] {
+    for version in [0, 6, u16::MAX] {
         assert_eq!(
             lint_artifact_for_abi(&web, version),
             vec![DeterminismViolation::RejectedByEngine {

@@ -51,6 +51,16 @@ func (k Keeper) InitGenesis(ctx sdk.Context, genesis types.GenesisState) {
 // ExportGenesis returns owned entries for the module JSON export; replay through
 // InitGenesis preserves program answers, fee denoms and counters after restart.
 func (k Keeper) ExportGenesis(ctx sdk.Context) types.GenesisState {
+	// The owning types schema must carry archived answer parts before JSON
+	// export can represent this state. Refuse a lossy export in the meantime.
+	iterator := ctx.KVStore(k.storeKey).Iterator([]byte(programArchivePrefix), sdk.PrefixEndBytes([]byte(programArchivePrefix)))
+	hasArchive := iterator.Valid()
+	if err := iterator.Close(); err != nil {
+		panic(err)
+	}
+	if hasArchive {
+		panic(types.ErrInvalidGenesis.Wrap("program archive requires modules/xweb/types/genesis.go archive schema wiring"))
+	}
 	return types.GenesisState{
 		Params:                k.GetParams(ctx),
 		Paused:                k.IsPaused(ctx),

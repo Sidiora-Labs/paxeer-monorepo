@@ -1,0 +1,8 @@
+[repair.22.31.179]
+audit = "22.30.60"
+finding_001 = "TestRepair_179_PayablePrecompileValue"
+path = "CLI command -> signed Ethereum transaction -> HTTP JSON-RPC SendAPI -> node sequencer executor -> payable bank.sendNative -> bank store balance and execution receipt"
+baseline = "Not run: the task's ordered gate instructions require implementation before qualification and prohibit running verify_cmd by hand. No pre-change test failures are claimed."
+previous_attempt = "At cce1d109f1b09ff31d2b5ee0e20c767a33b6e5d0 TestRepair_179_PayablePrecompileValue failed before submission because NewMnemonic returns *LocalInfo; reload the persisted key through Key, as the command does, retaining the LocalInfo assertion."
+qualification = "hf-build and hf-done record the candidate revision, exact command, exit code and private log location in the runner gate ledger; the final evidence line identifies the qualified revision."
+wiring_requests = []

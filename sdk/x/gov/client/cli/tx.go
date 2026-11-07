@@ -45,6 +45,7 @@ var ProposalFlags = []string{
 	FlagDescription,
 	FlagProposalType,
 	FlagDeposit,
+	FlagIsExpedited,
 }
 
 // NewTxCmd returns the transaction commands for this module
@@ -138,7 +139,8 @@ $ %s tx gov submit-proposal --title="Test Proposal" --description="My awesome pr
 	cmd.Flags().String(FlagDescription, "", "The proposal description")
 	cmd.Flags().String(FlagProposalType, "", "The proposal Type")
 	cmd.Flags().String(FlagDeposit, "", "The proposal deposit")
-	cmd.Flags().String(FlagProposal, "", "Proposal file path (if this path is given, other proposal flags are ignored)")
+	cmd.Flags().Bool(FlagIsExpedited, false, "Submit an expedited proposal")
+	cmd.Flags().String(FlagProposal, "", "Proposal file path (cannot be combined with other proposal flags)")
 	flags.AddTxFlagsToCmd(cmd)
 
 	return cmd

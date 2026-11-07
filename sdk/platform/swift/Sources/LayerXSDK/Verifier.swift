@@ -178,10 +178,20 @@ public enum LocalVerifier {
     else {
       throw receiptFailure(.sequenceHash)
     }
+    let reportedBlockNumber: UInt64?
+    let reportedBlockHash: Data?
+    if receiptJSON["rung"] == .string("committed") {
+      reportedBlockNumber = try sequencerQuantity(receiptJSON["blockNumber"])
+      reportedBlockHash = try sequencerHex(receiptJSON["blockHash"], check: .fields, length: 32)
+    } else {
+      reportedBlockNumber = nil
+      reportedBlockHash = nil
+    }
     return SequencerReceiptVerification(
       level: VerificationLevel.receipted.rawValue, status: r.resultCode == 0 ? 1 : 0,
       revert: r.resultCode == 0 ? nil : decodeSequencerRevert(returnData), receipt: r,
-      canonicalBytes: receiptBytes, receiptDigest: receiptDigest)
+      canonicalBytes: receiptBytes, receiptDigest: receiptDigest,
+      reportedBlockNumber: reportedBlockNumber, reportedBlockHash: reportedBlockHash)
   }
 
   public static func decodeProgramReceiptOutcome(
@@ -226,25 +236,15 @@ public enum LocalVerifier {
     guard current == expectedRoot else { throw verificationFailure() }
   }
 
+  @available(
+    *, deprecated,
+    message:
+      "Kernel lifecycle receipts are retired. Use verifySequencerReceipt with the retained EVM transaction, ReceiptKeys and authenticated sequence context."
+  )
   public static func verifyProgramLifecycleReceipt(
     _ canonical: Data, expectedActivity: Data, sequencer: Data
   ) throws -> ReceiptVerification {
-    let decoded = try decodeProtocolReceipt(canonical, sequencerOnly: false)
-    let receipt = decoded.receipt
-    guard receipt.protocolVersion == 3, receipt.moduleID == 9, receipt.moduleVersion == 4,
-      receipt.operation == 0,
-      receipt.programOutcome == nil, expectedActivity.count == 32, !allZero(expectedActivity),
-      receipt.activityID == expectedActivity,
-      sequencer.count == 32, !allZero(sequencer)
-    else { throw receiptFailure(.receiptShape) }
-    let receiptDigest = digest(wireReceiptDomain, decoded.unsignedBytes)
-    guard
-      verifyEd25519(
-        publicKey: sequencer, signature: receipt.sequencerSignature, message: receiptDigest)
-    else { throw receiptFailure(.sequencerSignature) }
-    return ReceiptVerification(
-      level: "sequencer-signed", receipt: receipt, canonicalBytes: canonical,
-      receiptDigest: receiptDigest)
+    throw PlatformSDKError(code: .protocolIncompatibility, retry: .never)
   }
 
 }
@@ -597,6 +597,8 @@ public struct SequencerReceiptVerification: Sendable {
   public let receipt: ProtocolReceipt
   public let canonicalBytes: Data
   public let receiptDigest: Data
+  public let reportedBlockNumber: UInt64?
+  public let reportedBlockHash: Data?
 }
 
 private func encodeSequencerReceipt(_ r: ProtocolReceipt, signed: Bool) -> Data {
@@ -693,9 +695,20 @@ private func verifySequencerJSON(
   _ j: [String: JSONValue], receipt r: ProtocolReceipt,
   bytes: Data, height: UInt64
 ) throws -> Data {
+  switch j["rung"] {
+  case .string("receipted"):
+    guard j["blockNumber"] == nil, j["blockHash"] == nil else {
+      throw receiptFailure(.fields)
+    }
+  case .string("committed"):
+    guard try sequencerQuantity(j["blockNumber"]) >= height,
+      try sequencerQuantity(j["blockNumber"]) > 0,
+      try !allZero(sequencerHex(j["blockHash"], check: .fields, length: 32))
+    else { throw receiptFailure(.fields) }
+  default: throw receiptFailure(.fields)
+  }
   guard r.moduleID > 11, r.moduleVersion == 1, r.parameterVersion == 0,
     (0...1).contains(r.resultCode), !r.effects.isEmpty, allZero(r.transferSetRoot),
-    j["rung"] == .string("receipted"),
     try sequencerHex(j["receipt"], check: .fields) == bytes,
     try sequencerHex(j["txHash"], check: .fields, length: 32) == r.activityID,
     try sequencerHex(j["keyId"], check: .fields, length: 32) == r.contextHash,
@@ -732,7 +745,9 @@ private func verifySequencerJSON(
   let denomLength = try summary.u8()
   guard (1...64).contains(denomLength), let denom = j["feeDenom"]?.stringValue,
     try summary.fixed(Int(denomLength)) == Data(denom.utf8),
-    digest(Data(denom.utf8)) == r.asset
+    let paymentDenom = j["paymentDenom"]?.stringValue,
+    (1...64).contains(paymentDenom.utf8.count),
+    digest(Data(paymentDenom.utf8)) == r.asset
   else { throw receiptFailure(.fields) }
   try summary.finish()
   guard let fee = j["feeAmount"]?.stringValue, fee.hasPrefix("0x"), fee.count > 2, fee.count <= 34

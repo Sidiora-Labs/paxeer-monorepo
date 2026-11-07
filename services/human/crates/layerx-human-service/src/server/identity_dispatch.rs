@@ -1,6 +1,5 @@
 //! Principal-scoped identity projections used by the production dispatcher.
 
-use base64::Engine as _;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use sha2::Digest as _;
@@ -12,14 +11,66 @@ use std::time::Duration;
 
 use crate::auth::{OperationDigest, StepUpChallenge, StepUpEvidence};
 use crate::onboarding::{
-    EvidenceClass, EvidenceVerification, OnboardingStage, OnboardingState, OnboardingStatus,
-    StageState,
+    OnboardingJourney, OnboardingStage, OnboardingStart, OnboardingStatus, RecoveryPolicy,
 };
-use crate::onboarding::{OnboardingStart, RecoveryPolicy};
 use crate::security::{security_action_digest, SecurityAction};
 use crate::store::{PrincipalId, PrincipalScope, RowKey, StoreError, Table};
 use layerx_types::ids::Did;
 use layerx_types::intent::{ApprovalThreshold, RecoveryRoot};
+
+#[path = "identity_projection.rs"]
+mod api_projection;
+pub(crate) fn step_up_challenge(value: &StepUpChallenge) -> Result<Value, IdentityDispatchError> {
+    api_projection::step_up_challenge(value)
+}
+
+pub(crate) fn step_up_evidence(value: &StepUpEvidence) -> Result<Value, IdentityDispatchError> {
+    if value.completed_at() >= value.expires_at() {
+        return Err(IdentityDispatchError::Corrupt);
+    }
+    api_projection::step_up_evidence(value)
+}
+
+fn onboarding_stage_copy_key(stage: OnboardingStage) -> &'static str {
+    match stage {
+        OnboardingStage::ApplicationIdentity => "onboarding.stage.creating-your-account",
+        OnboardingStage::CustodyKey => "onboarding.stage.adding-your-passkey",
+        OnboardingStage::DidRegistration => "onboarding.stage.setting-up-your-protocol-identity",
+        OnboardingStage::InitialFunding => "agent.create.stage.first-funding",
+        OnboardingStage::RecoveryRegistration => "onboarding.stage.putting-recovery-in-place",
+    }
+}
+
+pub(crate) fn onboarding_status(
+    scope: &PrincipalScope<'_>,
+    value: &OnboardingStatus,
+) -> Result<Value, IdentityDispatchError> {
+    let journey = OnboardingJourney::load(scope)
+        .map_err(|_| IdentityDispatchError::Corrupt)?
+        .ok_or(IdentityDispatchError::NotFound)?;
+    if journey.status() != *value {
+        return Err(IdentityDispatchError::Corrupt);
+    }
+    journey
+        .activation_evidence(scope)
+        .map_err(|_| IdentityDispatchError::Corrupt)?;
+
+    let mut projected = api_projection::onboarding_status(scope, value)?;
+    let stages = projected["stages"]
+        .as_array_mut()
+        .ok_or(IdentityDispatchError::Corrupt)?;
+    if stages.len() != value.stages().len() {
+        return Err(IdentityDispatchError::Corrupt);
+    }
+    for (stage, status) in stages.iter_mut().zip(value.stages()) {
+        stage["copy_key"] = json!(onboarding_stage_copy_key(status.stage()));
+    }
+    let state = projected["state"]
+        .as_str()
+        .ok_or(IdentityDispatchError::Corrupt)?;
+    projected["state_copy_key"] = json!(format!("status.{}", state.replace('-', "_")));
+    Ok(projected)
+}
 
 const PROFILE_ROW: &str = "identity-profile";
 const IDENTITY_MAGIC: &[u8; 4] = b"LXIP";
@@ -255,7 +306,7 @@ impl RemoteIdentityProvider {
         stream
             .read_exact(&mut response)
             .map_err(|_| IdentityDispatchError::ProviderUnavailable)?;
-        decode_provider_response(&response)
+        decode_provider_response(&response, operation)
     }
 }
 
@@ -341,63 +392,12 @@ pub(crate) fn update_profile(
     Ok(profile_json(&profile))
 }
 
-pub(crate) fn step_up_challenge(value: &StepUpChallenge) -> Value {
-    json!({"challenge_id": value.challenge_id, "confirms": digest(value.confirms),
-        "ceremony": value.ceremony, "expires_at": value.expires_at})
-}
-
-pub(crate) fn step_up_evidence(value: &StepUpEvidence) -> Value {
-    json!({"challenge_id": value.challenge_id(), "confirms": digest(value.confirms()),
-        "passkey_id": value.passkey_id(), "completed_at": value.completed_at(),
-        "expires_at": value.expires_at()})
-}
-
-pub(crate) fn onboarding_status(value: &OnboardingStatus) -> Value {
-    let stages = value.stages().iter().map(|stage| json!({
-        "stage": match stage.stage() { OnboardingStage::ApplicationIdentity => "application-identity",
-            OnboardingStage::CustodyKey => "custody-key", OnboardingStage::DidRegistration => "protocol-identity",
-            OnboardingStage::InitialFunding => "initial-funding", OnboardingStage::RecoveryRegistration => "recovery" },
-        "state": stage_state(stage.state()),
-        "evidence": stage.evidence().iter().map(|item| json!({"evidence_id": item.row().as_str(),
-            "class": match item.class() { EvidenceClass::LocalJourneyState => "local-journey-state",
-                EvidenceClass::CustodyKey => "custody-key", EvidenceClass::LayerxReceipt => "layerx-receipt",
-                EvidenceClass::SubmissionRecord => "submission-record" },
-            "verification": match item.verification() { EvidenceVerification::Unverified => "unverified",
-                EvidenceVerification::ReceiptVerified => "receipt-verified" }})).collect::<Vec<_>>()
-    })).collect::<Vec<_>>();
-    json!({"kind":"onboarding", "state": match value.state() { OnboardingState::GettingReady => "getting-ready",
-        OnboardingState::Queued => "queued", OnboardingState::Sending => "sending",
-        OnboardingState::Processing => "processing", OnboardingState::StillChecking => "still-checking",
-        OnboardingState::ActiveRecoveryPending => "active-recovery-pending", OnboardingState::Complete => "complete",
-        OnboardingState::Refused => "refused" }, "account_active": value.account_active(), "stages": stages})
-}
-
-fn digest(value: OperationDigest) -> String {
-    format!(
-        "opd_{}",
-        base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(value.bytes())
-    )
-}
-
 fn profile_json(value: &StoredProfile) -> Value {
     let mut profile = json!({"display_name": value.display_name});
     if let Some(avatar_url) = &value.avatar_url {
         profile["avatar_url"] = json!(avatar_url);
     }
     profile
-}
-
-fn stage_state(value: StageState) -> &'static str {
-    match value {
-        StageState::GettingReady => "getting-ready",
-        StageState::LocalComplete => "local-complete",
-        StageState::Queued { .. } => "queued",
-        StageState::Sending => "sending",
-        StageState::Processing => "processing",
-        StageState::StillChecking => "still-checking",
-        StageState::ReceiptVerified => "receipt-verified",
-        StageState::Refused { .. } => "refused",
-    }
 }
 
 fn provider_text(bytes: &[u8]) -> Result<String, IdentityDispatchError> {
@@ -409,7 +409,10 @@ fn provider_text(bytes: &[u8]) -> Result<String, IdentityDispatchError> {
         .map_err(|_| IdentityDispatchError::ProviderEvidence)
 }
 
-fn decode_provider_response(bytes: &[u8]) -> Result<Vec<Vec<u8>>, IdentityDispatchError> {
+fn decode_provider_response(
+    bytes: &[u8],
+    operation: u8,
+) -> Result<Vec<Vec<u8>>, IdentityDispatchError> {
     if bytes.len() < 10 || &bytes[..4] != IDENTITY_MAGIC || bytes[4] != 1 {
         return Err(IdentityDispatchError::ProviderEvidence);
     }
@@ -423,6 +426,15 @@ fn decode_provider_response(bytes: &[u8]) -> Result<Vec<Vec<u8>>, IdentityDispat
             .try_into()
             .map_err(|_| IdentityDispatchError::ProviderEvidence)?,
     ) as usize;
+    let arity = match operation {
+        0 => 0..=0,
+        1 => 5..=5,
+        4 => 1..=2,
+        _ => return Err(IdentityDispatchError::ProviderEvidence),
+    };
+    if !arity.contains(&count) || count > (bytes.len() - 10) / 4 {
+        return Err(IdentityDispatchError::ProviderEvidence);
+    }
     let mut cursor = 10usize;
     let mut fields = Vec::with_capacity(count);
     for _ in 0..count {
@@ -539,6 +551,81 @@ mod profile_tests {
         let digest = map.install(root).expect("install tenancy");
         let store = PrincipalStore::open(root, retention, digest).expect("open store");
         (store, digest)
+    }
+
+    #[test]
+    fn onboarding_projection_preserves_durable_journey_after_reopen() {
+        use super::{onboarding_stage_copy_key, onboarding_status};
+        use crate::onboarding::{
+            OnboardingJourney, OnboardingStage, OnboardingStart, RecoveryPolicy,
+        };
+        use layerx_types::ids::Did;
+        use layerx_types::intent::{ApprovalThreshold, RecoveryRoot};
+
+        let root = directory("onboarding-projection");
+        let owner = principal("onboarding-owner");
+        let (mut store, digest) = install_and_open(
+            &root,
+            &tenancy(&[("onboarding-owner", "onboarding-tenant")]),
+            retention_uniform(10_000),
+        );
+        let request = OnboardingStart::new(
+            [0x38; 32],
+            Did::new(b"did:layerx:onboarding-owner").expect("DID"),
+            RecoveryPolicy::new(
+                RecoveryRoot::new([0x39; 32]),
+                ApprovalThreshold::new(2).expect("threshold"),
+                86_400,
+            )
+            .expect("recovery policy"),
+        )
+        .expect("onboarding request");
+        let before = {
+            let mut scope = store.principal(&owner).expect("owner scope");
+            let journey = OnboardingJourney::start(&mut scope, &request, 1_700_000_000)
+                .expect("start durable onboarding");
+            let projected = onboarding_status(&scope, &journey.status()).expect("project journey");
+            assert_eq!(projected["journey_id"], format!("jrn_{}", "38".repeat(32)));
+            assert_eq!(projected["state"], "getting-ready");
+            assert_eq!(projected["state_copy_key"], "status.getting_ready");
+            assert_eq!(projected["started_at"], "2023-11-14T22:13:20Z");
+            assert_eq!(projected["updated_at"], projected["started_at"]);
+            assert_eq!(projected["stages"][0]["state"], "processing");
+            assert_eq!(
+                projected["stages"][0]["evidence"][0]["verification"],
+                "unverified"
+            );
+            assert_eq!(
+                projected["evidence"][0],
+                projected["stages"][0]["evidence"][0]
+            );
+            assert_eq!(projected["stages"][2]["stage_id"], "stg_protocol-identity");
+            assert_eq!(
+                projected["stages"][2]["copy_key"],
+                "onboarding.stage.setting-up-your-protocol-identity"
+            );
+            assert_eq!(projected["stages"][2]["evidence"], json!([]));
+            projected
+        };
+        drop(store);
+        let mut reopened = PrincipalStore::open(&root, retention_uniform(10_000), digest)
+            .expect("reopen durable onboarding store");
+        {
+            let scope = reopened.principal(&owner).expect("reopened owner scope");
+            let journey = OnboardingJourney::load(&scope)
+                .expect("load journey")
+                .expect("retained journey");
+            assert_eq!(
+                onboarding_status(&scope, &journey.status()).expect("recovered projection"),
+                before
+            );
+        }
+        assert_eq!(
+            onboarding_stage_copy_key(OnboardingStage::InitialFunding),
+            "agent.create.stage.first-funding"
+        );
+        drop(reopened);
+        std::fs::remove_dir_all(root).expect("remove onboarding qualification directory");
     }
 
     #[test]

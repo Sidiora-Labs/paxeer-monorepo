@@ -8,7 +8,7 @@ use crate::account_derivation::DerivedAccount;
 use crate::evm_transaction::Eip1559Call;
 use crate::redact::Secret;
 use crate::signer::{
-    AgentSignature, DidSignature, SignError, SignFuture, Signer, SigningRequest,
+    AgentSignature, BindSigner, DidSignature, SignError, SignFuture, Signer, SigningRequest,
     TransactionSignFuture,
 };
 
@@ -56,6 +56,8 @@ impl fmt::Debug for LocalSigner {
     }
 }
 
+impl BindSigner for LocalSigner {}
+
 impl Signer for LocalSigner {
     fn public_key(&self) -> [u8; 32] {
         self.public_key
@@ -63,8 +65,9 @@ impl Signer for LocalSigner {
 
     fn sign<'a>(&'a self, request: SigningRequest<'a>) -> SignFuture<'a> {
         Box::pin(async move {
+            let bytes = request.signing_bytes()?;
             let signing_key = self.seed.expose(SigningKey::from_bytes);
-            let signature = signing_key.sign(&request.message().digest());
+            let signature = signing_key.sign(&bytes);
             Ok(DidSignature::new(signature.to_bytes()))
         })
     }

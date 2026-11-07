@@ -1,22 +1,25 @@
 package tests
 
 import (
-	"encoding/json"
-	"os"
+	"fmt"
 	"testing"
 
+	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/crypto/ed25519"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/rpc/coretypes"
 	tmtypes "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/types"
 	"github.com/stretchr/testify/require"
 )
 
-func TestRecordedValidatorPagination(t *testing.T) {
-	data, err := os.ReadFile("mock_data/blocks/169638844.json")
-	require.NoError(t, err)
-	var fixture RpcResponse
-	require.NoError(t, json.Unmarshal(data, &fixture))
-	client := &MockClient{}
-	mockTendermintStateFromJson(fixture.Result.TendermintState, client)
-	height := int64(169638843)
+func TestValidatorPagination(t *testing.T) {
+	height := int64(1)
+	set := make([]*tmtypes.Validator, 30)
+	for i := range set {
+		key := ed25519.TestSecretKey([]byte(fmt.Sprintf("rpc-test-validator-%d", i)))
+		set[i] = tmtypes.NewValidator(key.Public(), 1)
+	}
+	client := &MockClient{mockedValidators: map[int64]*coretypes.ResultValidators{
+		height: {BlockHeight: height, Validators: set, Count: 30, Total: 40},
+	}}
 	captured := client.mockedValidators[height]
 	require.NotNil(t, captured)
 	require.Len(t, captured.Validators, 30)

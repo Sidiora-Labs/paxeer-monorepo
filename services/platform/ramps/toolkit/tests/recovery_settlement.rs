@@ -21,6 +21,14 @@ use layerx_ramp_toolkit::{
 use native_tls::{Identity, TlsAcceptor};
 use serde_json::{json, Value};
 
+#[path = "support/repair_22_33_1490.rs"]
+mod repair_1490;
+
+#[test]
+fn reopened_v2_custody_uses_node_root_and_refuses_terminal_contradictions() {
+    repair_1490::custody_restart();
+}
+
 static NEXT_DIRECTORY: AtomicU64 = AtomicU64::new(0);
 
 struct ClientFiles(PathBuf);
@@ -368,15 +376,16 @@ impl RpcListener {
                         assert_eq!(request["params"], json!([]));
                         json!(format!("{:#x}", chain.load(Ordering::Acquire)))
                     }
-                    "px_getNetwork" => {
+                    "eth_blockNumber" => {
                         assert_eq!(request["params"], json!([]));
-                        json!({"network_id": "paxeer", "paxeer": {"chain_id": 125, "latest_block": 20}, "layerx": null, "latest_committed_height": 20})
+                        json!("0x14")
                     }
                     "eth_getBlockByNumber" => {
                         assert_eq!(request["params"], json!(["0x14", true]));
                         json!({"number": "0x14", "hash": format!("0x{}", "34".repeat(32)),
                             "parentHash": format!("0x{}", "56".repeat(32)), "timestamp": "0x1",
-                            "transactionsRoot": format!("0x{}", "78".repeat(32)), "transactions": []})
+                            "transactionsRoot": format!("0x{}", "78".repeat(32)),
+                            "receiptsRoot": format!("0x{}", "9a".repeat(32)), "transactions": []})
                     }
                     method => panic!("unexpected RPC before order validation: {method}"),
                 };
@@ -488,11 +497,9 @@ fn recovery_refuses_chain_id_mismatch() {
             "eth_chainId",
             "eth_chainId",
             "eth_chainId",
-            "px_getNetwork",
-            "eth_getBlockByNumber",
+            "eth_blockNumber",
             "eth_chainId",
-            "px_getNetwork",
-            "eth_getBlockByNumber"
+            "eth_blockNumber"
         ]
     );
 }

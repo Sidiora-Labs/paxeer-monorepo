@@ -8,14 +8,17 @@ use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use layerx_interop_gateway::principal::PrincipalId;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use sha2::{Digest as _, Sha256};
 use subtle::ConstantTimeEq;
 use zeroize::{Zeroize, Zeroizing};
-use layerx_interop_gateway::principal::PrincipalId;
 
 use crate::history::{decode as decode_history, record_key, ExternalHistoryPage};
+use crate::migration_head::{
+    MigrationJournalHead, ADVANCE_MIGRATION_JOURNAL_HEAD, GET_MIGRATION_JOURNAL_HEAD,
+};
 use crate::rpc::{RpcCluster, RpcQuorumConfig};
 use crate::source_codec::{decode_fixed_hex, hex};
 use crate::{ExternalHistoryRecord, MigrationError, HISTORY_PAGE_LIMIT};
@@ -82,7 +85,9 @@ pub struct AccountMappingStoreV2 {
 
 impl AccountMappingStoreV2 {
     pub fn new(config: &JournalConfig) -> Result<Self, MigrationError> {
-        Ok(Self { journal: Journal::new(config)? })
+        Ok(Self {
+            journal: Journal::new(config)?,
+        })
     }
 
     pub fn confirm(
@@ -95,7 +100,9 @@ impl AccountMappingStoreV2 {
         trace: &layerx_interop_gateway::trace::TraceId,
     ) -> Result<AccountMappingV2, MigrationError> {
         let ownership = verifier.verify_ownership(evidence, trace)?;
-        if authenticated_identity == [0; 32] || ownership.layerx_identity() != authenticated_identity {
+        if authenticated_identity == [0; 32]
+            || ownership.layerx_identity() != authenticated_identity
+        {
             return Err(MigrationError::EvidenceMismatch);
         }
         ownership.validate(evidence)?;
@@ -109,37 +116,72 @@ impl AccountMappingStoreV2 {
             crate::ExternalAddress::Solana(value) => hex(&value),
         };
         let checkpoint = MappingCheckpointV2 {
-            principal: principal.as_str().to_owned(), source_network, source_address,
-            layerx_identity: binding.identity(), evm_address: binding.evm_address(),
-            paxeer_block_number: binding.block_number(), paxeer_block_hash: binding.block_hash(),
+            principal: principal.as_str().to_owned(),
+            source_network,
+            source_address,
+            layerx_identity: binding.identity(),
+            evm_address: binding.evm_address(),
+            paxeer_block_number: binding.block_number(),
+            paxeer_block_hash: binding.block_hash(),
             evidence_digest: ownership.evidence_digest(),
         };
         let key = mapping_key_v2(&checkpoint)?;
-        self.journal.append(&Update::AccountMappingV2 { key: key.clone(), checkpoint })?;
-        let stored = self.journal.load()?.account_mappings_v2.get(&key).cloned()
+        self.journal.append(&Update::AccountMappingV2 {
+            key: key.clone(),
+            checkpoint,
+        })?;
+        let stored = self
+            .journal
+            .load()?
+            .account_mappings_v2
+            .get(&key)
+            .cloned()
             .ok_or(MigrationError::CheckpointIntegrity)?;
-        Ok(AccountMappingV2 { version: "account-mapping-v2", checkpoint: stored,
-            provenance: "paxeer-binding", layerx_receipt: false })
+        Ok(AccountMappingV2 {
+            version: "account-mapping-v2",
+            checkpoint: stored,
+            provenance: "paxeer-binding",
+            layerx_receipt: false,
+        })
     }
 }
 
 fn mapping_key_v2(value: &MappingCheckpointV2) -> Result<String, MigrationError> {
     PrincipalId::new(value.principal.clone()).map_err(|_| MigrationError::CheckpointIntegrity)?;
     let (chain, address) = if let Some(number) = value.source_network.strip_prefix("ethereum:") {
-        let chain_id = number.parse::<u64>().map_err(|_| MigrationError::CheckpointIntegrity)?;
-        if chain_id == 0 || chain_id.to_string() != number { return Err(MigrationError::CheckpointIntegrity); }
-        (crate::SourceChain::Ethereum { chain_id }, crate::ExternalAddress::Ethereum(
-            crate::source_codec::decode_fixed_hex(&format!("0x{}", value.source_address))?))
+        let chain_id = number
+            .parse::<u64>()
+            .map_err(|_| MigrationError::CheckpointIntegrity)?;
+        if chain_id == 0 || chain_id.to_string() != number {
+            return Err(MigrationError::CheckpointIntegrity);
+        }
+        (
+            crate::SourceChain::Ethereum { chain_id },
+            crate::ExternalAddress::Ethereum(crate::source_codec::decode_fixed_hex(&format!(
+                "0x{}",
+                value.source_address
+            ))?),
+        )
     } else if let Some(genesis) = value.source_network.strip_prefix("solana:") {
         let genesis_hash = crate::source_codec::decode_fixed_hex(&format!("0x{genesis}"))?;
-        (crate::SourceChain::Solana { genesis_hash }, crate::ExternalAddress::Solana(
-            crate::source_codec::decode_fixed_hex(&format!("0x{}", value.source_address))?))
-    } else { return Err(MigrationError::CheckpointIntegrity); };
+        (
+            crate::SourceChain::Solana { genesis_hash },
+            crate::ExternalAddress::Solana(crate::source_codec::decode_fixed_hex(&format!(
+                "0x{}",
+                value.source_address
+            ))?),
+        )
+    } else {
+        return Err(MigrationError::CheckpointIntegrity);
+    };
     chain.validate()?;
     address.validate_for(chain)?;
-    if value.layerx_identity == [0; 32] || value.evm_address == [0; 20]
-        || value.paxeer_block_number == 0 || value.paxeer_block_hash == [0; 32]
-        || value.evidence_digest == [0; 32] {
+    if value.layerx_identity == [0; 32]
+        || value.evm_address == [0; 20]
+        || value.paxeer_block_number == 0
+        || value.paxeer_block_hash == [0; 32]
+        || value.evidence_digest == [0; 32]
+    {
         return Err(MigrationError::CheckpointIntegrity);
     }
     let mut digest = Sha256::new();
@@ -185,7 +227,10 @@ enum Update {
         key: String,
         evidence_digest: [u8; 32],
     },
-    AccountMappingV2 { key: String, checkpoint: MappingCheckpointV2 },
+    AccountMappingV2 {
+        key: String,
+        checkpoint: MappingCheckpointV2,
+    },
     CustodyReference {
         key: String,
         claim_digest: [u8; 32],
@@ -515,7 +560,10 @@ impl Journal {
             return if after.is_some() {
                 Err(MigrationError::CheckpointConflict)
             } else {
-                Ok(ExternalHistoryPage { records: Vec::new(), next_cursor: None })
+                Ok(ExternalHistoryPage {
+                    records: Vec::new(),
+                    next_cursor: None,
+                })
             };
         };
         if after.is_some_and(|key| !rows.contains_key(&key)) {
@@ -529,8 +577,15 @@ impl Journal {
             last = Some(*key);
             records.push(*record);
         }
-        let next_cursor = if remaining.next().is_some() { last } else { None };
-        Ok(ExternalHistoryPage { records, next_cursor })
+        let next_cursor = if remaining.next().is_some() {
+            last
+        } else {
+            None
+        };
+        Ok(ExternalHistoryPage {
+            records,
+            next_cursor,
+        })
     }
 
     fn append(&self, update: &Update) -> Result<(), MigrationError> {
@@ -706,7 +761,7 @@ impl Journal {
         digests: &BTreeMap<u64, [u8; 32]>,
     ) -> Result<(), MigrationError> {
         let current = self.rollback_anchor.call(
-            "layerx_getMigrationJournalHead",
+            GET_MIGRATION_JOURNAL_HEAD,
             json!([self.rollback_anchor_id.as_str()]),
         )?;
         let (mut sequence, mut digest) = parse_anchor(&current)?;
@@ -729,7 +784,7 @@ impl Journal {
                 .get(&next_sequence)
                 .ok_or(MigrationError::CheckpointIntegrity)?;
             let advanced = self.rollback_anchor.call(
-                "layerx_advanceMigrationJournalHead",
+                ADVANCE_MIGRATION_JOURNAL_HEAD,
                 json!([{
                     "anchor_id": self.rollback_anchor_id.as_str(),
                     "expected_sequence": sequence,
@@ -913,21 +968,29 @@ fn apply(state: &mut State, update: &Update) -> Result<Apply, MigrationError> {
             }
         },
         Update::AccountMappingV2 { key, checkpoint } => {
-            if mapping_key_v2(checkpoint)? != *key { return Err(MigrationError::CheckpointIntegrity); }
+            if mapping_key_v2(checkpoint)? != *key {
+                return Err(MigrationError::CheckpointIntegrity);
+            }
             match state.account_mappings_v2.get(key) {
-                Some(current) if current.principal == checkpoint.principal
-                    && current.source_network == checkpoint.source_network
-                    && current.source_address == checkpoint.source_address
-                    && current.layerx_identity == checkpoint.layerx_identity
-                    && current.evm_address == checkpoint.evm_address
-                    && current.evidence_digest == checkpoint.evidence_digest => Ok(Apply::Already),
+                Some(current)
+                    if current.principal == checkpoint.principal
+                        && current.source_network == checkpoint.source_network
+                        && current.source_address == checkpoint.source_address
+                        && current.layerx_identity == checkpoint.layerx_identity
+                        && current.evm_address == checkpoint.evm_address
+                        && current.evidence_digest == checkpoint.evidence_digest =>
+                {
+                    Ok(Apply::Already)
+                }
                 Some(_) => Err(MigrationError::CheckpointConflict),
                 None => {
-                    state.account_mappings_v2.insert(key.clone(), checkpoint.clone());
+                    state
+                        .account_mappings_v2
+                        .insert(key.clone(), checkpoint.clone());
                     Ok(Apply::Applied)
                 }
             }
-        },
+        }
         Update::CustodyReference { key, claim_digest } => match state.custody_references.get(key) {
             Some(current) if current == claim_digest => Ok(Apply::Already),
             Some(_) => Err(MigrationError::CheckpointConflict),
@@ -936,7 +999,11 @@ fn apply(state: &mut State, update: &Update) -> Result<Apply, MigrationError> {
                 Ok(Apply::Applied)
             }
         },
-        Update::ExternalHistory { principal, evidence_digest, records } => {
+        Update::ExternalHistory {
+            principal,
+            evidence_digest,
+            records,
+        } => {
             PrincipalId::new(principal.clone()).map_err(|_| MigrationError::CheckpointIntegrity)?;
             if records.len() > HISTORY_PAGE_LIMIT || *evidence_digest == [0; 32] {
                 return Err(MigrationError::CheckpointIntegrity);
@@ -945,7 +1012,10 @@ fn apply(state: &mut State, update: &Update) -> Result<Apply, MigrationError> {
             for encoded in records {
                 let record = decode_history(encoded)?;
                 let key = record_key(&record);
-                if incoming.insert(key, record).is_some_and(|prior| prior != record) {
+                if incoming
+                    .insert(key, record)
+                    .is_some_and(|prior| prior != record)
+                {
                     return Err(MigrationError::CheckpointConflict);
                 }
             }
@@ -953,7 +1023,9 @@ fn apply(state: &mut State, update: &Update) -> Result<Apply, MigrationError> {
             let mut added = 0_usize;
             for (key, record) in &incoming {
                 match current.and_then(|rows| rows.get(key)) {
-                    Some(prior) if prior != record => return Err(MigrationError::CheckpointConflict),
+                    Some(prior) if prior != record => {
+                        return Err(MigrationError::CheckpointConflict)
+                    }
                     Some(_) => {}
                     None => added += 1,
                 }
@@ -961,10 +1033,16 @@ fn apply(state: &mut State, update: &Update) -> Result<Apply, MigrationError> {
             if added == 0 {
                 return Ok(Apply::Already);
             }
-            let total = state.external_records.checked_add(added)
+            let total = state
+                .external_records
+                .checked_add(added)
                 .filter(|total| *total <= MAX_RECORDS)
                 .ok_or(MigrationError::CheckpointIntegrity)?;
-            state.external_history.entry(principal.clone()).or_default().extend(incoming);
+            state
+                .external_history
+                .entry(principal.clone())
+                .or_default()
+                .extend(incoming);
             state.external_records = total;
             Ok(Apply::Applied)
         }
@@ -1027,22 +1105,9 @@ fn seal_sequence(name: &str) -> Option<u64> {
 }
 
 fn parse_anchor(value: &Value) -> Result<(u64, [u8; 32]), MigrationError> {
-    let sequence = value
-        .get("sequence")
-        .and_then(Value::as_u64)
-        .ok_or(MigrationError::RpcResponseMismatch)?;
-    let digest = value
-        .get("digest")
-        .and_then(Value::as_str)
-        .ok_or(MigrationError::RpcResponseMismatch)?;
-    if sequence == 0 {
-        if digest != hex(&[0; 32]) {
-            return Err(MigrationError::CheckpointIntegrity);
-        }
-        Ok((0, [0; 32]))
-    } else {
-        Ok((sequence, decode_fixed_hex(&format!("0x{digest}"))?))
-    }
+    let head: MigrationJournalHead =
+        serde_json::from_value(value.clone()).map_err(|_| MigrationError::RpcResponseMismatch)?;
+    head.decode()
 }
 
 fn valid_name(value: &str) -> bool {

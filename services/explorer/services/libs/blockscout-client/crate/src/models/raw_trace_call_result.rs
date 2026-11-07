@@ -19,6 +19,7 @@ use serde_aux::prelude::*;
 
 #[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize, derive_new::new)]
 pub struct RawTraceCallResult {
+    #[serde(rename = "gasUsed")]
     pub gas_used: String,
     pub output: String,
 }

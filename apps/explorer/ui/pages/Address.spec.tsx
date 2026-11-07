@@ -3,8 +3,10 @@
 import React from 'react';
 
 import * as addressMock from 'mocks/address/address';
+import { base as addressTabCounters } from 'mocks/address/tabCounters';
 import { render, routerState } from 'ui/shared/layout/testWrapper';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { waitFor } from 'vitest/lib';
 
 vi.hoisted(() => {
   window.__envs = {
@@ -21,108 +23,102 @@ vi.mock('next/router', async() => (await import('ui/shared/layout/testWrapper'))
 vi.setConfig({ testTimeout: 60_000 });
 
 import AddressPageContent from './Address';
+import { addressDetailFixtures } from './repair-22-33-314.fixtures';
 
 const HASH = addressMock.hash;
 
 const tabTitles = (container: HTMLElement) =>
   Array.from(container.querySelectorAll('[role="tab"]')).map((item) => item.textContent ?? '');
 
-// A responsive style prop reaches the document as one rule per breakpoint, each of them inserted
-// into a style element of its own, and jsdom performs no layout, so the widths a declaration belongs
-// to are read from the rules that name the element's own class.
-const ruleTexts = () => {
-  const inline = Array.from(document.querySelectorAll('style')).map((node) => node.textContent ?? '');
-  const parsed = Array.from(document.styleSheets).flatMap((sheet) => {
-    try {
-      return Array.from(sheet.cssRules).map((rule) => rule.cssText);
-    } catch {
-      return [];
-    }
+async function renderLoadedAddress() {
+  const result = render(<AddressPageContent/>);
+  await waitFor(() => {
+    expect(result.container.querySelector(`a[href="/tx/${ addressMock.contract.creation_transaction_hash }"]`)).not.toBeNull();
+    expect(result.container.querySelector('[data-section-group="ADDRESS INFO"]')).not.toBeNull();
   });
+  return result;
+}
 
-  return [ ...inline, ...parsed ].filter(Boolean);
-};
-
-const declarationsOf = (element: Element, property: string) => ruleTexts()
-  .filter((text) => Array.from(element.classList).some((name) => new RegExp(`\\.${ name }(?![\\w-])`).test(text)))
-  .map((text) => ({ text, value: new RegExp(`(?:^|[;{\\s])${ property }\\s*:\\s*([^;}]+)`).exec(text)?.[1]?.trim() }))
-  .filter((rule): rule is { text: string; value: string } => rule.value !== undefined);
-
-// Each rule is inserted on its own, so a declaration belongs to the wide layout when the rule that
-// carries it is a breakpoint rule and not the base rule, which declares its own minimum width.
-const isWide = (text: string) => /^\s*@media[^{]*\(min-width/.test(text);
-
-const LEFT_INSET = 'margin-(?:left|inline-start)';
-
-// The scale resolves a zero inset either to the plain length or to the token of the same name.
-const isSpace = (value: string) => !/^0[a-z%]*$/.test(value) && !/spacing-0\b/.test(value);
+const unexpectedRequests: Array<string> = [];
 
 describe('AddressPageContent', () => {
   beforeEach(() => {
     routerState.pathname = '/address/[hash]';
     routerState.query = { hash: HASH };
     fetchMock.resetMocks();
-    fetchMock.mockResponse(JSON.stringify({ items: [], next_page_params: null }), { headers: { 'Content-Type': 'application/json' } });
+    unexpectedRequests.length = 0;
+    fetchMock.mockResponse((request) => {
+      const path = new URL(request.url).pathname;
+      if (!addressDetailFixtures.has(path)) {
+        unexpectedRequests.push(path);
+        return Promise.reject(new Error(`Unexpected address request: ${ path }`));
+      }
+      return Promise.resolve({ body: JSON.stringify(addressDetailFixtures.get(path)), headers: { 'Content-Type': 'application/json' } });
+    });
   });
 
-  it('heads the page with the address label rather than a details heading', () => {
-    const { container } = render(<AddressPageContent/>);
+  afterEach(() => {
+    expect(unexpectedRequests).toEqual([]);
+  });
+
+  it('heads the page with its name or address under the contract kind', async() => {
+    const { container } = await renderLoadedAddress();
 
     const heading = container.querySelector('h1')?.textContent ?? '';
 
-    expect([ 'Address', 'Contract' ]).toContain(heading);
+    expect(heading).toBe(addressMock.contract.name || addressMock.contract.ens_domain_name || addressMock.contract.hash);
+    expect(container.querySelector('[data-entity-kind-label]')?.textContent).toBe('CONTRACT');
     expect(heading.endsWith('details')).toBe(false);
   });
 
-  it('puts the icon action row beneath the title', () => {
-    const { container } = render(<AddressPageContent/>);
+  it('puts the icon action row beneath the title', async() => {
+    const { container } = await renderLoadedAddress();
 
     expect(container.querySelector('[data-address-actions]')).toBeTruthy();
   });
 
-  it('renders the three detail cards above the tab strip', () => {
-    const { container } = render(<AddressPageContent/>);
+  it('renders the balance tiles and address information below the tab strip', async() => {
+    const { container } = await renderLoadedAddress();
 
     const details = container.querySelector('[data-address-details]') as Element;
     const tabList = container.querySelector('[role="tablist"]') as Element;
 
     expect(details).toBeTruthy();
     expect(tabList).toBeTruthy();
-    expect(details.querySelectorAll('[data-address-card]')).toHaveLength(3);
-    expect(details.compareDocumentPosition(tabList) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(details.querySelectorAll('[data-address-card]')).toHaveLength(2);
+    expect(details.querySelector('[data-address-balances]')).not.toBeNull();
+    expect(tabList.compareDocumentPosition(details) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
-  it('opens the tab strip on the transaction lists and keeps no separate details tab', () => {
-    const { container } = render(<AddressPageContent/>);
+  it('opens on Overview and groups all existing data views', async() => {
+    const { container } = await renderLoadedAddress();
 
-    const titles = tabTitles(container);
-
-    expect(titles[0].startsWith('Transactions')).toBe(true);
-    expect(titles[1].startsWith('Internal transactions')).toBe(true);
-    expect(titles[2].startsWith('Token transfers')).toBe(true);
-    expect(titles[3].startsWith('Tokens')).toBe(true);
-    expect(titles.some((title) => title.startsWith('Details'))).toBe(false);
+    await waitFor(() => {
+      const titles = tabTitles(container);
+      expect(titles).toEqual([
+        'Overview', 'History', `Transfers(${ addressTabCounters.token_transfers_count })`, 'Portfolio', 'Analytics', 'Contract', 'More',
+      ]);
+      expect(titles.some((title) => title.startsWith('Details'))).toBe(false);
+    });
   });
 
-  it('keeps the coin balance history and the advanced filter on the tab row', () => {
-    const { container } = render(<AddressPageContent/>);
+  it('keeps the coin balance history and the advanced filter on the tab row', async() => {
+    const { container, rerender } = await renderLoadedAddress();
+    routerState.query = { hash: HASH, tab: 'portfolio' };
+    rerender(<AddressPageContent/>);
 
-    expect(tabTitles(container).some((title) => title.startsWith('Coin balance history'))).toBe(true);
+    await waitFor(() => expect(tabTitles(container).some((title) => title.startsWith('Coin balance history'))).toBe(true));
     expect(container.querySelector('a[href^="/advanced-filter"]')).toBeTruthy();
   });
 
-  it('lets the identifier share the title row and keeps its inset for the wide layout only', () => {
-    const { container } = render(<AddressPageContent/>);
+  it('places the identifier and its controls on their own row beneath the title', async() => {
+    const { container } = await renderLoadedAddress();
 
-    const row = container.querySelector('[data-title-after]')?.firstElementChild as HTMLElement;
-
+    const row = container.querySelector('[data-entity-identifier]') as HTMLElement;
     expect(row.querySelector('[data-entity-kind="address"]')).toBeTruthy();
+    expect(row.querySelector('[aria-label="copy"]')).not.toBeNull();
+    expect(row.querySelector('[aria-label="Show QR code"]')).not.toBeNull();
+    expect(container.querySelector('[data-title-row]')?.contains(row)).toBe(false);
 
-    const insets = declarationsOf(row, LEFT_INSET);
-    const spaced = insets.filter((rule) => isSpace(rule.value));
-
-    expect(insets.length).toBeGreaterThan(0);
-    expect(spaced.length).toBeGreaterThan(0);
-    expect(spaced.every((rule) => isWide(rule.text))).toBe(true);
   });
 });

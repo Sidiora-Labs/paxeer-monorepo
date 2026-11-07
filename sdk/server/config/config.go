@@ -321,9 +321,15 @@ func GetConfig(v *viper.Viper) (Config, error) {
 		if !ok {
 			return Config{}, fmt.Errorf("failed to parse global label number %d from config", idx)
 		}
-		if len(labelsRaw) == 2 {
-			globalLabels = append(globalLabels, []string{labelsRaw[0].(string), labelsRaw[1].(string)})
+		if len(labelsRaw) != 2 {
+			return Config{}, fmt.Errorf("failed to parse global label number %d from config: expected exactly two strings", idx)
 		}
+		name, nameOK := labelsRaw[0].(string)
+		value, valueOK := labelsRaw[1].(string)
+		if !nameOK || !valueOK {
+			return Config{}, fmt.Errorf("failed to parse global label number %d from config: expected exactly two strings", idx)
+		}
+		globalLabels = append(globalLabels, []string{name, value})
 	}
 
 	// Resolve sc-write-mode through ParseWriteMode so that misspellings fail
@@ -345,6 +351,7 @@ func GetConfig(v *viper.Viper) (Config, error) {
 			InterBlockCache:    v.GetBool("inter-block-cache"),
 			Pruning:            v.GetString("pruning"),
 			PruningKeepRecent:  v.GetString("pruning-keep-recent"),
+			PruningKeepEvery:   v.GetString("pruning-keep-every"),
 			PruningInterval:    v.GetString("pruning-interval"),
 			HaltHeight:         v.GetUint64("halt-height"),
 			HaltTime:           v.GetUint64("halt-time"),

@@ -134,15 +134,17 @@ func (bA *BitArray) Or(o *BitArray) *BitArray {
 	if o == nil {
 		return bA.Copy()
 	}
+	if bA == o {
+		return bA.Copy()
+	}
+	// Snapshot the operand before locking the receiver to avoid lock-order cycles.
+	o = o.Copy()
 	bA.mtx.Lock()
-	o.mtx.Lock()
+	defer bA.mtx.Unlock()
 	c := bA.copyBits(tmmath.MaxInt(bA.Bits, o.Bits))
-	smaller := tmmath.MinInt(len(bA.Elems), len(o.Elems))
-	for i := range smaller {
+	for i := range o.Elems {
 		c.Elems[i] |= o.Elems[i]
 	}
-	bA.mtx.Unlock()
-	o.mtx.Unlock()
 	return c
 }
 
@@ -153,12 +155,12 @@ func (bA *BitArray) And(o *BitArray) *BitArray {
 	if bA == nil || o == nil {
 		return nil
 	}
+	if bA == o {
+		return bA.Copy()
+	}
+	o = o.Copy()
 	bA.mtx.Lock()
-	o.mtx.Lock()
-	defer func() {
-		bA.mtx.Unlock()
-		o.mtx.Unlock()
-	}()
+	defer bA.mtx.Unlock()
 	return bA.and(o)
 }
 
@@ -197,8 +199,14 @@ func (bA *BitArray) Sub(o *BitArray) *BitArray {
 		// TODO: Decide if we should do 1's complement here?
 		return nil
 	}
+	if bA == o {
+		bA.mtx.Lock()
+		defer bA.mtx.Unlock()
+		return &BitArray{Bits: bA.Bits, Elems: make([]uint64, len(bA.Elems))}
+	}
+	o = o.Copy()
 	bA.mtx.Lock()
-	o.mtx.Lock()
+	defer bA.mtx.Unlock()
 	// output is the same size as bA
 	c := bA.copyBits(bA.Bits)
 	// Only iterate to the minimum size between the two.
@@ -210,8 +218,6 @@ func (bA *BitArray) Sub(o *BitArray) *BitArray {
 		// &^ is and not in golang
 		c.Elems[i] &^= o.Elems[i]
 	}
-	bA.mtx.Unlock()
-	o.mtx.Unlock()
 	return c
 }
 
@@ -323,15 +329,14 @@ func (bA *BitArray) stringIndented(indent string) string {
 // Update sets the bA's bits to be that of the other bit array.
 // The copying begins from the begin of both bit arrays.
 func (bA *BitArray) Update(o *BitArray) {
-	if bA == nil || o == nil {
+	if bA == nil || o == nil || bA == o {
 		return
 	}
 
+	o = o.Copy()
 	bA.mtx.Lock()
-	o.mtx.Lock()
+	defer bA.mtx.Unlock()
 	copy(bA.Elems, o.Elems)
-	o.mtx.Unlock()
-	bA.mtx.Unlock()
 }
 
 // MarshalJSON implements json.Marshaler interface by marshaling bit array

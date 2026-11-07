@@ -56,7 +56,7 @@ const AddressesTableItem = ({
 
   return (
     <TableRow data-address-row>
-      <TableCell>
+      <TableCell isNumeric>
         <Skeleton loading={ isLoading } display="inline-block" minW={ 6 } color="text.secondary" lineHeight="24px" data-address-rank>
           { index }
         </Skeleton>
@@ -67,7 +67,7 @@ const AddressesTableItem = ({
             address={ item }
             isLoading={ isLoading }
             fontWeight={ 600 }
-            my="2px"
+            truncation="constant"
           />
         </Flex>
       </TableCell>

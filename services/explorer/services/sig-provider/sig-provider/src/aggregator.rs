@@ -10,35 +10,99 @@ pub struct SourceAggregator {
     complete_sources: Vec<Arc<dyn CompleteSignatureSource + Send + Sync + 'static>>,
 }
 
-macro_rules! proxy {
-    ($sources:expr, $request:expr, $fn:ident) => {{
-        let tasks = $sources.iter().map(|source| source.$fn($request));
-        let responses: Vec<_> = futures::future::join_all(tasks)
-            .await
-            .into_iter()
-            .zip($sources.iter())
-            .filter_map(|(resp, source)| match resp {
-                Ok(resp) => Some(resp),
-                Err(error) => {
-                    tracing::error!(
-                        "could not call {} for host {}, error: {}",
-                        stringify!($fn),
-                        source.source(),
-                        error
-                    );
-                    None
-                }
-            })
-            .collect();
-        responses
-    }};
+/// Outcome of a source for a particular key and operation, in priority order.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum SourceStatus {
+    Succeeded,
+    Failed(String),
+    OutsideCoverage,
 }
 
-macro_rules! get_event_signatures {
-    ($sources:expr, $request:expr) => {{
-        let responses = proxy!($sources, $request, get_event_signatures);
-        crate::aggregator::SourceAggregator::merge_signatures(responses)
-    }};
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct SourceOutcome {
+    pub source: String,
+    pub operation: &'static str,
+    pub status: SourceStatus,
+}
+
+#[derive(Clone, Debug)]
+pub struct LookupReport<T> {
+    pub value: T,
+    pub coverage: Vec<SourceOutcome>,
+}
+
+#[derive(Clone, Debug)]
+pub struct LookupUnavailable {
+    pub coverage: Vec<SourceOutcome>,
+}
+
+impl std::fmt::Display for LookupUnavailable {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "signature lookup unavailable: {:?}", self.coverage)
+    }
+}
+impl std::error::Error for LookupUnavailable {}
+
+#[derive(Clone, Debug)]
+pub struct ImportRefused {
+    pub coverage: Vec<SourceOutcome>,
+}
+impl std::fmt::Display for ImportRefused {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "signature import refused: {:?}", self.coverage)
+    }
+}
+impl std::error::Error for ImportRefused {}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum EventLayout {
+    /// The source supplied the producer's indexed flags, names and order.
+    Exact,
+    /// One possible layout inferred from a canonical signature alone.
+    Candidate,
+}
+
+#[derive(Clone, Debug)]
+pub struct EventCandidate {
+    pub abi: Abi,
+    pub layout: EventLayout,
+}
+
+fn record_response<T>(
+    source: String,
+    operation: &'static str,
+    response: Option<Result<T, anyhow::Error>>,
+    coverage: &mut Vec<SourceOutcome>,
+) -> Option<T> {
+    let (status, value) = match response {
+        None => (SourceStatus::OutsideCoverage, None),
+        Some(Ok(value)) => (SourceStatus::Succeeded, Some(value)),
+        Some(Err(error)) => (SourceStatus::Failed(format!("{error:#}")), None),
+    };
+    coverage.push(SourceOutcome {
+        source,
+        operation,
+        status,
+    });
+    value
+}
+
+fn ensure_available(coverage: &[SourceOutcome]) -> Result<(), anyhow::Error> {
+    // An empty finite inventory is not a successful answer from a capable
+    // directory. Preserve successful partial answers, including genuine misses.
+    let succeeded = coverage
+        .iter()
+        .any(|outcome| outcome.status == SourceStatus::Succeeded);
+    let failed = coverage
+        .iter()
+        .any(|outcome| matches!(outcome.status, SourceStatus::Failed(_)));
+    if failed && !succeeded {
+        return Err(LookupUnavailable {
+            coverage: coverage.to_vec(),
+        }
+        .into());
+    }
+    Ok(())
 }
 
 impl SourceAggregator {
@@ -67,150 +131,337 @@ impl SourceAggregator {
     }
 
     pub async fn create_signatures(&self, abi: &str) -> Result<(), anyhow::Error> {
-        let sources = self.sources.clone();
-        let _responses = proxy!(sources, abi, create_signatures);
-        Ok(())
+        self.create_signatures_with_coverage(abi).await.map(|_| ())
+    }
+
+    pub async fn create_signatures_with_coverage(
+        &self,
+        abi: &str,
+    ) -> Result<LookupReport<()>, anyhow::Error> {
+        let responses = futures::future::join_all(self.sources.iter().map(|source| async move {
+            let response = if source.accepts_imports() {
+                Some(source.create_signatures(abi).await)
+            } else {
+                None
+            };
+            (source.source(), response)
+        }))
+        .await;
+        let mut coverage = Vec::new();
+        for (source, response) in responses {
+            record_response(source, "import", response, &mut coverage);
+        }
+        if !coverage
+            .iter()
+            .any(|outcome| outcome.status == SourceStatus::Succeeded)
+            || coverage
+                .iter()
+                .any(|outcome| matches!(outcome.status, SourceStatus::Failed(_)))
+        {
+            return Err(ImportRefused { coverage }.into());
+        }
+        Ok(LookupReport {
+            value: (),
+            coverage,
+        })
     }
 
     pub async fn get_function_signatures(&self, hex: &str) -> Result<Vec<String>, anyhow::Error> {
-        let sources = &self.sources;
-        let responses = proxy!(sources, hex, get_function_signatures);
-        let signatures = Self::merge_signatures(responses);
-        Ok(signatures)
+        Ok(self.get_function_signatures_with_coverage(hex).await?.value)
+    }
+
+    pub async fn get_function_signatures_with_coverage(
+        &self,
+        hex: &str,
+    ) -> Result<LookupReport<Vec<String>>, anyhow::Error> {
+        let responses = futures::future::join_all(self.sources.iter().map(|source| async move {
+            let response = if source.covers_function(hex) {
+                Some(source.get_function_signatures(hex).await)
+            } else {
+                None
+            };
+            (source.source(), response)
+        }))
+        .await;
+        let mut coverage = Vec::new();
+        let values = responses
+            .into_iter()
+            .filter_map(|(source, response)| {
+                record_response(source, "function", response, &mut coverage)
+            })
+            .collect::<Vec<_>>();
+        ensure_available(&coverage)?;
+        Ok(LookupReport {
+            value: Self::merge_signatures(values),
+            coverage,
+        })
     }
 
     pub async fn get_function_abi(&self, tx_input: &[u8]) -> Result<Vec<Abi>, anyhow::Error> {
+        Ok(self.get_function_abi_with_coverage(tx_input).await?.value)
+    }
+
+    pub async fn get_function_abi_with_coverage(
+        &self,
+        tx_input: &[u8],
+    ) -> Result<LookupReport<Vec<Abi>>, anyhow::Error> {
         if tx_input.len() < 4 {
             anyhow::bail!("tx input len must be at least 4 bytes");
         }
         let hex_sig = hex::encode(&tx_input[..4]);
-        let sigs = self.get_function_signatures(&hex_sig).await?;
-        Ok(sigs
+        let report = self.get_function_signatures_with_coverage(&hex_sig).await?;
+        let value = report
+            .value
             .into_iter()
             .filter_map(|sig| {
                 let (name, args) = parse_signature(&sig)?;
                 let values = decode_txinput(&args, &tx_input[4..])?;
-                let inputs = parse_args("arg".into(), &args, &values);
                 Some(Abi {
                     name: name.into(),
-                    inputs,
+                    inputs: parse_args("arg".into(), &args, &values),
                 })
             })
-            .collect())
+            .collect();
+        Ok(LookupReport {
+            value,
+            coverage: report.coverage,
+        })
     }
 
     pub async fn get_event_abi(&self, raw: RawLog) -> Result<Vec<Abi>, anyhow::Error> {
-        if raw.topics.is_empty() {
-            anyhow::bail!("log should contain at least one topic");
-        }
-        let hex_sig = hex::encode(raw.topics[0].as_bytes());
+        Ok(self
+            .get_event_abi_with_coverage(raw)
+            .await?
+            .value
+            .into_iter()
+            .map(|candidate| candidate.abi)
+            .collect())
+    }
 
-        let complete_sigs = get_event_signatures!(&self.complete_sources, &hex_sig);
-        let sigs = get_event_signatures!(&self.sources, &hex_sig);
-
-        process_event_signatures(&raw, complete_sigs, sigs).await
+    pub async fn get_event_abi_with_coverage(
+        &self,
+        raw: RawLog,
+    ) -> Result<LookupReport<Vec<EventCandidate>>, anyhow::Error> {
+        let topic = raw
+            .topics
+            .first()
+            .context("log should contain at least one topic")?;
+        let key = hex::encode(topic.as_bytes());
+        let key = &key;
+        let (complete, signatures) = futures::join!(
+            futures::future::join_all(self.complete_sources.iter().map(|source| async move {
+                let response = if source.covers_event(key) {
+                    Some(source.get_event_signatures(key).await)
+                } else {
+                    None
+                };
+                (source.source(), response)
+            })),
+            futures::future::join_all(self.sources.iter().map(|source| async move {
+                let response = if source.covers_event(key) {
+                    Some(source.get_event_signatures(key).await)
+                } else {
+                    None
+                };
+                (source.source(), response)
+            }))
+        );
+        let mut coverage = Vec::new();
+        let complete = complete
+            .into_iter()
+            .filter_map(|(source, response)| {
+                record_response(source, "complete_event", response, &mut coverage)
+            })
+            .collect::<Vec<_>>();
+        let signatures = signatures
+            .into_iter()
+            .filter_map(|(source, response)| {
+                record_response(source, "event", response, &mut coverage)
+            })
+            .collect::<Vec<_>>();
+        ensure_available(&coverage)?;
+        let value = process_event_signatures(
+            &raw,
+            Self::merge_signatures(complete),
+            Self::merge_signatures(signatures),
+        )?;
+        Ok(LookupReport { value, coverage })
     }
 
     pub async fn batch_get_event_abi(
         &self,
         raw_logs: Vec<RawLog>,
     ) -> Result<Vec<Vec<Abi>>, anyhow::Error> {
-        let mut hex_sigs = Vec::new();
-        for raw in &raw_logs {
-            if raw.topics.is_empty() {
-                anyhow::bail!("log should contain at least one topic")
-            }
-            hex_sigs.push(hex::encode(raw.topics[0].as_bytes()));
-        }
+        Ok(self
+            .batch_get_event_abi_with_coverage(raw_logs)
+            .await?
+            .into_iter()
+            .map(|report| {
+                report
+                    .value
+                    .into_iter()
+                    .map(|candidate| candidate.abi)
+                    .collect()
+            })
+            .collect())
+    }
 
-        let complete_responses = proxy!(
-            &self.complete_sources,
-            &hex_sigs,
-            batch_get_event_signatures
+    pub async fn batch_get_event_abi_with_coverage(
+        &self,
+        raw_logs: Vec<RawLog>,
+    ) -> Result<Vec<LookupReport<Vec<EventCandidate>>>, anyhow::Error> {
+        let keys: Vec<_> = raw_logs
+            .iter()
+            .map(|raw| {
+                raw.topics
+                    .first()
+                    .map(|topic| hex::encode(topic.as_bytes()))
+                    .context("log should contain at least one topic")
+            })
+            .collect::<Result<_, _>>()?;
+        if keys.is_empty() {
+            return Ok(Vec::new());
+        }
+        let keys = &keys;
+        let (complete, signatures) = futures::join!(
+            futures::future::join_all(self.complete_sources.iter().map(|source| async move {
+                let covered: Vec<_> = keys.iter().map(|key| source.covers_event(key)).collect();
+                let response = if covered.iter().any(|covered| *covered) {
+                    Some(source.batch_get_event_signatures(keys).await)
+                } else {
+                    None
+                };
+                (source.source(), covered, response)
+            })),
+            futures::future::join_all(self.sources.iter().map(|source| async move {
+                let covered: Vec<_> = keys.iter().map(|key| source.covers_event(key)).collect();
+                let response = if covered.iter().any(|covered| *covered) {
+                    Some(source.batch_get_event_signatures(keys).await)
+                } else {
+                    None
+                };
+                (source.source(), covered, response)
+            }))
         );
-        let responses = proxy!(&self.sources, &hex_sigs, batch_get_event_signatures);
-
         let mut results = Vec::new();
-        for (index, raw_log) in raw_logs.iter().enumerate() {
-            let batch_complete_signatures: Vec<_> = complete_responses
-                .iter()
-                .map(|response| response.get(index).cloned().unwrap_or_default())
-                .collect();
-            let complete_signatures = SourceAggregator::merge_signatures(batch_complete_signatures);
-
-            let batch_signatures: Vec<_> = responses
-                .iter()
-                .map(|response| response.get(index).cloned().unwrap_or_default())
-                .collect();
-            let signatures = SourceAggregator::merge_signatures(batch_signatures);
-
-            let abis = process_event_signatures(raw_log, complete_signatures, signatures).await?;
-            results.push(abis)
+        for (index, raw) in raw_logs.iter().enumerate() {
+            let mut coverage = Vec::new();
+            let complete = batch_row(
+                &complete,
+                index,
+                keys.len(),
+                "complete_event",
+                &mut coverage,
+            );
+            let signatures = batch_row(&signatures, index, keys.len(), "event", &mut coverage);
+            ensure_available(&coverage)?;
+            let value = process_event_signatures(
+                raw,
+                Self::merge_signatures(complete),
+                Self::merge_signatures(signatures),
+            )?;
+            results.push(LookupReport { value, coverage });
         }
-
         Ok(results)
     }
 }
 
-async fn process_event_signatures(
+type BatchResponse<T> = (
+    String,
+    Vec<bool>,
+    Option<Result<Vec<Vec<T>>, anyhow::Error>>,
+);
+
+fn batch_row<T: Clone>(
+    responses: &[BatchResponse<T>],
+    index: usize,
+    count: usize,
+    operation: &'static str,
+    coverage: &mut Vec<SourceOutcome>,
+) -> Vec<Vec<T>> {
+    responses
+        .iter()
+        .filter_map(|(source, covered, response)| {
+            let response = if !covered[index] {
+                None
+            } else {
+                Some(
+                    match response.as_ref().expect("covered batch must be requested") {
+                        Ok(rows) if rows.len() == count => Ok(rows[index].clone()),
+                        Ok(rows) => Err(anyhow::anyhow!(
+                            "invalid batch response length: expected {count}, got {}",
+                            rows.len()
+                        )),
+                        Err(error) => Err(anyhow::anyhow!("{error:#}")),
+                    },
+                )
+            };
+            record_response(source.clone(), operation, response, coverage)
+        })
+        .collect()
+}
+
+fn process_event_signatures(
     raw: &RawLog,
     complete_signatures: Vec<alloy_json_abi::Event>,
     signatures: Vec<String>,
-) -> Result<Vec<Abi>, anyhow::Error> {
-    let complete_abis: Vec<_> = complete_signatures.into_iter().filter_map(|alloy_event| {
-        let ethabi_event = try_from_alloy_event_to_ethabi_event(alloy_event.clone())
-            .map_err(|err| tracing::error!("converting alloy_json_abi::Event into ethabi::Event failed for {alloy_event:?}; err={err:#}")).ok()?;
-        ethabi_event.parse_log_whole(raw.clone()).ok()
-            .map(|event| {
-                let mut names = Vec::new();
-                let mut values = Vec::new();
-                for param in event.params.into_iter() {
-                    names.push(param.name);
-                    values.push(param.value);
-                }
-                let indexed: Vec<_> = ethabi_event.inputs.iter().map(|param| param.indexed).collect();
-                let args: Vec<_> = ethabi_event.inputs.into_iter().map(|param| param.kind).collect();
-                let mut inputs = parse_args_with_names(&names, &args, &values);
+) -> Result<Vec<EventCandidate>, anyhow::Error> {
+    let has_complete_signatures = !complete_signatures.is_empty();
+    let mut candidates = Vec::new();
+    for alloy_event in complete_signatures {
+        let event = try_from_alloy_event_to_ethabi_event(alloy_event)?;
+        if let Some(decoded) = crate::sources::decode_complete_event(&event, raw) {
+            let names: Vec<_> = decoded
+                .params
+                .iter()
+                .map(|param| param.name.clone())
+                .collect();
+            let values: Vec<_> = decoded
+                .params
+                .into_iter()
+                .map(|param| param.value)
+                .collect();
+            let args: Vec<_> = event
+                .inputs
+                .iter()
+                .map(|param| param.kind.clone())
+                .collect();
+            let mut inputs = parse_args_with_names(&names, &args, &values);
+            for (input, param) in inputs.iter_mut().zip(&event.inputs) {
+                input.indexed = Some(param.indexed);
+            }
+            candidates.push(EventCandidate {
+                abi: Abi {
+                    name: event.name,
+                    inputs,
+                },
+                layout: EventLayout::Exact,
+            });
+        }
+    }
+    if !has_complete_signatures {
+        for signature in signatures {
+            let Some((name, args)) = parse_signature(&signature) else {
+                continue;
+            };
+            for (values, indexed) in decode_log(name.to_owned(), &args, raw.clone())? {
+                let mut inputs = parse_args("arg".into(), &args, &values);
                 for (input, indexed) in inputs.iter_mut().zip(indexed) {
                     input.indexed = Some(indexed);
                 }
-                Abi {
-                    name: ethabi_event.name,
-                    inputs,
-                }
-            })
-    }).collect();
-
-    let abis: Vec<_> = signatures
-        .into_iter()
-        .filter_map(|sig| {
-            let (name, args) = parse_signature(&sig)?;
-            let (values, indexed) = decode_log(name.to_string(), &args, raw.clone())?;
-            let mut inputs = parse_args("arg".into(), &args, &values);
-            for (input, indexed) in inputs.iter_mut().zip(indexed) {
-                input.indexed = Some(indexed);
+                candidates.push(EventCandidate {
+                    abi: Abi {
+                        name: name.into(),
+                        inputs,
+                    },
+                    layout: EventLayout::Candidate,
+                });
             }
-            Some(Abi {
-                name: name.into(),
-                inputs,
-            })
-        })
-        .collect();
-
-    let mut seen_abis = HashSet::new();
-    let result: Vec<_> = complete_abis
-        .into_iter()
-        .chain(abis)
-        .filter_map(|abi| {
-            if !seen_abis.contains(&abi) {
-                seen_abis.insert(abi.clone());
-                Some(abi)
-            } else {
-                None
-            }
-        })
-        .collect();
-    Ok(result)
+        }
+    }
+    let mut seen = HashSet::new();
+    candidates.retain(|candidate| seen.insert(candidate.abi.clone()));
+    Ok(candidates)
 }
 
 fn parse_signature(sig: &str) -> Option<(&str, Vec<ParamType>)> {
@@ -238,46 +489,47 @@ fn decode_txinput(args: &[ParamType], tx_args: &[u8]) -> Option<Vec<Token>> {
     Some(decoded)
 }
 
-fn decode_log(name: String, args: &[ParamType], raw: RawLog) -> Option<(Vec<Token>, Vec<bool>)> {
+fn decode_log(
+    name: String,
+    args: &[ParamType],
+    raw: RawLog,
+) -> Result<Vec<(Vec<Token>, Vec<bool>)>, anyhow::Error> {
     const MAX_COMBINATIONS: usize = 10000;
-    // because we don't know, which fields are indexed
-    // we try to iterate over all possible combinations
-    // and find whatever decodes without errors
-    for (ind, indexes) in (0..args.len())
+    let mut candidates = Vec::new();
+    for (index, indexes) in (0..args.len())
         .combinations(raw.topics.len() - 1)
         .enumerate()
     {
-        if ind > MAX_COMBINATIONS {
-            break;
+        anyhow::ensure!(
+            index < MAX_COMBINATIONS,
+            "ambiguous event layout exceeds {MAX_COMBINATIONS} combinations; complete ABI required"
+        );
+        let mut indexed = vec![false; args.len()];
+        for index in indexes {
+            indexed[index] = true;
         }
-        let mut perm = vec![false; args.len()];
-        for indexed in indexes {
-            perm[indexed] = true;
-        }
-        let inputs: Vec<_> = args
-            .iter()
-            .zip(perm.iter())
-            .enumerate()
-            .map(|(ind, (param, indexed))| EventParam {
-                name: format!("{ind}"),
-                kind: param.clone(),
-                indexed: *indexed,
-            })
-            .collect();
         let event = Event {
             name: name.clone(),
-            inputs,
             anonymous: false,
+            inputs: args
+                .iter()
+                .zip(&indexed)
+                .enumerate()
+                .map(|(index, (kind, indexed))| EventParam {
+                    name: index.to_string(),
+                    kind: kind.clone(),
+                    indexed: *indexed,
+                })
+                .collect(),
         };
-        let tokens = event
-            .parse_log(raw.clone())
-            .ok()
-            .map(|log| log.params.into_iter().map(|param| param.value).collect());
-        if let Some(tokens) = tokens {
-            return Some((tokens, perm));
+        if let Some(log) = crate::sources::decode_complete_event(&event, &raw) {
+            candidates.push((
+                log.params.into_iter().map(|param| param.value).collect(),
+                indexed,
+            ));
         }
     }
-    None
+    Ok(candidates)
 }
 
 fn parse_arg(name: String, param: &ParamType, value: &Token) -> Argument {
@@ -395,6 +647,11 @@ mod tests {
         for (input, abi) in tests {
             let mut source = MockSignatureSource::new();
             source
+                .expect_source()
+                .return_const("test source".to_owned());
+            source.expect_covers_function().return_const(true);
+            source.expect_covers_event().return_const(true);
+            source
                 .expect_get_function_signatures()
                 .with(mockall::predicate::eq("70a08231"))
                 .times(1)
@@ -447,6 +704,11 @@ mod tests {
         let input = "68705463".to_string() + &encoded;
 
         let mut source = MockSignatureSource::new();
+        source
+            .expect_source()
+            .return_const("test source".to_owned());
+        source.expect_covers_function().return_const(true);
+        source.expect_covers_event().return_const(true);
         source
             .expect_get_function_signatures()
             .with(mockall::predicate::eq("68705463"))
@@ -618,88 +880,16 @@ mod tests {
                     ],
                 },
             ),
-            (
-                RawLog {
-                    data: hex::decode(
-                        "000000000000000000000000000000000000000000000000030d98d59a960000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000469ef5a473f28f3a21",
-                    )
-                    .unwrap(),
-                    topics: vec![
-                        H256::from_slice(
-                            &hex::decode(
-                                "d78ad95fa46c994b6551d0da85fc275fe613ce37657fb8d5e3d130840159d822",
-                            )
-                            .unwrap(),
-                        ),
-                        H256::from_slice(
-                            &hex::decode(
-                                "00000000000000000000000068b3465833fb72a70ecdf485e0e4c7bd8665fc45",
-                            )
-                            .unwrap(),
-                        ),
-                        // this is actually last argument, but we can't determine that just from signature
-                        // so we decode it as second argument
-                        H256::from_slice(
-                            &hex::decode(
-                                "000000000000000000000000220575d6e7e8797ad18d0d660c7e1ecf4e1a1ed1",
-                            )
-                            .unwrap(),
-                        ),
-                    ],
-                },
-                "Swap(address,uint256,uint256,uint256,uint256,address)",
-                Abi {
-                    name: "Swap".into(),
-                    inputs: vec![
-                        Argument {
-                            name: "arg0".into(),
-                            r#type: "address".into(),
-                            components: vec![],
-                            indexed: Some(true),
-                            value: "68b3465833fb72a70ecdf485e0e4c7bd8665fc45".into(),
-                        },
-                        Argument {
-                            name: "arg1".into(),
-                            r#type: "uint256".into(),
-                            components: vec![],
-                            indexed: Some(true),
-                            value: "220575d6e7e8797ad18d0d660c7e1ecf4e1a1ed1".into(),
-                        },
-                        Argument {
-                            name: "arg2".into(),
-                            r#type: "uint256".into(),
-                            components: vec![],
-                            indexed: Some(false),
-                            value: "30d98d59a960000".into(),
-                        },
-                        Argument {
-                            name: "arg3".into(),
-                            r#type: "uint256".into(),
-                            components: vec![],
-                            indexed: Some(false),
-                            value: "0".into(),
-                        },
-                        Argument {
-                            name: "arg4".into(),
-                            r#type: "uint256".into(),
-                            components: vec![],
-                            indexed: Some(false),
-                            value: "0".into(),
-                        },
-                        Argument {
-                            name: "arg5".into(),
-                            r#type: "address".into(),
-                            components: vec![],
-                            indexed: Some(false),
-                            value: "0000000000000000000000469ef5a473f28f3a21".into(),
-                        },
-                    ],
-                },
-            ),
+
         ];
         for (input, sig, abi) in tests {
             let expected = hex::encode(input.topics[0].as_bytes());
             let mut source = MockSignatureSource::new();
+            source
+                .expect_source()
+                .return_const("test source".to_owned());
+            source.expect_covers_function().return_const(true);
+            source.expect_covers_event().return_const(true);
             source
                 .expect_get_event_signatures()
                 .withf(move |hex| hex == expected)
@@ -759,6 +949,11 @@ mod tests {
         };
         let expected = hex::encode(input.topics[0].as_bytes());
         let mut source = MockSignatureSource::new();
+        source
+            .expect_source()
+            .return_const("test source".to_owned());
+        source.expect_covers_function().return_const(true);
+        source.expect_covers_event().return_const(true);
         source
             .expect_get_event_signatures()
             .withf(move |hex| hex == expected)
@@ -833,6 +1028,11 @@ mod tests {
         };
         let expected = hex::encode(input.topics[0].as_bytes());
         let mut source = MockSignatureSource::new();
+        source
+            .expect_source()
+            .return_const("test source".to_owned());
+        source.expect_covers_function().return_const(true);
+        source.expect_covers_event().return_const(true);
         source
             .expect_get_event_signatures()
             .withf(move |hex| hex == expected)

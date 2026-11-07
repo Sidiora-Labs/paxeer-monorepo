@@ -1,0 +1,11 @@
+[repair.22.33.536]
+audit = "22.30.155"
+acceptance = "22998.1"
+test_path = "services/explorer/backend/apps/explorer/test/repair/repair_22_33_536_test.exs"
+interop-page-boundary = "interop-page-boundary: query-string cursors traverse a multi-message transaction exactly once; interop-page-boundary: malformed or incomplete cursors fail explicitly"
+interop-empty-inclusion = "interop-empty-inclusion: complete sender or target overlap matches no imported messages"
+interop-cursor-filter = "interop-cursor-filter: tied timestamps cannot bypass sender, target, status or direction"
+proof = "Recorded interop schema transcript and explicit regression variants pass through the production changeset, Ecto.Multi import runner, PostgreSQL store, list query, API cursor encoder, query-string transport and cursor decoder."
+baseline = "Not run: the task's explicit gate order forbids verification before complete implementation and permits verification only through hf-done; no baseline test failures are claimed."
+wiring_request = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/chain.ex (block_scout_web domain): delegate the OptimismInteropMessage paging_params clause to InteropMessage.paging_params/1 and decode all four cursor fields with InteropMessage.paging_options/1, surfacing :error as an invalid cursor; the current two-field HTTP cursor cannot traverse a transaction boundary until this wiring is applied."
+qualification = "Exact candidate revision, command, exit and private log location are retained by the runner's hf-build/hf-done evidence ledger; this record makes no unexecuted gate claim."

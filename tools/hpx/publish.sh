@@ -17,7 +17,9 @@ CHAIN_ID="${HPX_CHAIN_ID:-hyperpax_125-1}"
 EVM_CHAIN_ID="${HPX_EVM_CHAIN_ID:-125}"
 P2P_PORT="${HPX_P2P_PORT:-26656}"
 RPC_PORT="${HPX_RPC_PORT:-26657}"
-PAXD_VERSION="${HPX_PAXD_VERSION:-v6.12.0}"
+VERSION_MANIFEST="${MONOREPO_ROOT}/tools/release/version.json"
+PAXD_VERSION="${HPX_PAXD_VERSION:-$(jq -er '.version' "$VERSION_MANIFEST")}"
+BUILD_PROVENANCE="${HPX_BUILD_PROVENANCE:-${SRC_BIN}.provenance.json}"
 RELEASE_REPO="${HPX_RELEASE_REPO:-Sidiora-Labs/Paxeer-X-Network}"
 BINARIES_URL="https://github.com/${RELEASE_REPO}/releases/download/paxeer-network/${PAXD_VERSION}"
 BLOCKS_BEHIND_THRESHOLD=200
@@ -29,6 +31,8 @@ die() { printf '\033[0;31m[publish] ERROR:\033[0m %s\n' "$*" >&2; exit 1; }
 
 required=(
   "$SRC_BIN"
+  "$VERSION_MANIFEST"
+  "$BUILD_PROVENANCE"
   "$SRC_CFG/genesis.json"
   "$SRC_CFG/config.toml"
   "$SRC_CFG/app.toml"
@@ -75,13 +79,19 @@ mkdir -p "$stage/lib" "$stage/config/fullnode" "$stage/config/validator"
 
 say "staging paxd from ${SRC_BIN}"
 install -m 0755 "$SRC_BIN" "$stage/paxd"
-printf '%s  paxd\n' "$paxd_sha" > "$stage/paxd.sha256"
 
 runtime_path="$WASM_ROOT/wasm-runtime/internal/api:$WASM_ROOT/wasm/x/wasm/artifacts/v152/api:$WASM_ROOT/wasm/x/wasm/artifacts/v155/api"
-binary_info=$(LD_LIBRARY_PATH="$runtime_path" "$SRC_BIN" version --long --output json 2>/dev/null) \
+binary_info=$(LD_LIBRARY_PATH="$runtime_path" "$stage/paxd" version --long --output json 2>/dev/null) \
   || die "published paxd cannot report its build identity with the required native libraries"
-paxd_commit=$(printf '%s' "$binary_info" | jq -er '.commit') \
-  || die "published paxd has no embedded source commit"
+printf '%s\n' "$binary_info" > "$stage/binary-info.json"
+install -m 0644 "$BUILD_PROVENANCE" "$stage/build-provenance.json"
+install -m 0644 "$VERSION_MANIFEST" "$stage/version.json"
+python3 "$HPX_DIR/release_identity.py" "$stage/version.json" "$stage/binary-info.json" \
+  "$stage/build-provenance.json" "$stage/paxd" "$source_revision" "$PAXD_VERSION" \
+  >/dev/null || die "release identity validation failed"
+paxd_commit=$(printf '%s' "$binary_info" | jq -er '.commit')
+paxd_sha=$(sha256sum "$stage/paxd" | awk '{print $1}')
+printf '%s  paxd\n' "$paxd_sha" > "$stage/paxd.sha256"
 
 say "staging all supported libwasmvm runtimes"
 install -m 0644 "$WASM_ROOT/wasm-runtime/internal/api/libwasmvm.x86_64.so" "$stage/lib/"

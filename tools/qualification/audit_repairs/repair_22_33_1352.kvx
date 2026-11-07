@@ -1,0 +1,36 @@
+[repair.22.33.1352]
+task = "22.33.1352"
+audit = "22.30.74"
+base_revision = "76c050242a1edcad6212aa52fac15670ecb5612d"
+finding_ids = ["debug-image-build"]
+strategy = "Use the proposal's withdrawal alternative: remove the obsolete Dockerfile and disclose retirement in the directory README; keep the historical wrapper unchanged."
+changed_source = ["sdk/contrib/images/simd-dlv/Dockerfile", "sdk/contrib/images/simd-dlv/README.md"]
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_1352.py"
+verified_revision_source = "The successful verify row's revision in /out/run/gates.jsonl names the immutable candidate containing this record; hf-build and hf-done must name the same revision."
+private_evidence = "The final hf-done JSON records the exact revision, command, exit code and private log path; the runner retains the qualification receipt separately."
+
+[finding.debug-image-build]
+proving_tests = ["test_debug_image_build_recipe_withdrawn", "test_debug_image_build_entrypoints_refuse", "test_debug_image_build_documentation_discloses_withdrawal"]
+test_module = "tools/qualification/audit_repairs/test_repair_22_33_1352.py"
+repair = "Remove the Go 1.18, contrib/ and build/simd recipe rather than advertise an unsupported paxd debug image; the parent Makefile already retires every image target."
+source_proof = "Assert the Dockerfile is absent, including dangling links and alternate files in the image directory; parse every parent Makefile line and require only literal stderr diagnostics followed by unconditional nonzero exits, with no prerequisites or other executable syntax; assert the README discloses withdrawal and the maintained root paxd build command."
+path_proof = "The direct docker-build consumer has no Dockerfile to load; the real default and named make consumers reach only the retirement diagnostic and failure, without invoking the obsolete image producer or forwarding a nonexistent simd artifact to its wrapper."
+review_only = "This is source qualification of withdrawal, not a Docker image build, shell execution, Go build, native-library link, debugger session or main-line inventory sweep. No shell script is changed or qualified, and no subprocess binary, endpoint, environment variable or credential is required by pytest. Restart recovery and interface mismatch are not findings of this task."
+wiring_requests = ["sdk/contrib/images/Makefile (owning domain 15, Cosmos fork): update the historical-tooling diagnostic to reflect removal of simd-dlv/Dockerfile while preserving all existing retirement refusals."]
+wiring_basis = "The existing retirement behavior is sufficient for withdrawal; the parent diagnostic wording is outside this task's scope and is not changed here."
+
+[baseline]
+gate_ledger = "No /out/run/gates.jsonl existed at session start; gate configuration recorded zero builds and zero verify runs, and the task's test module and repair record were absent."
+unchanged_verify = "Not run: the explicit implementation-first order and exclusive hf-done verification gate prohibit the conflicting do_5 request to run the unchanged-tree verify first. No pre-change test failure is claimed."
+source_observation = "Before repair the parent Makefile already refused inherited image builds, but the directory still contained a directly selectable Dockerfile with Go 1.18, contrib/ paths and build/simd. The new recipe-absence and withdrawal-documentation assertions reject that state by inspection, not baseline execution."
+
+[format]
+policy = "No Python, Markdown or KVX formatter is configured for these paths; use the repository .editorconfig UTF-8, LF and final-newline rules, with trailing whitespace removed from Python and KVX."
+
+[gotcha.1]
+observed = "The unchanged-tree verification request conflicts with the explicit gate order and gate budget."
+resolution = "Follow the ordered gates and state that baseline verification was not run; keep the note here because GOTCHA.kvx and spec files are outside scope."
+
+[gotcha.2]
+observed = "Broad context reads exceeded the tool output budget and Codify brief included unrelated task context."
+resolution = "Read the exact task block, finding, source and gate ledger in bounded output; preserve all runner setup changes."

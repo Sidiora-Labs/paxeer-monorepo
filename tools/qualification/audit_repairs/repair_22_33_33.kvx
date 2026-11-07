@@ -1,0 +1,35 @@
+[task.22.33.33]
+audit_record = "22.30.102"
+base_revision = "b2c2d3ccfc9cd9dd9e34bca67b07b7b55a9bcc51"
+finding_ids = ["architecture-root"]
+paths = ["README.md", "tools/qualification/audit_repairs/test_repair_22_33_33.py", "tools/qualification/audit_repairs/repair_22_33_33.kvx"]
+repair = "Preserve the inherited merged introduction, current RPC documentation and linked build instructions. Add a source-linked runtime component table, a Mermaid diagram containing kernel execution and BFT commit inside paxd, a prepared proposing-node startup example matching start_native, and explicitly labelled retired deployment context. No unrelated README sections or production sources change."
+baseline = "The initial git status/diff contained only runner-prepared .cgignore and spec task-start changes; preserve both. No /out/run/gates.jsonl ledger existed. The README already described an embedded kernel, commit finality and current node/gateway contracts, but had no architecture diagram, runtime component table or node launch example. No pre-change verification ran: step 5 conflicts with the explicit order requiring complete implementation, then hf-build, then hf-done, and forbidding manual verify_cmd. No baseline test failure is claimed."
+formatting = "No Python, Markdown or KVX formatter is configured for these paths. Follow adjacent Python style and .editorconfig LF/final-newline rules; preserve Markdown whitespace outside the repair."
+build_cmd = "python3 --version"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_33.py"
+evidence = "The verified revision is the revision field of the final hf-done JSON and its private /out/run/gates.jsonl verify record, alongside the exact command, exit and private log path. The hf-build and hf-done revisions must match. This record is finalized before gates; no success is claimed without that evidence; the runner commits."
+wiring_requests = []
+
+[finding.architecture-root]
+file = "README.md"
+tests = ["test_architecture_root_introduction_and_receipt_commit_boundary", "test_architecture_root_component_table_links_real_runtime_boundaries", "test_architecture_root_diagram_contains_embedded_execution_and_gateway_relay", "test_architecture_root_build_and_run_match_native_producer", "test_architecture_root_public_rpc_example_and_hosted_contract_are_distinct", "test_architecture_root_retired_model_is_labelled_and_never_launched"]
+proven = "Offline tests read the actual repaired README, parse its component rows, Mermaid containment/edges, shell examples with shlex and JSON request with json.loads, and reject retired launches. They trace documented linking through root Makefile prerequisites, chain.mk output and cgo linker flags into node/app.go; compare documented node launch flags with the production start_native Python AST; check finality rungs and source ordering from receipt producer through committed block lookup; parse the real hosted OpenRPC contract and check gateway relay policy and committed public endpoint reference. Only README.md is a finding target; no shell scripts, unit files or manifests are repaired, so no bash or external parser is needed."
+review_only = "This is documentation source qualification, not execution of the Go/C/Rust runtime, consensus, startup, restart recovery, deployed image, live RPC or gateway transport. Review establishes the explanatory meaning and rendered diagram layout; string/AST checks establish the stated source facts only. No interface or persistent component changes, so restart and interface-mismatch behavior gates do not apply. The gate needs no environment variable, credential, network, subprocess, native artifact or toolchain."
+out_of_path = "The proposal requires no changes outside the allowed paths; no wiring request is necessary."
+
+[gotcha.1]
+observed = "The audit describes a separate daemon and checkpoint diagram, but the base already replaces that prose and has removed the old diagram."
+resolution = "Preserve the inherited corrections and finish the missing diagram, runtime table, run example and explicit history label; do not resurrect retired deployment instructions. GOTCHA.kvx and spec files are outside the authorized scope, so task gotchas are recorded here."
+
+[gotcha.2]
+observed = "Broad cg survey and combined source reads exceed output limits; the runner's graph intentionally indexes only task paths and spec."
+resolution = "Read bounded source excerpts directly when production paths are absent from the graph; do not change the runner's .cgignore."
+
+[gotcha.3]
+revision = "0243b5985c3b56bfa08f168d6b02de2d5c30c136"
+command = "cg spec done 22.33.33 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Five tests passed; the public RPC example test failed because the section parser mistook the fenced shell comment '# Expected result' for a Markdown heading."
+resolution = "Repair cycle 1: parse headings only outside fenced code blocks and reject unclosed fences; preserve every existing assertion and rerun hf-build then hf-done on the repaired candidate."

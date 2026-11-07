@@ -1,5 +1,5 @@
 [sweep.go-precompiles]
-revision = "1fea7069e58b649760bb1afcabdb9c4caec5ea4c"
+revision = "7478907943b4655b9831bc5605093828ecb974df"
 command = "CGO_ENABLED=1 go vet ./TARGET/ && CGO_ENABLED=1 go test -count=1 ./TARGET/"
 enumeration_command = "CGO_ENABLED=1 go list ./precompiles/..."
 enumeration_exit_code = 0
@@ -8,34 +8,36 @@ prerequisite_exit_code = 0
 environment = "CGO_ENABLED=1 GOMAXPROCS=2"
 parallel_targets = 4
 per_target_time_limit_seconds = 300
+source = "Task closure checkout after all eight prerequisite repair merges; the sandbox main reference remains at the earlier task base."
+qualification_record = "/out/logs/go-precompiles/qualification.json"
 targets_total = 223
-targets_passed = 208
-targets_failed = 7
-targets_not_run = 8
+targets_passed = 210
+targets_failed = 6
+targets_not_run = 7
 
 [target.go-precompiles.1]
 target = "precompiles"
 result = "not_run"
 exit_code = 124
-reason = "The command exceeded its five-minute share of the thirty-minute task budget and was terminated to preserve time for remaining targets and the bounded gates."
+reason = "Target exceeded its 300-second execution budget before completing both vet and tests."
 
 [target.go-precompiles.2]
 target = "precompiles/addr"
 result = "not_run"
 exit_code = 124
-reason = "The command exceeded its five-minute share of the thirty-minute task budget and was terminated to preserve time for remaining targets and the bounded gates."
+reason = "Target exceeded its 300-second execution budget before completing both vet and tests."
 
 [target.go-precompiles.3]
 target = "precompiles/addr/legacy/v552"
 result = "not_run"
 exit_code = 124
-reason = "The command exceeded its five-minute share of the thirty-minute task budget and was terminated to preserve time for remaining targets and the bounded gates."
+reason = "Target exceeded its 300-second execution budget before completing both vet and tests."
 
 [target.go-precompiles.4]
 target = "precompiles/addr/legacy/v555"
 result = "not_run"
 exit_code = 124
-reason = "The command exceeded its five-minute share of the thirty-minute task budget and was terminated to preserve time for remaining targets and the bounded gates."
+reason = "Target exceeded its 300-second execution budget before completing both vet and tests."
 
 [target.go-precompiles.5]
 target = "precompiles/addr/legacy/v562"
@@ -106,7 +108,7 @@ exit_code = 0
 target = "precompiles/bank"
 result = "not_run"
 exit_code = 124
-reason = "The command exceeded its five-minute share of the thirty-minute task budget and was terminated to preserve time for remaining targets and the bounded gates."
+reason = "Target exceeded its 300-second execution budget before completing both vet and tests."
 
 [target.go-precompiles.19]
 target = "precompiles/bank/legacy/v552"
@@ -187,7 +189,7 @@ exit_code = 0
 target = "precompiles/common"
 result = "not_run"
 exit_code = 124
-reason = "The command exceeded its five-minute share of the thirty-minute task budget and was terminated to preserve time for remaining targets and the bounded gates."
+reason = "Target exceeded its 300-second execution budget before completing both vet and tests."
 
 [target.go-precompiles.35]
 target = "precompiles/common/legacy/v552"
@@ -543,8 +545,8 @@ exit_code = 0
 target = "precompiles/launchpad"
 result = "failed"
 exit_code = 1
-observed = "TestOpticalHooksSeeTheContractCallers at precompiles/launchpad/optical_test.go:57 failed because the solc executable was not found in PATH."
-assumption = "This first failure is environmental because the Solidity compiler executable is not installed."
+observed = "TestOpticalHooksSeeTheContractCallers at precompiles/launchpad/optical_test.go:57 failed because solc was not found in PATH."
+assumption = "This failure is environmental because the Solidity compiler executable is not installed."
 
 [target.go-precompiles.106]
 target = "precompiles/launchpad/legacy/v610"
@@ -565,7 +567,7 @@ exit_code = 0
 target = "precompiles/layerxagent/eip712"
 result = "failed"
 exit_code = 1
-observed = "TestProofEip7120x0908 at precompiles/layerxagent/eip712/proof_eip712_0x0908_test.go:187 failed because the real gateway consumer could not import the tsx package."
+observed = "TestProofEip7120x0908 at precompiles/layerxagent/eip712/proof_eip712_0x0908_test.go:187 failed because the real gateway consumer could not find the tsx package."
 assumption = "This failure is environmental because the wallet gateway Node dependencies are not installed."
 
 [target.go-precompiles.110]
@@ -587,8 +589,8 @@ exit_code = 0
 target = "precompiles/layerxagent/scheduler"
 result = "failed"
 exit_code = 1
-observed = "TestProofScheduler0x0905ProducerTransportConsumer at precompiles/layerxagent/scheduler/proof_scheduler_0x0905_test.go:257 failed because the real wallet consumer could not import @noble/hashes from services/agent/sdk/typescript/src/exchange.ts."
-assumption = "This failure is environmental because the agent TypeScript SDK Node dependencies are not installed."
+observed = "TestProofScheduler0x0905ProducerTransportConsumer at precompiles/layerxagent/scheduler/proof_scheduler_0x0905_test.go:257 failed because the real wallet consumer could not find @noble/hashes imported by services/agent/sdk/typescript/src/exchange.ts."
+assumption = "This failure is environmental because the agent TypeScript SDK dependencies are not installed."
 
 [target.go-precompiles.114]
 target = "precompiles/layerxagent/served"
@@ -599,14 +601,14 @@ exit_code = 0
 target = "precompiles/layerxagent/streams"
 result = "failed"
 exit_code = 1
-observed = "TestProofStreams0x0906 at precompiles/layerxagent/streams/proof_streams_0x0906_test.go:180 failed because the wallet consumer could not import the tsx package."
+observed = "TestProofStreams0x0906 at precompiles/layerxagent/streams/proof_streams_0x0906_test.go:180 failed because the real wallet consumer could not find the tsx package."
 assumption = "This failure is environmental because the wallet gateway Node dependencies are not installed."
 
 [target.go-precompiles.116]
 target = "precompiles/layerxagent/teeattestor"
 result = "failed"
 exit_code = 1
-observed = "TestProofTeeAttestor0x0907 at precompiles/layerxagent/teeattestor/proof_tee_attestor_0x0907_test.go:213 failed because the gateway consumer could not import the tsx package."
+observed = "TestProofTeeAttestor0x0907 at precompiles/layerxagent/teeattestor/proof_tee_attestor_0x0907_test.go:213 failed because the gateway precompile consumer could not find the tsx package."
 assumption = "This failure is environmental because the wallet gateway Node dependencies are not installed."
 
 [target.go-precompiles.117]
@@ -636,8 +638,10 @@ exit_code = 0
 
 [target.go-precompiles.122]
 target = "precompiles/layerxexchange"
-result = "passed"
-exit_code = 0
+result = "failed"
+exit_code = 1
+observed = "TestDepositMarginCustodiesNativeValue at precompiles/layerxexchange/layerxexchange_test.go:295 expected the LXP_EXCHANGE_RETIRED prefix but received the bare v6.12.0 retirement error."
+assumption = "The legacy retirement path appears to preserve bare revert text while these tests still expect the prefixed error after the decision 2505 repair."
 
 [target.go-precompiles.123]
 target = "precompiles/layerxledger"
@@ -658,7 +662,10 @@ exit_code = 0
 target = "precompiles/layerxprograms"
 result = "not_run"
 exit_code = 124
-reason = "The command exceeded its five-minute share of the thirty-minute task budget and was terminated to preserve time for remaining targets and the bounded gates."
+reason = "Target exceeded its 300-second execution budget before completing both vet and tests."
+command = "CGO_ENABLED=1 go vet ./precompiles/layerxprograms/ && CGO_ENABLED=1 go test -count=1 ./precompiles/layerxprograms/ -skip '^TestProofLayerxprograms0x101d$'"
+producer_input_tests = ["TestProofLayerxprograms0x101d"]
+exclusion_reason = "Decision 2509 permits excluding only TestProofLayerxprograms0x101d, named in repair.go-precompiles.126 as requiring external Python and TypeScript producer inputs; every other test and fuzz seed remains included."
 
 [target.go-precompiles.127]
 target = "precompiles/layerxprograms/types"
@@ -782,10 +789,8 @@ exit_code = 0
 
 [target.go-precompiles.151]
 target = "precompiles/perps"
-result = "failed"
-exit_code = 1
-observed = "TestVersionSwitchHeightSelection at precompiles/perps/switch_test.go:323 expected layerxExchange at height 34742400 with tracing disabled but received perps."
-assumption = "The version-switch expectation likely disagrees with the current precompile selection at that activation height."
+result = "passed"
+exit_code = 0
 
 [target.go-precompiles.152]
 target = "precompiles/perps/abi"
@@ -929,10 +934,8 @@ exit_code = 0
 
 [target.go-precompiles.180]
 target = "precompiles/pricefeed"
-result = "failed"
-exit_code = 1
-observed = "TestViewGolden1020/getPrice at precompiles/pricefeed/views_golden_test.go:88 received zero-filled return bytes instead of the populated price vector."
-assumption = "The golden fixture or its pricefeed state setup likely disagrees with the current getPrice execution path."
+result = "passed"
+exit_code = 0
 
 [target.go-precompiles.181]
 target = "precompiles/pricefeed/abi"
@@ -1141,9 +1144,8 @@ exit_code = 0
 
 [target.go-precompiles.222]
 target = "precompiles/xweb"
-result = "not_run"
-exit_code = 124
-reason = "The command was terminated at the sweep deadline to reserve the remaining task time for report generation and the bounded gates."
+result = "passed"
+exit_code = 0
 
 [target.go-precompiles.223]
 target = "precompiles/xweb/legacy/v68"

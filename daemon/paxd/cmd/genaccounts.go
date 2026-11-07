@@ -210,29 +210,23 @@ The association between the pax address and the eth address will also be created
 }
 
 func getPrivateKeyOfAddr(kb keyring.Keyring, addr sdk.Address) (*ecdsa.PrivateKey, error) {
-	keys, err := kb.List()
+	key, err := kb.KeyByAddress(addr)
 	if err != nil {
 		return nil, err
 	}
-	for _, key := range keys {
-		localInfo, ok := key.(keyring.LocalInfo)
-		if !ok {
-			// will only show local key
-			return nil, errors.New("not local key")
-		}
-		if localInfo.GetAddress().Equals(addr) {
-			priv, err := legacy.PrivKeyFromBytes([]byte(localInfo.PrivKeyArmor))
-			if err != nil {
-				return nil, err
-			}
-			privHex := hex.EncodeToString(priv.Bytes())
-			// Need to use private key to convert to pax address here
-			privKey, err := crypto.HexToECDSA(privHex)
-			if err != nil {
-				return nil, err
-			}
-			return privKey, nil
-		}
+	localInfo, ok := key.(keyring.LocalInfo)
+	if !ok {
+		return nil, errors.New("not local key")
 	}
-	return nil, errors.New("not found")
+	priv, err := legacy.PrivKeyFromBytes([]byte(localInfo.PrivKeyArmor))
+	if err != nil {
+		return nil, err
+	}
+	privHex := hex.EncodeToString(priv.Bytes())
+	// Need to use private key to convert to pax address here
+	privKey, err := crypto.HexToECDSA(privHex)
+	if err != nil {
+		return nil, err
+	}
+	return privKey, nil
 }

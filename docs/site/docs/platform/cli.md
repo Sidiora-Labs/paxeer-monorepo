@@ -1,165 +1,207 @@
 # LayerX CLI
 
-The developer CLI binary is `layerx` (`tools/platform/cli/Cargo.toml:11-13`;
-`tools/platform/cli/src/main.rs:31-32`). The crate is `layerx-platform-cli`. The
-stable graph anchor is `layerx-cli-v1`
-(`tools/platform/cli/src/main.rs:509-513`). Global `--json` emits one JSON object
-instead of human presentation (`tools/platform/cli/src/main.rs:35-40`). Global
-`--rpc` is a public gateway JSON-RPC URL that must end in `/rpc`; global
-`--gateway-credential` is a stored gateway alias
-(`tools/platform/cli/src/main.rs:42-49`). Both apply only to `wallet`, `token` and
-`program` (`tools/platform/cli/src/main.rs:515-531`). Success
-envelopes are `{ok, kind, message, data}`; failures are `{ok: false, error:
-{code, detail}}` (`tools/platform/cli/src/output.rs:18-59`). Typed machine codes
-are taken only from a leading `snake_case` token before `": "`; other
-errors use `command_failed` (`tools/platform/cli/src/output.rs:62-75`).
+The developer binary is `layerx`, from the `layerx-platform-cli` crate in
+`tools/platform/cli`. Its command parser is `src/main.rs`; wallet and token
+commands are declared in `src/wallet.rs`, and chain commands in
+`src/commands.rs`. The binary name remains LayerX after the network merge.
 
-This page covers that binary: commands, credential storage, how it reaches an
-endpoint, typed refusals, receipt verification, and the test suite. Wallet
-and token operator steps are also in
-[the CLI wallet quickstart](https://github.com/Sidiora-Labs/Paxeer-X-Network/blob/main/tools/platform/cli/README.md#wallet-quickstart).
-It does not document SDK clients; those live under `services/platform/docs/content/`.
-It does not document portable receipt JSON; see
-[Portable receipt verifier](../interop/portable-receipts.md).
+Paxeer mainnet-beta is one BFT network, with EVM chain ID **125** (`0x7d`).
+The kernel participates in block proposal inside the network. A transaction's
+receipt is final when its block is committed. Sub-chains are tenant domains
+in the database; creating a domain does not require another node deployment.
 
-The `layerx wallet` and `layerx token` command groups are in this tree:
-`tools/platform/cli/src/main.rs:58, 61, 541-542` declares both variants and routes
-them into `tools/platform/cli/src/wallet.rs`. Every command in the tables that follow
-this section is implemented and cited. Wallet, faucet, send, token, program, and
-402 steps: [Payments developer path](../overview/payments.md).
+Public node JSON-RPC uses the root URL of
+`https://api-mainnet-beta.paxeer.network` or `https://api1.mainnet-beta.paxeer.network`
+through `https://api14.mainnet-beta.paxeer.network`. See
+[Public RPC endpoints](../reference/public-rpc.md) for node selection and
+WebSocket access. Hosted `px_` methods belong to the
+[hosted gateway contract](gateway-rpc.md), declared in
+`services/platform/hosted/gateway/openrpc.json`; they are not promised by
+public nodes.
 
----
+**Transport:** `src/rpc.rs::RpcClient::new` and `src/chains.rs::node_endpoint`
+accept only an HTTP(S) origin at the root path and refuse any other path,
+including the retired `/rpc` route. `src/programs.rs::rpc_call`, `src/chains.rs`
+and `src/a2a.rs` post JSON-RPC to `/`. Registration and faucet take an explicit
+hosted service URL and post to exactly that URL.
+
+Local key, derivation, scaffolding, build, and configuration operations remain
+useful independently of those transports. The command inventory below
+separates local operations, hosted features, and emulator compatibility.
+For application workflows, see [Payments](../overview/payments.md),
+[Programs](../programs/index.md), and
+[Portable receipt verification](../interop/portable-receipts.md).
 
 ## Commands
 
-Required inputs are clap-required unless a default is named. Optional flags
-that the binary implements are listed; unimplemented flags are omitted.
+Prefix the commands in the tables with `layerx`.
 
-| Command | Purpose | Required inputs |
-| --- | --- | --- |
-| `layerx wallet create <name>` | Generate a key and, on the emulator only, register its identity and main account (`tools/platform/cli/src/wallet.rs:14-19, 384-386`) | `name`. `--did` optional. Non-emulator exits `wallet_registration_unavailable` and does not generate a key |
-| `layerx wallet import <name>` | Import a 32-byte hexadecimal Ed25519 seed from stdin without registration (`tools/platform/cli/src/wallet.rs:20-25, 376-383`) | `name`; seed on stdin. `--did` optional |
-| `layerx wallet list` | List local wallet public metadata (`tools/platform/cli/src/wallet.rs:26-27, 375`) | none |
-| `layerx wallet balance` | Read accounts of the selected DID (`tools/platform/cli/src/wallet.rs:28-34, 387-426`) | `--did` and `--asset` optional. Native asset id `01` plus 62 zero hex digits maps to `agent:<DID>:main` |
-| `layerx wallet send` | Validate a transfer; refuses before signing until the shared debit-authorization signing API is available | `--to`, `--asset`, `--amount`; optional `--key`, `--wait` |
-| `layerx wallet history` | Report that DID activity history is unpublished (`tools/platform/cli/src/wallet.rs:37-42, 439-442`) | `--did` optional. Always exits `wallet_history_unavailable` |
-| `layerx wallet receipt <activity_id>` | Verify executed, batched or finalised RPC evidence using an independently supplied `--receipt-policy`; REST verifies execution only | `activity_id`, optional `--wait` |
-| `layerx wallet open-account` | Disclose, sign, submit and verify native asset account opening through the SDK | `--asset`, `--receipt-policy`, `--fee-limit`; optional `--key`, `--wait` |
-| `layerx token create` | Disclose, sign, submit and verify native token registration through the SDK | `--symbol`, `--name`, `--decimals`, `--salt`, `--receipt-policy`, `--fee-limit`; optional `--supply-cap`, `--key`, `--wait` |
-| `layerx token mint` | Disclose, sign, submit and verify minting through the SDK | `--asset`, `--to`, `--amount`, `--receipt-policy`, `--fee-limit`; optional `--key`, `--wait` |
-| `layerx token burn` | Disclose, sign, submit and verify burning through the SDK | `--asset`, `--amount`, `--receipt-policy`, `--fee-limit`; optional `--key`, `--wait` |
-| `layerx token transfer` | Validate a token transfer; refuses before signing (`tools/platform/cli/src/wallet.rs:168-169, 529`) | same as `wallet send` |
-| `layerx token info <asset>` | Read token metadata through public RPC (`tools/platform/cli/src/wallet.rs:170-171, 522-525`) | `asset` (64 hex). Without `--rpc`, or when the method is unpublished, exits `rpc_method_unavailable` |
-| `layerx token list` | List registered tokens through public RPC (`tools/platform/cli/src/wallet.rs:172-173, 526-528`) | none. Same unpublished-method refusal as `token info` |
-| `layerx new <name>` | Scaffold a deterministic Rust program project (`tools/platform/cli/src/main.rs:63, 543-547`; `tools/platform/cli/src/scaffold.rs:9-38`) | `name` (lowercase Cargo package name, 1–64, digits/`-`, not starting with `-`; `tools/platform/cli/src/scaffold.rs:52-62`). `--directory` default `.` |
-| `layerx workspace` | With no subcommand, open the visual workspace on a TTY (`tools/platform/cli/src/workspace.rs:738-740, 750-752`) | TTY required for interactive mode; `--json` or a non-TTY stdin refuses |
-| `layerx workspace modules` | List every module the workspace CLI controls (`tools/platform/cli/src/workspace.rs:21-23, 741`) | none |
-| `layerx workspace doctor` | Inspect tools and module readiness without changing anything (`tools/platform/cli/src/workspace.rs:24-25, 742`) | `--module` repeatable/comma-separated; `--all`; `--environment` |
-| `layerx workspace install` | Resolve locked project dependencies (`tools/platform/cli/src/workspace.rs:26-27, 743`) | selection flags plus `--dry-run`, `--fail-fast`, `-y`/`--yes`, `--ci`, `--allow-production` (`tools/platform/cli/src/workspace.rs:50-69`) |
-| `layerx workspace build` | Build selected modules (`tools/platform/cli/src/workspace.rs:28-29, 744`) | same as install |
-| `layerx workspace test` | Test selected modules (`tools/platform/cli/src/workspace.rs:30-31, 745`) | same as install. Production tests refuse unless `--allow-production` (`tools/platform/cli/src/workspace.rs:66-68, 1067-1071`) |
-| `layerx workspace all` | Install, build, and test in order (`tools/platform/cli/src/workspace.rs:32-33, 746`) | same as install |
-| `layerx environment list` | List configured endpoint profiles (`tools/platform/cli/src/main.rs:109-111, 725-743`) | none |
-| `layerx environment current` | Show the active endpoint profile (`tools/platform/cli/src/main.rs:112-113, 745-751`) | none |
-| `layerx environment use <name>` | Select a profile, configuring its endpoint when first used (`tools/platform/cli/src/main.rs:114-125, 753-817`) | `name` must be `emulator`, `beta`, or `production` (`tools/platform/cli/src/config.rs:121-126`). `--endpoint`, `--network-id`, and one of `--sequencer-trust-anchor` / `--sequencer-trust-anchor-file` must be supplied together or omitted together (`tools/platform/cli/src/emulator.rs:751-791`) |
-| `layerx key create <name>` | Generate an Ed25519 seed from OS randomness and store it (`tools/platform/cli/src/main.rs:129-135, 825-831`; `tools/platform/cli/src/credential.rs:83-96`) | `name` (1–128 ASCII alnum/`-`/`_`; `tools/platform/cli/src/credential.rs:294-303`). `--did` optional |
-| `layerx key import <name>` | Import a 32-byte hexadecimal Ed25519 seed from stdin (`tools/platform/cli/src/main.rs:136-141, 833-839`; `tools/platform/cli/src/credential.rs:142-155`) | `name`; seed on stdin. `--did` optional (`tools/platform/cli/src/main.rs:138-142`) |
-| `layerx key list` | List public key metadata without opening secret material (`tools/platform/cli/src/main.rs:142-143, 841-858`) | none |
-| `layerx key show <name>` | Show public metadata for one key (`tools/platform/cli/src/main.rs:144-145, 860-875`) | `name` |
-| `layerx key default <name>` | Select the default key used by account commands (`tools/platform/cli/src/main.rs:146-147, 877-883`) | `name` |
-| `layerx key delete <name>` | Permanently delete a key from credential storage (`tools/platform/cli/src/main.rs:148-149, 885-891`) | `name` |
-| `layerx auth set` | Read an API token from stdin and save it (`tools/platform/cli/src/main.rs:153-158, 899-906`) | token on stdin. `--environment` optional (else current; `tools/platform/cli/src/main.rs:1421-1449`) |
-| `layerx auth status` | Report whether a token exists without printing it (`tools/platform/cli/src/main.rs:159-163, 908-919`) | `--environment` optional |
-| `layerx auth delete` | Permanently delete a stored API token (`tools/platform/cli/src/main.rs:164-168, 921-928`) | `--environment` optional |
-| `layerx register` | Register a self-service identity principal for one local signing key: sign the tagged tenant binding, POST `px_register`, and accept the result only when it names the same tenant, subject, and signer key (`tools/platform/cli/src/main.rs:78-79, 545`; `tools/platform/cli/src/register.rs:43-50, 52-88, 90-130`) | a local key: `--key`, else the configured default (`tools/platform/cli/src/register.rs:93-103`). The tenant is fixed to `beta`, and a principal naming another tenant, subject, or signer key is refused (`tools/platform/cli/src/register.rs:11, 78-86`) |
-| `layerx faucet` | Claim one bounded beta grant for the active identity session and a local key, through gateway `lx_requestFunds` (`tools/platform/cli/src/main.rs:80-81, 554`; `tools/platform/cli/src/faucet.rs:89-118`) | a stored session token for the active environment (`layerx auth set`) and a local key: `--key`, else the configured default (`tools/platform/cli/src/faucet.rs:92-103`) |
-| `layerx account create` | Register an account on the active endpoint (`tools/platform/cli/src/main.rs:172-185, 937-967`; `tools/platform/cli/src/account.rs:6-64`) | emulator: a local key (`--key` or default) (`tools/platform/cli/src/account.rs:18-20`). Hosted: `--email`, `--display-name`, `--idempotency-key`; `--initial-amount` must be `0` (`tools/platform/cli/src/account.rs:42-54`). `--initial-amount` default `0` |
-| `layerx account get` | Read the active hosted profile or one emulator DID account (`tools/platform/cli/src/main.rs:186-190, 969-973`; `tools/platform/cli/src/account.rs:67-84`) | emulator requires `--did` (`tools/platform/cli/src/account.rs:68-69`) |
-| `layerx payment test` | Quote and commit a test payment through the active endpoint (`tools/platform/cli/src/main.rs:194-207, 977-991`; `tools/platform/cli/src/payment.rs:5-37`) | `--from`, `--to`, `--currency` (alias `--asset`), `--amount` (>0), `--idempotency-key` (16–128 alnum/`-`/`_`; `tools/platform/cli/src/http.rs:388-399`) |
-| `layerx receipt get <id>` | Fetch exact receipt material from the active endpoint (`tools/platform/cli/src/main.rs:212-213, 997-1005`) | `id` (path-safe; `tools/platform/cli/src/http.rs:372-383`) |
-| `layerx receipt verify` | Verify a canonical receipt against independently supplied batch facts, locally (`tools/platform/cli/src/main.rs:214-232, 1007-1019`; `tools/platform/cli/src/receipt.rs:18-52`) | `--receipt`, `--batch-id`, `--asset`, `--previous-state-root`, `--resulting-state-root`, `--sequencer-public-key` |
-| `layerx program discover <program_id>` | Discover one active program from receipt-backed registry state (`tools/platform/cli/src/main.rs:235-237, 1026-1033`; `tools/platform/cli/src/programs.rs:628-644`) | `program_id` |
-| `layerx program interface get <program_id>` | Read a canonical code-bound program interface (`tools/platform/cli/src/main.rs:352-355, 1175-1179`; `tools/platform/cli/src/programs.rs:647-673`) | `program_id` |
-| `layerx program interface publish <program_id>` | Publish a canonical interface (`tools/platform/cli/src/main.rs:356-362, 1133-1141`; `tools/platform/cli/src/programs.rs:676-697`) | `program_id`, `--interface`, `--idempotency-key` |
-| `layerx program build` | Compile to WASM and enforce the deterministic runtime policy locally (`tools/platform/cli/src/main.rs:241-247, 1083-1090`; `tools/platform/cli/src/programs.rs:122-138`) | `--manifest-path` default `Cargo.toml`; `--artifact` optional |
-| `layerx program bindings` | Generate digest-bound Rust, TypeScript, and guest bindings (`tools/platform/cli/src/main.rs:248-262, 1044-1053`; `tools/platform/cli/src/programs.rs:40-96`) | `--interface`, `--digest`, `--code-hash`; `--output` default `bindings` |
-| `layerx program deploy <artifact>` | Validate and submit a WASM artifact for receipt-backed deployment (`tools/platform/cli/src/main.rs:263-272, 1101-1117`; `tools/platform/cli/src/programs.rs:245-279`) | `artifact` plus lifecycle flags below. `--upgrade-authority` and `--interface` optional |
-| `layerx program upgrade <artifact>` | Submit a WASM upgrade (`tools/platform/cli/src/main.rs:273-285, 1118-1138`; `tools/platform/cli/src/programs.rs:289-328`) | `artifact`, `--old-hash`, lifecycle flags. `--migration-hook` optional. `--interface` conflicts with `--clear-interface` (`tools/platform/cli/src/main.rs:278-282, 1573-1587`) |
-| `layerx program wind-down route` | Route a program-owned account (`tools/platform/cli/src/main.rs:318-330, 1199-1223`) | `--account`, `--asset`, `--destination`; `--seed` default empty; lifecycle flags |
-| `layerx program wind-down deprecate` | Deprecate toward an exit program (`tools/platform/cli/src/main.rs:331-338, 1225-1236`) | `--exit-program`, `--deadline-batch`; lifecycle flags |
-| `layerx program wind-down tombstone` | Tombstone the program (`tools/platform/cli/src/main.rs:339-342, 1238-1246`) | lifecycle flags |
-| `layerx program wind-down exit` | Exit a program-owned account (`tools/platform/cli/src/main.rs:343-348, 1193-1199`) | `--account`; lifecycle flags |
-| `layerx program call` | Submit calldata and render the receipt-verified result (`tools/platform/cli/src/main.rs:288-289, 1146-1170, 1291-1348`; `tools/platform/cli/src/programs.rs:810-838`) | `program_id`, `--fuel`, `--idempotency-key`, `--account-sequence`, `--not-before-ms`, `--expires-at-ms`. `--calldata` optional. `--fee-limit` default `0`. `--capability` repeatable. `--key` optional. Native ABI flags default ABI 2 / `layerx_call` / 16_777_216 memory (`tools/platform/cli/src/programs.rs:724-756`; `tools/platform/cli/src/main.rs:1594-1624`) |
-| `layerx program simulate` | Execute a program call against current state without committing it (`tools/platform/cli/src/main.rs:290-291, 1351-1408`; `tools/platform/cli/src/programs.rs:902-919`) | same as `program call` |
-| `layerx program registry get <program_id>` | Read one program's receipt-backed registry record (`tools/platform/cli/src/main.rs:367-368, 1263-1267`; `tools/platform/cli/src/programs.rs:554-625`) | `program_id` |
-| `layerx program registry verify-source <program_id>` | Submit a source digest and location (`tools/platform/cli/src/main.rs:369-378, 1213-1227`; `tools/platform/cli/src/programs.rs:700-717`) | `program_id`, `--source-uri`, `--source-digest`, `--idempotency-key` |
-| `layerx emulator provision` | Generate the sequencer seed and publish its trust anchor under the profile directory (`tools/platform/cli/src/main.rs:385-390, 549-553`; `tools/platform/cli/src/emulator.rs:223-305`) | `--force` optional; without it an existing seed or anchor is refused |
-| `layerx emulator up` | Start the local real-transition gateway (`tools/platform/cli/src/main.rs:383-384, 390-402, 554-566`) | `--sequencer-seed-file`. `--listen`, `--network-id`, `--time-ms`, `--prefund` optional |
-| `layerx install mcp` | Register the daemon-bound MCP server against the binding document agent-daemon enrolment wrote (`tools/platform/cli/src/main.rs:412-417, 420-427, 612-628`; `tools/platform/cli/src/install/mcp.rs:33-105`) | `--host` values: `layerx`, `claude-code`, `claude-desktop`, `cursor`, `vscode` (`tools/platform/cli/src/install/mod.rs:53-64`). `--daemon-binding` defaults to `mcp/binding.json` beside the CLI configuration file (`tools/platform/cli/src/install/mcp.rs:38-41, 148-169`); the installer opens that document and refuses when it is absent (`tools/platform/cli/src/install/mcp.rs:42-48`). The agent daemon writes that document at boot when `LAYERX_AGENT_MCP_BINDING_ROOT` is set (`services/agent/crates/layerx-agentd/src/main.rs:219-253, 265-339`). `--read-only` optional. No gateway key, environment, or payment flag |
-| `layerx install a2a` | Install a payment-capable A2A server (`tools/platform/cli/src/main.rs:411-412, 432-452, 655-672`; `tools/platform/cli/src/install/a2a.rs:40-119`) | hosted environment only. `--listen` default `127.0.0.1:9433` |
-| `layerx mcp serve` | Serve the daemon-bound tool catalogue on stdin/stdout for one binding document (`tools/platform/cli/src/main.rs:452-460, 559-565`; `tools/platform/cli/src/mcp.rs:11-22`) | `--daemon-binding <path>` required. `--read-only` optional. The served path holds no signing seed and no gateway credential (`tools/platform/cli/src/mcp.rs:6-16`) |
-| `layerx a2a serve` | Serve the agent card and task interface on loopback (`tools/platform/cli/src/main.rs:476-496, 588-613`; `tools/platform/cli/src/a2a.rs:89-176`) | `--gateway-credential`, `--authorization-file`. `--listen` default `127.0.0.1:9433` |
-| `layerx a2a start` | Start the installed managed A2A runtime (`tools/platform/cli/src/main.rs:497-498, 615-618`; `tools/platform/cli/src/a2a.rs:710-748`) | none (reads `a2a/runtime.json`) |
-| `layerx a2a stop` | Stop the installed managed A2A runtime (`tools/platform/cli/src/main.rs:499-500, 619-623`; `tools/platform/cli/src/a2a.rs:750-770`) | none |
-| `layerx a2a status` | Report the installed managed A2A runtime state (`tools/platform/cli/src/main.rs:501-502, 624-628`; `tools/platform/cli/src/a2a.rs:772-781`) | none |
+### Global options and output
 
-These command groups are not implemented in this tree. The flags, refusals, and
-RPC calls named in this section have no counterpart in `tools/platform/cli/src/`; they
-describe the intended surface, not the shipped one:
-
-| Command | Purpose and important inputs |
+| Option | Current behavior |
 | --- | --- |
-| `layerx wallet create <name>` | Emulator only: create a private wallet, register its DID, and open its main account; public use returns `wallet_registration_unavailable` before generating a key |
-| `layerx wallet import <name>` | Import a 32-byte hexadecimal seed from stdin; does not register or fund |
-| `layerx wallet list` | List public wallet metadata without exposing seeds |
-| `layerx wallet balance` | Read one DID or Asset balance through public RPC |
-| `layerx wallet history` | Read history where the public surface supports it; DID history otherwise returns unavailable |
-| `layerx wallet receipt <activity_id>` | Retrieve and verify a receipt; `--wait` selects commitment |
-| `layerx wallet send` | Sign native debit and envelope; requires `--to`, `--asset`, `--amount`, receipt policy, and fee limit |
-| `layerx wallet open-account` | Open the selected wallet's per-Asset account |
-| `layerx wallet estimate-fee --from <address> <unsigned_tx_hex>` | Estimate fees for an unsigned EIP-1559 transaction using `eth_estimateGas` at `pending` and `eth_gasPrice` |
-| `layerx wallet watch` | Receive one live `receipts`, `checkpoints`, or `account` notification, then reconcile |
-| `layerx token create` | Register a native Asset from symbol, name, decimals, cap, and salt |
-| `layerx token mint` | Move issuance units to an existing per-Asset account |
-| `layerx token burn` | Return selected-wallet units to issuance |
-| `layerx token transfer` | Transfer from the selected wallet's per-Asset account |
-| `layerx token info <asset_id>` | Call `lx_getAsset` |
-| `layerx token list` | Call `lx_listAssets` |
+| `--json` | Emit the command result as JSON. |
+| `--rpc <url>` | Override the RPC target for `wallet`, `token`, `chains`, `program`, or `receipt get`. Must be an origin at the root path. |
+| `--gateway-credential <alias>` | Load a stored gateway credential for those same command groups. The alias is not the credential itself. |
 
-Those public writes are intended to require an RPC endpoint and gateway
-credential, an independently supplied receipt policy, and a fee limit, with
-remote RPC URLs restricted to HTTPS and a `/rpc` path. None of those flags
-exists in this tree; the only globally applied argument the binary declares is
-`--json` (`tools/platform/cli/src/main.rs:35-40`), the per-command
-`--gateway-credential` belongs to `a2a serve` alone
-(`tools/platform/cli/src/main.rs:465-489`, gateway credential at `470-471`), and
-`--fee-limit` is optional
-with default `0` (`tools/platform/cli/src/main.rs:312-313, 1156-1157`). A pending
-result retains the activity id; rerun receipt lookup instead of creating a
-second payment.
+The latter two options are rejected on other command groups, including
+`register` and `faucet`. Those commands take an explicit hosted service URL.
 
-Lifecycle flags shared by deploy, upgrade, and wind-down
-(`tools/platform/cli/src/main.rs:297-315, 1503-1569`): `--program-id`,
-`--idempotency-key`, `--account-sequence`, `--not-before-ms`,
-`--expires-at-ms`, `--previous-state-root` required; `--key` optional;
-`--fee-limit` default `0`.
+`src/output.rs` emits successful command results on stdout as
+`{ok: true, kind, message, data}` and runtime errors on stderr as
+`{ok: false, error: {code, detail}}`. A leading `snake_case: ` error prefix
+becomes `error.code`; prose errors use `command_failed`. Parser errors are
+handled by clap before command execution. Wallet writes can print disclosure
+and submission JSON to stderr before the final result; long-running servers
+use their transport protocol rather than a single command-result object.
 
-`layerx program registry list` is not a command
-(`tools/platform/cli/src/main.rs:1628-1630`).
+### Wallet and token commands
 
-`services/platform/docs/content/guide/programs.md:75` states there is no dedicated
-program account-registration CLI command; that activity is submitted as
-canonical bytes to `POST /v1/activities`. The CLI command table above does
-not add one.
+These commands are present in the parser. Presence does not guarantee that
+the configured remote endpoint supplies their backend. Native account reads
+require authenticated SDK snapshots; token reads use the SDK's paginated
+asset contract and do not independently prove its state. An ordinary EVM
+balance response is not a substitute for account evidence.
 
----
+| Command | Inputs and behavior |
+| --- | --- |
+| `wallet create <name>` | Optional `--did`. Creates or reuses an Ed25519 key and registers its main account on the emulator only, without an RPC override. Other targets return `wallet_registration_unavailable` before generating a key. |
+| `wallet import <name>` | Read a 32-byte hexadecimal Ed25519 seed from stdin; optional `--did`. Imports a local key without registering or funding it. |
+| `wallet derive` | Read a BIP-39 phrase from stdin or `--mnemonic-file`; optional `--passphrase-file`, `--index` (default `0`), `--export-private-keys <new-file>`, and `--bind`. Local derivation returns EVM address and DID metadata. Binding requires RPC and remains subject to transport and method availability. |
+| `wallet list` | List local public key metadata. |
+| `wallet balance` | Optional `--did` and `--asset`. Select the DID explicitly or from the default key; emulator reads local state, other targets require an authenticated SDK account snapshot. |
+| `wallet send` | `--to`, `--asset`, `--amount`, plus the write inputs below. Signs and submits a native transfer when all required account, sequence, signing, and RPC inputs are available. |
+| `wallet open-account` | `--asset`, plus the write inputs below. Opens the selected wallet's account for that native asset. |
+| `wallet estimate-fee <unsigned_tx_hex>` | Required `--from <0x-address>`. Validate unsigned EIP-1559 bytes, call `eth_estimateGas` with `pending`, then `eth_gasPrice`; return decimal strings `gas`, `gas_price`, and `fee`. Uses the CLI RPC client with the transport limitation above. |
+| `wallet watch <topic>` | Parser accepts `receipts`, `checkpoints`, or `account`; optional `--account-id` and `--timeout-seconds` (default `60`, range `1–300`). The transport supports `account --account-id <EVM-address>`, translating it to an `eth_subscribe` logs filter. Other topics are refused. Requires RPC and a gateway credential; retains retired routing rather than using the public root WebSocket endpoint. |
+| `wallet receipt <tx_hash>` | A `0x`-prefixed 32-byte transaction hash, `--receipt-policy <file>`, and optional `--wait`. Fetch and verify transaction evidence; see receipt limitations below. |
+| `wallet history` | Hidden compatibility command; optional `--did`. Returns `wallet_history_unavailable`. |
+| `token create` | `--symbol`, `--name`, `--decimals`, `--salt`, and write inputs. Optional `--supply-cap` defaults to `0`. Encodes native token registration. |
+| `token mint` | `--asset`, `--to`, `--amount`, and write inputs. Mint to an existing asset account. |
+| `token burn` | `--asset`, `--amount`, and write inputs. Burn from the selected wallet's asset account. |
+| `token transfer` | Same inputs and implementation as `wallet send`. |
+| `token info <asset>` | Read native token metadata through the SDK. Asset identifiers are 32-byte hex values. Backend or method errors are reported rather than replaced with fabricated metadata. |
+| `token list` | Optional `--cursor <asset>` and `--limit <1–256>`; backend default page size is `64`. Follow `next_cursor` to continue the asset list. |
+
+Native writes require `--evm-key-file`, `--receipt-policy`, and `--fee-limit`;
+`--key` selects the local Ed25519 key, otherwise the configured default is used.
+The EVM key file must match the selected wallet identity. `wallet send` and
+`token transfer` enforce these inputs at runtime; the other native write
+commands require them in the parser. The former claim that transfers always
+refuse because a signing API is missing is obsolete: `src/wallet.rs::execute_write`
+now prepares and signs the EIP-1559 transaction, checks the fee estimate,
+checks the returned transaction hash, and waits for evidence.
+
+Write commands accept `--wait executed|batched|finalised` (default `executed`)
+and `--timeout-seconds` (`1–300`, default `60`). These are compatibility names
+with the behavior described under [Receipt verification](#receipt-verification-before-success).
+They do not define different network consensus stages.
+
+### Projects, programs, and tenant domains
+
+Program network commands encode calls to the `layerxprograms` precompile at
+`0x000000000000000000000000000000000000101d`. Mutations use signed EIP-1559
+transactions and `eth_sendRawTransaction`; reads use `eth_call` or bounded
+`eth_getLogs`. They do not use the retired REST program-mutation ingress.
+Their HTTP transport still has the limitation stated at the top of this page.
+
+| Command | Inputs and behavior |
+| --- | --- |
+| `new <name>` | Scaffold a Rust program; optional `--directory` defaults to `.`. Name must be a lowercase Cargo package name of 1–64 characters, using letters, digits, and hyphens, and must not start with a hyphen. |
+| `program build` | Local compile and runtime-policy validation; `--manifest-path` defaults to `Cargo.toml`, optional `--artifact`. |
+| `program bindings` | Local generation requires `--interface`, `--digest`, `--code-hash`, `--deployment-proof`, and `--trust-history`. Optional `--historical`; `--output` defaults to `bindings`. Verification binds generated code to the supplied deployment evidence. |
+| `program discover <program_id>` | Read active program metadata from the precompile. |
+| `program interface get <program_id>` | Read the deployed, code-bound interface. |
+| `program interface publish <program_id>` | `--interface`, `--artifact`, `--evm-key-file`, `--idempotency-key`; optional `--fee-limit` defaults to `0`. Republishes the artifact and interface through upgrade. |
+| `program deploy <artifact>` | Lifecycle inputs below; optional `--upgrade-authority` and canonical encoded `--interface`. |
+| `program upgrade <artifact>` | Lifecycle inputs and `--old-hash`; optional `--migration-hook`, `--interface`, `--clear-interface`, and `--allow-breaking-interface`. Interface clearing conflicts with an interface file; allowing a breaking interface requires that file. |
+| `program wind-down route` | Lifecycle inputs plus `--account`, `--asset`, `--destination`; optional `--seed` defaults to empty. |
+| `program wind-down deprecate` | Lifecycle inputs plus `--exit-program` and `--deadline-batch`. The latter is the parser's retained field name. |
+| `program wind-down tombstone` | Lifecycle inputs. |
+| `program wind-down exit` | Lifecycle inputs plus `--account`. |
+| `program call <program_id>` | `--fuel` and runtime-required `--evm-key-file`; optional `--calldata`, `--fee-limit` (default `0`), repeated `--capability`, and native guest options. Returns the transaction hash at `rung: submitted`, not verified execution success. |
+| `program simulate <program_id>` | `--fuel`, optional `--from`, calldata, fee, capabilities, and native guest options. Uses `eth_call` at `pending` without submitting a transaction. |
+| `program registry list` | Enumerate deployment events with bounded log queries. This command is implemented. |
+| `program registry get <program_id>` | Read the deployed program record. |
+| `program registry mirror-source` | `--program-id`, `--source-uri`, `--plan`, `--archive`; requires the source-registry publication configuration described below. Mirroring does not establish on-chain source verification. |
+| `program registry verify-source <program_id>` | `--source-uri`, `--source-digest`, `--idempotency-key`. Reads the deployed record, then reports source verification unavailable because that record exposes no source digest. |
+| `chains list` | Enumerate tenant-domain registry entries. |
+| `chains show <id_or_name>` | Read a registry entry by numeric ID or name. |
+| `chains create` | `--name`, `--tier starter|growth|pro`, `--fee-share-bps` (`0–5000`), and runtime-required `--evm-key-file`. Signs a registry transaction; does not provision another network. |
+
+Shared lifecycle inputs are `--program-id` and `--evm-key-file`, with optional
+`--fee-limit` defaulting to `0`. The old account-sequence, validity-window,
+previous-root, and idempotency flags are not lifecycle signing inputs now.
+
+Native call options in `src/programs.rs::NativeCallOptions` include
+`--abi-version` (default `2`), `--entrypoint` (default `layerx_call`),
+`--access-declaration`, `--response-capacity`, `--memory-bytes`,
+`--storage-read-bytes`, `--storage-write-bytes`, `--output-values`,
+`--output-bytes`, and `--table-elements`. Match the deployed program's ABI and
+resource requirements; the command validates canonical interface bytes and
+artifact compatibility rather than accepting an arbitrary interface document.
+
+### Profiles, credentials, and hosted operations
+
+| Command | Inputs and behavior |
+| --- | --- |
+| `environment list`, `environment current` | Inspect configured profiles and the active one. |
+| `environment use <name>` | Select `emulator`, `beta`, or `production`; `testnet` is a compatibility alias for `beta`. Configuration inputs are described below. |
+| `key create <name>`, `key import <name>` | Generate an Ed25519 key from OS randomness or import a 32-byte hexadecimal seed from stdin. Optional `--did`. |
+| `key list`, `key show <name>` | Read public key metadata. |
+| `key default <name>`, `key delete <name>` | Select the default key or permanently remove its stored secret and metadata. |
+| `auth set`, `auth status`, `auth delete` | Optional `--environment`, otherwise active profile. Set reads a token from stdin; status reports presence without printing it. |
+| `register` | Optional `--key`, otherwise default. Sign the hosted `px_register` tenant binding, fixed to tenant `beta`, and validate the returned subject and signer. It does not create a native main account. |
+| `faucet` | Required `--service-endpoint`; optional `--key`, otherwise default; requires a stored bearer identity session. Calls hosted `px_requestFunds`, validates the funded result, and preserves the funding transaction ID. |
+| `account create` | Emulator uses a local key (`--key` or default) and optional `--initial-amount` (default `0`). Hosted creation requires `--email`, `--display-name`, `--idempotency-key`, and zero initial amount. |
+| `account get` | Emulator requires `--did`; hosted mode reads the active account profile. |
+| `payment test` | `--from`, `--to`, `--currency` (alias `--asset`), positive `--amount`, and `--idempotency-key`. Calls the active service's quote and commit routes. Its result is not independently verified receipt evidence. |
+| `receipt get <tx_hash>` | Fetch `pax_sequencerReceipt` through the program client; hash must be `0x` plus 64 hex digits. This is a fetch, not a proof-verification command. |
+| `receipt verify` | Local compatibility verifier; requires `--receipt`, `--batch-id`, `--asset`, `--previous-state-root`, `--resulting-state-root`, and `--sequencer-public-key`. Its scope is explained below. |
+
+Registration and faucet post to the hosted service URL given with `--gateway-endpoint` and `--service-endpoint`; that URL is not a public node API.
+Use a service deployment's declared contract and authentication requirements.
+Do not configure hosted account or payment REST operations against a public
+node and assume it supplies those routes.
+
+### Workspace and agent transports
+
+| Command | Inputs and behavior |
+| --- | --- |
+| `workspace` | Interactive visual workspace; requires a TTY and refuses `--json` interactive mode. |
+| `workspace modules` | List controlled repository modules. |
+| `workspace doctor` | Inspect readiness; optional repeated/comma-separated `--module`, `--all`, and `--environment`. |
+| `workspace install`, `workspace build`, `workspace test`, `workspace all` | Same selection options, plus `--dry-run`, `--fail-fast`, `-y`/`--yes`, `--ci`, and `--allow-production`. `all` performs install, build, then test. Production tests require `--allow-production`. |
+| `install mcp` | Select one or more `--host` values: `layerx`, `claude-code`, `claude-desktop`, `cursor`, or `vscode`. Optional `--daemon-binding` and `--read-only`. Opens the agent enrollment binding and checks the authenticated daemon's tool catalogue before installing host configuration. |
+| `mcp serve` | Required `--daemon-binding <file>`, optional `--read-only`; serve the bound agent tools over stdin/stdout. |
+| `install a2a` | Install a hosted, payment-capable A2A runtime; optional `--environment`, `--key`, `--source-account`, `--asset`, `--listen`, `--well-known`, `--read-only`, `--token-stdin`, and `--rotate`. Emulator installation is refused. |
+| `a2a serve` | Requires `--gateway-credential` and `--authorization-file`; optional `--environment`, `--key`, `--source-account`, `--asset`, `--listen`, and `--read-only`. Loopback listener defaults to `127.0.0.1:9433`. |
+| `a2a start`, `a2a stop`, `a2a status` | Manage the installed runtime using its `a2a/runtime.json` manifest. |
+
+MCP's agent daemon is an application runtime, not a separate consensus node.
+Its default binding document is `mcp/binding.json` beside the CLI config file.
+Enrollment must write that document first; installation refuses a missing or
+invalid binding. This path holds no CLI signing seed or gateway credential.
+A2A uses stored gateway credentials; its `activity.submit` accepts signed
+EIP-1559 transaction bytes and preserves a hash for indeterminate submissions.
+Its current submission transport also retains retired routing.
 
 ## Credentials
 
-## Headless credential storage
+The default credential store is the OS keyring: Keychain on macOS, Credential
+Manager on Windows, and Secret Service on Unix. `src/credential.rs` uses
+service `dev.layerx.cli` and entries `key:<name>`, `token:<environment>`, and
+`gateway:<alias>`. The configuration JSON stores public key metadata and
+profile endpoints, not those secrets.
 
-The OS keyring is the default. On a headless Linux server, container, or CI
-runner, explicitly select the encrypted file store before creating a key:
+Keys and API tokens imported by the CLI arrive on stdin, with a 16 KiB input
+limit. Creating a key needs no seed input. `auth status` reports token
+presence separately from key presence. There is no automatic fallback or
+migration between credential stores.
+
+### Headless credential storage
+
+On a headless Unix host, explicitly select the encrypted file backend:
 
 ```bash
 export LAYERX_CREDENTIAL_STORE=file
@@ -170,234 +212,169 @@ layerx --json key list
 layerx --json auth status
 ```
 
-Use a strong passphrase of 12–16384 bytes. In CI, supply
-`LAYERX_CREDENTIAL_PASSPHRASE` through the CI secret environment. Keep it
-available for subsequent CLI and MCP/A2A processes, and unset it when finished.
-Secret imports still read stdin; the passphrase does not consume that input.
-`auth status` reports whether an API token is stored, independently of keys;
-store one with `layerx auth set` using the token on stdin.
+The passphrase must contain 12–16384 bytes. Supply it through secret
+environment configuration in CI and keep it available to later processes
+using the vault. Secret imports still read stdin independently. Unset
+`LAYERX_CREDENTIAL_STORE`, or set it to `os`, to select the OS keyring.
 
-The store writes `credentials/vault` beside the resolved CLI config file
-(`LAYERX_CONFIG`, otherwise `$XDG_CONFIG_HOME/layerx/config.json`, otherwise
-`$HOME/.config/layerx/config.json`). It encrypts all keys, tokens and gateway
-credentials using AES-256-GCM and PBKDF2-HMAC-SHA256 with 600,000 iterations,
-a fresh 16-byte salt and a fresh 12-byte nonce on every update. Vault and lock
-files use mode 0600 inside a mode 0700 directory. Group/world-accessible files,
-symlinks, incorrect ownership, wrong passphrases and damaged vaults are refused.
-Updates use a process lock and atomic replacement. This backend currently
-requires Unix file permissions.
+`src/file_store.rs` writes `credentials/vault` beside the resolved config.
+Encryption uses AES-256-GCM and PBKDF2-HMAC-SHA256 with 600,000 iterations,
+a fresh 16-byte salt, and a fresh 12-byte nonce on each update. The directory
+is mode `0700`; vault and lock files are mode `0600`. Ownership, symlinks,
+permissions, passphrase authentication, and vault integrity are checked.
+Updates use a process lock and atomic replacement. The backend requires Unix
+owner-only permissions.
 
-There is no automatic fallback or migration between stores. Unset
-`LAYERX_CREDENTIAL_STORE` (or set it to `os`) to use the OS keyring. Retain the
-passphrase and encrypted vault together in your backup procedure: a lost
-passphrase cannot be recovered. Changing the environment passphrase does not
-rotate the vault password; it makes authentication fail.
-
-Secrets are stored under keyring service `dev.layerx.cli` with entry names
-`{kind}:{name}` (`tools/platform/cli/src/credential.rs:11, 55-59`). Kinds are
-`key`, `token`, and `gateway` (`tools/platform/cli/src/credential.rs:127, 179,
-231`).
-
-In normal operation `ensure_store` defers to the keyring v1 initialiser:
-Keychain Services on macOS, Credential Manager on Windows, Secret Service
-on other Unix (`tools/platform/cli/src/credential.rs:21-26, 47-52`). Configuration
-JSON holds only public metadata (`did`, `public_key`) and environment
-endpoints (`tools/platform/cli/src/config.rs:19-32`;
-`tools/platform/cli/tests/credential.rs:56-77`). On Unix the config file is
-created `0o600` (`tools/platform/cli/src/config.rs:85-88`;
-`tools/platform/cli/tests/credential.rs:80-97`).
-
-| Kind | How it is written | How it is read |
-| --- | --- | --- |
-| Ed25519 seed | `key create` fills 32 OS-random bytes, or `key import` reads hex from stdin, then `set_password` (`tools/platform/cli/src/credential.rs:83-132`) | `key_seed` `get_password` then hex-decode (`tools/platform/cli/src/credential.rs:219-226`) |
-| Hosted API token | `auth set` reads stdin, validates visible ASCII, `set_password` (`tools/platform/cli/src/credential.rs:175-186, 209-216`) | `token` `get_password`; `NoEntry` is `None` (`tools/platform/cli/src/credential.rs:195-206`) |
-| Gateway key | `install a2a` provisions `/v1/keys` or `/v1/keys/{id}/rotate` and `set_gateway` (`tools/platform/cli/src/install/mod.rs:594-640, 673-690`; `tools/platform/cli/src/credential.rs:228-236`) | `gateway` `get_password`; `a2a serve` loads by alias (`tools/platform/cli/src/toolset.rs:62-66`). `install mcp` and `mcp serve` issue, store and read no gateway key (`tools/platform/cli/src/install/mcp.rs:20-25`; `tools/platform/cli/src/mcp.rs:6-16`) |
-
-Stdin secrets are capped at 16 KiB
-(`tools/platform/cli/src/credential.rs:12, 65-73`). Gateway credentials must be
-`{id}:lxp_live_` plus 64 hex digits, 73-byte secret
-(`tools/platform/cli/src/credential.rs:263-276`). Installed host JSON is refused
-if a field name contains a secret marker; secrets stay in credential
-storage (`tools/platform/cli/src/install/mod.rs:22-32, 892-900`).
-
-`LAYERX_CREDENTIAL_STORE` selects an isolated in-memory store only when the
-binary is built with `test-credential-store` and the value is `mock`
-(`tools/platform/cli/src/credential.rs:14-19, 34-45`;
-`tools/platform/cli/Cargo.toml:8-9`). A production / `--no-default-features`
-binary accepts explicit `file` or `os` selection. It refuses `mock` with
-`credential store override mock is unavailable in this binary`, and writes no config
-(`tools/platform/cli/src/credential.rs:43-45`;
-`tools/platform/cli/tests/production-credential-refusal.sh:8-26`).
-
-`services/platform/docs/content/install.md:48-49` says emulator key creation never
-asks the operator to type key material. `layerx key import` does read a
-32-byte hex seed from stdin (`tools/platform/cli/src/main.rs:136-141`;
-`tools/platform/cli/src/credential.rs:98-111`). Those two sources disagree on
-whether a seed may be typed; the import command exists.
-
----
+Back up both the encrypted vault and its passphrase. Changing the environment
+passphrase does not rotate an existing vault; it causes authentication to
+fail. The `mock` backend is available only in binaries built with
+`test-credential-store`; production binaries refuse that selection.
 
 ## Environment variables
 
-| Variable | Read by | Effect |
-| --- | --- | --- |
-| `LAYERX_CONFIG` | `config::path` (`tools/platform/cli/src/config.rs:129-131`) | Absolute or CWD-relative config JSON path |
-| `XDG_CONFIG_HOME` | `config::path` (`tools/platform/cli/src/config.rs:133-134`) | `{XDG_CONFIG_HOME}/layerx/config.json` when `LAYERX_CONFIG` is unset |
-| `HOME` | `config::path` (`tools/platform/cli/src/config.rs:136-139`); install host paths (`tools/platform/cli/src/install/mod.rs:1119-1125`) | `{HOME}/.config/layerx/config.json`; agent-runtime install roots |
-| `LAYERX_CREDENTIAL_STORE` | `install_store` (`tools/platform/cli/src/credential.rs:17, 34-45`) | `file` selects encrypted storage; `os` selects OS storage; `mock` requires `test-credential-store` |
-| `LAYERX_GATEWAY_KEY_ID` | A2A runtime (`tools/platform/cli/src/toolset.rs:67-78`); written into the installed A2A env map (`tools/platform/cli/src/install/a2a.rs:67-70`) | Must match the non-secret id of the stored gateway credential. The installed MCP env map is empty (`tools/platform/cli/src/install/mcp.rs:56`) |
-| `LAYERX_INSTALL_ROOT` | install host path resolution (`tools/platform/cli/src/install/mod.rs:1119-1130`) | Replaces `HOME` for host config discovery |
-| `LAYERX_REPO_ROOT` | workspace (`tools/platform/cli/src/workspace.rs:1098`) | Repository root for workspace commands |
-| `LAYERX_PROGRAM_SDK` | scaffold (`tools/platform/cli/src/scaffold.rs:65-68`) | Path written into a new program `Cargo.toml` |
-| `LAYERX_CREDENTIAL_PASSPHRASE` | `file_store::Entry::from_environment` (`tools/platform/cli/src/file_store.rs:36-42`) | Required by the `file` store; 12-16384 bytes, otherwise the command refuses |
-| `CARGO` | `program build` (`tools/platform/cli/src/programs.rs:181`) | Cargo executable for the Rust WASM toolchain |
+| Variable | Effect |
+| --- | --- |
+| `LAYERX_CONFIG` | Explicit configuration JSON path, absolute or relative to the working directory. |
+| `XDG_CONFIG_HOME`, `HOME` | Config fallback: `$XDG_CONFIG_HOME/layerx/config.json`, otherwise `$HOME/.config/layerx/config.json`. |
+| `LAYERX_CREDENTIAL_STORE` | Select `os` or `file`; `mock` requires the test feature. |
+| `LAYERX_CREDENTIAL_PASSPHRASE` | Passphrase for the encrypted file backend. |
+| `LAYERX_GATEWAY_KEY_ID` | Non-secret ID checked against the A2A runtime's stored gateway credential. |
+| `LAYERX_INSTALL_ROOT` | Override the home directory used to find agent host configurations. |
+| `LAYERX_REPO_ROOT` | Repository root used by workspace commands. |
+| `LAYERX_PROGRAM_SDK` | SDK path written into scaffolded program projects. |
+| `CARGO` | Cargo executable used by program builds. |
 
-Workspace child processes receive `LAYERX_ENVIRONMENT`, `LAYERX_ENDPOINT`,
-and `LAYERX_NETWORK_ID` (`tools/platform/cli/src/workspace.rs:972-974`). Managed
-A2A start admits only `LAYERX_CONFIG` and `LAYERX_GATEWAY_KEY_ID` in the
-installed env map and strips `LAYERX_TOKEN`, `LAYERX_API_TOKEN`, and
-`LAYERX_AUTH_TOKEN` from the child (`tools/platform/cli/src/a2a.rs:645-679`).
-
-The CLI does not read `LAYERX_API_TOKEN` (or `LAYERX_TOKEN` /
-`LAYERX_AUTH_TOKEN`) as a substitute for `auth set`.
-`services/platform/docs/content/install.md:104-111` documents `LAYERX_API_URL` and
-`LAYERX_API_TOKEN` as SDK application inputs, not CLI credential inputs.
-
-Default config when the file is absent: environment `emulator`, endpoint
-`http://127.0.0.1:9402`, `network_id` 402, no sequencer trust anchor
-(`tools/platform/cli/src/config.rs:34-49`). Config version must be `1`
-(`tools/platform/cli/src/config.rs:9, 65-69`).
-
----
+Source mirroring additionally reads `LAYERX_BETA_REGISTRY_URL`,
+`LAYERX_BETA_REGISTRY_PUBLICATION_TOKEN_FILE`, and
+`LAYERX_BETA_REGISTRY_PUBLICATION_KEY_FILE` (`src/programs.rs`). The latter
+two variables name files containing the publication secrets, not literal
+tokens. Workspace child processes receive
+`LAYERX_ENVIRONMENT`, `LAYERX_ENDPOINT`, and `LAYERX_NETWORK_ID`.
+`LAYERX_API_TOKEN`, `LAYERX_TOKEN`, and `LAYERX_AUTH_TOKEN` do not replace
+`auth set`; managed A2A startup removes those token variables from the child.
 
 ## Emulator, hosted gateway, and node
 
-The CLI talks HTTP to the active environment endpoint
-(`tools/platform/cli/src/main.rs:1420-1424`; `tools/platform/cli/src/http.rs:24-50`).
-`layerx --rpc <url> wallet|token …` additionally POSTs JSON-RPC 2.0 to the
-gateway `/rpc` surface (`tools/platform/cli/src/rpc.rs:14-15, 29-36`). That is
-the public gateway contract, not a `layerxd` node admin socket. Other
-commands do not open a node RPC.
+A missing config produces version `1`, environment `emulator`, endpoint
+`http://127.0.0.1:9402`, network ID `402`, and no bound emulator key.
+These are local compatibility defaults, not the public chain's identity.
+Non-loopback HTTP endpoints are refused; remote connections require HTTPS.
 
-| Target | How the CLI reaches it |
+`environment use` accepts endpoint, network ID, and one trust-anchor input
+(`--sequencer-trust-anchor` or `--sequencer-trust-anchor-file`) as a complete
+set, or omits the whole set to select an existing profile. Only the emulator
+selection verifies the advertised identity via `GET /v1/sequencer`.
+Selecting `beta` or `production` stores the supplied values without that
+handshake. A stored anchor in such a profile does not prove public-chain
+finality or make a node serve hosted APIs.
+
+The retained local emulator commands are:
+
+| Command | Compatibility behavior |
 | --- | --- |
-| Emulator | `emulator up` runs `layerx_platform_emulator::run` in-process (`tools/platform/cli/src/main.rs:87-89, 554-565`). Other commands HTTP to the configured emulator endpoint. `environment use emulator` with bound inputs waits for a listener and `GET /v1/sequencer`, then refuses `network_id_mismatch` or `sequencer_trust_anchor_mismatch` (`tools/platform/cli/src/emulator.rs:860-891`; `tools/platform/cli/src/main.rs:772-802`) |
-| Hosted gateway | `environment use beta` or `production` stores `https://…` (non-loopback `http://` is refused; `tools/platform/cli/src/http.rs:29-39`). Account, payment, receipt, and program commands send `Authorization: Bearer` when a token exists (`tools/platform/cli/src/http.rs:240-245`; `tools/platform/cli/src/main.rs:1415-1418`). A2A sends `Authorization: LayerX-Key` (`tools/platform/cli/src/http.rs:54-68, 247-249`; `tools/platform/cli/src/toolset.rs:103-104`). `install a2a` refuses the emulator (`tools/platform/cli/src/install/mod.rs:573-577`) |
-| Agent daemon | The MCP path reaches no gateway. `install mcp` and `mcp serve` both open the binding document agent-daemon enrolment wrote and talk to the loopback daemon endpoint it names (`tools/platform/cli/src/install/mcp.rs:38-53`; `tools/platform/cli/src/mcp.rs:11-22`; `services/agent/crates/layerx-mcp/src/binding.rs:313-317, 339`) |
-| Node | Not a CLI transport. `layerx receipt verify` is local `layerx_proof` against caller-supplied batch facts (`tools/platform/cli/src/receipt.rs:4, 25-34`). `services/platform/docs/content/concepts/receipts.md:3-4` states the same: verification needs no LayerX node, gateway, or hosted service |
+| `emulator provision` | Create a local signing seed and trust-anchor file under the profile directory. Existing files are refused unless `--force` is supplied. |
+| `emulator up` | Requires `--sequencer-seed-file`; optional `--listen`, `--network-id`, `--protocol-version`, `--time-ms`, and repeated `--prefund`. Starts the local transition gateway in-process. |
 
-Emulator account create posts `/__emulator/accounts/prefund`
-(`tools/platform/cli/src/account.rs:25-34`). Hosted account create posts
-`/v1/accounts` (`tools/platform/cli/src/account.rs:56-63`). Payments post
-`/v1/moves/quote` then `/v1/moves` (`tools/platform/cli/src/payment.rs:23-32`).
-Receipts get `/v1/receipts/{id}` (`tools/platform/cli/src/main.rs:1008`). Program
-lifecycle posts octet-stream to `/v1/programs/deploy`, `/upgrade`,
-`/wind-down`, `/call`, `/simulate` (`tools/platform/cli/src/programs.rs:436-442,
-816, 906`). A2A `activity.submit` takes one `raw_transaction`, a
-signed EIP-1559 transaction hex (`tools/platform/cli/src/toolset.rs:189-199`),
-and sends it with `eth_sendRawTransaction` to `/rpc`. It returns `txHash`
-with `rung: "submitted"` (`tools/platform/cli/src/toolset.rs:260-294`).
+These local identity and prefunding operations are emulator tooling, not
+instructions for starting another mainnet service. Hosted account creation
+uses `/v1/accounts`; emulator prefunding uses `/__emulator/accounts/prefund`.
+`payment test` uses `/v1/moves/quote` followed by `/v1/moves`. Those service
+routes and their bearer tokens are distinct from public node JSON-RPC.
 
----
+To check public chain identity directly, use a root-path JSON-RPC client:
+
+```bash
+curl --max-time 15 -sS https://api1.mainnet-beta.paxeer.network \
+  -H 'content-type: application/json' \
+  -d '{"jsonrpc":"2.0","id":1,"method":"eth_chainId","params":[]}'
+```
+
+The expected chain ID is `"0x7d"`. For the method inventory and other nodes,
+see [Public RPC endpoints](../reference/public-rpc.md). The public namespaces
+are `debug`, `echo`, `eth`, `net`, `pax`, `px`, `test`, and `txpool`.
+`node.hyperpaxeer.com` is the hpx library mirror, never an RPC endpoint.
 
 ## Refusals
 
-Machine codes in the first column are the `error.code` values emitted when
-the detail string is `code: …` (`tools/platform/cli/src/output.rs:62-75`;
-`tools/platform/cli/src/emulator.rs:96-118`). Prose errors use `command_failed`.
-
-| Refusal | Condition |
+| Error or condition | Meaning and next step |
 | --- | --- |
-| `credential store override … is unavailable in this binary` (`command_failed`) | `LAYERX_CREDENTIAL_STORE` set to an unsupported value; `mock` requires `test-credential-store` (`tools/platform/cli/src/credential.rs:34-45`; `tools/platform/cli/tests/production-credential-refusal.sh:17-25`) |
-| missing credential (`command_failed`) | `token` `NoEntry` is not itself a refusal; HTTP proceeds without `Authorization` (`tools/platform/cli/src/credential.rs:195-202`; `tools/platform/cli/src/http.rs:48, 76-79`). Install without a stored identity session: `no {environment} identity session is held in credential storage…` (`tools/platform/cli/src/install/mod.rs:603-606`). `a2a serve` without a gateway alias: `gateway credential alias … is absent; rerun layerx install…` (`tools/platform/cli/src/toolset.rs:62-66`). Empty stdin secret (`tools/platform/cli/src/credential.rs:77-78`). OS store unavailable (`tools/platform/cli/src/credential.rs:47-50`) |
-| `network_id_mismatch` | `environment use emulator` supplied network id disagrees with `GET /v1/sequencer` (`tools/platform/cli/src/emulator.rs:116, 871-876`; `tools/platform/cli/tests/emulator.rs:910-926`) |
-| `network_id_reserved` | `--network-id 0` (`tools/platform/cli/src/emulator.rs:113, 180, 768-769`) |
-| `environment must be emulator, beta, or production` (`command_failed`) | any other profile name (`tools/platform/cli/src/config.rs:121-126`; `tools/platform/cli/src/main.rs:764`) |
-| `non-loopback environments must use https://` (`command_failed`) | endpoint scheme `http://` with a non-loopback host (`tools/platform/cli/src/http.rs:29-39`) |
-| unverified receipt (`command_failed`) | `receipt verify` / program render: `receipt verification failed at {:?}` or `program receipt verification failed at {:?}` (`tools/platform/cli/src/receipt.rs:33-34`; `tools/platform/cli/src/programs.rs:1175-1178, 2131`). Empty receipt (`tools/platform/cli/src/programs.rs:1172-1173`). Forged local file (`tools/platform/cli/tests/commands.rs:256-278`). Success siblings with unverifiable bytes are still refused (`tools/platform/cli/src/programs.rs:2131`) |
-| version mismatch (`command_failed`) | config `version != 1`: `unsupported CLI configuration version` (`tools/platform/cli/src/config.rs:65-69`). Program receipt `protocol_version != 3` or `module_version != 4` (`tools/platform/cli/src/programs.rs:1187-1191, 494-501`). `program receipt ABI does not match verified discovery` (`tools/platform/cli/src/programs.rs:1200-1203`). Stale interface digest (`tools/platform/cli/src/programs.rs:62-67`) |
-| `environment_input_missing` | `environment use` given a partial endpoint/network/anchor set (`tools/platform/cli/src/emulator.rs:106, 779-790`; `tools/platform/cli/tests/commands.rs:90-105`) |
-| `sequencer_trust_anchor_mismatch` | supplied anchor disagrees with advertised sequencer identity (`tools/platform/cli/src/emulator.rs:117, 878-884`) |
-| `sequencer_seed_exists` / `sequencer_trust_anchor_exists` | `emulator provision` without `--force` when those files exist (`tools/platform/cli/src/emulator.rs:100-101, 126-135, 246-252`) |
-| `MCP and A2A installation require a configured hosted beta or production gateway…` (`command_failed`) | `install a2a` against the emulator (`tools/platform/cli/src/install/mod.rs:573-577`; `tools/platform/cli/tests/install.rs:34-51`) |
-| `the daemon binding document at … could not be used: …; agent-daemon enrolment writes it before the MCP server is installed` (`command_failed`) | `install mcp` before agent-daemon enrolment published the document, or against an unreadable, malformed or refused one (`tools/platform/cli/src/install/mcp.rs:42-48`; `services/agent/crates/layerx-mcp/src/binding.rs:57-63`; `tools/platform/cli/tests/install.rs:81-89`) |
-| `agent runtime … is not supported; use layerx, claude-code, claude-desktop, cursor, or vscode` (`command_failed`) | `--host` naming an undocumented runtime; refused before the binding document is read (`tools/platform/cli/src/install/mod.rs:60-62`; `tools/platform/cli/src/install/mcp.rs:34-41`; `tools/platform/cli/tests/install.rs:53-59`) |
-| `wallet_registration_unavailable` | `wallet create` on a non-emulator environment; no key is generated (`tools/platform/cli/src/wallet.rs:286`) |
-| `wallet_history_unavailable` | `wallet history`; no DID activity-history method or REST route is published (`tools/platform/cli/src/wallet.rs:439-442`) |
-| `identity_sequence_unavailable` | Authenticated identity state is unavailable; token writes refuse before signing. Send additionally requires the shared debit-authorization signing API |
-| `rpc_method_unavailable` | `token info` / `token list` without `--rpc`, or an RPC method absent from the published contract (`tools/platform/cli/src/wallet.rs:605-620`; `tools/platform/cli/src/rpc.rs:156-161`) |
+| `command_failed` with a URL-suffix error | The CLI transport still enforces a retired route. Use a client supporting the documented root node endpoint; changing the public URL does not repair the CLI. |
+| `wallet_registration_unavailable` | Native main-account registration is unavailable on that target; no new key was generated. Hosted `register` creates a tenant principal instead. |
+| `wallet_history_unavailable` | No DID activity-history backend is published for this command. |
+| `identity_session_required` | Faucet needs a stored bearer identity session. Set it with `auth set`. |
+| `identity_sequence_unavailable`, `wallet_accounts_unavailable` | Required authenticated account or sequence evidence is absent or malformed. The command must obtain valid evidence before signing. |
+| `rpc_method_unavailable` | Method absent from the CLI contract or switched off. In `src/rpc.rs`, all methods beginning with `lx_` are explicitly refused. |
+| `fee_limit_exceeded` | The declared fee limit cannot cover the estimated gas. Review the quote and inputs before resubmitting. |
+| `transaction_hash_mismatch`, `receipt_verification_failed` | Returned transaction or receipt evidence does not match the operation. Do not treat it as success. |
+| `transaction_pending` | Timeout before the requested evidence rung. Retain the transaction hash and query it again rather than creating another payment. |
+| `network_id_mismatch`, `sequencer_trust_anchor_mismatch` | Local emulator identity disagrees with its bound profile. These checks are not mainnet finality checks. |
+| `environment_input_missing` | Only part of the endpoint/network/anchor set was supplied. |
+| `network_id_reserved` | Local network ID `0` is refused. |
+| `sequencer_seed_exists`, `sequencer_trust_anchor_exists` | Emulator provisioning would replace an existing identity file. |
+| Credential store unavailable (`command_failed`) | The selected OS backend, file passphrase, or vault is unavailable, invalid, or unsupported. There is no silent fallback. |
+| MCP binding unavailable (`command_failed`) | Enrollment has not produced a usable binding document, or the daemon has not admitted its tool catalogue. |
+| Source verification unavailable (`command_failed`) | The deployed program record does not expose a source digest. A successful source mirror does not resolve this. |
 
----
+Remote JSON-RPC failures can retain their numeric code, message, and data
+inside the CLI error detail. That remote numeric code is distinct from the
+CLI's string `error.code`.
 
 ## Receipt verification before success
 
-`layerx receipt verify` reads the file as hex text or raw bytes, builds
-`AuthorizedBatch` from the five hex flags, and calls
-`layerx_proof::receipt::verify_outcome` (`tools/platform/cli/src/receipt.rs:18-52`).
-It reports `verified: true` only after that call succeeds and protocol facts
-plus a digest exist (`tools/platform/cli/src/receipt.rs:35-51`). The check is local;
-it does not contact the endpoint (`tools/platform/cli/src/main.rs:1011-1023`).
+On the merged network, block commitment establishes finality. Submission,
+execution output, a live notification, or a successful JSON envelope alone
+does not prove that a transaction's block has committed. See
+[Finality](../protocol/finality.md) and [Checkpoints](../concepts/checkpoints.md).
 
-`layerx program call` does not render a typed success until
-`verify_program_outcome_at_root` binds the returned receipt to the discovered
-sequencer key and prior state root, the activity id and protocol 3 / module
-version 4 match, ABI matches discovery, sequence extends discovery, and the
-terminal payload digest matches the receipt commitment
-(`tools/platform/cli/src/programs.rs:802-809, 1155-1232`). A receipt result code
-and the typed outcome must agree
-(`tools/platform/cli/src/programs.rs:1155-1158`). Lifecycle deploy/upgrade/wind-down
-verify the sequencer signature, bind protocol 3 / module 9 / version 4, and
-on result code 0 call `verify_program_state`
-(`tools/platform/cli/src/programs.rs:461-526`). Simulation additionally requires
-`committed: false` and sealed non-commit evidence
-(`tools/platform/cli/src/programs.rs:902-911, 1609-1699`).
+Current CLI behavior has several distinct evidence scopes:
 
-`layerx payment test` reports the quote and commit journey JSON; it does not
-run `verify_outcome` (`tools/platform/cli/src/payment.rs:5-37`). Independent
-verification is `receipt verify` after fetching bytes.
+- `receipt get` fetches `pax_sequencerReceipt` status without independently
+  verifying it. The method name remains part of the node contract; it does
+  not imply a separate block-producing service.
+- `program call` checks that the returned transaction hash matches the signed
+  bytes and returns `rung: submitted`. Program lifecycle operations additionally
+  fetch status and check the hash and recognized rung; they do not run the old
+  terminal receipt verifier on this path. A submission acknowledgement is not
+  verified program execution or committed success.
+- `program simulate` decodes the precompile's ABI result from `eth_call` at
+  `pending`. It submits nothing and establishes no committed receipt.
+- Wallet write and receipt paths require an independently pinned receipt
+  policy. `src/wallet.rs::read_transaction_policy` requires protocol `2`,
+  network `125`, a nonzero ordered height range (`first_batch`, `last_batch`),
+  `sequencer_id`, `sequencer_key`, and no checkpoint context digest. These are
+  retained policy field names, not instructions to trust a gateway's own keys.
+- Wallet `--wait executed` verifies receipted evidence. Compatibility value
+  `batched` requests committed evidence and cross-checks the chain receipt's
+  hash, block, status, and transaction index. `finalised` currently refuses
+  because that CLI path has no finality trust configured. This limitation does
+  not change when the network itself considers a block final.
+- `receipt verify` reads raw bytes or hex from a local file and calls
+  `layerx_proof::receipt::verify_outcome` with caller-supplied `AuthorizedBatch`
+  facts. It is a compatibility verifier for that receipt format, not a public
+  EVM transaction inclusion or BFT commitment verifier.
+- `payment test` returns the hosted quote/commit journey result; it does not
+  call the local proof verifier. Wallet notifications are also unverified.
 
----
+For portable transaction and commitment evidence, use the
+[portable verifier](../interop/portable-receipts.md) with independently
+configured chain trust. After a timeout or indeterminate response, preserve
+the original transaction hash and reconcile its status before retrying.
 
 ## Test suite
 
-Isolation for the command suite lives in `tools/platform/cli/tests/common/mod.rs`,
-which declares `mod credential_environment;`
-(`tools/platform/cli/tests/common/mod.rs:7`) and builds one
-`CredentialEnvironment` per `Cli` fixture
-(`tools/platform/cli/tests/common/mod.rs:45-51`).
+The CLI tests live in `tools/platform/cli/tests`. Their source is useful for
+checking command behavior; an emulator test does not establish deployment or
+public-node support.
 
-| Gate | What it drives |
+| Source or target | Coverage |
 | --- | --- |
-| `make platform-test` | `cargo test` of the platform workspace with `--features layerx-platform-cli/test-credential-store` (`services/platform/Makefile.inc:112-113`). CI `build-lint-test` runs this (`.github/workflows/platform.yml:53-54`) |
-| `make platform-test-cli-production-credential-refusal` | `bash tools/platform/cli/tests/production-credential-refusal.sh` (`services/platform/Makefile.inc:134-135`): builds `--no-default-features`, sets `LAYERX_CREDENTIAL_STORE=mock`, requires refusal and no config file |
-| `make platform-test-tooling` | production-credential-refusal, then `cargo test -p layerx-platform-cli --features test-credential-store`, emulator/faucet/testnet crate tests, script syntax, `cargo build -p layerx-platform-cli`, `clean-bootstrap.sh` (`services/platform/Makefile.inc:115-132`). CI names this “Exercise the developer CLI end to end against the emulator” (`.github/workflows/platform.yml:57-58`) |
-| `tools/platform/cli/tests/common/mod.rs` | Real `layerx` child process against an isolated `LAYERX_CONFIG` and `LAYERX_REPO_ROOT` (`tools/platform/cli/tests/common/mod.rs:1-6, 64-67`). `Emulator::start` spawns `layerx emulator up` on an ephemeral loopback port and waits for `/healthz` `"status":"ready"` (`tools/platform/cli/tests/common/mod.rs:136-200`) |
-| `tools/platform/cli/tests/common/credential_environment.rs` | A private Secret Service for each fixture: an isolated XDG root, a `dbus-daemon` started from a generated `bus.conf` (`tools/platform/cli/tests/common/credential_environment.rs:36-58`) and a `gnome-keyring-daemon --components=secrets` unlocked on stdin (`tools/platform/cli/tests/common/credential_environment.rs:71-82`) |
-| `tools/platform/cli/tests/file_store.rs` | Encrypted file store: `LAYERX_CREDENTIAL_PASSPHRASE` handling and the 12-16384 byte bound (`tools/platform/cli/src/file_store.rs:36-42`) |
-| `tools/platform/cli/tests/credential.rs` | Key/token commands: seeds and tokens accepted by the store never appear in config or stdout |
-| `tools/platform/cli/tests/commands.rs` | Envelope coverage and malformed-input refusals without emulator gateway routes (`tools/platform/cli/tests/commands.rs:1-6`) |
-| `tools/platform/cli/tests/emulator.rs` | Live emulator: environment bind, account prefund, payment quote/commit, identity mismatches (`tools/platform/cli/tests/emulator.rs:1-6`) |
-| `tools/platform/cli/tests/install.rs` | Install refusals; this file **removes** `LAYERX_CREDENTIAL_STORE` (`tools/platform/cli/tests/install.rs:22`) so it does not use the mock |
-| `tools/platform/cli/tests/workspace.rs` | Workspace module inventory against `LAYERX_REPO_ROOT` |
-| `tools/platform/cli/tests/wallet_commands.rs` | Real emulator create/list/balance, typed Send refusal, import secret protection and unavailable reads |
-| `tools/platform/cli/tests/wallet_encoding.rs` | CLI-local native asset register/open/revoke/mint/burn bytes against `wallet-assets-v1.json` (`tools/platform/cli/tests/wallet_encoding.rs:29-77`) |
-| `tools/platform/cli/tests/wallet_send.rs` | CLI-local Send payload and authorization-message bytes versus compiled `lxp_send.c` (`tools/platform/cli/tests/wallet_send.rs:29-66`) |
-| `tools/platform/cli/tests/clean-bootstrap.sh` | Published `install.md` bootstrap sequence in a clean `HOME` against a real binary (`tools/platform/cli/tests/clean-bootstrap.sh:53-115`) |
-| `make platform-test-agent-install` | `install-journey.sh` against a hosted gateway (`services/platform/Makefile.inc:195-206`); `make platform-test-tooling` also syntax-checks the script (`services/platform/Makefile.inc:115, 123`). The journey asserts that `install mcp` refuses when no agent-daemon binding document exists, then installs, restarts and stops the A2A runtime across a real scoped payment (`tools/platform/cli/tests/install-journey.sh:31-38, 40-81`). Scheduled/dispatch CI installs `dbus-x11` and `gnome-keyring` and runs that journey under `dbus-run-session` / `gnome-keyring-daemon` (`.github/workflows/platform.yml:1460-1463, 1497-1512`) |
-
-The cargo command suite therefore exercises a **real emulator** and a **real
-Secret Service**: each fixture starts its own `dbus-daemon` and
-`gnome-keyring-daemon`, so the production Unix credential path
-(`tools/platform/cli/src/credential.rs:23-26`) is the path under test and no
-developer keychain is touched
-(`tools/platform/cli/tests/common/mod.rs:3-5`;
-`tools/platform/cli/tests/common/credential_environment.rs:36-82`). The mock store
-is a build-time feature, not the harness default
-(`tools/platform/cli/src/credential.rs:14-19, 34-45`); the
-production-credential-refusal script proves a release-shaped binary will not
-admit it. `tools/platform/cli/tests/install.rs` removes `LAYERX_CREDENTIAL_STORE`
-outright (`tools/platform/cli/tests/install.rs:22`). The scheduled hosted journey
-adds a keyring provisioned by CI rather than by the fixture
-(`.github/workflows/platform.yml:1458-1510`).
+| `tests/common/mod.rs`, `tests/common/credential_environment.rs` | Real CLI child processes, isolated configuration, and a private D-Bus/Secret Service using `dbus-daemon` and `gnome-keyring-daemon`. The helper can decline credential tests when D-Bus is absent; `LAYERX_CLI_TESTS_REQUIRE_DBUS` requires that dependency instead. |
+| `tests/credential.rs`, `tests/file_store.rs` | Key/token handling, secret protection, and encrypted file storage. |
+| `tests/commands.rs`, `tests/emulator.rs` | Command parsing/results, invalid inputs, local profile binding, account prefunding, and payment operations. |
+| `tests/wallet_commands.rs`, `tests/wallet_encoding.rs`, `tests/wallet_send.rs` | Wallet operations and native payload/authorization encodings. |
+| `tests/workspace.rs`, `tests/install.rs` | Workspace inventory and agent installation behavior/refusals. |
+| `tests/production-credential-refusal.sh` | A production-shaped binary refuses the test-only credential backend. |
+| `tests/clean-bootstrap.sh`, `tests/install-journey.sh` | Bootstrap and hosted agent-install journeys. |
+| `make platform-test-tooling` | CLI and tooling tests with runtime-clock and public-TLS prerequisites, plus bootstrap and script checks; declared in `services/platform/Makefile.inc`. |
 
 [Home](../index.md)

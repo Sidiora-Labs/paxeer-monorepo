@@ -2,6 +2,8 @@ package sequencer
 
 import (
 	"bytes"
+	"context"
+	"errors"
 	"path/filepath"
 	"testing"
 
@@ -19,7 +21,7 @@ func TestReceiptSourceReplayRestoresAcceptedSends(t *testing.T) {
 	sender := utils.NewSigner()
 	h := newConsensusFenceHarness(t, 42, sender)
 	dir := filepath.Join(t.TempDir(), "wal")
-	log, err := wal.OpenWAL(dir, wal.DefaultConfig())
+	log, err := wal.OpenWAL(dir, wal.Config{SegmentSizeLimit: 1})
 	require.NoError(t, err)
 	t.Cleanup(log.Close)
 	rep, err := NewReplicator(ReplicatorConfig{WAL: log, Standalone: true})
@@ -127,5 +129,43 @@ func TestReceiptSourceReplayRestoresAcceptedSends(t *testing.T) {
 		require.NoError(t, err)
 		require.Nil(t, stored)
 		require.Empty(t, source.entries)
+	})
+
+	_, err = reopened.Append(&wal.Committed{Height: 2, LastSeq: batch.LastSeq})
+	require.NoError(t, err)
+	_, err = reopened.GroupSync()
+	require.NoError(t, err)
+	t.Run("committed sends are scanned without executing", func(t *testing.T) {
+		for _, capacity := range []int{3, 2} {
+			source := NewReceiptSource(capacity)
+			require.NoError(t, source.restoreCommitted(t.Context(), reopened))
+			require.Equal(t, int64(2), source.committed)
+			require.Empty(t, source.pendingOrder)
+			require.Equal(t, hashes[len(hashes)-capacity:], source.committedOrder)
+			for i, hash := range hashes {
+				got, err := source.SequencerSend(hash)
+				require.NoError(t, err)
+				if i < len(hashes)-capacity {
+					require.Nil(t, got)
+				} else {
+					require.Equal(t, sends[i], got)
+				}
+			}
+		}
+		exec, err := NewExecutor(h.src.app, h.opts)
+		require.NoError(t, err)
+		receipter, err := NewReceipter(exec, h.src.app, &h.src.app.EvmKeeper, h.src.key, 12)
+		require.NoError(t, err)
+		result, err := reopened.Replay(NewAppReplayer(exec, receipter))
+		require.NoError(t, err)
+		require.Zero(t, result.Accepts)
+		require.Nil(t, result.LastAccept)
+		_, err = exec.Snapshot()
+		require.ErrorIs(t, err, ErrLayerNotOpen)
+		ctx, cancel := context.WithCancel(t.Context())
+		cancel()
+		require.ErrorIs(t, NewReceiptSource(3).restoreCommitted(ctx, reopened), context.Canceled)
+		stopped := errors.New("stop scan")
+		require.ErrorIs(t, reopened.Scan(func(wal.Entry) error { return stopped }), stopped)
 	})
 }

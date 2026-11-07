@@ -2,6 +2,13 @@ import { copyEntry, human_copy_catalog } from "../../../copy/runtime.ts";
 import { formatCopy } from "../../../copy/format.ts";
 import {
   HumanApiError,
+  decodeAgentCreateRequest,
+  decodeMoveQuote,
+  decodeOwnerRotationRequest,
+  encodeAgentCreateRequest,
+  encodeMoveQuote,
+  encodeOwnerRotationRequest,
+  type JsonValue,
   humanApi,
   type Agent,
   type AgentPage,
@@ -15,7 +22,6 @@ import {
   type LimitEnforcement,
   type Money,
   type NativeFeeBudget,
-  type OwnerRotationRequest,
   type MoveQuote,
   type VerificationLevel,
 } from "../../api/index.ts";
@@ -28,6 +34,16 @@ import {
 } from "../../kit/model.ts";
 import { nativeFeeBudgetIdentity } from "../../auth/native-fee-budget.ts";
 import { authorizeMoveNativeAccess } from "../move/model.ts";
+import {
+  agentOperationParts,
+  agentRecoveryKey,
+  agentRecoveryStorage,
+  readAgentOperation,
+  writeAgentOperation,
+  clearAgentOperation,
+  type AgentRecoveryStorage,
+  type PendingAgentOperation,
+} from "./recovery.ts";
 
 export type {
   Agent,
@@ -132,6 +148,8 @@ const JOURNEY_STATUS: Readonly<Record<JourneyState, StatusKey>> = {
   "still-checking": "still_checking",
   refused: "refused",
   "waiting-for-you": "waiting_for_you",
+  "awaiting-approval": "waiting_for_you",
+  closed: "refused",
 };
 
 export function journeyStatusKey(state: JourneyState): StatusKey {
@@ -602,18 +620,25 @@ function mutationScope(operation: string, ...parts: readonly string[]): string {
 export interface AgentsOptions {
   readonly client?: HumanApiClient;
   readonly idempotencyKey?: () => string;
+  readonly storage?: AgentRecoveryStorage;
 }
+
+export type AgentRecoveryResult =
+  | Readonly<{ kind: "journey"; value: Journey }>
+  | Readonly<{ kind: "agent"; value: Agent }>
+  | Readonly<{ kind: "challenge"; value: KeyChallenge }>;
 
 export class Agents {
   readonly #client: HumanApiClient;
   readonly #idempotencyKey: () => string;
-  readonly #pendingKeys = new Map<string, string>();
-  readonly #rotationRequests = new Map<string, OwnerRotationRequest>();
-  readonly #fundingAccess = new Map<string, string>();
+  readonly #storage: AgentRecoveryStorage | undefined;
+  #principal: string | undefined;
+  readonly #active = new Set<string>();
 
   constructor(options: AgentsOptions = {}) {
     this.#client = options.client ?? humanApi();
     this.#idempotencyKey = options.idempotencyKey ?? newIdempotencyKey;
+    this.#storage = options.storage;
   }
 
   overview(): Promise<AgentPage> {
@@ -649,6 +674,7 @@ export class Agents {
         ...(draft.nativeFeeBudget === undefined ? [] : [nativeFeeBudgetIdentity(draft.nativeFeeBudget)]),
       ),
       (key) => this.#client.agentCreate(request, key),
+      encodeAgentCreateRequest(request),
     );
   }
 
@@ -678,34 +704,27 @@ export class Agents {
     return this.#client.moveQuote({ source: ownerAccount, destination: agentId, money });
   }
 
-  fundCommit(quote: MoveQuote): Promise<Journey> {
+  fundCommit(quote: MoveQuote, agentId = "fund"): Promise<Journey> {
     return this.#mutate(
       mutationScope("fund", quote.quote_id),
-      async (key) => {
-        let nativeAccessId = this.#fundingAccess.get(key);
+      async (key, pending, save) => {
+        let nativeAccessId = pending.fundingAccess;
         if (quote.native_send_access !== undefined && nativeAccessId === undefined) {
           try {
             nativeAccessId = await authorizeMoveNativeAccess(this.#client, quote.native_send_access);
-            this.#fundingAccess.set(key, nativeAccessId);
+            pending.fundingAccess = nativeAccessId;
+            save();
           } catch (error) {
             throw new FundingPreparationError("Funding confirmation did not complete", { cause: error });
           }
         }
-        try {
-          const result = await this.#client.moveCommit({
-            quote_id: quote.quote_id,
-            ...(nativeAccessId === undefined ? {} : { native_access_id: nativeAccessId }),
-          }, key);
-          this.#fundingAccess.delete(key);
-          return result;
-        } catch (error) {
-          if (error instanceof HumanApiError
-            && (error.detail.retry === "final" || error.detail.retry === "structural")) {
-            this.#fundingAccess.delete(key);
-          }
-          throw error;
-        }
+        return this.#client.moveCommit({
+          quote_id: quote.quote_id,
+          ...(nativeAccessId === undefined ? {} : { native_access_id: nativeAccessId }),
+        }, key);
       },
+      encodeMoveQuote(quote),
+      agentId,
     );
   }
 
@@ -723,8 +742,9 @@ export class Agents {
   startRotation(agentId: string, timing: RotationTiming): Promise<KeyChallenge> {
     return this.#mutate(
       mutationScope("rotation.start", agentId, String(timing.delay_seconds), String(timing.window_seconds)),
-      async (key) => {
-        let request = this.#rotationRequests.get(key);
+      async (key, pending, save) => {
+        let request = pending.rotationRequest === undefined ? undefined
+          : decodeOwnerRotationRequest(pending.rotationRequest, "pending owner rotation");
         if (request === undefined) {
           try {
             const disclosure = await this.#client.agentRotationDisclosure(agentId, {
@@ -733,21 +753,13 @@ export class Agents {
             });
             const stepUp = await performStepUp(this.#client, disclosure.confirms, browserPasskeyAuthenticator());
             request = { ...timing, step_up: stepUp };
-            this.#rotationRequests.set(key, request);
+            pending.rotationRequest = encodeOwnerRotationRequest(request);
+            save();
           } catch (error) {
             throw new RotationPreparationError("Rotation confirmation did not complete", { cause: error });
           }
         }
-        try {
-          const result = await this.#client.agentRotationStart(agentId, request, key);
-          this.#rotationRequests.delete(key);
-          return result;
-        } catch (error) {
-          if (error instanceof HumanApiError && (error.detail.retry === "final" || error.detail.retry === "structural")) {
-            this.#rotationRequests.delete(key);
-          }
-          throw error;
-        }
+        return this.#client.agentRotationStart(agentId, request, key);
       },
     );
   }
@@ -756,21 +768,98 @@ export class Agents {
     return this.#mutate(mutationScope("recover", agentId), (key) => this.#client.agentRecover(agentId, key));
   }
 
-  async #mutate<T>(scope: string, run: (idempotencyKey: string) => Promise<T>): Promise<T> {
-    const key = this.#pendingKeys.get(scope) ?? this.#idempotencyKey();
-    this.#pendingKeys.set(scope, key);
-    try {
-      const result = await run(key);
-      this.#pendingKeys.delete(scope);
-      return result;
-    } catch (error) {
-      if (
-        error instanceof HumanApiError
-        && (error.detail.retry === "final" || error.detail.retry === "structural")
-      ) {
-        this.#pendingKeys.delete(scope);
+  async #context(target: string) {
+    const principal = (await this.#client.accountBalance()).account_id;
+    if (principal.length === 0 || (this.#principal !== undefined && this.#principal !== principal)) {
+      throw new Error("Agent recovery principal changed");
+    }
+    this.#principal = principal;
+    const storage = agentRecoveryStorage(this.#storage);
+    const storageKey = await agentRecoveryKey(principal, target);
+    return { principal, storage, storageKey };
+  }
+
+  async recoverPending(target = "create"): Promise<AgentRecoveryResult | undefined> {
+    const { principal, storage, storageKey } = await this.#context(target);
+    const pending = readAgentOperation(storage, storageKey, principal, target);
+    if (pending === undefined) return undefined;
+    if (pending.journeyId !== undefined) {
+      const journey = await this.#client.journeyGet(pending.journeyId);
+      if (journeyProgress(journey).complete || ["refused", "closed"].includes(journey.state)) {
+        clearAgentOperation(storage, storageKey, pending);
       }
-      throw error;
+      return { kind: "journey", value: journey };
+    }
+    const [operation, first = "", second = "", third = ""] = agentOperationParts(pending.scope);
+    switch (operation) {
+      case "create": {
+        const request = decodeAgentCreateRequest(pending.request, "pending agent creation");
+        return { kind: "journey", value: await this.create({
+          name: request.name, purpose: request.purpose,
+          limitInput: request.monthly_limit.amount.toString(10), currency: request.monthly_limit.currency,
+          ...(request.native_fee_budget === undefined ? {} : { nativeFeeBudget: request.native_fee_budget }),
+        }) };
+      }
+      case "pause": return { kind: "agent", value: await this.pause(first) };
+      case "resume": return { kind: "agent", value: await this.resume(first) };
+      case "limit": return { kind: "agent", value: await this.changeLimit(first, { currency: second, amount: BigInt(third) }) };
+      case "reclaim": return { kind: "journey", value: await this.reclaim(first, { currency: second, amount: BigInt(third) }) };
+      case "archive": return { kind: "journey", value: await this.archive(first, second) };
+      case "fund": return { kind: "journey", value: await this.fundCommit(decodeMoveQuote(pending.request, "pending agent funding"), target) };
+      case "rotate": return { kind: "challenge", value: await this.rotate(first) };
+      case "rotation.start": return { kind: "challenge", value: await this.startRotation(first, {
+        delay_seconds: Number(second), window_seconds: Number(third),
+      }) };
+      case "recover": return { kind: "challenge", value: await this.recover(first) };
+      default: throw new Error("Unknown pending agent operation");
+    }
+  }
+
+  async #mutate<T extends Agent | Journey | KeyChallenge>(
+    scope: string,
+    run: (idempotencyKey: string, pending: PendingAgentOperation, save: () => void) => Promise<T>,
+    request?: JsonValue,
+    target = agentOperationParts(scope)[0] === "create" ? "create" : agentOperationParts(scope)[1]!,
+  ): Promise<T> {
+    if (this.#active.has(target)) throw new Error("Agent operation reconciliation is already running");
+    this.#active.add(target);
+    try {
+      const { principal, storage, storageKey } = await this.#context(target);
+      let pending = readAgentOperation(storage, storageKey, principal, target);
+      if (pending?.journeyId !== undefined) {
+        const journey = await this.#client.journeyGet(pending.journeyId);
+        if (!(journeyProgress(journey).complete || ["refused", "closed"].includes(journey.state))) {
+          throw new Error("Recover the existing agent journey before submitting another operation");
+        }
+        clearAgentOperation(storage, storageKey, pending);
+        pending = readAgentOperation(storage, storageKey, principal, target);
+      }
+      if (pending !== undefined && pending.scope !== scope) {
+        throw new Error("Reconcile the pending agent operation before replacing it");
+      }
+      pending ??= { version: 1, principal, target, scope, key: this.#idempotencyKey(),
+        ...(request === undefined ? {} : { request }) };
+      const record = pending;
+      const save = () => { writeAgentOperation(storage, storageKey, record); };
+      save();
+      try {
+        const result = await run(record.key, record, save);
+        if ("journey_id" in result) {
+          record.journeyId = result.journey_id;
+          save();
+        } else {
+          clearAgentOperation(storage, storageKey, record);
+        }
+        return result;
+      } catch (error) {
+        if (error instanceof HumanApiError
+          && (error.detail.retry === "final" || error.detail.retry === "structural")) {
+          clearAgentOperation(storage, storageKey, record);
+        }
+        throw error;
+      }
+    } finally {
+      this.#active.delete(target);
     }
   }
 }

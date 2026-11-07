@@ -175,7 +175,7 @@ func (f *precompileViewFixture) cases(t *testing.T) []precompileViewCase {
 		f.input(t, "getPayerGrant", []interface{}{f.grantID}), nil, true, false, nil)
 	require.ErrorIs(t, err, vm.ErrExecutionReverted)
 	assertLedgerRevert(t, data, "LXP_NO_PAYER_GRANT")
-	sequence, err := f.keeper.NextSequence(f.ctx, f.key, f.asset)
+	sequence, err := f.keeper.NextSequenceByAccountID(f.ctx, f.account, f.asset)
 	require.NoError(t, err)
 	require.Equal(t, uint64(1), sequence)
 	return []precompileViewCase{
@@ -187,7 +187,7 @@ func (f *precompileViewFixture) cases(t *testing.T) []precompileViewCase {
 		{"accountId", []interface{}{f.key, f.asset}, []interface{}{f.account}},
 		{"accountOwner", []interface{}{f.account}, []interface{}{owner}},
 		{"getPayerGrant", []interface{}{f.grantID}, nil},
-		{"nextSequence", []interface{}{f.key, f.asset}, []interface{}{sequence}},
+		{"nextSequence", []interface{}{f.account, f.asset}, []interface{}{sequence}},
 	}
 }
 
@@ -314,4 +314,25 @@ func TestPrecompileViewsIgnorePause(t *testing.T) {
 		require.Equal(t, hostBefore, storeSnapshot(t, f.ctx.KVStore(f.hostKey)))
 		require.Equal(t, ledgerBefore, storeSnapshot(t, f.ctx.KVStore(f.storeKey)))
 	})
+}
+
+func TestPrecompileNextSequenceReopen(t *testing.T) {
+	f := newRepair144Fixture(t)
+	f.sequence(t, f.from, 0)
+	f.sequence(t, f.to, 0)
+	f.refused(t, f.sender, "LXP_UNKNOWN_ACCOUNT_NAMESPACE", "nextSequence", [32]byte{}, f.asset)
+	f.p.success(t, f.sender, "mint", f.asset, f.from, big.NewInt(250))
+	f.p.success(t, f.sender, "send", f.envelope(t, 0, 40, 0x91))
+	f.sequence(t, f.from, 1)
+	f.sequence(t, f.to, 0)
+	f.balances(t, 210, 40)
+	f.reopen(t)
+	require.Equal(t, f.from, accountId(t, f.p, f.sender, f.payer.DIDKey, f.asset))
+	f.sequence(t, f.from, 1)
+	f.sequence(t, f.to, 0)
+	f.balances(t, 210, 40)
+	f.refused(t, f.sender, "LXP_UNKNOWN_ACCOUNT_NAMESPACE", "nextSequence", [32]byte{}, f.asset)
+	f.p.success(t, f.sender, "send", f.envelope(t, 1, 10, 0x92))
+	f.sequence(t, f.from, 2)
+	f.balances(t, 200, 50)
 }

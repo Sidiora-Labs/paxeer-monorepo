@@ -1,0 +1,12 @@
+[repair.22.33.204]
+audit = "22.30.120"
+finding = "native-route-origin"
+source_revision = "aefa91aa13a43dff9d0a27098f8280d43fd1ed42"
+implementation = "index.ts resolves native routes against a fixed wallet origin and rejects external authorities, non-relative routes, malformed URI syntax and ambiguous slash or dot-segment paths."
+tests = ["native_route_origin_rejects_external_authorities", "native_route_origin_rejects_ambiguous_path_grammar", "native_route_origin_preserves_real_shell_route_roundtrips", "native_route_origin_preserves_event_boundary_checks"]
+test_file = "apps/wallet/src/domains/platform/repair-22-33-204.test.ts"
+proof = "Real shell serializer output crosses JSON transport into the production native boundary and shell URL consumer; both native event kinds preserve the destination."
+baseline = "Not executed: the explicit implementation-first gate order prohibits running the verify command on the unchanged tree. The original leading-slash check accepts the external-authority and ambiguous-path regression inputs by inspection; no baseline failure is claimed."
+wiring = "None required: the audited parser has no production native-adapter caller; this repair changes only its boundary validation."
+evidence = "The runner's hf-build and hf-done ledger records the exact verified candidate revision, command, exit code and private log location."
+tooling_note = "pnpm dlx resolves file arguments from the shell working directory even with --dir; run the formatter from apps/wallet. Its existing jsxBracketSameLine option emits a deprecation warning."

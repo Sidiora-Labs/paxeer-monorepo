@@ -1,1383 +1,1069 @@
 [summary]
 reports = 43
-targets_total = 1297
-targets_passed = 1100
-targets_failed = 132
-targets_not_run = 65
+targets_total = 1299
+targets_passed = 1135
+targets_failed = 152
+targets_not_run = 0
+targets_no_tests = 12
 
 [failing.1]
 sweep = "c-kernel-make"
-target = "test-bridge-deposit"
+target = "test-contract-state-surface"
 result = "failed"
-observed = "test-bridge-deposit stops at scripts/ci/solidity-state-surface.sh:10 because forge is not found."
-assumption = "The environmental Foundry forge executable is unavailable, so the Solidity prerequisite cannot run."
+observed = "First failing coverage assertion: untested external state-changing function: SidioraProxyTimelock.cancel(bytes32); execute(address,uint256,bytes,bytes32,uint256) and schedule(address,uint256,bytes,bytes32,uint64) also lack test evidence."
+assumption = "At the recorded revision, tests/solidity lacked state-surface test evidence for SidioraProxyTimelock.cancel, execute and schedule; forge was present."
 
 [failing.2]
 sweep = "c-kernel-make"
-target = "test-bridge-withdraw"
+target = "test-contracts"
 result = "failed"
-observed = "test-bridge-withdraw stops at scripts/ci/solidity-state-surface.sh:10 because forge is not found."
-assumption = "The environmental Foundry forge executable is unavailable, so the Solidity prerequisite cannot run."
+observed = "The test-contract-state-surface prerequisite fails first on untested external state-changing function: SidioraProxyTimelock.cancel(bytes32); forge is present, and forge test is not reached."
+assumption = "The test-contract-state-surface prerequisite lacks test evidence for the SidioraProxyTimelock.cancel, execute and schedule functions at the recorded revision, so make stops before forge test; forge was present."
 
 [failing.3]
 sweep = "c-kernel-make"
-target = "test-budget-create"
+target = "test-group-%"
 result = "failed"
-observed = "tests/modules/test_budget_create.c:711 fails dispatch_path because the delegate spend result does not equal LXP_OK."
-assumption = "The existing budget dispatch expectation likely disagrees with the current delegate-spend behavior."
+observed = "grep: /work/paxeer-monorepo/build/packages.txt.%: No such file or directory"
+assumption = "The split-test-packages producer creates numbered build/packages.txt.* inputs, so the literal forwarding pattern has no build/packages.txt.% input; a concrete group suffix is required."
 
 [failing.4]
-sweep = "c-kernel-make"
-target = "test-contract-state-surface"
-result = "failed"
-observed = "test-contract-state-surface stops at scripts/ci/solidity-state-surface.sh:10 because forge is not found."
-assumption = "The environmental Foundry forge executable is unavailable, so the Solidity prerequisite cannot run."
-
-[failing.5]
-sweep = "c-kernel-make"
-target = "test-contracts"
-result = "failed"
-observed = "test-contracts stops at scripts/ci/solidity-state-surface.sh:10 because forge is not found."
-assumption = "The environmental Foundry forge executable is unavailable, so the Solidity prerequisite cannot run."
-
-[failing.6]
-sweep = "c-kernel-make"
-target = "test-crypto-sanitizers"
-result = "not_run"
-observed = ""
-assumption = ""
-
-[failing.7]
-sweep = "c-kernel-make"
-target = "test-group-%"
-result = "not_run"
-observed = ""
-assumption = ""
-
-[failing.8]
 sweep = "c-kernel-make"
 target = "test-journal"
 result = "failed"
 observed = "test-journal cannot build build/tests/lxp_test_journal_tsan because make has no rule for the missing src/state/lxp_idempotency.c."
 assumption = "The existing journal sanitizer recipe likely retains a dependency on the retired idempotency source."
 
-[failing.9]
+[failing.5]
 sweep = "c-kernel-make"
 target = "test-log"
 result = "failed"
 observed = "test-log at Makefile:1405 exits with Error 1 and emits no earlier failure diagnostic."
 assumption = "The existing log test likely rejects current storage behavior, but the recipe supplies no diagnostic beyond its nonzero exit."
 
-[failing.10]
-sweep = "c-kernel-make"
-target = "test-lxphost"
-result = "not_run"
-observed = ""
-assumption = ""
-
-[failing.11]
+[failing.6]
 sweep = "c-kernel-make"
 target = "test-mcp-binding-receipt-keys"
 result = "failed"
 observed = "test-mcp-binding-receipt-keys at Makefile:1803 cannot start because importing pytest raises ModuleNotFoundError."
 assumption = "The environmental Python interpreter lacks the named dependency, so the selected suite cannot start."
 
-[failing.12]
+[failing.7]
 sweep = "c-kernel-make"
 target = "test-paxd-domain"
-result = "not_run"
-observed = ""
-assumption = ""
+result = "failed"
+observed = "--- FAIL: TestPriceFeedLivePathAggregate (2.37s); node/pricefeed_live_test.go:565 expects required = 3 but receives required = 1; further node, sequencer and RPC failures follow in the log."
+assumption = "The price-feed live aggregation path appears to report a required quorum of 1 while its test expects 3; the remaining domain failures require separate repair tasks."
 
-[failing.13]
+[failing.8]
 sweep = "c-kernel-make"
 target = "test-programs-metered-call"
 result = "failed"
 observed = "tests/programs/test_metered_call.c:258 fails to compile because the manifest initializer uses the incomplete lxp_genesis_manifest type."
 assumption = "The existing test likely lacks the header defining the complete genesis manifest type required by its fixture."
 
-[failing.14]
-sweep = "c-kernel-make"
-target = "test-proof"
-result = "failed"
-observed = "tests/codec/lxp_test_global_sequence.c:225 fails to compile in the receipt proof prerequisite because lxp_state_store has no member named idempotency_count."
-assumption = "The existing test likely still references a kernel interface removed or changed at this revision."
-
-[failing.15]
-sweep = "c-kernel-make"
-target = "test-proof-lxp_receipt_h"
-result = "failed"
-observed = "tests/codec/lxp_test_global_sequence.c:225 fails to compile in test-proof-lxp_receipt_h because lxp_state_store has no member named idempotency_count."
-assumption = "The existing test likely still references a kernel interface removed or changed at this revision."
-
-[failing.16]
-sweep = "c-kernel-make"
-target = "test-reserve"
-result = "failed"
-observed = "test-reserve stops at scripts/ci/solidity-state-surface.sh:10 because forge is not found."
-assumption = "The environmental Foundry forge executable is unavailable, so the Solidity prerequisite cannot run."
-
-[failing.17]
+[failing.9]
 sweep = "c-kernel-make"
 target = "test-state-commitment-transition"
 result = "failed"
 observed = "tests/test_state_commitment_transition.c:341 fails to compile because lxp_state_store has no member named idempotency_count."
 assumption = "The existing test likely still references a kernel interface removed or changed at this revision."
 
-[failing.18]
+[failing.10]
 sweep = "c-kernel-make"
 target = "test-state-root"
 result = "failed"
 observed = "tests/state/lxp_test_state_root.c:184 fails to compile because lxp_state_store has no member named idempotency_count."
 assumption = "The existing test likely still references a kernel interface removed or changed at this revision."
 
-[failing.19]
+[failing.11]
 sweep = "c-kernel-make"
 target = "test-storage"
 result = "failed"
 observed = "test-storage stops at its test-log prerequisite at Makefile:1405 with Error 1 and no earlier failure diagnostic."
 assumption = "The existing log test likely rejects current storage behavior, causing the storage aggregate to stop before its remaining prerequisites."
 
-[failing.20]
+[failing.12]
 sweep = "c-kernel-make"
 target = "test-tests-python"
 result = "failed"
 observed = "test-tests-python at Makefile:254 cannot start because python3 reports No module named pytest."
 assumption = "The environmental Python interpreter lacks the named dependency, so the selected suite cannot start."
 
-[failing.21]
-sweep = "go-consensus"
-target = "consensus/internal/autobahn/consensus/persist"
-result = "failed"
-observed = "TestPersistWriteErrorReturnsError failed at consensus/internal/autobahn/consensus/persist/persist_test.go:162 because an error was expected but got nil."
-assumption = "The sandbox runs as root, which can bypass the directory permissions removed by the test, so this is likely an environmental permission mismatch."
-
-[failing.22]
+[failing.13]
 sweep = "go-launchpad-modules"
 target = "services/launchpad/discovery"
 result = "failed"
 observed = "alerts_disable_test.go:14 (TestPostgresDisableRuleIsOwnerScoped) failed because DISCOVERY_TEST_DATABASE_URL must select an isolated PostgreSQL fixture."
 assumption = "The environment lacks the isolated PostgreSQL fixture configuration required by this test."
 
-[failing.23]
+[failing.14]
 sweep = "go-launchpad-modules"
 target = "services/launchpad/notifications"
 result = "failed"
 observed = "phase2_test.go:39 (TestPostgresHundredTriggerReplaysAndFencedRecovery) failed because NOTIFICATIONS_TEST_DATABASE_URL must select an isolated PostgreSQL fixture."
 assumption = "The environment lacks the isolated PostgreSQL fixture configuration required by this test."
 
-[failing.24]
+[failing.15]
 sweep = "go-launchpad-modules"
 target = "services/launchpad/pnl-tracker"
 result = "failed"
 observed = "internal/app/proof_launchpad_pnl_tracker_test.go:59 (TestProofLaunchpadPnlTracker) failed because the production fixture requires a local Anvil executable and anvil was not found in PATH."
 assumption = "The environment lacks the Anvil tool required to exercise the real chain fixture."
 
-[failing.25]
+[failing.16]
 sweep = "go-launchpad-modules"
 target = "services/launchpad/ranking-algo"
 result = "failed"
 observed = "internal/app/app_test.go:233 (TestNewServesAndRanks) failed because RANKING_TEST_POSTGRES_DSN is not set and must point to PostgreSQL with CREATE DATABASE and CREATE ROLE privileges."
 assumption = "The environment lacks the PostgreSQL fixture configuration and privileged test role required by this test."
 
-[failing.26]
+[failing.17]
 sweep = "go-launchpad-modules"
 target = "services/launchpad/security"
 result = "failed"
 observed = "policy/audit_test.go:11 (TestV2PrivilegedMutationRollsBackOnRealAuditFailure) failed because the PostgreSQL fixture connection was refused."
 assumption = "The required PostgreSQL fixture service is unavailable in this environment."
 
-[failing.27]
+[failing.18]
 sweep = "go-launchpad-modules"
 target = "services/launchpad/security/control"
 result = "failed"
 observed = "control_test.go:125 (TestOperatorDualApprovalTenRetriesOneJob) failed because the real PostgreSQL fixture connection was refused."
 assumption = "The required PostgreSQL fixture service is unavailable in this environment."
 
-[failing.28]
+[failing.19]
 sweep = "go-launchpad-modules"
 target = "services/launchpad/social"
 result = "failed"
 observed = "internal/app/dev_v2_test.go:185 (TestDevelopmentV2SocialSurface) failed because the PostgreSQL fixture connection was refused."
 assumption = "The required PostgreSQL fixture service is unavailable in this environment."
 
-[failing.29]
+[failing.20]
 sweep = "go-launchpad-modules"
 target = "services/launchpad/stats-workers"
 result = "failed"
 observed = "internal/analytics/reactions_test.go:17 (TestReactionPostgresAuthority) failed because an explicit private PostgreSQL fixture is required."
 assumption = "The environment lacks the private PostgreSQL fixture configuration required by this test."
 
-[failing.30]
+[failing.21]
 sweep = "go-launchpad-modules"
 target = "services/launchpad/trading-charts"
 result = "failed"
 observed = "internal/app/app_dev_test.go:40 (TestDevelopmentRegistersVersionedUDF) failed because CHARTS_TEST_POSTGRES_URL must name a PostgreSQL server whose role may CREATE DATABASE."
 assumption = "The environment lacks the PostgreSQL fixture configuration and database-creation privilege required by this test."
 
-[failing.31]
+[failing.22]
 sweep = "go-launchpad-modules"
 target = "services/launchpad/user"
 result = "failed"
 observed = "internal/account/account_test.go:134 (TestPostgresProfilePreferencesWatchConsent) failed because USER_TEST_DATABASE_URL is required to exercise real PostgreSQL."
 assumption = "The environment lacks the real PostgreSQL fixture configuration required by this test."
 
-[failing.32]
+[failing.23]
 sweep = "go-launchpad-modules-2"
 target = "services/launchpad/api"
 result = "failed"
 observed = "go vet passed, then go test failed with unset CORE_API_TEST_POSTGRES_URL, API_TEST_DATABASE_URL, CORE_API_TEST_REDIS_URL and CORE_API_TEST_NATS_URL, refused PostgreSQL and Redis connections, missing allocated cache and SHA-bound measurement inputs, a Treasury implementation assertion in dev_authority_contract_test.go:119, an unexpected AUTH_REQUIRED response in proof_launchpad_api_test.go:221 and wildcard admission in topics_test.go:28."
 assumption = "The required service fixtures and measurement inputs are unavailable in this environment, while the authority-contract, discovery-envelope and topic-admission assertions require separate investigation and are not attributed solely to an unset PostgreSQL variable."
 
-[failing.33]
+[failing.24]
 sweep = "go-launchpad-modules-2"
 target = "services/launchpad/gateway"
 result = "failed"
 observed = "go vet passed, then go test failed with unset GATEWAY_TEST_REDIS_URL, GATEWAY_TEST_MINIO_ENDPOINT and L33_POSTGRES_DSN, refused PostgreSQL, Redis and object-storage connections, missing admitted chain125 Anvil and identity/media workload inputs, missing pg_config in proof_launchpad_gateway_test.go:691, default Port = 8080, want 3000 in config_test.go:39, and upload admission failures reporting context deadline exceeded and distributed wallet/global admission 0."
 assumption = "The required service fixtures, PostgreSQL producer tooling and admitted workload inputs are unavailable in this environment, the upload admission failures occurred alongside refused Redis connections, and the default-port assertion requires separate investigation."
 
-[failing.34]
+[failing.25]
 sweep = "go-launchpad-modules-2"
 target = "services/launchpad/indexer"
 result = "failed"
 observed = "go vet passed, then go test failed with unset INDEXER_TEST_POSTGRES_URL, L06_POSTGRES_DSN and INDEXER_TEST_REDIS_URL, anvil missing from PATH, runtimedocs: incomplete inputs in render_test.go:57 and render_test.go:128, no epoch at 0x1017 in precompile_test.go:46, source fixture: integrity and source fixture: incomplete in committed_test.go, and missing bound actual owned source capacity configuration in capacity_integration_test.go:31."
 assumption = "The required PostgreSQL, Redis, Anvil and capacity fixtures are unavailable in this environment, while the runtime-document, ABI-epoch and committed-source assertions require separate investigation and are not attributed solely to unset fixture variables."
 
-[failing.35]
+[failing.26]
 sweep = "go-launchpad-modules-2"
 target = "services/launchpad/livestream"
 result = "failed"
 observed = "go vet passed, then go test failed because L40_TEST_APP_POSTGRES_DSN, L40_TEST_POSTGRES_DSN and L40_TEST_REDIS_URL are required, actual admitted Livepeer provider operations and a registered playback webhook are required, an approved media measurement manifest and SHA256 are required, and TestProofLaunchpadLivestream could not find the PostgreSQL producer executable pg_config."
 assumption = "The environment lacks the dedicated PostgreSQL and Redis fixture configuration, PostgreSQL producer tooling, admitted Livepeer provider and approved measurement inputs required by these tests."
 
-[failing.36]
+[failing.27]
 sweep = "go-launchpad-modules-2"
 target = "services/launchpad/metadata"
 result = "failed"
 observed = "go vet passed, then go test failed with unset METADATA_TEST_DATABASE_URL, METADATA_TEST_S3_ENDPOINT, NETWORK_RPC_URL and KINDLE_PUBLICATION_TEST_URL, refused PostgreSQL connections, a missing delegated cgroup for TestProductionActualIsolatedDimensionBomb reporting image codec unavailable, and TestProductionActualScannerMidstreamDisconnect reporting actual configured clamd is required: scanner unavailable."
 assumption = "The environment lacks the PostgreSQL, object-storage, chain RPC and publication fixtures, delegated image-worker cgroup and configured clamd scanner required by these tests."
 
-[failing.37]
+[failing.28]
 sweep = "go-modules"
 target = "modules/epoch/client/cli"
-result = "not_run"
-observed = ""
-assumption = ""
+result = "failed"
+observed = "# Command exceeded the recorded 240-second target limit."
+assumption = "The recorded 240-second inventory allocation appears insufficient for the vet/test pair in this sandbox; no package-level failure diagnostic or test result was emitted before termination."
 
-[failing.38]
-sweep = "go-modules"
-target = "modules/epoch/client/wasm"
-result = "not_run"
-observed = ""
-assumption = ""
-
-[failing.39]
-sweep = "go-modules"
-target = "modules/epoch/client/wasm/bindings"
-result = "not_run"
-observed = ""
-assumption = ""
-
-[failing.40]
+[failing.29]
 sweep = "go-modules"
 target = "modules/epoch/keeper"
-result = "not_run"
-observed = ""
-assumption = ""
+result = "failed"
+observed = "# Command exceeded the recorded 240-second target limit."
+assumption = "The recorded 240-second inventory allocation appears insufficient for the vet/test pair in this sandbox; no package-level failure diagnostic or test result was emitted before termination."
 
-[failing.41]
+[failing.30]
 sweep = "go-modules"
 target = "modules/evm"
-result = "not_run"
-observed = ""
-assumption = ""
+result = "failed"
+observed = "# Command exceeded the recorded 240-second target limit."
+assumption = "The recorded 240-second inventory allocation appears insufficient for the vet/test pair in this sandbox; no package-level failure diagnostic or test result was emitted before termination."
 
-[failing.42]
+[failing.31]
 sweep = "go-modules"
 target = "modules/evm/ante"
-result = "not_run"
-observed = ""
-assumption = ""
+result = "failed"
+observed = "# Command exceeded the recorded 240-second target limit."
+assumption = "The recorded 240-second inventory allocation appears insufficient for the vet/test pair in this sandbox; no package-level failure diagnostic or test result was emitted before termination."
 
-[failing.43]
-sweep = "go-modules"
-target = "modules/evm/artifacts/native"
-result = "not_run"
-observed = ""
-assumption = ""
-
-[failing.44]
+[failing.32]
 sweep = "go-modules"
 target = "modules/launchpad/keeper"
-result = "not_run"
-observed = ""
-assumption = ""
+result = "failed"
+observed = "# Command exceeded the recorded 240-second target limit."
+assumption = "The recorded 240-second inventory allocation appears insufficient for the vet/test pair in this sandbox; no package-level failure diagnostic or test result was emitted before termination."
 
-[failing.45]
+[failing.33]
 sweep = "go-modules"
 target = "modules/layerxexchange/types"
 result = "failed"
 observed = "TestProofLayerxexchangeRetirement at modules/layerxexchange/types/proof_layerxexchange_retirement_test.go:150 expected the error codespace layerxexchange but received undefined."
 assumption = "The retirement proof appears to receive a generic error that does not retain the expected module codespace."
 
-[failing.46]
+[failing.34]
 sweep = "go-modules"
 target = "modules/layerxledger/keeper"
-result = "not_run"
-observed = ""
-assumption = ""
+result = "failed"
+observed = "# Command exceeded the recorded 240-second target limit."
+assumption = "The recorded 240-second inventory allocation appears insufficient for the vet/test pair in this sandbox; no package-level failure diagnostic or test result was emitted before termination."
 
-[failing.47]
+[failing.35]
 sweep = "go-modules"
 target = "modules/layerxledger/types"
 result = "failed"
 observed = "TestProofPayloadCodec at modules/layerxledger/types/proof_payload_codec_test.go:100, called from line 229, received the unexpected error LXP_ERR_IDEMPOTENT_REPLAY."
 assumption = "The payload-codec proof appears to reuse an operation identity already recorded by the native kernel, triggering replay protection."
 
-[failing.48]
+[failing.36]
 sweep = "go-modules"
 target = "modules/layerxpay/integration"
-result = "not_run"
-observed = ""
-assumption = ""
+result = "failed"
+observed = "# Command exceeded the recorded 240-second target limit."
+assumption = "The recorded 240-second inventory allocation appears insufficient for the vet/test pair in this sandbox; no package-level failure diagnostic or test result was emitted before termination."
 
-[failing.49]
-sweep = "go-modules"
-target = "modules/layerxpay/keeper"
-result = "not_run"
-observed = ""
-assumption = ""
-
-[failing.50]
-sweep = "go-modules"
-target = "modules/layerxpay/testutil"
-result = "not_run"
-observed = ""
-assumption = ""
-
-[failing.51]
-sweep = "go-modules"
-target = "modules/layerxpay/types"
-result = "not_run"
-observed = ""
-assumption = ""
-
-[failing.52]
-sweep = "go-modules"
-target = "modules/lxphost"
-result = "not_run"
-observed = ""
-assumption = ""
-
-[failing.53]
+[failing.37]
 sweep = "go-modules"
 target = "modules/mint"
-result = "not_run"
-observed = ""
-assumption = ""
+result = "failed"
+observed = "# Command exceeded the recorded 240-second target limit."
+assumption = "The recorded 240-second inventory allocation appears insufficient for the vet/test pair in this sandbox; no package-level failure diagnostic or test result was emitted before termination."
 
-[failing.54]
-sweep = "go-modules"
-target = "modules/mint/client/cli"
-result = "not_run"
-observed = ""
-assumption = ""
-
-[failing.55]
-sweep = "go-modules"
-target = "modules/mint/client/rest"
-result = "not_run"
-observed = ""
-assumption = ""
-
-[failing.56]
+[failing.38]
 sweep = "go-modules"
 target = "modules/mint/keeper"
-result = "not_run"
-observed = ""
-assumption = ""
+result = "failed"
+observed = "# Command exceeded the recorded 240-second target limit."
+assumption = "The recorded 240-second inventory allocation appears insufficient for the vet/test pair in this sandbox; no package-level failure diagnostic or test result was emitted before termination."
 
-[failing.57]
-sweep = "go-modules"
-target = "modules/mint/simulation"
-result = "not_run"
-observed = ""
-assumption = ""
-
-[failing.58]
+[failing.39]
 sweep = "go-modules"
 target = "modules/mint/types"
-result = "not_run"
-observed = ""
-assumption = ""
+result = "failed"
+observed = "# Command exceeded the recorded 240-second target limit."
+assumption = "The recorded 240-second inventory allocation appears insufficient for the vet/test pair in this sandbox; no package-level failure diagnostic or test result was emitted before termination."
 
-[failing.59]
+[failing.40]
 sweep = "go-modules"
 target = "modules/oracle"
-result = "not_run"
-observed = ""
-assumption = ""
+result = "failed"
+observed = "# Command exceeded the recorded 240-second target limit."
+assumption = "The recorded 240-second inventory allocation appears insufficient for the vet/test pair in this sandbox; no package-level failure diagnostic or test result was emitted before termination."
 
-[failing.60]
-sweep = "go-modules"
-target = "modules/oracle/client/cli"
-result = "not_run"
-observed = ""
-assumption = ""
-
-[failing.61]
-sweep = "go-modules"
-target = "modules/oracle/client/rest"
-result = "not_run"
-observed = ""
-assumption = ""
-
-[failing.62]
-sweep = "go-modules"
-target = "modules/oracle/client/wasm"
-result = "not_run"
-observed = ""
-assumption = ""
-
-[failing.63]
-sweep = "go-modules"
-target = "modules/oracle/client/wasm/bindings"
-result = "not_run"
-observed = ""
-assumption = ""
-
-[failing.64]
-sweep = "go-modules"
-target = "modules/oracle/keeper"
-result = "not_run"
-observed = ""
-assumption = ""
-
-[failing.65]
-sweep = "go-modules"
-target = "modules/oracle/keeper/testutils"
-result = "not_run"
-observed = ""
-assumption = ""
-
-[failing.66]
-sweep = "go-modules"
-target = "modules/oracle/simulation"
-result = "not_run"
-observed = ""
-assumption = ""
-
-[failing.67]
-sweep = "go-modules"
-target = "modules/oracle/types"
-result = "not_run"
-observed = ""
-assumption = ""
-
-[failing.68]
-sweep = "go-modules"
-target = "modules/oracle/utils"
-result = "not_run"
-observed = ""
-assumption = ""
-
-[failing.69]
-sweep = "go-modules"
-target = "modules/perps"
-result = "not_run"
-observed = ""
-assumption = ""
-
-[failing.70]
-sweep = "go-modules"
-target = "modules/perps/keeper"
-result = "not_run"
-observed = ""
-assumption = ""
-
-[failing.71]
-sweep = "go-modules"
-target = "modules/perps/types"
-result = "not_run"
-observed = ""
-assumption = ""
-
-[failing.72]
-sweep = "go-modules"
-target = "modules/pricefeed"
-result = "not_run"
-observed = ""
-assumption = ""
-
-[failing.73]
-sweep = "go-modules"
-target = "modules/pricefeed/client/cli"
-result = "not_run"
-observed = ""
-assumption = ""
-
-[failing.74]
-sweep = "go-modules"
-target = "modules/pricefeed/testutil"
-result = "not_run"
-observed = ""
-assumption = ""
-
-[failing.75]
+[failing.41]
 sweep = "go-modules-2"
 target = "modules/epoch"
-result = "not_run"
-observed = ""
-assumption = ""
+result = "failed"
+observed = "No failing output line was emitted; the recorded command reached its 600-second limit and timeout returned exit 124 before vet/test completed."
+assumption = "Cold dependency downloads and compilation across eight concurrent Go commands appear to have exhausted the recorded 600-second budget; the output does not establish a product-code failure."
 
-[failing.76]
+[failing.42]
 sweep = "go-modules-2"
 target = "modules/pricefeed/keeper"
-result = "not_run"
-observed = ""
-assumption = ""
+result = "failed"
+observed = "No failing output line was emitted; the recorded command reached its 600-second limit and timeout returned exit 124 before vet/test completed."
+assumption = "Cold dependency downloads and compilation across eight concurrent Go commands appear to have exhausted the recorded 600-second budget; the output does not establish a product-code failure."
 
-[failing.77]
+[failing.43]
 sweep = "go-modules-2"
 target = "modules/pricefeed/types"
-result = "not_run"
-observed = ""
-assumption = ""
+result = "failed"
+observed = "No failing output line was emitted; the recorded command reached its 600-second limit and timeout returned exit 124 before vet/test completed."
+assumption = "Cold dependency downloads and compilation across eight concurrent Go commands appear to have exhausted the recorded 600-second budget; the output does not establish a product-code failure."
 
-[failing.78]
+[failing.44]
 sweep = "go-modules-2"
 target = "modules/sequencer/keeper"
-result = "not_run"
-observed = ""
-assumption = ""
+result = "failed"
+observed = "No failing output line was emitted; the recorded command reached its 600-second limit and timeout returned exit 124 before vet/test completed."
+assumption = "Cold dependency downloads and compilation across eight concurrent Go commands appear to have exhausted the recorded 600-second budget; the output does not establish a product-code failure."
 
-[failing.79]
+[failing.45]
 sweep = "go-modules-2"
 target = "modules/spot"
-result = "not_run"
-observed = ""
-assumption = ""
+result = "failed"
+observed = "No failing output line was emitted; the recorded command reached its 600-second limit and timeout returned exit 124 before vet/test completed."
+assumption = "Cold dependency downloads and compilation across eight concurrent Go commands appear to have exhausted the recorded 600-second budget; the output does not establish a product-code failure."
 
-[failing.80]
+[failing.46]
 sweep = "go-modules-2"
 target = "modules/spot/keeper"
-result = "not_run"
-observed = ""
-assumption = ""
+result = "failed"
+observed = "No failing output line was emitted; the recorded command reached its 600-second limit and timeout returned exit 124 before vet/test completed."
+assumption = "Cold dependency downloads and compilation across eight concurrent Go commands appear to have exhausted the recorded 600-second budget; the output does not establish a product-code failure."
 
-[failing.81]
+[failing.47]
 sweep = "go-modules-2"
 target = "modules/tokenfactory/client/cli"
-result = "not_run"
-observed = ""
-assumption = ""
+result = "failed"
+observed = "No failing output line was emitted; the recorded command reached its 600-second limit and timeout returned exit 124 before vet/test completed."
+assumption = "Cold dependency downloads and compilation across eight concurrent Go commands appear to have exhausted the recorded 600-second budget; the output does not establish a product-code failure."
 
-[failing.82]
+[failing.48]
 sweep = "go-modules-2"
 target = "modules/tokenfactory/keeper"
 result = "failed"
 observed = "go vet failed at modules/tokenfactory/keeper/proof_issuer_did_test.go:88:41 because a literal copies a KeeperTestHelper containing a sync.RWMutex from *restored."
 assumption = "The restored keeper fixture appears to copy a test helper by value even though the helper embeds a mutex."
 
-[failing.83]
+[failing.49]
 sweep = "go-modules-2"
 target = "modules/tokenfactory/types"
 result = "failed"
 observed = "TestEventAttributeNamesFrozen at modules/tokenfactory/types/events_test.go:48 reported unexpected event attribute constant set_denom_paused and subsequently counted 15 constants instead of 12."
 assumption = "The frozen event attribute fixture appears to retain an older constant list than the module currently declares."
 
-[failing.84]
+[failing.50]
 sweep = "go-modules-2"
 target = "modules/xweb/keeper"
-result = "not_run"
-observed = ""
-assumption = ""
+result = "failed"
+observed = "No failing output line was emitted; the recorded command reached its 600-second limit and timeout returned exit 124 before vet/test completed."
+assumption = "Cold dependency downloads and compilation across eight concurrent Go commands appear to have exhausted the recorded 600-second budget; the output does not establish a product-code failure."
 
-[failing.85]
+[failing.51]
 sweep = "go-node"
 target = "node"
-result = "not_run"
-observed = ""
-assumption = ""
+result = "failed"
+observed = "--- FAIL: TestPriceFeedLivePathAggregate (1.22s)"
+assumption = "The aggregate event reports required=1 where the test expects required=3, suggesting a quorum configuration or fixture mismatch; the suite also hits Go's ten-minute timeout in TestStandbyReplicatesRecorderGroupsThroughOpenAccount and needs a separate repair task."
 
-[failing.86]
+[failing.52]
 sweep = "go-node"
 target = "node/sequencer"
-result = "not_run"
-observed = ""
-assumption = ""
+result = "failed"
+observed = "--- FAIL: TestReceiptLatencyP99UnderBound (11.92s)"
+assumption = "Receipt and standby acknowledgement p99 upper bounds reach 100 ms against the receipt requirement below 50 ms, suggesting scheduling or I/O contention during the concurrent suites; configuration defaults and bounds, execution and replication assertions also fail and need a separate repair task."
 
-[failing.87]
-sweep = "go-precompiles"
-target = "precompiles"
-result = "not_run"
-observed = ""
-assumption = ""
-
-[failing.88]
-sweep = "go-precompiles"
-target = "precompiles/addr"
-result = "not_run"
-observed = ""
-assumption = ""
-
-[failing.89]
-sweep = "go-precompiles"
-target = "precompiles/addr/legacy/v552"
-result = "not_run"
-observed = ""
-assumption = ""
-
-[failing.90]
-sweep = "go-precompiles"
-target = "precompiles/addr/legacy/v555"
-result = "not_run"
-observed = ""
-assumption = ""
-
-[failing.91]
-sweep = "go-precompiles"
-target = "precompiles/bank"
-result = "not_run"
-observed = ""
-assumption = ""
-
-[failing.92]
-sweep = "go-precompiles"
-target = "precompiles/common"
-result = "not_run"
-observed = ""
-assumption = ""
-
-[failing.93]
+[failing.53]
 sweep = "go-precompiles"
 target = "precompiles/launchpad"
 result = "failed"
 observed = "TestOpticalHooksSeeTheContractCallers at precompiles/launchpad/optical_test.go:57 failed because the solc executable was not found in PATH."
 assumption = "This first failure is environmental because the Solidity compiler executable is not installed."
 
-[failing.94]
+[failing.54]
 sweep = "go-precompiles"
 target = "precompiles/layerxagent/eip712"
 result = "failed"
 observed = "TestProofEip7120x0908 at precompiles/layerxagent/eip712/proof_eip712_0x0908_test.go:187 failed because the real gateway consumer could not import the tsx package."
 assumption = "This failure is environmental because the wallet gateway Node dependencies are not installed."
 
-[failing.95]
+[failing.55]
 sweep = "go-precompiles"
 target = "precompiles/layerxagent/scheduler"
 result = "failed"
 observed = "TestProofScheduler0x0905ProducerTransportConsumer at precompiles/layerxagent/scheduler/proof_scheduler_0x0905_test.go:257 failed because the real wallet consumer could not import @noble/hashes from services/agent/sdk/typescript/src/exchange.ts."
 assumption = "This failure is environmental because the agent TypeScript SDK Node dependencies are not installed."
 
-[failing.96]
+[failing.56]
 sweep = "go-precompiles"
 target = "precompiles/layerxagent/streams"
 result = "failed"
 observed = "TestProofStreams0x0906 at precompiles/layerxagent/streams/proof_streams_0x0906_test.go:180 failed because the wallet consumer could not import the tsx package."
 assumption = "This failure is environmental because the wallet gateway Node dependencies are not installed."
 
-[failing.97]
+[failing.57]
 sweep = "go-precompiles"
 target = "precompiles/layerxagent/teeattestor"
 result = "failed"
 observed = "TestProofTeeAttestor0x0907 at precompiles/layerxagent/teeattestor/proof_tee_attestor_0x0907_test.go:213 failed because the gateway consumer could not import the tsx package."
 assumption = "This failure is environmental because the wallet gateway Node dependencies are not installed."
 
-[failing.98]
+[failing.58]
 sweep = "go-precompiles"
 target = "precompiles/layerxprograms"
-result = "not_run"
-observed = ""
-assumption = ""
+result = "failed"
+observed = "--- FAIL: TestProgramsPrecompileActiveAfterMergeHeight (0.00s)"
+assumption = "The merge constructor appears to be missing the LayerX host input supplied by node keepers; activation_test.go:29 reports that node keepers must expose the LayerX host to the merge constructor."
 
-[failing.99]
+[failing.59]
 sweep = "go-precompiles"
 target = "precompiles/perps"
 result = "failed"
 observed = "TestVersionSwitchHeightSelection at precompiles/perps/switch_test.go:323 expected layerxExchange at height 34742400 with tracing disabled but received perps."
 assumption = "The version-switch expectation likely disagrees with the current precompile selection at that activation height."
 
-[failing.100]
+[failing.60]
 sweep = "go-precompiles"
 target = "precompiles/pricefeed"
 result = "failed"
 observed = "TestViewGolden1020/getPrice at precompiles/pricefeed/views_golden_test.go:88 received zero-filled return bytes instead of the populated price vector."
 assumption = "The golden fixture or its pricefeed state setup likely disagrees with the current getPrice execution path."
 
-[failing.101]
-sweep = "go-precompiles"
-target = "precompiles/xweb"
-result = "not_run"
-observed = ""
-assumption = ""
-
-[failing.102]
+[failing.61]
 sweep = "go-rpc"
 target = "rpc"
 result = "failed"
 observed = "TestBlockAPILatestTagResolves at rpc/block_txcount_parity_test.go:209 expected an error containing \"pending served by sequencer\" but received nil."
 assumption = "The test likely retains an outdated pending-error expectation relative to the current sequencer-backed pending response."
 
-[failing.103]
+[failing.62]
 sweep = "go-rpc"
 target = "rpc/tests"
 result = "failed"
 observed = "rpc/tests/gas_price_test.go:31:21 fails vet because i.GasPriceHelper is undefined on *evmrpc.InfoAPI, which has only the unexported gasPriceHelper method."
 assumption = "The test likely still calls an exported helper that was removed or made private without updating its caller."
 
-[failing.104]
+[failing.63]
 sweep = "go-sdk-modules"
 target = "sdk/launchpad/protocol"
 result = "failed"
 observed = "go vet failed at sdk/launchpad/protocol/bindings/eventemitter.go:11:2 with a missing go.sum entry for github.com/ethereum/go-ethereum, so tests did not run."
 assumption = "The module dependency checksums appear incomplete for the declared go-ethereum dependency."
 
-[failing.105]
+[failing.64]
 sweep = "go-sdk-modules"
 target = "sdk/launchpad/shared"
 result = "failed"
 observed = "go vet failed at sdk/launchpad/shared/accounting/sourcebootstrap/sourcebootstrap.go:17:2 with a missing go.sum entry for github.com/jackc/pgx/v5, so tests did not run."
 assumption = "The module dependency checksums appear incomplete for the declared pgx dependency and other imports."
 
-[failing.106]
+[failing.65]
 sweep = "go-sdk-modules"
 target = "sdk/platform/go"
 result = "failed"
 observed = "TestAgentOperationEnvelopeProcessCases failed at sdk/platform/go/agent_operation_envelope_test.go:303 because the agent envelope probe refused: PAXEER_X_AGENT_ENVELOPE_CASE must name an absolute case file."
 assumption = "The sandbox lacks the external agent-envelope case-file configuration required by this test."
 
-[failing.107]
+[failing.66]
 sweep = "go-sdk-modules"
 target = "services/wallet/attestor"
 result = "failed"
 observed = "TestLoadTestAgainstFiveHardenedDaemons failed at services/wallet/attestor/cmd/loadtest/loadtest_test.go:393 because secp256k1 generation returned HTTP 409 key_invalid_share: owner-approved wallet inventory does not admit operation."
 assumption = "The sandbox load-test setup likely lacks the owner-approved wallet inventory authorization required by current daemon policy."
 
-[failing.108]
+[failing.67]
 sweep = "go-services"
 target = "services/platform/perps-data"
 result = "failed"
 observed = "services/platform/perps-data/e2e_test.go:123 (TestEndToEndChainMarkets) failed: TestEndToEndChainMarkets requires PERPS_DATA_TEST_DATABASE_URL, PERPS_DATA_TEST_RPC and PERPS_DATA_TEST_COMET to all be set."
 assumption = "This is an environmental failure because PostgreSQL, EVM RPC and Comet endpoints are not configured through PERPS_DATA_TEST_DATABASE_URL, PERPS_DATA_TEST_RPC and PERPS_DATA_TEST_COMET."
 
-[failing.109]
+[failing.68]
 sweep = "go-services"
 target = "services/platform/perps-data/deploy"
 result = "failed"
 observed = "services/platform/perps-data/deploy/dockerfile_test.go:313 (TestDockerfileContext) failed: package dir core/deps/geth/common/hexutil is excluded from the build context."
 assumption = "The existing Docker build-context rules appear to exclude the in-repository geth replacement required by the service image."
 
-[failing.110]
+[failing.69]
 sweep = "go-services"
 target = "services/platform/perps-data/internal/auth"
 result = "failed"
 observed = "services/platform/perps-data/internal/auth/auth_test.go:214 (TestAuth) failed: TestAuth requires PERPS_DATA_TEST_DATABASE_URL."
 assumption = "This is an environmental failure because the required PostgreSQL test database is not configured through PERPS_DATA_TEST_DATABASE_URL."
 
-[failing.111]
+[failing.70]
 sweep = "go-services"
 target = "services/platform/perps-data/internal/decode"
 result = "failed"
 observed = "services/platform/perps-data/internal/decode/owner_lookup_test.go:230 (TestPerpsAccountLookup) failed: PERPS_DATA_TEST_DATABASE_URL is required: the account lookups read and write the stored facts."
 assumption = "The environment lacks the PostgreSQL test configuration required by account lookups and FEED_ORIGIN required by the spot seed."
 
-[failing.112]
+[failing.71]
 sweep = "go-services"
 target = "services/platform/perps-data/internal/delivery"
 result = "failed"
 observed = "services/platform/perps-data/internal/delivery/store_test.go:234 (TestDeliveryStore) failed: TestDeliveryStore requires PERPS_DATA_TEST_DATABASE_URL."
 assumption = "This is an environmental failure because the required PostgreSQL test database is not configured through PERPS_DATA_TEST_DATABASE_URL."
 
-[failing.113]
+[failing.72]
 sweep = "go-services"
 target = "services/platform/perps-data/internal/explorer"
 result = "failed"
 observed = "services/platform/perps-data/internal/explorer/explorer_test.go:167 (TestExplorer) failed: PERPS_DATA_TEST_DATABASE_URL is unset."
 assumption = "The environment lacks the PostgreSQL test configuration and the pg_config executable required by the explorer proof."
 
-[failing.114]
+[failing.73]
 sweep = "go-services"
 target = "services/platform/perps-data/internal/feeds"
 result = "failed"
 observed = "services/platform/perps-data/internal/feeds/feeds_test.go:328 (TestFeeds) failed: PERPS_DATA_TEST_DATABASE_URL is unset."
 assumption = "This is an environmental failure because the required PostgreSQL test database is not configured through PERPS_DATA_TEST_DATABASE_URL."
 
-[failing.115]
+[failing.74]
 sweep = "go-services"
 target = "services/platform/perps-data/internal/gateway"
 result = "failed"
 observed = "services/platform/perps-data/internal/gateway/server_test.go:276 (TestGatewayServer) failed: PERPS_DATA_TEST_DATABASE_URL is unset."
 assumption = "This is an environmental failure because the required PostgreSQL test database is not configured through PERPS_DATA_TEST_DATABASE_URL."
 
-[failing.116]
+[failing.75]
 sweep = "go-services"
 target = "services/platform/perps-data/internal/graphql"
 result = "failed"
 observed = "services/platform/perps-data/internal/graphql/account_test.go:76 (TestAccountResolvers) failed: PERPS_DATA_TEST_DATABASE_URL is unset."
 assumption = "This is an environmental failure because the required PostgreSQL test database is not configured through PERPS_DATA_TEST_DATABASE_URL."
 
-[failing.117]
+[failing.76]
 sweep = "go-services"
 target = "services/platform/perps-data/internal/indexer"
 result = "failed"
 observed = "services/platform/perps-data/internal/indexer/indexer_test.go:427 (TestIndexer) failed: TestIndexer requires PERPS_DATA_TEST_DATABASE_URL."
 assumption = "This is an environmental failure because the required PostgreSQL test database is not configured through PERPS_DATA_TEST_DATABASE_URL."
 
-[failing.118]
+[failing.77]
 sweep = "go-services"
 target = "services/platform/perps-data/internal/markets"
 result = "failed"
 observed = "services/platform/perps-data/internal/markets/markets_test.go:170 (TestRefreshMarginTiers) failed: TestMarkets requires PERPS_DATA_TEST_DATABASE_URL."
 assumption = "This is an environmental failure because the required PostgreSQL test database is not configured through PERPS_DATA_TEST_DATABASE_URL."
 
-[failing.119]
+[failing.78]
 sweep = "go-services"
 target = "services/platform/perps-data/internal/pnl"
 result = "failed"
 observed = "services/platform/perps-data/internal/pnl/pnl_test.go:195 (TestPnl) failed: TestPnl requires PERPS_DATA_TEST_DATABASE_URL."
 assumption = "This is an environmental failure because the required PostgreSQL test database is not configured through PERPS_DATA_TEST_DATABASE_URL."
 
-[failing.120]
+[failing.79]
 sweep = "go-services"
 target = "services/platform/perps-data/internal/portal"
 result = "failed"
 observed = "services/platform/perps-data/internal/portal/pages_test.go:306 (TestPortalChainMarketPage) failed: PERPS_DATA_TEST_DATABASE_URL is unset."
 assumption = "This is an environmental failure because the required PostgreSQL test database is not configured through PERPS_DATA_TEST_DATABASE_URL."
 
-[failing.121]
+[failing.80]
 sweep = "go-services"
 target = "services/platform/perps-data/internal/publish"
 result = "failed"
 observed = "services/platform/perps-data/internal/publish/publisher_test.go:395 (TestPublisher) failed: TestPublisher requires PERPS_DATA_TEST_DATABASE_URL."
 assumption = "This is an environmental failure because the required PostgreSQL test database is not configured through PERPS_DATA_TEST_DATABASE_URL."
 
-[failing.122]
+[failing.81]
 sweep = "go-services"
 target = "services/platform/perps-data/internal/records"
 result = "failed"
 observed = "services/platform/perps-data/internal/records/marketset_test.go:69 (TestMarketSetLoadsChainMarkets) failed: PERPS_DATA_TEST_DATABASE_URL is unset."
 assumption = "The environment lacks the PostgreSQL test configuration and the initdb executable required by the records proof."
 
-[failing.123]
+[failing.82]
 sweep = "go-services"
 target = "services/platform/perps-data/internal/replay"
 result = "failed"
 observed = "services/platform/perps-data/internal/replay/replay_test.go:310 (TestReplayRenewsLeaseWithinBatch) failed: TestReplay requires PERPS_DATA_TEST_DATABASE_URL."
 assumption = "This is an environmental failure because the required PostgreSQL test database is not configured through PERPS_DATA_TEST_DATABASE_URL."
 
-[failing.124]
+[failing.83]
 sweep = "go-services"
 target = "services/platform/perps-data/internal/rest"
 result = "failed"
 observed = "services/platform/perps-data/internal/rest/accountv2_test.go:110 (TestAccountV2) failed: PERPS_DATA_TEST_DATABASE_URL is unset."
 assumption = "This is an environmental failure because the required PostgreSQL test database is not configured through PERPS_DATA_TEST_DATABASE_URL."
 
-[failing.125]
+[failing.84]
 sweep = "go-services"
 target = "services/platform/perps-data/internal/source"
 result = "failed"
 observed = "services/platform/perps-data/internal/source/follower_test.go:185 (TestFollower) failed: TestFollower requires PERPS_DATA_TEST_RPC, PERPS_DATA_TEST_COMET and PERPS_DATA_TEST_DATABASE_URL."
 assumption = "This is an environmental failure because PostgreSQL, EVM RPC and Comet endpoints are not configured through PERPS_DATA_TEST_DATABASE_URL, PERPS_DATA_TEST_RPC and PERPS_DATA_TEST_COMET."
 
-[failing.126]
+[failing.85]
 sweep = "go-services"
 target = "services/platform/perps-data/internal/store"
 result = "failed"
 observed = "services/platform/perps-data/internal/store/chain_counters_test.go:43 (TestChainCounters) failed: TestMigrate requires PERPS_DATA_TEST_DATABASE_URL."
 assumption = "This is an environmental failure because the required PostgreSQL test database is not configured through PERPS_DATA_TEST_DATABASE_URL."
 
-[failing.127]
+[failing.86]
 sweep = "go-services"
 target = "services/platform/perps-data/internal/ws"
 result = "failed"
 observed = "services/platform/perps-data/internal/ws/hub_test.go:504 (TestHub) failed: PERPS_DATA_TEST_DATABASE_URL is unset."
 assumption = "This is an environmental failure because the required PostgreSQL test database is not configured through PERPS_DATA_TEST_DATABASE_URL."
 
-[failing.128]
+[failing.87]
 sweep = "go-services"
 target = "services/platform/perps-data/loadtest"
 result = "failed"
 observed = "services/platform/perps-data/loadtest/load_test.go:225 (TestLoadProfileServedSymbols) failed: PERPS_DATA_TEST_DATABASE_URL is unset."
 assumption = "This is an environmental failure because the required PostgreSQL test database is not configured through PERPS_DATA_TEST_DATABASE_URL."
 
-[failing.129]
+[failing.88]
 sweep = "go-storage"
 target = "storage/db_engine/litt/util"
 result = "failed"
 observed = "storage/db_engine/litt/util/file_utils_test.go:1041: TestDeleteOrphanedSwapFilesPermissions expected an error but received nil."
 assumption = "The sandbox runs as root, which likely bypasses the filesystem permission restriction expected by this test; this is an environmental cause."
 
-[failing.130]
+[failing.89]
 sweep = "go-storage"
 target = "storage/state_db/sc/memiavl"
 result = "failed"
 observed = "storage/state_db/sc/memiavl/snapshot_methods_test.go:161: TestWriterLoopErrors expected an error from WriteSnapshot but received nil."
 assumption = "The sandbox runs as root, which can create the intended invalid path /invalid/path/snapshot and likely prevents the expected write error; this is an environmental cause."
 
-[failing.131]
+[failing.90]
 sweep = "go-tools"
 target = "tools/qualification/localnode"
 result = "failed"
 observed = "TestLocalPerpsGatewayServesMarkets at tools/qualification/localnode/perps_gateway_test.go:29 fails because NEXT_PUBLIC_PERPS_GATEWAY_URL is empty and must name the running loopback gateway."
 assumption = "This is an environmental failure: the sandbox lacks the running local perps gateway and node environment, including the RPC, Comet, address, key and node-home settings required by the other failing tests."
 
-[failing.132]
+[failing.91]
 sweep = "go-tools"
 target = "tools/specgen"
 result = "failed"
 observed = "TestRepositorySpecIsValidAndCurrent at tools/specgen/validate_test.go:82 fails with one validation error because task 9.35.17 references unknown requirement 22056.2."
 assumption = "The existing active feature specification appears to contain a stale requirement reference to 22056.2 in task 9.35.17."
 
-[failing.133]
+[failing.92]
 sweep = "go-wasm"
 target = "wasm/x/wasm/artifacts/v152/api"
 result = "failed"
 observed = "wasm/x/wasm/artifacts/v152/api/lib_test.go:58: TestInitCacheErrorsForBrokenDir failed because an error was expected but got nil."
 assumption = "The environmental cause is execution as root, which permits creating /foo:bar although the test expects Unix directory creation to fail for lack of permission."
 
-[failing.134]
+[failing.93]
 sweep = "go-wasm"
 target = "wasm/x/wasm/artifacts/v155/api"
 result = "failed"
 observed = "wasm/x/wasm/artifacts/v155/api/lib_test.go:58: TestInitCacheErrorsForBrokenDir failed because an error was expected but got nil."
 assumption = "The environmental cause is execution as root, which permits creating /foo:bar although the test expects Unix directory creation to fail for lack of permission."
 
-[failing.135]
+[failing.94]
 sweep = "go-wasm-runtime"
 target = "wasm-runtime/internal/api"
 result = "failed"
 observed = "wasm-runtime/internal/api/lib_test.go:58, TestInitCacheErrorsForBrokenDir: an error is expected but got nil."
 assumption = "The likely environmental cause is execution as root, which can create /foo:bar despite the test's expectation that Unix permissions prevent creating it."
 
-[failing.136]
+[failing.95]
 sweep = "node-agent-sdk"
 target = "services/agent/sdk/typescript"
 result = "failed"
 observed = "Dependency installation and the TypeScript build passed, but npm test failed at services/agent/sdk/typescript/dist/test/program-executed-v3.test.js:4:28 with ENOENT while opening sdk/platform/conformance/fixtures/receipt-programs-executed-v3.json."
 assumption = "The program-executed-v3 test likely retains a reference to a conformance fixture absent from this revision of the repository."
 
-[failing.137]
+[failing.96]
 sweep = "node-sdk-integrations"
 target = "sdk/integrations/next/example"
 result = "failed"
 observed = "The Next.js production build failed at node_modules/@scure/bip32/index.ts (no line reported) with Turbopack error 'Unknown module type'; npm ci succeeded and npm test was not reached."
 assumption = "Turbopack likely resolves the dependency's TypeScript source through an export condition without a supported module type or loader in the current build configuration."
 
-[failing.138]
+[failing.97]
 sweep = "python-pytest-collect"
 target = "core/deps/geth/crypto/secp256k1/libsecp256k1/tools"
 result = "failed"
 observed = "core/deps/geth/crypto/secp256k1/libsecp256k1/tools/conftest.py:1 excludes test_vectors_musig2_generate.py, and pytest reports no tests collected with exit status 5."
 assumption = "The vendored directory contains a standalone vector generator excluded from pytest discovery, leaving no collectable tests."
 
-[failing.139]
+[failing.98]
 sweep = "python-pytest-collect"
 target = "deploy/launchpad/production/observability"
 result = "failed"
 observed = "deploy/launchpad/production/observability/phase2/tests/test_phase4.py:13 imports phase4, whose phase4.py:28 raises ModuleNotFoundError for jsonschema during collection."
 assumption = "The collection environment lacks the jsonschema Python dependency."
 
-[failing.140]
+[failing.99]
 sweep = "python-pytest-collect"
 target = "deploy/launchpad/production/observability/phase2/tests"
 result = "failed"
 observed = "deploy/launchpad/production/observability/phase2/tests/test_phase4.py:13 imports phase4, whose phase4.py:28 raises ModuleNotFoundError for jsonschema during collection."
 assumption = "The collection environment lacks the jsonschema Python dependency."
 
-[failing.141]
-sweep = "python-pytest-collect"
-target = "sdk/chainflow/python/tests"
-result = "failed"
-observed = "sdk/chainflow/python/tests/test_response_parse.py:3 raises ModuleNotFoundError for httpx during collection."
-assumption = "The collection environment lacks the SDK httpx dependency; the same run also reports a missing websockets dependency."
-
-[failing.142]
+[failing.100]
 sweep = "python-pytest-collect"
 target = "sdk/integrations/fastapi/tests"
 result = "failed"
 observed = "sdk/integrations/fastapi/tests/test_package_surface.py:11 raises ModuleNotFoundError for fastapi during collection."
 assumption = "The collection environment lacks FastAPI and does not expose layerx_sdk on the import path, as also reported by the other collection errors."
 
-[failing.143]
+[failing.101]
 sweep = "python-pytest-collect"
 target = "tests"
 result = "failed"
 observed = "tests/agent/sdk/python/test_account_derivation.py:19 raises ModuleNotFoundError for layerx_sdk during collection."
 assumption = "The collection environment does not initially expose the local Python SDK on the import path; later collection errors also indicate SDK export and gateway configuration mismatches."
 
-[failing.144]
+[failing.102]
 sweep = "python-pytest-collect"
 target = "tests/agent/sdk/python"
 result = "failed"
 observed = "tests/agent/sdk/python/test_account_derivation.py:19 raises ModuleNotFoundError for layerx_sdk during collection."
 assumption = "The collection environment does not initially expose the local Python SDK on the import path; later collection errors also indicate SDK export and gateway configuration mismatches."
 
-[failing.145]
+[failing.103]
 sweep = "python-pytest-collect"
 target = "tools/launchpad"
 result = "failed"
 observed = "tools/launchpad/production/interfaces/examples_check_test.py:12 raises ModuleNotFoundError for jsonschema during collection."
 assumption = "The collection environment lacks the jsonschema Python dependency; the run also reports duplicate test module basenames under the default pytest import mode."
 
-[failing.146]
+[failing.104]
 sweep = "python-pytest-collect"
 target = "tools/launchpad/production/interfaces"
 result = "failed"
 observed = "tools/launchpad/production/interfaces/examples_check_test.py:12 raises ModuleNotFoundError for jsonschema during collection."
 assumption = "The collection environment lacks the jsonschema Python dependency."
 
-[failing.147]
+[failing.105]
 sweep = "python-pytest-collect"
 target = "tools/launchpad/production/load"
 result = "failed"
 observed = "tools/launchpad/production/load/test_load.py:5 imports protocol, whose protocol.py:4 raises ModuleNotFoundError for jsonschema during collection."
 assumption = "The collection environment lacks the jsonschema Python dependency."
 
-[failing.148]
+[failing.106]
 sweep = "rust-build-explorer-verifier"
 target = "smart-contract-verifier"
 result = "failed"
 observed = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-proto/build.rs:37 failed during protobuf generation with Could not find `protoc`."
 assumption = "The build environment lacks the Protocol Buffers compiler (protoc) required by the protobuf dependency's build script."
 
-[failing.149]
-sweep = "rust-build-explorer-verifier"
-target = "smart-contract-verifier-proto"
-result = "failed"
-observed = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-proto/build.rs:37 failed during protobuf generation with Could not find `protoc`."
-assumption = "The build environment lacks the Protocol Buffers compiler (protoc) required by the protobuf dependency's build script."
-
-[failing.150]
+[failing.107]
 sweep = "rust-build-explorer-verifier"
 target = "smart-contract-verifier-server"
 result = "failed"
 observed = "services/explorer/services/smart-contract-verifier/smart-contract-verifier-proto/build.rs:37 failed during protobuf generation with Could not find `protoc`."
 assumption = "The build environment lacks the Protocol Buffers compiler (protoc) required by the protobuf dependency's build script."
 
-[failing.151]
+[failing.108]
 sweep = "rust-build-programs"
 target = "wasm-instrument"
 result = "failed"
-observed = "cmake-0.1.58/src/lib.rs:1132:5: the binaryen-sys v0.12.0 build script panicked because executing cmake failed with No such file or directory (os error 2)."
-assumption = "This is an environmental failure caused by CMake being unavailable on the sandbox PATH."
+observed = "After dropping the binaryen test dependency, the previous qualification build failed first with E0433 for DynamicHelper in the ungated memory-grow helper test; both helper-sequence tests now use the same bulk feature gate as DynamicHelper and add_dynamic_helpers, pending qualification."
+assumption = "Qualification runs in the Railway Ubuntu sandbox with CMake 4.2.3 on PATH."
 
-[failing.152]
+[failing.109]
 sweep = "rust-test-agent"
 target = "layerx-agentd"
-result = "not_run"
-observed = "Before timeout, services/agent/crates/layerx-agentd/src/agent_rpc_adapters.rs:2617 failed agent_rpc_adapters::tests::wait_request_refuses_retired_level_names_and_field because the response was envelope.malformed instead of envelope.unknown_field."
-assumption = "The test likely retains an error-classification expectation that differs from the current request-validation order."
+result = "failed"
+observed = "test agent_rpc_adapters::tests::freshness_serializes_block_height_coordinates ... FAILED; services/agent/crates/layerx-agentd/src/agent_rpc_adapters.rs:2559:9 asserted an unprefixed relative_to.hash, but the response contained a 0x-prefixed hash. The command completed with 33 failed test targets."
+assumption = "The freshness assertion likely retains an unprefixed-hash expectation while freshness_value delegates to Freshness::encode_json, which emits the 0x prefix."
 
-[failing.153]
+[failing.110]
 sweep = "rust-test-agent"
 target = "layerx-agentd-host"
 result = "failed"
 observed = "services/agent/crates/layerx-agentd/tests/proof_serve_errors.rs:708 failed serve_http::proof::invalid_program with real local node required: NotPresent."
 assumption = "The LOCAL_NODE_RPC environment variable is unset, so the real local node required by the test is unavailable in this environment."
 
-[failing.154]
+[failing.111]
 sweep = "rust-test-agent"
 target = "layerx-client"
 result = "failed"
 observed = "runtime_clock::tests::exhausted_client_counter_refuses_without_disabling_authority failed with Error: Unavailable."
 assumption = "The unwrapped Cargo command lacks the runtime clock service required by these tests, an environmental dependency."
 
-[failing.155]
+[failing.112]
 sweep = "rust-test-agent"
 target = "layerx-mcp"
 result = "failed"
 observed = "services/agent/crates/layerx-mcp/tests/activity_evm_signatures.rs:54 failed activity_submit_schema_declares_signer_address with native submit schema."
 assumption = "The test likely expects a native activity submission schema absent from the current MCP tool contract."
 
-[failing.156]
+[failing.113]
 sweep = "rust-test-agent"
 target = "layerx-proof"
 result = "failed"
 observed = "services/agent/crates/layerx-proof/tests/native_terminal_outcome.rs:30 failed signed_terminal_mutations_cannot_invent_execution_effects_or_identity with genuine native terminal evidence: NotPresent."
 assumption = "The LAYERX_NATIVE_TERMINAL_RECORDS environment variable is unset, so the required native evidence inventory is unavailable in this environment."
 
-[failing.157]
+[failing.114]
 sweep = "rust-test-agent"
 target = "layerx-sdk"
 result = "failed"
 observed = "programs::http::source_contract::v5_native_corpus_binds_exact_profiles_authority_and_all_outcomes failed with Error: Verification."
 assumption = "The native corpus likely contains evidence incompatible with the current program verification contract."
 
-[failing.158]
+[failing.115]
 sweep = "rust-test-agent"
 target = "layerx-types"
 result = "failed"
 observed = "services/agent/crates/layerx-types/tests/vectors.rs:39 failed repository_corpora_are_loaded_and_fully_accounted with published corpora failed to load."
 assumption = "The checkout likely lacks the published tests/vectors/codec/replay_corpus.lxb fixture, an environmental input required to load the corpus."
 
-[failing.159]
+[failing.116]
 sweep = "rust-test-agent"
 target = "layerx-wire"
 result = "failed"
 observed = "services/agent/crates/layerx-wire/src/activity.rs:407 failed activity::replay_registry_tests::replay_registry_tracks_kernel_budget_and_stream_declarations with an Io error because tests/vectors/codec/replay_corpus.lxb was missing (os error 2)."
 assumption = "The missing replay corpus is an environmental fixture dependency of the unwrapped Cargo command."
 
-[failing.160]
+[failing.117]
 sweep = "rust-test-explorer-libs"
 target = "sourcify"
 result = "failed"
 observed = "client::tests::chain_not_supported::get_source_files_any failed at sourcify/src/client.rs:443:13 because it expected SourcifyError::ChainNotSupported but received UnexpectedStatusCode 403 stating that the compatibility endpoint is only served to browsers; seven tests failed overall."
 assumption = "The external Sourcify service likely changed its compatibility API access policy, so this environmental dependency rejects legacy endpoint calls and returns responses the client cannot decode."
 
-[failing.161]
+[failing.118]
 sweep = "rust-test-explorer-verifier"
 target = "smart-contract-verifier"
 result = "failed"
 observed = "Proto generation at services/explorer/services/smart-contract-verifier/smart-contract-verifier-proto/build.rs:37 failed with Could not find `protoc`, so no tests ran."
 assumption = "The environment lacks an accessible protobuf compiler executable; this is an environmental build prerequisite failure."
 
-[failing.162]
+[failing.119]
 sweep = "rust-test-explorer-verifier"
 target = "smart-contract-verifier-proto"
 result = "failed"
 observed = "Proto generation at services/explorer/services/smart-contract-verifier/smart-contract-verifier-proto/build.rs:37 failed with Could not find `protoc`, so no tests ran."
 assumption = "The environment lacks an accessible protobuf compiler executable; this is an environmental build prerequisite failure."
 
-[failing.163]
+[failing.120]
 sweep = "rust-test-explorer-verifier"
 target = "smart-contract-verifier-server"
 result = "failed"
 observed = "Proto generation at services/explorer/services/smart-contract-verifier/smart-contract-verifier-proto/build.rs:37 failed with Could not find `protoc`, so no tests ran."
 assumption = "The environment lacks an accessible protobuf compiler executable; this is an environmental build prerequisite failure."
 
-[failing.164]
+[failing.121]
 sweep = "rust-test-human"
 target = "layerx-human-identity-provider"
 result = "failed"
 observed = "assertion_binary_serve_wires_the_configuration_from_the_environment in services/human/crates/layerx-human-identity-provider/tests/assertion.rs returned Error: Unavailable."
 assumption = "The environment lacks the supervised runtime clock required by the assertion test before it starts the identity-provider service."
 
-[failing.165]
+[failing.122]
 sweep = "rust-test-human"
 target = "layerx-human-kms"
 result = "failed"
 observed = "attestor_refuses_a_mismatched_disclosure_before_contacting_any_node in services/human/crates/layerx-human-kms/tests/attestor.rs returned Error: Unavailable."
 assumption = "The environment lacks the supervised runtime clock required by the test support StepClock::new()."
 
-[failing.166]
+[failing.123]
 sweep = "rust-test-human"
 target = "layerx-human-security-provider"
 result = "failed"
 observed = "probe_exits_zero_only_on_the_serving_providers_healthy_answer panicked at services/human/crates/layerx-human-security-provider/tests/probe.rs:68:50 while unwrapping an Err value of Unavailable."
 assumption = "The environment lacks the supervised runtime clock required by RuntimeClock::from_environment()."
 
-[failing.167]
+[failing.124]
 sweep = "rust-test-human"
 target = "layerx-human-service"
-result = "not_run"
-observed = "Before termination, server::agent_runtime::subject_tests::cloned_subject_handle_binds_every_coordinate_without_changing_original_head_frame panicked at services/human/crates/layerx-human-service/src/server/agent_runtime.rs:4672:29 with typed runtime."
-assumption = "The environment lacks the supervised runtime clock required by AgentRuntime::new(), and the full package test command did not finish within its allocation."
+result = "failed"
+observed = "error[E0063]: missing fields `disclosure`, `disclosure_digest` and `from` in initializer of `layerx_agentd::prepare::evm::Prepared`"
+assumption = "The custody test at services/human/crates/layerx-human-service/tests/custody.rs:415 still constructs the older EvmPrepared and SigningPreparation shapes: EvmPrepared now requires disclosure, disclosure_digest and from, and SigningPreparation no longer exposes authorization."
 
-[failing.168]
+[failing.125]
 sweep = "rust-test-human"
 target = "layerx-intents"
 result = "failed"
 observed = "budget_create_compiles_to_canonical_call_payload panicked at services/human/crates/layerx-intents/tests/budget_payloads.rs:245:9 because disclosure.amounts.len() was 2 while the assertion expected 1."
 assumption = "The current budget-create disclosure emits an additional amount entry while the existing test still expects one entry."
 
-[failing.169]
+[failing.126]
 sweep = "rust-test-human"
 target = "layerx-network-gateway"
 result = "failed"
 observed = "identity_selector_contract::real_repeated_account_and_balance_lookup_preserves_owner panicked at services/human/crates/layerx-network-gateway/src/lib.rs:1218:14 with real isolated identity fixture required: NotPresent."
 assumption = "The environment lacks PAXEER_X_IDENTITY_FIXTURE, which the test requires to locate a real isolated identity fixture."
 
-[failing.170]
-sweep = "rust-test-interop"
-target = "layerx-ap2"
-result = "not_run"
-observed = ""
-assumption = ""
-
-[failing.171]
+[failing.127]
 sweep = "rust-test-interop"
 target = "layerx-bridge-relayer"
-result = "not_run"
-observed = ""
-assumption = ""
+result = "failed"
+observed = "test outbound_isolation_captured_production_boundaries ... FAILED; Error: \"missing LAYERX_BRIDGE_CAPTURE_MANIFEST; genuine captured boundary corpus is required\"."
+assumption = "The standalone Cargo invocation lacks the producer-supplied LAYERX_BRIDGE_CAPTURE_MANIFEST genuine captured boundary corpus required by outbound_isolation_captured_production_boundaries (decision 2325)."
 
-[failing.172]
+[failing.128]
 sweep = "rust-test-interop"
 target = "layerx-committed-proof"
 result = "failed"
 observed = "committed_vector_commits_verify at services/interop/crates/layerx-committed-proof/tests/committed_vectors.rs:394 failed because provenance.sourceSha256 differed from the SHA-256 digest of the recording."
 assumption = "The committed vector provenance likely references an earlier recording whose bytes differ from the current recording."
 
-[failing.173]
+[failing.129]
 sweep = "rust-test-interop"
 target = "layerx-fiat"
 result = "failed"
 observed = "fiat_sequenced_journey_vectors_replay at services/interop/crates/layerx-fiat/tests/sequenced_vectors.rs:337 failed because the declared transaction_hash differed from the shared receiptJson.txHash."
 assumption = "The fiat journey vectors likely retain a transaction hash from an earlier shared sequencer receipt fixture."
 
-[failing.174]
+[failing.130]
 sweep = "rust-test-interop"
 target = "layerx-gas-station"
 result = "failed"
 observed = "real_signed_v2_publication_replays_exactly_and_refuses_identity_corruption failed with genuine private signed publisher transaction required."
 assumption = "The sandbox environment likely lacks the protected signed publisher transaction fixture required by this integration test."
 
-[failing.175]
+[failing.131]
 sweep = "rust-test-interop"
 target = "layerx-interop-gateway"
 result = "failed"
 observed = "gateway::ledger_producer_proof::proof_layerxledger_0x101a at services/interop/crates/layerx-interop-gateway/src/gateway.rs:777 failed while parsing producer JSON from stdin with EOF while parsing a value at line 1 column 0."
 assumption = "The standalone Cargo invocation likely lacks the producer JSON input supplied by the Go ledger proof harness in a connected run."
 
-[failing.176]
+[failing.132]
 sweep = "rust-test-interop"
 target = "layerx-interop-service"
 result = "failed"
 observed = "relay::tests::a_receipt_signed_by_an_unpinned_key_is_refused failed with OS error 2, NotFound: No such file or directory."
 assumption = "A required relay fixture file or executable is likely missing from the sandbox environment."
 
-[failing.177]
+[failing.133]
 sweep = "rust-test-interop"
 target = "layerx-migrate"
 result = "failed"
 observed = "funded_operator_runs_real_gateway_source_and_independent_funded_receipts at services/interop/crates/layerx-migrate/tests/funded_operator.rs:66 failed with genuine protected funded operator fixture required."
 assumption = "The sandbox environment likely lacks the protected funded operator fixture required by this connected integration test."
 
-[failing.178]
+[failing.134]
 sweep = "rust-test-interop"
 target = "layerx-mirror"
 result = "failed"
 observed = "every_shared_receipted_case_verifies_in_the_mirror at services/interop/crates/layerx-mirror/tests/sequencer_vectors.rs:95 failed because the shared vector count was 12 instead of the expected 11."
 assumption = "The shared sequencer vector fixture likely gained a case while the mirror test retained its earlier expected count."
 
-[failing.179]
+[failing.135]
 sweep = "rust-test-interop"
 target = "layerx-portable"
 result = "failed"
 observed = "independent_implementation_can_enumerate_vectors at services/interop/crates/layerx-portable/tests/independent_verifier.rs:160 failed because the enumerated vector count was 6 instead of the expected 5."
 assumption = "The shared vector fixture likely gained a case while the independent verifier test retained its earlier expected count."
 
-[failing.180]
+[failing.136]
 sweep = "rust-test-interop"
 target = "layerx-x402"
 result = "failed"
 observed = "layerx_offer_without_quote_terms_is_refused at services/interop/crates/layerx-x402/tests/vectors.rs:484 failed because validation returned Ok(()) instead of Err(ProfileMissing)."
 assumption = "The offer fixture or its refusal expectation likely diverges from the current quote-term validation behavior."
 
-[failing.181]
+[failing.137]
 sweep = "rust-test-interop"
 target = "x-websearch"
 result = "failed"
 observed = "scanned_requests_stay_journalled_across_restart_until_retired failed with Error: Unavailable."
 assumption = "The watcher test likely lacks an available RPC or runtime dependency in the sandbox environment."
 
-[failing.182]
+[failing.138]
 sweep = "rust-test-platform"
 target = "layerx-indexer"
-result = "not_run"
-observed = ""
-assumption = ""
+result = "failed"
+observed = "test proof_layerxledger_0x101a ... FAILED"
+assumption = "The recorded command lacks stdin JSON receipts from precompiles/layerxledger/proof_layerxledger_0x101a_test.go and TestProofLayerxpay0x101b, so both consumers fail on EOF; proof_layerxauth_0x101c_receipts cannot produce LAYERX_AUTH_PROOF_INPUT because its Go producer cannot link liblayerx and liblayerx_programs_sandbox; names_api_accepts_the_explorer_query_parameters and names_api_answers_match_the_committed_vector appear to disagree with the event projection because the response reports transfer where the committed vector expects register."
 
-[failing.183]
+[failing.139]
 sweep = "rust-test-platform"
 target = "layerx-paxai-worker"
 result = "failed"
 observed = "a05_real_runner_executes_once_across_replicas failed with unexpected real model runner executable: PAXAI_RUNNER is not provisioned."
 assumption = "The sandbox lacks the provisioned real model runner selected by PAXAI_RUNNER, an environmental prerequisite."
 
-[failing.184]
+[failing.140]
 sweep = "rust-test-platform"
 target = "layerx-platform-core"
 result = "failed"
 observed = "services/platform/hosted/core/tests/chain_fund.rs:733:14 failed readyz_reports_the_funding_chain_and_sender because Anvil could not be found."
 assumption = "The sandbox lacks the Anvil executable and the required LAYERX_CORE_SEQUENCER_ENDPOINT configuration, both environmental prerequisites for the chain-funding tests."
 
-[failing.185]
+[failing.141]
 sweep = "rust-test-platform"
 target = "layerx-platform-gateway"
 result = "failed"
 observed = "services/platform/hosted/gateway/src/main.rs:5061:58 failed authority_readiness_contract_tests::authority_readiness_contract with real authority case required: NotPresent."
 assumption = "The real authority contract case environment configuration is unset, so this test lacks its required environmental input."
 
-[failing.186]
-sweep = "rust-test-platform"
-target = "layerx-platform-identity"
-result = "not_run"
-observed = ""
-assumption = ""
-
-[failing.187]
+[failing.142]
 sweep = "rust-test-platform"
 target = "layerx-platform-paxeer-boundary"
 result = "failed"
 observed = "services/platform/hosted/paxeer/evm.py:29 failed during settlement_domains with ModuleNotFoundError for cryptography."
 assumption = "The sandbox lacks the Python cryptography dependency and the paxd binary also reported unavailable by real_paxd_boundary, both environmental prerequisites."
 
-[failing.188]
+[failing.143]
 sweep = "rust-test-platform"
 target = "layerx-platform-registry"
 result = "failed"
 observed = "services/platform/hosted/registry/src/main.rs:1662:9 failed tests::live_container_delegation_attaches_and_kills_stopped_child because its child reported container cgroup lacks required controller pids."
 assumption = "The sandbox cgroup delegation does not expose the required pids controller, an environmental limitation."
 
-[failing.189]
+[failing.144]
 sweep = "rust-test-platform"
 target = "layerx-ramp-toolkit"
 result = "failed"
 observed = "services/platform/ramps/toolkit/tests/contracts.rs:461:32 failed failed_callback_apply_retains_no_event_and_retry_is_idempotent because protected real recovery contract configuration is required."
 assumption = "The sandbox lacks the protected real recovery contract configuration required by these integration tests, an environmental prerequisite."
 
-[failing.190]
+[failing.145]
 sweep = "rust-test-programs"
 target = "layerx-program-sdk"
 result = "failed"
 observed = "emit_generated_consumers at programs/sdk/rust/tests/bindgen_conformance.rs:332:83 panicked because an explicit consumer output directory is required."
 assumption = "This is an environmental failure because PAXEER_X_BINDINGS_EMIT_DIR is unset, and the other failing conformance tests also lack their prebuilt artifact and immutable fixture directories."
 
-[failing.191]
+[failing.146]
 sweep = "rust-test-programs"
 target = "layerx-programs-ai-market"
 result = "failed"
 observed = "deployment_refuses_state_of_another_chain_domain in programs/crates/layerx-programs-ai-market/tests/chain_domain.rs failed with Error: ApplicationError(3)."
 assumption = "This appears to be an environmental failure because the compile-time PAXAI_CHAIN_DOMAIN variable is absent, as confirmed by the companion chain-domain assertion at programs/crates/layerx-programs-ai-market/tests/chain_domain.rs:47:5."
 
-[failing.192]
+[failing.147]
 sweep = "rust-test-programs"
 target = "layerx-programs-arbiter"
 result = "failed"
 observed = "canonical_native_authority_matches_authenticated_historical_facts at programs/crates/layerx-programs-arbiter/tests/authority_from_prestate.rs:290:14 panicked with required genuine native replay corpus; no fallback: NotPresent."
 assumption = "This is an environmental failure because LAYERX_AUTHENTICATED_REPLAY_INPUTS is unset, so the test cannot load its genuine native replay corpus."
 
-[failing.193]
+[failing.148]
 sweep = "rust-test-programs"
 target = "layerx-programs-registry"
 result = "failed"
 observed = "native_receipt_authorized_interface_reads at programs/crates/layerx-programs-registry/tests/interface_protocol.rs:149:64 panicked with missing PAXEER_X_INTERFACE_FIXTURES."
 assumption = "This is an environmental failure because the native interface fixture directory is not configured, and the input producer also lacks PAXEER_X_INTERFACE_INPUTS."
 
-[failing.194]
+[failing.149]
 sweep = "rust-test-programs"
 target = "layerx-programs-runtime"
 result = "failed"
 observed = "execute::market_tests::compiled_market_concurrent_leases_are_not_over_slashed_and_the_offer_closes_after_disputes at programs/crates/layerx-programs-runtime/src/market_tests.rs:104:29 panicked with actual compiled market: environment variable not found."
 assumption = "This is an environmental failure because LAYERX_MARKET_WASM is unset, so the compiled-market test cannot load its required WebAssembly artifact."
 
-[failing.195]
+[failing.150]
 sweep = "rust-test-programs"
 target = "wasm-instrument"
 result = "failed"
 observed = "The binaryen-sys build script panicked at cmake-0.1.58/src/lib.rs:1132:5 because executing cmake failed with No such file or directory (OS error 2)."
 assumption = "This is an environmental failure caused by the missing cmake build tool."
 
-[failing.196]
+[failing.151]
 sweep = "rust-test-tools-platform"
 target = "layerx-platform-cli"
-result = "not_run"
-observed = ""
-assumption = ""
+result = "failed"
+observed = "test public_http_uses_system_trust_and_checks_server_identity ... FAILED"
+assumption = "The required layerx-paxeer-boundary producer binary is missing: build it from services/platform/Cargo.toml and supply LAYERX_PAXEER_BOUNDARY_BIN or place it at tools/platform/target/debug/layerx-paxeer-boundary (decision 2325)."
 
-[failing.197]
+[failing.152]
 sweep = "rust-test-tools-platform"
 target = "layerx-platform-release"
 result = "failed"

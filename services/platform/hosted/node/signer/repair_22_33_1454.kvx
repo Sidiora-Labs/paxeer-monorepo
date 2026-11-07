@@ -1,0 +1,19 @@
+[repair.22.33.1454]
+audit = "22.30.83"
+requirement = "22998.1"
+base_revision = "e3d7e5828b39e4182e9559fb6bc28d74c2f37e0f"
+verification = "hf-done runs python3 -m pytest -q services/platform/hosted/node/signer/test_repair_22_33_1454.py"
+revision_evidence = "The runner's private /out/run/gates.jsonl and /out/logs/verify-1.log record the exact candidate revision, command and exit; the final response copies that evidence without editing this candidate after qualification."
+baseline = "Not run: the mandatory Order forbids testing before full implementation and forbids a manual verify run before hf-done; no prior gate ledger or pre-existing signer edits were present."
+wiring_requests = []
+
+[finding.provider-process-bounds]
+proofs = ["test_provider_process_bounds_client_recovery", "test_provider_process_bounds_public_key", "test_provider_bounded_pipes_stdin_descriptors_and_deadline", "test_provider_signature_and_identity_checks_remain"]
+repair = "Shared nonblocking subprocess pipes cap stdout and stderr while running, apply an absolute deadline to reads, writes and exit wait, and kill the process group and reap the direct child on every exit; openssl and CommandProvider share the runner."
+
+[finding.signer-concurrency-bound]
+proofs = ["test_signer_concurrency_bound_busy_and_overload_recovery", "test_signer_deadline_covers_read_and_lock_wait", "test_signer_deadline_spans_provider_operations", "test_signer_binding_deadline_and_signature_checks", "test_signer_slow_reader_releases_capacity"]
+repair = "Admission takes a bounded semaphore before spawning workers, overload returns busy/retry-later JSON, and one monotonic deadline covers request reads, signing-lock acquisition, provider calls and response writes."
+
+[qualification_notes]
+peer = "The committed local peer uses the gate's existing Python interpreter and cryptography library; no live service, credentials, environment configuration, openssl binary or additional toolchain is required by the tests."

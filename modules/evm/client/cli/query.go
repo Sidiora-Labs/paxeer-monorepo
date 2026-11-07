@@ -13,7 +13,6 @@ import (
 	"strings"
 
 	evmrpc "github.com/Sidiora-Labs/Paxeer-X-Network/rpc"
-	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
@@ -113,12 +112,36 @@ func CmdQueryEVMAddress() *cobra.Command {
 	return cmd
 }
 
+func validateERC20QueryArgs(_ *cobra.Command, args []string) error {
+	if len(args) < 2 {
+		return errors.New("expected contract address and ERC20 method")
+	}
+	count := 0
+	switch args[1] {
+	case "name", "symbol", "decimals", "totalSupply":
+		count = 2
+	case "balanceOf":
+		count = 3
+	case "allowance":
+		count = 4
+	default:
+		return fmt.Errorf("unknown method %q", args[1])
+	}
+	if len(args) != count {
+		return fmt.Errorf("method %s expects %d arguments, got %d", args[1], count-2, len(args)-2)
+	}
+	return nil
+}
+
 func CmdQueryERC20() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "erc20 [addr] [method] [arguments...]",
 		Short: "get hex payload for the given inputs",
-		Args:  cobra.MinimumNArgs(2),
+		Args:  validateERC20QueryArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := validateERC20QueryArgs(cmd, args); err != nil {
+				return err
+			}
 			clientCtx, err := client.GetClientQueryContext(cmd)
 			if err != nil {
 				return err
@@ -145,7 +168,7 @@ func CmdQueryERC20() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			res, err := queryClient.StaticCall(context.Background(), &types.QueryStaticCallRequest{
+			res, err := queryClient.StaticCall(cmd.Context(), &types.QueryStaticCallRequest{
 				To:   args[0],
 				Data: bz,
 			})
@@ -229,23 +252,34 @@ func CmdQueryERC20Payload() *cobra.Command {
 					return errors.New("expected usage: `paxd tx evm erc20-payload transfer [to] [amount]`")
 				}
 				to := common.HexToAddress(args[1])
-				amt, _ := sdk.NewIntFromString(args[2])
-				bz, err = abi.Pack(args[0], to, amt.BigInt())
+				amt, parseErr := parseABIInteger(args[2], 256, false)
+				if parseErr != nil {
+					return parseErr
+				}
+				bz, err = abi.Pack(args[0], to, amt)
 			case "approve":
 				if len(args) != 3 {
 					return errors.New("expected usage: `paxd tx evm erc20-payload approve [spender] [amount]`")
 				}
 				spender := common.HexToAddress(args[1])
-				amt, _ := sdk.NewIntFromString(args[2])
-				bz, err = abi.Pack(args[0], spender, amt.BigInt())
+				amt, parseErr := parseABIInteger(args[2], 256, false)
+				if parseErr != nil {
+					return parseErr
+				}
+				bz, err = abi.Pack(args[0], spender, amt)
 			case "transferFrom":
 				if len(args) != 4 {
 					return errors.New("expected usage: `paxd tx evm erc20-payload transferFrom [from] [to] [amount]`")
 				}
 				from := common.HexToAddress(args[1])
 				to := common.HexToAddress(args[2])
-				amt, _ := sdk.NewIntFromString(args[3])
-				bz, err = abi.Pack(args[0], from, to, amt.BigInt())
+				amt, parseErr := parseABIInteger(args[3], 256, false)
+				if parseErr != nil {
+					return parseErr
+				}
+				bz, err = abi.Pack(args[0], from, to, amt)
+			default:
+				return fmt.Errorf("unknown method %q", args[0])
 			}
 			if err != nil {
 				return err
@@ -281,23 +315,34 @@ func CmdQueryERC721Payload() *cobra.Command {
 					return errors.New("expected usage: `paxd tx evm erc721-payload approve [spender] [tokenId]`")
 				}
 				spender := common.HexToAddress(args[1])
-				id, _ := sdk.NewIntFromString(args[2])
-				bz, err = abi.Pack(args[0], spender, id.BigInt())
+				id, parseErr := parseABIInteger(args[2], 256, false)
+				if parseErr != nil {
+					return parseErr
+				}
+				bz, err = abi.Pack(args[0], spender, id)
 			case "transferFrom":
 				if len(args) != 4 {
 					return errors.New("expected usage: `paxd tx evm erc721-payload transferFrom [from] [to] [tokenId]`")
 				}
 				from := common.HexToAddress(args[1])
 				to := common.HexToAddress(args[2])
-				id, _ := sdk.NewIntFromString(args[3])
-				bz, err = abi.Pack(args[0], from, to, id.BigInt())
+				id, parseErr := parseABIInteger(args[3], 256, false)
+				if parseErr != nil {
+					return parseErr
+				}
+				bz, err = abi.Pack(args[0], from, to, id)
 			case "setApprovalForAll":
 				if len(args) != 3 {
-					return errors.New("expected usage: `paxd tx evm erc721-payload setApprovalForAll [spender] [ture|false]`")
+					return errors.New("expected usage: `paxd tx evm erc721-payload setApprovalForAll [spender] [true|false]`")
 				}
 				op := common.HexToAddress(args[1])
-				approved := args[2] == "true"
+				if args[2] != TrueStr && args[2] != FalseStr {
+					return fmt.Errorf("boolean argument has to be either %q or %q", TrueStr, FalseStr)
+				}
+				approved := args[2] == TrueStr
 				bz, err = abi.Pack(args[0], op, approved)
+			default:
+				return fmt.Errorf("unknown method %q", args[0])
 			}
 			if err != nil {
 				return err
@@ -334,9 +379,15 @@ func CmdQueryERC1155Payload() *cobra.Command {
 				}
 				from := common.HexToAddress(args[1])
 				to := common.HexToAddress(args[2])
-				id, _ := sdk.NewIntFromString(args[3])
-				amt, _ := sdk.NewIntFromString(args[4])
-				bz, err = abi.Pack(args[0], from, to, id.BigInt(), amt.BigInt(), []byte(args[5]))
+				id, parseErr := parseABIInteger(args[3], 256, false)
+				if parseErr != nil {
+					return parseErr
+				}
+				amt, parseErr := parseABIInteger(args[4], 256, false)
+				if parseErr != nil {
+					return parseErr
+				}
+				bz, err = abi.Pack(args[0], from, to, id, amt, []byte(args[5]))
 			case "safeBatchTransferFrom":
 				if len(args) != 6 {
 					return errors.New("expected usage: `paxd tx evm erc1155-payload safeBatchTransferFrom [from] [to] [tokenIds] [amounts] [data]`")
@@ -346,29 +397,34 @@ func CmdQueryERC1155Payload() *cobra.Command {
 				idsRaw := strings.Split(strings.ReplaceAll(strings.ReplaceAll(args[3], "[", ""), "]", ""), ",")
 				var ids []*big.Int
 				for _, n := range idsRaw {
-					id, ok := sdk.NewIntFromString(strings.Trim(n, " "))
-					if !ok {
+					id, parseErr := parseABIInteger(strings.TrimSpace(n), 256, false)
+					if parseErr != nil {
 						return errors.New("cannot parse array of int from: " + args[3])
 					}
-					ids = append(ids, id.BigInt())
+					ids = append(ids, id)
 				}
 				amtsRaw := strings.Split(strings.ReplaceAll(strings.ReplaceAll(args[4], "[", ""), "]", ""), ",")
 				var amts []*big.Int
 				for _, n := range amtsRaw {
-					amt, ok := sdk.NewIntFromString(strings.Trim(n, " "))
-					if !ok {
+					amt, parseErr := parseABIInteger(strings.TrimSpace(n), 256, false)
+					if parseErr != nil {
 						return errors.New("cannot parse array of int from: " + args[4])
 					}
-					amts = append(amts, amt.BigInt())
+					amts = append(amts, amt)
 				}
 				bz, err = abi.Pack(args[0], from, to, ids, amts, []byte(args[5]))
 			case "setApprovalForAll":
 				if len(args) != 3 {
-					return errors.New("expected usage: `paxd tx evm erc1155-payload setApprovalForAll [spender] [ture|false]`")
+					return errors.New("expected usage: `paxd tx evm erc1155-payload setApprovalForAll [spender] [true|false]`")
 				}
 				op := common.HexToAddress(args[1])
-				approved := args[2] == "true"
+				if args[2] != TrueStr && args[2] != FalseStr {
+					return fmt.Errorf("boolean argument has to be either %q or %q", TrueStr, FalseStr)
+				}
+				approved := args[2] == TrueStr
 				bz, err = abi.Pack(args[0], op, approved)
+			default:
+				return fmt.Errorf("unknown method %q", args[0])
 			}
 			if err != nil {
 				return err

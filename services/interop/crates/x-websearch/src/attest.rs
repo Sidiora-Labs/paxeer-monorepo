@@ -51,7 +51,7 @@ const MAX_EVM_SIGNATURES: usize = 64;
 
 /// What attestors sign for one request's answer, laid out byte for byte as
 /// `modules/xweb/ATTESTATION.md` specifies.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct Attestation {
     pub origin: u8,
     pub network_id: [u8; 32],

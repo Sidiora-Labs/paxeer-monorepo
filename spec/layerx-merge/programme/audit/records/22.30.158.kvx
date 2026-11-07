@@ -1,0 +1,2268 @@
+# Pre-upgrade audit, decision 2515. Product findings and repair proposals only.
+
+[audit.22.30.158]
+task = "22.30.158"
+revision = "2b99f88520e4e809ad5593f3bee2df74fe355d7b"
+files_reviewed = 101
+findings = 55
+docs_reviewed = 16
+upgrade_ready = false
+blocking = []
+readiness_reason = "No high-severity runtime interface failure is established by this test slice. Upgrade readiness is withheld because the ABI validation and general transform suite contradict the retained decoder contract; medium findings require owner repair and qualification."
+review_method = "Complete source review of all handwritten members and all twelve package pages, plus focused producer, transport, persistence and consumer tracing. The external Beacon JSON fixture is classified as vendored response data. Runtime tests were not executed as part of this static audit."
+interfaces_produced = 0
+interfaces_consumed = 81
+
+[file.001]
+path = "services/explorer/backend/apps/indexer/test/indexer/application_test.exs"
+lines = 47
+verdict = "clean"
+note = "Reviewed startup and cleanup in full. Negative legacy-relay environment coverage agrees with the current application children; the retired fetcher is not started."
+findings = []
+
+[file.002]
+path = "services/explorer/backend/apps/indexer/test/indexer/block/catchup/bound_interval_supervisor_test.exs"
+lines = 651
+verdict = "issues"
+note = "Reviewed all bound-interval, range-shrink, disabled and restart cases and supervision helpers; contract-map restoration loses the prior configuration."
+findings = ["001"]
+
+[file.003]
+path = "services/explorer/backend/apps/indexer/test/indexer/block/catchup/fetcher_test.exs"
+lines = 871
+verdict = "issues"
+note = "Reviewed complete catchup task/range/error coverage, retry scheduling and configuration setup; global Celo and fetcher overrides are not fully restored."
+findings = ["002"]
+
+[file.004]
+path = "services/explorer/backend/apps/indexer/test/indexer/block/catchup/missing_ranges_collector_test.exs"
+lines = 147
+verdict = "clean"
+note = "Reviewed full missing-range collection cases including finite/open ranges and temporary block-range configuration; expected database gaps and range boundaries agree."
+findings = []
+
+[file.005]
+path = "services/explorer/backend/apps/indexer/test/indexer/block/fetcher/receipts_test.exs"
+lines = 152
+verdict = "clean"
+note = "Reviewed full receipt/log block fallback coverage. Null fields are explicit compatibility inputs, not claimed committed Paxeer output; quantities, hashes and fallback expectations agree with the receipt adapter."
+findings = []
+
+[file.006]
+path = "services/explorer/backend/apps/indexer/test/indexer/block/fetcher_paxeer_x_options_test.exs"
+lines = 59
+verdict = "clean"
+note = "Reviewed full retained importer-option test. Real log decoding feeds Fetcher.import_options and asserts exactly binding and market option keys, including empty input."
+findings = []
+
+[file.007]
+path = "services/explorer/backend/apps/indexer/test/indexer/block/fetcher_test.exs"
+lines = 1332
+verdict = "issues"
+note = "Reviewed the full block import suite and helpers. It covers multiple historical variants, but genesis/full Geth coverage and polling/configuration lifecycle have the recorded gaps."
+findings = ["003","004","030"]
+
+[file.008]
+path = "services/explorer/backend/apps/indexer/test/indexer/block/realtime/batch_test.exs"
+lines = 374
+verdict = "issues"
+note = "Reviewed full realtime batching cases and task shutdown paths; coverage uses empty historical block mocks and excludes Geth."
+findings = ["005"]
+
+[file.009]
+path = "services/explorer/backend/apps/indexer/test/indexer/block/realtime/fetcher_test.exs"
+lines = 1286
+verdict = "issues"
+note = "Reviewed full realtime event, gap, reward and import cases and helpers; fixed historical RPC routing and global configuration cleanup need correction."
+findings = ["006","007"]
+
+[file.010]
+path = "services/explorer/backend/apps/indexer/test/indexer/buffered_task_test.exs"
+lines = 291
+verdict = "clean"
+note = "Reviewed full buffered-task execution, buffering, retry, concurrency and shutdown tests; entry accounting and task-result lifecycle agree with the behavior callbacks."
+findings = []
+
+[file.011]
+path = "services/explorer/backend/apps/indexer/test/indexer/fetcher/beacon/blob_test.exs"
+lines = 170
+verdict = "clean"
+note = "Reviewed full beacon blob timestamp/slot, unavailable and retry cases. Beacon supervision is chain-conditional; no independent LayerX service is assumed."
+findings = []
+
+[file.012]
+path = "services/explorer/backend/apps/indexer/test/indexer/fetcher/beacon/deposit/status_test.exs"
+lines = 156
+verdict = "clean"
+note = "Reviewed full pending deposit-status cases and configuration restoration. Electra pending data is a beacon compatibility fixture, not a Paxeer consensus requirement."
+findings = []
+
+[file.013]
+path = "services/explorer/backend/apps/indexer/test/indexer/fetcher/beacon/deposit_test.exs"
+lines = 910
+verdict = "issues"
+note = "Reviewed full beacon deposit initialization, log fallback and import cases; several eth_getLogs responses do not match the requested emitter/topic."
+findings = ["008"]
+
+[file.014]
+path = "services/explorer/backend/apps/indexer/test/indexer/fetcher/block_reward_test.exs"
+lines = 514
+verdict = "issues"
+note = "Reviewed full block reward fetch, aggregation, error and async cases; timeout success in the polling helper can conceal incomplete work."
+findings = ["009"]
+
+[file.015]
+path = "services/explorer/backend/apps/indexer/test/indexer/fetcher/coin_balance/catchup_test.exs"
+lines = 397
+verdict = "issues"
+note = "Reviewed full native balance catchup and partial-batch cases; one duplicate-address success case accepts complete retry without proving its promised import."
+findings = ["010"]
+
+[file.016]
+path = "services/explorer/backend/apps/indexer/test/indexer/fetcher/contract_code_test.exs"
+lines = 169
+verdict = "clean"
+note = "Reviewed full contract-code test, including embedded bytecode. Code and native balance are hex-encoded responses; the lookup height and address persist with the fetched bytecode."
+findings = []
+
+[file.017]
+path = "services/explorer/backend/apps/indexer/test/indexer/fetcher/empty_blocks_sanitizer_test.exs"
+lines = 201
+verdict = "issues"
+note = "Reviewed full empty-block sanitization and recheck cases; reduced head_offset is left in global configuration."
+findings = ["011"]
+
+[file.018]
+path = "services/explorer/backend/apps/indexer/test/indexer/fetcher/internal_transaction/delete_queue_test.exs"
+lines = 76
+verdict = "clean"
+note = "Reviewed full internal-transaction delete queue tests, buffer initialization and lookback eligibility; the queue and Geth options are restored."
+findings = []
+
+[file.019]
+path = "services/explorer/backend/apps/indexer/test/indexer/fetcher/internal_transaction_test.exs"
+lines = 764
+verdict = "issues"
+note = "Reviewed full internal transaction import, traces, failures and pending operation cases; module-wide Geth exclusion leaves the merged trace/recovery path unqualified."
+findings = ["012"]
+
+[file.020]
+path = "services/explorer/backend/apps/indexer/test/indexer/fetcher/multichain_search_db/balances_export_queue_test.exs"
+lines = 363
+verdict = "issues"
+note = "Reviewed full balance export queue tests, database queue transitions and HTTP cases; request payload/authentication and exact global config restoration have gaps."
+findings = ["013","036"]
+
+[file.021]
+path = "services/explorer/backend/apps/indexer/test/indexer/fetcher/multichain_search_db/main_export_queue_test.exs"
+lines = 258
+verdict = "issues"
+note = "Reviewed full main export queue tests for address, block and transaction entries and retry chunks; success receiver checks and configuration restoration have gaps."
+findings = ["034","037"]
+
+[file.022]
+path = "services/explorer/backend/apps/indexer/test/indexer/fetcher/multichain_search_db/token_info_export_queue_test.exs"
+lines = 223
+verdict = "issues"
+note = "Reviewed full token-info queue serialization/retry cases; successful transport accepts any body and cleanup resets global settings to assumed defaults."
+findings = ["035","038"]
+
+[file.023]
+path = "services/explorer/backend/apps/indexer/test/indexer/fetcher/on_demand/coin_balance_test.exs"
+lines = 194
+verdict = "issues"
+note = "Reviewed full on-demand native balance staleness/import/broadcast cases; AverageBlockTime cleanup discards the original configuration."
+findings = ["031"]
+
+[file.024]
+path = "services/explorer/backend/apps/indexer/test/indexer/fetcher/on_demand/contract_code_test.exs"
+lines = 309
+verdict = "issues"
+note = "Reviewed full on-demand code retrieval, throttling and creation cases. The runtime env/key names agree, but threshold cleanup is registered only after assertions and can leak on failure."
+findings = ["054"]
+
+[file.025]
+path = "services/explorer/backend/apps/indexer/test/indexer/fetcher/on_demand/contract_creator_test.exs"
+lines = 243
+verdict = "clean"
+note = "Reviewed full creator lookup, retries and address/nonce matching cases. Nonce is a hex quantity and the discovered creation transaction is verified before persistence."
+findings = []
+
+[file.026]
+path = "services/explorer/backend/apps/indexer/test/indexer/fetcher/on_demand/internal_transaction_test.exs"
+lines = 359
+verdict = "clean"
+note = "Reviewed full on-demand internal trace cases and RPC argument restoration; the shared JSON-RPC argument key and queue invocation agree."
+findings = []
+
+[file.027]
+path = "services/explorer/backend/apps/indexer/test/indexer/fetcher/on_demand/token_balance_test.exs"
+lines = 189
+verdict = "issues"
+note = "Reviewed full on-demand token balances and holder event cases; AverageBlockTime cleanup restores fixed settings rather than the saved value."
+findings = ["032"]
+
+[file.028]
+path = "services/explorer/backend/apps/indexer/test/indexer/fetcher/on_demand/token_instance_metadata_refetch_test.exs"
+lines = 205
+verdict = "issues"
+note = "Reviewed full metadata-refetch notifications and error cases; the negative notification assertion uses a shape different from the emitted success tuple."
+findings = ["014"]
+
+[file.029]
+path = "services/explorer/backend/apps/indexer/test/indexer/fetcher/optimism/dispute_game_test.exs"
+lines = 198
+verdict = "clean"
+note = "Reviewed full optimism dispute-game decode cases. This compatibility branch is conditional and is not a merged-network sequencer/settlement service."
+findings = []
+
+[file.030]
+path = "services/explorer/backend/apps/indexer/test/indexer/fetcher/optimism/interop/message_queue_test.exs"
+lines = 36
+verdict = "clean"
+note = "Reviewed complete optimism interop message queue test; canonical messages and database queue state agree with the conditional compatibility path."
+findings = []
+
+[file.031]
+path = "services/explorer/backend/apps/indexer/test/indexer/fetcher/optimism/transaction_batch_test.exs"
+lines = 72
+verdict = "issues"
+note = "Reviewed full block-hash-to-height lookup test. The mocked numbers are decimal JSON integers rather than the node's hexadecimal quantities."
+findings = ["033"]
+
+[file.032]
+path = "services/explorer/backend/apps/indexer/test/indexer/fetcher/paxeer_x/price_feed_maintenance_test.exs"
+lines = 47
+verdict = "clean"
+note = "Reviewed full price-feed compaction/retention test. Real Cosmos decoders seed persisted submissions; scan watermark and observation deletion expectations match the transactional store."
+findings = []
+
+[file.033]
+path = "services/explorer/backend/apps/indexer/test/indexer/fetcher/paxeer_x/price_updates_test.exs"
+lines = 541
+verdict = "clean"
+note = "Reviewed full native price update suite and helpers. Covers scan recovery, reorg replacement, deduplicated announcements, 0x1020 market tuples, concurrent refresh, transient/definitive errors and batch retry scheduling."
+findings = []
+
+[file.034]
+path = "services/explorer/backend/apps/indexer/test/indexer/fetcher/pending_block_operations_sanitizer_test.exs"
+lines = 31
+verdict = "clean"
+note = "Reviewed complete pending-block operation sanitizer test and its supervisor config cleanup; orphan deletion agrees with queued block lifecycle."
+findings = []
+
+[file.035]
+path = "services/explorer/backend/apps/indexer/test/indexer/fetcher/pending_transaction_test.exs"
+lines = 70
+verdict = "clean"
+note = "Reviewed complete pending transaction fetch test; transaction hash, nonce, pending fields and idempotent persistence agree with the RPC-to-chain import path."
+findings = []
+
+[file.036]
+path = "services/explorer/backend/apps/indexer/test/indexer/fetcher/replaced_transaction_test.exs"
+lines = 199
+verdict = "clean"
+note = "Reviewed full replaced transaction tests. Matching sender/nonce with consensus replacements preserves the intended replacement linkage and pending cleanup."
+findings = []
+
+[file.037]
+path = "services/explorer/backend/apps/indexer/test/indexer/fetcher/rootstock_data_test.exs"
+lines = 136
+verdict = "clean"
+note = "Reviewed full Rootstock extension cases. The data is explicitly conditional chain compatibility, not an alternative Paxeer settlement domain."
+findings = []
+
+[file.038]
+path = "services/explorer/backend/apps/indexer/test/indexer/fetcher/signed_authorization_status_test.exs"
+lines = 313
+verdict = "clean"
+note = "Reviewed full signed authorization status cases including nonce and code lookups; chain authorization updates match current address/transaction semantics."
+findings = []
+
+[file.039]
+path = "services/explorer/backend/apps/indexer/test/indexer/fetcher/stability/validator_test.exs"
+lines = 470
+verdict = "clean"
+note = "Reviewed full Stability validator fetch/import/retry cases. Its separate chain branch is conditional; no retired LayerX producer or router dependency is asserted."
+findings = []
+
+[file.040]
+path = "services/explorer/backend/apps/indexer/test/indexer/fetcher/stats/hot_smart_contracts_test.exs"
+lines = 562
+verdict = "clean"
+note = "Reviewed full hot-contract statistics suite, ranking, filtering and cache cases. The optional statistics loop operates on indexed blocks and transactions."
+findings = []
+
+[file.041]
+path = "services/explorer/backend/apps/indexer/test/indexer/fetcher/token_balance/historical_test.exs"
+lines = 375
+verdict = "issues"
+note = "Reviewed full historical token-balance import, missing-balance and retry cases. Error fixtures use string -32000 codes and misrepresent the node's integer revert code/data contract."
+findings = ["053"]
+
+[file.042]
+path = "services/explorer/backend/apps/indexer/test/indexer/fetcher/token_instance/helper_test.exs"
+lines = 676
+verdict = "issues"
+note = "Reviewed full token-instance metadata helper tests including URI, IPFS and retry branches; configuration cleanup and one-sided deadline assertions have gaps."
+findings = ["015","016"]
+
+[file.043]
+path = "services/explorer/backend/apps/indexer/test/indexer/fetcher/token_instance/realtime_test.exs"
+lines = 126
+verdict = "issues"
+note = "Reviewed full realtime token-instance retry cases. TokenInstance.Realtime configuration is restored, but the global Tesla adapter is reset only after successful assertions."
+findings = ["055"]
+
+[file.044]
+path = "services/explorer/backend/apps/indexer/test/indexer/fetcher/token_instance/refetch_test.exs"
+lines = 202
+verdict = "clean"
+note = "Reviewed full token-instance refetch cases. Successful metadata replacement and failed-entry retry preserve instance identity and buffered work."
+findings = []
+
+[file.045]
+path = "services/explorer/backend/apps/indexer/test/indexer/fetcher/token_instance/sanitize_erc1155_test.exs"
+lines = 50
+verdict = "clean"
+note = "Reviewed complete ERC-1155 sanitization case; token IDs and contract identity are retained while eligible metadata fetches are scheduled."
+findings = []
+
+[file.046]
+path = "services/explorer/backend/apps/indexer/test/indexer/fetcher/token_instance/sanitize_erc721_test.exs"
+lines = 222
+verdict = "clean"
+note = "Reviewed full ERC-721 sanitizer cases and supervisor setup; stale/empty metadata and contract-token identity are exercised on the retained NFT path."
+findings = []
+
+[file.047]
+path = "services/explorer/backend/apps/indexer/test/indexer/fetcher/token_test.exs"
+lines = 81
+verdict = "issues"
+note = "Reviewed complete token catalog suite; the live-transport catalog case contains no executing operation or assertion."
+findings = ["028"]
+
+[file.048]
+path = "services/explorer/backend/apps/indexer/test/indexer/fetcher/token_updater_test.exs"
+lines = 87
+verdict = "clean"
+note = "Reviewed full token updater tests. Existing metadata is refreshed from token calls and catalog state is checked without custody/anchor dependencies."
+findings = []
+
+[file.049]
+path = "services/explorer/backend/apps/indexer/test/indexer/fetcher/uncle_block_test.exs"
+lines = 255
+verdict = "clean"
+note = "Reviewed full uncle fetch cases and fixtures. Uncle data exercises generic historical-chain compatibility; the merged BFT chain emits no uncles."
+findings = []
+
+[file.050]
+path = "services/explorer/backend/apps/indexer/test/indexer/fetcher/withdrawal_test.exs"
+lines = 151
+verdict = "issues"
+note = "Reviewed full withdrawal cases and environment/config restoration; old-block success is worker termination rather than persisted withdrawal correctness."
+findings = ["017"]
+
+[file.051]
+path = "services/explorer/backend/apps/indexer/test/indexer/fetcher/zksync/utils/rpc_test.exs"
+lines = 75
+verdict = "clean"
+note = "Reviewed full ZkSync RPC utility wrappers. Hash-only responses deliberately test pass-through lookup behavior, not a complete node transaction/receipt decoder."
+findings = []
+
+[file.052]
+path = "services/explorer/backend/apps/indexer/test/indexer/memory/monitor_test.exs"
+lines = 119
+verdict = "clean"
+note = "Reviewed full memory monitor registration, watermark and shrink behavior tests. Process ownership and memory-bound restart decisions agree with supervision."
+findings = []
+
+[file.053]
+path = "services/explorer/backend/apps/indexer/test/indexer/migrator/recovery_weth_token_transfers_test.exs"
+lines = 182
+verdict = "issues"
+note = "Reviewed full WETH migration cases. Token-transfer configuration is mistakenly merged from the migrator environment rather than its own saved settings."
+findings = ["018"]
+
+[file.054]
+path = "services/explorer/backend/apps/indexer/test/indexer/pending_ops_cleaner_test.exs"
+lines = 41
+verdict = "clean"
+note = "Reviewed complete pending operation cleaner test; cleanup targets orphaned records and does not assume a retired daemon checkpoint."
+findings = []
+
+[file.055]
+path = "services/explorer/backend/apps/indexer/test/indexer/pending_transactions_sanitizer_test.exs"
+lines = 164
+verdict = "clean"
+note = "Reviewed full pending transaction sanitizer cases; expiry and replacement matching operate on native transaction identity and retain current pending entries."
+findings = []
+
+[file.056]
+path = "services/explorer/backend/apps/indexer/test/indexer/temporary/uncataloged_token_transfers_test.exs"
+lines = 109
+verdict = "clean"
+note = "Reviewed full temporary uncataloged transfer correction tests; persisted transfer/token identity is preserved during classification."
+findings = []
+
+[file.057]
+path = "services/explorer/backend/apps/indexer/test/indexer/token_balances_test.exs"
+lines = 621
+verdict = "clean"
+note = "Reviewed full balance conversion and reader suite, including block/address grouping, token IDs, metadata/error handling and arbitrary precision amounts."
+findings = []
+
+[file.058]
+path = "services/explorer/backend/apps/indexer/test/indexer/transform/address_coin_balances_test.exs"
+lines = 248
+verdict = "issues"
+note = "Reviewed full native address-balance transform suite; the miner assertion constructs a truthy map instead of comparing the produced set."
+findings = ["019"]
+
+[file.059]
+path = "services/explorer/backend/apps/indexer/test/indexer/transform/address_token_balances_test.exs"
+lines = 101
+verdict = "issues"
+note = "Reviewed full token address-balance transform suite; literal-map assertions do not compare holder/token/block fields with the output."
+findings = ["020"]
+
+[file.060]
+path = "services/explorer/backend/apps/indexer/test/indexer/transform/addresses.exs"
+lines = 325
+verdict = "issues"
+note = "Reviewed full address extraction/merge suite. Its addresses.exs filename is outside default Mix *_test.exs discovery and is not required by test_helper."
+findings = ["021"]
+
+[file.061]
+path = "services/explorer/backend/apps/indexer/test/indexer/transform/blocks/base_test.exs"
+lines = 42
+verdict = "clean"
+note = "Reviewed complete Base transformer test. Original block fields and mining address selection agree with the pass-through transformation."
+findings = []
+
+[file.062]
+path = "services/explorer/backend/apps/indexer/test/indexer/transform/blocks/clique_test.exs"
+lines = 43
+verdict = "clean"
+note = "Reviewed complete Clique signer transformation test. Extra-data signer bytes and derived miner identity agree with the compatibility transformer."
+findings = []
+
+[file.063]
+path = "services/explorer/backend/apps/indexer/test/indexer/transform/blocks_test.exs"
+lines = 85
+verdict = "issues"
+note = "Reviewed full transformer dispatch suite; one selected-output case checks only truthiness and leaves configured transformation behavior unasserted."
+findings = ["022"]
+
+[file.064]
+path = "services/explorer/backend/apps/indexer/test/indexer/transform/celo/validator_epoch_payment_distributions_test.exs"
+lines = 69
+verdict = "clean"
+note = "Reviewed complete Celo validator payment distribution test; address mappings and global chain/contract configuration are restored."
+findings = []
+
+[file.065]
+path = "services/explorer/backend/apps/indexer/test/indexer/transform/mint_transfers_test.exs"
+lines = 55
+verdict = "clean"
+note = "Reviewed complete mint transfer projection tests; zero-address issuance and token/address fields agree with the native token transfer representation."
+findings = []
+
+[file.066]
+path = "services/explorer/backend/apps/indexer/test/indexer/transform/paxeer_x_logs_abi_test.exs"
+lines = 84
+verdict = "issues"
+note = "Reviewed full ABI and retirement-topic checks. 0x1015 loads only the legacy exchange ABI although the decoder includes modern perps events."
+findings = ["029"]
+
+[file.067]
+path = "services/explorer/backend/apps/indexer/test/indexer/transform/paxeer_x_logs_launchpad_test.exs"
+lines = 513
+verdict = "clean"
+note = "Reviewed full modern/legacy launchpad test suite. Twelve modern event fixtures preserve indexed topics and large uint values; legacy signature retention and malformed/unknown topic accounting are explicit."
+findings = []
+
+[file.068]
+path = "services/explorer/backend/apps/indexer/test/indexer/transform/paxeer_x_logs_market_test.exs"
+lines = 127
+verdict = "clean"
+note = "Reviewed full retained market/binding tests. Legacy margin and launchpad fee claims preserve amount/address fields; LayerXBound maps indexed EVM/DID bytes and uint64 nonce correctly."
+findings = []
+
+[file.069]
+path = "services/explorer/backend/apps/indexer/test/indexer/transform/paxeer_x_logs_retired_test.exs"
+lines = 56
+verdict = "clean"
+note = "Reviewed complete retirement rejection suite. 0x1013 and 0x1014 logs cannot produce custody, anchor, guarantor or receipt rows; these are legitimate negative references."
+findings = []
+
+[file.070]
+path = "services/explorer/backend/apps/indexer/test/indexer/transform/paxeer_x_logs_test.exs"
+lines = 1050
+verdict = "issues"
+note = "Reviewed full general Paxeer log suite and all helpers. Positive retired events, obsolete result keys and ambiguous ABI-generation lookup conflict with the current decoder."
+findings = ["023","024","025"]
+
+[file.071]
+path = "services/explorer/backend/apps/indexer/test/indexer/transform/stability/validators_test.exs"
+lines = 162
+verdict = "issues"
+note = "Reviewed full conditional Stability validator transformer suite; async tests change the process-global chain type and can race with other modules."
+findings = ["027"]
+
+[file.072]
+path = "services/explorer/backend/apps/indexer/test/indexer/transform/token_transfers_test.exs"
+lines = 646
+verdict = "issues"
+note = "Reviewed full token transfer projection tests, ERC standards, metadata and WETH filtering; WETH configuration restoration only runs after successful assertions."
+findings = ["026"]
+
+[file.073]
+path = "services/explorer/backend/apps/indexer/test/indexer/utils/event_notifications_cleaner_test.exs"
+lines = 98
+verdict = "clean"
+note = "Reviewed complete notification cleaner suite and live cleaner implementation. Age-based deletion, remaining payloads and exact module environment restoration agree with persisted notifications."
+findings = []
+
+[file.074]
+path = "services/explorer/backend/apps/indexer/test/indexer_test.exs"
+lines = 5
+verdict = "clean"
+note = "Reviewed complete Indexer doctest module; it is a standard discovered *_test.exs entry and contains no retired component reference."
+findings = []
+
+[file.075]
+path = "services/explorer/backend/apps/indexer/test/support/fixture/pending_beacon_deposits_response.json"
+lines = 4816
+verdict = "vendored"
+note = "Captured machine-produced Electra beacon pending-deposit response, treated as vendored fixture data. Inspected the envelope and all 687 entries' field/type/length distributions: 48-byte pubkeys, 32-byte withdrawal credentials, decimal amounts/slots and 96-byte signatures."
+findings = []
+
+[file.076]
+path = "services/explorer/backend/apps/indexer/test/support/indexer/block/catchup_supervisor_case.ex"
+lines = 9
+verdict = "clean"
+note = "Reviewed complete map-argument catchup helper. It passes the fetcher map through Catchup.Supervisor.child_spec and registers it with ExUnit supervised cleanup."
+findings = []
+
+[file.077]
+path = "services/explorer/backend/apps/indexer/test/support/indexer/fetcher/beacon_blob_supervisor_case.ex"
+lines = 18
+verdict = "clean"
+note = "Reviewed complete beacon blob helper. Bounded flush/batch/concurrency and poll:false are explicit test settings passed through the actual supervisor."
+findings = []
+
+[file.078]
+path = "services/explorer/backend/apps/indexer/test/support/indexer/fetcher/beacon_deposit_status_supervisor_test.ex"
+lines = 9
+verdict = "clean"
+note = "Reviewed complete deposit-status helper. It is a compiled support .ex module, not an undiscovered test; keyword arguments pass through the actual status supervisor."
+findings = []
+
+[file.079]
+path = "services/explorer/backend/apps/indexer/test/support/indexer/fetcher/beacon_deposit_supervisor_case.ex"
+lines = 9
+verdict = "clean"
+note = "Reviewed complete beacon deposit helper. Keyword arguments pass unchanged to Deposit.Supervisor.child_spec and ExUnit owns shutdown."
+findings = []
+
+[file.080]
+path = "services/explorer/backend/apps/indexer/test/support/indexer/fetcher/block_reward_supervisor_case.ex"
+lines = 18
+verdict = "clean"
+note = "Reviewed complete reward helper. Test-only flush interval, singleton batch/concurrency and poll:false feed the actual BlockReward supervisor."
+findings = []
+
+[file.081]
+path = "services/explorer/backend/apps/indexer/test/support/indexer/fetcher/celo_epoch_rewards_supervisor_case.ex"
+lines = 17
+verdict = "clean"
+note = "Reviewed complete Celo reward helper. Bounded test arguments feed the conditional EpochBlockOperations supervisor and ExUnit owns its lifecycle."
+findings = []
+
+[file.082]
+path = "services/explorer/backend/apps/indexer/test/support/indexer/fetcher/coin_balance_catchup_supervisor_case.ex"
+lines = 19
+verdict = "clean"
+note = "Reviewed complete native catchup balance helper. Defaults are merged before caller overrides and the actual supervisor is started under ExUnit."
+findings = []
+
+[file.083]
+path = "services/explorer/backend/apps/indexer/test/support/indexer/fetcher/coin_balance_realtime_supervisor_case.ex"
+lines = 17
+verdict = "clean"
+note = "Reviewed complete realtime native balance helper. Bounded singleton test settings feed the actual supervisor; no retired service or RPC endpoint is introduced."
+findings = []
+
+[file.084]
+path = "services/explorer/backend/apps/indexer/test/support/indexer/fetcher/contract_code_supervisor_case.ex"
+lines = 17
+verdict = "clean"
+note = "Reviewed complete contract-code helper. It starts the actual supervisor with bounded flush/batch/concurrency settings under ExUnit cleanup."
+findings = []
+
+[file.085]
+path = "services/explorer/backend/apps/indexer/test/support/indexer/fetcher/empty_blocks_sanitizer_supervisor_case.ex"
+lines = 9
+verdict = "clean"
+note = "Reviewed complete empty-block sanitizer helper. Keyword arguments pass unchanged through the actual child_spec into ExUnit supervision."
+findings = []
+
+[file.086]
+path = "services/explorer/backend/apps/indexer/test/support/indexer/fetcher/filecoin_native_address_supervisor_case.ex"
+lines = 17
+verdict = "clean"
+note = "Reviewed complete Filecoin address helper. Bounded settings belong to the optional Filecoin compatibility supervisor and do not change Paxeer topology."
+findings = []
+
+[file.087]
+path = "services/explorer/backend/apps/indexer/test/support/indexer/fetcher/internal_transaction_delete_queue_supervisor_case.ex"
+lines = 19
+verdict = "clean"
+note = "Reviewed complete internal trace delete helper. Caller overrides retain precedence over bounded test defaults and ExUnit owns the actual supervisor."
+findings = []
+
+[file.088]
+path = "services/explorer/backend/apps/indexer/test/support/indexer/fetcher/internal_transaction_supervisor_case.ex"
+lines = 20
+verdict = "clean"
+note = "Reviewed complete internal transaction helper. Caller overrides retain precedence over singleton and poll:false defaults; actual child_spec is supervised."
+findings = []
+
+[file.089]
+path = "services/explorer/backend/apps/indexer/test/support/indexer/fetcher/on_demand/coin_balance_supervisor_case.ex"
+lines = 20
+verdict = "clean"
+note = "Reviewed complete on-demand native balance helper. Caller overrides retain precedence over bounded defaults and the actual CoinBalance supervisor is used."
+findings = []
+
+[file.090]
+path = "services/explorer/backend/apps/indexer/test/support/indexer/fetcher/on_demand/token_balance_supervisor_case.ex"
+lines = 20
+verdict = "clean"
+note = "Reviewed complete on-demand token balance helper. Caller overrides retain precedence over bounded defaults and the actual TokenBalance supervisor is used."
+findings = []
+
+[file.091]
+path = "services/explorer/backend/apps/indexer/test/support/indexer/fetcher/pending_transaction_supervisor_case.ex"
+lines = 17
+verdict = "clean"
+note = "Reviewed complete pending transaction helper. Bounded flush/batch/concurrency settings feed the actual supervisor and ExUnit owns cleanup."
+findings = []
+
+[file.092]
+path = "services/explorer/backend/apps/indexer/test/support/indexer/fetcher/replaced_transaction_supervisor_case.ex"
+lines = 17
+verdict = "clean"
+note = "Reviewed complete replaced transaction helper. Singleton test settings feed the actual supervisor without changing transaction identity or transport."
+findings = []
+
+[file.093]
+path = "services/explorer/backend/apps/indexer/test/support/indexer/fetcher/rootstock_data_supervisor_case.ex"
+lines = 17
+verdict = "clean"
+note = "Reviewed complete Rootstock helper. interval:1 and batch_size:1 are deliberate test settings for the conditional extension supervisor."
+findings = []
+
+[file.094]
+path = "services/explorer/backend/apps/indexer/test/support/indexer/fetcher/signed_authorization_status_supervisor_case.ex"
+lines = 17
+verdict = "clean"
+note = "Reviewed complete signed authorization helper. Batch/concurrency of two and the short flush interval feed the actual supervisor under ExUnit."
+findings = []
+
+[file.095]
+path = "services/explorer/backend/apps/indexer/test/support/indexer/fetcher/token_balance_current_supervisor_case.ex"
+lines = 17
+verdict = "clean"
+note = "Reviewed complete current token balance helper. Short flush and singleton work settings feed TokenBalance.Current.Supervisor under ExUnit cleanup."
+findings = []
+
+[file.096]
+path = "services/explorer/backend/apps/indexer/test/support/indexer/fetcher/token_balance_historical_supervisor_case.ex"
+lines = 17
+verdict = "clean"
+note = "Reviewed complete historical token balance helper. Short flush and singleton settings feed TokenBalance.Historical.Supervisor under ExUnit cleanup."
+findings = []
+
+[file.097]
+path = "services/explorer/backend/apps/indexer/test/support/indexer/fetcher/token_supervisor_case.ex"
+lines = 17
+verdict = "clean"
+note = "Reviewed complete token catalog helper. Bounded test arguments pass to Token.Supervisor.child_spec and supervised cleanup."
+findings = []
+
+[file.098]
+path = "services/explorer/backend/apps/indexer/test/support/indexer/fetcher/token_updater_supervisor_case.ex"
+lines = 17
+verdict = "clean"
+note = "Reviewed complete token updater helper. Bounded test arguments pass to TokenUpdater.Supervisor.child_spec and supervised cleanup."
+findings = []
+
+[file.099]
+path = "services/explorer/backend/apps/indexer/test/support/indexer/fetcher/uncle_block_supervisor_case.ex"
+lines = 17
+verdict = "clean"
+note = "Reviewed complete uncle helper. Singleton work settings exercise the generic historical-chain compatibility supervisor, not a Paxeer uncle producer."
+findings = []
+
+[file.100]
+path = "services/explorer/backend/apps/indexer/test/support/indexer/fetcher/withdrawal_supervisor_case.ex"
+lines = 17
+verdict = "clean"
+note = "Reviewed complete withdrawal helper. interval:1 and singleton batch/concurrency feed the actual supervisor and ExUnit owns shutdown."
+findings = []
+
+[file.101]
+path = "services/explorer/backend/apps/indexer/test/test_helper.exs"
+lines = 28
+verdict = "clean"
+note = "Reviewed complete test initialization. Dependencies and migrations start, Indexer itself stays stopped, real transport behaviors define the mocks, SQL sandboxes are manual, and no addresses.exs file is manually required."
+findings = []
+
+[finding.001]
+file = "services/explorer/backend/apps/indexer/test/indexer/block/catchup/bound_interval_supervisor_test.exs"
+line = 629
+class = "config-drift"
+severity = "medium"
+observed = "set_celo_core_contracts_env_var replaces CeloCoreContracts and restores contracts: %{} rather than the prior value, so later modules inherit altered global configuration."
+expected = "Registry 14.cfg-explorer-explorer-chain-cache-celocorecontracts and test isolation require callers to retain the configured contracts after a test."
+proposal = "In the bound interval supervisor tests, snapshot and restore the exact prior CeloCoreContracts value, deleting the key if it was absent."
+owner_domain = 14
+interface = "14.cfg-explorer-explorer-chain-cache-celocorecontracts"
+
+[finding.002]
+file = "services/explorer/backend/apps/indexer/test/indexer/block/catchup/fetcher_test.exs"
+line = 45
+class = "config-drift"
+severity = "medium"
+observed = "Both setup blocks disable Celo.EpochBlockOperations.Supervisor and task cases replace Catchup.Fetcher batch_size/concurrency without restoring those keys."
+expected = "Registry 14.cfg-indexer-indexer-block-catchup-fetcher and 14.cfg-indexer-indexer-fetcher-celo-epochblockoperations-supervisor must remain stable between test modules."
+proposal = "Snapshot and restore the affected indexer keys in catchup/fetcher_test.exs on every exit, including failed assertions."
+owner_domain = 14
+interface = "14.cfg-indexer-indexer-block-catchup-fetcher"
+
+[finding.003]
+file = "services/explorer/backend/apps/indexer/test/indexer/block/fetcher_test.exs"
+line = 102
+class = "test-gap"
+severity = "medium"
+observed = "The entire single-element import test is commented out as blinking, and the full synchronous schema import is tagged no_geth despite retaining a Geth branch."
+expected = "Paxeer advertises Geth and the merged explorer must prove block, transaction, receipt and balance imports on its real RPC path."
+proposal = "Restore an executing genesis/single-block test and add a deterministic Paxeer-produced full-schema import through the configured Geth transport in block/fetcher_test.exs."
+owner_domain = 14
+interface = "7.rpc-eth-gettransactionreceipt"
+
+[finding.004]
+file = "services/explorer/backend/apps/indexer/test/indexer/block/fetcher_test.exs"
+line = 1284
+class = "runtime-risk"
+severity = "low"
+observed = "wait_until spawns an unlinked do_wait_until loop that has no deadline or cancellation; the parent timeout does not stop the child."
+expected = "Test polling must terminate with its owning test and must not continue querying a released SQL sandbox."
+proposal = "Use deadline-based polling in the test process or monitor and terminate the polling child on both success and timeout."
+owner_domain = 14
+
+[finding.005]
+file = "services/explorer/backend/apps/indexer/test/indexer/block/realtime/batch_test.exs"
+line = 74
+class = "test-gap"
+severity = "medium"
+observed = "Every realtime batching case is tagged no_geth and start_node emits empty Parity-style blocks via Mox, without actual Paxeer transactions, receipts or restart."
+expected = "Brief facts 1, 3 and 7 require the chain-125 Geth producer, transport and importer path to agree, including recovery."
+proposal = "Add a chain-125 batching scenario in realtime/batch_test.exs using captured producer output and the real RPC adapter, then restart the fetcher and assert complete nonduplicated imports."
+owner_domain = 14
+interface = "14.cfg-indexer-indexer-block-realtime-fetcher"
+
+[finding.006]
+file = "services/explorer/backend/apps/indexer/test/indexer/block/realtime/fetcher_test.exs"
+line = 38
+class = "config-drift"
+severity = "medium"
+observed = "Realtime setup overwrites the supplied RPC URL and method_to_url with a fixed unencrypted historical node address, including trace_replayBlockTransactions and trace_block."
+expected = "Brief fact 3 specifies configurable chain-125 Geth nodes at root paths and no trace namespace; registry 14.cfg-explorer-json-rpc-named-arguments must select the intended network."
+proposal = "Remove fixed historical node routing from realtime/fetcher_test.exs and obtain the Paxeer test RPC origin and supported debug methods from the shared configured transport."
+owner_domain = 14
+interface = "14.cfg-explorer-json-rpc-named-arguments"
+
+[finding.007]
+file = "services/explorer/backend/apps/indexer/test/indexer/block/realtime/fetcher_test.exs"
+line = 600
+class = "config-drift"
+severity = "medium"
+observed = "The manual reward case sets fetch_rewards_way then writes nil only at normal completion; setup also leaves Celo supervisor disabled and restores Celo contracts to an empty map."
+expected = "Registry 14.cfg-indexer-fetch-rewards-way and the Celo config rows must preserve prior settings even when an assertion fails."
+proposal = "In realtime/fetcher_test.exs register exact per-key configuration restoration before changing reward, supervisor and Celo contract settings."
+owner_domain = 14
+interface = "14.cfg-indexer-fetch-rewards-way"
+
+[finding.008]
+file = "services/explorer/backend/apps/indexer/test/indexer/fetcher/beacon/deposit_test.exs"
+line = 402
+class = "test-gap"
+severity = "medium"
+observed = "Beacon recovery requests filter the canonical deposit address and deposit_signature but mocked eth_getLogs results carry address 0x7f02c3e3c98b133055b8b348b2ac625669ed295d and a different fixed topic; all four fallback cases repeat the discrepancy."
+expected = "Registry 7.rpc-eth-getlogs returns logs matching the requested address and topics; fixture shape must reflect the actual filter producer."
+proposal = "Use log_from_node.address_hash and deposit_signature in all returned log fixtures and assert rejection of a separately supplied foreign-address or wrong-topic response."
+owner_domain = 14
+interface = "7.rpc-eth-getlogs"
+
+[finding.009]
+file = "services/explorer/backend/apps/indexer/test/indexer/fetcher/block_reward_test.exs"
+line = 462
+class = "test-gap"
+severity = "medium"
+observed = "wait_until returns :ok on its timeout while an unlinked polling process continues; async reward tests can proceed without establishing buffer completion."
+expected = "The declared completion predicate must be satisfied before reward persistence is assessed, and timeout must fail the test."
+proposal = "Replace the block_reward_test.exs helper with bounded polling that fails on timeout and has no surviving child."
+owner_domain = 14
+
+[finding.010]
+file = "services/explorer/backend/apps/indexer/test/indexer/fetcher/coin_balance/catchup_test.exs"
+line = 293
+class = "test-gap"
+severity = "medium"
+observed = "The duplicate-address run test accepts {:retry, entries} instead of requiring its historical balances and latest address value to be imported."
+expected = "The test title promises use of all block quantities; successful balance transport and persistence must be asserted, with retry tested independently."
+proposal = "In coin_balance/catchup_test.exs require the successful run and balance assertions for a deterministic producer-backed case; keep failure/retry cases separate."
+owner_domain = 14
+interface = "7.rpc-eth-getbalance"
+
+[finding.011]
+file = "services/explorer/backend/apps/indexer/test/indexer/fetcher/empty_blocks_sanitizer_test.exs"
+line = 16
+class = "config-drift"
+severity = "medium"
+observed = "setup_all changes EmptyBlocksSanitizer.head_offset to 1 without restoring the previous module configuration, altering all subsequent sanitizer behavior."
+expected = "Registry 14.cfg-indexer-indexer-fetcher-emptyblockssanitizer defines deployment head_offset; a test-specific smaller offset must not leak beyond the module."
+proposal = "Register setup_all on_exit restoration of the complete original EmptyBlocksSanitizer keyword list in empty_blocks_sanitizer_test.exs."
+owner_domain = 14
+interface = "14.cfg-indexer-indexer-fetcher-emptyblockssanitizer"
+
+[finding.012]
+file = "services/explorer/backend/apps/indexer/test/indexer/fetcher/internal_transaction_test.exs"
+line = 34
+class = "test-gap"
+severity = "medium"
+observed = "The module-wide no_geth tag excludes every internal-transaction test on Geth, including explicit debug_traceTransaction branches and lookback queue clearing."
+expected = "Registry 7.rpc-debug-tracetransaction is the node's tracing interface; merged-network trace import and durable pending operation handling need executing coverage."
+proposal = "Add a Paxeer Geth trace import and restart/retry scenario in internal_transaction_test.exs with actual producer results; preserve the existing assertions."
+owner_domain = 14
+interface = "7.rpc-debug-tracetransaction"
+
+[finding.013]
+file = "services/explorer/backend/apps/indexer/test/indexer/fetcher/multichain_search_db/balances_export_queue_test.exs"
+line = 162
+class = "test-gap"
+severity = "medium"
+observed = "The successful export HTTP handler returns status ok without inspecting request JSON, chain identity, API-key headers, numeric encodings or native/token balance fields."
+expected = "The multichain search transport must preserve address, chain, native/token identity and arbitrary precision balances through its real consumer."
+proposal = "In balances_export_queue_test.exs assert the entire emitted request and authentication against the search service import contract and add receiver-backed replay after fetcher restart."
+owner_domain = 14
+interface = "14.cfg-explorer-explorer-microserviceinterfaces-multichainsearch"
+
+[finding.014]
+file = "services/explorer/backend/apps/indexer/test/indexer/fetcher/on_demand/token_instance_metadata_refetch_test.exs"
+line = 194
+class = "test-gap"
+severity = "medium"
+observed = "The failure case refutes a metadata event containing %{metadata: metadata}, while the successful cases at lines 89 and 141 receive the raw metadata map in that tuple position."
+expected = "An erroneous success broadcast must be rejected using the actual producer event shape, so a metadata refresh failure cannot look successful to subscribers."
+proposal = "Match the real raw-metadata notification in token_instance_metadata_refetch_test.exs and assert no success event for the failing refresh."
+owner_domain = 14
+
+[finding.015]
+file = "services/explorer/backend/apps/indexer/test/indexer/fetcher/token_instance/helper_test.exs"
+line = 176
+class = "config-drift"
+severity = "medium"
+observed = "The base URI test resets Helper to base_uri_retry?: false only after assertions, and the IPFS credential test restores :ipfs only at normal completion."
+expected = "Registry 14.cfg-indexer-indexer-fetcher-tokeninstance-helper and 14.cfg-indexer-ipfs must retain their prior values even when metadata assertions fail."
+proposal = "Snapshot the full Helper and IPFS configuration and register on_exit restoration before changing either in token_instance/helper_test.exs."
+owner_domain = 14
+interface = "14.cfg-indexer-indexer-fetcher-tokeninstance-helper"
+
+[finding.016]
+file = "services/explorer/backend/apps/indexer/test/indexer/fetcher/token_instance/helper_test.exs"
+line = 359
+class = "test-gap"
+severity = "medium"
+observed = "Three retry-time assertions compare DateTime.diff(expected, actual) < 1 without an absolute value or lower bound, so a refetch time arbitrarily far in the future passes."
+expected = "The TokenInstance.Retry configured exponential delay and cap must agree with persisted refetch_after in both time directions."
+proposal = "Assert a bounded absolute timestamp difference in token_instance/helper_test.exs for every retry and rate-limit deadline."
+owner_domain = 14
+interface = "14.cfg-indexer-indexer-fetcher-tokeninstance-retry"
+
+[finding.017]
+file = "services/explorer/backend/apps/indexer/test/indexer/fetcher/withdrawal_test.exs"
+line = 143
+class = "test-gap"
+severity = "medium"
+observed = "The old-block withdrawal test only checks that the worker exits; both RPC replies use number 0x708677 regardless of the requested block, and no withdrawal row or amount is asserted."
+expected = "Withdrawal catchup must store each requested block's withdrawal index, validator, address and amount before reporting completion."
+proposal = "Use each requested block quantity in withdrawal_test.exs and assert persisted withdrawal values and resumption after restart."
+owner_domain = 14
+interface = "14.cfg-indexer-indexer-fetcher-withdrawal"
+
+[finding.018]
+file = "services/explorer/backend/apps/indexer/test/indexer/migrator/recovery_weth_token_transfers_test.exs"
+line = 141
+class = "config-drift"
+severity = "medium"
+observed = "The recovery test writes Explorer.Chain.TokenTransfer using Keyword.merge(envs, ...) where envs is the migrator configuration, replacing token-transfer settings with unrelated keys."
+expected = "Registry 14.cfg-explorer-explorer-chain-tokentransfer retains its own whitelist and filter settings during WETH recovery; migrator settings belong to the indexer key."
+proposal = "Merge the filter override into envs_tt in recovery_weth_token_transfers_test.exs and restore both original configurations through on_exit."
+owner_domain = 14
+interface = "14.cfg-explorer-explorer-chain-tokentransfer"
+
+[finding.019]
+file = "services/explorer/backend/apps/indexer/test/indexer/transform/address_coin_balances_test.exs"
+line = 18
+class = "test-gap"
+severity = "medium"
+observed = "The block miner case asserts a constructed nonempty map rather than membership or equality with params_set; any single output address passes."
+expected = "AddressCoinBalances must request the exact miner address and block height emitted by the block transformer."
+proposal = "Replace the truthy map assertion in address_coin_balances_test.exs with exact MapSet equality containing miner_hash and block_number."
+owner_domain = 14
+
+[finding.020]
+file = "services/explorer/backend/apps/indexer/test/indexer/transform/address_token_balances_test.exs"
+line = 36
+class = "test-gap"
+severity = "medium"
+observed = "The ERC-20 case asserts three literal maps, none compared with params_set, while asserting a set size of two; incorrect addresses, token identity or height still pass."
+expected = "The transfer-to-balance projection must preserve sender, recipient, token contract and block height in the two actual balance requests."
+proposal = "Assert exact MapSet contents in address_token_balances_test.exs including the token contract and token type for each holder."
+owner_domain = 14
+
+[finding.021]
+file = "services/explorer/backend/apps/indexer/test/indexer/transform/addresses.exs"
+line = 1
+class = "wiring-gap"
+severity = "medium"
+observed = "The AddressesTest module is stored as transform/addresses.exs; indexer/mix.exs declares no custom test_pattern and test_helper.exs does not require this file."
+expected = "The standard Mix test discovery pattern executes *_test.exs files, so address extraction and merge assertions must be discoverable."
+proposal = "Rename transform/addresses.exs to addresses_test.exs in the owning indexer test tree and retain all assertions and doctests."
+owner_domain = 14
+
+[finding.022]
+file = "services/explorer/backend/apps/indexer/test/indexer/transform/blocks_test.exs"
+line = 47
+class = "test-gap"
+severity = "medium"
+observed = "The transform_blocks case asserts only the truthiness of its returned list and never selects the configured transformer or checks the transformed values."
+expected = "Registry 14.cfg-indexer-block-transformer must select the expected transformation and preserve block identity and order."
+proposal = "Add exact expected output assertions for configured Base and Clique transformers in blocks_test.exs."
+owner_domain = 14
+interface = "14.cfg-indexer-block-transformer"
+
+[finding.023]
+file = "services/explorer/backend/apps/indexer/test/indexer/transform/paxeer_x_logs_test.exs"
+line = 111
+class = "retired-reference"
+severity = "medium"
+observed = "Positive tests require custody, deposit-root, anchor and guarantor definitions and decoded rows at 0x1013/0x1014, including SequencerAuthorized and CheckpointFinalized."
+expected = "Requirements 14258.1 and 14262.2 retire those producers; the retained parser returns only account bindings, market events and undecoded_log_count."
+proposal = "Rewrite the historical positive cases in paxeer_x_logs_test.exs as explicit retirement rejection coverage and preserve valid binding, exchange, bridge and launchpad assertions."
+owner_domain = 14
+interface = "6.pc-0x1014-evt-checkpointfinalized"
+interfaces = ["6.pc-0x1013-evt-claimfinalised","6.pc-0x1013-evt-claimqueued","6.pc-0x1013-evt-custodydeposit","6.pc-0x1013-evt-depositrootregistered","6.pc-0x1013-evt-emergencyexitexecuted","6.pc-0x1014-evt-availabilityattested","6.pc-0x1014-evt-bondincreased","6.pc-0x1014-evt-challengeopened","6.pc-0x1014-evt-challengeresolved","6.pc-0x1014-evt-checkpointfinalized","6.pc-0x1014-evt-checkpointsubmitted","6.pc-0x1014-evt-guarantoractivated","6.pc-0x1014-evt-guarantorregistered","6.pc-0x1014-evt-guarantorslashed","6.pc-0x1014-evt-sequencerauthorized","6.pc-0x1014-evt-unbondbegun","6.pc-0x1014-evt-unbondcompleted","6.sevt-ilayerxanchor-guarantorregistered-674824b5","6.sol-checkpointregistry-checkpointhash-ad2f010f"]
+
+[finding.024]
+file = "services/explorer/backend/apps/indexer/test/indexer/transform/paxeer_x_logs_test.exs"
+line = 201
+class = "test-gap"
+severity = "medium"
+observed = "The exact @empty key set includes retired lx_custody_events, lx_deposit_roots, lx_anchors, lx_guarantor_events and lx_receipts; parse([]), non-precompile and receipt cases require that obsolete map shape."
+expected = "Requirement 181076.1 requires the expanded retained decoder result lx_account_bindings, lx_market_events and undecoded_log_count, as used in the dedicated retirement and launchpad suites."
+proposal = "Update exact result expectations and row enumeration in paxeer_x_logs_test.exs to the retained decoder contract, with explicit absence assertions for retired keys."
+owner_domain = 14
+interface = "14.env-indexer-paxeer-x-kernel-receipts-relay-url"
+
+[finding.025]
+file = "services/explorer/backend/apps/indexer/test/indexer/transform/paxeer_x_logs_test.exs"
+line = 963
+class = "test-gap"
+severity = "medium"
+observed = "definition!(name) selects the first definition with a matching name; OrderPlaced and launchpad Swap/MarketCreated have multiple ABI generations with different argument sets."
+expected = "Modern and legacy ABI decoding must be selected by emitter plus topic/signature so tests cannot silently encode the wrong generation."
+proposal = "Select definitions by address and canonical signature in paxeer_x_logs_test.exs and cover both current perps and legacy exchange OrderPlaced explicitly."
+owner_domain = 14
+interface = "3.pc-0x1015-evt-orderplaced"
+
+[finding.026]
+file = "services/explorer/backend/apps/indexer/test/indexer/transform/token_transfers_test.exs"
+line = 152
+class = "config-drift"
+severity = "medium"
+observed = "All three WETH configuration tests restore the original Explorer.Chain.TokenTransfer configuration only after their parse assertions complete."
+expected = "The token-transfer filter and whitelist must not leak into subsequent tests after an assertion failure."
+proposal = "Register on_exit restoration before the first put_env in each WETH case in token_transfers_test.exs."
+owner_domain = 14
+interface = "14.cfg-explorer-explorer-chain-tokentransfer"
+
+[finding.027]
+file = "services/explorer/backend/apps/indexer/test/indexer/transform/stability/validators_test.exs"
+line = 3
+class = "config-drift"
+severity = "medium"
+observed = "The conditional stability transformer module is async: true while each test changes the global :explorer :chain_type between :stability and :ethereum."
+expected = "Concurrent tests must not race on the chain type used to select validator transformations."
+proposal = "Run Stability.ValidatorsTest synchronously or pass chain type through a scoped interface instead of changing global configuration."
+owner_domain = 14
+
+[finding.028]
+file = "services/explorer/backend/apps/indexer/test/indexer/fetcher/token_test.exs"
+line = 27
+class = "test-gap"
+severity = "medium"
+observed = "The token-catalog test places the run call and every catalog assertion inside a transport == Mox condition, so the live transport branch executes no fetch or assertion."
+expected = "The catalog test must execute the declared token metadata behavior for each transport it claims to support."
+proposal = "Keep Mox setup conditional in token_test.exs but execute the real catalog operation and assertions for each supported transport using its known contract."
+owner_domain = 14
+
+[finding.029]
+file = "services/explorer/backend/apps/indexer/test/indexer/transform/paxeer_x_logs_abi_test.exs"
+line = 8
+class = "test-gap"
+severity = "medium"
+observed = "The ABI topic check maps 0x1015 solely to layerxexchange/abi.json, while PaxeerXLogs.definitions also contains modern perps OrderPlaced and CollateralDeposited topics absent from that legacy ABI."
+expected = "Requirement 14262.1 and registry 3.pc-0x1015-evt-orderplaced require the retained modern perps and legacy exchange generations at the same emitter to be checked against their actual ABIs."
+proposal = "In transform/paxeer_x_logs_abi_test.exs load perps/abi/abi.json together with layerxexchange/abi.json for 0x1015, checking indexed layouts and complete required event coverage for each generation."
+owner_domain = 14
+interface = "3.pc-0x1015-evt-orderplaced"
+
+[finding.030]
+file = "services/explorer/backend/apps/indexer/test/indexer/block/fetcher_test.exs"
+line = 1329
+class = "config-drift"
+severity = "medium"
+observed = "maybe_set_celo_core_contracts_env restores CeloCoreContracts to contracts: %{} instead of the saved configuration, discarding configured contract histories after block-import cases."
+expected = "Registry 14.cfg-explorer-explorer-chain-cache-celocorecontracts supplies chain contract histories; temporary test fixtures must restore the prior value including key absence."
+proposal = "Snapshot the prior CeloCoreContracts value before changing it in block/fetcher_test.exs and restore that exact value from on_exit."
+owner_domain = 14
+interface = "14.cfg-explorer-explorer-chain-cache-celocorecontracts"
+
+[finding.031]
+file = "services/explorer/backend/apps/indexer/test/indexer/fetcher/on_demand/coin_balance_test.exs"
+line = 42
+class = "config-drift"
+severity = "medium"
+observed = "OnDemand.CoinBalance setup changes AverageBlockTime and on_exit replaces it with fixed enabled: false and cache_period: 1800000, losing its original period and window settings."
+expected = "The AverageBlockTime configuration determines staleness across indexer consumers and must survive on-demand balance tests unchanged."
+proposal = "Save and restore the complete prior AverageBlockTime configuration in on_demand/coin_balance_test.exs rather than writing assumed defaults."
+owner_domain = 14
+interface = "14.cfg-explorer-explorer-chain-cache-counters-averageblocktime"
+
+[finding.032]
+file = "services/explorer/backend/apps/indexer/test/indexer/fetcher/on_demand/token_balance_test.exs"
+line = 31
+class = "config-drift"
+severity = "medium"
+observed = "OnDemand.TokenBalance setup enables AverageBlockTime but cleanup writes fixed disabled settings instead of restoring the configured period, cache period and block window."
+expected = "Registry 14.cfg-explorer-explorer-chain-cache-counters-averageblocktime must retain the configured staleness window between token and native balance suites."
+proposal = "Restore the complete saved AverageBlockTime environment value in on_demand/token_balance_test.exs, including absence when originally unset."
+owner_domain = 14
+interface = "14.cfg-explorer-explorer-chain-cache-counters-averageblocktime"
+
+[finding.033]
+file = "services/explorer/backend/apps/indexer/test/indexer/fetcher/optimism/transaction_batch_test.exs"
+line = 57
+class = "test-gap"
+severity = "medium"
+observed = "The eth_getBlockByHash mock returns block numbers as JSON integers 1 and 2; rpc/block.go emits hexutil quantities and the consumer calls quantity_to_integer on that field."
+expected = "Registry 7.rpc-eth-getblockbyhash transports block.number as a 0x-prefixed hexadecimal quantity, with null for an unknown hash."
+proposal = "Use producer-shaped hexadecimal block quantities in optimism/transaction_batch_test.exs and cover the actual HTTP adapter and null lookup before asserting the decoded hash-to-height map."
+owner_domain = 14
+interface = "7.rpc-eth-getblockbyhash"
+
+[finding.034]
+file = "services/explorer/backend/apps/indexer/test/indexer/fetcher/multichain_search_db/main_export_queue_test.exs"
+line = 110
+class = "test-gap"
+severity = "medium"
+observed = "The successful /api/v1/import:batch handler returns status ok without checking the exported address, block and transaction JSON, chain identifier or authentication headers."
+expected = "Multichain search imports must preserve hash types, chain identity and authorization from the export queue through the actual receiver contract."
+proposal = "In main_export_queue_test.exs assert the full outbound body and API-key header against the search service schema and exercise replay of persisted queue entries after a restart."
+owner_domain = 14
+interface = "14.cfg-explorer-explorer-microserviceinterfaces-multichainsearch"
+
+[finding.035]
+file = "services/explorer/backend/apps/indexer/test/indexer/fetcher/multichain_search_db/token_info_export_queue_test.exs"
+line = 121
+class = "test-gap"
+severity = "medium"
+observed = "The successful token-info export handler accepts any /api/v1/import:batch body and headers, so field names, token metadata, chain identity and API-key regressions can still pass."
+expected = "The queued token-info representation must reach the multichain search consumer with the exact data_type, address, chain and authenticated schema."
+proposal = "In token_info_export_queue_test.exs decode and assert the emitted request and authentication against the receiving service contract, including persisted queue replay after interruption."
+owner_domain = 14
+interface = "14.cfg-explorer-explorer-microserviceinterfaces-multichainsearch"
+
+[finding.036]
+file = "services/explorer/backend/apps/indexer/test/indexer/fetcher/multichain_search_db/balances_export_queue_test.exs"
+line = 40
+class = "config-drift"
+severity = "medium"
+observed = "Balances export setup replaces MultichainSearch configuration and cleanup writes fixed nil service/API-key values and chunk sizes instead of preserving the original configuration."
+expected = "Configured search transport and all independent chunk-size settings must survive every export test without leaking changed global defaults."
+proposal = "Snapshot and restore the complete MultichainSearch and Tesla adapter values in balances_export_queue_test.exs using on_exit before each mutation."
+owner_domain = 14
+interface = "14.cfg-explorer-explorer-microserviceinterfaces-multichainsearch"
+
+[finding.037]
+file = "services/explorer/backend/apps/indexer/test/indexer/fetcher/multichain_search_db/main_export_queue_test.exs"
+line = 36
+class = "config-drift"
+severity = "medium"
+observed = "Main export cleanup overwrites MultichainSearch with fixed service_url: nil, api_key: nil and addresses_chunk_size: 7000; supervisor cleanup also assumes disabled?: true."
+expected = "The search service settings and main queue supervisor must retain their exact deployment/test configuration across the module."
+proposal = "Save and restore the full prior service, adapter and supervisor values in main_export_queue_test.exs instead of resetting assumed defaults."
+owner_domain = 14
+interface = "14.cfg-indexer-indexer-fetcher-multichainsearchdb-mainexportqueue-supervisor"
+
+[finding.038]
+file = "services/explorer/backend/apps/indexer/test/indexer/fetcher/multichain_search_db/token_info_export_queue_test.exs"
+line = 38
+class = "config-drift"
+severity = "medium"
+observed = "Token-info export cleanup replaces MultichainSearch with fixed nil service/API-key values and token_info_chunk_size: 1000, and resets its supervisor to an assumed disabled state."
+expected = "Independent exporter modules must preserve each other's configured service, batching, adapter and supervisor settings after every test."
+proposal = "Use exact saved-value restoration for MultichainSearch, Tesla and TokenInfoExportQueue.Supervisor in token_info_export_queue_test.exs on every exit."
+owner_domain = 14
+interface = "14.cfg-explorer-explorer-microserviceinterfaces-multichainsearch"
+
+[finding.039]
+file = "docs/site/docs/operators/beta-cluster.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The bring-up guide deploys a separate LayerX daemon and GuarantorBond/CheckpointRegistry settlement, calls 0x1013 native custody, and mounts a profile into layerxd."
+expected = "Brief facts 1 and 2 define one paxd BFT network whose committed blocks are final; 0x1013 custody and the independent layerxd settlement path are retired."
+proposal = "Rewrite operators/beta-cluster.md around merged paxd bootstrap, root node RPC and native account funding, and replace the explorer setup/trust instructions with committed block indexing."
+owner_domain = 8
+
+[finding.040]
+file = "docs/wiki/BetaCluster.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The wiki's beta recipe still starts a LayerX daemon beside the chain, publishes checkpoint settlement contracts and passes --custody-profile to layerxd."
+expected = "The finished network runs the kernel inside paxd and retires the external daemon, custody-credit and checkpoint-settlement bring-up."
+proposal = "Update wiki/BetaCluster.md with the merged node bootstrap and committed finality flow, and align its funding and explorer instructions with the operator guide."
+owner_domain = 8
+
+[finding.041]
+file = "docs/system/routes.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The generated Router routes catalogue presents a sequencer kernel and independent replica authority, then advertises /rpc/evm/ws and wildcard RPC namespace forwarding."
+expected = "Brief facts 2 and 3 define root node JSON-RPC with debug, echo, eth, net, pax, test and txpool namespaces; hosted px_ methods have their own declared gateway contract."
+proposal = "Update tools/paxeer-x/route-catalogue.json and the system-doc generator to describe current node and hosted gateway transports and namespaces, then regenerate docs/system/routes.md."
+owner_domain = 16
+
+[finding.042]
+file = "README.md"
+line = 47
+class = "doc-drift"
+severity = "medium"
+observed = "The repository overview says layerxd is a separate C daemon whose checkpoints settle on the chain, lists custody/anchor as live precompiles and recommends make layerxd."
+expected = "The merged kernel executes within paxd on chain 125, with block commit finality and no independent layerxd service or custody/anchor precompiles."
+proposal = "Rewrite the README architecture, build examples and finality description around paxd and retained native precompiles, preserving clear entry points for explorer and hosted gateway users."
+owner_domain = 1
+
+[finding.043]
+file = "docs/paxeer-network.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The network guide assigns custody to Paxeer and ordinary activity to a separate LayerX network, describing checkpoints, guarantor bonds, withdrawals and emergency exits as the integration."
+expected = "Brief fact 1 defines a single BFT network and native balances, and fact 2 retires the separate LayerX interface and checkpoint settlement topology."
+proposal = "Replace docs/paxeer-network.md's dual-domain model with the single chain-125 execution, balance and committed finality model, and update its module/precompile inventory."
+owner_domain = 5
+
+[finding.044]
+file = "docs/MONOREPO.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The monorepo guide names paxd and layerxd as separate subsystems with their own trust/deployment boundaries and retains custody/checkpoint/guarantor settlement modules."
+expected = "The finished network embeds kernel execution in paxd and retires separate daemon deployment and custody/anchor settlement paths."
+proposal = "Update docs/MONOREPO.md's component identities and integration invariants to the merged node, while retaining only current service ownership and directory guidance."
+owner_domain = 16
+
+[finding.045]
+file = "docs/site/docs/overview/quickstart.md"
+line = 167
+class = "doc-drift"
+severity = "medium"
+observed = "The quickstart sends lx_ activity calls to public /rpc and /rpc/ws, and funds an account by depositing into 0x1013 then submitting a signed custody credit."
+expected = "Brief facts 1-3 require root chain-125 node RPC, native account funding and committed block finality, with px_ hosted methods described by the gateway's own contract."
+proposal = "Replace the quickstart endpoint, wallet funding and receipt verification examples with a complete native EVM transaction flow against current root node RPC and the declared hosted API."
+owner_domain = 8
+
+[finding.046]
+file = "docs/site/docs/operators/beta-control.md"
+line = 5
+class = "doc-drift"
+severity = "medium"
+observed = "The control guide funds via custody credit submitted to a router, requires receipt_authority/core journey dependencies, and describes treasury Asset SEND over retired LNI."
+expected = "The merged network's funds and finality come from native chain state and block commits, without a router or retired LNI settlement path."
+proposal = "Rewrite operators/beta-control.md's funding, journey dependencies and readiness checks around the merged node and actual hosted services, with native transfers and committed receipt evidence."
+owner_domain = 8
+
+[finding.047]
+file = "docs/site/docs/platform/faucet.md"
+line = 5
+class = "doc-drift"
+severity = "medium"
+observed = "The faucet guide tells public users that account funding requires custody credit submitted to the router, carrying the retired two-domain funding model into its product instructions."
+expected = "The finished chain has native account balances and no router or 0x1013 custody-credit hop; funding instructions must describe the currently supported native transfer/faucet surface."
+proposal = "Update platform/faucet.md's public funding contract and operator dependencies against the current hosted gateway and native node transfer path, preserving explicit eligibility and authentication behavior."
+owner_domain = 8
+
+[finding.048]
+file = "docs/site/docs/platform/cli.md"
+line = 8
+class = "doc-drift"
+severity = "medium"
+observed = "The CLI reference says global --rpc must end in /rpc and later restricts remote RPC URLs to that retired path, leading users to an unsupported network entry point."
+expected = "Brief facts 2 and 3 define root node RPC without the unified /rpc interface, with hosted methods documented separately from node methods."
+proposal = "Update platform/cli.md's RPC configuration and examples from the actual CLI parser and current root node/hosted gateway contracts, removing the retired /rpc constraint."
+owner_domain = 16
+
+[finding.049]
+file = "docs/site/docs/platform/hosted-gateway.md"
+line = 39
+class = "doc-drift"
+severity = "medium"
+observed = "The hosted gateway page identifies the public node origin as a router, serves its public contract at /rpc, /rpc/schema and /rpc/ws, and describes independent receipt authority routing."
+expected = "Brief facts 1-3 distinguish root node RPC and its exact namespaces from the hosted gateway's px_ contract, with finality at block commit."
+proposal = "Regenerate platform/hosted-gateway.md from services/platform/hosted/gateway/openrpc.json and current routes, documenting authentication, node versus hosted methods and committed receipt lifecycle."
+owner_domain = 8
+
+[finding.050]
+file = "docs/site/docs/programs/workspace.md"
+line = 156
+class = "doc-drift"
+severity = "medium"
+observed = "The programs test-tier table says programs-differential compiles cmd/layerxd/lxp_daemon_batch_wal.c and programs-protocol-regression includes test-replay-golden-local, both retired batch-era dependencies."
+expected = "The retirement inventory removes the batch WAL and golden replay; current qualification instructions must describe the retained host determinism and native transaction paths."
+proposal = "Update programs/workspace.md's test-tier recipes from the current Makefile, replacing retired batch replay/WAL instructions with retained host determinism and merged-node conformance checks."
+owner_domain = 13
+
+[finding.051]
+file = "spec/layerx-merge/contracts/explorer-config.md"
+line = 583
+class = "doc-drift"
+severity = "medium"
+observed = "The cleaner configuration signature lists only interval, while runtime.exs configures enabled and max_age and EventNotificationsCleaner requires max_age to decide which persisted notifications to delete."
+expected = "Configuration documentation for registry 14.cfg-indexer-indexer-utils-eventnotificationscleaner must include the names and units used by its live producer and consumer."
+proposal = "Refresh the explorer configuration contract and registry key inventory from current runtime.exs, documenting cleaner enabled, interval and max_age with their environment names and millisecond units."
+owner_domain = 14
+interface = "14.cfg-indexer-indexer-utils-eventnotificationscleaner"
+
+[finding.052]
+file = "docs/site/docs/platform/cli.md"
+line = 106
+class = "doc-drift"
+severity = "medium"
+observed = "After listing implemented wallet and token commands with source references at lines 40-53, the same page states those command groups have no counterpart in this tree and says only --json is global."
+expected = "A CLI reference must give one consistent account of command availability, arguments and refusals matching the shipped parser and handlers."
+proposal = "Reconcile the implemented and intended tables in platform/cli.md against tools/platform/cli/src, removing contradictory availability claims and listing each current command and flag once."
+owner_domain = 16
+
+[finding.053]
+file = "services/explorer/backend/apps/indexer/test/indexer/fetcher/token_balance/historical_test.exs"
+line = 197
+class = "test-gap"
+severity = "medium"
+observed = "Historical token-balance error mocks encode code as the string -32000, including the execution-reverted case; the node emits integer JSON-RPC codes and rpc/simulate.go returns integer 3 with revert data for an EVM revert."
+expected = "The real eth_call error contract uses numeric error codes and preserves revert data, so retry/missing-balance classification must be exercised using that producer response."
+proposal = "Update token_balance/historical_test.exs to use recorded node error objects with integer codes and revert data, and assert the resulting missing-balance and retry behavior without relaxing existing checks."
+owner_domain = 14
+interface = "7.rpc-eth-call"
+
+[finding.054]
+file = "services/explorer/backend/apps/indexer/test/indexer/fetcher/on_demand/contract_code_test.exs"
+line = 98
+class = "config-drift"
+severity = "medium"
+observed = "Both threshold-changing on-demand contract-code cases register on_exit only after the fetch assertions; an earlier failure leaves ContractCodeOnDemand.threshold changed for subsequent cases."
+expected = "The configured on-demand bytecode threshold must be restored on every test exit, including a timeout or failed notification assertion."
+proposal = "Save the complete prior ContractCodeOnDemand environment and register restoration before the first put_env in on_demand/contract_code_test.exs."
+owner_domain = 14
+interface = "14.cfg-indexer-indexer-fetcher-ondemand-contractcode"
+
+[finding.055]
+file = "services/explorer/backend/apps/indexer/test/indexer/fetcher/token_instance/realtime_test.exs"
+line = 32
+class = "config-drift"
+severity = "medium"
+observed = "The realtime metadata retry case switches the global Tesla adapter to Tesla.Adapter.Mint and restores an assumed mock adapter only after all assertions; failures leave later HTTP calls using the wrong transport."
+expected = "Metadata retry tests must preserve the original shared HTTP adapter on every exit, independently of fetch or timing assertion success."
+proposal = "In token_instance/realtime_test.exs save the original Tesla adapter and register on_exit restoration before switching transports, retaining the existing retry and metadata assertions."
+owner_domain = 14
+interface = "14.cfg-indexer-indexer-fetcher-tokeninstance-realtime"
+
+[doc.001]
+path = "docs/site/docs/operators/beta-cluster.md"
+status = "stale"
+notes = "Read the complete page. Lines 3, 26, 40 and 50 describe a separate daemon, checkpoint settlement and retired custody precompile; lines 88-90 retain the old explorer trust/funding model."
+
+[doc.002]
+path = "docs/wiki/BetaCluster.md"
+status = "stale"
+notes = "Read the complete wiki page. Lines 3 and 26 retain separate daemon/settlement bring-up; line 42 mounts a custody profile into retired layerxd."
+
+[doc.003]
+path = "docs/system/routes.md"
+status = "stale"
+notes = "Read the full generated catalogue, including all route tables. Lines 3, 31, 41 and 908-911 describe the retired router/authority topology and /rpc/evm/ws transport."
+
+[doc.004]
+path = "README.md"
+status = "stale"
+notes = "Read the complete README. Lines 47, 83, 145 and 181 retain a separately built layerxd, custody/anchor registration and checkpoint settlement."
+
+[doc.005]
+path = "docs/paxeer-network.md"
+status = "stale"
+notes = "Read the complete network page. Lines 3-9 describe separate custody and activity domains; lines 20 and 38 retain the old balance writer and settlement modules."
+
+[doc.006]
+path = "docs/MONOREPO.md"
+status = "stale"
+notes = "Read the complete layout page. Line 3 calls layerxd the deployed kernel; lines 71-72 retain independent custody and checkpoint-settlement semantics."
+
+[doc.007]
+path = "docs/site/docs/overview/quickstart.md"
+status = "stale"
+notes = "Read the complete quickstart. Lines 20, 167-219 and 596 use /rpc or /rpc/ws; lines 299-302 fund through retired 0x1013 custody; anchor environment examples remain."
+
+[doc.008]
+path = "docs/site/docs/operators/beta-control.md"
+status = "stale"
+notes = "Read the complete control-plane page. Line 5 funds through the router; lines 180-183 and 229 depend on independent receipt authority; lines 293-299 send treasury funding through LNI."
+
+[doc.009]
+path = "docs/site/docs/platform/faucet.md"
+status = "stale"
+notes = "Read the complete faucet page. The public funding description at line 5 still requires custody credit submitted to a router; later sections retain independent core funding dependencies."
+
+[doc.010]
+path = "docs/site/docs/platform/cli.md"
+status = "misleading"
+notes = "Read the complete CLI page. Line 8 requires /rpc; lines 106-139 deny the existence of commands and flags advertised in the implemented table at lines 40-53."
+
+[doc.011]
+path = "docs/site/docs/platform/hosted-gateway.md"
+status = "stale"
+notes = "Read the complete gateway page. Lines 39-51 and 198-200 advertise a unified router and /rpc/schema/ws; receipt and program sections retain independent authority/checkpoint assumptions."
+
+[doc.012]
+path = "docs/site/docs/programs/workspace.md"
+status = "stale"
+notes = "Read the complete workspace page. Lines 151 and 156 cite replay-golden and cmd/layerxd/lxp_daemon_batch_wal.c dependencies retired by the merge; the named WAL source is absent."
+
+[doc.013]
+path = "spec/layerx-merge/contracts/explorer-config.md"
+status = "stale"
+notes = "Read the consumed configuration rows and related sections. The retirement of the relay is explicit at line 2136; cleaner signature at line 583 omits current enabled/max_age settings."
+
+[doc.014]
+path = "spec/layerx-merge/contracts/evm-rpc.md"
+status = "accurate"
+notes = "Read consumed debug_traceTransaction, balance, block-by-hash, code, logs, transaction-by-hash, nonce and receipt sections plus conformance/filter rules. These describe hexadecimal quantities and typed responses; pinned source line positions are historical."
+
+[doc.015]
+path = "spec/layerx-merge/contracts/markets.md"
+status = "accurate"
+notes = "Read consumed modern perps and legacy exchange event rows and getMarket/getMarketCount rows. Current 0x1015 perps six-value market output and 0x1020 market tuple are distinct despite sharing the selector; tests correctly use 0x1020 for price markets."
+
+[doc.016]
+path = "spec/layerx-merge/contracts/address-inventory.md"
+status = "accurate"
+notes = "Read consumed binding, bridge, custody/anchor event and Solidity retirement rows. The 0x1004 and 0x1016 indexed event layouts agree with the ABIs; 0x1013, 0x1014 and checkpoint registry are explicitly retirement targets, not retained active emitters."
+
+[coverage.interfaces]
+produces = []
+consumes = ["14.cfg-ethereum-jsonrpc-ethereumjsonrpc-geth","14.cfg-explorer-explorer-chain-cache-blocknumber","14.cfg-explorer-explorer-chain-cache-celocorecontracts","14.cfg-explorer-explorer-chain-cache-counters-averageblocktime","14.cfg-explorer-explorer-chain-tokentransfer","14.cfg-explorer-explorer-microserviceinterfaces-multichainsearch","14.cfg-explorer-explorer-utility-missingbalanceoftoken","14.cfg-explorer-json-rpc-named-arguments","14.cfg-indexer-block-ranges","14.cfg-indexer-block-transformer","14.cfg-indexer-chain-id","14.cfg-indexer-fetch-rewards-way","14.cfg-indexer-indexer-block-catchup-fetcher","14.cfg-indexer-indexer-block-realtime-fetcher","14.cfg-indexer-indexer-fetcher-beacon-blob-supervisor","14.cfg-indexer-indexer-fetcher-beacon-deposit","14.cfg-indexer-indexer-fetcher-beacon-deposit-status","14.cfg-indexer-indexer-fetcher-beacon-deposit-status-supervisor","14.cfg-indexer-indexer-fetcher-beacon-deposit-supervisor","14.cfg-indexer-indexer-fetcher-celo-epochblockoperations-supervisor","14.cfg-indexer-indexer-fetcher-celo-legacy-account-supervisor","14.cfg-indexer-indexer-fetcher-coinbalance-realtime-supervisor","14.cfg-indexer-indexer-fetcher-emptyblockssanitizer","14.cfg-indexer-indexer-fetcher-internaltransaction","14.cfg-indexer-indexer-fetcher-internaltransaction-deletequeue","14.cfg-indexer-indexer-fetcher-internaltransaction-supervisor","14.cfg-indexer-indexer-fetcher-multichainsearchdb-mainexportqueue-supervisor","14.cfg-indexer-indexer-fetcher-ondemand-coinbalance-supervisor","14.cfg-indexer-indexer-fetcher-ondemand-contractcode","14.cfg-indexer-indexer-fetcher-ondemand-tokenbalance-supervisor","14.cfg-indexer-indexer-fetcher-tokeninstance-helper","14.cfg-indexer-indexer-fetcher-tokeninstance-realtime","14.cfg-indexer-indexer-fetcher-tokeninstance-realtime-supervisor","14.cfg-indexer-indexer-fetcher-tokeninstance-retry","14.cfg-indexer-indexer-fetcher-tokeninstance-sanitizeerc721","14.cfg-indexer-indexer-fetcher-withdrawal","14.cfg-indexer-indexer-fetcher-withdrawal-supervisor","14.cfg-indexer-indexer-migrator-recoverywethtokentransfers","14.cfg-indexer-indexer-utils-eventnotificationscleaner","14.cfg-indexer-ipfs","14.cfg-indexer-last-block","14.env-contract-code-on-demand-fetcher-threshold","14.env-indexer-paxeer-x-kernel-receipts-relay-url","14.env-withdrawals-first-block","3.pc-0x1015-evt-orderplaced","3.pc-0x1015-exchange-evt-margindeposited","3.pc-0x1015-exchange-evt-orderplaced","3.pc-0x1015-getmarket","3.pc-0x1020-getmarket","3.pc-0x1020-getmarketcount","6.pc-0x1004-evt-layerxbound","6.pc-0x1004-evt-layerxunbound","6.pc-0x1013-evt-claimfinalised","6.pc-0x1013-evt-claimqueued","6.pc-0x1013-evt-custodydeposit","6.pc-0x1013-evt-depositrootregistered","6.pc-0x1013-evt-emergencyexitexecuted","6.pc-0x1014-evt-availabilityattested","6.pc-0x1014-evt-bondincreased","6.pc-0x1014-evt-challengeopened","6.pc-0x1014-evt-challengeresolved","6.pc-0x1014-evt-checkpointfinalized","6.pc-0x1014-evt-checkpointsubmitted","6.pc-0x1014-evt-guarantoractivated","6.pc-0x1014-evt-guarantorregistered","6.pc-0x1014-evt-guarantorslashed","6.pc-0x1014-evt-sequencerauthorized","6.pc-0x1014-evt-unbondbegun","6.pc-0x1014-evt-unbondcompleted","6.pc-0x1016-evt-bridgein","6.pc-0x1016-evt-bridgeout","6.sevt-ilayerxanchor-guarantorregistered-674824b5","6.sol-checkpointregistry-checkpointhash-ad2f010f","7.rpc-debug-tracetransaction","7.rpc-eth-getbalance","7.rpc-eth-getblockbyhash","7.rpc-eth-getcode","7.rpc-eth-getlogs","7.rpc-eth-gettransactionbyhash","7.rpc-eth-gettransactioncount","7.rpc-eth-gettransactionreceipt"]
+method = "Compared registry declarations with current ABI/RPC/config producers and actual decoder/importer consumers. Registry call-site line numbers are pinned inventory positions; current members were reviewed at their present positions."
+lifecycle = "Binding and market facts enter native block imports. Price updates transactionally replace a height, persist scanned/unavailable/failed status and resume unscanned/failed heights after restart. Retry timers are transient; catchup reconstructs work from persisted state."
+
+[interface_review.14.cfg-ethereum-jsonrpc-ethereumjsonrpc-geth]
+registry = "14.cfg-ethereum-jsonrpc-ethereumjsonrpc-geth"
+producer = "services/explorer/backend/config/runtime.exs"
+signature = "config :ethereum_jsonrpc, EthereumJSONRPC.Geth [block_traceable?, allow_empty_traces?, debug_trace_timeout, tracer]"
+registry_status = "stable"
+transport = "Environment parsing and BEAM application configuration"
+consumers = ["services/explorer/backend/apps/indexer/test/indexer/block/fetcher_test.exs","services/explorer/backend/apps/indexer/test/indexer/fetcher/internal_transaction/delete_queue_test.exs","services/explorer/backend/apps/indexer/test/indexer/fetcher/internal_transaction_test.exs"]
+findings = []
+notes = "Runtime booleans and timeout/tracer strings match Geth readers. The internal call_tracer option becomes RPC callTracer; the module-wide no_geth exclusion is a coverage issue."
+
+[interface_review.14.cfg-explorer-explorer-chain-cache-blocknumber]
+registry = "14.cfg-explorer-explorer-chain-cache-blocknumber"
+producer = "services/explorer/backend/config/runtime.exs"
+signature = "config :explorer, Explorer.Chain.Cache.BlockNumber [ttl_check_interval, global_ttl, enabled]"
+registry_status = "stable"
+transport = "Environment parsing and BEAM application configuration"
+consumers = ["services/explorer/backend/apps/indexer/test/indexer/fetcher/coin_balance/catchup_test.exs"]
+findings = []
+notes = "Configuration key and value types agree between the runtime/test declaration, BEAM application environment and the named module readers exercised by this slice. Tests invoke actual supervisors or transformation/queue callbacks; affected global-setting restoration and coverage gaps are attached findings. Optional foreign-chain workers remain conditional."
+
+[interface_review.14.cfg-explorer-explorer-chain-cache-celocorecontracts]
+registry = "14.cfg-explorer-explorer-chain-cache-celocorecontracts"
+producer = "services/explorer/backend/config/runtime.exs"
+signature = "config :explorer, Explorer.Chain.Cache.CeloCoreContracts [contracts]"
+registry_status = "stable"
+transport = "Environment parsing and BEAM application configuration"
+consumers = ["services/explorer/backend/apps/indexer/test/indexer/transform/celo/validator_epoch_payment_distributions_test.exs","services/explorer/backend/apps/indexer/test/indexer/block/fetcher_test.exs","services/explorer/backend/apps/indexer/test/indexer/block/catchup/fetcher_test.exs","services/explorer/backend/apps/indexer/test/indexer/block/catchup/bound_interval_supervisor_test.exs","services/explorer/backend/apps/indexer/test/indexer/block/realtime/fetcher_test.exs"]
+findings = ["001","030"]
+notes = "Configuration key and value types agree between the runtime/test declaration, BEAM application environment and the named module readers exercised by this slice. Tests invoke actual supervisors or transformation/queue callbacks; affected global-setting restoration and coverage gaps are attached findings. Optional foreign-chain workers remain conditional."
+
+[interface_review.14.cfg-explorer-explorer-chain-cache-counters-averageblocktime]
+registry = "14.cfg-explorer-explorer-chain-cache-counters-averageblocktime"
+producer = "services/explorer/backend/config/runtime.exs"
+signature = "config :explorer, Explorer.Chain.Cache.Counters.AverageBlockTime [enabled, period, cache_period, num_of_blocks]"
+registry_status = "stable"
+transport = "Environment parsing and BEAM application configuration"
+consumers = ["services/explorer/backend/apps/indexer/test/indexer/fetcher/on_demand/token_balance_test.exs","services/explorer/backend/apps/indexer/test/indexer/fetcher/on_demand/coin_balance_test.exs"]
+findings = ["031","032"]
+notes = "Configuration key and value types agree between the runtime/test declaration, BEAM application environment and the named module readers exercised by this slice. Tests invoke actual supervisors or transformation/queue callbacks; affected global-setting restoration and coverage gaps are attached findings. Optional foreign-chain workers remain conditional."
+
+[interface_review.14.cfg-explorer-explorer-chain-tokentransfer]
+registry = "14.cfg-explorer-explorer-chain-tokentransfer"
+producer = "services/explorer/backend/config/runtime.exs"
+signature = "config :explorer, Explorer.Chain.TokenTransfer [whitelisted_weth_contracts, weth_token_transfers_filtering_enabled]"
+registry_status = "stable"
+transport = "Environment parsing and BEAM application configuration"
+consumers = ["services/explorer/backend/apps/indexer/test/indexer/migrator/recovery_weth_token_transfers_test.exs","services/explorer/backend/apps/indexer/test/indexer/transform/token_transfers_test.exs"]
+findings = ["018","026"]
+notes = "Configuration key and value types agree between the runtime/test declaration, BEAM application environment and the named module readers exercised by this slice. Tests invoke actual supervisors or transformation/queue callbacks; affected global-setting restoration and coverage gaps are attached findings. Optional foreign-chain workers remain conditional."
+
+[interface_review.14.cfg-explorer-explorer-microserviceinterfaces-multichainsearch]
+registry = "14.cfg-explorer-explorer-microserviceinterfaces-multichainsearch"
+producer = "services/explorer/backend/config/runtime.exs"
+signature = "config :explorer, Explorer.MicroserviceInterfaces.MultichainSearch [api_key, service_url]"
+registry_status = "stable"
+transport = "Environment parsing and BEAM application configuration"
+consumers = ["services/explorer/backend/apps/indexer/test/indexer/fetcher/multichain_search_db/balances_export_queue_test.exs","services/explorer/backend/apps/indexer/test/indexer/fetcher/multichain_search_db/token_info_export_queue_test.exs","services/explorer/backend/apps/indexer/test/indexer/fetcher/multichain_search_db/main_export_queue_test.exs"]
+findings = ["013","034","035","036","038"]
+notes = "Configuration key and value types agree between the runtime/test declaration, BEAM application environment and the named module readers exercised by this slice. Tests invoke actual supervisors or transformation/queue callbacks; affected global-setting restoration and coverage gaps are attached findings. Optional foreign-chain workers remain conditional."
+
+[interface_review.14.cfg-explorer-explorer-utility-missingbalanceoftoken]
+registry = "14.cfg-explorer-explorer-utility-missingbalanceoftoken"
+producer = "services/explorer/backend/config/runtime.exs"
+signature = "config :explorer, Explorer.Utility.MissingBalanceOfToken [window_size]"
+registry_status = "stable"
+transport = "Environment parsing and BEAM application configuration"
+consumers = ["services/explorer/backend/apps/indexer/test/indexer/fetcher/token_balance/historical_test.exs"]
+findings = []
+notes = "Configuration key and value types agree between the runtime/test declaration, BEAM application environment and the named module readers exercised by this slice. Tests invoke actual supervisors or transformation/queue callbacks; affected global-setting restoration and coverage gaps are attached findings. Optional foreign-chain workers remain conditional."
+
+[interface_review.14.cfg-explorer-json-rpc-named-arguments]
+registry = "14.cfg-explorer-json-rpc-named-arguments"
+producer = "services/explorer/backend/apps/explorer/config/dev/anvil.exs"
+signature = "config :explorer, :json_rpc_named_arguments"
+registry_status = "stable"
+transport = "Environment parsing and BEAM application configuration"
+consumers = ["services/explorer/backend/apps/indexer/test/indexer/fetcher/on_demand/internal_transaction_test.exs"]
+findings = ["006"]
+notes = "The keyword transport/transport_options/variant structure is passed into EthereumJSONRPC. Realtime tests replace the configured node and trace routing with a fixed historical URL; the on-demand trace suite restores the original arguments."
+
+[interface_review.14.cfg-indexer-block-ranges]
+registry = "14.cfg-indexer-block-ranges"
+producer = "services/explorer/backend/config/runtime.exs"
+signature = "config :indexer, :block_ranges"
+registry_status = "stable"
+transport = "Environment parsing and BEAM application configuration"
+consumers = ["services/explorer/backend/apps/indexer/test/indexer/block/catchup/missing_ranges_collector_test.exs","services/explorer/backend/apps/indexer/test/indexer/block/catchup/fetcher_test.exs","services/explorer/backend/apps/indexer/test/indexer/block/catchup/bound_interval_supervisor_test.exs"]
+findings = []
+notes = "Configured range strings are read by catchup collectors and restored in the range-bound cases. Empty, finite and open bounds are exercised; retained ranges do not depend on retired receipt sequence numbers."
+
+[interface_review.14.cfg-indexer-block-transformer]
+registry = "14.cfg-indexer-block-transformer"
+producer = "services/explorer/backend/config/runtime.exs"
+signature = "config :indexer, :block_transformer"
+registry_status = "stable"
+transport = "Environment parsing and BEAM application configuration"
+consumers = ["services/explorer/backend/apps/indexer/test/indexer/transform/blocks_test.exs"]
+findings = ["022"]
+notes = "The configured module dispatch is reachable through Indexer.Transform.Blocks. Base/Clique transformations are separate; the dispatch test has a truthy-output assertion gap."
+
+[interface_review.14.cfg-indexer-chain-id]
+registry = "14.cfg-indexer-chain-id"
+producer = "services/explorer/backend/config/runtime.exs"
+signature = "config :indexer, :chain_id"
+registry_status = "stable"
+transport = "Environment parsing and BEAM application configuration"
+consumers = ["services/explorer/backend/apps/indexer/test/indexer/fetcher/beacon/deposit_test.exs"]
+findings = []
+notes = "CHAIN_ID supplies indexer chain identity, and beacon tests explicitly override/restore it for the foreign chain fixture. This is conditional beacon compatibility, not a second LayerX network."
+
+[interface_review.14.cfg-indexer-fetch-rewards-way]
+registry = "14.cfg-indexer-fetch-rewards-way"
+producer = "services/explorer/backend/config/runtime.exs"
+signature = "config :indexer, :fetch_rewards_way"
+registry_status = "stable"
+transport = "Environment parsing and BEAM application configuration"
+consumers = ["services/explorer/backend/apps/indexer/test/indexer/block/realtime/fetcher_test.exs","services/explorer/backend/apps/indexer/test/indexer/block/realtime/batch_test.exs"]
+findings = ["007"]
+notes = "String mode selects reward fetching. Realtime cases temporarily select manual behavior and do not restore the original value on failure; the merged node has no trace_ namespace."
+
+[interface_review.14.cfg-indexer-indexer-block-catchup-fetcher]
+registry = "14.cfg-indexer-indexer-block-catchup-fetcher"
+producer = "services/explorer/backend/config/runtime.exs"
+signature = "config :indexer, Indexer.Block.Catchup.Fetcher [batch_size, concurrency]"
+registry_status = "stable"
+transport = "Environment parsing and BEAM application configuration"
+consumers = ["services/explorer/backend/apps/indexer/test/indexer/block/catchup/fetcher_test.exs"]
+findings = ["002"]
+notes = "Configuration key and value types agree between the runtime/test declaration, BEAM application environment and the named module readers exercised by this slice. Tests invoke actual supervisors or transformation/queue callbacks; affected global-setting restoration and coverage gaps are attached findings. Optional foreign-chain workers remain conditional."
+
+[interface_review.14.cfg-indexer-indexer-block-realtime-fetcher]
+registry = "14.cfg-indexer-indexer-block-realtime-fetcher"
+producer = "services/explorer/backend/config/runtime.exs"
+signature = "config :indexer, Indexer.Block.Realtime.Fetcher [max_gap, polling_period, batch_size, max_lag]"
+registry_status = "stable"
+transport = "Environment parsing and BEAM application configuration"
+consumers = ["services/explorer/backend/apps/indexer/test/indexer/block/realtime/batch_test.exs"]
+findings = ["005"]
+notes = "Configuration key and value types agree between the runtime/test declaration, BEAM application environment and the named module readers exercised by this slice. Tests invoke actual supervisors or transformation/queue callbacks; affected global-setting restoration and coverage gaps are attached findings. Optional foreign-chain workers remain conditional."
+
+[interface_review.14.cfg-indexer-indexer-fetcher-beacon-blob-supervisor]
+registry = "14.cfg-indexer-indexer-fetcher-beacon-blob-supervisor"
+producer = "services/explorer/backend/config/runtime.exs"
+signature = "config :indexer, Indexer.Fetcher.Beacon.Blob.Supervisor [disabled?]"
+registry_status = "stable"
+transport = "Environment parsing and BEAM application configuration"
+consumers = ["services/explorer/backend/apps/indexer/test/indexer/fetcher/beacon/blob_test.exs"]
+findings = []
+notes = "Configuration key and value types agree between the runtime/test declaration, BEAM application environment and the named module readers exercised by this slice. Tests invoke actual supervisors or transformation/queue callbacks; affected global-setting restoration and coverage gaps are attached findings. Optional foreign-chain workers remain conditional."
+
+[interface_review.14.cfg-indexer-indexer-fetcher-beacon-deposit]
+registry = "14.cfg-indexer-indexer-fetcher-beacon-deposit"
+producer = "services/explorer/backend/config/runtime.exs"
+signature = "config :indexer, Indexer.Fetcher.Beacon.Deposit [interval, batch_size]"
+registry_status = "stable"
+transport = "Environment parsing and BEAM application configuration"
+consumers = ["services/explorer/backend/apps/indexer/test/indexer/fetcher/beacon/deposit_test.exs"]
+findings = []
+notes = "Configuration key and value types agree between the runtime/test declaration, BEAM application environment and the named module readers exercised by this slice. Tests invoke actual supervisors or transformation/queue callbacks; affected global-setting restoration and coverage gaps are attached findings. Optional foreign-chain workers remain conditional."
+
+[interface_review.14.cfg-indexer-indexer-fetcher-beacon-deposit-status]
+registry = "14.cfg-indexer-indexer-fetcher-beacon-deposit-status"
+producer = "services/explorer/backend/config/runtime.exs"
+signature = "config :indexer, Indexer.Fetcher.Beacon.Deposit.Status"
+registry_status = "stable"
+transport = "Environment parsing and BEAM application configuration"
+consumers = ["services/explorer/backend/apps/indexer/test/indexer/fetcher/beacon/deposit/status_test.exs"]
+findings = []
+notes = "Configuration key and value types agree between the runtime/test declaration, BEAM application environment and the named module readers exercised by this slice. Tests invoke actual supervisors or transformation/queue callbacks; affected global-setting restoration and coverage gaps are attached findings. Optional foreign-chain workers remain conditional."
+
+[interface_review.14.cfg-indexer-indexer-fetcher-beacon-deposit-status-supervisor]
+registry = "14.cfg-indexer-indexer-fetcher-beacon-deposit-status-supervisor"
+producer = "services/explorer/backend/config/runtime.exs"
+signature = "config :indexer, Indexer.Fetcher.Beacon.Deposit.Status.Supervisor"
+registry_status = "stable"
+transport = "Environment parsing and BEAM application configuration"
+consumers = ["services/explorer/backend/apps/indexer/test/indexer/fetcher/beacon/deposit/status_test.exs"]
+findings = []
+notes = "Configuration key and value types agree between the runtime/test declaration, BEAM application environment and the named module readers exercised by this slice. Tests invoke actual supervisors or transformation/queue callbacks; affected global-setting restoration and coverage gaps are attached findings. Optional foreign-chain workers remain conditional."
+
+[interface_review.14.cfg-indexer-indexer-fetcher-beacon-deposit-supervisor]
+registry = "14.cfg-indexer-indexer-fetcher-beacon-deposit-supervisor"
+producer = "services/explorer/backend/config/runtime.exs"
+signature = "config :indexer, Indexer.Fetcher.Beacon.Deposit.Supervisor"
+registry_status = "stable"
+transport = "Environment parsing and BEAM application configuration"
+consumers = ["services/explorer/backend/apps/indexer/test/indexer/fetcher/beacon/deposit_test.exs"]
+findings = []
+notes = "Configuration key and value types agree between the runtime/test declaration, BEAM application environment and the named module readers exercised by this slice. Tests invoke actual supervisors or transformation/queue callbacks; affected global-setting restoration and coverage gaps are attached findings. Optional foreign-chain workers remain conditional."
+
+[interface_review.14.cfg-indexer-indexer-fetcher-celo-epochblockoperations-supervisor]
+registry = "14.cfg-indexer-indexer-fetcher-celo-epochblockoperations-supervisor"
+producer = "services/explorer/backend/config/runtime.exs"
+signature = "config :indexer, Indexer.Fetcher.Celo.EpochBlockOperations.Supervisor [enabled, disabled?]"
+registry_status = "stable"
+transport = "Environment parsing and BEAM application configuration"
+consumers = ["services/explorer/backend/apps/indexer/test/indexer/block/fetcher_test.exs","services/explorer/backend/apps/indexer/test/indexer/block/catchup/fetcher_test.exs","services/explorer/backend/apps/indexer/test/indexer/block/realtime/fetcher_test.exs","services/explorer/backend/apps/indexer/test/indexer/block/realtime/batch_test.exs"]
+findings = []
+notes = "Configuration key and value types agree between the runtime/test declaration, BEAM application environment and the named module readers exercised by this slice. Tests invoke actual supervisors or transformation/queue callbacks; affected global-setting restoration and coverage gaps are attached findings. Optional foreign-chain workers remain conditional."
+
+[interface_review.14.cfg-indexer-indexer-fetcher-celo-legacy-account-supervisor]
+registry = "14.cfg-indexer-indexer-fetcher-celo-legacy-account-supervisor"
+producer = "services/explorer/backend/config/runtime.exs"
+signature = "config :indexer, Indexer.Fetcher.Celo.Legacy.Account.Supervisor [enabled, disabled?]"
+registry_status = "stable"
+transport = "Environment parsing and BEAM application configuration"
+consumers = ["services/explorer/backend/apps/indexer/test/indexer/block/fetcher_test.exs"]
+findings = []
+notes = "Configuration key and value types agree between the runtime/test declaration, BEAM application environment and the named module readers exercised by this slice. Tests invoke actual supervisors or transformation/queue callbacks; affected global-setting restoration and coverage gaps are attached findings. Optional foreign-chain workers remain conditional."
+
+[interface_review.14.cfg-indexer-indexer-fetcher-coinbalance-realtime-supervisor]
+registry = "14.cfg-indexer-indexer-fetcher-coinbalance-realtime-supervisor"
+producer = "services/explorer/backend/config/runtime.exs"
+signature = "config :indexer, Indexer.Fetcher.CoinBalance.Realtime.Supervisor [disabled?]"
+registry_status = "stable"
+transport = "Environment parsing and BEAM application configuration"
+consumers = ["services/explorer/backend/apps/indexer/test/indexer/block/realtime/batch_test.exs"]
+findings = []
+notes = "Configuration key and value types agree between the runtime/test declaration, BEAM application environment and the named module readers exercised by this slice. Tests invoke actual supervisors or transformation/queue callbacks; affected global-setting restoration and coverage gaps are attached findings. Optional foreign-chain workers remain conditional."
+
+[interface_review.14.cfg-indexer-indexer-fetcher-emptyblockssanitizer]
+registry = "14.cfg-indexer-indexer-fetcher-emptyblockssanitizer"
+producer = "services/explorer/backend/config/runtime.exs"
+signature = "config :indexer, Indexer.Fetcher.EmptyBlocksSanitizer [batch_size, interval, head_offset]"
+registry_status = "stable"
+transport = "Environment parsing and BEAM application configuration"
+consumers = ["services/explorer/backend/apps/indexer/test/indexer/fetcher/empty_blocks_sanitizer_test.exs"]
+findings = ["011"]
+notes = "Configuration key and value types agree between the runtime/test declaration, BEAM application environment and the named module readers exercised by this slice. Tests invoke actual supervisors or transformation/queue callbacks; affected global-setting restoration and coverage gaps are attached findings. Optional foreign-chain workers remain conditional."
+
+[interface_review.14.cfg-indexer-indexer-fetcher-internaltransaction]
+registry = "14.cfg-indexer-indexer-fetcher-internaltransaction"
+producer = "services/explorer/backend/config/runtime.exs"
+signature = "config :indexer, Indexer.Fetcher.InternalTransaction [batch_size, concurrency, lookback_blocks]"
+registry_status = "stable"
+transport = "Environment parsing and BEAM application configuration"
+consumers = ["services/explorer/backend/apps/indexer/test/indexer/fetcher/internal_transaction_test.exs"]
+findings = []
+notes = "Configuration key and value types agree between the runtime/test declaration, BEAM application environment and the named module readers exercised by this slice. Tests invoke actual supervisors or transformation/queue callbacks; affected global-setting restoration and coverage gaps are attached findings. Optional foreign-chain workers remain conditional."
+
+[interface_review.14.cfg-indexer-indexer-fetcher-internaltransaction-deletequeue]
+registry = "14.cfg-indexer-indexer-fetcher-internaltransaction-deletequeue"
+producer = "services/explorer/backend/config/runtime.exs"
+signature = "config :indexer, Indexer.Fetcher.InternalTransaction.DeleteQueue"
+registry_status = "stable"
+transport = "Environment parsing and BEAM application configuration"
+consumers = ["services/explorer/backend/apps/indexer/test/indexer/fetcher/internal_transaction/delete_queue_test.exs"]
+findings = []
+notes = "Configuration key and value types agree between the runtime/test declaration, BEAM application environment and the named module readers exercised by this slice. Tests invoke actual supervisors or transformation/queue callbacks; affected global-setting restoration and coverage gaps are attached findings. Optional foreign-chain workers remain conditional."
+
+[interface_review.14.cfg-indexer-indexer-fetcher-internaltransaction-supervisor]
+registry = "14.cfg-indexer-indexer-fetcher-internaltransaction-supervisor"
+producer = "services/explorer/backend/config/runtime.exs"
+signature = "config :indexer, Indexer.Fetcher.InternalTransaction.Supervisor"
+registry_status = "stable"
+transport = "Environment parsing and BEAM application configuration"
+consumers = ["services/explorer/backend/apps/indexer/test/indexer/block/fetcher_test.exs","services/explorer/backend/apps/indexer/test/indexer/fetcher/pending_block_operations_sanitizer_test.exs"]
+findings = []
+notes = "Configuration key and value types agree between the runtime/test declaration, BEAM application environment and the named module readers exercised by this slice. Tests invoke actual supervisors or transformation/queue callbacks; affected global-setting restoration and coverage gaps are attached findings. Optional foreign-chain workers remain conditional."
+
+[interface_review.14.cfg-indexer-indexer-fetcher-multichainsearchdb-mainexportqueue-supervisor]
+registry = "14.cfg-indexer-indexer-fetcher-multichainsearchdb-mainexportqueue-supervisor"
+producer = "services/explorer/backend/config/runtime.exs"
+signature = "config :indexer, Indexer.Fetcher.MultichainSearchDb.MainExportQueue.Supervisor"
+registry_status = "stable"
+transport = "Environment parsing and BEAM application configuration"
+consumers = ["services/explorer/backend/apps/indexer/test/indexer/fetcher/multichain_search_db/main_export_queue_test.exs"]
+findings = ["037"]
+notes = "Configuration key and value types agree between the runtime/test declaration, BEAM application environment and the named module readers exercised by this slice. Tests invoke actual supervisors or transformation/queue callbacks; affected global-setting restoration and coverage gaps are attached findings. Optional foreign-chain workers remain conditional."
+
+[interface_review.14.cfg-indexer-indexer-fetcher-ondemand-coinbalance-supervisor]
+registry = "14.cfg-indexer-indexer-fetcher-ondemand-coinbalance-supervisor"
+producer = "services/explorer/backend/apps/indexer/config/runtime/test.exs"
+signature = "config :indexer, Indexer.Fetcher.OnDemand.CoinBalance.Supervisor [disabled?]"
+registry_status = "stable"
+transport = "Environment parsing and BEAM application configuration"
+consumers = ["services/explorer/backend/apps/indexer/test/indexer/fetcher/on_demand/coin_balance_test.exs"]
+findings = []
+notes = "Configuration key and value types agree between the runtime/test declaration, BEAM application environment and the named module readers exercised by this slice. Tests invoke actual supervisors or transformation/queue callbacks; affected global-setting restoration and coverage gaps are attached findings. Optional foreign-chain workers remain conditional."
+
+[interface_review.14.cfg-indexer-indexer-fetcher-ondemand-contractcode]
+registry = "14.cfg-indexer-indexer-fetcher-ondemand-contractcode"
+producer = "services/explorer/backend/config/runtime.exs"
+signature = "config :indexer, Indexer.Fetcher.OnDemand.ContractCode [threshold]"
+registry_status = "stable"
+transport = "Environment parsing and BEAM application configuration"
+consumers = ["services/explorer/backend/apps/indexer/test/indexer/fetcher/on_demand/contract_code_test.exs"]
+findings = ["054"]
+notes = "Configuration key and value types agree between the runtime/test declaration, BEAM application environment and the named module readers exercised by this slice. Tests invoke actual supervisors or transformation/queue callbacks; affected global-setting restoration and coverage gaps are attached findings. Optional foreign-chain workers remain conditional."
+
+[interface_review.14.cfg-indexer-indexer-fetcher-ondemand-tokenbalance-supervisor]
+registry = "14.cfg-indexer-indexer-fetcher-ondemand-tokenbalance-supervisor"
+producer = "services/explorer/backend/apps/indexer/config/runtime/test.exs"
+signature = "config :indexer, Indexer.Fetcher.OnDemand.TokenBalance.Supervisor [disabled?]"
+registry_status = "stable"
+transport = "Environment parsing and BEAM application configuration"
+consumers = ["services/explorer/backend/apps/indexer/test/indexer/fetcher/on_demand/token_balance_test.exs"]
+findings = []
+notes = "Configuration key and value types agree between the runtime/test declaration, BEAM application environment and the named module readers exercised by this slice. Tests invoke actual supervisors or transformation/queue callbacks; affected global-setting restoration and coverage gaps are attached findings. Optional foreign-chain workers remain conditional."
+
+[interface_review.14.cfg-indexer-indexer-fetcher-tokeninstance-helper]
+registry = "14.cfg-indexer-indexer-fetcher-tokeninstance-helper"
+producer = "services/explorer/backend/config/runtime.exs"
+signature = "config :indexer, Indexer.Fetcher.TokenInstance.Helper [base_uri_retry?, cidr_blacklist, host_filtering_enabled?, allowed_uri_protocols]"
+registry_status = "stable"
+transport = "Environment parsing and BEAM application configuration"
+consumers = ["services/explorer/backend/apps/indexer/test/indexer/fetcher/token_instance/helper_test.exs"]
+findings = ["015"]
+notes = "Configuration key and value types agree between the runtime/test declaration, BEAM application environment and the named module readers exercised by this slice. Tests invoke actual supervisors or transformation/queue callbacks; affected global-setting restoration and coverage gaps are attached findings. Optional foreign-chain workers remain conditional."
+
+[interface_review.14.cfg-indexer-indexer-fetcher-tokeninstance-realtime]
+registry = "14.cfg-indexer-indexer-fetcher-tokeninstance-realtime"
+producer = "services/explorer/backend/config/runtime.exs"
+signature = "config :indexer, Indexer.Fetcher.TokenInstance.Realtime [concurrency, batch_size, retry_with_cooldown?, retry_timeout]"
+registry_status = "stable"
+transport = "Environment parsing and BEAM application configuration"
+consumers = ["services/explorer/backend/apps/indexer/test/indexer/fetcher/token_instance/realtime_test.exs"]
+findings = ["055"]
+notes = "Configuration key and value types agree between the runtime/test declaration, BEAM application environment and the named module readers exercised by this slice. Tests invoke actual supervisors or transformation/queue callbacks; affected global-setting restoration and coverage gaps are attached findings. Optional foreign-chain workers remain conditional."
+
+[interface_review.14.cfg-indexer-indexer-fetcher-tokeninstance-realtime-supervisor]
+registry = "14.cfg-indexer-indexer-fetcher-tokeninstance-realtime-supervisor"
+producer = "services/explorer/backend/config/runtime.exs"
+signature = "config :indexer, Indexer.Fetcher.TokenInstance.Realtime.Supervisor [disabled?]"
+registry_status = "stable"
+transport = "Environment parsing and BEAM application configuration"
+consumers = ["services/explorer/backend/apps/indexer/test/indexer/block/realtime/fetcher_test.exs","services/explorer/backend/apps/indexer/test/indexer/block/realtime/batch_test.exs"]
+findings = []
+notes = "Configuration key and value types agree between the runtime/test declaration, BEAM application environment and the named module readers exercised by this slice. Tests invoke actual supervisors or transformation/queue callbacks; affected global-setting restoration and coverage gaps are attached findings. Optional foreign-chain workers remain conditional."
+
+[interface_review.14.cfg-indexer-indexer-fetcher-tokeninstance-retry]
+registry = "14.cfg-indexer-indexer-fetcher-tokeninstance-retry"
+producer = "services/explorer/backend/config/runtime.exs"
+signature = "config :indexer, Indexer.Fetcher.TokenInstance.Retry [concurrency, batch_size, max_refetch_interval, exp_timeout_base]"
+registry_status = "stable"
+transport = "Environment parsing and BEAM application configuration"
+consumers = ["services/explorer/backend/apps/indexer/test/indexer/fetcher/token_instance/helper_test.exs"]
+findings = ["016"]
+notes = "Runtime retry timeout base, coefficient and maximum interval are consumed as durations/counters by persisted refetch scheduling. One-sided DateTime differences do not prove the actual deadline."
+
+[interface_review.14.cfg-indexer-indexer-fetcher-tokeninstance-sanitizeerc721]
+registry = "14.cfg-indexer-indexer-fetcher-tokeninstance-sanitizeerc721"
+producer = "services/explorer/backend/config/runtime.exs"
+signature = "config :indexer, Indexer.Fetcher.TokenInstance.SanitizeERC721 [concurrency, batch_size]"
+registry_status = "stable"
+transport = "Environment parsing and BEAM application configuration"
+consumers = ["services/explorer/backend/apps/indexer/test/indexer/fetcher/token_instance/sanitize_erc721_test.exs"]
+findings = []
+notes = "Configuration key and value types agree between the runtime/test declaration, BEAM application environment and the named module readers exercised by this slice. Tests invoke actual supervisors or transformation/queue callbacks; affected global-setting restoration and coverage gaps are attached findings. Optional foreign-chain workers remain conditional."
+
+[interface_review.14.cfg-indexer-indexer-fetcher-withdrawal]
+registry = "14.cfg-indexer-indexer-fetcher-withdrawal"
+producer = "services/explorer/backend/config/runtime.exs"
+signature = "config :indexer, Indexer.Fetcher.Withdrawal [first_block]"
+registry_status = "stable"
+transport = "Environment parsing and BEAM application configuration"
+consumers = ["services/explorer/backend/apps/indexer/test/indexer/fetcher/withdrawal_test.exs"]
+findings = ["017"]
+notes = "Configuration key and value types agree between the runtime/test declaration, BEAM application environment and the named module readers exercised by this slice. Tests invoke actual supervisors or transformation/queue callbacks; affected global-setting restoration and coverage gaps are attached findings. Optional foreign-chain workers remain conditional."
+
+[interface_review.14.cfg-indexer-indexer-fetcher-withdrawal-supervisor]
+registry = "14.cfg-indexer-indexer-fetcher-withdrawal-supervisor"
+producer = "services/explorer/backend/config/runtime.exs"
+signature = "config :indexer, Indexer.Fetcher.Withdrawal.Supervisor [disabled?]"
+registry_status = "stable"
+transport = "Environment parsing and BEAM application configuration"
+consumers = ["services/explorer/backend/apps/indexer/test/indexer/fetcher/withdrawal_test.exs"]
+findings = []
+notes = "Configuration key and value types agree between the runtime/test declaration, BEAM application environment and the named module readers exercised by this slice. Tests invoke actual supervisors or transformation/queue callbacks; affected global-setting restoration and coverage gaps are attached findings. Optional foreign-chain workers remain conditional."
+
+[interface_review.14.cfg-indexer-indexer-migrator-recoverywethtokentransfers]
+registry = "14.cfg-indexer-indexer-migrator-recoverywethtokentransfers"
+producer = "services/explorer/backend/config/runtime.exs"
+signature = "config :indexer, Indexer.Migrator.RecoveryWETHTokenTransfers [concurrency, batch_size, timeout, enabled]"
+registry_status = "stable"
+transport = "Environment parsing and BEAM application configuration"
+consumers = ["services/explorer/backend/apps/indexer/test/indexer/migrator/recovery_weth_token_transfers_test.exs"]
+findings = []
+notes = "Configuration key and value types agree between the runtime/test declaration, BEAM application environment and the named module readers exercised by this slice. Tests invoke actual supervisors or transformation/queue callbacks; affected global-setting restoration and coverage gaps are attached findings. Optional foreign-chain workers remain conditional."
+
+[interface_review.14.cfg-indexer-indexer-utils-eventnotificationscleaner]
+registry = "14.cfg-indexer-indexer-utils-eventnotificationscleaner"
+producer = "services/explorer/backend/config/runtime.exs"
+signature = "config :indexer, Indexer.Utils.EventNotificationsCleaner [interval]"
+registry_status = "stable"
+transport = "Environment parsing and BEAM application configuration"
+consumers = ["services/explorer/backend/apps/indexer/test/indexer/utils/event_notifications_cleaner_test.exs"]
+findings = ["051"]
+notes = "Runtime declares enabled, interval and max_age; test and consumer agree on millisecond age cutoff. The frozen registry/doc signature lists interval only and needs a current key inventory."
+
+[interface_review.14.cfg-indexer-ipfs]
+registry = "14.cfg-indexer-ipfs"
+producer = "services/explorer/backend/config/runtime.exs"
+signature = "config :indexer, :ipfs [gateway_url, gateway_url_param_key, gateway_url_param_value]"
+registry_status = "stable"
+transport = "Environment parsing and BEAM application configuration"
+consumers = ["services/explorer/backend/apps/indexer/test/indexer/fetcher/token_instance/helper_test.exs"]
+findings = []
+notes = "Configuration key and value types agree between the runtime/test declaration, BEAM application environment and the named module readers exercised by this slice. Tests invoke actual supervisors or transformation/queue callbacks; affected global-setting restoration and coverage gaps are attached findings. Optional foreign-chain workers remain conditional."
+
+[interface_review.14.cfg-indexer-last-block]
+registry = "14.cfg-indexer-last-block"
+producer = "services/explorer/backend/config/runtime.exs"
+signature = "config :indexer, :last_block"
+registry_status = "stable"
+transport = "Environment parsing and BEAM application configuration"
+consumers = ["services/explorer/backend/apps/indexer/test/indexer/block/catchup/fetcher_test.exs"]
+findings = []
+notes = "Configuration key and value types agree between the runtime/test declaration, BEAM application environment and the named module readers exercised by this slice. Tests invoke actual supervisors or transformation/queue callbacks; affected global-setting restoration and coverage gaps are attached findings. Optional foreign-chain workers remain conditional."
+
+[interface_review.14.env-contract-code-on-demand-fetcher-threshold]
+registry = "14.env-contract-code-on-demand-fetcher-threshold"
+producer = "services/explorer/backend/config/runtime.exs"
+signature = "threshold: ConfigHelper.parse_time_env_var(\"CONTRACT_CODE_ON_DEMAND_FETCHER_THRESHOLD\", \"5s\")"
+registry_status = "stable"
+transport = "Environment parsing and BEAM application configuration"
+consumers = ["services/explorer/backend/apps/indexer/test/indexer/fetcher/on_demand/contract_code_test.exs"]
+findings = []
+notes = "CONTRACT_CODE_ON_DEMAND_FETCHER_THRESHOLD is parsed as a duration in runtime.exs and applied to OnDemand.ContractCode. Tests address the same env name and threshold key."
+
+[interface_review.14.env-indexer-paxeer-x-kernel-receipts-relay-url]
+registry = "14.env-indexer-paxeer-x-kernel-receipts-relay-url"
+producer = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/paxeer_x_kernel_receipts.ex"
+signature = "case System.get_env(\"INDEXER_PAXEER_X_KERNEL_RECEIPTS_RELAY_URL\") do"
+registry_status = "retired"
+transport = "Environment parsing and BEAM application configuration"
+consumers = ["services/explorer/backend/apps/indexer/test/indexer/application_test.exs"]
+findings = ["024"]
+notes = "Retired interface. The environment name appears only in an explicit negative application test; live application children omit PaxeerXKernelReceipts and its former source is absent."
+
+[interface_review.14.env-withdrawals-first-block]
+registry = "14.env-withdrawals-first-block"
+producer = "services/explorer/backend/config/runtime.exs"
+signature = "config :indexer, Indexer.Fetcher.Withdrawal, first_block: System.get_env(\"WITHDRAWALS_FIRST_BLOCK\")"
+registry_status = "stable"
+transport = "Environment parsing and BEAM application configuration"
+consumers = ["services/explorer/backend/apps/indexer/test/indexer/fetcher/withdrawal_test.exs"]
+findings = []
+notes = "WITHDRAWALS_FIRST_BLOCK configures the withdrawal starting height. Tests use and restore the same environment variable; persistence and block-identity assertions are insufficient in the old-block case."
+
+[interface_review.3.pc-0x1015-evt-orderplaced]
+registry = "3.pc-0x1015-evt-orderplaced"
+producer = "precompiles/perps/abi/abi.json"
+signature = "OrderPlaced(uint256 indexed,address indexed,uint256 indexed,uint8,bool,uint256,uint256)"
+registry_status = "stable"
+transport = "EVM receipt logs with indexed topic words and ABI data, then native block import"
+consumers = ["services/explorer/backend/apps/indexer/test/indexer/transform/paxeer_x_logs_test.exs"]
+findings = ["025","029"]
+notes = "Modern perps has three indexed values (uint256 orderId, address user, uint256 marketId) followed by uint8/bool/uint256/uint256. Decoder agrees with the ABI; the general fixture selector and ABI validation suite do not distinguish both generations correctly."
+
+[interface_review.3.pc-0x1015-exchange-evt-margindeposited]
+registry = "3.pc-0x1015-exchange-evt-margindeposited"
+producer = "precompiles/layerxexchange/abi.json"
+signature = "MarginDeposited(bytes32 indexed,bytes32 indexed,address indexed,bytes32,uint256,bytes32,uint64)"
+registry_status = "stable"
+transport = "EVM receipt logs with indexed topic words and ABI data, then native block import"
+consumers = ["services/explorer/backend/apps/indexer/test/indexer/transform/paxeer_x_logs_test.exs"]
+findings = []
+notes = "Legacy exchange indexes bytes32 intentId/account and address owner; data is bytes32 assetId, uint256 amount, bytes32 depositId and uint64 nonce. Dedicated market tests agree and preserve precision above uint64."
+
+[interface_review.3.pc-0x1015-exchange-evt-orderplaced]
+registry = "3.pc-0x1015-exchange-evt-orderplaced"
+producer = "precompiles/layerxexchange/abi.json"
+signature = "OrderPlaced(bytes32 indexed,bytes32 indexed,address indexed,uint8,uint256,uint256,uint8,uint64)"
+registry_status = "stable"
+transport = "EVM receipt logs with indexed topic words and ABI data, then native block import"
+consumers = ["services/explorer/backend/apps/indexer/test/indexer/transform/paxeer_x_logs_test.exs"]
+findings = []
+notes = "Legacy OrderPlaced indexes bytes32 intentId/marketId and address owner, with side/price/quantity/timeInForce/nonce in data. It differs from modern perps despite the shared name and emitter; tests must select by signature."
+
+[interface_review.3.pc-0x1015-getmarket]
+registry = "3.pc-0x1015-getmarket"
+producer = "precompiles/perps/abi/abi.json"
+signature = "getMarket(uint256) view returns (string,string,uint256,uint256,uint256,bool)"
+registry_status = "stable"
+transport = "EVM receipt logs with indexed topic words and ABI data, then native block import"
+consumers = ["services/explorer/backend/apps/indexer/test/indexer/fetcher/paxeer_x/price_updates_test.exs"]
+findings = []
+notes = "Registry includes this selector in the test slice, but PriceUpdates targets 0x1020, not 0x1015. Perps returns six independent values; no test path decodes those as the pricefeed tuple. The shared eb44fdd3 selector is not sufficient to identify a producer."
+
+[interface_review.3.pc-0x1020-getmarket]
+registry = "3.pc-0x1020-getmarket"
+producer = "precompiles/pricefeed/abi/abi.json"
+signature = "getMarket(uint256) view returns ((uint64,string,string,uint256,uint256,bool))"
+registry_status = "stable"
+transport = "EVM receipt logs with indexed topic words and ABI data, then native block import"
+consumers = ["services/explorer/backend/apps/indexer/test/indexer/fetcher/paxeer_x/price_updates_test.exs"]
+findings = []
+notes = "PriceUpdates targets 0x1020 and encodes a uint256 id. ABI, inline decoder and response fixture agree on tuple(uint64 marketId,string symbol,string chainflowSymbol,uint256 minPrice,uint256 maxPrice,bool enabled), including ABI dynamic offsets."
+
+[interface_review.3.pc-0x1020-getmarketcount]
+registry = "3.pc-0x1020-getmarketcount"
+producer = "precompiles/pricefeed/abi/abi.json"
+signature = "getMarketCount() view returns (uint256)"
+registry_status = "stable"
+transport = "EVM receipt logs with indexed topic words and ABI data, then native block import"
+consumers = ["services/explorer/backend/apps/indexer/test/indexer/fetcher/paxeer_x/price_updates_test.exs"]
+findings = []
+notes = "Count call uses fd69f3c2 at 0x1020 and decodes uint256; the consumer bounds enumeration to 1024 markets. Market refresh attempts are spaced and updates persist even when metadata must later be refreshed."
+
+[interface_review.6.pc-0x1004-evt-layerxbound]
+registry = "6.pc-0x1004-evt-layerxbound"
+producer = "precompiles/addr/abi.json"
+signature = "LayerXBound(address indexed,bytes32 indexed,uint64)"
+registry_status = "stable"
+transport = "EVM receipt logs with indexed topic words and ABI data, then native block import"
+consumers = ["services/explorer/backend/apps/indexer/test/indexer/transform/paxeer_x_logs_test.exs"]
+findings = []
+notes = "The two indexed topics are address evm and bytes32 didPublicKey; uint64 nonce is data. Decoder and binding test agree on padded hex and did:layerx key encoding; importer preserves binding events."
+
+[interface_review.6.pc-0x1004-evt-layerxunbound]
+registry = "6.pc-0x1004-evt-layerxunbound"
+producer = "precompiles/addr/abi.json"
+signature = "LayerXUnbound(address indexed,bytes32 indexed,uint64)"
+registry_status = "stable"
+transport = "EVM receipt logs with indexed topic words and ABI data, then native block import"
+consumers = ["services/explorer/backend/apps/indexer/test/indexer/transform/paxeer_x_logs_test.exs"]
+findings = []
+notes = "Unbound uses the same address/key/nonce wire layout as Bound and maps to bound=false. General schema fixtures match these retained fields; obsolete surrounding result-key assertions are separate."
+
+[interface_review.6.pc-0x1013-evt-claimfinalised]
+registry = "6.pc-0x1013-evt-claimfinalised"
+producer = "precompiles/layerxcustody/abi.json"
+signature = "ClaimFinalised(bytes32 indexed,bytes32 indexed)"
+registry_status = "retire"
+transport = "EVM receipt logs with indexed topic words and ABI data, then native block import"
+consumers = ["services/explorer/backend/apps/indexer/test/indexer/transform/paxeer_x_logs_test.exs"]
+findings = ["023"]
+notes = "Retired custody/anchor interface. The retained decoder has no definition at this address; the explicit retirement suite rejects such logs. Historical positive cases or checkpoint comments in the general suite still assume this surface and are recorded for conversion to refusal coverage."
+
+[interface_review.6.pc-0x1013-evt-claimqueued]
+registry = "6.pc-0x1013-evt-claimqueued"
+producer = "precompiles/layerxcustody/abi.json"
+signature = "ClaimQueued(bytes32 indexed,bytes32 indexed,bytes32 indexed,bytes32,address,uint256,uint64)"
+registry_status = "retire"
+transport = "EVM receipt logs with indexed topic words and ABI data, then native block import"
+consumers = ["services/explorer/backend/apps/indexer/test/indexer/transform/paxeer_x_logs_test.exs"]
+findings = ["023"]
+notes = "Retired custody/anchor interface. The retained decoder has no definition at this address; the explicit retirement suite rejects such logs. Historical positive cases or checkpoint comments in the general suite still assume this surface and are recorded for conversion to refusal coverage."
+
+[interface_review.6.pc-0x1013-evt-custodydeposit]
+registry = "6.pc-0x1013-evt-custodydeposit"
+producer = "precompiles/layerxcustody/abi.json"
+signature = "CustodyDeposit(bytes32 indexed,bytes32 indexed,address indexed,bytes32,uint256,uint64)"
+registry_status = "retire"
+transport = "EVM receipt logs with indexed topic words and ABI data, then native block import"
+consumers = ["services/explorer/backend/apps/indexer/test/indexer/transform/paxeer_x_logs_test.exs"]
+findings = ["023"]
+notes = "Retired custody/anchor interface. The retained decoder has no definition at this address; the explicit retirement suite rejects such logs. Historical positive cases or checkpoint comments in the general suite still assume this surface and are recorded for conversion to refusal coverage."
+
+[interface_review.6.pc-0x1013-evt-depositrootregistered]
+registry = "6.pc-0x1013-evt-depositrootregistered"
+producer = "precompiles/layerxcustody/abi.json"
+signature = "DepositRootRegistered(bytes32 indexed,bytes32 indexed,bytes32,uint16)"
+registry_status = "retire"
+transport = "EVM receipt logs with indexed topic words and ABI data, then native block import"
+consumers = ["services/explorer/backend/apps/indexer/test/indexer/block/fetcher_test.exs","services/explorer/backend/apps/indexer/test/indexer/transform/paxeer_x_logs_test.exs"]
+findings = ["023"]
+notes = "Retired custody/anchor interface. The retained decoder has no definition at this address; the explicit retirement suite rejects such logs. Historical positive cases or checkpoint comments in the general suite still assume this surface and are recorded for conversion to refusal coverage."
+
+[interface_review.6.pc-0x1013-evt-emergencyexitexecuted]
+registry = "6.pc-0x1013-evt-emergencyexitexecuted"
+producer = "precompiles/layerxcustody/abi.json"
+signature = "EmergencyExitExecuted(bytes32 indexed,bytes32 indexed,bytes32 indexed,bytes32,bytes32,address,uint256)"
+registry_status = "retire"
+transport = "EVM receipt logs with indexed topic words and ABI data, then native block import"
+consumers = ["services/explorer/backend/apps/indexer/test/indexer/transform/paxeer_x_logs_test.exs"]
+findings = ["023"]
+notes = "Retired custody/anchor interface. The retained decoder has no definition at this address; the explicit retirement suite rejects such logs. Historical positive cases or checkpoint comments in the general suite still assume this surface and are recorded for conversion to refusal coverage."
+
+[interface_review.6.pc-0x1014-evt-availabilityattested]
+registry = "6.pc-0x1014-evt-availabilityattested"
+producer = "precompiles/layerxanchor/abi.json"
+signature = "AvailabilityAttested(uint64 indexed,bytes32 indexed,uint8,uint8)"
+registry_status = "retire"
+transport = "EVM receipt logs with indexed topic words and ABI data, then native block import"
+consumers = ["services/explorer/backend/apps/indexer/test/indexer/transform/paxeer_x_logs_test.exs"]
+findings = ["023"]
+notes = "Retired custody/anchor interface. The retained decoder has no definition at this address; the explicit retirement suite rejects such logs. Historical positive cases or checkpoint comments in the general suite still assume this surface and are recorded for conversion to refusal coverage."
+
+[interface_review.6.pc-0x1014-evt-bondincreased]
+registry = "6.pc-0x1014-evt-bondincreased"
+producer = "precompiles/layerxanchor/abi.json"
+signature = "BondIncreased(bytes32 indexed,uint256,uint256)"
+registry_status = "retire"
+transport = "EVM receipt logs with indexed topic words and ABI data, then native block import"
+consumers = ["services/explorer/backend/apps/indexer/test/indexer/transform/paxeer_x_logs_test.exs"]
+findings = ["023"]
+notes = "Retired custody/anchor interface. The retained decoder has no definition at this address; the explicit retirement suite rejects such logs. Historical positive cases or checkpoint comments in the general suite still assume this surface and are recorded for conversion to refusal coverage."
+
+[interface_review.6.pc-0x1014-evt-challengeopened]
+registry = "6.pc-0x1014-evt-challengeopened"
+producer = "precompiles/layerxanchor/abi.json"
+signature = "ChallengeOpened(uint64 indexed,uint64 indexed,uint8,bytes32,address)"
+registry_status = "retire"
+transport = "EVM receipt logs with indexed topic words and ABI data, then native block import"
+consumers = ["services/explorer/backend/apps/indexer/test/indexer/transform/paxeer_x_logs_test.exs"]
+findings = ["023"]
+notes = "Retired custody/anchor interface. The retained decoder has no definition at this address; the explicit retirement suite rejects such logs. Historical positive cases or checkpoint comments in the general suite still assume this surface and are recorded for conversion to refusal coverage."
+
+[interface_review.6.pc-0x1014-evt-challengeresolved]
+registry = "6.pc-0x1014-evt-challengeresolved"
+producer = "precompiles/layerxanchor/abi.json"
+signature = "ChallengeResolved(uint64 indexed,uint64 indexed,bool)"
+registry_status = "retire"
+transport = "EVM receipt logs with indexed topic words and ABI data, then native block import"
+consumers = ["services/explorer/backend/apps/indexer/test/indexer/transform/paxeer_x_logs_test.exs"]
+findings = ["023"]
+notes = "Retired custody/anchor interface. The retained decoder has no definition at this address; the explicit retirement suite rejects such logs. Historical positive cases or checkpoint comments in the general suite still assume this surface and are recorded for conversion to refusal coverage."
+
+[interface_review.6.pc-0x1014-evt-checkpointfinalized]
+registry = "6.pc-0x1014-evt-checkpointfinalized"
+producer = "precompiles/layerxanchor/abi.json"
+signature = "CheckpointFinalized(uint64 indexed,bytes32 indexed,bytes32,bytes32)"
+registry_status = "retire"
+transport = "EVM receipt logs with indexed topic words and ABI data, then native block import"
+consumers = ["services/explorer/backend/apps/indexer/test/indexer/transform/paxeer_x_logs_test.exs"]
+findings = ["023"]
+notes = "Retired custody/anchor interface. The retained decoder has no definition at this address; the explicit retirement suite rejects such logs. Historical positive cases or checkpoint comments in the general suite still assume this surface and are recorded for conversion to refusal coverage."
+
+[interface_review.6.pc-0x1014-evt-checkpointsubmitted]
+registry = "6.pc-0x1014-evt-checkpointsubmitted"
+producer = "precompiles/layerxanchor/abi.json"
+signature = "CheckpointSubmitted(uint64 indexed,bytes32 indexed,bytes32,bytes32,uint8)"
+registry_status = "retire"
+transport = "EVM receipt logs with indexed topic words and ABI data, then native block import"
+consumers = ["services/explorer/backend/apps/indexer/test/indexer/transform/paxeer_x_logs_test.exs"]
+findings = ["023"]
+notes = "Retired custody/anchor interface. The retained decoder has no definition at this address; the explicit retirement suite rejects such logs. Historical positive cases or checkpoint comments in the general suite still assume this surface and are recorded for conversion to refusal coverage."
+
+[interface_review.6.pc-0x1014-evt-guarantoractivated]
+registry = "6.pc-0x1014-evt-guarantoractivated"
+producer = "precompiles/layerxanchor/abi.json"
+signature = "GuarantorActivated(bytes32 indexed)"
+registry_status = "retire"
+transport = "EVM receipt logs with indexed topic words and ABI data, then native block import"
+consumers = ["services/explorer/backend/apps/indexer/test/indexer/transform/paxeer_x_logs_test.exs"]
+findings = ["023"]
+notes = "Retired custody/anchor interface. The retained decoder has no definition at this address; the explicit retirement suite rejects such logs. Historical positive cases or checkpoint comments in the general suite still assume this surface and are recorded for conversion to refusal coverage."
+
+[interface_review.6.pc-0x1014-evt-guarantorregistered]
+registry = "6.pc-0x1014-evt-guarantorregistered"
+producer = "precompiles/layerxanchor/abi.json"
+signature = "GuarantorRegistered(bytes32 indexed,address indexed,address,uint256,uint8)"
+registry_status = "retire"
+transport = "EVM receipt logs with indexed topic words and ABI data, then native block import"
+consumers = ["services/explorer/backend/apps/indexer/test/indexer/block/fetcher_test.exs","services/explorer/backend/apps/indexer/test/indexer/transform/paxeer_x_logs_test.exs"]
+findings = ["023"]
+notes = "Retired custody/anchor interface. The retained decoder has no definition at this address; the explicit retirement suite rejects such logs. Historical positive cases or checkpoint comments in the general suite still assume this surface and are recorded for conversion to refusal coverage."
+
+[interface_review.6.pc-0x1014-evt-guarantorslashed]
+registry = "6.pc-0x1014-evt-guarantorslashed"
+producer = "precompiles/layerxanchor/abi.json"
+signature = "GuarantorSlashed(bytes32 indexed,uint8,uint64,uint256,address,uint256)"
+registry_status = "retire"
+transport = "EVM receipt logs with indexed topic words and ABI data, then native block import"
+consumers = ["services/explorer/backend/apps/indexer/test/indexer/transform/paxeer_x_logs_test.exs"]
+findings = ["023"]
+notes = "Retired custody/anchor interface. The retained decoder has no definition at this address; the explicit retirement suite rejects such logs. Historical positive cases or checkpoint comments in the general suite still assume this surface and are recorded for conversion to refusal coverage."
+
+[interface_review.6.pc-0x1014-evt-sequencerauthorized]
+registry = "6.pc-0x1014-evt-sequencerauthorized"
+producer = "precompiles/layerxanchor/abi.json"
+signature = "SequencerAuthorized(bytes32 indexed,bytes32,uint64,uint64)"
+registry_status = "retire"
+transport = "EVM receipt logs with indexed topic words and ABI data, then native block import"
+consumers = ["services/explorer/backend/apps/indexer/test/indexer/transform/paxeer_x_logs_test.exs"]
+findings = ["023"]
+notes = "Retired custody/anchor interface. The retained decoder has no definition at this address; the explicit retirement suite rejects such logs. Historical positive cases or checkpoint comments in the general suite still assume this surface and are recorded for conversion to refusal coverage."
+
+[interface_review.6.pc-0x1014-evt-unbondbegun]
+registry = "6.pc-0x1014-evt-unbondbegun"
+producer = "precompiles/layerxanchor/abi.json"
+signature = "UnbondBegun(bytes32 indexed,uint256,uint64)"
+registry_status = "retire"
+transport = "EVM receipt logs with indexed topic words and ABI data, then native block import"
+consumers = ["services/explorer/backend/apps/indexer/test/indexer/transform/paxeer_x_logs_test.exs"]
+findings = ["023"]
+notes = "Retired custody/anchor interface. The retained decoder has no definition at this address; the explicit retirement suite rejects such logs. Historical positive cases or checkpoint comments in the general suite still assume this surface and are recorded for conversion to refusal coverage."
+
+[interface_review.6.pc-0x1014-evt-unbondcompleted]
+registry = "6.pc-0x1014-evt-unbondcompleted"
+producer = "precompiles/layerxanchor/abi.json"
+signature = "UnbondCompleted(bytes32 indexed,uint256)"
+registry_status = "retire"
+transport = "EVM receipt logs with indexed topic words and ABI data, then native block import"
+consumers = ["services/explorer/backend/apps/indexer/test/indexer/transform/paxeer_x_logs_test.exs"]
+findings = ["023"]
+notes = "Retired custody/anchor interface. The retained decoder has no definition at this address; the explicit retirement suite rejects such logs. Historical positive cases or checkpoint comments in the general suite still assume this surface and are recorded for conversion to refusal coverage."
+
+[interface_review.6.pc-0x1016-evt-bridgein]
+registry = "6.pc-0x1016-evt-bridgein"
+producer = "precompiles/layerxbridge/abi.json"
+signature = "BridgeIn(uint64 indexed,bytes32 indexed,address indexed,uint64,address,uint256,string)"
+registry_status = "stable"
+transport = "EVM receipt logs with indexed topic words and ABI data, then native block import"
+consumers = ["services/explorer/backend/apps/indexer/test/indexer/transform/paxeer_x_logs_test.exs"]
+findings = []
+notes = "Indexed uint64 chain, bytes32 txHash and address recipient plus uint64 logIndex,address asset,uint256 amount,string denom match the bridge ABI and decoder; parameter strings are dynamic ABI data."
+
+[interface_review.6.pc-0x1016-evt-bridgeout]
+registry = "6.pc-0x1016-evt-bridgeout"
+producer = "precompiles/layerxbridge/abi.json"
+signature = "BridgeOut(uint64 indexed,address indexed,uint256,address,uint64 indexed)"
+registry_status = "stable"
+transport = "EVM receipt logs with indexed topic words and ABI data, then native block import"
+consumers = ["services/explorer/backend/apps/indexer/test/indexer/transform/paxeer_x_logs_test.exs"]
+findings = []
+notes = "Indexed uint64 chain,address asset,uint64 nonce and nonindexed uint256 amount,address recipient match the bridge ABI and decoder. Historical bridge tests exercise retained market-row projection, not retired custody credit."
+
+[interface_review.6.sevt-ilayerxanchor-guarantorregistered-674824b5]
+registry = "6.sevt-ilayerxanchor-guarantorregistered-674824b5"
+producer = "contracts/src/precompiles/ILayerXAnchor.sol"
+signature = "event GuarantorRegistered(bytes32 indexed guarantorId, address indexed signer, address operator, uint256 bond, uint8 status)"
+registry_status = "retire"
+transport = "EVM receipt logs with indexed topic words and ABI data, then native block import"
+consumers = ["services/explorer/backend/apps/indexer/test/indexer/block/fetcher_test.exs"]
+findings = ["023"]
+notes = "Retired custody/anchor interface. The retained decoder has no definition at this address; the explicit retirement suite rejects such logs. Historical positive cases or checkpoint comments in the general suite still assume this surface and are recorded for conversion to refusal coverage."
+
+[interface_review.6.sol-checkpointregistry-checkpointhash-ad2f010f]
+registry = "6.sol-checkpointregistry-checkpointhash-ad2f010f"
+producer = "contracts/CheckpointRegistry.sol"
+signature = "function checkpointHash(CanonicalCheckpoint.HeaderCommitments calldata header, bytes calldata validityProof) public pure returns (bytes32)"
+registry_status = "retired"
+transport = "EVM receipt logs with indexed topic words and ABI data, then native block import"
+consumers = ["services/explorer/backend/apps/indexer/test/indexer/transform/paxeer_x_logs_test.exs"]
+findings = ["023"]
+notes = "Retired custody/anchor interface. The retained decoder has no definition at this address; the explicit retirement suite rejects such logs. Historical positive cases or checkpoint comments in the general suite still assume this surface and are recorded for conversion to refusal coverage."
+
+[interface_review.7.rpc-debug-tracetransaction]
+registry = "7.rpc-debug-tracetransaction"
+producer = "rpc/tracers.go"
+signature = "func (api *DebugAPI) TraceTransaction(ctx context.Context, hash common.Hash, config *tracers.TraceConfig) (result interface{}, returnErr error)"
+registry_status = "stable"
+transport = "JSON-RPC 2.0 through EthereumJSONRPC and the configured HTTP adapter"
+consumers = ["services/explorer/backend/apps/indexer/test/indexer/fetcher/internal_transaction_test.exs"]
+findings = ["012"]
+notes = "Go TraceTransaction accepts hash and TraceConfig and delegates to the Geth tracer. Explorer selects callTracer with string timeout and decodes type/from/to/gas/input/output/calls; Geth test exclusion leaves the actual merged path unproven."
+
+[interface_review.7.rpc-eth-getbalance]
+registry = "7.rpc-eth-getbalance"
+producer = "rpc/state.go"
+signature = "func (a *StateAPI) GetBalance(ctx context.Context, address common.Address, blockNrOrHash rpc.BlockNumberOrHash) (result *hexutil.Big, returnErr error)"
+registry_status = "stable"
+transport = "JSON-RPC 2.0 through EthereumJSONRPC and the configured HTTP adapter"
+consumers = ["services/explorer/backend/apps/indexer/test/indexer/block/catchup/bound_interval_supervisor_test.exs","services/explorer/backend/apps/indexer/test/indexer/block/fetcher_test.exs","services/explorer/backend/apps/indexer/test/indexer/block/realtime/batch_test.exs","services/explorer/backend/apps/indexer/test/indexer/block/realtime/fetcher_test.exs","services/explorer/backend/apps/indexer/test/indexer/fetcher/coin_balance/catchup_test.exs","services/explorer/backend/apps/indexer/test/indexer/fetcher/contract_code_test.exs"]
+findings = ["010"]
+notes = "Producer returns hexutil.Big at the requested number/hash; consumer converts hex quantities into arbitrary precision Wei. Catchup includes partial failures, but the duplicate-address case can pass with complete retry."
+
+[interface_review.7.rpc-eth-getblockbyhash]
+registry = "7.rpc-eth-getblockbyhash"
+producer = "rpc/block.go"
+signature = "func (a *BlockAPI) GetBlockByHash(ctx context.Context, blockHash common.Hash, fullTx bool) (result map[string]interface{}, returnErr error)"
+registry_status = "change"
+transport = "JSON-RPC 2.0 through EthereumJSONRPC and the configured HTTP adapter"
+consumers = ["services/explorer/backend/apps/indexer/test/indexer/fetcher/optimism/transaction_batch_test.exs"]
+findings = ["033"]
+notes = "Producer returns null for an unknown hash and hex quantities for committed block fields. The optimism utility calls quantity_to_integer but its mock uses decimal JSON numbers instead of producer output."
+
+[interface_review.7.rpc-eth-getcode]
+registry = "7.rpc-eth-getcode"
+producer = "rpc/state.go"
+signature = "func (a *StateAPI) GetCode(ctx context.Context, address common.Address, blockNrOrHash rpc.BlockNumberOrHash) (result hexutil.Bytes, returnErr error)"
+registry_status = "stable"
+transport = "JSON-RPC 2.0 through EthereumJSONRPC and the configured HTTP adapter"
+consumers = ["services/explorer/backend/apps/indexer/test/indexer/fetcher/contract_code_test.exs","services/explorer/backend/apps/indexer/test/indexer/fetcher/on_demand/contract_code_test.exs"]
+findings = []
+notes = "Producer returns hexutil.Bytes, encoded as 0x-prefixed bytecode, at the resolved block. Contract-code/on-demand tests persist those exact bytes with address and fetch height."
+
+[interface_review.7.rpc-eth-getlogs]
+registry = "7.rpc-eth-getlogs"
+producer = "rpc/filter.go"
+signature = "func (a *FilterAPI) GetLogs(ctx context.Context, crit filters.FilterCriteria) (res []*FilterLog, err error)"
+registry_status = "change"
+transport = "JSON-RPC 2.0 through EthereumJSONRPC and the configured HTTP adapter"
+consumers = ["services/explorer/backend/apps/indexer/test/indexer/fetcher/beacon/deposit_test.exs"]
+findings = ["008"]
+notes = "FilterAPI returns log address, topic array, data, block/transaction hashes and hexadecimal indices for matching criteria. Beacon fallback mocks return another emitter/topic and therefore do not prove the requested filter contract."
+
+[interface_review.7.rpc-eth-gettransactionbyhash]
+registry = "7.rpc-eth-gettransactionbyhash"
+producer = "rpc/tx.go"
+signature = "func (t *TransactionAPI) GetTransactionByHash(ctx context.Context, hash common.Hash) (result *export.RPCTransaction, returnErr error)"
+registry_status = "stable"
+transport = "JSON-RPC 2.0 through EthereumJSONRPC and the configured HTTP adapter"
+consumers = ["services/explorer/backend/apps/indexer/test/indexer/fetcher/zksync/utils/rpc_test.exs"]
+findings = []
+notes = "Producer returns a typed RPCTransaction or null; pending results have pending block identity. ZkSync utility tests intentionally prove hash pass-through rather than decoding a complete transaction; the shared decoder handles full results elsewhere."
+
+[interface_review.7.rpc-eth-gettransactioncount]
+registry = "7.rpc-eth-gettransactioncount"
+producer = "rpc/tx.go"
+signature = "func (t *TransactionAPI) GetTransactionCount(ctx context.Context, address common.Address, blockNrOrHash rpc.BlockNumberOrHash) (result *hexutil.Uint64, returnErr error)"
+registry_status = "stable"
+transport = "JSON-RPC 2.0 through EthereumJSONRPC and the configured HTTP adapter"
+consumers = ["services/explorer/backend/apps/indexer/test/indexer/fetcher/on_demand/contract_creator_test.exs","services/explorer/backend/apps/indexer/test/indexer/fetcher/signed_authorization_status_test.exs"]
+findings = []
+notes = "Go returns hexutil.Uint64 nonce after resolving the block (or pending snapshot); creator and authorization tests use hex quantities and compare the next executable nonce."
+
+[interface_review.7.rpc-eth-gettransactionreceipt]
+registry = "7.rpc-eth-gettransactionreceipt"
+producer = "rpc/tx.go"
+signature = "func (t *TransactionAPI) GetTransactionReceipt(ctx context.Context, hash common.Hash) (result map[string]any, returnErr error)"
+registry_status = "stable"
+transport = "JSON-RPC 2.0 through EthereumJSONRPC and the configured HTTP adapter"
+consumers = ["services/explorer/backend/apps/indexer/test/indexer/block/fetcher_test.exs","services/explorer/backend/apps/indexer/test/indexer/block/realtime/fetcher_test.exs","services/explorer/backend/apps/indexer/test/indexer/fetcher/zksync/utils/rpc_test.exs"]
+findings = ["003"]
+notes = "Producer encodes status/type/gas and indices as hex quantities, normalizes EVM transaction/log indices, and returns null for missing or above-watermark transactions. Import tests exercise receipts, with the recorded Geth-path coverage gap; null log block fields are intentional compatibility inputs."
+
+[requirement_review.14256.1]
+requirement = "14256.1"
+assessment = "application_test.exs exercises the ignored legacy relay environment against actual application children; the retired fetcher source is absent."
+
+[requirement_review.14258.1]
+requirement = "14258.1"
+assessment = "paxeer_x_logs_retired_test.exs correctly rejects custody/anchor rows; paxeer_x_logs_test.exs still positively requires retired events and schemas."
+
+[requirement_review.14259.1]
+requirement = "14259.1"
+assessment = "fetcher_paxeer_x_options_test.exs asserts exactly the two binding/market importer options produced by the live Fetcher.import_options path."
+
+[requirement_review.14262.1]
+requirement = "14262.1"
+assessment = "Kept signatures and indexed layouts were compared with addr, perps, exchange, bridge and both launchpad ABIs; the ABI test maps 0x1015 only to legacy exchange."
+
+[requirement_review.14262.2]
+requirement = "14262.2"
+assessment = "Retirement-specific tests exclude both addresses; general positive custody/anchor tests contradict that exclusion and must become explicit refusal coverage."
+
+[requirement_review.14262.3]
+requirement = "14262.3"
+assessment = "Launchpad definitions retain twelve modern and ten legacy events; dedicated fixtures assert all modern parameter shapes and retain legacy topic/signature checks."
+
+[requirement_review.14300.1]
+requirement = "14300.1"
+assessment = "binding_log_still_parses preserves indexed EVM address, DID key bytes and nonce through the retained binding projection."
+
+[requirement_review.14300.2]
+requirement = "14300.2"
+assessment = "market_logs_still_parse preserves margin event identity, arbitrary precision amount and launchpad fee-claim recipient through the retained market projection."
+
+[requirement_review.18865.1]
+requirement = "18865.1"
+assessment = "PriceUpdates.run compares stored hashes before transactional replacement; the rescan test expects one initial announcement and no duplicate announcement."
+
+[requirement_review.18865.2]
+requirement = "18865.2"
+assessment = "Notifier consumes price update heights, broadcasts feed/market history, and limits transaction/block live notifications to block_height minus the configured ten-block window; tests here exercise the producer event."
+
+[requirement_review.18772.1]
+requirement = "18772.1"
+assessment = "The modern CollateralDeposited fixture asserts address account and amount/newBalance alongside legacy MarginDeposited bytes32 account compatibility."
+
+[requirement_review.181076.1]
+requirement = "181076.1"
+assessment = "Retained decoder returns binding rows, market rows and undecoded_log_count; general @empty/exact-key assertions still include removed tables and receipts."
+
+[requirement_review.18921.1]
+requirement = "18921.1"
+assessment = "Gateway 503 test verifies repeated retry without increasing definitive failure count; source retries every HTTP 5xx transiently without an attempt cap."
+
+[requirement_review.18922.1]
+requirement = "18922.1"
+assessment = "Both node orderings test definitive errors; CosmosRest selects a definitive error independently of transient ordering, and PriceUpdates schedules retries only after the batch completes."
+
+[requirement_review.18922.2]
+requirement = "18922.2"
+assessment = "Tests cover backoff below and at 300000ms and warning suppression after the cap; the source warns only on the ceiling transition and bounds retry delay."
+
+[coverage.security]
+assessment = "No production credential is introduced in this test slice; API-key and IPFS strings are local fixtures. Metadata retry and URI handling are reviewed alongside actual helper configuration. The search success handlers do not assert authentication headers or receiver schemas, which is recorded as test coverage gaps rather than evidence of a deployed authorization bypass."
+
+[coverage.evidence]
+assessment = "Static observations refer to the audited revision and exact member lines. Audit record qualification is limited to the declared hf-build and hf-done wrappers; no explorer runtime gate, network probe or historical inventory command is claimed to have run."

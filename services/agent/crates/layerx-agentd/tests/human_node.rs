@@ -5,8 +5,8 @@ use std::time::{Duration, Instant};
 
 use layerx_agentd::human_node::HumanNode;
 use layerx_agentd::node_rpc::{NodeRpc, NodeRpcConfig};
-use layerx_agentd::read::{history, Cursor, HistoryLimits};
-use layerx_client::rpc::history::HistoryKind;
+use layerx_agentd::read::Cursor;
+use layerx_client::sequencer::{decode_receipt_keys, ReceiptKeyEntry, SequencerEndpoint};
 use serde_json::{json, Value};
 
 fn must<T, E: std::fmt::Debug>(result: Result<T, E>) -> T {
@@ -89,10 +89,29 @@ fn human_node_head_and_receipt_keys_come_from_json_rpc() {
     let other_key = ed25519_dalek::SigningKey::from_bytes(&[43; 32])
         .verifying_key()
         .to_bytes();
-    let keys = json!([
-        {"keyId": format!("0x{}", "01".repeat(32)), "publicKey": format!("0x{}", hex::encode(other_key)), "firstHeight": "0x0", "lastHeight": "0x95"},
-        {"keyId": format!("0x{}", "02".repeat(32)), "publicKey": format!("0x{}", hex::encode(key)), "firstHeight": "0x96", "lastHeight": "0xc8"}
-    ]);
+    // Gateway chain_reads::receipt_keys wraps numeric positive ranges in keys.
+    let keys = json!({"keys":[
+        {"keyId": format!("0x{}", "01".repeat(32)), "publicKey": format!("0x{}", hex::encode(other_key)), "firstHeight": 1, "lastHeight": 149},
+        {"keyId": format!("0x{}", "02".repeat(32)), "publicKey": format!("0x{}", hex::encode(key)), "firstHeight": 150, "lastHeight": 200}
+    ]});
+    let decoded_keys = must(decode_receipt_keys(&keys));
+    assert_eq!(
+        decoded_keys,
+        vec![
+            ReceiptKeyEntry {
+                key_id: [1; 32],
+                public_key: other_key,
+                first_height: 1,
+                last_height: 149,
+            },
+            ReceiptKeyEntry {
+                key_id: [2; 32],
+                public_key: key,
+                first_height: 150,
+                last_height: 200,
+            },
+        ]
+    );
     let (url, server) = serve(vec![
         ("eth_chainId", json!("0xe5")),
         ("eth_blockNumber", json!("0x96")),
@@ -108,6 +127,7 @@ fn human_node_head_and_receipt_keys_come_from_json_rpc() {
     assert_eq!(head.hash, [0x11; 32]);
     assert_eq!(head.timestamp, 0x1234);
     let receipt_key = must(node.receipt_key_at_head());
+    assert_eq!(receipt_key, decoded_keys[1]);
     assert_eq!(receipt_key.public_key, key);
     assert_eq!(receipt_key.key_id, [2; 32]);
     assert_eq!(
@@ -126,56 +146,102 @@ fn human_node_head_and_receipt_keys_come_from_json_rpc() {
 
 #[test]
 fn human_history_pages_px_get_history_without_frame_transport() {
-    let result = json!({"height":"150", "items":[
-        {"height":"100", "txIndex":"0", "logIndex":"1", "kind":"Activity", "canonical":"0102", "proof":null},
-        {"height":"150", "txIndex":"2", "logIndex":"3", "kind":"Receipt", "canonical":"0304", "proof":"0506"}
-    ], "cursor":["150","2","3"]});
-    let next = json!({"height":"150", "items":[], "cursor":null});
+    // These rows and readiness fields were emitted by the committed indexer
+    // producer used by rpc/px_node_root_history_test.go at the node root.
+    let recordings: Value = must(serde_json::from_str(include_str!(
+        "../../../../../rpc/testdata/px-history/responses.json"
+    )));
+    let recorded = &recordings[0]["body"];
+    let account = "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee";
+    let rows = recorded["items"].as_array().expect("producer rows")[..2].to_vec();
+    let cursor = Cursor {
+        block_height: 11,
+        tx_index: 0,
+        log_index: 0,
+    };
+    assert_eq!(cursor.to_hex(), "000000000000000b0000000000000000");
+    let result = json!({
+        "account": account, "items": rows, "next_cursor": cursor.to_hex(),
+        "indexedHeight": 12, "chainHeight": 150, "freshness": recorded["freshness"]
+    });
+    let next = json!({
+        "account": account, "items": [], "next_cursor": null,
+        "indexedHeight": 12, "chainHeight": 150, "freshness": recorded["freshness"]
+    });
     let (url, server) = serve(vec![
         ("eth_chainId", json!("0xe5")),
         ("px_getHistory", result),
         ("px_getHistory", next),
     ]);
-    let mut node = connect(url);
-    let limits = HistoryLimits {
-        maximum_items: 2,
-        maximum_response_bytes: 4096,
-    };
-    let page = must(history(node.as_mut(), 100, 150, None, limits, None));
-    assert_eq!(page.height, 150);
-    assert_eq!(page.items.len(), 2);
-    assert_eq!(page.items[0].kind, HistoryKind::Activity);
-    assert_eq!(page.items[0].canonical, [1, 2]);
-    assert_eq!(page.items[0].proof, None);
-    assert_eq!(page.items[1].kind, HistoryKind::Receipt);
-    assert_eq!(page.items[1].canonical, [3, 4]);
-    assert_eq!(page.items[1].proof, Some(vec![5, 6]));
-    let cursor = Cursor {
-        block_height: 150,
-        tx_index: 2,
-        log_index: 3,
-    };
-    assert_eq!(page.next_cursor, Some(cursor));
-    assert!(page.response_bytes > 0 && page.response_bytes <= 4096);
-    let last = must(history(
-        node.as_mut(),
-        100,
-        150,
-        page.next_cursor,
-        limits,
+    let node = connect(url.clone());
+    assert_eq!(must(node.chain_id()), 229);
+    let endpoint = must(SequencerEndpoint::new(&url, &[]));
+    let page = must(layerx_client::rpc::history::history(
+        &endpoint,
+        account,
         None,
+        Some(2),
     ));
+    assert_eq!(page.account, account);
+    assert_eq!(page.indexed_height, Some(12));
+    assert_eq!(page.chain_height, Some(150));
+    assert_eq!(page.freshness, recorded["freshness"]);
+    assert_eq!(page.items, rows);
+    assert_eq!(page.items.len(), 2);
+    assert_eq!(page.items[0]["id"], "3");
+    assert_eq!(page.items[0]["amount"], "1000000000000000000");
+    assert_eq!(page.items[0]["final"], false);
+    assert_eq!(page.items[1]["id"], "6");
+    assert_eq!(page.items[1]["amount"], "3");
+    assert_eq!(page.items[1]["final"], false);
+    assert_eq!(page.next_cursor, Some(cursor.to_hex()));
+    assert_eq!(
+        must(Cursor::from_hex(page.next_cursor.as_deref().unwrap())),
+        cursor
+    );
+    let last = must(layerx_client::rpc::history::history(
+        &endpoint,
+        account,
+        page.next_cursor.as_deref(),
+        Some(2),
+    ));
+    assert_eq!(last.account, account);
+    assert_eq!(last.indexed_height, Some(12));
+    assert_eq!(last.chain_height, Some(150));
+    assert_eq!(last.freshness, recorded["freshness"]);
     assert!(last.items.is_empty());
     assert_eq!(last.next_cursor, None);
     let requests = must(server.join());
     assert_eq!(requests.len(), 3);
-    assert_eq!(
-        requests[1]["params"],
-        json!([{"from_height":"100", "to_height":"150", "limit":"2", "cursor":null}])
-    );
-    assert_eq!(
-        requests[2]["params"],
-        json!([{"from_height":"100", "to_height":"150", "limit":"2", "cursor":["150","2","3"]}])
-    );
+    assert_eq!(requests[1]["params"], json!([account, null, 2]));
+    assert_eq!(requests[2]["params"], json!([account, cursor.to_hex(), 2]));
     assert!(!include_str!("../src/human_runtime.rs").contains("FrameTransport"));
+}
+
+#[test]
+fn receipt_keys_refuse_arrays_string_heights_and_zero_heights() {
+    let valid = json!({"keyId":format!("0x{}", "02".repeat(32)),
+        "publicKey":format!("0x{}", hex::encode(ed25519_dalek::SigningKey::from_bytes(&[42;32]).verifying_key().to_bytes())),
+        "firstHeight":150, "lastHeight":200});
+    let mut string = valid.clone();
+    string["firstHeight"] = json!("0x96");
+    let mut zero = valid.clone();
+    zero["firstHeight"] = json!(0);
+    for keys in [
+        json!([valid]),
+        json!({"keys":[string]}),
+        json!({"keys":[zero]}),
+    ] {
+        let (url, server) = serve(vec![
+            ("eth_chainId", json!("0xe5")),
+            ("px_getReceiptKeys", keys),
+        ]);
+        let node = must(NodeRpc::connect(&NodeRpcConfig {
+            url,
+            chain_id: 229,
+            deadline: Duration::from_secs(2),
+        }));
+        assert!(node.receipt_keys().is_err());
+        assert_eq!(must(server.join()).len(), 2);
+    }
 }

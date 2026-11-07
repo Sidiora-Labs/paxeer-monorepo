@@ -1,5 +1,10 @@
 mod client;
+mod keccak;
 mod types;
+mod v2;
+
+#[cfg(test)]
+mod test_service;
 
 pub use client::{Client, ClientBuilder};
 pub use types::{
@@ -30,6 +35,12 @@ pub enum SourcifyError<E: std::error::Error> {
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error<E: std::error::Error> {
+    #[error("invalid Sourcify response: {0}")]
+    InvalidResponse(String),
+    #[error("invalid Sourcify client configuration: {0}")]
+    InvalidConfiguration(String),
+    #[error("Sourcify operation exceeded its configured total deadline")]
+    VerificationTimeout,
     #[error("error occurred while sending request: {0}")]
     Reqwest(#[from] reqwest::Error),
     #[error("error with the middleware occurred while sending request: {0:#}")]

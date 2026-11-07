@@ -31,7 +31,7 @@ const watermarkTimeLayout = "2006-01-02T15:04:05.000Z"
 // clients can tell apart revisions of the ranking rule.
 // Trader ranks realised PnL (contract Leaderboard: "PnL rankings excluded
 // where incomplete basis"; requirement D07_025): see RealizedTraderPnL.
-const LeaderboardMethodologyVersion = "fills-v2:trader=realized-pnl(sell usdlAmountRaw - proportional_floor_v1 basis of buy paidInputRaw; unknown-basis disposals excluded);creator=buy-side feeRaw on canonical pools;volume=usdlAmountRaw"
+const LeaderboardMethodologyVersion = "fills-v3:trader=realized-pnl(sell usdlAmountRaw - proportional_floor_v1 basis of buy paidInputRaw; receipt-matched token movements required; unknown-basis disposals excluded);creator=buy-side feeRaw on canonical pools;volume=usdlAmountRaw"
 
 var leaderboardWindows = map[string]int64{"24h": 24 * 3600, "7d": 7 * 24 * 3600, "30d": 30 * 24 * 3600}
 
@@ -163,6 +163,10 @@ func (s *AccountingReadModel) Leaderboard(ctx context.Context, category, window 
 	if err = tx.Commit(ctx); err != nil {
 		return nil, err
 	}
+	return traderLeaderboardSnapshot(category, window, windowEnd, entries, unknownBasis, ChainWatermark{ChainID: "125", Height: height, BlockHash: strings.ToLower(blockHash), ProjectionRevision: revision, ObservedAt: time.Unix(observedAt, 0).UTC().Format(watermarkTimeLayout), Integrity: "healthy"}), nil
+}
+
+func traderLeaderboardSnapshot(category, window string, windowEnd int64, entries []LeaderboardEntry, unknownBasis int, watermark ChainWatermark) *LeaderboardSnapshot {
 	sort.SliceStable(entries, func(i, j int) bool {
 		if c := entries[i].signed.Cmp(entries[j].signed); c != 0 {
 			return c > 0
@@ -170,8 +174,11 @@ func (s *AccountingReadModel) Leaderboard(ctx context.Context, category, window 
 		return entries[i].Wallet < entries[j].Wallet
 	})
 	quality := "complete"
+	if unknownBasis > 0 {
+		quality = "partial"
+	}
 	digest := sha256.New()
-	digest.Write([]byte(category + "|" + window + "|" + strconv.FormatInt(windowEnd, 10) + "|" + height + "|" + revision + realizedDigestSuffix(unknownBasis)))
+	digest.Write([]byte(LeaderboardMethodologyVersion + "|" + category + "|" + window + "|" + strconv.FormatInt(windowEnd, 10) + "|" + watermark.Height + "|" + watermark.ProjectionRevision + realizedDigestSuffix(unknownBasis)))
 	for _, entry := range entries {
 		if entry.Quality != "complete" {
 			quality = "partial"
@@ -185,10 +192,10 @@ func (s *AccountingReadModel) Leaderboard(ctx context.Context, category, window 
 		MethodologyVersion: LeaderboardMethodologyVersion,
 		WindowEnd:          windowEnd,
 		Entries:            entries,
-		Watermark:          ChainWatermark{ChainID: "125", Height: height, BlockHash: strings.ToLower(blockHash), ProjectionRevision: revision, ObservedAt: time.Unix(observedAt, 0).UTC().Format(watermarkTimeLayout), Integrity: "healthy"},
-		Revision:           revision,
+		Watermark:          watermark,
+		Revision:           watermark.ProjectionRevision,
 		Quality:            quality,
-	}, nil
+	}
 }
 
 // PublicEntry renders one ranked entry in the contract LeaderboardEntry shape.

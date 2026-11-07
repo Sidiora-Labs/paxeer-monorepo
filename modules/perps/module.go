@@ -51,10 +51,24 @@ func (AppModuleBasic) DefaultGenesis(_ codec.JSONCodec) json.RawMessage {
 	return mustMarshalGenesis(types.DefaultGenesis())
 }
 
+// genesisDecodeError exposes the registered refusal to the SDK's Cause walk
+// while retaining the JSON decoder error for errors.As callers.
+type genesisDecodeError struct {
+	error
+	decodeErr error
+}
+
+func (e genesisDecodeError) Cause() error { return e.error }
+
+func (e genesisDecodeError) Unwrap() []error { return []error{e.error, e.decodeErr} }
+
 func (AppModuleBasic) ValidateGenesis(_ codec.JSONCodec, _ client.TxEncodingConfig, bz json.RawMessage) error {
 	var genState types.GenesisState
 	if err := json.Unmarshal(bz, &genState); err != nil {
-		return fmt.Errorf("%w: failed to unmarshal %s genesis state: %w", types.ErrInvalidGenesis, types.ModuleName, err)
+		return genesisDecodeError{
+			error:     types.ErrInvalidGenesis.Wrapf("failed to unmarshal %s genesis state: %v", types.ModuleName, err),
+			decodeErr: err,
+		}
 	}
 	return keeper.ValidateGenesis(genState)
 }

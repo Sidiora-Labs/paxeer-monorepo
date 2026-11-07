@@ -1,0 +1,16 @@
+[task.22.33.724]
+finding = "recovery_release_command_paths"
+audit = "22.30.170"
+proving_tests = ["test_recovery_release_command_paths", "test_documented_cli_retains_failed_input_evidence", "test_canonical_transport_reads_native_metrics"]
+repair = "Retain the already canonical collect, evaluate and unittest commands and document their canonical candidate snapshot, D16 transport and recovery provider sources."
+baseline = "No unchanged-tree verification ran: the ordered task rules require complete implementation, hf-build, then hf-done and prohibit running verify_cmd by hand. No prior gate ledger existed; pre-change failures are unmeasured."
+wiring_requests = []
+evidence = "The runner's private hf-build/hf-done ledger records the exact candidate revision, command, exit code and log path; no gate result is claimed here before it runs."
+
+[qualification.first_verify]
+revision = "77d00c799db9bdc87f18ad8720cbffac2a412d81"
+command = "cg spec done 22.33.724 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Two new changed-input cases expected ValueError instead of recovery.Invalid; the other ten cases passed."
+repair = "Assert the exact Invalid report and directly require the production digest mismatch exception and message."

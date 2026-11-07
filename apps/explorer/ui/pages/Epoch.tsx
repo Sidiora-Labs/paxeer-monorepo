@@ -13,6 +13,7 @@ import EpochDetails from 'ui/epochs/EpochDetails';
 import TextAd from 'ui/shared/ad/TextAd';
 import BlockEntity from 'ui/shared/entities/block/BlockEntity';
 import PageTitle from 'ui/shared/Page/PageTitle';
+import CeloEpochStatus from 'ui/shared/statusTag/CeloEpochStatus';
 
 const EpochPageContent = () => {
   const isMobile = useIsMobile();
@@ -81,8 +82,13 @@ const EpochPageContent = () => {
     <>
       <TextAd mb={ 6 }/>
       <PageTitle
+        kind="Epoch"
+        identifier={ number }
         title={ `Epoch #${ number }` }
-        contentAfter={ titleContentAfter }
+        tags={ <>
+          { epochQuery.data && <CeloEpochStatus isFinalized={ epochQuery.data.is_finalized } loading={ isLoading }/> }
+          { titleContentAfter }
+        </> }
         secondRow={ titleSecondRow }
         isLoading={ isLoading }
       />

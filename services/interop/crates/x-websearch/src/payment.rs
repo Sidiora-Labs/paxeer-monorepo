@@ -1,5 +1,5 @@
 //! Pay per request over 402LXP. Paid routes offer SID, PAX, USDC and USDL
-//! as metered draws and exact payments. The receiver signs metered draws
+//! as exact payments. Historical metered records remain readable. The receiver signed metered draws
 //! as legacy EIP-155 transactions to the ledger precompile, journalling
 //! their raw bytes and hash before broadcast. The payment store binds each
 //! payment, idempotency key and receipt to one request.
@@ -136,9 +136,13 @@ fn ledger_account(
     address: &[u8; 20],
     asset: &AcceptedAsset,
 ) -> Result<[u8; 32], SettlementError> {
+    ledger_account_for_owner(rpc, &ledger_owner_for_address(address), asset)
+}
+
+fn ledger_owner_for_address(address: &[u8; 20]) -> [u8; 32] {
     let mut owner = [0; 32];
     owner[12..].copy_from_slice(address);
-    ledger_account_for_owner(rpc, &owner, asset)
+    owner
 }
 
 fn ledger_account_for_owner(
@@ -1206,7 +1210,7 @@ impl PaymentGate {
                 return Err(GateError::Conformance);
             }
         }
-        let rpc = SettlementRpc::new(&config.evm.endpoint, config.evm.chain_id)
+        let rpc = SettlementRpc::new(&config.gateway.endpoint, config.evm.chain_id)
             .map_err(|_| GateError::Endpoint)?;
         let store = PaymentStore::open(&config.data_dir).map_err(GateError::Store)?;
         let lease = fs::OpenOptions::new()
@@ -1251,6 +1255,19 @@ impl PaymentGate {
             payment_lock: Mutex::new(()),
             _lease: lease,
         })
+    }
+
+    /// The configured settlement authority, shared by payment and readiness.
+    #[must_use]
+    pub const fn settlement_authority(&self) -> &SettlementRpc {
+        &self.rpc
+    }
+
+    #[must_use]
+    pub fn settlement_usable(&self) -> bool {
+        self.settlement_authority()
+            .sequencer_receipt(&[0; 32])
+            .is_ok()
     }
 
     #[must_use]
@@ -1334,15 +1351,14 @@ impl PaymentGate {
         })
     }
 
-    /// The offers for one request: per asset a metered draw bound to the
-    /// named payer's grant, then the exact alternative.
+    /// The supported exact settlement offer for each configured asset.
     ///
     /// # Errors
     /// Answers 400 for a request without a usable `Host` header.
     pub fn payment_required(
         &self,
         request: &Request,
-        payer: Option<[u8; 20]>,
+        _payer: Option<[u8; 20]>,
     ) -> Result<PaymentRequired, Response> {
         let host = request
             .header("Host")
@@ -1355,11 +1371,8 @@ impl PaymentGate {
             })
             .ok_or_else(|| Response::error(400, "missing_host"))?;
         let target = canonical_target(request)?;
-        let mut accepts = Vec::with_capacity(8);
+        let mut accepts = Vec::with_capacity(4);
         for asset in self.assets.all() {
-            if payer.is_some() {
-                accepts.push(self.offer(asset, METERED, payer)?);
-            }
             accepts.push(self.offer(asset, EXACT, None)?);
         }
         Ok(PaymentRequired {
@@ -2351,7 +2364,8 @@ impl<'Plane> Plane<'Plane> {
                     .into_iter()
                     .map(|log| SequencerLog::new(log.address, log.topics, log.data, log.log_index))
                     .collect(),
-                rung: answer.rung,
+                // Receipt and logs were verified; RPC block fields are not a commit proof.
+                rung: SettlementRung::Receipted,
             },
         }))
     }

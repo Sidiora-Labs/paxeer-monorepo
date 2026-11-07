@@ -1,0 +1,21 @@
+[repair.22.33.591]
+audit = "22.30.160"
+base_revision = "c507c9672abc2f15e1a78efb20471cead3ca61b5"
+verified_revision = "The authoritative candidate revision, command, exit and private evidence location are emitted by hf-done and retained in /out/run/gates.jsonl; no gate pass is claimed before that evidence exists."
+verify_cmd = "cargo test --locked --manifest-path services/explorer/services/smart-contract-verifier/smart-contract-verifier/Cargo.toml --test repair_22_33_591"
+baseline = "Not run: explicit implementation-first gate order forbids invoking verify_cmd by hand or before implementation; the integration target did not exist at the base, and no baseline failures are claimed."
+peer = "fixtures/repair_22_33_591_files.json copies the committed Sourcify files transcript from types.rs::files_try_from_api_files_response; the integration peer checks complete methods, routes and request JSON over loopback HTTP and serves that transcript, with explicit metadata mutations for boundary cases."
+proof_limit = "Both public verification APIs, real HTTP clients, Files/GetSourceFilesResponse decoders, shared Success conversion and production SolcInput codec execute in-process; native solc recompilation is not claimed because the task gate prohibits subprocess toolchains and native artifacts."
+wiring_request = "Domain 14: services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/tests/sourcify.rs owns the out-of-scope metadata-shaped server expectation and native compiler-backed recompilation coverage; update the canonical expectation and qualify recompilation there under a gate permitting solc."
+
+[finding.sourcify-settings-shape]
+tests = ["sourcify_settings_shape_legacy_libraries_both_paths", "sourcify_settings_shape_qualified_libraries_both_paths", "sourcify_settings_shape_empty_libraries_and_constructor_arguments", "sourcify_settings_shape_invalid_metadata_is_rejected_by_both_paths"]
+repair = "Both live paths share Metadata::from_value and Metadata::into_success: remove compilationTarget from settings, nest qualified libraries by source file (legacy unqualified names use the empty source namespace), preserve other settings, retain separate compilation-target fields and preserve import constructor arguments. The existing parse_response_from_files expectation now asserts the canonical compiler-input settings."
+
+[gotcha.baseline-order]
+observed = "The task steps request a pre-change verify run while the explicit Order permits only hf-build then hf-done after complete implementation and forbids running verify_cmd by hand."
+resolution = "Follow the explicit Order; record that no pre-change test evidence exists."
+
+[gotcha.recompilation-toolchain]
+observed = "Production SolcCompiler::compile invokes an external compiler process, while this repair gate expressly forbids subprocess toolchains and native artifacts."
+resolution = "Assert normalized settings and all sources through the real compiler-input codec on both HTTP paths; request compiler-backed qualification from the owning domain without claiming recompilation."

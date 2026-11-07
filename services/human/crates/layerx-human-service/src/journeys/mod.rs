@@ -1,5 +1,6 @@
 //! Durable, receipt-gated human journeys and their deterministic routing.
 
+mod bank_commit;
 mod engine;
 mod intent_submit;
 mod move_money;
@@ -10,11 +11,14 @@ mod wire;
 
 pub use layerx_client::sequencer::ReceiptKeyEntry;
 
+pub use bank_commit::{BankCommitEvidence, BankCommittedReceipt};
+
 pub use engine::{
-    AgentBoundary, AgentBoundaryError, AgentObservation, AgentPreparation, JourneyEngine,
-    JourneyError, JourneyKind, JourneyLeg, JourneyPhase, JourneyPlan, JourneyProgress,
-    JourneyState, JourneyStatus, NativeJourneyAdmission, NativeJourneyApprovalState,
-    NativeJourneyPreview, ReceiptLookup, ReceiptMaterial, VerifiedLegEvidence,
+    AgentBoundary, AgentBoundaryError, AgentObservation, AgentPreparation, ChainReceiptMaterial,
+    JourneyEngine, JourneyError, JourneyKind, JourneyLeg, JourneyPhase, JourneyPlan,
+    JourneyProgress, JourneyState, JourneyStatus, NativeJourneyAdmission,
+    NativeJourneyApprovalState, NativeJourneyPreview, ReceiptLookup, ReceiptMaterial,
+    VerifiedLegEvidence,
 };
 
 pub use intent_submit::{
@@ -34,15 +38,15 @@ pub use resolver::{
     BudgetCreation, BudgetRoute, ChangeSurface, CustodyRoute, Endpoint, EndpointConstructionError,
     EndpointKind, LimitRefusal, LimitRefusalError, LimitSource, Mechanism, MovementTerm,
     PayerGrantRoute, Relationship, Route, RouteError, RouteLeg, RouteRequest, RouteResolver,
-    SendRoute,
+    SendRoute, BANK_ADDRESS,
 };
 
 pub use router::{
     plan, plan_with_advisor, Advice, AdvisedPlan, AllowanceId, AllowanceKind, AllowanceScope,
-    Annotation, BalanceEntry, BudgetBinding, CandidateRef, CandidateSet, Constraints,
-    CustodyContext, Domain, ExecutableShape, FeeSchedule, LegBinding, LegMechanism, ObservedState,
-    PlannedLeg, Refusal, RequiredAuthority, RouteAdvisor, SignedAllowance, SignedPlan,
-    SigningRequirement, TopUpRecord, UnifiedIntent, UnifiedPlan,
+    Annotation, BalanceEntry, BalanceObservation, BudgetBinding, CandidateRef, CandidateSet,
+    Constraints, CustodyContext, Domain, ExecutableShape, FeeSchedule, LegBinding, LegMechanism,
+    ObservedState, PlannedLeg, Refusal, RequiredAuthority, RouteAdvisor, SignedAllowance,
+    SignedPlan, SigningRequirement, TopUpRecord, UnifiedIntent, UnifiedPlan,
 };
 
 #[derive(Clone, Debug, Eq, PartialEq)]

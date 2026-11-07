@@ -1,0 +1,6 @@
+[repair.go-services.13]
+target = "services/platform/perps-data/deploy"
+command = "cd services/platform/perps-data && go vet ./deploy/ && go test -count=1 ./deploy/"
+revision = "c31683c61b87eea00be98941431a38949fe5068b"
+result = "repaired"
+change = "Dockerfile.dockerignore includes the in-repository geth replacement and Dockerfile copies its module files before downloading dependencies."

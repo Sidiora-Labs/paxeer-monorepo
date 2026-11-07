@@ -1,0 +1,20 @@
+[repair.22.33.627]
+audit = "22.30.163"
+finding = "043"
+proofs = ["TestRepairM_627_RejectInvalidProposals", "TestRepairM_627_ValidProposalsReachAnte", "TestRepairM_627_MinimumGasPriceValidationPreserved"]
+path = "LegacyAmino proposal -> Subspace.Update -> FeesParams.Validate -> params keeper -> transaction codec -> ante fee checker and deduction decorator -> bank balances"
+baseline = "Not run: the explicit gate order prohibits verification before implementation; no baseline failure is claimed."
+wiring_requests = []
+evidence = "The runner records the candidate revision, command, exit and private log through hf-build and hf-done."
+qualification = "Verification at 0b8d59bd6b3bad15c6688a12784eb5b5b07a799f failed to compile the new test: TxBuilder does not expose SetFeePayer and Coins.Sub takes a slice; repaired both call sites without changing assertions."
+failed_command = "cg spec done 22.33.627 -f layerx-merge --root /work/paxeer-monorepo"
+failed_exit = 1
+failed_log = "/out/logs/verify-1.log; compiler details in /tmp/repair-m627.log"
+
+[qualification.requalify_1]
+revision = "3245df3f39534b148a135f7b69361d4d61522869"
+command = "cg spec done 22.33.627 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Real fee deduction rejected the fixture's 21-byte payer address while resolving MsgSend signers."
+repair = "Use a valid 20-byte fixture address; preserve the production path and every assertion."

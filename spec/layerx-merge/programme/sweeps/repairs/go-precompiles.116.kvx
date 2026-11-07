@@ -1,0 +1,6 @@
+[repair.go-precompiles.116]
+target = "precompiles/layerxagent/teeattestor"
+command = "CGO_ENABLED=1 go vet ./precompiles/layerxagent/teeattestor/ && CGO_ENABLED=1 go test -count=1 ./precompiles/layerxagent/teeattestor/"
+revision = "c69af8b6706e55a243bc0f3a0e184b872b900e14"
+result = "already-passing"
+change = "none"

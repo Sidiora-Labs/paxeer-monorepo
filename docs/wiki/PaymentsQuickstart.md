@@ -1,289 +1,258 @@
 # Payments developer path
 
-This path covers a wallet, custody-credit funding, an Asset transfer, token issuance,
-an LXT20 program, and an HTTP 402 payment. The wallet/token CLI, native Asset
-execution, public RPC, payment signer, and extended 402LXP flow described here
-are served by this tree. The LXT20 token and merchant examples live in
-`programs/sdk/rust/examples/token-lxt20` and
-`programs/sdk/rust/examples/payments-merchant`; their replay fixtures live in
-`programs/fixtures/pay5`.
+This guide covers a wallet, account funding, an Asset payment, token issuance,
+a Programs guest, and HTTP 402 payment evidence on the merged Paxeer network.
+The network runs `paxd`, including its kernel and block proposal path, with
+EVM chain ID `125` (`0x7d`). A successful payment is final when its block is
+committed. See [Protocol](Protocol.md) for execution and receipt semantics.
 
-For a shorter environment checklist, start with
-[Getting started](Getting-Started-Beta.md). Wire details are in
+Start with [Getting started](Getting-Started-Beta.md). Related references are
 [Assets](Assets.md), [Public JSON-RPC](PublicRpc.md),
-[Commitment levels](CommitmentLevels.md), and
-[SDK quickstarts](SdkQuickstarts.md).
+[Programs](Programs.md), and [SDK quickstarts](SdkQuickstarts.md).
 
 ## 1. Configure trusted inputs
 
-The published router origin is:
+Use the public node JSON-RPC at the root path:
 
 ```sh
-export RPC_URL=https://api-mainnet-beta.paxeer.network/rpc
+export RPC_URL=https://api-mainnet-beta.paxeer.network
+
+curl --fail-with-body --silent --show-error "$RPC_URL" \
+  --header 'Content-Type: application/json' \
+  --data '{"jsonrpc":"2.0","id":1,"method":"eth_chainId","params":[]}'
 ```
 
-You also need:
+The expected result is `"0x7d"`. Other public node names are
+`api1.mainnet-beta.paxeer.network` through
+`api14.mainnet-beta.paxeer.network`, also at the root path. Check chain ID
+before signing. Use integer base units for amounts and fee limits.
 
-- a custody deposit on Paxeer chain `125` for the account you fund;
-- a stored `LayerX-Key` gateway credential with the scopes required by the
-  operations you will submit;
-- the network id and a receipt policy obtained independently of the RPC
-  response being verified;
-- a fee limit in integer base units.
+The node serves the `px` account, history and capability reads at the root.
+The hosted gateway is an operator deployment with its own contract in
+[`openrpc.json`](../../services/platform/hosted/gateway/openrpc.json); it also
+carries the hosted `px_register` and `px_requestFunds` operations. A hosted
+client must obtain the endpoint and credentials from its operator. Consult
+`px_getCapabilities` before using a gated surface;
+unsupported precompile submissions return `-32003 surface_unavailable`.
+This guide submits signed EVM transactions directly to a node.
 
-The receipt-policy JSON contains `protocol_version` (`3`), `network_id`,
-64-hex `sequencer_id` and `sequencer_key`, inclusive `first_batch` and
-`last_batch`, and `checkpoint_context_digest`. Use `null` for the checkpoint
-digest when only execution or batch verification is required.
-
-For the disposable local cluster, run the existing cluster quickstart and
-source `build/beta-cluster/env`. Its exported `LAYERX_TEST_CA_FILE` is
-`build/beta-cluster/ca/ca.crt`; use that CA only for the cluster endpoints it
-was generated for. The public HTTPS hosts use their deployed certificate
-chain.
+For receipt verification, configure trusted signing keys with their valid
+height ranges independently of the receipt being checked. For committed
+proofs, also configure the trusted consensus chain and validator information.
+A key returned beside an untrusted receipt does not establish its authority.
 
 ## 2. Create or import a signing key
 
-Build the hosted CLI and put `services/platform/target/debug` on `PATH`. For a
-public identity, create an ordinary key and select it:
+Use a local EVM signer for type-2 (EIP-1559) transactions. Keep the private
+key in the wallet or signer. Ledger operations also require the EVM address
+to be bound to an Ed25519 DID key through the address precompile at
+`0x0000000000000000000000000000000000001004`.
 
-```sh
-cargo build --manifest-path tools/platform/cli/Cargo.toml
-export PATH="$PWD/services/platform/target/debug:$PATH"
-layerx key create alice
-layerx key default alice
-layerx wallet list
-```
+The binding sequence is:
 
-The OS keyring is the default. A headless host must configure the encrypted
-file store before creating the wallet; see
-[headless credential storage](../../tools/platform/cli/README.md#headless-credential-storage).
-`layerx wallet create` is emulator-only: it generates a key, registers the DID,
-and opens the native main account in that emulator. Against a public endpoint
-it returns `wallet_registration_unavailable` and generates no key. `wallet
-import` reads one 32-byte hexadecimal seed from standard input and never
-registers or funds the identity.
+1. Read `layerXBindNonce(address)` from the address precompile with `eth_call`.
+2. Sign the following exact bytes with the Ed25519 DID key:
+   `"LX:PAXEER-BIND:v1" || chainId:uint256be || evmAddress:20 || nonce:uint64be`.
+3. Submit `bindLayerX(bytes32 didPublicKey,bytes signature)` from that EVM
+   address, using the 64-byte Ed25519 signature. The EVM transaction supplies
+   the address owner's consent; the inner signature supplies the DID's consent.
+4. After commit, read `getLayerXDid(address)` and `getUnifiedAccount(address)`
+   to confirm the binding and main account identifier.
 
-Record the wallet's public DID and Ed25519 public key without exposing its
-seed:
+The DID is `did:layerx:<64 lowercase hex public-key characters>`. Each address
+and DID can have only one binding. The binding nonce is independent of the
+EVM transaction nonce. Exact message construction is in
+[`LayerXBindMessage`](../../modules/evm/types/layerx_binding.go), and the
+served ABI is [`precompiles/addr/abi.json`](../../precompiles/addr/abi.json).
 
-```sh
-export WALLET_DID='<did from layerx wallet list>'
-export WALLET_PUBLIC_KEY='<64-hex public key>'
-```
+## 3. Fund the account
 
-Public wallet registration and public DID history are not exposed by the CLI;
-those attempts return typed unavailable errors.
+Arrange a transfer of the native gas currency to the EVM address from a funded
+account. Read `eth_getBalance(address,"latest")` to confirm the gas balance.
+For a registered Asset, open the recipient's per-Asset account and fund it
+with an authorized ledger transfer, such as `payExact` below, or an issuer's
+`mint` operation. Confirm the Asset balance through `balanceOf` after commit.
+A gas balance and a per-Asset ledger balance are different reads.
 
-## 3. Fund the account through custody credit
-
-There is no public faucet. An account is funded by an authenticated custody
-credit: deposit into the custody precompile
-`0x0000000000000000000000000000000000001013` on Paxeer chain `125` through one
-of the [public RPC names](PublicRpc.md), then build the credit from that deposit's
-evidence, sign the funding activity with the account's own key, and submit it
-through the router. [Custody credit](Custody.md) documents every input and
-refusal.
-
-```sh
-python tests/bridge/custody_credit.py attest \
-  --rpc "$FIRST_RPC" --rpc "$SECOND_RPC" --comet-rpc "$COMET_RPC" \
-  --ca-bundle "$CA_BUNDLE" --disposable-identity "$IDENTITY" \
-  --profile custody.profile --network-id "$NETWORK_ID" \
-  --transaction "$DEPOSIT_TRANSACTION" --beneficiary "$WALLET_DID" \
-  --beneficiary-key "$WALLET_PUBLIC_KEY" --expected-amount "$AMOUNT" \
-  --output custody.credit
-build/tests/bridge/sign-credit custody.profile custody.credit "$WALLET_DID" \
-  "$WALLET_KEY" "$WALLET_SEQUENCE" "$TIMESTAMP_MS" funding.activity
-
-jq -cn --arg canonical "$(xxd -p funding.activity | tr -d '\n')" \
-  '{jsonrpc:"2.0",id:1,method:"lx_sendActivity",params:[$canonical,"executed"]}' |
-  curl --fail-with-body --silent --show-error "$RPC_URL" \
-    --header 'Content-Type: application/json' \
-    --header "Authorization: LayerX-Key $GATEWAY_KEY_ID:$GATEWAY_KEY_SECRET" \
-    --data-binary @- > funding-response.json
-```
-
-The credit's idempotency is the deposit nullifier in `custody.credit.nullifier`,
-so a repeated submission of the same deposit cannot credit it twice. A signed
-credit is admissible for five minutes; sign it right before submitting. Accept
-funding only after the `executed` outcome and a confirming `lx_getAccount`,
-`lx_getBalance`, or `lx_getBalances` read.
+The old custody-deposit-to-credit funding flow is retired. Do not use the
+old `0x1013` deposit, custody-credit attestation script, or credit signer as
+account funding instructions. The current ledger precompile is
+`0x000000000000000000000000000000000000101a`; its
+[ABI](../../precompiles/layerxledger/abi.json) is the source for the calls below.
 
 ## 4. Create and use an Asset
 
-Set your locally trusted receipt policy and fee ceiling:
+All methods in this section target the ledger precompile. Encode calldata
+with its ABI, submit writes as locally signed type-2 transactions for chain
+`125`, and send zero EVM `value`: these methods are nonpayable.
+
+| Operation | ABI method | Required preparation |
+| --- | --- | --- |
+| Register an Asset | `register(bytes32,bytes32,string,string,uint8,uint128,uint8,bytes)` | Issuer binding, derived Asset ID, salt, metadata, supply cap, issuer kind and custody reference |
+| Open an account | `openAccount(bytes32 assetId)` | Run from the bound owner of that account |
+| Mint units | `mint(bytes32 assetId,bytes32 accountId,uint128 amount)` | Authorized issuer and opened recipient account |
+| Pay | `payExact(bytes32 from,bytes32 to,bytes32 assetId,uint128 amount,uint64 expiresAtMs,bytes32 paymentReference)` | Funded source owned by the bound caller, opened destination, future expiry and payment reference |
+| Burn units | `burn(bytes32 assetId,bytes32 accountId,uint128 amount)` | Authority required by the ledger's burn rules |
+
+The Asset identifier is
+`SHA-256("LX:ASSET:v1" || issuer_did_id32 || salt32)`.
+A DID id32 is a derived identity identifier, not the raw public key. Derive
+account identifiers with `accountId(bytes32 owner,bytes32 assetId)` and read
+`accountOwner(bytes32 accountId)` to check ownership. Derivation alone does
+not open or fund an account. Use the `AccountOpened` event and a subsequent
+read to confirm registration.
+
+For a payment, `payExact` checks the binding and source ownership, reads the
+source sequence, constructs the native SEND payload and applies its ledger
+effects through the kernel. `paymentReference` is the native idempotency key;
+retain it with the signed transaction and reuse the recorded outcome when
+recovering the same payment. `expiresAtMs` must exceed the executing block's
+time in milliseconds. The ledger emits `PaymentExact` and `Transfer` logs.
+
+To submit any prepared call:
+
+1. Read `eth_getTransactionCount(sender,"pending")` for the EVM nonce.
+2. Set `to` to the ledger address, ABI-encode the method and arguments as
+   `data`, and set `value` to zero. Estimate gas with `eth_estimateGas` using
+   the actual `from`, `to`, `value`, and `data`.
+3. Choose EIP-1559 fee caps within the wallet's approved budget and sign
+   locally with type `2`, chain ID `125`, nonce, gas limit and those fee caps.
+4. Retain the raw signed bytes and their transaction hash before submitting.
+
+With `RAW_TX` set to the `0x`-prefixed signed transaction bytes:
 
 ```sh
-export RECEIPT_POLICY=/absolute/path/to/receipt-policy.json
-export FEE_LIMIT='<maximum fee in base units>'
+jq -cn --arg raw "$RAW_TX" \
+  '{jsonrpc:"2.0",id:2,method:"eth_sendRawTransaction",params:[$raw]}' |
+  curl --fail-with-body --silent --show-error "$RPC_URL" \
+    --header 'Content-Type: application/json' --data-binary @-
 ```
 
-Create a native Asset:
+Submission returns a transaction hash, not a payment success. After a timeout,
+recover that hash and receipt before authorizing another payment. Resubmitting
+the retained signed bytes preserves the transaction identity; creating a new
+nonce and payment reference creates a new payment attempt.
+
+## 5. Inspect Assets, balances, fees, and receipts
+
+Use `eth_call` with ledger ABI calldata for `getAsset(assetId)`,
+`balanceOf(accountId,assetId)`, `totalUnits(assetId)`, and
+`nextSequence(accountId,assetId)`. These are ledger reads; an ERC-20
+`balanceOf(address)` call has a different signature. Read EVM gas funds with
+`eth_getBalance`. The ledger ABI has no Asset enumeration method; use `px_listAssets` for
+the registered Asset list.
+
+`eth_estimateGas` estimates execution gas; `eth_gasPrice` is a price read.
+Neither reserves funds or guarantees successful execution. An included
+transaction can still revert and pay gas. Ledger refusals include
+`LXP_UNAUTHORIZED_DEBIT`, `LXP_EXPIRED`, `LXP_INSUFFICIENT_BALANCE`,
+`LXP_ASSET_PAUSED`, and `LXP_SEQUENCE_MISMATCH`; decode the revert rather
+than accepting a transaction hash as proof of transfer.
+
+With `TX_HASH` set to the submitted hash:
 
 ```sh
-layerx --rpc "$RPC_URL" --gateway-credential beta token create \
-  --symbol PAY --name 'Payment Token' --decimals 6 \
-  --supply-cap 1000000000 --salt "$(openssl rand -hex 32)" \
-  --receipt-policy "$RECEIPT_POLICY" --fee-limit "$FEE_LIMIT" \
-  --wait executed
+jq -cn --arg hash "$TX_HASH" \
+  '{jsonrpc:"2.0",id:3,method:"pax_sequencerReceipt",params:[$hash]}' |
+  curl --fail-with-body --silent --show-error "$RPC_URL" \
+    --header 'Content-Type: application/json' --data-binary @-
 ```
 
-The disclosure prints the derived Asset id. The id is
-`SHA-256("LX:ASSET:v1" || issuer_did_id32 || salt32)`. Store it, then open the
-recipient's per-Asset account before minting or transferring:
+The node receipt reports `submitted`, `receipted`, or `committed`.
+`receipted` supplies a signed execution result; `committed` also supplies
+`blockNumber` and `blockHash`. Require successful execution (`status` is
+`0x1`), the expected payment log, and committed block evidence before treating
+the payment as final. `eth_getTransactionReceipt` is the EVM receipt read;
+a null response is not a confirmed payment. Notifications are wake-ups for
+receipt reconciliation, not payment evidence.
 
-```sh
-export ASSET_ID='<64-hex Asset id>'
-export RECIPIENT_DID='<recipient DID>'
-
-layerx --rpc "$RPC_URL" --gateway-credential beta wallet open-account \
-  --asset "$ASSET_ID" --receipt-policy "$RECEIPT_POLICY" \
-  --fee-limit "$FEE_LIMIT"
-
-layerx --rpc "$RPC_URL" --gateway-credential beta token mint \
-  --asset "$ASSET_ID" --to "$RECIPIENT_DID" --amount 100 \
-  --receipt-policy "$RECEIPT_POLICY" --fee-limit "$FEE_LIMIT"
-```
-
-`wallet open-account` acts for the selected local wallet; run it with the
-recipient wallet selected when preparing the recipient account. Other writes
-use the same path:
-
-```sh
-layerx --rpc "$RPC_URL" --gateway-credential beta wallet send \
-  --to "$RECIPIENT_DID" --asset "$ASSET_ID" --amount 10 \
-  --wait executed --receipt-policy "$RECEIPT_POLICY" \
-  --fee-limit "$FEE_LIMIT"
-
-layerx --rpc "$RPC_URL" --gateway-credential beta token transfer \
-  --to "$RECIPIENT_DID" --asset "$ASSET_ID" --amount 10 \
-  --wait finalised --receipt-policy "$RECEIPT_POLICY" \
-  --fee-limit "$FEE_LIMIT"
-```
-
-The CLI obtains the identity sequence with
-`lx_getSequence([did, "identity"])` and the source-account sequence
-independently. For a debit it discloses and signs the native debit
-authorization before disclosing and signing the outer activity. The signing
-request is bound to the canonical bytes and disclosure; a changed disclosure,
-stale sequence, invalid signature, missing scope, failed native receipt, or
-missing commitment evidence exits nonzero.
-
-The signer accepts a typed `SigningRequest`, not arbitrary approval text. The
-activity disclosure names the activity type, actor, authority, payer and
-recipient roles, transfer or spending-limit amounts, Asset, fee limit,
-not-before/expiry bounds, idempotency key, optional EVM binding, and decoded
-payment. A SEND debit disclosure separately binds `from`, `to`, Asset, amount,
-source sequence, idempotency key, expiry, context, conditions, authorization
-kind, network, and protocol. Both disclosures are re-encoded and checked
-against the signature-message digest before a signature is released.
-
-Every invocation creates a new idempotency key. If a write times out or remains
-pending, retain its activity id and recover it rather than repeating the write:
-
-```sh
-layerx --rpc "$RPC_URL" --gateway-credential beta wallet receipt \
-  "$ACTIVITY_ID" --receipt-policy "$RECEIPT_POLICY" --wait finalised
-```
-
-`--timeout-seconds` is 1–300 and defaults to 60.
-
-## 5. Inspect Assets, balances, and fees
-
-Set `FROM_ADDRESS` to the sender's EVM address and `UNSIGNED_TX_HEX` to the
-unsigned EIP-1559 transaction hex to estimate its fee.
-
-```sh
-layerx --rpc "$RPC_URL" --gateway-credential beta wallet balance \
-  --did "$WALLET_DID"
-layerx --rpc "$RPC_URL" --gateway-credential beta token info "$ASSET_ID"
-layerx --rpc "$RPC_URL" --gateway-credential beta token list
-layerx --rpc "$RPC_URL" --gateway-credential beta wallet estimate-fee --from "$FROM_ADDRESS" "$UNSIGNED_TX_HEX"
-```
-
-The corresponding RPC methods are `lx_getBalances`, `lx_getAsset`,
-`lx_listAssets`, `eth_estimateGas`, and `eth_gasPrice`. Fee estimation multiplies
-the gas estimate at `pending` by the gas price. Snapshot-authentication labels
-are not finality claims, and a fee estimate neither reserves the fee nor proves
-that the transaction will execute.
-
-Live `receipts`, `checkpoints`, and `account` watches are unverified wake-ups.
-Always reconcile with a verified read or `wallet receipt` after a notification
-or stream closure.
+See [Protocol](Protocol.md#from-transaction-to-committed-receipt) for the
+verification boundary and [Portable receipt verifier](PortableVerifier.md)
+for proof tooling. The current receipt implementation is
+[`rpc/sequencer_receipt.go`](../../rpc/sequencer_receipt.go).
 
 ## 6. Build and deploy the LXT20 example
 
-The LXT20 example is a Programs ABI-v2 token backed by one native Asset. It is
-not a second ledger and does not mint native units.
+The LXT20 example is a Programs ABI-v2 guest backed by a registered native
+Asset. It moves real backing units between program-derived accounts and
+maintains token storage atomically with those transfers. Its eight exports
+are `initialize`, `transfer`, `approve`, `transfer_from`, `balance_of`,
+`allowance`, `total_supply`, and `metadata`.
+
+Build from each example directory so `programs/.cargo/config.toml` applies:
 
 ```sh
-cargo build \
-  --manifest-path programs/sdk/rust/examples/payments-merchant/Cargo.toml \
-  --target wasm32-unknown-unknown --release
+(cd programs/sdk/rust/examples/token-lxt20 && \
+  cargo build --locked --release --target wasm32-unknown-unknown)
+(cd programs/sdk/rust/examples/payments-merchant && \
+  cargo build --locked --release --target wasm32-unknown-unknown)
 ```
 
-Before funding, derive and register the program account for the selected
-Asset using `PreparedProgramAccount::registration_payload`. Include the
-generated ABI-v2 interface in the native Programs deploy activity. A registry
-record or state upload alone is not a deployment receipt.
+These are build instructions for the examples, not deployment commands.
+Configure the reference issuer, backing Asset and fixed supply before making
+a deployment, and regenerate the matching interface. Include the ABI-v2
+interface with the guest in the deployment. The merged Programs precompile
+is `0x000000000000000000000000000000000000101d`.
 
-The reference interface contains `initialize`, `transfer`, `approve`,
-`transfer_from`, `balance_of`, `allowance`, `total_supply`, and `metadata`.
-Recipients call `approve`, including approval of zero, once to register their
-derived program-account storage before receiving. Initialization stages the
-fixed supply from the issuer to the registered program account atomically.
-There is no LXT20 mint, burn, permit, or nested-call surface.
+Register each Asset-bound program account using
+`PreparedProgramAccount::registration_payload` before funding it. LXT20
+recipients must also call `approve`, including approval of zero, to register
+their derived account in the guest's storage. Initialization transfers the
+fixed supply from the issuer into its registered program account; it does
+not mint backing units. Calls require the exact funding or ProgramSpend
+authority. There is no LXT20 mint, burn, permit, or nested-call surface.
 
-For the exact account, grants, calldata, and receipt-read contract, see
-[Programs](Programs.md).
+The merchant guest stages one principal-funded deposit and two payouts as
+one atomic transfer set. See the
+[LXT20 example](../../programs/sdk/rust/examples/token-lxt20/README.md),
+[merchant example](../../programs/sdk/rust/examples/payments-merchant/README.md),
+and [Programs](Programs.md) for calldata, account registration, capabilities,
+and deployment details. Native examples and fixtures are development
+references; they do not establish a second live transaction endpoint.
 
 ## 7. Pay an HTTP 402 endpoint
 
-LayerX uses x402 v2 headers:
+The x402 v2 transport uses this exchange:
 
 1. The seller returns HTTP 402 with `PAYMENT-REQUIRED`.
-2. The buyer selects one offered requirement without changing it.
-3. The buyer returns `PAYMENT-SIGNATURE`.
-4. The seller releases the resource only after verifying the payment and
-   returns `PAYMENT-RESPONSE`.
+2. The buyer selects an offered requirement unchanged, including network
+   `eip155:125`, Asset, amount, destination and required commitment.
+3. For an `exact` offer, the buyer makes the ledger payment and returns
+   `PAYMENT-SIGNATURE` containing its receipt evidence and accepted requirement.
+4. The seller verifies the payment before releasing the resource and returns
+   `PAYMENT-RESPONSE`.
 
-For an `exact` offer, the buyer submits its canonical activity with
-`lx_sendActivity`, verifies the requested commitment, and puts the canonical
-receipt, receipt digest, and `sequencer-signed` verification label in the
-payment payload.
+The seller middleware's `layerx-receipt-proof-v2` evidence has
+`verificationLevel` (`receipted` or `committed`), `rawTransaction`,
+`signedReceipt`, `receiptDigest`, and `receiptKey` with `keyId`, `publicKey`,
+`firstHeight`, and `lastHeight`. It binds the transaction hash, signer,
+network, successful receipt and `PaymentExact` log to the offered payment.
+The receipt key must match locally trusted keys. A `committed` offer also
+requires consensus and transaction-inclusion evidence checked against trusted
+validator information; changing the verification label is insufficient.
 
-For `metered` or `subscription`, the challenge also binds
-`extra.layerx.payer`, `purposeHash`, and `commitment`; a subscription includes
-`windowSeconds`. The payer first signs and submits the 346-byte ordinal-7
-grant. The receiver prepares and signs a 733-byte ordinal-6 receive for each
-draw. The payment payload carries that exact receive and its idempotency key.
-The seller validates payer, recipient, Asset, amount, purpose, grant limits,
-expiry, network, and receiver authorization before submitting the draw.
+The successful response's `transaction` is the EVM transaction hash
+(`0x` plus 64 hex characters). The old Merkle-leaf-derived `lxp:` transaction
+identifier and protocol-v1 payment proof recipe are retired. Pending payment
+returns HTTP 202 without releasing the resource; retain the original payment
+identity for recovery.
 
-A metered grant is non-recurring with zero window length. A subscription grant
-is recurring and its window length must equal `windowSeconds`. Every renewal is
-a newly signed receive with current sequences and a distinct period
-idempotency key. The allowance alone does not prove one renewal per period.
-
-Pending draw state returns HTTP 202 without releasing the resource. The
-persistent draw store recovers the registered activity by id and never creates
-a replacement debit. Successful settlement is
-`lxp:<SHA-256("LXP/v1/merkle-leaf\\0" || canonical_receipt)>` and is accepted
-only after the requested `executed`, `batched`, or `finalised` evidence and all
-payment facts verify.
-
-See [x402 transport](X402Transport.md) for the header schemas and refusal
-behavior.
+The old payer-grant issue, revoke, read, and draw paths are retired in the
+ledger keeper and return `LXP_NO_PAYER_GRANT` (other validation or pause
+checks can refuse earlier). Do not use the former ordinal-7 grant and
+ordinal-6 receive recipe to fund metered or subscription payments. Middleware
+codecs retaining those schemes do not establish a live ledger grant route.
+See [x402 transport](X402Transport.md) and the
+[seller implementation](../../services/platform/middleware/seller/src/index.ts)
+for the transport contract.
 
 ## CLI and MCP boundaries
 
-The payment MCP catalogue has 20 tools
-(`services/agent/crates/layerx-mcp/src/server.rs:51`). Its payment writes are
-`wallet.send`, `token.create`, `token.mint`, `token.transfer`, `grant.issue`,
-and `grant.draw`; they use the daemon's ordinary prepare, disclose, sign,
-submit, and track stages. Burn, account-open, Asset info/list, fee estimate,
-receipt wait, and live watch are not in the catalogue and are not CLI commands
-in this tree either (`tools/platform/cli/src/main.rs:44-84`).
+CLI, SDK, and MCP integrations are clients of network authority. A tool
+catalogue or emulator command does not prove a public deployment supports
+that operation. Check the served ABI and, for hosted calls, the gateway
+capabilities before choosing a signing or submission path. Keep approval
+bound to the destination, Asset, amount, expiry, payment reference and fee
+budget; recover uncertain outcomes from retained transaction evidence.
 
-[Home](Home.md)
+[Protocol](Protocol.md) · [Home](Home.md)

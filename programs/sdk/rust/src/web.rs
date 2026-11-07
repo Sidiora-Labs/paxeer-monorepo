@@ -1,8 +1,22 @@
-//! Web answers committed for requests the calling program owns.
+//! Frozen web-answer decoding and the retired program read import.
 //!
-//! The host serves only answers already committed in module storage, so a
-//! read never waits on the network. A request owned by any other program
-//! reads as absent, exactly like a request with nothing committed.
+//! Program `web_read` is retired after the merge (decision 1977, requirement
+//! 181323.1). The frozen `layerx_v4::web_read` import is compatibility-only:
+//! the native kernel returns `LXP_ERR_MODULE_DISABLED`, which the runtime maps
+//! to invalid encoding and the guest observes as `HostRefusal::Invalid` (-2).
+//! The web-reader example consequently reverts `LXP_NON_CANONICAL`.
+//!
+//! Read committed answers through xweb's `Query.ProgramResult` with a 32-byte
+//! `program_id` and `request_id` (`api/xweb/query.proto`). The server in
+//! `modules/xweb/keeper/grpc_query_program.go` calls the keeper's
+//! `GetProgramResult`, which scopes stored answers to that owning program and
+//! request pair and validates the header, lengths and response chunks. A request
+//! id alone is not ownership: a foreign program's pair does not expose an answer.
+//! This public query's program scope is not caller authentication.
+//!
+//! [`Answer`] and its little-endian record layout remain frozen for historical
+//! compatibility. Decoding such a record does not prove ownership or make the
+//! retired import available; the query response has its own protobuf layout.
 use crate::error::{Field, ProgramError, Reason};
 
 /// Fixed bytes preceding the response: content digest, full response length
@@ -12,7 +26,7 @@ pub const ANSWER_HEADER_BYTES: usize = 40;
 pub const MAX_RESPONSE_BYTES: usize = 4_096;
 /// Buffer length that holds every committed answer record.
 pub const RECORD_BYTES: usize = ANSWER_HEADER_BYTES + MAX_RESPONSE_BYTES;
-/// Host status for a request with no committed answer.
+/// Historical host status for a request with no committed answer.
 pub const STATUS_ABSENT: i32 = -7;
 
 /// One committed web answer borrowed from the caller's record buffer.
@@ -24,7 +38,7 @@ pub struct Answer<'a> {
 }
 
 impl<'a> Answer<'a> {
-    /// Decodes the exact record the host writes into guest memory.
+    /// Decodes the frozen historical guest record, without checking ownership.
     ///
     /// # Errors
     ///
@@ -64,14 +78,19 @@ impl<'a> Answer<'a> {
     }
 }
 
-/// Reads the committed answer for one request this program owns.
+/// Calls the retired, compatibility-only `layerx_v4::web_read` import.
 ///
-/// Returns `None` when nothing is committed for the request.
+/// On the merged native kernel every request is refused: the kernel reports
+/// `LXP_ERR_MODULE_DISABLED`, and the guest receives `HostRefusal::Invalid` (-2).
+/// Use xweb's `Query.ProgramResult` / keeper `GetProgramResult`, scoped by the
+/// owning program id and request id, to read committed answers instead.
+/// The `Option` result and frozen decoding types preserve the historical ABI;
+/// `None` describes historical absence, not the merged kernel's refusal.
 ///
 /// # Errors
 ///
-/// Returns the typed refusal the host produced for a malformed request or
-/// buffer, or a value error for a record that does not decode.
+/// Returns the host's typed refusal (including retirement), or a value error
+/// for a historical record that does not decode.
 #[cfg(target_arch = "wasm32")]
 pub fn read(
     request_id: u64,

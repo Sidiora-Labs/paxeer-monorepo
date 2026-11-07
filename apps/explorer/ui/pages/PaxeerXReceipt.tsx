@@ -32,7 +32,7 @@ const REQUEST_TIMEOUT = 15_000;
 const MAX_RETRY_INTERVAL = 30_000;
 
 const terminal = (data: PaxeerXArchiveReceipt | undefined) =>
-  data?.verification_status === 'settlement_anchored';
+  data?.frozen === true;
 
 const admissible = (next: PaxeerXArchiveReceipt, id: string, previous?: PaxeerXArchiveReceipt) => {
   if (!next || typeof next.id !== 'string' || next.id.toLowerCase() !== id.toLowerCase() ||
@@ -166,10 +166,10 @@ const ReceiptContent = ({ id, chainId }: { id: string; chainId?: string }) => {
   const data = evidence?.data;
   const isLoading = !data && !problem;
   let freshnessState: 'current' | 'refreshing' | 'stale' | 'paused' | 'complete';
-  if (problem || !availability.online) {
-    freshnessState = 'stale';
-  } else if (isTerminal) {
+  if (isTerminal) {
     freshnessState = 'complete';
+  } else if (problem || !availability.online) {
+    freshnessState = 'stale';
   } else if (!availability.visible) {
     freshnessState = 'paused';
   } else if (receiptQuery.isFetching) {
@@ -177,10 +177,16 @@ const ReceiptContent = ({ id, chainId }: { id: string; chainId?: string }) => {
   } else {
     freshnessState = 'current';
   }
+  let freshnessMessage = problem;
+  if (isTerminal) {
+    freshnessMessage = 'Recorded archive verification status. This historical evidence is frozen; automatic refresh stopped.';
+  } else if (!availability.online) {
+    freshnessMessage = 'Offline. Retaining the last indexed evidence.';
+  }
   const freshness = {
     state: freshnessState,
     checkedAt: evidence?.receivedAt,
-    message: !availability.online ? 'Offline. Retaining the last indexed evidence.' : problem,
+    message: freshnessMessage,
   };
 
   const apiEntry = apiDocsFeature.isEnabled ? (

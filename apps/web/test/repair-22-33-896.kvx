@@ -1,0 +1,11 @@
+[repair.22.33.896]
+audit = "22.30.185"
+baseline = "Not run: the explicit implementation-first and hf-build/hf-done gate order forbids the contradictory pre-change verify request; no baseline failures are claimed."
+human-build-runtime-origin = "human_build_runtime_origin: frozen production rewrites, deployment origin changed twice, real browser and server generated clients, HTTPS loopback peers, authenticated reads and writes, response codecs, both browser aliases and readiness; human_origin_validation and human_proxy_path_boundary prove rejection."
+implementation = "Internal rewrites call the Node runtime route; proxy and server client share humanServiceOrigin validation and read the same runtime LAYERX_HUMAN_SERVICE_URL, with no build-time backend destination."
+wiring_request = "docker/web/Dockerfile (owning domain 16): remove the obsolete Human build ARG; services/platform/hosted/human/web-deployment.yaml (owning domain 8): retain the runtime Human URL and CA mount as the authoritative backend configuration and use /readyz for Human readiness."
+evidence = "The runner records the exact verified candidate revision, command, exit and private log in its hf-done ledger; no gate result is claimed before that record exists."
+
+[gotcha.dependency-snapshot]
+observed = "The gate wrapper force-adds ignored installed dependencies when snapshotting apps/web; snapshot preparation was interrupted before any build command or gate ledger entry."
+resolution = "Keep installed dependencies under the generated apps/web/dist/node_modules directory, preserving external package links, with apps/web/node_modules pointing there; no dependency source is published."

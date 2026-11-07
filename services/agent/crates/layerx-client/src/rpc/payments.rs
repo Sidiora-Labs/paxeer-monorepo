@@ -1,19 +1,11 @@
 //! Payment operations over JSON-RPC.
 
-use crate::lni::schema::Version;
 use crate::px::{PxAssetEntry, PxAssetTable};
 use crate::sequencer::SequencerError;
 
 pub type CallRequest = crate::sequencer::CallRequest;
 pub type SequencerEndpoint = crate::sequencer::SequencerEndpoint;
 pub type PxEndpoint = crate::px::PxEndpoint;
-
-#[derive(Clone, Copy, Debug)]
-pub struct SnapshotContext {
-    pub interface_version: Version,
-    pub correlation_id: u64,
-    pub minimum_sequence: u64,
-}
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct CommittedSnapshot<T> {
@@ -55,11 +47,14 @@ pub fn list_assets(endpoint: &PxEndpoint) -> Result<PxAssetTable, SequencerError
     endpoint.list_assets()
 }
 
-pub fn get_asset(endpoint: &PxEndpoint, asset: [u8; 32]) -> Result<PxAssetEntry, SequencerError> {
+pub fn get_asset(
+    endpoint: &PxEndpoint,
+    asset: impl AsRef<str>,
+) -> Result<PxAssetEntry, SequencerError> {
     list_assets(endpoint)?
         .assets
         .into_iter()
-        .find(|entry| entry.asset_id == asset)
+        .find(|entry| entry.asset_id == asset.as_ref())
         .ok_or(SequencerError::Unavailable)
 }
 

@@ -1,0 +1,8 @@
+[repair.rust-test-platform.10]
+target = "layerx-platform-paxeer-boundary"
+command = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-paxeer-boundary --no-fail-fast"
+revision = "c56bf8dab2a36860f56543433ebe85802b492d14"
+result = "repaired"
+change = "services/platform/hosted/paxeer/requirements.txt declares the cryptography dependency used by evm.py and settlement_domains."
+producer_input_tests = ["real_paxd_boundary: requires build/paxd (or PAXD naming a current paxd binary), Foundry cast, OpenSSL and the cryptography Python package; LAYERX_PAXEER_TEST_DEPLOY_DIR supplies deployment inputs when deployment qualification is requested."]
+verify_command = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-paxeer-boundary --no-fail-fast -- --skip real_paxd_boundary"

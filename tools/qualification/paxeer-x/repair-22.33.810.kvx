@@ -1,0 +1,46 @@
+[meta]
+task = "22.33.810"
+audit = "spec/layerx-merge/programme/audit/records/22.30.178.kvx"
+base_revision = "7988614413df79a83ae525988b7636ae368938a2"
+test_module = "tools/qualification/paxeer-x/tests/test_repair_22_33_810.py"
+verified_revision_record = "/out/run/gates.jsonl: final hf-done entry records the exact candidate revision, command, exit and private log"
+
+[baseline]
+attempt = 4
+revision = "331a7504612ead0cff83a83ff0fc772aa8351f87"
+command = "python3 -m pytest -q tools/qualification/paxeer-x/tests/test_repair_22_33_810.py"
+exit = 2
+observed = "Collection failed with ModuleNotFoundError: native_evidence; no tests executed. Continuing the supplied tree without repeating the recorded unchanged gate."
+
+[finding.48]
+class = "retired-reference"
+repair = "Discover current native Programs ABI, committed execution and registry publication through paxd root RPC and authenticated registry HTTP; reopen retained peers for recovery."
+tests = ["test_f48_native_registry_discovery_and_reopen", "test_f48_native_registry_refuses_interface_substitution", "test_f48_registry_publication_authentication_idempotency_and_restart", "test_f48_qualify_restart_uses_current_native_and_registry_consumers"]
+
+[finding.49]
+class = "retired-reference"
+repair = "Acquire committed native history independently, encode v4 archives and verify finalized manifest/chunk transport, corruption refusal and restarted consumers."
+tests = ["test_f49_committed_v4_producer_transport_consumers_and_reopen", "test_f49_mirror_corruption_identity_and_finality_refused", "test_f49_independent_native_acquisition_refusals"]
+
+[finding.50]
+class = "retired-reference"
+repair = "Activate staged registry publication and direct paxd/gateway consumers with retained identity and negative activation checks."
+tests = ["test_f50_direct_bootstrap_stages_consumers_and_recovery", "test_f50_activation_refusals_retain_state_and_identity", "test_f50_negative_gateway_activation_never_publishes_success"]
+
+[finding.51]
+class = "config-drift"
+repair = "Require api1 through api14.mainnet-beta.paxeer.network plus api-mainnet-beta.paxeer.network, root RPC observations and before/after DNS evidence."
+tests = ["test_f51_fourteen_hosts_aggregate_root_and_runtime_dns", "test_f50_direct_bootstrap_stages_consumers_and_recovery"]
+
+[finding.52]
+class = "retired-reference"
+repair = "Bind owner material to merged genesis and governed receipt keys; preserve authorization, private inputs, original paired journals and immutable restart evidence."
+tests = ["test_f52_owner_authorization_native_trust_private_journals_and_restart", "test_f52_owner_native_trust_and_material_refusals", "test_f52_owner_purpose_authorization_and_unchanged_pending_intent"]
+
+[fixture_replacement]
+path = "tools/qualification/paxeer-x/fixtures/xweb_fixture.py"
+replacement = "fixtures/xweb_native_evm.py uses services/agent/sdk/python/layerx_sdk/evm_transaction.py and account_derivation.py instead of the retired hosted/paxeer/evm.py import; real SDK-signed transactions traverse root JSON-RPC."
+tests = ["test_xweb_maintained_sdk_producer_root_rpc_consumer_and_reopen", "test_xweb_native_transport_and_execution_refusals", "test_xweb_native_private_key_refusals"]
+
+[wiring]
+owner_module = "services/platform/hosted/human/merged_owner.py: owning domain 13 (Human) maintains the native owner producer's evm.py dependency restored by 22.31.467; no out-of-scope change made here."

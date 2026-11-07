@@ -3,10 +3,12 @@ import {
   eip1559SigningHash,
   keccak256,
   recoverEip1559Sender,
+  verifySequencerReceipt,
   type Eip1559Transaction,
 } from "@sidiora/layerx-sdk";
 import {
   LAYERX_LEDGER_ADDRESS,
+  type PortableNodeReceiptV2,
   type PaymentPayload,
   type PaymentRequired,
   type PaymentRequirements,
@@ -95,6 +97,7 @@ export interface ReceiptFacts {
 
 export interface SignedReceipt extends PortableReceiptV2 {
   readonly txHash: string;
+  readonly receiptJson: PortableNodeReceiptV2["receiptJson"];
 }
 
 export async function buildSignedReceipt(
@@ -189,12 +192,20 @@ export async function buildSignedReceipt(
   signed.u8(1);
   signed.bounded64(signature);
   const signedReceipt = signed.finish();
+  const verified = await verifySequencerReceipt(signedReceipt, rawTransaction, [{
+    keyId: key.keyId, publicKey: key.publicKey,
+    first_height: key.firstHeight, last_height: key.lastHeight,
+  }]);
+  const { receipt } = verified;
+  const body = receipt.effects[0]!.body;
+  const view = new DataView(arrayBuffer(body));
+  const quantity = (value: bigint | number): string => `0x${value.toString(16)}`;
   return {
     format: "layerx-receipt-proof-v2",
     verificationLevel: "receipted",
     rawTransaction: hex(rawTransaction),
     signedReceipt: hex(signedReceipt),
-    receiptDigest: hex(keccak256(signedReceipt)),
+    receiptDigest: hex(verified.receiptDigest),
     receiptKey: {
       keyId: hex(key.keyId),
       firstHeight: `0x${key.firstHeight.toString(16)}`,
@@ -202,6 +213,20 @@ export async function buildSignedReceipt(
       publicKey: hex(key.publicKey),
     },
     txHash: hex(txHash),
+    receiptJson: {
+      rung: "receipted", txHash: hex(receipt.activityId), nonce: quantity(receipt.fromSequence),
+      seq: quantity(receipt.globalSequence), height: quantity(verified.height), index: quantity(view.getUint32(24, false)),
+      timestamp: quantity(receipt.timestamp), status: quantity(receipt.resultCode === 0 ? 1 : 0),
+      returnData: "0x", logs: [{ address: hex(ledger),
+        topics: [hex(logBody.subarray(21, 53)), hex(reference), hex(facts.from), hex(facts.payTo)],
+        data: hex(logData), logIndex: "0x0" }],
+      gasUsed: quantity(view.getBigUint64(0, false)), cumulativeGasUsed: quantity(view.getBigUint64(8, false)),
+      effectiveGasPrice: quantity(view.getBigUint64(16, false)), paymentDenom: "uhpx",
+      feeDenom: new TextDecoder().decode(body.subarray(109)), feeAmount: quantity(receipt.feeCharged),
+      sponsor: hex(body.subarray(48, 68)), from: hex(receipt.from.subarray(12)), to: hex(receipt.to.subarray(12)),
+      contractAddress: hex(body.subarray(28, 48)), vmError: "", keyId: hex(receipt.contextHash),
+      signingKey: hex(verified.receiptKey.publicKey), receipt: hex(signedReceipt),
+    },
   };
 }
 

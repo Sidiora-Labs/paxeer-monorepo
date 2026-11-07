@@ -1,0 +1,10 @@
+[repair.22.33.974]
+finding = "error-beacon-byte-limit"
+implementation = "route.ts counts streamed bytes into a fixed 64 KiB buffer, cancels on overflow, and decodes only accepted bytes."
+proof = "repair-22-33-974.test.ts: errorBeaconByteLimitCancelsChunkedUploads and errorBeaconByteLimitCountsMultibyteBytes prove the repair; the remaining tests preserve boundary delivery, split UTF-8, Sentry metadata, validation and read-error responses."
+baseline = "Not run: the explicit gate order requires complete implementation before hf-build and hf-done, and forbids a manual verify run; no pre-change failure is claimed."
+evidence = "The runner's hf-done ledger records the exact verified candidate revision, command, exit code and private log path."
+wiring_requests = []
+qualification_repair = "Initial hf-build at 098d02ab9f11cd8599ca387a1d306bdfb3e31db7 exited 2 (pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json; /out/logs/build-1.log): the Next.js Sentry entry point does not export Envelope; the test now derives its envelope and transport types from the public client API."
+registration_repair = "hf-done at 3145f0948c50eb911d2b59207744c1a3e27b00a6 exited 0 (/out/logs/verify-1.log), but Vitest reported five TODO tests and zero executions for test(function); registrations now pass both the function name and callback. That earlier result is not behavioral qualification."
+requalification_repair = "hf-done at b9e1c71a4286eec64088d60563896d9a23d1f740 exited 1 (/out/logs/verify-1.log): the native ESM namespace omits Sentry's dynamically re-exported CommonJS APIs; the route and test use the real CommonJS default export, and the test flushes and closes the initialized client with every assertion retained."

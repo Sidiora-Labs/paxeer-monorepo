@@ -1408,6 +1408,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2",
+ "shlex",
  "subtle",
  "tempfile",
  "toml_edit",
@@ -1423,9 +1424,7 @@ dependencies = [
  "ed25519-dalek",
  "layerx-programs-runtime",
  "layerx-programs-sandbox",
- "layerx-proof",
  "layerx-types",
- "layerx-wire",
  "serde",
  "serde_json",
  "sha2",
@@ -1462,7 +1461,6 @@ dependencies = [
  "ed25519-dalek",
  "layerx-program-sdk",
  "sha2",
- "spin",
 ]
 
 [[package]]
@@ -1517,10 +1515,12 @@ dependencies = [
 name = "layerx-sdk"
 version = "0.1.0"
 dependencies = [
+ "ed25519-dalek",
  "layerx-agent-api",
  "layerx-client",
  "layerx-crypto",
  "layerx-mirror",
+ "layerx-programs-registry",
  "layerx-proof",
  "layerx-types",
  "layerx-wire",

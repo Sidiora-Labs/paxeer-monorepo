@@ -1,0 +1,28 @@
+[repair.22.31.568]
+acceptance = "22998.1"
+gotcha = 3244
+decision = 2666
+continuation_gotcha = 3253
+continuation_decision = 2671
+implementation = "Signed inclusion verifies the independent batch authorization and Merkle proof before decoding the receipt module. Modules above KERNEL_MODULE_COUNT use governed receipt keys converted to SequencerAuthorization height ranges by select_receipt_key, shared with verify_current_receipt; kernel modules retain the historical batch key. Both cumulative consumers pass installed receipt keys, and protocol-version and sequence checks remain intact. Both cumulative activity decoders register a node activity under its peeked kernel activity module and retain decoded identity and type checks; kernel receipts retain receipt-module equality and every existing check."
+
+[tests]
+governed = "governed_receipt_key_authenticates_node_cumulative_use asserts a one-entry signed-inclusion window authenticates module 12 operation 2 with the governed key ID equal to its context hash, heights 1 through u64::MAX, and a distinct batch signing key."
+missing = "node_cumulative_use_without_governed_keys_refuses_sequencer_signature asserts the same node evidence is refused at SequencerSignature without installed receipt keys."
+kernel = "kernel_cumulative_use_keeps_the_batch_authorization_key asserts modules 1 and 11 still authenticate under the batch key, both without and with an independent governed receipt key."
+mismatch = "node_cumulative_use_refuses_activity_receipt_mismatch pairs a different real signed activity with an otherwise authenticated node receipt and asserts ActivityReceiptMismatch."
+encoding = "Activities use typed signed-envelope encoders and real Ed25519 signatures. Receipts and headers use layerx-wire Encoder, decode and byte-exact re-encoding, real Ed25519 digest signatures, and real Merkle proofs."
+
+[qualification]
+ledger = "/out/run/gates.jsonl"
+revision = "Read the exact candidate revision from the final build and verify ledger rows; successful build and verification must name the same revision."
+build_command = "cargo build --locked --manifest-path services/agent/crates/layerx-agentd/Cargo.toml --tests"
+verify_command = "cg spec done 22.31.568 -f layerx-merge --root /work/paxeer-monorepo"
+verify_test_command = "cargo test --locked --manifest-path services/agent/crates/layerx-agentd/Cargo.toml --test repair_22_31_568"
+dependent_check = "hf-done runs the dependent-crate check at the candidate revision before verification; exact commands and exits are in the log named by the dependents ledger row."
+results = "Exact revision, command, exit code and private evidence log are recorded by reference in the final build, dependents and verify ledger rows. This record claims no gate result before execution and is not amended after qualification."
+
+[interface_limitation]
+observed = "PaymentDrawn amount extraction lacks event data: node/sequencer/receipt.go LogEffect and layerx-proof/src/sequencer_logs.rs check_log define log bodies as address, topic count, topics and SHA-256 of data; RawActivityReceiptEvidence carries only canonical activity and receipt evidence, with no served logs."
+assumption = "Signed protocol amount accounting remains intact; extracting PaymentDrawn event amounts requires an event-data ingress bound by verify_logs, which is not present in the scoped cumulative evidence interface."
+evidence = "The final build and verify ledger rows above identify the exact revision, commands, exit codes and private logs for the implemented signature and identity repair; the four declared tests do not establish PaymentDrawn event amount extraction."

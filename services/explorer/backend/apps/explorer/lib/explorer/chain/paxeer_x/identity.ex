@@ -74,6 +74,17 @@ defmodule Explorer.Chain.PaxeerX.Identity do
     end
   end
 
+  @spec pax_address(Hash.Address.t() | <<_::160>>) :: String.t()
+  def pax_address(%Hash{bytes: bytes}), do: pax_address(bytes)
+
+  def pax_address(<<_::160>> = bytes) do
+    {:ok, values} = convert_bits(:binary.bin_to_list(bytes), 8, 5, true)
+    values = :binary.bin_to_list(values)
+    checksum = bxor(polymod(hrp_expand(@pax_hrp) ++ values ++ [0, 0, 0, 0, 0, 0]), 1)
+    check_values = for shift <- [25, 20, 15, 10, 5, 0], do: band(bsr(checksum, shift), 31)
+    @pax_hrp <> "1" <> to_string(Enum.map(values ++ check_values, &Enum.at(@bech32_charset, &1)))
+  end
+
   @doc """
   The DID of a 32-byte kernel key, lower case hexadecimal without the `0x` prefix.
   """

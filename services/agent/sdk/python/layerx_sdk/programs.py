@@ -7,6 +7,7 @@ from threading import RLock
 from time import time_ns
 from typing import Literal, cast
 
+from .evm_transaction import decode_signed
 from .native_program_call import NativeProgramCall, encode_native_program_call, native_guest_abi_for_protocol
 from .production import IdempotencyKey, PlatformSdkError, ProductionClient, SdkErrorCode
 from .program_lifecycle import NativeProgramLifecycleRequest
@@ -18,9 +19,11 @@ from .program_wire import (
     verify_native_program_call_signature,
 )
 from .verifier import (
-    AuthorizedReceiptBatch,
     LocalSignatureVerifier,
+    ReceiptKey,
     ReceiptVerification,
+    SequencerReceiptVerification,
+    verify_sequencer_receipt,
 )
 
 ProgramCapability = Literal["storage_read", "storage_write", "transfer", "emit_event", "compose"]
@@ -121,6 +124,7 @@ class ProgramTrustContext:
 
     protocol_version: int = 2
     network_id: int | None = None
+    receipt_keys: tuple[ReceiptKey, ...] = ()
 
     def __post_init__(self) -> None:
         if (
@@ -135,6 +139,17 @@ class ProgramTrustContext:
             or not 0 < self.maximum_simulation_age_milliseconds <= _MAX_U64
         ):
             raise ValueError("invalid pinned sequencer key")
+        if not isinstance(self.receipt_keys, tuple) or any(
+            not isinstance(key, ReceiptKey)
+            or not isinstance(key.key_id, bytes) or len(key.key_id) != 32 or not any(key.key_id)
+            or not isinstance(key.public_key, bytes) or len(key.public_key) != 32 or not any(key.public_key)
+            or type(key.first_height) is not int or type(key.last_height) is not int
+            or not 0 < key.first_height <= key.last_height <= _MAX_U64
+            for key in self.receipt_keys
+        ):
+            raise ValueError("invalid pinned receipt keys")
+        if len({key.key_id for key in self.receipt_keys}) != len(self.receipt_keys):
+            raise ValueError("duplicate pinned receipt key ID")
         object.__setattr__(self, "sequencer_public_key", bytes(self.sequencer_public_key))
 
     def now_milliseconds(self) -> int:
@@ -179,22 +194,25 @@ def _evidence_bytes(execution: Mapping[str, object], field: str) -> bytes:
     return bytes.fromhex(value)
 
 
-def verify_lifecycle_recovery(result: object, expected_activity: str, sequencer: bytes, signatures: LocalSignatureVerifier) -> ReceiptVerification:
+def verify_lifecycle_recovery(result: object, expected_activity: str, sequencer: bytes, signatures: LocalSignatureVerifier, *, signed_activity: bytes, receipt_keys: tuple[ReceiptKey, ...]) -> ReceiptVerification:
     if not isinstance(result, dict) or set(result) != {"activity_id", "receipt"} or result.get("activity_id") != expected_activity:
         raise ValueError("lifecycle recovery binding")
     receipt = result["receipt"]
     if not isinstance(receipt, str) or not 0 < len(receipt) <= 2_097_152 or len(receipt) % 2 or any(character not in "0123456789abcdef" for character in receipt):
         raise ValueError("lifecycle recovery receipt")
-    return verify_program_lifecycle_receipt(bytes.fromhex(receipt), bytes.fromhex(expected_activity), sequencer, signatures)
+    verified = _verify_program_transaction(bytes.fromhex(receipt), signed_activity, receipt_keys)
+    if verified.receipt.activity_id.hex() != expected_activity:
+        raise ValueError("lifecycle recovery binding")
+    return verified
 
 
 def _unknown_lifecycle_submission(binding: DecodedSignedProgramCall) -> Mapping[str, str | int]:
     return {"state": "unknown", "activity_id": binding.activity_id, "idempotency_key": binding.idempotency_key, "retained_signed_activity": binding.canonical_bytes.hex()}
 
 
-def resolve_lifecycle_response(result: object, binding: DecodedSignedProgramCall, sequencer: bytes, signatures: LocalSignatureVerifier) -> Mapping[str, str | int]:
+def resolve_lifecycle_response(result: object, binding: DecodedSignedProgramCall, sequencer: bytes, signatures: LocalSignatureVerifier, *, receipt_keys: tuple[ReceiptKey, ...]) -> Mapping[str, str | int]:
     try:
-        return _verify_lifecycle_submission(result, binding, sequencer, signatures)
+        return _verify_lifecycle_submission(result, binding, sequencer, signatures, receipt_keys=receipt_keys)
     except (ValueError, TypeError, PlatformSdkError):
         return _unknown_lifecycle_submission(binding)
 
@@ -205,7 +223,13 @@ def resolve_lifecycle_failure(error: PlatformSdkError, binding: DecodedSignedPro
     raise error
 
 
-def _verify_lifecycle_submission(result: object, binding: DecodedSignedProgramCall, sequencer: bytes, signatures: LocalSignatureVerifier) -> Mapping[str, str | int]:
+def _verify_lifecycle_submission(result: object, binding: DecodedSignedProgramCall, sequencer: bytes, signatures: LocalSignatureVerifier, *, receipt_keys: tuple[ReceiptKey, ...]) -> Mapping[str, str | int]:
+    if isinstance(result, dict) and result.get("state") == "submitted":
+        if result != {"state": "submitted", "activity_id": binding.activity_id,
+                      "idempotency_key": binding.idempotency_key,
+                      "retained_signed_activity": binding.canonical_bytes.hex()}:
+            raise ValueError("submitted lifecycle binding")
+        return {**result, "state": "pending"}
     if isinstance(result, dict) and result.get("state") == "unknown":
         if set(result) != {"state", "activity_id", "retry", "retry_after_seconds"} or result.get("activity_id") != binding.activity_id or result.get("retry") != "after" or type(result.get("retry_after_seconds")) is not int or result.get("retry_after_seconds") != 2:
             raise ValueError("unknown lifecycle binding")
@@ -215,7 +239,9 @@ def _verify_lifecycle_submission(result: object, binding: DecodedSignedProgramCa
     receipt = result["receipt"]
     if not isinstance(receipt, str) or not 0 < len(receipt) <= 2_097_152 or len(receipt) % 2 or any(character not in "0123456789abcdef" for character in receipt):
         raise ValueError("lifecycle receipt")
-    verified = verify_program_lifecycle_receipt(bytes.fromhex(receipt), bytes.fromhex(binding.activity_id), sequencer, signatures)
+    verified = _verify_program_transaction(bytes.fromhex(receipt), binding.canonical_bytes, receipt_keys)
+    if verified.receipt.activity_id.hex() != binding.activity_id:
+        raise ValueError("lifecycle acknowledgement binding")
     if result["state"] != ("executed" if verified.receipt.result_code == 0 else "refused"):
         raise ValueError("lifecycle result binding")
     return {"state": "acknowledged", "activity_id": binding.activity_id, "receipt": receipt, "result_code": verified.receipt.result_code}
@@ -227,7 +253,11 @@ class ProgramOperations:
             raise ValueError("lifecycle scope")
         binding = request.bind()
         result = self._client.agent("program.receipt", {"idempotency_key": binding.idempotency_key, "expected_activity_id": binding.activity_id, "requested_verification_level": "sequencer-signed"})
-        return verify_lifecycle_recovery(result, binding.activity_id, self._trust.sequencer_public_key, self._signatures)
+        if isinstance(result, Mapping) and result.get("rung") in {"receipted", "committed"}:
+            _sequencer_submission(result, binding.canonical_bytes, self._trust,
+                                  program_id=None, activity_id=binding.activity_id)
+            result = {"activity_id": binding.activity_id, "receipt": _rpc_bytes(result["receipt"]).hex()}
+        return verify_lifecycle_recovery(result, binding.activity_id, self._trust.sequencer_public_key, self._signatures, signed_activity=binding.canonical_bytes, receipt_keys=self._trust.receipt_keys)
 
     def deploy(self, request: NativeProgramLifecycleRequest, key: IdempotencyKey) -> Mapping[str, str | int]:
         return self._lifecycle(request, key, 1, "program.deploy")
@@ -247,7 +277,7 @@ class ProgramOperations:
             result = self._client.agent(operation, {"signed_activity": retained}, idempotency_key=key)
         except PlatformSdkError as error:
             return resolve_lifecycle_failure(error, binding)
-        return resolve_lifecycle_response(result, binding, self._trust.sequencer_public_key, self._signatures)
+        return resolve_lifecycle_response(result, binding, self._trust.sequencer_public_key, self._signatures, receipt_keys=self._trust.receipt_keys)
 
     def __init__(self, client: ProductionClient, signatures: LocalSignatureVerifier, trust: ProgramTrustContext) -> None:
         self._client = client
@@ -299,8 +329,7 @@ class ProgramOperations:
         execution = _execution(result.get("execution"), "simulated")
         if execution["program_id"] != call.program_id or execution["activity_id"] != signed.activity_id:
             raise ValueError("program simulation binding failed")
-        verified = verify_program_receipt(execution, _authority(execution, self._trust), self._signatures, self._trust,
-                                          expected_signed_activity=signed.canonical_bytes)
+        verified = _verify_execution_receipt(execution, self._trust, expected_signed_activity=signed.canonical_bytes)
         _verify_simulation(
             result.get("simulation_evidence"),
             execution,
@@ -406,32 +435,165 @@ def _submission(
 ) -> Mapping[str, object]:
     result = _mapping(value)
     state = result.get("state")
-    if state == "unknown":
+    if state in {"unknown", "submitted", "pending"}:
         _exact(result, ("state", "activity_id", "idempotency_key"), ("retained_signed_activity",))
         actual_activity = _hex_field(result, "activity_id", 32, exact=True)
         actual_idempotency = _hex_field(result, "idempotency_key", 32, exact=True)
         retained = None if result.get("retained_signed_activity") is None else _hex_field(result, "retained_signed_activity", _MAX_CALLDATA)
         if (activity_id is not None and actual_activity != activity_id) or (idempotency_key is not None and actual_idempotency != idempotency_key) or (retained_signed_activity is not None and retained is not None and retained != retained_signed_activity):
             raise ValueError("program unknown binding failed")
-        bound: dict[str, object] = {"state": "unknown", "activity_id": actual_activity, "idempotency_key": actual_idempotency}
+        bound: dict[str, object] = {"state": "unknown" if state == "unknown" else "pending", "activity_id": actual_activity, "idempotency_key": actual_idempotency}
         if retained is not None or retained_signed_activity is not None:
             bound["retained_signed_activity"] = retained if retained is not None else retained_signed_activity
         return bound
+    if result.get("rung") in {"receipted", "committed"}:
+        if retained_signed_activity is None:
+            raise ValueError("retained signed transaction required")
+        return _sequencer_submission(result, bytes.fromhex(retained_signed_activity), trust,
+                                     program_id=program_id, activity_id=activity_id)
     if state not in {"executed", "refused"}:
         raise ValueError("invalid program submission state")
     execution = _execution(result, cast(Literal["executed", "refused"], state))
     if (program_id is not None and execution["program_id"] != program_id) or (activity_id is not None and execution["activity_id"] != activity_id) or (idempotency_key is not None and execution.get("idempotency_key") != idempotency_key):
         raise ValueError("program execution binding failed")
-    verify_program_receipt(execution, _authority(execution, trust), signatures, trust,
-                           expected_signed_activity=None if retained_signed_activity is None else bytes.fromhex(retained_signed_activity))
+    _verify_execution_receipt(execution, trust,
+                              expected_signed_activity=None if retained_signed_activity is None else bytes.fromhex(retained_signed_activity))
     return execution
+
+
+def _verify_program_transaction(
+    signed_receipt: bytes,
+    raw_transaction: bytes,
+    receipt_keys: tuple[ReceiptKey, ...],
+    network_id: int | None = None,
+    program_id: str | None = None,
+) -> SequencerReceiptVerification:
+    verified = verify_sequencer_receipt(signed_receipt, raw_transaction, receipt_keys)
+    transaction, signature = decode_signed(raw_transaction)
+    receipt = verified.receipt
+    if (
+        verified.height == 0
+        or receipt.module_id != 12 or receipt.operation != 2
+        or receipt.result_code not in (0, 1)
+        or transaction.to != bytes.fromhex("000000000000000000000000000000000000101d")
+        or network_id is not None and transaction.chain_id != network_id
+        or receipt.to_account != bytes(12) + transaction.to
+        or receipt.from_sequence != transaction.nonce
+        or receipt.from_account != bytes(12) + bytes.fromhex(transaction.recover_signer(signature)[2:])
+        or program_id is not None and transaction.data[4:36].hex() != program_id
+    ):
+        raise ValueError("program transaction binding failed")
+    return verified
+
+
+def _verify_execution_receipt(
+    execution: Mapping[str, object],
+    trust: ProgramTrustContext,
+    *,
+    expected_signed_activity: bytes | None,
+) -> ReceiptVerification:
+    retained = execution.get("retained_signed_activity")
+    if retained is not None:
+        canonical = bytes.fromhex(_hex_field(execution, "retained_signed_activity", _MAX_CALLDATA))
+        if expected_signed_activity is not None and canonical != expected_signed_activity:
+            raise ValueError("retained program transaction mismatch")
+        expected_signed_activity = canonical
+    if not expected_signed_activity:
+        raise ValueError("retained signed transaction required")
+    verified = _verify_program_transaction(
+        _evidence_bytes(execution, "receipt"), expected_signed_activity, trust.receipt_keys,
+        trust.network_id, cast(str, execution["program_id"]),
+    )
+    receipt = verified.receipt
+    if (
+        receipt.activity_id.hex() != execution["activity_id"]
+        or receipt.batch_id.hex() != execution["batch_id"]
+        or receipt.global_sequence != _decimal(execution["global_sequence"], _MAX_U64)
+        or receipt.module_version != execution["module_version"]
+        or receipt.result_code != execution["result_code"]
+        or receipt.resulting_state_root.hex() != execution["state_root"]
+        or verified.receipt_digest.hex() != execution["receipt_digest"]
+        or (execution["state"] == "refused") != (receipt.result_code != 0)
+    ):
+        raise ValueError("program execution receipt binding failed")
+    return verified
+
+
+def _rpc_bytes(value: object, size: int | None = None) -> bytes:
+    if not isinstance(value, str) or not value.startswith("0x"):
+        raise ValueError("invalid program RPC hexadecimal")
+    return bytes.fromhex(_hex_field({"value": value[2:]}, "value", _MAX_CALLDATA if size is None else size, exact=size is not None))
+
+
+def _sequencer_submission(
+    result: Mapping[str, object], raw_transaction: bytes, trust: ProgramTrustContext,
+    *, program_id: str | None, activity_id: str | None,
+) -> Mapping[str, object]:
+    verified = _verify_program_transaction(
+        _rpc_bytes(result.get("receipt")), raw_transaction, trust.receipt_keys,
+        trust.network_id, program_id,
+    )
+    receipt = verified.receipt
+    expected = {
+        "txHash": "0x" + receipt.activity_id.hex(), "seq": hex(receipt.global_sequence),
+        "height": hex(verified.height), "nonce": hex(receipt.from_sequence),
+        "timestamp": hex(receipt.timestamp), "status": hex(1 - receipt.result_code),
+        "keyId": "0x" + receipt.context_hash.hex(),
+        "from": "0x" + receipt.from_account[12:].hex(),
+        "to": "0x" + receipt.to_account[12:].hex(),
+    }
+    if (any(result.get(key) != value for key, value in expected.items())
+            or activity_id is not None and receipt.activity_id.hex() != activity_id
+            or sha256(_rpc_bytes(result.get("returnData"))).digest() != receipt.activity_root):
+        raise ValueError("program sequencer receipt binding failed")
+    if result.get("rung") == "committed":
+        _rpc_bytes(result.get("blockHash"), 32)
+    logs = result.get("logs")
+    if not isinstance(logs, list) or len(logs) != len(receipt.effects) - 1:
+        raise ValueError("program log binding failed")
+    summary = receipt.effects[0]
+    body = summary.body
+    if (summary.module_id != receipt.module_id or summary.ordinal != 0
+            or summary.kind != 1 or summary.monetary or summary.event_type != 0
+            or len(body) < 110 or not 1 <= body[108] <= 64
+            or len(body) != 109 + body[108]
+            or int.from_bytes(body[104:108], "big") != len(logs)
+            or result.get("gasUsed") != hex(int.from_bytes(body[:8], "big"))
+            or result.get("cumulativeGasUsed") != hex(int.from_bytes(body[8:16], "big"))
+            or result.get("effectiveGasPrice") != hex(int.from_bytes(body[16:24], "big"))
+            or result.get("index") != hex(int.from_bytes(body[24:28], "big"))
+            or _rpc_bytes(result.get("contractAddress"), 20) != body[28:48]
+            or _rpc_bytes(result.get("sponsor"), 20) != body[48:68]
+            or not isinstance(result.get("vmError"), str)
+            or sha256(cast(str, result["vmError"]).encode()).digest() != body[68:100]
+            or len(_rpc_bytes(result.get("returnData"))) != int.from_bytes(body[100:104], "big")
+            or result.get("feeDenom") != body[109:].decode("ascii")
+            or result.get("feeAmount") != hex(receipt.fee_charged)
+            or result.get("signingKey") != "0x" + next(
+                key.public_key.hex() for key in trust.receipt_keys
+                if key.key_id == receipt.context_hash
+                and key.first_height <= verified.height <= key.last_height)):
+        raise ValueError("program execution summary binding failed")
+    for index, (log, effect) in enumerate(zip(logs, receipt.effects[1:], strict=True)):
+        row = _mapping(log)
+        topics = row.get("topics")
+        if not isinstance(topics, list) or len(topics) > 4:
+            raise ValueError("program log binding failed")
+        body = (_rpc_bytes(row.get("address"), 20) + bytes([len(topics)])
+                + b"".join(_rpc_bytes(topic, 32) for topic in topics)
+                + sha256(_rpc_bytes(row.get("data"))).digest())
+        if (effect.module_id != receipt.module_id or effect.ordinal != index + 1
+                or effect.kind != 3 or effect.monetary or effect.event_type != 0
+                or effect.body != body or row.get("logIndex") != hex(index)):
+            raise ValueError("program log binding failed")
+    return dict(result)
 
 
 def _execution(value: object, expected_state: Literal["executed", "refused", "simulated"]) -> Mapping[str, object]:
     execution = _mapping(value)
     _exact(execution, ("state", "activity_id", "program_id", "guest_abi_version", "module_version", "batch_id",
         "global_sequence", "result_code", "state_root", "receipt", "receipt_digest", "terminal_payload",
-        "call_graph", "authority", "usage", "outcome", "verification"), ("idempotency_key", "retained_signed_activity"))
+        "call_graph", "usage", "outcome", "verification"), ("idempotency_key", "retained_signed_activity"))
     if execution.get("state") != expected_state:
         raise ValueError("invalid program execution state")
     _hex_field(execution, "activity_id", 32, exact=True)
@@ -458,34 +620,16 @@ def _execution(value: object, expected_state: Literal["executed", "refused", "si
     _decimal(usage.get("fee_units"), _MAX_U128)
     if not isinstance(usage.get("output_values"), int) or isinstance(usage.get("output_values"), bool) or not 0 <= cast(int, usage["output_values"]) <= (1 << 32) - 1:
         raise ValueError("invalid program usage")
-    authority = _mapping(execution.get("authority"))
-    _exact(authority, ("batch_id", "asset", "previous_state_root", "resulting_state_root", "sequencer_public_key"))
-    for field in ("batch_id", "asset", "previous_state_root", "resulting_state_root", "sequencer_public_key"):
-        _hex_field(authority, field, 32, exact=True)
     result = dict(execution)
     result["outcome"] = outcome
     result["usage"] = dict(usage)
-    result["authority"] = dict(authority)
     return result
-
-
-def _authority(execution: Mapping[str, object], trust: ProgramTrustContext) -> AuthorizedReceiptBatch:
-    authority = _mapping(execution.get("authority"))
-    if authority.get("sequencer_public_key") != trust.sequencer_public_key.hex():
-        raise ValueError("program sequencer key does not match pin")
-    return AuthorizedReceiptBatch(
-        batch_id=bytes.fromhex(_hex_field(authority, "batch_id", 32, exact=True)),
-        asset=bytes.fromhex(_hex_field(authority, "asset", 32, exact=True)),
-        previous_state_root=bytes.fromhex(_hex_field(authority, "previous_state_root", 32, exact=True)),
-        resulting_state_root=bytes.fromhex(_hex_field(authority, "resulting_state_root", 32, exact=True)),
-        sequencer_public_key=trust.sequencer_public_key,
-    )
 
 
 def _verify_simulation(
     value: object,
     execution: Mapping[str, object],
-    verified: VerifiedProgramReceipt,
+    verified: ReceiptVerification,
     head: tuple[str, int, int, int],
     binding: DecodedSignedProgramCall,
     signatures: LocalSignatureVerifier,
@@ -513,7 +657,7 @@ def _verify_simulation(
     if not signatures.verify_ed25519(public_key, signature, sha256(signed).digest()):
         raise ValueError("simulation evidence signature mismatch")
     state_root, head_sequence, head_observed_at, valid_through = head
-    protocol = verified.verification.receipt
+    protocol = verified.receipt
     now = trust.now_milliseconds()
     _fresh(head, now)
     assert_fresh_simulation_observation(
@@ -575,24 +719,25 @@ def _verify_discovery_signature(value: Mapping[str, object], head: ProgramDiscov
 def _interface(value: object, program_id: str, now: int, protocol_version: int = 2) -> ProgramInterface:
     result = _mapping(value)
     _exact(result, ("program_id", "version", "code_hash", "abi_version", "interface", "interface_digest",
-        "receipt_digest", "state_root", "observed_sequence", "observed_at", "valid_through", "source", "verification"))
+        "deployment_receipt_digest", "state_root", "observed_sequence", "observed_at", "valid_through", "source", "verification"))
     if _hex_field(result, "program_id", 32, exact=True) != program_id or result.get("verification") != "deployment-interface-and-current-head-verified":
         raise ValueError("unverified program interface")
     if not _integer(result.get("version"), 1, (1 << 32) - 1) or not native_guest_abi_for_protocol(result.get("abi_version"), protocol_version):
         raise ValueError("invalid program interface")
-    for field in ("code_hash", "interface_digest", "receipt_digest", "state_root"):
+    for field in ("code_hash", "interface_digest", "deployment_receipt_digest", "state_root"):
         _hex_field(result, field, 32, exact=True)
     interface = bytes.fromhex(_hex_field(result, "interface", 952))
     if not interface or sha256(interface).hexdigest() != result.get("interface_digest"):
         raise ValueError("program interface digest mismatch")
     source = _program_source(result.get("source"))
     for field in ("observed_sequence", "observed_at", "valid_through"):
-        _decimal(result.get(field), (1 << 64) - 1)
+        if not _integer(result.get(field), 0, _MAX_U64):
+            raise ValueError("invalid interface freshness")
     documented = ProgramInterface(program_id, cast(int, result["version"]), cast(str, result["code_hash"]),
         cast(int, result["abi_version"]), interface, cast(str, result["interface_digest"]),
-        cast(str, result["receipt_digest"]), cast(str, result["state_root"]),
-        _decimal(result["observed_sequence"], _MAX_U64), _decimal(result["observed_at"], _MAX_U64),
-        _decimal(result["valid_through"], _MAX_U64), _typed_program_source(source))
+        cast(str, result["deployment_receipt_digest"]), cast(str, result["state_root"]),
+        cast(int, result["observed_sequence"]), cast(int, result["observed_at"]),
+        cast(int, result["valid_through"]), _typed_program_source(source))
     _fresh(_head(documented), now)
     return documented
 

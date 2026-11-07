@@ -1,0 +1,19 @@
+[manifest]
+task = "22.32.50"
+domain = 5
+owner_role = "fm-node-runtime"
+pages = 2
+
+[page.1]
+path = "docs/wiki/HumanOwnerRegistration.md"
+status = "misleading"
+bytes = 17263
+source_1 = "record 22.30.21 [doc.7] (stale): Reviewed the page and its package-facing guidance; exact drift and owner rewrite proposals are recorded in human-retired-custody."
+source_2 = "record 22.30.43 [doc.012] (stale): Lines 13-19 and 31-35 retain daemon identity bootstrap, LNI CLI and guarantor checkpoint_finalised proofs; current layerxctl uses --rpc-url EVM submission and eth_call reads."
+source_3 = "record 22.30.52 [doc.11] (misleading): Read in full: lines 9-19 and 33 retain daemon admission, custody-credit and guarantor evidence prerequisites; wiki also retains custody 0x1013 and LNI bootstrap instructions."
+
+[page.2]
+path = "docs/wiki/SdkTerminalVerification.md"
+status = "stale"
+bytes = 8253
+source_1 = "record 22.30.45 [doc.005] (stale): Read complete page and mirror; V4 lines 93-104 name removed verification APIs. V1 creation and stored V2 source descriptions are narrower than recorder regeneration requirements; concrete producer findings name the gaps."

@@ -216,9 +216,15 @@ func (app *App) RegisterUpgradeHandlers() {
 	// The merge plan brings the sequencer module up from the genesis its plan
 	// carries.
 	app.UpgradeKeeper.SetUpgradeHandler(MergeUpgrade, app.mergeUpgradePlan)
-	app.UpgradeKeeper.SetUpgradeHandler(AnchorStoreDeleteUpgrade, func(ctx sdk.Context, plan upgradetypes.Plan, fromVM module.VersionMap) (module.VersionMap, error) {
-		return app.mm.RunMigrations(ctx, app.configurator, fromVM)
-	})
+	app.UpgradeKeeper.SetUpgradeHandler(AnchorStoreDeleteUpgrade, app.runAnchorStoreDeleteUpgrade)
+}
+
+func (app *App) runAnchorStoreDeleteUpgrade(ctx sdk.Context, plan upgradetypes.Plan, fromVM module.VersionMap) (module.VersionMap, error) {
+	mergeHeight := app.UpgradeKeeper.GetDoneHeight(ctx, MergeUpgrade)
+	if mergeHeight <= 0 || mergeHeight >= ctx.BlockHeight() {
+		return nil, fmt.Errorf("upgrade %s requires upgrade %s to have been applied below height %d (done height %d)", AnchorStoreDeleteUpgrade, MergeUpgrade, ctx.BlockHeight(), mergeHeight)
+	}
+	return app.mm.RunMigrations(ctx, app.configurator, fromVM)
 }
 
 // runXWebUpgrade runs the module migrations with xweb taken as present, so the
@@ -488,20 +494,24 @@ func (app *App) continueMergeUpgradePlan(ctx sdk.Context, plan upgradetypes.Plan
 	if !found {
 		app.UpgradeKeeper.ClearUpgradePlan(cached)
 	}
+	cached.KVStore(app.keys[LayerXHostStoreKey]).Set([]byte(hostedProgramsGuestABIKey), []byte{0, 5})
 	write()
+	app.refreshHostedKernelProgramsABI(ctx)
 	ctx.EventManager().EmitEvents(cached.EventManager().Events())
 	return versions, nil
 }
 
+type mergePlanState struct {
+	Leaders          [][]byte              `json:"leaders,omitempty"`
+	ReceiptKeys      seqkeeper.ReceiptKeys `json:"receipt_keys"`
+	LastSeq          uint64                `json:"last_seq,omitempty"`
+	LastSeqHash      []byte                `json:"last_seq_hash,omitempty"`
+	ActivationHeight uint64                `json:"activation_height,omitempty"`
+}
+
 func (app *App) migrateMergeState(ctx sdk.Context, plan upgradetypes.Plan, fromVM module.VersionMap) (module.VersionMap, error) {
 	sequencer := app.mm.Modules[seqtypes.ModuleName]
-	var state struct {
-		Leaders          [][]byte              `json:"leaders,omitempty"`
-		ReceiptKeys      seqkeeper.ReceiptKeys `json:"receipt_keys"`
-		LastSeq          uint64                `json:"last_seq,omitempty"`
-		LastSeqHash      []byte                `json:"last_seq_hash,omitempty"`
-		ActivationHeight uint64                `json:"activation_height,omitempty"`
-	}
+	var state mergePlanState
 	if err := json.Unmarshal([]byte(plan.Info), &state); err != nil {
 		return fromVM, fmt.Errorf("upgrade %s: sequencer genesis: %w", MergeUpgrade, err)
 	}
@@ -566,14 +576,14 @@ func activationModules() []string {
 
 // activationPrecompileGate declares the custom precompiles the activation plan
 // brings online and, for each, the fork module whose state it serves: the
-// stateless evidence precompile is gated with the anchor module whose batch
-// headers and receipts it verifies, and the fee-token precompile with the bridge
+// retained retirement interfaces depend on the live upgrade module, and the
+// fee-token precompile depends on the bridge
 // module that holds the Sidiora asset it prices.
 func activationPrecompileGate() evmkeeper.CustomPrecompileActivation {
 	return evmkeeper.CustomPrecompileActivation{
 		Upgrade: ActivationUpgrade,
 		Modules: map[common.Address][]string{
-			common.HexToAddress(verifyprecompile.LayerXVerifyAddress): {layerxanchortypes.ModuleName},
+			common.HexToAddress(verifyprecompile.LayerXVerifyAddress): {upgradetypes.ModuleName},
 			common.HexToAddress(layerxcustodytypes.CustodyAddress):    {layerxcustodytypes.ModuleName},
 			common.HexToAddress(anchorprecompile.LayerXAnchorAddress): {upgradetypes.ModuleName},
 			common.HexToAddress(layerxexchangetypes.ExchangeAddress):  {layerxexchangetypes.ModuleName},
@@ -677,6 +687,7 @@ func (app *App) applyNamedUpgrade(ctx sdk.Context) {
 	if ctx.IsTracing() {
 		return
 	}
+	app.refreshHostedKernelProgramsABI(ctx)
 	// The state reads come before the file, so a chain that has applied every plan
 	// the application knows reads no file in any of its blocks.
 	pending := false
@@ -704,9 +715,49 @@ func (app *App) applyNamedUpgrade(ctx sdk.Context) {
 		panic(fmt.Errorf("upgrade %s is due at height %d but the store loader did not add the %s stores %s: the upgrade info height must equal the last committed height plus one when the process starts",
 			info.Name, info.Height, stores, strings.Join(missing, ", ")))
 	}
-	plan := upgradetypes.Plan{Name: info.Name, Height: ctx.BlockHeight()}
+	plan, err := app.resolveNamedUpgradePlan(ctx, info.Name, info.Height)
+	if err != nil {
+		panic(err)
+	}
 	logger.Info("applying upgrade", "name", plan.Name, "at", plan.DueAt())
 	app.UpgradeKeeper.ApplyUpgrade(ctx, plan)
+}
+
+// resolveNamedUpgradePlan binds the store loader's disk identity to the governed
+// plan. Operator-only merge plans use the keeper writer's JSON format, including
+// a string-valued info field containing the sequencer activation genesis.
+func (app *App) resolveNamedUpgradePlan(ctx sdk.Context, name string, height int64) (upgradetypes.Plan, error) {
+	if scheduled, found := app.UpgradeKeeper.GetUpgradePlan(ctx); found {
+		if scheduled.Name != name || scheduled.Height != height {
+			return upgradetypes.Plan{}, fmt.Errorf("disk upgrade %s at %d differs from scheduled plan %s at %d", name, height, scheduled.Name, scheduled.Height)
+		}
+		return scheduled, nil
+	}
+	plan := upgradetypes.Plan{Name: name, Height: height}
+	if name != MergeUpgrade {
+		return plan, nil
+	}
+	path, err := app.UpgradeKeeper.GetUpgradeInfoPath()
+	if err != nil {
+		return plan, err
+	}
+	bz, err := os.ReadFile(path)
+	if err != nil {
+		return plan, err
+	}
+	var disk struct {
+		Name   string `json:"name"`
+		Height int64  `json:"height"`
+		Info   string `json:"info"`
+	}
+	if err := json.Unmarshal(bz, &disk); err != nil {
+		return plan, fmt.Errorf("merge upgrade info: %w", err)
+	}
+	if disk.Name != name || disk.Height != height || disk.Info == "" || !json.Valid([]byte(disk.Info)) {
+		return plan, fmt.Errorf("operator merge plan requires matching name, height and info containing sequencer genesis")
+	}
+	plan.Info = disk.Info
+	return plan, nil
 }
 
 // activationModulesPresent reports whether the module version map of ctx already

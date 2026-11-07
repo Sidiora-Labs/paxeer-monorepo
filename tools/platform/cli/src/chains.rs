@@ -42,7 +42,7 @@ fn unhex(text: &str) -> Result<Vec<u8>, String> {
 
 fn rpc(client: &Client, method: &str, params: Value) -> Result<Value, String> {
     let response = client.post(
-        "/rpc",
+        "/",
         &json!({"jsonrpc":"2.0", "id":1, "method":method, "params":params}),
         None,
     )?;
@@ -333,22 +333,87 @@ pub fn create(
     };
     let raw = call.sign(&secret, &address)?;
     let hash = hex(&transaction_hash(&raw));
-    if rpc(client, "eth_sendRawTransaction", json!([hex(&raw)]))? != hash {
-        return Err("RPC transaction hash differs from signed chain creation".into());
+    match rpc(client, "eth_sendRawTransaction", json!([hex(&raw)])) {
+        Ok(returned) if returned == hash => {}
+        outcome => {
+            return Ok(json!({
+                "transactionHash": hash, "state": "unknown", "name": name,
+                "operator": hex(&address),
+                "detail": match outcome {
+                    Ok(_) => "RPC transaction hash differs from signed chain creation".to_owned(),
+                    Err(detail) => detail,
+                },
+            }))
+        }
     }
     let deadline = Instant::now() + Duration::from_secs(60);
     loop {
-        let receipt = rpc(client, "eth_getTransactionReceipt", json!([hash]))?;
+        let receipt = match rpc(client, "eth_getTransactionReceipt", json!([hash])) {
+            Ok(receipt) => receipt,
+            Err(detail) => {
+                return Ok(
+                    json!({"transactionHash":hash,"state":"pending","name":name,"operator":hex(&address),"detail":detail}),
+                )
+            }
+        };
         if !receipt.is_null() {
             return created(&receipt, name, &address, base, &hash);
         }
         if Instant::now() >= deadline {
-            return Err(format!(
-                "chain creation {hash} is pending; receipt wait timed out"
-            ));
+            return Ok(
+                json!({"transactionHash":hash,"state":"pending","name":name,"operator":hex(&address)}),
+            );
         }
         std::thread::sleep(Duration::from_millis(250));
     }
+}
+
+/// Reconciles an original creation without signing or submitting a second transaction.
+pub fn reconcile_creation(
+    client: &Client,
+    base: &str,
+    hash: &str,
+    name: &str,
+    operator: &str,
+) -> Result<Value, String> {
+    if unhex(hash)?.len() != 32 {
+        return Err("transaction hash must contain 32 bytes".into());
+    }
+    let operator: [u8; 20] = unhex(operator)?
+        .try_into()
+        .map_err(|_| "operator must contain 20 bytes")?;
+    let receipt = rpc(client, "eth_getTransactionReceipt", json!([hash]))
+        .map_err(|error| format!("chain creation {hash}: {error}"))?;
+    if receipt.is_null() {
+        return Ok(json!({"transactionHash":hash,"state":"pending"}));
+    }
+    let result = created(&receipt, name, &operator, base, hash)?;
+    let id = result["id"]
+        .as_u64()
+        .and_then(|id| u32::try_from(id).ok())
+        .ok_or("invalid recovered chain id")?;
+    let domain = record(client, base, id)?;
+    if domain["name"] != name || domain["operator"] != hex(&operator) {
+        return Err(format!(
+            "chain creation {hash}: recovered domain contradicts receipt"
+        ));
+    }
+    Ok(json!({"state":"completed","transactionHash":hash,"chain":domain}))
+}
+
+/// Public node endpoints use the origin root; hosted services are configured separately.
+pub fn node_endpoint(url: &str) -> Result<&str, String> {
+    let uri: ureq::http::Uri = url.parse().map_err(|_| "invalid node endpoint")?;
+    if !matches!(uri.scheme_str(), Some("http" | "https"))
+        || uri.authority().is_none()
+        || uri.authority().is_some_and(|a| a.as_str().contains('@'))
+        || uri.path_and_query().is_some_and(|p| p.as_str() != "/")
+        || url.contains('#')
+    {
+        return Err("node endpoint must be an http(s) origin at the root".into());
+    }
+    Client::new(url, None)?;
+    Ok(url.trim_end_matches('/'))
 }
 
 #[derive(serde::Deserialize)]

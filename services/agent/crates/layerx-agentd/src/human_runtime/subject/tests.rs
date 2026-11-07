@@ -1,8 +1,39 @@
 use super::*;
 use crate::outbox::{Outbox, SubmissionState};
 use layerx_crypto::evm_transaction::{decode_signed, recover_sender, Eip1559Call};
-use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration};
+use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration, ModuleRegistry};
 use std::fmt::Debug;
+
+use crate as agentd;
+
+#[path = "registration_tests.rs"]
+mod registration_tests;
+
+#[test]
+fn managed_registration_resolves_restored_subject_reads_and_writes() {
+    registration_tests::prove_registration_resolution(|store, alice, bob, restart| {
+        if !restart {
+            must(retain(store, alice));
+            must(retain(store, bob));
+            return (alice.clone(), bob.clone());
+        }
+        let configured = BTreeMap::from([(
+            7,
+            ("human-transport".to_owned(), "human-service".to_owned()),
+        )]);
+        let restored = must(restore_peers(store, &configured));
+        assert_eq!(restored.len(), 3);
+        let restored_peer = |expected: &HumanPeer| {
+            let actual = restored
+                .iter()
+                .find(|peer| peer.tenant == expected.tenant)
+                .unwrap_or_else(|| panic!("restored managed subject"));
+            assert_eq!(actual, expected);
+            actual.clone()
+        };
+        (restored_peer(alice), restored_peer(bob))
+    });
+}
 
 fn must<T, E: Debug>(value: Result<T, E>) -> T {
     value.unwrap_or_else(|error| panic!("subject invariant: {error:?}"))
@@ -80,7 +111,7 @@ fn durable_subject_bindings_preserve_service_identity_and_refuse_remap_after_res
 fn signed_submission() -> crate::sign::VerifiedSubmission {
     let bytes = include_bytes!(concat!(
         env!("CARGO_MANIFEST_DIR"),
-        "/../../../../tests/fixtures/authority/provider-subject/onboarding.activity"
+        "/../../../../tests/fixtures/authority/provider-subject/sponsored.activity"
     ));
     let kind = must(ActivityType::new(ModuleId::Governance, 1));
     let registry = must(ModuleRegistry::new(&[must(ModuleRegistration::new(
@@ -88,6 +119,18 @@ fn signed_submission() -> crate::sign::VerifiedSubmission {
         &[kind],
     ))]));
     let activity = must(layerx_wire::activity::decode_signed(bytes, &registry));
+    assert_eq!(must(layerx_wire::activity::encode_signed(&activity)), bytes);
+    let registration = must(layerx_crypto::payments::SponsoredRegistration::decode(
+        activity.payload(),
+    ));
+    must(registration.validate_outer(&activity));
+    assert_eq!(
+        registration.signed_consent(),
+        include_bytes!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../../../tests/fixtures/authority/provider-subject/consent.activity"
+        )),
+    );
     let call = Eip1559Call {
         chain_id: u64::from(activity.network_id()),
         nonce: activity.account_sequence(),

@@ -1,19 +1,28 @@
 use std::fmt::{Display, Formatter};
 use std::fs::{self, File, OpenOptions};
-use std::io::{self, BufReader, Read, Write};
+use std::io::{self, BufReader, Read, Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
 
 use sha2::{Digest, Sha256};
 
 use crate::store::TenantId;
 
+use super::records::record_digest;
+
 const LOG_MAGIC: &[u8; 8] = b"LXAUD001";
 const ANCHOR_MAGIC: &[u8; 8] = b"LXANC001";
 const ENTRY_MAGIC: &[u8; 4] = b"LXAE";
+const COMMITTED_ENTRY_MAGIC: &[u8; 4] = b"LXAC";
 const HASH_DOMAIN: &[u8] = b"layerx-agent-audit-v1";
 const LOG_FILE: &str = "audit.chain";
 const ANCHOR_FILE: &str = "audit.anchor";
 const ANCHOR_TEMP_FILE: &str = "audit.anchor.tmp";
+const LOCK_FILE: &str = "audit.lock";
+const INTENT_FILE: &str = "audit.intent";
+const INTENT_TEMP_FILE: &str = "audit.intent.tmp";
+const INTENT_MAGIC: &[u8; 8] = b"LXINT001";
+const INTENT_HEADER_BYTES: usize = 100;
+const FRAME_FIXED_BYTES: usize = 80;
 const HEADER_BYTES: usize = 40;
 const ANCHOR_BYTES: usize = 80;
 const MAX_PAYLOAD_BYTES: usize = 1_048_576;
@@ -30,6 +39,7 @@ pub enum ChainIssue {
     MissingAnchor,
     InvalidAnchor,
     AnchorMismatch,
+    InvalidIntent,
 }
 
 impl Display for ChainIssue {
@@ -45,6 +55,7 @@ impl Display for ChainIssue {
             Self::MissingAnchor => "trusted tail anchor is missing",
             Self::InvalidAnchor => "trusted tail anchor is invalid",
             Self::AnchorMismatch => "trusted tail anchor does not match the chain",
+            Self::InvalidIntent => "append intent does not prove an incomplete transaction",
         };
         formatter.write_str(text)
     }
@@ -108,10 +119,22 @@ pub struct AppendReceipt {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) struct VerifiedFrame {
+    pub field_commitments: bool,
     pub sequence: u64,
     pub previous_hash: [u8; 32],
     pub payload: Vec<u8>,
     pub entry_hash: [u8; 32],
+}
+
+/// Durable append boundaries, observed while the tenant writer lock is held.
+/// Observers must not reenter this tenant's log. Unwinding interrupts the append
+/// before its operation, leaving the same recovery state as an interrupted writer.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum AppendStage {
+    IntentSynced,
+    FrameWritten,
+    FrameSynced,
+    AnchorSynced,
 }
 
 #[derive(Debug)]
@@ -134,6 +157,7 @@ impl Log {
         let tenant_hash: [u8; 32] = Sha256::digest(tenant.as_str().as_bytes()).into();
         let directory = root.as_ref().join("audit").join(hex(&tenant_hash));
         fs::create_dir_all(&directory)?;
+        let _lock = lock_directory(&directory)?;
         let path = directory.join(LOG_FILE);
         let anchor_path = directory.join(ANCHOR_FILE);
         match OpenOptions::new().create_new(true).write(true).open(&path) {
@@ -149,7 +173,8 @@ impl Log {
             Err(error) if error.kind() == io::ErrorKind::AlreadyExists => {}
             Err(error) => return Err(AuditError::Io(error)),
         }
-        let verified = verify_chain(&path)?;
+        recover_append(&directory, &path, tenant_hash)?;
+        let verified = verify_chain_unlocked(&path)?;
         if verified.tenant_hash != tenant_hash {
             return Err(AuditError::TenantMismatch);
         }
@@ -191,45 +216,97 @@ impl Log {
         payload: &[u8],
         operation: impl FnOnce() -> T,
     ) -> Result<(AppendReceipt, T), AuditError> {
-        let receipt = self.append_durable(payload)?;
+        let receipt = self.append_durable(payload, false, |_| {})?;
         Ok((receipt, operation()))
     }
 
-    fn append_durable(&mut self, payload: &[u8]) -> Result<AppendReceipt, AuditError> {
+    pub(crate) fn before_committed_operation<T>(
+        &mut self,
+        payload: &[u8],
+        operation: impl FnOnce() -> T,
+    ) -> Result<(AppendReceipt, T), AuditError> {
+        let receipt = self.append_durable(payload, true, |_| {})?;
+        Ok((receipt, operation()))
+    }
+
+    /// Appends through the production protocol, reporting durability boundaries.
+    ///
+    /// # Errors
+    /// Returns the same errors as `before_operation`. The observer runs under the
+    /// tenant lock and must not read or write this log through another handle.
+    pub fn before_operation_observed<T>(
+        &mut self,
+        payload: &[u8],
+        observer: impl FnMut(AppendStage),
+        operation: impl FnOnce() -> T,
+    ) -> Result<(AppendReceipt, T), AuditError> {
+        let receipt = self.append_durable(payload, false, observer)?;
+        Ok((receipt, operation()))
+    }
+
+    fn append_durable(
+        &mut self,
+        payload: &[u8],
+        field_commitments: bool,
+        mut observer: impl FnMut(AppendStage),
+    ) -> Result<AppendReceipt, AuditError> {
         if payload.len() > MAX_PAYLOAD_BYTES {
             return Err(AuditError::PayloadTooLarge);
         }
-        let mut file = OpenOptions::new().append(true).open(&self.path)?;
-        let current = verify_chain(&self.path)?;
-        if current.tenant_hash != self.tenant_hash
-            || current.entries != self.entries
-            || current.tail_hash != self.tail_hash
-        {
-            return Err(AuditError::StaleWriter);
+        let _lock = lock_directory(&self.directory)?;
+        recover_append(&self.directory, &self.path, self.tenant_hash)?;
+        let current = verify_chain_unlocked(&self.path)?;
+        if current.tenant_hash != self.tenant_hash {
+            return Err(AuditError::TenantMismatch);
         }
+        // Independent MCP and operator handles may have appended since open.
+        // Refresh only after verifying the durable chain under the writer lock.
+        self.entries = current.entries;
+        self.tail_hash = current.tail_hash;
+        let mut file = OpenOptions::new().append(true).open(&self.path)?;
         let sequence = self.entries;
         let next_entries = sequence
             .checked_add(1)
             .ok_or(AuditError::SequenceOverflow)?;
         let payload_length =
             u32::try_from(payload.len()).map_err(|_| AuditError::PayloadTooLarge)?;
-        let entry_hash = entry_hash(
-            self.tenant_hash,
-            sequence,
-            self.tail_hash,
-            payload_length,
-            payload,
-        );
+        let entry_hash = if field_commitments {
+            let root = record_digest(payload)
+                .map_err(|_| invalid(sequence, ChainIssue::EntryHashMismatch))?;
+            committed_entry_hash(
+                self.tenant_hash,
+                sequence,
+                self.tail_hash,
+                payload_length,
+                root,
+            )
+        } else {
+            entry_hash(
+                self.tenant_hash,
+                sequence,
+                self.tail_hash,
+                payload_length,
+                payload,
+            )
+        };
         let mut frame = Vec::with_capacity(80 + payload.len());
-        frame.extend_from_slice(ENTRY_MAGIC);
+        frame.extend_from_slice(if field_commitments {
+            COMMITTED_ENTRY_MAGIC
+        } else {
+            ENTRY_MAGIC
+        });
         frame.extend_from_slice(&sequence.to_be_bytes());
         frame.extend_from_slice(&self.tail_hash);
         frame.extend_from_slice(&payload_length.to_be_bytes());
         frame.extend_from_slice(payload);
         frame.extend_from_slice(&entry_hash);
 
+        write_intent(&self.directory, file.metadata()?.len(), current, &frame)?;
+        observer(AppendStage::IntentSynced);
         file.write_all(&frame)?;
+        observer(AppendStage::FrameWritten);
         file.sync_all()?;
+        observer(AppendStage::FrameSynced);
         write_anchor(
             &self.directory,
             &self.anchor_path,
@@ -237,6 +314,8 @@ impl Log {
             next_entries,
             entry_hash,
         )?;
+        observer(AppendStage::AnchorSynced);
+        clear_intent(&self.directory)?;
         self.entries = next_entries;
         self.tail_hash = entry_hash;
         Ok(AppendReceipt {
@@ -253,8 +332,30 @@ impl Log {
 /// Returns the first inconsistent entry or an I/O failure that prevented verification.
 pub fn verify_chain(path: impl AsRef<Path>) -> Result<Verification, AuditError> {
     let path = path.as_ref();
-    let file = File::open(path)?;
-    let mut reader = BufReader::new(file);
+    let directory = path
+        .parent()
+        .ok_or_else(|| invalid(0, ChainIssue::InvalidHeader))?;
+    let _lock = lock_directory(directory)?;
+    verify_chain_unlocked(path)
+}
+
+fn verify_chain_unlocked(path: &Path) -> Result<Verification, AuditError> {
+    let verified = scan_chain(BufReader::new(File::open(path)?))?;
+    let anchor = match fs::read(path.with_file_name(ANCHOR_FILE)) {
+        Ok(value) => value,
+        Err(error) if error.kind() == io::ErrorKind::NotFound => {
+            return Err(invalid(verified.entries, ChainIssue::MissingAnchor));
+        }
+        Err(error) => return Err(error.into()),
+    };
+    let anchored = decode_anchor(&anchor, verified.tenant_hash)?;
+    if anchored != verified {
+        return Err(invalid(verified.entries, ChainIssue::AnchorMismatch));
+    }
+    Ok(verified)
+}
+
+fn scan_chain(mut reader: impl Read) -> Result<Verification, AuditError> {
     let mut header = [0_u8; HEADER_BYTES];
     reader
         .read_exact(&mut header)
@@ -276,7 +377,7 @@ pub fn verify_chain(path: impl AsRef<Path>) -> Result<Verification, AuditError> 
         if marker_bytes != marker.len() {
             return Err(invalid(entries, ChainIssue::TruncatedEntry));
         }
-        if &marker != ENTRY_MAGIC {
+        if &marker != ENTRY_MAGIC && &marker != COMMITTED_ENTRY_MAGIC {
             return Err(invalid(entries, ChainIssue::InvalidEntryMarker));
         }
         let sequence = read_u64(&mut reader, entries)?;
@@ -298,13 +399,19 @@ pub fn verify_chain(path: impl AsRef<Path>) -> Result<Verification, AuditError> 
         if previous_hash != tail_hash {
             return Err(invalid(entries, ChainIssue::PreviousHashMismatch));
         }
-        let expected_hash = entry_hash(
-            tenant_hash,
-            sequence,
-            previous_hash,
-            payload_length,
-            &payload,
-        );
+        let expected_hash = if &marker == COMMITTED_ENTRY_MAGIC {
+            let root = record_digest(&payload)
+                .map_err(|_| invalid(entries, ChainIssue::EntryHashMismatch))?;
+            committed_entry_hash(tenant_hash, sequence, previous_hash, payload_length, root)
+        } else {
+            entry_hash(
+                tenant_hash,
+                sequence,
+                previous_hash,
+                payload_length,
+                &payload,
+            )
+        };
         if stored_hash != expected_hash {
             return Err(invalid(entries, ChainIssue::EntryHashMismatch));
         }
@@ -312,28 +419,6 @@ pub fn verify_chain(path: impl AsRef<Path>) -> Result<Verification, AuditError> 
         entries = entries.checked_add(1).ok_or(AuditError::SequenceOverflow)?;
     }
 
-    let anchor_path = path.with_file_name(ANCHOR_FILE);
-    let anchor = match fs::read(&anchor_path) {
-        Ok(value) => value,
-        Err(error) if error.kind() == io::ErrorKind::NotFound => {
-            return Err(invalid(entries, ChainIssue::MissingAnchor));
-        }
-        Err(error) => return Err(AuditError::Io(error)),
-    };
-    if anchor.len() != ANCHOR_BYTES || &anchor[..8] != ANCHOR_MAGIC {
-        return Err(invalid(entries, ChainIssue::InvalidAnchor));
-    }
-    if anchor[8..40] != tenant_hash {
-        return Err(invalid(entries, ChainIssue::InvalidAnchor));
-    }
-    let anchor_entries = u64::from_be_bytes(
-        anchor[40..48]
-            .try_into()
-            .map_err(|_| invalid(entries, ChainIssue::InvalidAnchor))?,
-    );
-    if anchor_entries != entries || anchor[48..80] != tail_hash {
-        return Err(invalid(entries, ChainIssue::AnchorMismatch));
-    }
     Ok(Verification {
         entries,
         tail_hash,
@@ -350,7 +435,11 @@ pub(crate) fn read_payloads(path: impl AsRef<Path>) -> Result<Vec<Vec<u8>>, Audi
 
 pub(crate) fn read_frames(path: impl AsRef<Path>) -> Result<Vec<VerifiedFrame>, AuditError> {
     let path = path.as_ref();
-    let _verified = verify_chain(path)?;
+    let directory = path
+        .parent()
+        .ok_or_else(|| invalid(0, ChainIssue::InvalidHeader))?;
+    let _lock = lock_directory(directory)?;
+    let _verified = verify_chain_unlocked(path)?;
     let bytes = fs::read(path)?;
     let mut offset = HEADER_BYTES;
     let mut frames = Vec::new();
@@ -401,6 +490,8 @@ pub(crate) fn read_frames(path: impl AsRef<Path>) -> Result<Vec<VerifiedFrame>, 
             .try_into()
             .map_err(|_| invalid(frames.len() as u64, ChainIssue::TruncatedEntry))?;
         frames.push(VerifiedFrame {
+            field_commitments: bytes.get(offset..sequence_offset)
+                == Some(COMMITTED_ENTRY_MAGIC.as_slice()),
             sequence,
             previous_hash,
             payload: payload.to_vec(),
@@ -409,6 +500,164 @@ pub(crate) fn read_frames(path: impl AsRef<Path>) -> Result<Vec<VerifiedFrame>, 
         offset = frame_end;
     }
     Ok(frames)
+}
+
+// A separate open file description per transaction serializes threads and
+// processes alike. Closing it releases the OS lock, including during unwind.
+fn lock_directory(directory: &Path) -> Result<File, AuditError> {
+    let file = OpenOptions::new()
+        .create(true)
+        .truncate(false)
+        .read(true)
+        .write(true)
+        .open(directory.join(LOCK_FILE))?;
+    file.lock()?;
+    Ok(file)
+}
+
+fn anchor_bytes(verified: Verification) -> Vec<u8> {
+    let mut bytes = Vec::with_capacity(ANCHOR_BYTES);
+    bytes.extend_from_slice(ANCHOR_MAGIC);
+    bytes.extend_from_slice(&verified.tenant_hash);
+    bytes.extend_from_slice(&verified.entries.to_be_bytes());
+    bytes.extend_from_slice(&verified.tail_hash);
+    bytes
+}
+
+fn decode_anchor(bytes: &[u8], tenant_hash: [u8; 32]) -> Result<Verification, AuditError> {
+    if bytes.len() != ANCHOR_BYTES || &bytes[..8] != ANCHOR_MAGIC || bytes[8..40] != tenant_hash {
+        return Err(invalid(0, ChainIssue::InvalidAnchor));
+    }
+    Ok(Verification {
+        tenant_hash,
+        entries: u64::from_be_bytes(
+            bytes[40..48]
+                .try_into()
+                .map_err(|_| invalid(0, ChainIssue::InvalidAnchor))?,
+        ),
+        tail_hash: bytes[48..80]
+            .try_into()
+            .map_err(|_| invalid(0, ChainIssue::InvalidAnchor))?,
+    })
+}
+
+fn write_intent(
+    directory: &Path,
+    offset: u64,
+    previous: Verification,
+    frame: &[u8],
+) -> Result<(), AuditError> {
+    let mut bytes = Vec::with_capacity(INTENT_HEADER_BYTES + frame.len() + 32);
+    bytes.extend_from_slice(INTENT_MAGIC);
+    bytes.extend_from_slice(&offset.to_be_bytes());
+    bytes.extend_from_slice(&anchor_bytes(previous));
+    let length = u32::try_from(frame.len()).map_err(|_| AuditError::PayloadTooLarge)?;
+    bytes.extend_from_slice(&length.to_be_bytes());
+    bytes.extend_from_slice(frame);
+    let checksum: [u8; 32] = Sha256::digest(&bytes).into();
+    bytes.extend_from_slice(&checksum);
+    let temporary = directory.join(INTENT_TEMP_FILE);
+    let mut file = OpenOptions::new()
+        .create(true)
+        .truncate(true)
+        .write(true)
+        .open(&temporary)?;
+    file.write_all(&bytes)?;
+    file.sync_all()?;
+    fs::rename(temporary, directory.join(INTENT_FILE))?;
+    File::open(directory)?.sync_all()?;
+    Ok(())
+}
+
+fn clear_intent(directory: &Path) -> Result<(), AuditError> {
+    fs::remove_file(directory.join(INTENT_FILE))?;
+    File::open(directory)?.sync_all()?;
+    Ok(())
+}
+
+// Recovery never guesses a new tail from an unanchored chain. The durable
+// intent must describe exactly one frame; both the committed prefix and every
+// surviving byte of the candidate tail must match before any mutation occurs.
+fn recover_append(directory: &Path, path: &Path, tenant_hash: [u8; 32]) -> Result<(), AuditError> {
+    let intent = match File::open(directory.join(INTENT_FILE)) {
+        Ok(file) => file,
+        Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(()),
+        Err(error) => return Err(error.into()),
+    };
+    let max_intent = INTENT_HEADER_BYTES + FRAME_FIXED_BYTES + MAX_PAYLOAD_BYTES + 32;
+    let mut bytes = Vec::new();
+    intent.take(max_intent as u64 + 1).read_to_end(&mut bytes)?;
+    let bad = || invalid(0, ChainIssue::InvalidIntent);
+    if bytes.len() < INTENT_HEADER_BYTES + FRAME_FIXED_BYTES + 32
+        || bytes.len() > max_intent
+        || &bytes[..8] != INTENT_MAGIC
+    {
+        return Err(bad());
+    }
+    let checksum_offset = bytes.len() - 32;
+    let checksum: [u8; 32] = Sha256::digest(&bytes[..checksum_offset]).into();
+    if bytes[checksum_offset..] != checksum {
+        return Err(bad());
+    }
+    let offset = u64::from_be_bytes(bytes[8..16].try_into().map_err(|_| bad())?);
+    let previous = decode_anchor(&bytes[16..96], tenant_hash)?;
+    let length = u32::from_be_bytes(bytes[96..100].try_into().map_err(|_| bad())?) as usize;
+    let frame = &bytes[INTENT_HEADER_BYTES..checksum_offset];
+    if length != frame.len() || offset < HEADER_BYTES as u64 {
+        return Err(bad());
+    }
+    let mut file = OpenOptions::new().read(true).write(true).open(path)?;
+    let file_length = file.metadata()?.len();
+    let end = offset.checked_add(length as u64).ok_or_else(bad)?;
+    if file_length < offset || file_length > end {
+        return Err(bad());
+    }
+    let prefix = scan_chain(BufReader::new((&mut file).take(offset)))?;
+    if prefix != previous {
+        return Err(bad());
+    }
+    // Verify the intended frame's sequence, previous hash, codec and digest
+    // using the same verifier as ordinary committed history.
+    file.seek(SeekFrom::Start(0))?;
+    let planned = scan_chain(BufReader::new((&mut file).take(offset).chain(frame)))?;
+    if planned.entries
+        != previous
+            .entries
+            .checked_add(1)
+            .ok_or(AuditError::SequenceOverflow)?
+    {
+        return Err(bad());
+    }
+    let anchor = decode_anchor(&fs::read(directory.join(ANCHOR_FILE))?, tenant_hash)?;
+    if anchor != previous && anchor != planned {
+        return Err(bad());
+    }
+    file.seek(SeekFrom::Start(offset))?;
+    let mut surviving = Vec::with_capacity(length);
+    (&mut file)
+        .take(length as u64 + 1)
+        .read_to_end(&mut surviving)?;
+    if !frame.starts_with(&surviving) || (anchor == planned && file_length != end) {
+        return Err(bad());
+    }
+    if file_length == end {
+        // A complete, verified frame is retained, even if anchor publication
+        // was interrupted. The operation was never invoked by the failed call.
+        file.sync_all()?;
+        write_anchor(
+            directory,
+            &directory.join(ANCHOR_FILE),
+            tenant_hash,
+            planned.entries,
+            planned.tail_hash,
+        )?;
+    } else {
+        // Only an exact prefix of the intended, uncommitted frame can be
+        // discarded. Missing or changed committed bytes always fail closed.
+        file.set_len(offset)?;
+        file.sync_all()?;
+    }
+    clear_intent(directory)
 }
 
 fn read_until_eof(reader: &mut impl Read, output: &mut [u8]) -> Result<usize, AuditError> {
@@ -454,6 +703,23 @@ pub(crate) fn entry_hash(
     digest.update(previous_hash);
     digest.update(payload_length.to_be_bytes());
     digest.update(payload);
+    digest.finalize().into()
+}
+
+pub(crate) fn committed_entry_hash(
+    tenant_hash: [u8; 32],
+    sequence: u64,
+    previous_hash: [u8; 32],
+    payload_length: u32,
+    root: [u8; 32],
+) -> [u8; 32] {
+    let mut digest = Sha256::new();
+    digest.update(b"layerx-agent-audit-field-commitments-v1");
+    digest.update(tenant_hash);
+    digest.update(sequence.to_be_bytes());
+    digest.update(previous_hash);
+    digest.update(payload_length.to_be_bytes());
+    digest.update(root);
     digest.finalize().into()
 }
 

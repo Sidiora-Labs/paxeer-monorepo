@@ -1,6 +1,7 @@
 /** Blockscout API v2 — Address endpoints (wallet-relevant subset) */
 
 import { getBlockscoutClient } from '../client';
+import type { WalletReadOptions } from '../../wallet-read-contract';
 import type { PaginatedResponse, PaginationParams } from '../types/common';
 import type {
   AddressResponse,
@@ -20,21 +21,35 @@ import type { Transaction } from '../types/transaction';
 
 // ── GET /v2/addresses/:hash ─────────────────────────────────────────────────
 
-export async function getAddress(addressHash: string): Promise<AddressResponse> {
-  return getBlockscoutClient().get<AddressResponse>(`/v2/addresses/${addressHash}`);
+export async function getAddress(
+  addressHash: string,
+  options?: WalletReadOptions
+): Promise<AddressResponse> {
+  return getBlockscoutClient().get<AddressResponse>(
+    `/v2/addresses/${addressHash}`,
+    undefined,
+    options
+  );
 }
 
 // ── GET /v2/addresses/:hash/counters ────────────────────────────────────────
 
-export async function getAddressCounters(addressHash: string): Promise<AddressCounters> {
-  return getBlockscoutClient().get<AddressCounters>(`/v2/addresses/${addressHash}/counters`);
+export async function getAddressCounters(
+  addressHash: string,
+  options?: WalletReadOptions
+): Promise<AddressCounters> {
+  return getBlockscoutClient().get<AddressCounters>(
+    `/v2/addresses/${addressHash}/counters`,
+    undefined,
+    options
+  );
 }
 
 // ── GET /v2/addresses/:hash/tabs-counters ───────────────────────────────────
 
 export async function getAddressTabsCounters(addressHash: string): Promise<AddressTabsCounters> {
   return getBlockscoutClient().get<AddressTabsCounters>(
-    `/v2/addresses/${addressHash}/tabs-counters`,
+    `/v2/addresses/${addressHash}/tabs-counters`
   );
 }
 
@@ -49,10 +64,12 @@ export interface AddressTxsParams extends PaginationParams {
 export async function getAddressTransactions(
   addressHash: string,
   params?: AddressTxsParams,
+  options?: WalletReadOptions
 ): Promise<PaginatedResponse<Transaction>> {
   return getBlockscoutClient().get<PaginatedResponse<Transaction>>(
     `/v2/addresses/${addressHash}/transactions`,
     params as Record<string, string | number | boolean | undefined>,
+    options
   );
 }
 
@@ -67,10 +84,12 @@ export interface AddressTokenTransfersParams extends PaginationParams {
 export async function getAddressTokenTransfers(
   addressHash: string,
   params?: AddressTokenTransfersParams,
+  options?: WalletReadOptions
 ): Promise<PaginatedResponse<TokenTransfer>> {
   return getBlockscoutClient().get<PaginatedResponse<TokenTransfer>>(
     `/v2/addresses/${addressHash}/token-transfers`,
     params as Record<string, string | number | boolean | undefined>,
+    options
   );
 }
 
@@ -82,19 +101,24 @@ export interface AddressTokensParams extends PaginationParams {
 
 export async function getAddressTokens(
   addressHash: string,
-  params?: AddressTokensParams,
+  params?: AddressTokensParams
 ): Promise<PaginatedResponse<TokenBalance>> {
   return getBlockscoutClient().get<PaginatedResponse<TokenBalance>>(
     `/v2/addresses/${addressHash}/tokens`,
-    params as Record<string, string | number | boolean | undefined>,
+    params as Record<string, string | number | boolean | undefined>
   );
 }
 
 // ── GET /v2/addresses/:hash/token-balances (all token balances, no pagination)
 
-export async function getAddressTokenBalances(addressHash: string): Promise<TokenBalance[]> {
+export async function getAddressTokenBalances(
+  addressHash: string,
+  options?: WalletReadOptions
+): Promise<TokenBalance[]> {
   return getBlockscoutClient().get<TokenBalance[]>(
     `/v2/addresses/${addressHash}/token-balances`,
+    undefined,
+    options
   );
 }
 
@@ -102,21 +126,21 @@ export async function getAddressTokenBalances(addressHash: string): Promise<Toke
 
 export async function getAddressCoinBalanceHistory(
   addressHash: string,
-  params?: PaginationParams,
+  params?: PaginationParams
 ): Promise<PaginatedResponse<CoinBalance>> {
   return getBlockscoutClient().get<PaginatedResponse<CoinBalance>>(
     `/v2/addresses/${addressHash}/coin-balance-history`,
-    params as Record<string, string | number | boolean | undefined>,
+    params as Record<string, string | number | boolean | undefined>
   );
 }
 
 // ── GET /v2/addresses/:hash/coin-balance-history-by-day ─────────────────────
 
 export async function getAddressCoinBalanceHistoryByDay(
-  addressHash: string,
+  addressHash: string
 ): Promise<CoinBalanceHistoryByDay> {
   return getBlockscoutClient().get<CoinBalanceHistoryByDay>(
-    `/v2/addresses/${addressHash}/coin-balance-history-by-day`,
+    `/v2/addresses/${addressHash}/coin-balance-history-by-day`
   );
 }
 
@@ -128,11 +152,11 @@ export interface AddressNftParams extends PaginationParams {
 
 export async function getAddressNfts(
   addressHash: string,
-  params?: AddressNftParams,
+  params?: AddressNftParams
 ): Promise<PaginatedResponse<TokenInstanceInList>> {
   return getBlockscoutClient().get<PaginatedResponse<TokenInstanceInList>>(
     `/v2/addresses/${addressHash}/nft`,
-    params as Record<string, string | number | boolean | undefined>,
+    params as Record<string, string | number | boolean | undefined>
   );
 }
 
@@ -140,11 +164,11 @@ export async function getAddressNfts(
 
 export async function getAddressNftCollections(
   addressHash: string,
-  params?: AddressNftParams,
+  params?: AddressNftParams
 ): Promise<PaginatedResponse<NFTCollection>> {
   return getBlockscoutClient().get<PaginatedResponse<NFTCollection>>(
     `/v2/addresses/${addressHash}/nft/collections`,
-    params as Record<string, string | number | boolean | undefined>,
+    params as Record<string, string | number | boolean | undefined>
   );
 }
 
@@ -152,10 +176,10 @@ export async function getAddressNftCollections(
 
 export async function getAddressLogs(
   addressHash: string,
-  params?: PaginationParams,
+  params?: PaginationParams
 ): Promise<PaginatedResponse<Log>> {
   return getBlockscoutClient().get<PaginatedResponse<Log>>(
     `/v2/addresses/${addressHash}/logs`,
-    params as Record<string, string | number | boolean | undefined>,
+    params as Record<string, string | number | boolean | undefined>
   );
 }

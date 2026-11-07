@@ -12,6 +12,8 @@ import (
 	"github.com/ethereum/go-ethereum/core/vm"
 )
 
+const AskStreamOpened = "AskStreamOpened"
+
 type payEvent struct {
 	name string
 	pack func(args []interface{}, record any) ([]interface{}, error)
@@ -34,6 +36,9 @@ type payServiceSequence[T any] struct {
 }
 
 var payEvents = map[string]payEvent{
+	AskStreamOpened: payRecordEvent(AskStreamOpened, 2, func(a []interface{}, id [32]byte) []interface{} {
+		return []interface{}{id, a[1]}
+	}),
 	"EscrowOpened":            payEscrowEvent("EscrowOpened", 1),
 	"EscrowCaptured":          payEscrowEvent("EscrowCaptured", 2),
 	"EscrowPartiallyCaptured": payEscrowEvent("EscrowPartiallyCaptured", 3),

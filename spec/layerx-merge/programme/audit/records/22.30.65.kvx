@@ -1,0 +1,1516 @@
+# Pre-upgrade audit record; source revision is the tree reviewed, gate candidate revision is reported by hf-build/hf-done.
+
+[audit.22.30.65]
+task = "22.30.65"
+revision = "2b99f88520e4e809ad5593f3bee2df74fe355d7b"
+files_reviewed = 189
+findings = 27
+docs_reviewed = 15
+upgrade_ready = false
+blocking = ["program-event-semantics", "program-evm-journal-collision"]
+method = "Static pre-upgrade audit of every package member in full, except generated archives identified by provenance; requirements, listed registry interfaces, consumers and package pages compared. Only the declared record build/verification gates are run; no runtime network qualification is claimed."
+requirements = ["22011.1", "22998.1", "2058.4", "18814.1", "13250.1", "13250.2", "1124.1", "2045.1", "2045.2", "2059.1", "2065.1", "2999.1", "2011.1", "2011.2", "2012.1", "2012.2", "2013.1", "2014.1", "2015.1", "2016.1", "2020.2", "2035.1", "5045.2", "2050.1", "2050.2", "2051.1", "2051.2", "2051.3", "2052.1", "2052.2", "2053.1", "2053.2", "2053.3", "2054.1", "2054.2", "2055.1", "2055.2", "2056.1", "2056.2", "2056.3", "2057.1", "2058.1", "2058.2", "2058.3", "2060.1", "2060.2", "2061.1", "2061.2", "2062.1", "2062.2", "2066.1", "2067.1", "2068.1", "2069.1", "2069.2", "2276.1", "2276.2", "2277.1", "2277.2", "2278.1", "2278.2", "2279.1", "2279.2", "2279.3", "2280.1", "2280.2", "2281.1", "2281.2", "2281.3", "2282.1", "2282.2", "2282.3", "2283.1", "2283.2", "2293.1", "2293.2", "2293.3", "2293.4", "2294.1", "2294.2"]
+produces_listed = 400
+consumes_listed = 400
+inventory_note = "The package enumerates 400 produces and 400 consumes while its broader totals are 449 and 980. The explicitly listed rows are the interface scope reviewed; aggregate totals are not silently substituted for enumerated rows."
+
+[file.001]
+path = "api/layerxcustody/events.proto"
+lines = 87
+verdict = "clean"
+note = "Read the full protobuf schema, field numbers, events and JSON annotations. Retained custody/claim/checkpoint vocabulary describes historical state and wire compatibility, not activation of a retired network flow."
+
+[file.002]
+path = "api/layerxcustody/genesis.proto"
+lines = 24
+verdict = "clean"
+note = "Read the full protobuf schema, field numbers, events and JSON annotations. Retained custody/claim/checkpoint vocabulary describes historical state and wire compatibility, not activation of a retired network flow."
+
+[file.003]
+path = "api/layerxcustody/params.proto"
+lines = 41
+verdict = "issues"
+note = "Read in full; findings below identify the exact interface, runtime, test or documentation disagreements. Existing behavior is recorded without changing the implementation."
+
+[file.004]
+path = "api/layerxcustody/proposal.proto"
+lines = 25
+verdict = "clean"
+note = "Read the full protobuf schema, field numbers, events and JSON annotations. Retained custody/claim/checkpoint vocabulary describes historical state and wire compatibility, not activation of a retired network flow."
+
+[file.005]
+path = "api/layerxcustody/state.proto"
+lines = 129
+verdict = "clean"
+note = "Read the full protobuf schema, field numbers, events and JSON annotations. Retained custody/claim/checkpoint vocabulary describes historical state and wire compatibility, not activation of a retired network flow."
+
+[file.006]
+path = "api/layerxcustody/tx.proto"
+lines = 132
+verdict = "clean"
+note = "Read the full protobuf schema, field numbers, events and JSON annotations. Retained custody/claim/checkpoint vocabulary describes historical state and wire compatibility, not activation of a retired network flow."
+
+[file.007]
+path = "modules/layerxanchor/bringup_genesis_test.go"
+lines = 45
+verdict = "clean"
+note = "Read the full test and fixtures against keeper/proof/retirement behavior. Reviewed refusal ordering, merge boundary, retained state, bounded bond return and replay/genesis coverage as applicable; historical checkpoints are deliberate retirement inputs."
+
+[file.008]
+path = "modules/layerxanchor/keeper/bond_return.go"
+lines = 72
+verdict = "clean"
+note = "Read the entire retained anchor module/type/keeper implementation. Checked registration, typed errors, retired mutation/read guards, archival genesis and bond-return state lifecycle as applicable; historical names are retained compatibility surfaces."
+
+[file.009]
+path = "modules/layerxanchor/keeper/bond_return_test.go"
+lines = 324
+verdict = "clean"
+note = "Read the full test and fixtures against keeper/proof/retirement behavior. Reviewed refusal ordering, merge boundary, retained state, bounded bond return and replay/genesis coverage as applicable; historical checkpoints are deliberate retirement inputs."
+
+[file.010]
+path = "modules/layerxanchor/keeper/challenges.go"
+lines = 136
+verdict = "clean"
+note = "Read the entire retained anchor module/type/keeper implementation. Checked registration, typed errors, retired mutation/read guards, archival genesis and bond-return state lifecycle as applicable; historical names are retained compatibility surfaces."
+
+[file.011]
+path = "modules/layerxanchor/keeper/checkpoint_path_retired_test.go"
+lines = 132
+verdict = "clean"
+note = "Read the full test and fixtures against keeper/proof/retirement behavior. Reviewed refusal ordering, merge boundary, retained state, bounded bond return and replay/genesis coverage as applicable; historical checkpoints are deliberate retirement inputs."
+
+[file.012]
+path = "modules/layerxanchor/keeper/checkpoints.go"
+lines = 177
+verdict = "clean"
+note = "Read the entire retained anchor module/type/keeper implementation. Checked registration, typed errors, retired mutation/read guards, archival genesis and bond-return state lifecycle as applicable; historical names are retained compatibility surfaces."
+
+[file.013]
+path = "modules/layerxanchor/keeper/custody_reader.go"
+lines = 81
+verdict = "clean"
+note = "Read the entire retained anchor module/type/keeper implementation. Checked registration, typed errors, retired mutation/read guards, archival genesis and bond-return state lifecycle as applicable; historical names are retained compatibility surfaces."
+
+[file.014]
+path = "modules/layerxanchor/keeper/genesis.go"
+lines = 105
+verdict = "clean"
+note = "Read the entire retained anchor module/type/keeper implementation. Checked registration, typed errors, retired mutation/read guards, archival genesis and bond-return state lifecycle as applicable; historical names are retained compatibility surfaces."
+
+[file.015]
+path = "modules/layerxanchor/keeper/guarantors.go"
+lines = 214
+verdict = "clean"
+note = "Read the entire retained anchor module/type/keeper implementation. Checked registration, typed errors, retired mutation/read guards, archival genesis and bond-return state lifecycle as applicable; historical names are retained compatibility surfaces."
+
+[file.016]
+path = "modules/layerxanchor/keeper/keeper.go"
+lines = 217
+verdict = "clean"
+note = "Read the entire retained anchor module/type/keeper implementation. Checked registration, typed errors, retired mutation/read guards, archival genesis and bond-return state lifecycle as applicable; historical names are retained compatibility surfaces."
+
+[file.017]
+path = "modules/layerxanchor/keeper/keeper_test.go"
+lines = 438
+verdict = "clean"
+note = "Read the full test and fixtures against keeper/proof/retirement behavior. Reviewed refusal ordering, merge boundary, retained state, bounded bond return and replay/genesis coverage as applicable; historical checkpoints are deliberate retirement inputs."
+
+[file.018]
+path = "modules/layerxanchor/keeper/merge_handler_test.go"
+lines = 161
+verdict = "clean"
+note = "Read the full test and fixtures against keeper/proof/retirement behavior. Reviewed refusal ordering, merge boundary, retained state, bounded bond return and replay/genesis coverage as applicable; historical checkpoints are deliberate retirement inputs."
+
+[file.019]
+path = "modules/layerxanchor/keeper/msg_server.go"
+lines = 38
+verdict = "clean"
+note = "Read the entire retained anchor module/type/keeper implementation. Checked registration, typed errors, retired mutation/read guards, archival genesis and bond-return state lifecycle as applicable; historical names are retained compatibility surfaces."
+
+[file.020]
+path = "modules/layerxanchor/keeper/msg_server_retired_test.go"
+lines = 102
+verdict = "clean"
+note = "Read the full test and fixtures against keeper/proof/retirement behavior. Reviewed refusal ordering, merge boundary, retained state, bounded bond return and replay/genesis coverage as applicable; historical checkpoints are deliberate retirement inputs."
+
+[file.021]
+path = "modules/layerxanchor/keeper/retire.go"
+lines = 17
+verdict = "clean"
+note = "Read the entire retained anchor module/type/keeper implementation. Checked registration, typed errors, retired mutation/read guards, archival genesis and bond-return state lifecycle as applicable; historical names are retained compatibility surfaces."
+
+[file.022]
+path = "modules/layerxanchor/keeper/retire_gate_test.go"
+lines = 63
+verdict = "clean"
+note = "Read the full test and fixtures against keeper/proof/retirement behavior. Reviewed refusal ordering, merge boundary, retained state, bounded bond return and replay/genesis coverage as applicable; historical checkpoints are deliberate retirement inputs."
+
+[file.023]
+path = "modules/layerxanchor/keeper/retire_merge.go"
+lines = 16
+verdict = "clean"
+note = "Read the entire retained anchor module/type/keeper implementation. Checked registration, typed errors, retired mutation/read guards, archival genesis and bond-return state lifecycle as applicable; historical names are retained compatibility surfaces."
+
+[file.024]
+path = "modules/layerxanchor/keeper/retire_merge_test.go"
+lines = 111
+verdict = "clean"
+note = "Read the full test and fixtures against keeper/proof/retirement behavior. Reviewed refusal ordering, merge boundary, retained state, bounded bond return and replay/genesis coverage as applicable; historical checkpoints are deliberate retirement inputs."
+
+[file.025]
+path = "modules/layerxanchor/keeper/retirement_rehearsal_test.go"
+lines = 309
+verdict = "clean"
+note = "Read the full test and fixtures against keeper/proof/retirement behavior. Reviewed refusal ordering, merge boundary, retained state, bounded bond return and replay/genesis coverage as applicable; historical checkpoints are deliberate retirement inputs."
+
+[file.026]
+path = "modules/layerxanchor/keeper/slashing.go"
+lines = 100
+verdict = "clean"
+note = "Read the entire retained anchor module/type/keeper implementation. Checked registration, typed errors, retired mutation/read guards, archival genesis and bond-return state lifecycle as applicable; historical names are retained compatibility surfaces."
+
+[file.027]
+path = "modules/layerxanchor/module.go"
+lines = 132
+verdict = "issues"
+note = "Read in full; findings below identify the exact interface, runtime, test or documentation disagreements. Existing behavior is recorded without changing the implementation."
+
+[file.028]
+path = "modules/layerxanchor/proof_retirement_test.go"
+lines = 181
+verdict = "clean"
+note = "Read the full test and fixtures against keeper/proof/retirement behavior. Reviewed refusal ordering, merge boundary, retained state, bounded bond return and replay/genesis coverage as applicable; historical checkpoints are deliberate retirement inputs."
+
+[file.029]
+path = "modules/layerxanchor/types/codec.go"
+lines = 75
+verdict = "clean"
+note = "Read the entire retained anchor module/type/keeper implementation. Checked registration, typed errors, retired mutation/read guards, archival genesis and bond-return state lifecycle as applicable; historical names are retained compatibility surfaces."
+
+[file.030]
+path = "modules/layerxanchor/types/errors.go"
+lines = 25
+verdict = "clean"
+note = "Read the entire retained anchor module/type/keeper implementation. Checked registration, typed errors, retired mutation/read guards, archival genesis and bond-return state lifecycle as applicable; historical names are retained compatibility surfaces."
+
+[file.031]
+path = "modules/layerxanchor/types/errors_retired_test.go"
+lines = 15
+verdict = "clean"
+note = "Read the full test and fixtures against keeper/proof/retirement behavior. Reviewed refusal ordering, merge boundary, retained state, bounded bond return and replay/genesis coverage as applicable; historical checkpoints are deliberate retirement inputs."
+
+[file.032]
+path = "modules/layerxanchor/types/events.go"
+lines = 40
+verdict = "clean"
+note = "Read the entire retained anchor module/type/keeper implementation. Checked registration, typed errors, retired mutation/read guards, archival genesis and bond-return state lifecycle as applicable; historical names are retained compatibility surfaces."
+
+[file.033]
+path = "modules/layerxanchor/types/expected_keepers.go"
+lines = 19
+verdict = "clean"
+note = "Read the entire retained anchor module/type/keeper implementation. Checked registration, typed errors, retired mutation/read guards, archival genesis and bond-return state lifecycle as applicable; historical names are retained compatibility surfaces."
+
+[file.034]
+path = "modules/layerxanchor/types/genesis.go"
+lines = 116
+verdict = "clean"
+note = "Read the entire retained anchor module/type/keeper implementation. Checked registration, typed errors, retired mutation/read guards, archival genesis and bond-return state lifecycle as applicable; historical names are retained compatibility surfaces."
+
+[file.035]
+path = "modules/layerxanchor/types/keys.go"
+lines = 73
+verdict = "clean"
+note = "Read the entire retained anchor module/type/keeper implementation. Checked registration, typed errors, retired mutation/read guards, archival genesis and bond-return state lifecycle as applicable; historical names are retained compatibility surfaces."
+
+[file.036]
+path = "modules/layerxanchor/types/msgs.go"
+lines = 27
+verdict = "clean"
+note = "Read the entire retained anchor module/type/keeper implementation. Checked registration, typed errors, retired mutation/read guards, archival genesis and bond-return state lifecycle as applicable; historical names are retained compatibility surfaces."
+
+[file.037]
+path = "modules/layerxanchor/types/params.go"
+lines = 91
+verdict = "clean"
+note = "Read the entire retained anchor module/type/keeper implementation. Checked registration, typed errors, retired mutation/read guards, archival genesis and bond-return state lifecycle as applicable; historical names are retained compatibility surfaces."
+
+[file.038]
+path = "modules/layerxanchor/types/retire.go"
+lines = 6
+verdict = "clean"
+note = "Read the entire retained anchor module/type/keeper implementation. Checked registration, typed errors, retired mutation/read guards, archival genesis and bond-return state lifecycle as applicable; historical names are retained compatibility surfaces."
+
+[file.039]
+path = "modules/layerxanchor/types/retire_names_test.go"
+lines = 22
+verdict = "clean"
+note = "Read the full test and fixtures against keeper/proof/retirement behavior. Reviewed refusal ordering, merge boundary, retained state, bounded bond return and replay/genesis coverage as applicable; historical checkpoints are deliberate retirement inputs."
+
+[file.040]
+path = "modules/layerxanchor/types/state.go"
+lines = 170
+verdict = "clean"
+note = "Read the entire retained anchor module/type/keeper implementation. Checked registration, typed errors, retired mutation/read guards, archival genesis and bond-return state lifecycle as applicable; historical names are retained compatibility surfaces."
+
+[file.041]
+path = "precompiles/custom_precompiles_e_test.go"
+lines = 48
+verdict = "clean"
+note = "Read the full registration/parity/activation file or test. Compared live custom-precompile construction and names/ABI/address tables, v7.0 plan gating, retired endpoint handling and rollback/parity fixtures with the current served modules."
+
+[file.042]
+path = "precompiles/layerxanchor/LayerXAnchor.sol"
+lines = 118
+verdict = "issues"
+note = "Read in full; findings below identify the exact interface, runtime, test or documentation disagreements. Existing behavior is recorded without changing the implementation."
+
+[file.043]
+path = "precompiles/layerxanchor/abi.json"
+lines = 952
+verdict = "clean"
+note = "Read the complete historical ABI and current retirement wrapper. Selector/type retention is compatible with explicit post-merge refusal; archived names do not imply live checkpoint authority."
+
+[file.044]
+path = "precompiles/layerxanchor/layerxanchor.go"
+lines = 540
+verdict = "clean"
+note = "Read the complete historical ABI and current retirement wrapper. Selector/type retention is compatible with explicit post-merge refusal; archived names do not imply live checkpoint authority."
+
+[file.045]
+path = "precompiles/layerxanchor/layerxanchor_test.go"
+lines = 410
+verdict = "clean"
+note = "Read the complete retirement/precompile test: compared registered selectors, fail-closed reads/writes, guard ordering, legacy replay and state/value preservation with the actual wrapper and keeper."
+
+[file.046]
+path = "precompiles/layerxanchor/retire_gate_test.go"
+lines = 253
+verdict = "clean"
+note = "Read the complete retirement/precompile test: compared registered selectors, fail-closed reads/writes, guard ordering, legacy replay and state/value preservation with the actual wrapper and keeper."
+
+[file.047]
+path = "precompiles/layerxanchor/retire_read_gate_test.go"
+lines = 198
+verdict = "clean"
+note = "Read the complete retirement/precompile test: compared registered selectors, fail-closed reads/writes, guard ordering, legacy replay and state/value preservation with the actual wrapper and keeper."
+
+[file.048]
+path = "precompiles/layerxanchor/retired_surface_test.go"
+lines = 162
+verdict = "clean"
+note = "Read the complete retirement/precompile test: compared registered selectors, fail-closed reads/writes, guard ordering, legacy replay and state/value preservation with the actual wrapper and keeper."
+
+[file.049]
+path = "precompiles/layerxanchor/retired_wrapper_test.go"
+lines = 159
+verdict = "clean"
+note = "Read the complete retirement/precompile test: compared registered selectors, fail-closed reads/writes, guard ordering, legacy replay and state/value preservation with the actual wrapper and keeper."
+
+[file.050]
+path = "precompiles/layerxanchor/setup.go"
+lines = 21
+verdict = "generated"
+note = "Generated version dispatch/constructor archive; current constructor and historical fallbacks were read. Endpoint lifecycle is assessed in the handwritten registration and executor paths rather than by editing this generated dispatch."
+
+[file.051]
+path = "precompiles/layerxanchor/unwired_test.go"
+lines = 46
+verdict = "clean"
+note = "Read the complete retirement/precompile test: compared registered selectors, fail-closed reads/writes, guard ordering, legacy replay and state/value preservation with the actual wrapper and keeper."
+
+[file.052]
+path = "precompiles/layerxprograms/view_height_test.go"
+lines = 144
+verdict = "clean"
+note = "Read the entire view-height regression and real precompile setup. Compared committed/read-only host height with call context and keeper state; no separate-daemon RPC transport is introduced."
+
+[file.053]
+path = "precompiles/merge_gateway_parity_test.go"
+lines = 63
+verdict = "clean"
+note = "Read the full registration/parity/activation file or test. Compared live custom-precompile construction and names/ABI/address tables, v7.0 plan gating, retired endpoint handling and rollback/parity fixtures with the current served modules."
+
+[file.054]
+path = "precompiles/merge_serve_0x0901_test.go"
+lines = 62
+verdict = "clean"
+note = "Read the full registration/parity/activation file or test. Compared live custom-precompile construction and names/ABI/address tables, v7.0 plan gating, retired endpoint handling and rollback/parity fixtures with the current served modules."
+
+[file.055]
+path = "precompiles/merge_serve_0x0902_test.go"
+lines = 52
+verdict = "clean"
+note = "Read the full registration/parity/activation file or test. Compared live custom-precompile construction and names/ABI/address tables, v7.0 plan gating, retired endpoint handling and rollback/parity fixtures with the current served modules."
+
+[file.056]
+path = "precompiles/merge_serve_0x0903_test.go"
+lines = 61
+verdict = "clean"
+note = "Read the full registration/parity/activation file or test. Compared live custom-precompile construction and names/ABI/address tables, v7.0 plan gating, retired endpoint handling and rollback/parity fixtures with the current served modules."
+
+[file.057]
+path = "precompiles/merge_serve_0x0904_test.go"
+lines = 50
+verdict = "clean"
+note = "Read the full registration/parity/activation file or test. Compared live custom-precompile construction and names/ABI/address tables, v7.0 plan gating, retired endpoint handling and rollback/parity fixtures with the current served modules."
+
+[file.058]
+path = "precompiles/merge_serve_0x0905_test.go"
+lines = 89
+verdict = "clean"
+note = "Read the full registration/parity/activation file or test. Compared live custom-precompile construction and names/ABI/address tables, v7.0 plan gating, retired endpoint handling and rollback/parity fixtures with the current served modules."
+
+[file.059]
+path = "precompiles/merge_serve_0x0906_test.go"
+lines = 58
+verdict = "clean"
+note = "Read the full registration/parity/activation file or test. Compared live custom-precompile construction and names/ABI/address tables, v7.0 plan gating, retired endpoint handling and rollback/parity fixtures with the current served modules."
+
+[file.060]
+path = "precompiles/merge_serve_0x0907_test.go"
+lines = 57
+verdict = "clean"
+note = "Read the full registration/parity/activation file or test. Compared live custom-precompile construction and names/ABI/address tables, v7.0 plan gating, retired endpoint handling and rollback/parity fixtures with the current served modules."
+
+[file.061]
+path = "precompiles/merge_serve_0x0908_test.go"
+lines = 58
+verdict = "clean"
+note = "Read the full registration/parity/activation file or test. Compared live custom-precompile construction and names/ABI/address tables, v7.0 plan gating, retired endpoint handling and rollback/parity fixtures with the current served modules."
+
+[file.062]
+path = "precompiles/merge_serve_0x101a_test.go"
+lines = 72
+verdict = "clean"
+note = "Read the full registration/parity/activation file or test. Compared live custom-precompile construction and names/ABI/address tables, v7.0 plan gating, retired endpoint handling and rollback/parity fixtures with the current served modules."
+
+[file.063]
+path = "precompiles/merge_serve_0x101b_test.go"
+lines = 84
+verdict = "clean"
+note = "Read the full registration/parity/activation file or test. Compared live custom-precompile construction and names/ABI/address tables, v7.0 plan gating, retired endpoint handling and rollback/parity fixtures with the current served modules."
+
+[file.064]
+path = "precompiles/merge_serve_0x101c_test.go"
+lines = 62
+verdict = "clean"
+note = "Read the full registration/parity/activation file or test. Compared live custom-precompile construction and names/ABI/address tables, v7.0 plan gating, retired endpoint handling and rollback/parity fixtures with the current served modules."
+
+[file.065]
+path = "precompiles/merge_serve_0x101d_test.go"
+lines = 67
+verdict = "clean"
+note = "Read the full registration/parity/activation file or test. Compared live custom-precompile construction and names/ABI/address tables, v7.0 plan gating, retired endpoint handling and rollback/parity fixtures with the current served modules."
+
+[file.066]
+path = "precompiles/merge_upgrade_test.go"
+lines = 13
+verdict = "clean"
+note = "Read the full registration/parity/activation file or test. Compared live custom-precompile construction and names/ABI/address tables, v7.0 plan gating, retired endpoint handling and rollback/parity fixtures with the current served modules."
+
+[file.067]
+path = "precompiles/missing_merge_test.go"
+lines = 40
+verdict = "clean"
+note = "Read the full registration/parity/activation file or test. Compared live custom-precompile construction and names/ABI/address tables, v7.0 plan gating, retired endpoint handling and rollback/parity fixtures with the current served modules."
+
+[file.068]
+path = "precompiles/names_markets_test.go"
+lines = 64
+verdict = "clean"
+note = "Read the full registration/parity/activation file or test. Compared live custom-precompile construction and names/ABI/address tables, v7.0 plan gating, retired endpoint handling and rollback/parity fixtures with the current served modules."
+
+[file.069]
+path = "precompiles/pointer/Pointer.sol"
+lines = 24
+verdict = "clean"
+note = "Read the full current pointer registration surface/test. Checked argument/address handling, method selectors, metadata-to-wrapper deployment, value refusal and gas accounting; metadata panic and ABI mutability gaps are recorded on their owning files."
+
+[file.070]
+path = "precompiles/pointer/abi.json"
+lines = 1
+verdict = "issues"
+note = "Read in full; findings below identify the exact interface, runtime, test or documentation disagreements. Existing behavior is recorded without changing the implementation."
+
+[file.071]
+path = "precompiles/pointer/abi_freeze_test.go"
+lines = 57
+verdict = "issues"
+note = "Read in full; findings below identify the exact interface, runtime, test or documentation disagreements. Existing behavior is recorded without changing the implementation."
+
+[file.072]
+path = "precompiles/pointer/gas_golden_test.go"
+lines = 116
+verdict = "clean"
+note = "Read the full current pointer registration surface/test. Checked argument/address handling, method selectors, metadata-to-wrapper deployment, value refusal and gas accounting; metadata panic and ABI mutability gaps are recorded on their owning files."
+
+[file.073]
+path = "precompiles/pointer/legacy/v552/abi.json"
+lines = 1
+verdict = "generated"
+note = "Frozen version archive produced by scripts/bump_version (package/import rewrite and ABI copy); retained for historical replay. Generated verdict records provenance, not a claim that obsolete versions implement the current merged surface."
+
+[file.074]
+path = "precompiles/pointer/legacy/v552/pointer.go"
+lines = 304
+verdict = "generated"
+note = "Frozen version archive produced by scripts/bump_version (package/import rewrite and ABI copy); retained for historical replay. Generated verdict records provenance, not a claim that obsolete versions implement the current merged surface."
+
+[file.075]
+path = "precompiles/pointer/legacy/v555/abi.json"
+lines = 1
+verdict = "generated"
+note = "Frozen version archive produced by scripts/bump_version (package/import rewrite and ABI copy); retained for historical replay. Generated verdict records provenance, not a claim that obsolete versions implement the current merged surface."
+
+[file.076]
+path = "precompiles/pointer/legacy/v555/pointer.go"
+lines = 312
+verdict = "generated"
+note = "Frozen version archive produced by scripts/bump_version (package/import rewrite and ABI copy); retained for historical replay. Generated verdict records provenance, not a claim that obsolete versions implement the current merged surface."
+
+[file.077]
+path = "precompiles/pointer/legacy/v562/abi.json"
+lines = 1
+verdict = "generated"
+note = "Frozen version archive produced by scripts/bump_version (package/import rewrite and ABI copy); retained for historical replay. Generated verdict records provenance, not a claim that obsolete versions implement the current merged surface."
+
+[file.078]
+path = "precompiles/pointer/legacy/v562/pointer.go"
+lines = 281
+verdict = "generated"
+note = "Frozen version archive produced by scripts/bump_version (package/import rewrite and ABI copy); retained for historical replay. Generated verdict records provenance, not a claim that obsolete versions implement the current merged surface."
+
+[file.079]
+path = "precompiles/pointer/legacy/v575/abi.json"
+lines = 1
+verdict = "generated"
+note = "Frozen version archive produced by scripts/bump_version (package/import rewrite and ABI copy); retained for historical replay. Generated verdict records provenance, not a claim that obsolete versions implement the current merged surface."
+
+[file.080]
+path = "precompiles/pointer/legacy/v575/pointer.go"
+lines = 190
+verdict = "generated"
+note = "Frozen version archive produced by scripts/bump_version (package/import rewrite and ABI copy); retained for historical replay. Generated verdict records provenance, not a claim that obsolete versions implement the current merged surface."
+
+[file.081]
+path = "precompiles/pointer/legacy/v580/abi.json"
+lines = 1
+verdict = "generated"
+note = "Frozen version archive produced by scripts/bump_version (package/import rewrite and ABI copy); retained for historical replay. Generated verdict records provenance, not a claim that obsolete versions implement the current merged surface."
+
+[file.082]
+path = "precompiles/pointer/legacy/v580/pointer.go"
+lines = 190
+verdict = "generated"
+note = "Frozen version archive produced by scripts/bump_version (package/import rewrite and ABI copy); retained for historical replay. Generated verdict records provenance, not a claim that obsolete versions implement the current merged surface."
+
+[file.083]
+path = "precompiles/pointer/legacy/v600/abi.json"
+lines = 1
+verdict = "generated"
+note = "Frozen version archive produced by scripts/bump_version (package/import rewrite and ABI copy); retained for historical replay. Generated verdict records provenance, not a claim that obsolete versions implement the current merged surface."
+
+[file.084]
+path = "precompiles/pointer/legacy/v600/pointer.go"
+lines = 190
+verdict = "generated"
+note = "Frozen version archive produced by scripts/bump_version (package/import rewrite and ABI copy); retained for historical replay. Generated verdict records provenance, not a claim that obsolete versions implement the current merged surface."
+
+[file.085]
+path = "precompiles/pointer/legacy/v605/abi.json"
+lines = 1
+verdict = "generated"
+note = "Frozen version archive produced by scripts/bump_version (package/import rewrite and ABI copy); retained for historical replay. Generated verdict records provenance, not a claim that obsolete versions implement the current merged surface."
+
+[file.086]
+path = "precompiles/pointer/legacy/v605/pointer.go"
+lines = 228
+verdict = "generated"
+note = "Frozen version archive produced by scripts/bump_version (package/import rewrite and ABI copy); retained for historical replay. Generated verdict records provenance, not a claim that obsolete versions implement the current merged surface."
+
+[file.087]
+path = "precompiles/pointer/legacy/v606/abi.json"
+lines = 1
+verdict = "generated"
+note = "Frozen version archive produced by scripts/bump_version (package/import rewrite and ABI copy); retained for historical replay. Generated verdict records provenance, not a claim that obsolete versions implement the current merged surface."
+
+[file.088]
+path = "precompiles/pointer/legacy/v606/pointer.go"
+lines = 228
+verdict = "generated"
+note = "Frozen version archive produced by scripts/bump_version (package/import rewrite and ABI copy); retained for historical replay. Generated verdict records provenance, not a claim that obsolete versions implement the current merged surface."
+
+[file.089]
+path = "precompiles/pointer/legacy/v610/abi.json"
+lines = 1
+verdict = "generated"
+note = "Frozen version archive produced by scripts/bump_version (package/import rewrite and ABI copy); retained for historical replay. Generated verdict records provenance, not a claim that obsolete versions implement the current merged surface."
+
+[file.090]
+path = "precompiles/pointer/legacy/v610/pointer.go"
+lines = 228
+verdict = "generated"
+note = "Frozen version archive produced by scripts/bump_version (package/import rewrite and ABI copy); retained for historical replay. Generated verdict records provenance, not a claim that obsolete versions implement the current merged surface."
+
+[file.091]
+path = "precompiles/pointer/legacy/v614/abi.json"
+lines = 1
+verdict = "generated"
+note = "Frozen version archive produced by scripts/bump_version (package/import rewrite and ABI copy); retained for historical replay. Generated verdict records provenance, not a claim that obsolete versions implement the current merged surface."
+
+[file.092]
+path = "precompiles/pointer/legacy/v614/pointer.go"
+lines = 228
+verdict = "generated"
+note = "Frozen version archive produced by scripts/bump_version (package/import rewrite and ABI copy); retained for historical replay. Generated verdict records provenance, not a claim that obsolete versions implement the current merged surface."
+
+[file.093]
+path = "precompiles/pointer/legacy/v620/abi.json"
+lines = 1
+verdict = "generated"
+note = "Frozen version archive produced by scripts/bump_version (package/import rewrite and ABI copy); retained for historical replay. Generated verdict records provenance, not a claim that obsolete versions implement the current merged surface."
+
+[file.094]
+path = "precompiles/pointer/legacy/v620/pointer.go"
+lines = 228
+verdict = "generated"
+note = "Frozen version archive produced by scripts/bump_version (package/import rewrite and ABI copy); retained for historical replay. Generated verdict records provenance, not a claim that obsolete versions implement the current merged surface."
+
+[file.095]
+path = "precompiles/pointer/legacy/v630/abi.json"
+lines = 1
+verdict = "generated"
+note = "Frozen version archive produced by scripts/bump_version (package/import rewrite and ABI copy); retained for historical replay. Generated verdict records provenance, not a claim that obsolete versions implement the current merged surface."
+
+[file.096]
+path = "precompiles/pointer/legacy/v630/pointer.go"
+lines = 228
+verdict = "generated"
+note = "Frozen version archive produced by scripts/bump_version (package/import rewrite and ABI copy); retained for historical replay. Generated verdict records provenance, not a claim that obsolete versions implement the current merged surface."
+
+[file.097]
+path = "precompiles/pointer/legacy/v640/abi.json"
+lines = 1
+verdict = "generated"
+note = "Frozen version archive produced by scripts/bump_version (package/import rewrite and ABI copy); retained for historical replay. Generated verdict records provenance, not a claim that obsolete versions implement the current merged surface."
+
+[file.098]
+path = "precompiles/pointer/legacy/v640/pointer.go"
+lines = 228
+verdict = "generated"
+note = "Frozen version archive produced by scripts/bump_version (package/import rewrite and ABI copy); retained for historical replay. Generated verdict records provenance, not a claim that obsolete versions implement the current merged surface."
+
+[file.099]
+path = "precompiles/pointer/legacy/v65/abi.json"
+lines = 1
+verdict = "generated"
+note = "Frozen version archive produced by scripts/bump_version (package/import rewrite and ABI copy); retained for historical replay. Generated verdict records provenance, not a claim that obsolete versions implement the current merged surface."
+
+[file.100]
+path = "precompiles/pointer/legacy/v65/pointer.go"
+lines = 228
+verdict = "generated"
+note = "Frozen version archive produced by scripts/bump_version (package/import rewrite and ABI copy); retained for historical replay. Generated verdict records provenance, not a claim that obsolete versions implement the current merged surface."
+
+[file.101]
+path = "precompiles/pointer/pointer.go"
+lines = 228
+verdict = "issues"
+note = "Read in full; findings below identify the exact interface, runtime, test or documentation disagreements. Existing behavior is recorded without changing the implementation."
+
+[file.102]
+path = "precompiles/pointer/pointer_test.go"
+lines = 94
+verdict = "clean"
+note = "Read the full current pointer registration surface/test. Checked argument/address handling, method selectors, metadata-to-wrapper deployment, value refusal and gas accounting; metadata panic and ABI mutability gaps are recorded on their owning files."
+
+[file.103]
+path = "precompiles/pointer/setup.go"
+lines = 47
+verdict = "generated"
+note = "Generated version dispatch/constructor archive; current constructor and historical fallbacks were read. Endpoint lifecycle is assessed in the handwritten registration and executor paths rather than by editing this generated dispatch."
+
+[file.104]
+path = "precompiles/pointerview/Pointerview.sol"
+lines = 24
+verdict = "clean"
+note = "Read the full current pointer lookup surface/test. Checked fixed address, method names/selectors, readonly lookup tuples (address,uint16,bool), version reporting and absent-pointer behavior against keeper data and ABI."
+
+[file.105]
+path = "precompiles/pointerview/abi.json"
+lines = 1
+verdict = "clean"
+note = "Read the full current pointer lookup surface/test. Checked fixed address, method names/selectors, readonly lookup tuples (address,uint16,bool), version reporting and absent-pointer behavior against keeper data and ABI."
+
+[file.106]
+path = "precompiles/pointerview/abi_freeze_test.go"
+lines = 65
+verdict = "clean"
+note = "Read the full current pointer lookup surface/test. Checked fixed address, method names/selectors, readonly lookup tuples (address,uint16,bool), version reporting and absent-pointer behavior against keeper data and ABI."
+
+[file.107]
+path = "precompiles/pointerview/gas_golden_test.go"
+lines = 83
+verdict = "clean"
+note = "Read the full current pointer lookup surface/test. Checked fixed address, method names/selectors, readonly lookup tuples (address,uint16,bool), version reporting and absent-pointer behavior against keeper data and ABI."
+
+[file.108]
+path = "precompiles/pointerview/legacy/v552/abi.json"
+lines = 1
+verdict = "generated"
+note = "Frozen version archive produced by scripts/bump_version (package/import rewrite and ABI copy); retained for historical replay. Generated verdict records provenance, not a claim that obsolete versions implement the current merged surface."
+
+[file.109]
+path = "precompiles/pointerview/legacy/v552/pointerview.go"
+lines = 131
+verdict = "generated"
+note = "Frozen version archive produced by scripts/bump_version (package/import rewrite and ABI copy); retained for historical replay. Generated verdict records provenance, not a claim that obsolete versions implement the current merged surface."
+
+[file.110]
+path = "precompiles/pointerview/legacy/v555/abi.json"
+lines = 1
+verdict = "generated"
+note = "Frozen version archive produced by scripts/bump_version (package/import rewrite and ABI copy); retained for historical replay. Generated verdict records provenance, not a claim that obsolete versions implement the current merged surface."
+
+[file.111]
+path = "precompiles/pointerview/legacy/v555/pointerview.go"
+lines = 137
+verdict = "generated"
+note = "Frozen version archive produced by scripts/bump_version (package/import rewrite and ABI copy); retained for historical replay. Generated verdict records provenance, not a claim that obsolete versions implement the current merged surface."
+
+[file.112]
+path = "precompiles/pointerview/legacy/v562/abi.json"
+lines = 1
+verdict = "generated"
+note = "Frozen version archive produced by scripts/bump_version (package/import rewrite and ABI copy); retained for historical replay. Generated verdict records provenance, not a claim that obsolete versions implement the current merged surface."
+
+[file.113]
+path = "precompiles/pointerview/legacy/v562/pointerview.go"
+lines = 112
+verdict = "generated"
+note = "Frozen version archive produced by scripts/bump_version (package/import rewrite and ABI copy); retained for historical replay. Generated verdict records provenance, not a claim that obsolete versions implement the current merged surface."
+
+[file.114]
+path = "precompiles/pointerview/legacy/v605/abi.json"
+lines = 1
+verdict = "generated"
+note = "Frozen version archive produced by scripts/bump_version (package/import rewrite and ABI copy); retained for historical replay. Generated verdict records provenance, not a claim that obsolete versions implement the current merged surface."
+
+[file.115]
+path = "precompiles/pointerview/legacy/v605/pointerview.go"
+lines = 121
+verdict = "generated"
+note = "Frozen version archive produced by scripts/bump_version (package/import rewrite and ABI copy); retained for historical replay. Generated verdict records provenance, not a claim that obsolete versions implement the current merged surface."
+
+[file.116]
+path = "precompiles/pointerview/legacy/v606/abi.json"
+lines = 1
+verdict = "generated"
+note = "Frozen version archive produced by scripts/bump_version (package/import rewrite and ABI copy); retained for historical replay. Generated verdict records provenance, not a claim that obsolete versions implement the current merged surface."
+
+[file.117]
+path = "precompiles/pointerview/legacy/v606/pointerview.go"
+lines = 121
+verdict = "generated"
+note = "Frozen version archive produced by scripts/bump_version (package/import rewrite and ABI copy); retained for historical replay. Generated verdict records provenance, not a claim that obsolete versions implement the current merged surface."
+
+[file.118]
+path = "precompiles/pointerview/legacy/v610/abi.json"
+lines = 1
+verdict = "generated"
+note = "Frozen version archive produced by scripts/bump_version (package/import rewrite and ABI copy); retained for historical replay. Generated verdict records provenance, not a claim that obsolete versions implement the current merged surface."
+
+[file.119]
+path = "precompiles/pointerview/legacy/v610/pointerview.go"
+lines = 121
+verdict = "generated"
+note = "Frozen version archive produced by scripts/bump_version (package/import rewrite and ABI copy); retained for historical replay. Generated verdict records provenance, not a claim that obsolete versions implement the current merged surface."
+
+[file.120]
+path = "precompiles/pointerview/legacy/v614/abi.json"
+lines = 1
+verdict = "generated"
+note = "Frozen version archive produced by scripts/bump_version (package/import rewrite and ABI copy); retained for historical replay. Generated verdict records provenance, not a claim that obsolete versions implement the current merged surface."
+
+[file.121]
+path = "precompiles/pointerview/legacy/v614/pointerview.go"
+lines = 121
+verdict = "generated"
+note = "Frozen version archive produced by scripts/bump_version (package/import rewrite and ABI copy); retained for historical replay. Generated verdict records provenance, not a claim that obsolete versions implement the current merged surface."
+
+[file.122]
+path = "precompiles/pointerview/legacy/v620/abi.json"
+lines = 1
+verdict = "generated"
+note = "Frozen version archive produced by scripts/bump_version (package/import rewrite and ABI copy); retained for historical replay. Generated verdict records provenance, not a claim that obsolete versions implement the current merged surface."
+
+[file.123]
+path = "precompiles/pointerview/legacy/v620/pointerview.go"
+lines = 121
+verdict = "generated"
+note = "Frozen version archive produced by scripts/bump_version (package/import rewrite and ABI copy); retained for historical replay. Generated verdict records provenance, not a claim that obsolete versions implement the current merged surface."
+
+[file.124]
+path = "precompiles/pointerview/legacy/v630/abi.json"
+lines = 1
+verdict = "generated"
+note = "Frozen version archive produced by scripts/bump_version (package/import rewrite and ABI copy); retained for historical replay. Generated verdict records provenance, not a claim that obsolete versions implement the current merged surface."
+
+[file.125]
+path = "precompiles/pointerview/legacy/v630/pointerview.go"
+lines = 121
+verdict = "generated"
+note = "Frozen version archive produced by scripts/bump_version (package/import rewrite and ABI copy); retained for historical replay. Generated verdict records provenance, not a claim that obsolete versions implement the current merged surface."
+
+[file.126]
+path = "precompiles/pointerview/legacy/v640/abi.json"
+lines = 1
+verdict = "generated"
+note = "Frozen version archive produced by scripts/bump_version (package/import rewrite and ABI copy); retained for historical replay. Generated verdict records provenance, not a claim that obsolete versions implement the current merged surface."
+
+[file.127]
+path = "precompiles/pointerview/legacy/v640/pointerview.go"
+lines = 121
+verdict = "generated"
+note = "Frozen version archive produced by scripts/bump_version (package/import rewrite and ABI copy); retained for historical replay. Generated verdict records provenance, not a claim that obsolete versions implement the current merged surface."
+
+[file.128]
+path = "precompiles/pointerview/legacy/v65/abi.json"
+lines = 1
+verdict = "generated"
+note = "Frozen version archive produced by scripts/bump_version (package/import rewrite and ABI copy); retained for historical replay. Generated verdict records provenance, not a claim that obsolete versions implement the current merged surface."
+
+[file.129]
+path = "precompiles/pointerview/legacy/v65/pointerview.go"
+lines = 121
+verdict = "generated"
+note = "Frozen version archive produced by scripts/bump_version (package/import rewrite and ABI copy); retained for historical replay. Generated verdict records provenance, not a claim that obsolete versions implement the current merged surface."
+
+[file.130]
+path = "precompiles/pointerview/pointerview.go"
+lines = 121
+verdict = "clean"
+note = "Read the full current pointer lookup surface/test. Checked fixed address, method names/selectors, readonly lookup tuples (address,uint16,bool), version reporting and absent-pointer behavior against keeper data and ABI."
+
+[file.131]
+path = "precompiles/pointerview/pointerview_test.go"
+lines = 86
+verdict = "clean"
+note = "Read the full current pointer lookup surface/test. Checked fixed address, method names/selectors, readonly lookup tuples (address,uint16,bool), version reporting and absent-pointer behavior against keeper data and ABI."
+
+[file.132]
+path = "precompiles/pointerview/setup.go"
+lines = 41
+verdict = "generated"
+note = "Generated version dispatch/constructor archive; current constructor and historical fallbacks were read. Endpoint lifecycle is assessed in the handwritten registration and executor paths rather than by editing this generated dispatch."
+
+[file.133]
+path = "precompiles/precompile_info_e_test.go"
+lines = 174
+verdict = "clean"
+note = "Read the full registration/parity/activation file or test. Compared live custom-precompile construction and names/ABI/address tables, v7.0 plan gating, retired endpoint handling and rollback/parity fixtures with the current served modules."
+
+[file.134]
+path = "precompiles/setup.go"
+lines = 593
+verdict = "clean"
+note = "Read the full registration/parity/activation file or test. Compared live custom-precompile construction and names/ABI/address tables, v7.0 plan gating, retired endpoint handling and rollback/parity fixtures with the current served modules."
+
+[file.135]
+path = "precompiles/setup_retire_test.go"
+lines = 40
+verdict = "clean"
+note = "Read the full registration/parity/activation file or test. Compared live custom-precompile construction and names/ABI/address tables, v7.0 plan gating, retired endpoint handling and rollback/parity fixtures with the current served modules."
+
+[file.136]
+path = "precompiles/setup_test.go"
+lines = 579
+verdict = "clean"
+note = "Read the full registration/parity/activation file or test. Compared live custom-precompile construction and names/ABI/address tables, v7.0 plan gating, retired endpoint handling and rollback/parity fixtures with the current served modules."
+
+[file.137]
+path = "precompiles/solo/Solo.sol"
+lines = 26
+verdict = "clean"
+note = "Read the complete claim ABI/implementation/test. Checked signer-to-sender and caller authorization, chain/account sequence replay protection, static-call refusal, native/CW20/CW721 transfer and rollback paths; malformed pagination risk is recorded on solo.go."
+
+[file.138]
+path = "precompiles/solo/abi.json"
+lines = 1
+verdict = "clean"
+note = "Read the complete claim ABI/implementation/test. Checked signer-to-sender and caller authorization, chain/account sequence replay protection, static-call refusal, native/CW20/CW721 transfer and rollback paths; malformed pagination risk is recorded on solo.go."
+
+[file.139]
+path = "precompiles/solo/abi_freeze_test.go"
+lines = 55
+verdict = "clean"
+note = "Read the complete claim ABI/implementation/test. Checked signer-to-sender and caller authorization, chain/account sequence replay protection, static-call refusal, native/CW20/CW721 transfer and rollback paths; malformed pagination risk is recorded on solo.go."
+
+[file.140]
+path = "precompiles/solo/gas_golden_test.go"
+lines = 105
+verdict = "clean"
+note = "Read the complete claim ABI/implementation/test. Checked signer-to-sender and caller authorization, chain/account sequence replay protection, static-call refusal, native/CW20/CW721 transfer and rollback paths; malformed pagination risk is recorded on solo.go."
+
+[file.141]
+path = "precompiles/solo/legacy/v614/abi.json"
+lines = 1
+verdict = "generated"
+note = "Frozen version archive produced by scripts/bump_version (package/import rewrite and ABI copy); retained for historical replay. Generated verdict records provenance, not a claim that obsolete versions implement the current merged surface."
+
+[file.142]
+path = "precompiles/solo/legacy/v614/solo.go"
+lines = 383
+verdict = "generated"
+note = "Frozen version archive produced by scripts/bump_version (package/import rewrite and ABI copy); retained for historical replay. Generated verdict records provenance, not a claim that obsolete versions implement the current merged surface."
+
+[file.143]
+path = "precompiles/solo/legacy/v620/abi.json"
+lines = 1
+verdict = "generated"
+note = "Frozen version archive produced by scripts/bump_version (package/import rewrite and ABI copy); retained for historical replay. Generated verdict records provenance, not a claim that obsolete versions implement the current merged surface."
+
+[file.144]
+path = "precompiles/solo/legacy/v620/solo.go"
+lines = 383
+verdict = "generated"
+note = "Frozen version archive produced by scripts/bump_version (package/import rewrite and ABI copy); retained for historical replay. Generated verdict records provenance, not a claim that obsolete versions implement the current merged surface."
+
+[file.145]
+path = "precompiles/solo/legacy/v630/abi.json"
+lines = 1
+verdict = "generated"
+note = "Frozen version archive produced by scripts/bump_version (package/import rewrite and ABI copy); retained for historical replay. Generated verdict records provenance, not a claim that obsolete versions implement the current merged surface."
+
+[file.146]
+path = "precompiles/solo/legacy/v630/solo.go"
+lines = 387
+verdict = "generated"
+note = "Frozen version archive produced by scripts/bump_version (package/import rewrite and ABI copy); retained for historical replay. Generated verdict records provenance, not a claim that obsolete versions implement the current merged surface."
+
+[file.147]
+path = "precompiles/solo/legacy/v640/abi.json"
+lines = 1
+verdict = "generated"
+note = "Frozen version archive produced by scripts/bump_version (package/import rewrite and ABI copy); retained for historical replay. Generated verdict records provenance, not a claim that obsolete versions implement the current merged surface."
+
+[file.148]
+path = "precompiles/solo/legacy/v640/solo.go"
+lines = 387
+verdict = "generated"
+note = "Frozen version archive produced by scripts/bump_version (package/import rewrite and ABI copy); retained for historical replay. Generated verdict records provenance, not a claim that obsolete versions implement the current merged surface."
+
+[file.149]
+path = "precompiles/solo/legacy/v65/abi.json"
+lines = 1
+verdict = "generated"
+note = "Frozen version archive produced by scripts/bump_version (package/import rewrite and ABI copy); retained for historical replay. Generated verdict records provenance, not a claim that obsolete versions implement the current merged surface."
+
+[file.150]
+path = "precompiles/solo/legacy/v65/solo.go"
+lines = 387
+verdict = "generated"
+note = "Frozen version archive produced by scripts/bump_version (package/import rewrite and ABI copy); retained for historical replay. Generated verdict records provenance, not a claim that obsolete versions implement the current merged surface."
+
+[file.151]
+path = "precompiles/solo/setup.go"
+lines = 29
+verdict = "generated"
+note = "Generated version dispatch/constructor archive; current constructor and historical fallbacks were read. Endpoint lifecycle is assessed in the handwritten registration and executor paths rather than by editing this generated dispatch."
+
+[file.152]
+path = "precompiles/solo/solo.go"
+lines = 392
+verdict = "issues"
+note = "Read in full; findings below identify the exact interface, runtime, test or documentation disagreements. Existing behavior is recorded without changing the implementation."
+
+[file.153]
+path = "precompiles/solo/solo_test.go"
+lines = 371
+verdict = "clean"
+note = "Read the complete claim ABI/implementation/test. Checked signer-to-sender and caller authorization, chain/account sequence replay protection, static-call refusal, native/CW20/CW721 transfer and rollback paths; malformed pagination risk is recorded on solo.go."
+
+[file.154]
+path = "precompiles/xweb/XWeb.sol"
+lines = 142
+verdict = "issues"
+note = "Read in full; findings below identify the exact interface, runtime, test or documentation disagreements. Existing behavior is recorded without changing the implementation."
+
+[file.155]
+path = "precompiles/xweb/abi.json"
+lines = 18
+verdict = "issues"
+note = "Read in full; findings below identify the exact interface, runtime, test or documentation disagreements. Existing behavior is recorded without changing the implementation."
+
+[file.156]
+path = "precompiles/xweb/gas.go"
+lines = 29
+verdict = "clean"
+note = "Read the complete file against the request/result ABI, gas bounds, merge activation, signature/refusal rules and keeper records. Local fixtures cover their stated path; the missing real Rust-watcher round trip is recorded separately, not claimed as a successful end-to-end gate."
+
+[file.157]
+path = "precompiles/xweb/gas_test.go"
+lines = 125
+verdict = "clean"
+note = "Read the complete file against the request/result ABI, gas bounds, merge activation, signature/refusal rules and keeper records. Local fixtures cover their stated path; the missing real Rust-watcher round trip is recorded separately, not claimed as a successful end-to-end gate."
+
+[file.158]
+path = "precompiles/xweb/legacy/v68/abi.json"
+lines = 14
+verdict = "generated"
+note = "Frozen version archive produced by scripts/bump_version (package/import rewrite and ABI copy); retained for historical replay. Generated verdict records provenance, not a claim that obsolete versions implement the current merged surface."
+
+[file.159]
+path = "precompiles/xweb/legacy/v68/xweb.go"
+lines = 491
+verdict = "generated"
+note = "Frozen version archive produced by scripts/bump_version (package/import rewrite and ABI copy); retained for historical replay. Generated verdict records provenance, not a claim that obsolete versions implement the current merged surface."
+
+[file.160]
+path = "precompiles/xweb/methods_test.go"
+lines = 29
+verdict = "clean"
+note = "Read the complete file against the request/result ABI, gas bounds, merge activation, signature/refusal rules and keeper records. Local fixtures cover their stated path; the missing real Rust-watcher round trip is recorded separately, not claimed as a successful end-to-end gate."
+
+[file.161]
+path = "precompiles/xweb/origin_two_flow_test.go"
+lines = 133
+verdict = "clean"
+note = "Read the complete file against the request/result ABI, gas bounds, merge activation, signature/refusal rules and keeper records. Local fixtures cover their stated path; the missing real Rust-watcher round trip is recorded separately, not claimed as a successful end-to-end gate."
+
+[file.162]
+path = "precompiles/xweb/program.go"
+lines = 38
+verdict = "clean"
+note = "Read the complete file against the request/result ABI, gas bounds, merge activation, signature/refusal rules and keeper records. Local fixtures cover their stated path; the missing real Rust-watcher round trip is recorded separately, not claimed as a successful end-to-end gate."
+
+[file.163]
+path = "precompiles/xweb/program_dispatch_test.go"
+lines = 198
+verdict = "clean"
+note = "Read the complete file against the request/result ABI, gas bounds, merge activation, signature/refusal rules and keeper records. Local fixtures cover their stated path; the missing real Rust-watcher round trip is recorded separately, not claimed as a successful end-to-end gate."
+
+[file.164]
+path = "precompiles/xweb/program_gate_test.go"
+lines = 89
+verdict = "clean"
+note = "Read the complete file against the request/result ABI, gas bounds, merge activation, signature/refusal rules and keeper records. Local fixtures cover their stated path; the missing real Rust-watcher round trip is recorded separately, not claimed as a successful end-to-end gate."
+
+[file.165]
+path = "precompiles/xweb/program_requested_event_test.go"
+lines = 91
+verdict = "issues"
+note = "Read in full; findings below identify the exact interface, runtime, test or documentation disagreements. Existing behavior is recorded without changing the implementation."
+
+[file.166]
+path = "precompiles/xweb/proof_ixweb_test.go"
+lines = 111
+verdict = "clean"
+note = "Read the complete file against the request/result ABI, gas bounds, merge activation, signature/refusal rules and keeper records. Local fixtures cover their stated path; the missing real Rust-watcher round trip is recorded separately, not claimed as a successful end-to-end gate."
+
+[file.167]
+path = "precompiles/xweb/proof_xweb_0x1019_test.go"
+lines = 315
+verdict = "clean"
+note = "Read the complete file against the request/result ABI, gas bounds, merge activation, signature/refusal rules and keeper records. Local fixtures cover their stated path; the missing real Rust-watcher round trip is recorded separately, not claimed as a successful end-to-end gate."
+
+[file.168]
+path = "precompiles/xweb/setup.go"
+lines = 21
+verdict = "generated"
+note = "Generated version dispatch/constructor archive; current constructor and historical fallbacks were read. Endpoint lifecycle is assessed in the handwritten registration and executor paths rather than by editing this generated dispatch."
+
+[file.169]
+path = "precompiles/xweb/xweb.go"
+lines = 599
+verdict = "issues"
+note = "Read in full; findings below identify the exact interface, runtime, test or documentation disagreements. Existing behavior is recorded without changing the implementation."
+
+[file.170]
+path = "precompiles/xweb/xweb_test.go"
+lines = 1084
+verdict = "issues"
+note = "Read in full; findings below identify the exact interface, runtime, test or documentation disagreements. Existing behavior is recorded without changing the implementation."
+
+[file.171]
+path = "tests/solidity/governance/SidioraProxyTimelock.t.sol"
+lines = 204
+verdict = "clean"
+note = "Read the complete Solidity regression and fixtures against its imported governance/name contracts. Checked authorization, lifecycle/time boundaries, address and tuple/event expectations and refusal assertions; these are contract tests, not evidence of a network gate run in this audit."
+
+[file.172]
+path = "tests/solidity/names/NamesEndToEnd.t.sol"
+lines = 269
+verdict = "clean"
+note = "Read the complete Solidity regression and fixtures against its imported governance/name contracts. Checked authorization, lifecycle/time boundaries, address and tuple/event expectations and refusal assertions; these are contract tests, not evidence of a network gate run in this audit."
+
+[file.173]
+path = "tests/solidity/names/PaxNameAvailability.t.sol"
+lines = 162
+verdict = "clean"
+note = "Read the complete Solidity regression and fixtures against its imported governance/name contracts. Checked authorization, lifecycle/time boundaries, address and tuple/event expectations and refusal assertions; these are contract tests, not evidence of a network gate run in this audit."
+
+[file.174]
+path = "tests/solidity/names/PaxPublicResolver.t.sol"
+lines = 354
+verdict = "clean"
+note = "Read the complete Solidity regression and fixtures against its imported governance/name contracts. Checked authorization, lifecycle/time boundaries, address and tuple/event expectations and refusal assertions; these are contract tests, not evidence of a network gate run in this audit."
+
+[file.175]
+path = "tests/solidity/names/PaxRegistrarController.t.sol"
+lines = 289
+verdict = "clean"
+note = "Read the complete Solidity regression and fixtures against its imported governance/name contracts. Checked authorization, lifecycle/time boundaries, address and tuple/event expectations and refusal assertions; these are contract tests, not evidence of a network gate run in this audit."
+
+[file.176]
+path = "tests/solidity/names/PaxRegistry.t.sol"
+lines = 65
+verdict = "clean"
+note = "Read the complete Solidity regression and fixtures against its imported governance/name contracts. Checked authorization, lifecycle/time boundaries, address and tuple/event expectations and refusal assertions; these are contract tests, not evidence of a network gate run in this audit."
+
+[file.177]
+path = "wasm/app/ante.go"
+lines = 66
+verdict = "clean"
+note = "Read the entire WasmApp harness/support file. Checked initialization, module/ante wiring, encoding/signing, genesis/export and keeper/account fixtures as applicable. This is the standalone Wasm test application, not paxd merged-network registration."
+
+[file.178]
+path = "wasm/app/app.go"
+lines = 872
+verdict = "clean"
+note = "Read the entire WasmApp harness/support file. Checked initialization, module/ante wiring, encoding/signing, genesis/export and keeper/account fixtures as applicable. This is the standalone Wasm test application, not paxd merged-network registration."
+
+[file.179]
+path = "wasm/app/app_test.go"
+lines = 86
+verdict = "clean"
+note = "Read the entire WasmApp harness/support file. Checked initialization, module/ante wiring, encoding/signing, genesis/export and keeper/account fixtures as applicable. This is the standalone Wasm test application, not paxd merged-network registration."
+
+[file.180]
+path = "wasm/app/encoding.go"
+lines = 17
+verdict = "clean"
+note = "Read the entire WasmApp harness/support file. Checked initialization, module/ante wiring, encoding/signing, genesis/export and keeper/account fixtures as applicable. This is the standalone Wasm test application, not paxd merged-network registration."
+
+[file.181]
+path = "wasm/app/export.go"
+lines = 191
+verdict = "clean"
+note = "Read the entire WasmApp harness/support file. Checked initialization, module/ante wiring, encoding/signing, genesis/export and keeper/account fixtures as applicable. This is the standalone Wasm test application, not paxd merged-network registration."
+
+[file.182]
+path = "wasm/app/genesis.go"
+lines = 20
+verdict = "clean"
+note = "Read the entire WasmApp harness/support file. Checked initialization, module/ante wiring, encoding/signing, genesis/export and keeper/account fixtures as applicable. This is the standalone Wasm test application, not paxd merged-network registration."
+
+[file.183]
+path = "wasm/app/params/doc.go"
+lines = 19
+verdict = "clean"
+note = "Read the entire WasmApp harness/support file. Checked initialization, module/ante wiring, encoding/signing, genesis/export and keeper/account fixtures as applicable. This is the standalone Wasm test application, not paxd merged-network registration."
+
+[file.184]
+path = "wasm/app/params/encoding.go"
+lines = 16
+verdict = "clean"
+note = "Read the entire WasmApp harness/support file. Checked initialization, module/ante wiring, encoding/signing, genesis/export and keeper/account fixtures as applicable. This is the standalone Wasm test application, not paxd merged-network registration."
+
+[file.185]
+path = "wasm/app/params/params.go"
+lines = 7
+verdict = "clean"
+note = "Read the entire WasmApp harness/support file. Checked initialization, module/ante wiring, encoding/signing, genesis/export and keeper/account fixtures as applicable. This is the standalone Wasm test application, not paxd merged-network registration."
+
+[file.186]
+path = "wasm/app/params/proto.go"
+lines = 22
+verdict = "clean"
+note = "Read the entire WasmApp harness/support file. Checked initialization, module/ante wiring, encoding/signing, genesis/export and keeper/account fixtures as applicable. This is the standalone Wasm test application, not paxd merged-network registration."
+
+[file.187]
+path = "wasm/app/params/weights.go"
+lines = 25
+verdict = "clean"
+note = "Read the entire WasmApp harness/support file. Checked initialization, module/ante wiring, encoding/signing, genesis/export and keeper/account fixtures as applicable. This is the standalone Wasm test application, not paxd merged-network registration."
+
+[file.188]
+path = "wasm/app/test_access.go"
+lines = 72
+verdict = "clean"
+note = "Read the entire WasmApp harness/support file. Checked initialization, module/ante wiring, encoding/signing, genesis/export and keeper/account fixtures as applicable. This is the standalone Wasm test application, not paxd merged-network registration."
+
+[file.189]
+path = "wasm/app/test_helpers.go"
+lines = 514
+verdict = "clean"
+note = "Read the entire WasmApp harness/support file. Checked initialization, module/ante wiring, encoding/signing, genesis/export and keeper/account fixtures as applicable. This is the standalone Wasm test application, not paxd merged-network registration."
+
+[finding.program-event-semantics]
+file = "precompiles/xweb/xweb.go"
+line = 428
+class = "interface-mismatch"
+severity = "high"
+observed = "RequestFromProgram emits XWebProgramRequested(programId, requestId, OriginProgram=2, input, 0). The served Rust decoder in services/interop/crates/x-websearch/src/watch.rs:321-386 reads the same ABI words as kind, payload and sequence. Every fetch (kind=1) becomes a search (kind=2), and a nonzero call sequence becomes zero. ProgramRequest::attestation in src/program.rs:126-143 signs the decoded kind; modules/xweb/keeper/program_fulfil.go:140 refuses a different kind with LXP_CONTEXT_MISMATCH. The paid fetch therefore cannot complete through the real watcher path."
+expected = "A program web request must retain its program id, request id, fetch/search kind, payload and call sequence from the committed keeper record through the EVM log, durable watcher journal, observation and fulfilProgram acceptance. ABI type equality alone must not permit a semantic reinterpretation."
+proposal = "Domain 6 must agree one program-request log contract with domain 11 and publish the actual request kind and call sequence, or provide a committed-record lookup that resolves those fields before any work or signing. Update precompiles/xweb, the Solidity consumers, the interface registry and services/interop/crates/x-websearch together. Prove real Go-emitted fetch and search logs with nonzero sequence survive Rust decoding, restart, signing and fulfilProgram without changing meaning."
+owner_domain = 6
+interface = "11.rs-xws-decode-program-requested"
+related_interfaces = ["6.go-xweb-keeper-requestfromprogram-j37"]
+related_files = ["precompiles/xweb/abi.json", "precompiles/xweb/XWeb.sol", "services/interop/crates/x-websearch/src/watch.rs", "services/interop/crates/x-websearch/src/program.rs", "modules/xweb/keeper/program_fulfil.go"]
+
+[finding.program-evm-journal-collision]
+file = "precompiles/xweb/xweb.go"
+line = 424
+class = "interface-mismatch"
+severity = "high"
+observed = "Every program request also emits XWebRequested with its program-local id, principal address, zero callback gas, zero timeout and wei(request.Amount), although its fee may be USDL rather than PAX. The Rust watcher accepts both topics in one poll (watch.rs:917-986), and stores XWebRequested in the origin-one pending map keyed only by u64 request_id. Two programs sharing an id, or an EVM request sharing it, produce conflicting entries. The watcher returns Malformed at :966-970 before storing the next cursor at :988-994, so replay encounters the same block again. A noncolliding program log instead enters the EVM work queue for a request that the origin-one keeper never recorded."
+expected = "Origin-one work must identify an EVM request with the origin-one fee and timeout semantics; program work must retain its program namespace and recorded fee asset. Valid requests in distinct namespaces must coexist, advance the watcher cursor and resume after restart without poisoning each other."
+proposal = "Domain 6 and domain 11 must remove the ambiguous cross-origin log contract. Prefer publishing program work only through its program-specific event while retaining XWebRequested for EVM requests. If compatibility requires both logs, give the consumer an explicit origin discriminator and a durable composite identity before queueing or deduplication. Verify an EVM request and two programs using the same numeric id in one block, repeated delivery and restart, with each fulfilled once in its own fee denomination."
+owner_domain = 6
+interface = "6.pc-0x1019-evt-xwebrequested"
+related_files = ["services/interop/crates/x-websearch/src/watch.rs", "modules/xweb/keeper/program.go"]
+
+[finding.solidity-program-event-fields]
+file = "precompiles/xweb/XWeb.sol"
+line = 82
+class = "interface-mismatch"
+severity = "medium"
+observed = "The local IXWeb declaration calls the program event fields method, payload and deadline, whereas abi.json:15 declares origin, input and deadline. RequestFromProgram supplies the origin constant, not the requested method. Solidity-generated bindings and JSON-ABI-generated bindings therefore assign different names and meanings to the same topic and data. contracts/src/precompiles/IXWeb.sol carries the same Solidity declaration."
+expected = "Consumers of the program event must receive identical field names and meanings regardless of which published IXWeb or ABI they use; the fetch/search discriminator must be distinguishable from the program origin."
+proposal = "As part of the program-event repair, domain 6 must publish one canonical named schema in precompiles/xweb/XWeb.sol, contracts/src/precompiles/IXWeb.sol and abi.json, and domain 11 must consume that schema. Include field names, enum meaning and lifecycle values in the compatibility proof, while keeping any required historical decoder explicitly versioned."
+owner_domain = 6
+interface = "11.rs-xws-decode-program-requested"
+
+[finding.abi-program-event-context]
+file = "precompiles/xweb/abi.json"
+line = 15
+class = "interface-mismatch"
+severity = "medium"
+observed = "XWebProgramRequested declares origin/input/deadline and has no request-kind or call-sequence field. That is the producer schema behind the blocking program-event-semantics finding, while the served registered decoder expects kind/payload/sequence. The event topic is identical because these different meanings use the same uint8, bytes and uint64 types."
+expected = "The published JSON ABI must describe all context that the served program watcher requires, with field meanings that match the persisted request and the Solidity interface."
+proposal = "Domain 6 must reconcile abi.json with the agreed program-request event and record its named fields and enum semantics in spec/layerx-merge/interfaces.kvx. Coordinate the consumer migration in domain 11 so an old journal or decoder cannot silently interpret a new event with the same topic under different meanings."
+owner_domain = 6
+interface = "11.rs-xws-decode-program-requested"
+
+[finding.program-event-test-third-shape]
+file = "precompiles/xweb/program_requested_event_test.go"
+line = 79
+class = "test-gap"
+severity = "medium"
+observed = "TestProgramRequestEmitsXWebProgramRequested constructs a fetch request with call.Sequence=23 at :46-53 but expects OriginProgram and zero at :79, and requires the extra XWebRequested at :81-90. It proves the Go producer shape in isolation and freezes both blocking disagreements rather than exercising the Rust watcher and fulfilment path."
+expected = "A program-event regression must demonstrate that the actual producer bytes preserve fetch/search and sequence through the deployed decoder, signing and fulfilment, and that origin namespaces cannot collide across delivery or restart."
+proposal = "Domain 6 must replace the isolated semantic assumptions with a shared real-log compatibility case coordinated with domain 11. Keep checks for topics, static-call refusal and rollback, and add fetch/search with nonzero sequences, same numeric ids across programs and EVM, replay and restart through the actual watcher and fulfilProgram acceptance."
+owner_domain = 6
+
+[finding.event-parity-ignores-names]
+file = "precompiles/xweb/xweb_test.go"
+line = 1036
+class = "test-gap"
+severity = "medium"
+observed = "The Solidity event parity check takes only strings.Fields(field)[0] from each parameter and compares the resulting type-only signature and indexed flags. It accepts method/payload in XWeb.sol alongside origin/input in abi.json, so the test named as parity permits the published binding-name disagreement."
+expected = "Compatibility checks for an event consumed by named bindings must compare names and meanings as well as topic hashes, types and indexed positions."
+proposal = "Domain 6 must extend the existing event compatibility coverage to compare the complete named parameter schema of both Solidity interfaces and the JSON ABI, and prove the agreed fetch/search and call-sequence values using emitted logs passed to the domain-11 decoder."
+owner_domain = 6
+
+[finding.pointer-untrusted-metadata]
+file = "precompiles/pointer/pointer.go"
+line = 154
+class = "runtime-risk"
+severity = "medium"
+observed = "AddCW20 directly asserts formattedRes[\"name\"].(string) and [\"symbol\"].(string) after decoding arbitrary contract JSON. AddCW721 repeats it at :186-187 and AddCW1155 at :218-219. QuerySmartSafe can return valid JSON with missing, null, numeric or object-valued metadata; json.Unmarshal then succeeds and these assertions panic instead of returning a controlled pointer-registration refusal."
+expected = "A contract that does not implement the expected token metadata must be refused as invalid metadata without allowing its JSON shape to trigger a Go type-assertion panic in the EVM precompile."
+proposal = "Domain 6 must validate required metadata presence, string types and permitted sizes before pointer deployment in precompiles/pointer/pointer.go, returning a documented invalid-metadata error. Exercise real smart-query responses with absent and wrongly typed fields for CW20, CW721 and CW1155 and confirm no pointer state is committed."
+owner_domain = 6
+
+[finding.pointer-payability-contract]
+file = "precompiles/pointer/abi.json"
+line = 1
+class = "interface-mismatch"
+severity = "medium"
+observed = "All four current pointer ABI methods are declared payable, and registry rows 6.pc-0x100b-addcw1155pointer, addcw20pointer, addcw721pointer and addnativepointer repeat that promise. Every corresponding Go handler calls ValidateNonPayable, while Pointer.sol declares nonpayable functions. A client generated from the JSON ABI can offer value-bearing registration that the real handler refuses."
+expected = "The current pointer ABI, registry, Solidity bindings and execution path must agree that pointer creation accepts zero native value, or consistently define a deliberate payable product contract."
+proposal = "Domain 6 must settle and publish the zero-value registration contract consistently in the current ABI, Solidity and registry without rewriting historical snapshots used for replay. Cover value-bearing calls through the real EVM path as explicit refusals and zero-value calls as successful pointer registration."
+owner_domain = 6
+interface = "6.pc-0x100b-addcw20pointer"
+related_interfaces = ["6.pc-0x100b-addcw1155pointer", "6.pc-0x100b-addcw721pointer", "6.pc-0x100b-addnativepointer"]
+
+[finding.pointer-freeze-misses-mutability]
+file = "precompiles/pointer/abi_freeze_test.go"
+line = 28
+class = "test-gap"
+severity = "medium"
+observed = "TestPointerABIFrozen compares embedded ABI to itself and pins method signatures/selectors and event count. It never compares Solidity state mutability or a value-bearing call to the handler, so the payable JSON ABI and nonpayable implementation pass its asserted contract."
+expected = "A frozen pointer interface must include its value-acceptance semantics and agree with the actual EVM registration path and Solidity consumers."
+proposal = "Domain 6 must retain selector and event checks and add current ABI/Solidity mutability agreement plus real zero-value success and nonzero-value refusal for the four pointer methods. Keep historical ABI expectations separately tied to their replay versions."
+owner_domain = 6
+
+[finding.solo-nft-pagination-progress]
+file = "precompiles/solo/solo.go"
+line = 203
+class = "runtime-risk"
+severity = "medium"
+observed = "The CW721 claim-all path repeatedly queries tokens, appends each nonempty page to allTokens and advances startAfter to the last returned id, without checking cursor progress or duplicates and without a page or accumulated-token bound. A valid JSON contract that repeats a nonempty page makes the claim consume transaction gas and grow the temporary list until failure before any NFT transfer. Gas metering limits execution, but does not provide a useful bounded claim refusal."
+expected = "Claim-all must either enumerate a finite, advancing set within an explicit transaction bound or refuse malformed pagination predictably so a contract response cannot trap the entire asset claim in repeated work."
+proposal = "Domain 6 must define a bounded CW721 claim enumeration policy in precompiles/solo/solo.go, reject repeated/nonadvancing cursors and duplicate token ids, and retain the specific-token route for larger sets. Exercise a real contract returning a repeated page and verify deterministic refusal and atomic preservation of all claimed assets."
+owner_domain = 6
+
+[finding.anchor-module-description]
+file = "modules/layerxanchor/module.go"
+line = 1
+class = "doc-drift"
+severity = "low"
+observed = "The package header still describes layerxanchor as the checkpoint registry and finality authority exposed by the precompile, without saying that checkpoint mutation and reads are retired after the merge. The retained implementation now enforces retirement and supports archival state and bounded bond return."
+expected = "Source documentation must distinguish historical anchor state and retirement handling from the merged network finality supplied by committed paxd blocks."
+proposal = "Domain 6 must rewrite the package header to identify the retained archival/retirement role, point to refusal and bond-return behavior, and state that the module is no longer the network finality authority."
+owner_domain = 6
+
+[finding.anchor-solidity-finality-description]
+file = "precompiles/layerxanchor/LayerXAnchor.sol"
+line = 8
+class = "doc-drift"
+severity = "medium"
+observed = "The public ILayerXAnchor NatSpec says anyone may submit certificates and defines finality by guarantor threshold and challenge-window expiry. It provides no retirement warning even though the current wrapper refuses the historical checkpoint surface after the merge."
+expected = "An integrator reading the retained Solidity interface must know it is historical compatibility material and that committed network blocks determine receipt finality in the merged network."
+proposal = "Domain 6 must label the retained interface and affected selectors as historical and refused after merge, describe any permitted retirement operations separately, and direct new integrations to the merged node receipt/finality contract without presenting checkpoint submission as a current workflow."
+owner_domain = 6
+
+[finding.custody-proto-anchor-future]
+file = "api/layerxcustody/params.proto"
+line = 36
+class = "doc-drift"
+severity = "low"
+observed = "The sequencer_authorizations field comment says it backs AnchorReader until the anchor module lands. The anchor module has long existed and its finality role is now retired; this is a preserved legacy custody schema rather than a future activation path."
+expected = "The retained protobuf field must be documented as historical state with its compatibility purpose, without implying that a new anchor module will make the sequencer settlement flow active."
+proposal = "Domain 6 must update this schema comment to explain historical import/replay retention and the retired settlement lifecycle while preserving field numbers and wire compatibility."
+owner_domain = 6
+
+[finding.readme-separated-network]
+file = "README.md"
+line = 44
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 44-47 describe a separate layerxd C17 daemon whose checkpoints settle through layerxAnchor; :56 routes users to a local kernel cluster, :79 calls the merge a proposed draft, and :83 lists retired 0x1012/0x1013/0x1014 endpoints as normal native modules. This describes the pre-merge architecture as current."
+expected = "The public introduction must describe one paxd BFT network with its kernel integrated, committed-block receipt finality, root-path node JSON-RPC and explicitly retired historical checkpoint/custody surfaces."
+proposal = "Domain 17 must rewrite the architecture and onboarding passages at README.md:44-56 and :79-83 for the merged network, publish the current served/retired precompile distinction and remove separate-daemon and checkpoint-settlement instructions."
+owner_domain = 17
+
+[finding.network-guide-settlement-faucet]
+file = "docs/paxeer-network.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 3-20 describe Paxeer as a custody/settlement layer beside LayerX, periodic checkpoints, an independent sequencer and 402LXP as sole balance writer. Line 9 advertises a public faucet, contrary to the mainnet real-value and allocated-funding guidance in README.md:59. Lines 15 and 38 also present old top-level service paths and settlement modules as current architecture."
+expected = "Network guidance must describe the integrated paxd network, committed-block finality, current service locations and current funding access; historical custody and checkpoint modules must not be offered as the active settlement path."
+proposal = "Domain 17 must rewrite docs/paxeer-network.md:3-20 and the layout/funding sections to reflect the merged network, distinguish historical modules from served interfaces, and align funding instructions with approved allocations rather than a general public faucet."
+owner_domain = 17
+
+[finding.catalog-retired-surfaces]
+file = "docs/system/precompiles.md"
+line = 32
+class = "doc-drift"
+severity = "medium"
+observed = "The generated ABI catalog lists layerxanchor, layerxcustody and layerxverify as ordinary fixed endpoints in the summary (:32, :36, :41), then lists checkpoint submission, custody deposits/withdrawals and evidence verification at :1170-1217, :1285-1324, :1552-1564 and the Solidity catalog :2430-2506 without activation or retirement status. An ABI inventory alone does not tell a new caller these historical operations are refused after merge."
+expected = "A public current precompile catalog must distinguish served operations, historical ABI retention and post-merge refusals so operators and contract authors do not build workflows around retired settlement and finality endpoints."
+proposal = "Domain 17 must update tools/docs/gen-system-docs.sh to consume the endpoint lifecycle/retirement information maintained with domain 6 and regenerate docs/system/precompiles.md with clear current-versus-historical status for the retired surfaces, preserving historical selectors for reference."
+owner_domain = 17
+
+[finding.catalog-missing-merged-addresses]
+file = "docs/system/precompiles.md"
+line = 35
+class = "doc-drift"
+severity = "medium"
+observed = "The catalog summary prints a dash instead of an endpoint address for layerxchains at :35 and layerxprograms at :40, and the detailed sections omit Address entirely. The declared served endpoints are 0x101E and 0x101D, respectively; a caller cannot discover them from these current ABI sections."
+expected = "The generated catalog must provide the actual fixed address and activation context for every served merged-network precompile, including virtual chains and hosted programs."
+proposal = "Domain 17 must extend the address discovery in tools/docs/gen-system-docs.sh for the layerxchains and layerxprograms constructor/constant forms and regenerate the summary and detail addresses from the same registration data domain 6 serves."
+owner_domain = 17
+
+[finding.site-unified-network-retired-flow]
+file = "docs/site/docs/overview/unified-network.md"
+line = 11
+class = "doc-drift"
+severity = "medium"
+observed = "The overview describes a LayerX core sequencer/consensus daemon at cmd/layerxd, active evidence-verifying connectors at 0x1012/0x1013/0x1014 and checkpoint finality. Its later RPC section presents the shared /rpc family as the network entry point, despite the merged root-path node API and retirement of those settlement flows."
+expected = "The published architecture must describe the kernel inside paxd, finality at block commit, current native interfaces, and node JSON-RPC at the root path with hosted px_ methods attributed to their gateway."
+proposal = "Domain 17 must rewrite the architecture, connector, finality and RPC sections of this page around the finished merged network; remove running layerxd, checkpoint-based finality and /rpc entry points and label historical interface examples explicitly."
+owner_domain = 17
+
+[finding.wiki-unified-network-retired-flow]
+file = "docs/wiki/UnifiedNetwork.md"
+line = 11
+class = "doc-drift"
+severity = "medium"
+observed = "The wiki architecture presents cmd/layerxd as the running sequencer and consensus layer, 0x1012/0x1013/0x1014 as active connectors, and the anchor as finality authority. It later treats the shared RPC surface as planned. These current-tense instructions conflict with the integrated network and the source retirement guards."
+expected = "The wiki must describe the integrated kernel and paxd BFT commit finality, current served endpoints, retired historical surfaces and the root-path public node API."
+proposal = "Domain 17 must synchronize this page with the corrected site overview, replacing the two-daemon and checkpoint custody narrative and publishing current interface lifecycle and RPC guidance in one consistent merged-network explanation."
+owner_domain = 17
+
+[finding.translated-readme-pt-br]
+file = "docs/readme/README.pt-BR.md"
+line = 37
+class = "doc-drift"
+severity = "medium"
+observed = "The introduction at :37 describes paxd and a separate layerxd kernel as two running execution domains; :39 settles kernel checkpoints through layerxAnchor. The architecture section and shared Mermaid flow at :125-243 continue the separate sequencer, guarantor and checkpoint model, while the component table retains old service locations."
+expected = "Localized onboarding must describe the same single paxd merged network, current component paths, committed-block finality and retired historical settlement interfaces as the canonical network specification."
+proposal = "Domain 17 must update this translation together with the canonical README: replace the separate layerxd/checkpoint narrative, revise the architecture diagram and service-path table, and state the current served/retired endpoints and funding/RPC guidance consistently for readers of this language."
+owner_domain = 17
+
+[finding.translated-readme-fr]
+file = "docs/readme/README.fr.md"
+line = 37
+class = "doc-drift"
+severity = "medium"
+observed = "The introduction at :37 describes paxd and a separate layerxd kernel as two running execution domains; :39 settles kernel checkpoints through layerxAnchor. The architecture section and shared Mermaid flow at :125-243 continue the separate sequencer, guarantor and checkpoint model, while the component table retains old service locations."
+expected = "Localized onboarding must describe the same single paxd merged network, current component paths, committed-block finality and retired historical settlement interfaces as the canonical network specification."
+proposal = "Domain 17 must update this translation together with the canonical README: replace the separate layerxd/checkpoint narrative, revise the architecture diagram and service-path table, and state the current served/retired endpoints and funding/RPC guidance consistently for readers of this language."
+owner_domain = 17
+
+[finding.translated-readme-ja]
+file = "docs/readme/README.ja.md"
+line = 37
+class = "doc-drift"
+severity = "medium"
+observed = "The introduction at :37 describes paxd and a separate layerxd kernel as two running execution domains; :39 settles kernel checkpoints through layerxAnchor. The architecture section and shared Mermaid flow at :125-243 continue the separate sequencer, guarantor and checkpoint model, while the component table retains old service locations."
+expected = "Localized onboarding must describe the same single paxd merged network, current component paths, committed-block finality and retired historical settlement interfaces as the canonical network specification."
+proposal = "Domain 17 must update this translation together with the canonical README: replace the separate layerxd/checkpoint narrative, revise the architecture diagram and service-path table, and state the current served/retired endpoints and funding/RPC guidance consistently for readers of this language."
+owner_domain = 17
+
+[finding.translated-readme-ru]
+file = "docs/readme/README.ru.md"
+line = 37
+class = "doc-drift"
+severity = "medium"
+observed = "The introduction at :37 describes paxd and a separate layerxd kernel as two running execution domains; :39 settles kernel checkpoints through layerxAnchor. The architecture section and shared Mermaid flow at :125-243 continue the separate sequencer, guarantor and checkpoint model, while the component table retains old service locations."
+expected = "Localized onboarding must describe the same single paxd merged network, current component paths, committed-block finality and retired historical settlement interfaces as the canonical network specification."
+proposal = "Domain 17 must update this translation together with the canonical README: replace the separate layerxd/checkpoint narrative, revise the architecture diagram and service-path table, and state the current served/retired endpoints and funding/RPC guidance consistently for readers of this language."
+owner_domain = 17
+
+[finding.translated-readme-zh-cn]
+file = "docs/readme/README.zh-CN.md"
+line = 37
+class = "doc-drift"
+severity = "medium"
+observed = "The introduction at :37 describes paxd and a separate layerxd kernel as two running execution domains; :39 settles kernel checkpoints through layerxAnchor. The architecture section and shared Mermaid flow at :125-243 continue the separate sequencer, guarantor and checkpoint model, while the component table retains old service locations."
+expected = "Localized onboarding must describe the same single paxd merged network, current component paths, committed-block finality and retired historical settlement interfaces as the canonical network specification."
+proposal = "Domain 17 must update this translation together with the canonical README: replace the separate layerxd/checkpoint narrative, revise the architecture diagram and service-path table, and state the current served/retired endpoints and funding/RPC guidance consistently for readers of this language."
+owner_domain = 17
+
+[finding.translated-readme-de]
+file = "docs/readme/README.de.md"
+line = 37
+class = "doc-drift"
+severity = "medium"
+observed = "The introduction at :37 describes paxd and a separate layerxd kernel as two running execution domains; :39 settles kernel checkpoints through layerxAnchor. The architecture section and shared Mermaid flow at :125-243 continue the separate sequencer, guarantor and checkpoint model, while the component table retains old service locations."
+expected = "Localized onboarding must describe the same single paxd merged network, current component paths, committed-block finality and retired historical settlement interfaces as the canonical network specification."
+proposal = "Domain 17 must update this translation together with the canonical README: replace the separate layerxd/checkpoint narrative, revise the architecture diagram and service-path table, and state the current served/retired endpoints and funding/RPC guidance consistently for readers of this language."
+owner_domain = 17
+
+[finding.translated-readme-es]
+file = "docs/readme/README.es.md"
+line = 37
+class = "doc-drift"
+severity = "medium"
+observed = "The introduction at :37 describes paxd and a separate layerxd kernel as two running execution domains; :39 settles kernel checkpoints through layerxAnchor. The architecture section and shared Mermaid flow at :125-243 continue the separate sequencer, guarantor and checkpoint model, while the component table retains old service locations."
+expected = "Localized onboarding must describe the same single paxd merged network, current component paths, committed-block finality and retired historical settlement interfaces as the canonical network specification."
+proposal = "Domain 17 must update this translation together with the canonical README: replace the separate layerxd/checkpoint narrative, revise the architecture diagram and service-path table, and state the current served/retired endpoints and funding/RPC guidance consistently for readers of this language."
+owner_domain = 17
+
+[finding.web-contract-current-event-missing]
+file = "spec/layerx-merge/contracts/web.md"
+line = 43
+class = "doc-drift"
+severity = "low"
+observed = "The explicitly historical 2a1033aa2 contract table at :43-63 still has fifteen interfaces and omits XWebProgramRequested, while :51 and :59-60 describe three origin-two methods as unserved. Those methods are now implemented, and the new event has conflicting producer/consumer semantics. The pinned table is understandable as history but is insufficient as the linked current interface contract."
+expected = "A current linked web contract must identify the served origin-two methods and specify program-request event names, field meanings, fee/identity scope and replay behavior, while preserving the historical snapshot as such."
+proposal = "Domain 6 must add a current revision of the web contract, retain the original revision as historical evidence, and link the current registry rows to the agreed producer-to-consumer program event contract. Domain 17 should clearly distinguish the two versions for integrators."
+owner_domain = 6
+
+[doc.01]
+path = "README.md"
+status = "misleading"
+notes = "Read all 202 lines. Rewrite lines 44-56, 79 and 83: separate daemon/cluster, draft merge and active historical precompiles; network brief governs the merged target."
+
+[doc.02]
+path = "docs/system/precompiles.md"
+status = "stale"
+notes = "Read all 2543 lines, including generated ABI and Solidity lists. Lines 32/36/41 and retired detail sections lack lifecycle labels; lines 35/40 omit 0x101E/0x101D. Line 2318 reproduces the conflicting origin/input/deadline event schema discussed in the xweb findings."
+
+[doc.03]
+path = "docs/paxeer-network.md"
+status = "misleading"
+notes = "Read the full page. Lines 3-20, 38 and funding text retain separate settlement/custody/sequencer and public-faucet guidance; virtual-chain namespace guidance at 24-30 is compatible with the target."
+
+[doc.04]
+path = "docs/site/docs/overview/unified-network.md"
+status = "misleading"
+notes = "Read all 229 lines. Architecture and retired connectors at 11-95, RPC /rpc family around 136, and later custody/finality narrative need the integrated-network rewrite."
+
+[doc.05]
+path = "docs/wiki/UnifiedNetwork.md"
+status = "misleading"
+notes = "Read all 215 lines. Running layerxd at 11, active retired interfaces at 17-95, custody around 188, finality around 200 and shared RPC around 212 are pre-merge guidance."
+
+[doc.06]
+path = "docs/readme/README.pt-BR.md"
+status = "misleading"
+notes = "Reviewed the entire localized page, including the shared diagrams and commands; identical blocks were compared with the fully read German page. Lines 37/39 and architecture 125-243 retain the separate daemon and checkpoint narrative; component paths around 80-92 need alignment."
+
+[doc.07]
+path = "docs/readme/README.fr.md"
+status = "misleading"
+notes = "Reviewed the entire localized page, including the shared diagrams and commands; identical blocks were compared with the fully read German page. Lines 37/39 and architecture 125-243 retain the separate daemon and checkpoint narrative; component paths around 80-92 need alignment."
+
+[doc.08]
+path = "docs/readme/README.ja.md"
+status = "misleading"
+notes = "Reviewed the entire localized page, including the shared diagrams and commands; identical blocks were compared with the fully read German page. Lines 37/39 and architecture 125-243 retain the separate daemon and checkpoint narrative; component paths around 80-92 need alignment."
+
+[doc.09]
+path = "docs/readme/README.ru.md"
+status = "misleading"
+notes = "Reviewed the entire localized page, including the shared diagrams and commands; identical blocks were compared with the fully read German page. Lines 37/39 and architecture 125-243 retain the separate daemon and checkpoint narrative; component paths around 80-92 need alignment."
+
+[doc.10]
+path = "docs/readme/README.zh-CN.md"
+status = "misleading"
+notes = "Reviewed the entire localized page, including the shared diagrams and commands; identical blocks were compared with the fully read German page. Lines 37/39 and architecture 125-243 retain the separate daemon and checkpoint narrative; component paths around 80-92 need alignment."
+
+[doc.11]
+path = "docs/readme/README.de.md"
+status = "misleading"
+notes = "Reviewed the entire localized page, including the shared diagrams and commands; identical blocks were compared with the fully read German page. Lines 37/39 and architecture 125-243 retain the separate daemon and checkpoint narrative; component paths around 80-92 need alignment."
+
+[doc.12]
+path = "docs/readme/README.es.md"
+status = "misleading"
+notes = "Reviewed the entire localized page, including the shared diagrams and commands; identical blocks were compared with the fully read German page. Lines 37/39 and architecture 125-243 retain the separate daemon and checkpoint narrative; component paths around 80-92 need alignment."
+
+[doc.13]
+path = "scripts/bump_version/README.md"
+status = "accurate"
+notes = "Read the full version-bump guide and its main.go implementation to establish provenance of frozen legacy precompile packages: package/import rewriting and ABI snapshots, not current merge implementations."
+
+[doc.14]
+path = "spec/layerx-merge/contracts/web.md"
+status = "stale"
+notes = "Read the xweb surface, origin-two rules and associated method/ABI sections used by this slice. It is explicitly pinned to 2a1033aa2; tables 43-63 and linked origin-two rows need a current counterpart, including the new program-request event. No claim of reviewing unrelated sections in full."
+
+[doc.15]
+path = "spec/layerx-merge/contracts/interop-websearch.md"
+status = "accurate"
+notes = "Reviewed the program-request decoder contract section at 1560-1582 and its frozen event/journal rules. Treat its new/planned labels as an explicitly historical revision, not evidence of current absence. Current served source and registry show the semantic disagreement recorded above; other sections are not claimed as fully reviewed."
+
+[review.interface-coverage]
+produces = ["13.go-layerxprograms-address-j52", "13.go-layerxprograms-checkretirestoragerequest-j52", "13.go-layerxprograms-encodeaccountpayload-j52", "13.go-layerxprograms-encodecallpayload-j52", "13.go-layerxprograms-encodedeploypayload-j52", "13.go-layerxprograms-encoderegistryreadpayload-j52", "13.go-layerxprograms-encodesandboxpayloads-j52", "13.go-layerxprograms-encodetransferpayload-j52", "13.go-layerxprograms-encodeupgradepayload-j52", "13.go-layerxprograms-encodewinddownpayloads-j52", "13.go-layerxprograms-errmoduledisabled-j52", "13.go-layerxprograms-errreadonlywrite-j52", "13.go-layerxprograms-errunboundcaller-j52", "13.go-layerxprograms-hostkeepers-j52", "13.go-layerxprograms-idempotencykey-j52", "13.go-layerxprograms-newmergeprecompile-j52", "13.go-layerxprograms-newprecompile-j52", "13.go-layerxprograms-precompileexecutor-j52", "13.go-layerxprograms-precompilename-j52", "13.go-layerxprograms-requiredgas-j74", "13.go-layerxprograms-transferleg-j52", "13.pc-0x101d-call", "13.pc-0x101d-deploy", "13.pc-0x101d-deprecate", "13.pc-0x101d-evt-exitrouteset", "13.pc-0x101d-evt-programaccountregistered", "13.pc-0x101d-evt-programcalloutcome", "13.pc-0x101d-evt-programdeployed", "13.pc-0x101d-evt-programdeprecated", "13.pc-0x101d-evt-programguestevent", "13.pc-0x101d-evt-programtombstoned", "13.pc-0x101d-evt-programtransferred", "13.pc-0x101d-evt-programupgraded", "13.pc-0x101d-evt-programvalueexited", "13.pc-0x101d-evt-registryread", "13.pc-0x101d-evt-sandboxdestroyed", "13.pc-0x101d-evt-sandboxusagereceipt", "13.pc-0x101d-evt-storageretired", "13.pc-0x101d-exitvalue", "13.pc-0x101d-exitvaluebounded", "13.pc-0x101d-getaccountprofile", "13.pc-0x101d-getcurrentfeeschedule", "13.pc-0x101d-getcurrentmeteringschedule", "13.pc-0x101d-getexitroute", "13.pc-0x101d-getfeeschedule", "13.pc-0x101d-getinterface", "13.pc-0x101d-getmeteringschedule", "13.pc-0x101d-getpendingfeeschedule", "13.pc-0x101d-getprogram", "13.pc-0x101d-getprogramaccount", "13.pc-0x101d-getprogramaccountbyid", "13.pc-0x101d-getprogramowner", "13.pc-0x101d-getretirementcontrol", "13.pc-0x101d-getsandbox", "13.pc-0x101d-getstatehead", "13.pc-0x101d-getvalueaccount", "13.pc-0x101d-getwebrequest", "13.pc-0x101d-getwinddown", "13.pc-0x101d-quotecallfee", "13.pc-0x101d-registeraccount", "13.pc-0x101d-registryread", "13.pc-0x101d-retirestorage", "13.pc-0x101d-sandboxactivate", "13.pc-0x101d-sandboxexecute", "13.pc-0x101d-sandboxfund", "13.pc-0x101d-setexitroute", "13.pc-0x101d-simulatecall", "13.pc-0x101d-tombstone", "13.pc-0x101d-transfer", "13.pc-0x101d-upgrade", "13.sol-layerxprograms-ilayerxprograms-j52", "6.cfg-feetoken-upgrade", "6.cfg-merge-table-0x0901", "6.cfg-merge-table-0x0902", "6.cfg-merge-table-0x0903", "6.cfg-merge-table-0x0904", "6.cfg-merge-table-0x0905", "6.cfg-merge-table-0x0906", "6.cfg-merge-table-0x0907", "6.cfg-merge-table-0x0908", "6.cfg-merge-table-0x101a", "6.cfg-merge-table-0x101b", "6.cfg-merge-table-0x101c", "6.cfg-merge-table-0x101d", "6.cfg-merge-upgrade-precompiles", "6.cfg-names-perps-j34", "6.cfg-names-pricefeed-j34", "6.cfg-names-spot-j34", "6.cfg-precompile-last-upgrade", "6.cfg-serve-0x1001", "6.cfg-serve-0x1002", "6.cfg-serve-0x1003", "6.cfg-serve-0x1004", "6.cfg-serve-0x1005", "6.cfg-serve-0x1006", "6.cfg-serve-0x1007", "6.cfg-serve-0x1008", "6.cfg-serve-0x1009", "6.cfg-serve-0x100a", "6.cfg-serve-0x100b", "6.cfg-serve-0x100c", "6.cfg-serve-0x1011", "6.cfg-serve-0x1012", "6.cfg-serve-0x1013", "6.cfg-serve-0x1014", "6.cfg-serve-0x1015", "6.cfg-serve-0x1016", "6.cfg-serve-0x1017", "6.cfg-serve-0x1018", "6.cfg-serve-0x1019", "6.cfg-serve-merge", "6.cfg-xweb-upgrade", "6.err-sdk-layerxanchor-10-guarantor-unknown", "6.err-sdk-layerxanchor-11-bond", "6.err-sdk-layerxanchor-12-unbonding-immature", "6.err-sdk-layerxanchor-13-evidence", "6.err-sdk-layerxanchor-14-already-slashed", "6.err-sdk-layerxanchor-15-challenge", "6.err-sdk-layerxanchor-16-availability", "6.err-sdk-layerxanchor-17-params", "6.err-sdk-layerxanchor-18-not-finalizable", "6.err-sdk-layerxanchor-19-module-retired-j35", "6.err-sdk-layerxanchor-2-unauthorized", "6.err-sdk-layerxanchor-3-invalid-genesis", "6.err-sdk-layerxanchor-4-sequencer-unauthorized", "6.err-sdk-layerxanchor-5-certificate", "6.err-sdk-layerxanchor-6-continuity", "6.err-sdk-layerxanchor-7-checkpoint-final", "6.err-sdk-layerxanchor-8-checkpoint-unknown", "6.err-sdk-layerxanchor-9-guarantor-exists", "6.evt-layerxanchor-anchor-retired-j35", "6.evt-layerxanchor-layerx-anchor-params-updated", "6.evt-layerxanchor-layerx-availability-attested", "6.evt-layerxanchor-layerx-challenge-opened", "6.evt-layerxanchor-layerx-challenge-resolved", "6.evt-layerxanchor-layerx-checkpoint-finalized", "6.evt-layerxanchor-layerx-checkpoint-submitted", "6.evt-layerxanchor-layerx-guarantor-activated", "6.evt-layerxanchor-layerx-guarantor-bond-increased", "6.evt-layerxanchor-layerx-guarantor-registered", "6.evt-layerxanchor-layerx-guarantor-slashed", "6.evt-layerxanchor-layerx-guarantor-unbond-begun", "6.evt-layerxanchor-layerx-guarantor-unbond-completed", "6.evt-layerxanchor-layerx-sequencer-authorized", "6.gen-layerxanchor-genesisstate-j35", "6.go-layerxanchor-anchorreader-j35", "6.go-layerxanchor-appmodule-registerservices-j35", "6.go-layerxanchor-keeper-balanceinvariant-j35", "6.go-layerxanchor-keeper-custodyanchor-finalizedcheckpoint-j35", "6.go-layerxanchor-keeper-custodyanchor-finalizedreceiptroot-j35", "6.go-layerxanchor-keeper-custodyanchor-finalizedstateroot-j35", "6.go-layerxanchor-keeper-custodyanchor-j35", "6.go-layerxanchor-keeper-custodyanchor-latestfinalizedbatch-j35", "6.go-layerxanchor-keeper-custodyanchor-sequencerauthorization-j35", "6.go-layerxanchor-keeper-keeper-activateguarantor-j35", "6.go-layerxanchor-keeper-keeper-beginunbond-j35", "6.go-layerxanchor-keeper-keeper-checkpointbyid-j35", "6.go-layerxanchor-keeper-keeper-completeunbond-j35", "6.go-layerxanchor-keeper-keeper-eligiblesigner-j35", "6.go-layerxanchor-keeper-keeper-escrowed-j35", "6.go-layerxanchor-keeper-keeper-exportgenesis-j35", "6.go-layerxanchor-keeper-keeper-finalize-j35", "6.go-layerxanchor-keeper-keeper-finalizedreceiptroot-j35", "6.go-layerxanchor-keeper-keeper-finalizedstateroot-j35", "6.go-layerxanchor-keeper-keeper-getanchor-j35", "6.go-layerxanchor-keeper-keeper-getavailability-j35", "6.go-layerxanchor-keeper-keeper-getchallenge-j35", "6.go-layerxanchor-keeper-keeper-getchallenges-j35", "6.go-layerxanchor-keeper-keeper-getcheckpoint-j35", "6.go-layerxanchor-keeper-keeper-getcheckpoints-j35", "6.go-layerxanchor-keeper-keeper-getguarantor-j35", "6.go-layerxanchor-keeper-keeper-getguarantors-j35", "6.go-layerxanchor-keeper-keeper-getparams-j35", "6.go-layerxanchor-keeper-keeper-getsequencerauthorizations-j35", "6.go-layerxanchor-keeper-keeper-getslashrecords-j35", "6.go-layerxanchor-keeper-keeper-getunbondings-j35", "6.go-layerxanchor-keeper-keeper-increasebond-j35", "6.go-layerxanchor-keeper-keeper-initgenesis-j35", "6.go-layerxanchor-keeper-keeper-j35", "6.go-layerxanchor-keeper-keeper-latestfinalizedbatch-j35", "6.go-layerxanchor-keeper-keeper-moduleaddress-j35", "6.go-layerxanchor-keeper-keeper-modulebalance-j35", "6.go-layerxanchor-keeper-keeper-openchallenge-j35", "6.go-layerxanchor-keeper-keeper-registerguarantor-j35", "6.go-layerxanchor-keeper-keeper-resolvechallenge-j35", "6.go-layerxanchor-keeper-keeper-returnallbonds-j35", "6.go-layerxanchor-keeper-keeper-sequencerauthorization-j35", "6.go-layerxanchor-keeper-keeper-sequencerauthorizationforbatch-j35", "6.go-layerxanchor-keeper-keeper-setparams-j35", "6.go-layerxanchor-keeper-keeper-setsequencerauthorization-j35", "6.go-layerxanchor-keeper-keeper-statusof-j35", "6.go-layerxanchor-keeper-keeper-submitavailabilityattestation-j35", "6.go-layerxanchor-keeper-keeper-submitcheckpoint-j35", "6.go-layerxanchor-keeper-keeper-submitequivocation-j35", "6.go-layerxanchor-keeper-keeper-updateparams-j35", "6.go-layerxanchor-keeper-newcustodyanchor-j35", "6.go-layerxanchor-keeper-newkeeper-j35", "6.go-layerxanchor-keeper-newmsgserverimpl-j35", "6.go-layerxanchor-keeper-registerinvariants-j35", "6.go-layerxanchor-mergeretired-j35", "6.go-layerxanchor-mergeupgrade-j35", "6.go-layerxanchor-module-appmodule-exportgenesis-j35", "6.go-layerxanchor-module-appmodule-exportgenesisstream-j35", "6.go-layerxanchor-module-appmodule-initgenesis-j35", "6.go-layerxanchor-module-appmodule-j35", "6.go-layerxanchor-module-appmodule-registerinvariants-j35", "6.go-layerxanchor-module-appmodulebasic-j35", "6.go-layerxanchor-module-appmodulebasic-validategenesisstream-j35", "6.go-layerxanchor-module-basic-defaultgenesis-j35", "6.go-layerxanchor-module-basic-getquerycmd-j35", "6.go-layerxanchor-module-basic-gettxcmd-j35", "6.go-layerxanchor-module-basic-name-j35", "6.go-layerxanchor-module-basic-registergrpcgatewayroutes-j35", "6.go-layerxanchor-module-basic-registerinterfaces-j35", "6.go-layerxanchor-module-basic-registerlegacyaminocodec-j35", "6.go-layerxanchor-module-basic-registerrestroutes-j35", "6.go-layerxanchor-module-basic-validategenesis-j35", "6.go-layerxanchor-module-module-consensusversion-j35", "6.go-layerxanchor-module-module-legacyquerierhandler-j35", "6.go-layerxanchor-module-module-querierroute-j35", "6.go-layerxanchor-module-module-route-j35", "6.go-layerxanchor-newappmodule-j35", "6.go-layerxanchor-newmsgserverimplwithupgrades-j35", "6.go-layerxanchor-precompile-execute-j35", "6.go-layerxanchor-retireatmerge-j35", "6.go-layerxanchor-storedeleteupgrade-j35", "6.go-layerxanchor-types-accountkeeper-j35", "6.go-layerxanchor-types-address20-j35", "6.go-layerxanchor-types-address20-marshal-j35", "6.go-layerxanchor-types-address20-marshaljson-j35", "6.go-layerxanchor-types-address20-marshalto-j35", "6.go-layerxanchor-types-address20-size-j35", "6.go-layerxanchor-types-address20-unmarshal-j35", "6.go-layerxanchor-types-address20-unmarshaljson-j35", "6.go-layerxanchor-types-anchor-j35", "6.go-layerxanchor-types-availabilityattestation-j35", "6.go-layerxanchor-types-availabilitybatchprefix-j35", "6.go-layerxanchor-types-availabilitykey-j35", "6.go-layerxanchor-types-bankkeeper-j35", "6.go-layerxanchor-types-challenge-j35", "6.go-layerxanchor-types-challengekey-j35", "6.go-layerxanchor-types-checkpoint-j35", "6.go-layerxanchor-types-checkpointidkey-j35", "6.go-layerxanchor-types-checkpointkey-j35", "6.go-layerxanchor-types-dec-j35", "6.go-layerxanchor-types-defaultauthority-j35", "6.go-layerxanchor-types-defaultgenesis-j35", "6.go-layerxanchor-types-defaultparams-j35", "6.go-layerxanchor-types-genesisstate-j35", "6.go-layerxanchor-types-genesisstate-validate-j35", "6.go-layerxanchor-types-guarantor-j35", "6.go-layerxanchor-types-guarantorkey-j35", "6.go-layerxanchor-types-hash32-j35", "6.go-layerxanchor-types-hash32-marshaljson-j35", "6.go-layerxanchor-types-hash32-unmarshaljson-j35", "6.go-layerxanchor-types-int-j35", "6.go-layerxanchor-types-msgupdateparams-getsignbytes-j35", "6.go-layerxanchor-types-msgupdateparams-getsigners-j35", "6.go-layerxanchor-types-msgupdateparams-route-j35", "6.go-layerxanchor-types-msgupdateparams-string-j35", "6.go-layerxanchor-types-msgupdateparams-type-j35", "6.go-layerxanchor-types-msgupdateparams-validatebasic-j35", "6.go-layerxanchor-types-params-j35", "6.go-layerxanchor-types-params-marshaljsonpb-j35", "6.go-layerxanchor-types-params-string-j35", "6.go-layerxanchor-types-params-unmarshaljsonpb-j35", "6.go-layerxanchor-types-params-validate-j35", "6.go-layerxanchor-types-registercodec-j35", "6.go-layerxanchor-types-registerinterfaces-j35", "6.go-layerxanchor-types-sequencerauthorization-j35", "6.go-layerxanchor-types-sequenceridprefix-j35", "6.go-layerxanchor-types-sequencerkey-j35", "6.go-layerxanchor-types-slashrecord-j35", "6.go-layerxanchor-types-slashrecordkey-j35", "6.go-layerxanchor-types-unbondingentry-j35", "6.go-layerxanchor-types-unbondingkey-j35", "6.go-layerxanchor-types-validatesequencers-j35", "6.go-pc-pointer-addcw1155pointer-j34", "6.go-pc-pointer-addcw20pointer-j34", "6.go-pc-pointer-addcw721pointer-j34", "6.go-pc-pointer-addnativepointer-j34", "6.go-pc-pointer-getversioned-j34", "6.go-pc-pointer-newprecompile-j34", "6.go-pc-pointer-pointeraddress-j34", "6.go-pc-pointer-precompileexecutor-execute-j34", "6.go-pc-pointer-precompilename-j34", "6.go-pc-pointerview-getversioned-j34", "6.go-pc-pointerview-newprecompile-j34", "6.go-pc-pointerview-pointerviewaddress-j34", "6.go-pc-setup-getcustomprecompiles-j34", "6.go-pc-setup-getcustomprecompilese-j34", "6.go-pc-setup-getprecompileinfo-j34", "6.go-pc-setup-getprecompileinfoe-j34", "6.go-pc-setup-iprecompile-j34", "6.go-pc-setup-mergeaddresstable-j34", "6.go-pc-setup-missingmergeconstructors-j34", "6.go-pc-setup-precompileinfo-j34", "6.go-pc-setup-registermergeconstructor-j34", "6.go-pc-solo-getversioned-j34", "6.go-pc-solo-soloaddress-j34", "6.go-pc0x1014-module-certificatework-j35", "6.go-pc0x1014-module-checkpointview-j35", "6.go-pc0x1014-module-gas-j35", "6.go-pc0x1014-module-getversioned-j35", "6.go-pc0x1014-module-guarantorview-j35", "6.go-pc0x1014-module-newprecompile-j35", "6.go-pc0x1014-module-precompileexecutor-j35", "6.go-pc0x1014-module-precompileexecutor-requiredgas-j35", "6.go-pxweb-attestorview-j37", "6.go-pxweb-feemethod-j37", "6.go-pxweb-fulfilprogrammethod-j37", "6.go-pxweb-getattestorsmethod-j37", "6.go-pxweb-getkernelnetworkidmethod-j37", "6.go-pxweb-getprogramresultmethod-j37", "6.go-pxweb-getversioned-j37", "6.go-pxweb-newprecompile-j37", "6.go-pxweb-newprecompilewithkeeper-j37", "6.go-pxweb-precompilename-j37", "6.go-pxweb-programfulfilgas-j37", "6.go-pxweb-thresholdmethod-j37", "6.go-pxweb-viewbasegas-j37", "6.go-pxweb-xwebaddress-j37", "6.go-wasmapp-makeencodingconfig", "6.go-wasmapp-params-makeencodingconfig", "6.key-layerxanchor-anchorkey-j35", "6.key-layerxanchor-availabilityprefix-j35", "6.key-layerxanchor-challengeprefix-j35", "6.key-layerxanchor-checkpointattesterprefix-j35", "6.key-layerxanchor-checkpointidprefix-j35", "6.key-layerxanchor-checkpointprefix-j35", "6.key-layerxanchor-guarantorprefix-j35", "6.key-layerxanchor-latestfinalizedkey-j35", "6.key-layerxanchor-nextchallengeidkey-j35", "6.key-layerxanchor-nextunbondingidkey-j35", "6.key-layerxanchor-paramskey-j35", "6.key-layerxanchor-sequencerprefix-j35", "6.key-layerxanchor-slashrecordprefix-j35", "6.key-layerxanchor-unbondingprefix-j35", "6.msg-layerxcustody-cancelclaim", "6.msg-layerxcustody-executeforcedexit", "6.msg-layerxcustody-finalisewithdrawal", "6.msg-layerxcustody-registercheckpoint", "6.msg-layerxcustody-requestforcedexit", "6.msg-layerxcustody-requestwithdrawal", "6.msg-layerxcustody-setasset", "6.msg-layerxcustody-setemergency", "6.msg-layerxcustody-updateparams", "6.pc-0x100a-getcw1155pointer", "6.pc-0x100a-getcw20pointer", "6.pc-0x100a-getcw721pointer", "6.pc-0x100a-getnativepointer", "6.pc-0x100b-addcw1155pointer", "6.pc-0x100b-addcw20pointer", "6.pc-0x100b-addcw721pointer", "6.pc-0x100b-addnativepointer", "6.pc-0x100c-claim", "6.pc-0x100c-claimspecific", "6.pc-0x1014-activateguarantor", "6.pc-0x1014-beginunbond", "6.pc-0x1014-checkpoint", "6.pc-0x1014-checkpointbatch", "6.pc-0x1014-checkpointguarantors", "6.pc-0x1014-completeunbond", "6.pc-0x1014-evt-availabilityattested", "6.pc-0x1014-evt-bondincreased", "6.pc-0x1014-evt-challengeopened", "6.pc-0x1014-evt-challengeresolved", "6.pc-0x1014-evt-checkpointfinalized", "6.pc-0x1014-evt-checkpointsubmitted", "6.pc-0x1014-evt-guarantoractivated", "6.pc-0x1014-evt-guarantorregistered", "6.pc-0x1014-evt-guarantorslashed", "6.pc-0x1014-evt-sequencerauthorized", "6.pc-0x1014-evt-unbondbegun", "6.pc-0x1014-evt-unbondcompleted", "6.pc-0x1014-finalize", "6.pc-0x1014-finalizedreceiptroot", "6.pc-0x1014-finalizedstateroot", "6.pc-0x1014-guarantor", "6.pc-0x1014-increasebond", "6.pc-0x1014-latestfinalized", "6.pc-0x1014-openchallenge", "6.pc-0x1014-registerguarantor", "6.pc-0x1014-resolvechallenge", "6.pc-0x1014-setsequencerauthorization", "6.pc-0x1014-statusof", "6.pc-0x1014-submitavailabilityattestation", "6.pc-0x1014-submitcheckpoint", "6.pc-0x1014-submitequivocation", "6.pc-0x1014-threshold", "6.pc-0x1019-evt-xwebfulfilled", "6.pc-0x1019-evt-xwebrefunded", "6.pc-0x1019-evt-xwebrequested", "6.pc-0x1019-fee", "6.pc-0x1019-fulfil", "6.pc-0x1019-fulfilprogram", "6.pc-0x1019-getattestors", "6.pc-0x1019-getkernelnetworkid", "6.pc-0x1019-getparams", "6.pc-0x1019-getprogramresult"]
+consumes = ["1.c-lxp-checkpoint-finalisable", "1.fmt-layerxproof-vectors", "1.go-layerxproof-codec-availability-class-count", "1.go-layerxproof-codec-batch-header", "1.go-layerxproof-codec-batch-header-bytes", "1.go-layerxproof-codec-decode-checkpoint-certificate", "1.go-layerxproof-codec-decode-guarantor-attestation", "1.go-layerxproof-codec-max-guarantor-attestations", "1.go-layerxproof-codec-max-validity-proof-bytes", "1.go-layerxproof-codec-merkle-proof-validate", "1.go-layerxproof-codec-u128-is-zero", "1.go-layerxproof-testvectors-fixture", "1.go-layerxproof-testvectors-load-anchor-j22", "1.go-layerxproof-testvectors-vector", "1.go-layerxproof-testvectors-vector-array32", "1.go-layerxproof-testvectors-vector-bytes", "1.go-layerxproof-testvectors-vector-uint64", "1.go-layerxproof-verify-attestation", "1.go-layerxproof-verify-batch-header", "1.go-layerxproof-verify-checkpoint-certificate", "1.go-layerxproof-verify-guarantor-equivocation", "1.go-layerxproof-verify-public-key-is-canonical", "1.go-layerxproof-verify-sequencer-authorization", "1.go-layerxproof-verify-settlement-domain", "15.go-baseapp-msg-service-router-j76", "15.go-baseapp-new-base-app-j76", "15.go-baseapp-new-grpc-query-router-j76", "15.go-baseapp-new-msg-service-router-j76", "15.go-baseapp-paramspace-j76", "15.go-baseapp-set-snapshot-keep-recent-j76", "15.go-baseapp-set-snapshot-store-j76", "15.go-client-grpc-tmservice-register-grpc-gateway-routes-j76", "15.go-client-grpc-tmservice-register-tendermint-service-j76", "15.go-client-rpc-register-routes-j76", "15.go-client-tx-encoding-config-j76", "15.go-codec-new-amino-codec-j76", "15.go-codec-new-legacy-amino-j76", "15.go-consensus-libs-json-unmarshal-j57", "15.go-consensus-libs-os-exit-j57", "15.go-consensus-types-abci-pub-key-type-ed25519-j57", "15.go-crypto-codec-from-tm-pub-key-interface-j76", "15.go-crypto-keys-ed25519-gen-priv-key-j76", "15.go-crypto-keys-ed25519-pub-key-size-j76", "15.go-server-api-server-j76", "15.go-server-config-api-config-j76", "15.go-server-types-application-j76", "15.go-server-types-exported-app-j76", "15.go-snapshots-new-store-j76", "15.go-std-register-interfaces-j76", "15.go-std-register-legacy-amino-codec-j76", "15.go-store-types-gas-j76", "15.go-storev2-rootmulti-new-store-j76", "15.go-testutil-test-app-opts-j76", "15.go-types-acc-address-from-hex-j76", "15.go-types-ante-decorator-j76", "15.go-types-chain-ante-decorators-j76", "15.go-types-default-bond-denom-j76", "15.go-types-error-out-of-gas-j76", "15.go-types-errors-abci-info-j76", "15.go-types-errors-new-j76", "15.go-types-errors-root-codespace-j76", "15.go-types-format-invariant-j76", "15.go-types-genesis-genesis-import-config-j76", "15.go-types-invariant-j76", "15.go-types-invariant-registry-j76", "15.go-types-kv-store-key-j76", "15.go-types-kv-store-reverse-prefix-iterator-j76", "15.go-types-legacytm-abci-to-legacy-consensus-params-j76", "15.go-types-mark-events-to-index-j76", "15.go-types-memory-store-key-j76", "15.go-types-module-app-module-basic-j76", "15.go-types-module-app-module-j76", "15.go-types-module-configurator-j76", "15.go-types-module-manager-j76", "15.go-types-module-new-basic-manager-j76", "15.go-types-module-new-configurator-j76", "15.go-types-module-new-manager-j76", "15.go-types-msgservice-register-msg-service-desc-j76", "15.go-types-new-dec-with-prec-j76", "15.go-types-new-gas-meter-j76", "15.go-types-new-int64-coin-j76", "15.go-types-new-kv-store-keys-j76", "15.go-types-new-level-db-j76", "15.go-types-new-memory-store-keys-j76", "15.go-types-new-transient-store-keys-j76", "15.go-types-one-dec-j76", "15.go-types-prefix-consensus-j76", "15.go-types-prefix-operator-j76", "15.go-types-prefix-public-j76", "15.go-types-prefix-validator-j76", "15.go-types-querier-j76", "15.go-types-register-interfaces-j76", "15.go-types-register-legacy-amino-codec-j76", "15.go-types-route-j76", "15.go-types-transient-store-key-j76", "15.go-types-validate-denom-j76", "15.go-utils-map-j76", "15.go-x-auth-ante-default-sig-verification-gas-consumer-j76", "15.go-x-auth-ante-handler-options-j76", "15.go-x-auth-ante-new-consume-gas-for-tx-size-decorator-j76", "15.go-x-auth-ante-new-deduct-fee-decorator-j76", "15.go-x-auth-ante-new-default-set-up-context-decorator-j76", "15.go-x-auth-ante-new-increment-sequence-decorator-j76", "15.go-x-auth-ante-new-reject-extension-options-decorator-j76", "15.go-x-auth-ante-new-set-pub-key-decorator-j76", "15.go-x-auth-ante-new-sig-gas-consume-decorator-j76", "15.go-x-auth-ante-new-sig-verification-decorator-j76", "15.go-x-auth-ante-new-tx-timeout-height-decorator-j76", "15.go-x-auth-ante-new-validate-basic-decorator-j76", "15.go-x-auth-ante-new-validate-memo-decorator-j76", "15.go-x-auth-ante-new-validate-sig-count-decorator-j76", "15.go-x-auth-app-module-basic-j76", "15.go-x-auth-client-rest-register-tx-routes-j76", "15.go-x-auth-keeper-new-account-keeper-j76", "15.go-x-auth-new-app-module-j76", "15.go-x-auth-signing-sig-verifiable-tx-j76", "15.go-x-auth-signing-signer-data-j76", "15.go-x-auth-signing-verify-signature-j76", "15.go-x-auth-tx-default-sign-modes-j76", "15.go-x-auth-tx-new-tx-config-j76", "15.go-x-auth-tx-register-grpc-gateway-routes-j76", "15.go-x-auth-tx-register-tx-service-j76", "15.go-x-auth-types-burner-j76", "15.go-x-auth-types-default-params-j76", "15.go-x-auth-types-minter-j76", "15.go-x-auth-types-module-account-i-j76", "15.go-x-auth-types-new-genesis-state-j76", "15.go-x-auth-types-new-module-address-j76", "15.go-x-auth-types-proto-base-account-j76", "15.go-x-auth-types-staking-j76", "15.go-x-auth-types-store-key-j76", "15.go-x-auth-vesting-app-module-basic-j76", "15.go-x-auth-vesting-new-app-module-j76", "15.go-x-auth-vesting-types-module-name-j76", "15.go-x-authz-keeper-keeper-j76", "15.go-x-authz-keeper-new-keeper-j76", "15.go-x-authz-keeper-store-key-j76", "15.go-x-authz-module-app-module-basic-j76", "15.go-x-authz-module-name-j76", "15.go-x-authz-module-new-app-module-j76", "15.go-x-bank-app-module-basic-j76", "15.go-x-bank-keeper-new-base-keeper-with-deferred-cache-j76", "15.go-x-bank-new-app-module-j76", "15.go-x-bank-types-default-genesis-state-j76", "15.go-x-bank-types-deferred-cache-store-key-j76", "15.go-x-bank-types-new-genesis-state-j76", "15.go-x-bank-types-store-key-j76", "15.go-x-capability-app-module-basic-j76", "15.go-x-capability-begin-blocker-j76", "15.go-x-capability-keeper-keeper-j76", "15.go-x-capability-keeper-new-keeper-j76", "15.go-x-capability-keeper-scoped-keeper-j76", "15.go-x-capability-new-app-module-j76", "15.go-x-capability-types-mem-store-key-j76", "15.go-x-capability-types-module-name-j76", "15.go-x-capability-types-store-key-j76", "15.go-x-distribution-app-module-basic-j76", "15.go-x-distribution-begin-blocker-j76", "15.go-x-distribution-client-proposal-handler-j76", "15.go-x-distribution-keeper-new-keeper-j76", "15.go-x-distribution-new-app-module-j76", "15.go-x-distribution-new-community-pool-spend-proposal-handler-j76", "15.go-x-distribution-types-router-key-j76", "15.go-x-distribution-types-store-key-j76", "15.go-x-evidence-app-module-basic-j76", "15.go-x-evidence-begin-blocker-j76", "15.go-x-evidence-keeper-keeper-j76", "15.go-x-evidence-keeper-new-keeper-j76", "15.go-x-evidence-new-app-module-j76", "15.go-x-evidence-types-store-key-j76", "15.go-x-feegrant-keeper-keeper-j76", "15.go-x-feegrant-keeper-new-keeper-j76", "15.go-x-feegrant-module-app-module-basic-j76", "15.go-x-feegrant-module-name-j76", "15.go-x-feegrant-module-new-app-module-j76", "15.go-x-feegrant-store-key-j76", "15.go-x-genutil-app-module-basic-j76", "15.go-x-genutil-new-app-module-j76", "15.go-x-genutil-types-module-name-j76", "15.go-x-gov-end-blocker-j76", "15.go-x-gov-keeper-keeper-j76", "15.go-x-gov-keeper-new-keeper-j76", "15.go-x-gov-new-app-module-basic-j76", "15.go-x-gov-new-app-module-j76", "15.go-x-gov-types-module-name-j76", "15.go-x-gov-types-new-router-j76", "15.go-x-gov-types-param-key-table-j76", "15.go-x-gov-types-proposal-handler-j76", "15.go-x-gov-types-router-key-j76", "15.go-x-gov-types-store-key-j76", "15.go-x-params-app-module-basic-j76", "15.go-x-params-client-proposal-handler-j76", "15.go-x-params-keeper-consensus-params-key-table-j76", "15.go-x-params-keeper-new-keeper-j76", "15.go-x-params-new-app-module-j76", "15.go-x-params-new-param-change-proposal-handler-j76", "15.go-x-params-types-module-name-j76", "15.go-x-params-types-proposal-router-key-j76", "15.go-x-params-types-store-key-j76", "15.go-x-params-types-t-store-key-j76", "15.go-x-slashing-app-module-basic-j76", "15.go-x-slashing-begin-blocker-j76", "15.go-x-slashing-keeper-keeper-j76", "15.go-x-slashing-keeper-new-keeper-j76", "15.go-x-slashing-new-app-module-j76", "15.go-x-slashing-types-module-name-j76", "15.go-x-slashing-types-store-key-j76", "15.go-x-staking-app-module-basic-j76", "15.go-x-staking-begin-blocker-j76", "15.go-x-staking-end-blocker-j76", "15.go-x-staking-keeper-new-keeper-j76", "15.go-x-staking-new-app-module-j76", "15.go-x-staking-types-bonded-pool-name-j76", "15.go-x-staking-types-default-params-j76", "15.go-x-staking-types-new-commission-j76", "15.go-x-staking-types-new-delegation-j76", "15.go-x-staking-types-new-genesis-state-j76", "15.go-x-staking-types-new-multi-staking-hooks-j76", "15.go-x-staking-types-not-bonded-pool-name-j76", "15.go-x-staking-types-store-key-j76", "15.go-x-staking-types-validators-key-j76", "15.go-x-staking-write-validators-j76", "15.go-x-upgrade-app-module-basic-j76", "15.go-x-upgrade-client-cancel-proposal-handler-j76", "15.go-x-upgrade-client-proposal-handler-j76", "15.go-x-upgrade-keeper-new-keeper-j76", "15.go-x-upgrade-new-app-module-j76", "15.go-x-upgrade-new-software-upgrade-proposal-handler-j76", "15.go-x-upgrade-types-module-name-j76", "15.go-x-upgrade-types-router-key-j76", "15.go-x-upgrade-types-store-key-j76", "16.cli-scr-paxeerbetadeploy-s", "16.cli-scr-sidioraproxygovernance-s", "2.go-layerxagent-clearing-newprecompile-j24", "2.go-layerxagent-eip712-newprecompile-j24", "2.go-layerxagent-eip712-precompilename-j24", "2.go-layerxagent-orob-newprecompile-j24", "2.go-layerxagent-orob-precompilename-j24", "2.go-layerxagent-pofq-newprecompile-j24", "2.go-layerxagent-pofq-precompilename-j24", "3.go-mint-appmodulebasic-j26", "3.go-mint-keeper-hooks-j64", "3.go-mint-keeper-initgenesis-j64", "3.go-mint-keeper-keeper-j26", "3.go-mint-keeper-newkeeper-j26", "3.go-mint-keeper-sethooks-j64", "3.go-mint-newappmodule-j26", "3.go-mint-types-storekey-j26", "3.go-oracle-getversioned-j25", "3.go-oracle-oracleaddress-j25", "3.go-pclayerxexchange-exchangeaddress-j26", "3.go-pclayerxexchange-getversioned-j26", "3.go-pclayerxexchange-newprecompile-j26", "3.go-precompiles-oracle-newprecompile-j64", "3.pc-0x1020-getparams", "4.err-launchpad-unauthorized-j11", "4.msg-launchpad-update-params", "5.go-consensus-abci-types-misbehavior", "5.go-consensus-abci-types-request-deliver-tx-v2", "5.go-consensus-abci-types-request-end-block", "5.go-consensus-abci-types-request-process-proposal", "5.go-consensus-abci-types-response-init-chain", "5.go-consensus-abci-types-response-process-proposal", "5.go-consensus-abci-types-response-process-proposal-accept", "5.go-engine-executor-precompiles-all-custom-precompiles-fail-fast", "5.go-node-app-get-precompile-keepers", "5.go-node-default-consensus-params", "5.go-node-default-gen-tx-gas", "5.go-node-empty-wasm-opts", "5.go-node-gen-tx", "5.go-node-latest-upgrade", "5.go-node-merge-upgrade", "5.go-node-new", "5.go-node-new-default-genesis-state", "5.go-node-setup", "5.go-node-test-app-opts", "5.go-storage-config-default-state-commit-config", "6.cfg-custom-precompile-activation", "6.cfg-get-custom-precompiles-call", "6.cfg-latest-upgrade", "6.cfg-merge-upgrade-node", "6.cfg-precompile-activation-list", "6.cfg-set-custom-precompiles", "6.err-arithmetic-arithmeticoverflow-e47ec074", "6.err-arithmetic-narrowingconversion-5de379e6", "6.err-blockerrors-invalidcomponent-bc81836e", "6.err-blockerrors-invalidmigrationoperation-e8414a4f", "6.err-blockerrors-invalidmigrationstate-706e3d45", "6.err-blockerrors-invalidmigrationversion-ce33d54c", "6.err-blockerrors-invalidmigrationwindow-7d2485e5", "6.err-blockerrors-managerunauthorized-adc45603", "6.err-blockerrors-migrationcallfailed-d66823f1", "6.err-blockerrors-migrationcodehashmismatch-61996fce", "6.err-blockerrors-migrationcommitmentmismatch-6b73957a", "6.err-blockerrors-migrationstoragelayoutmismatch-91800106", "6.err-blockerrors-selectornotallowed-9948a254", "6.err-blueprint-blueprintsealed-3c9bffa2", "6.err-blueprint-deploymentcollision-1844405b", "6.err-blueprint-invalidblueprint-76d3c58e", "6.err-blueprint-manageronly-20a1c0fc", "6.err-bytes-bytesoutofbounds-f3663dee", "6.err-callerchecker-directcodelessoriginonly-5d056f31", "6.err-checkpointchallengemanager-invalidchallenge-92fa6fd3", "6.err-checkpointchallengemanager-nobondowed-d16f72ce", "6.err-checkpointchallengemanager-transferfailed-90b8ec18", "6.err-checkpointregistry-canonicalchaininvalidated-c2bcecd4", "6.err-checkpointregistry-challengeauthorityonly-d5f2f4c7", "6.err-checkpointregistry-checkpointproposeronly-9bf0bda4", "6.err-checkpointregistry-invalidcertificate-1d39f946", "6.err-checkpointregistry-invalidconfiguration-c52a9bd3", "6.err-checkpointregistry-invalidheader-babb01dd", "6.err-checkpointregistry-invalidwitnesses-b6c2a1b1", "6.err-checkpointregistry-staterootdiscontinuity-a778c6a6", "6.err-checkpointregistry-witnessesalreadypublished-8c646659", "6.err-cryptographyprimitives-invalidsignaturelength-2c33b568", "6.err-cryptographyprimitives-invalidsignatures-5682f3bf", "6.err-decimalsconverterhelper-inexactconversion-d2d235a3", "6.err-delegatecallaware-delegatecallonly-52cafe32", "6.err-delegatecallaware-directcallonly-cba87daa", "6.err-emergencyexit-exitalreadyconsumed-d91b090b", "6.err-emergencyexit-exitnoteligible-8dd1f339", "6.err-emergencyexit-invalidexitclaim-df6fb140", "6.err-features-foreignchainfacility-6f123303", "6.err-features-unsupportedfeature-68a6833c", "6.err-governed-governanceonly-a17881e2", "6.err-guarantorbond-invalidbondaction-3e5dac69", "6.err-guarantorbond-invalidconfiguration-c52a9bd3", "6.err-guarantorbond-invalidequivocationevidence-43c22b84", "6.err-guarantorbond-transferfailed-90b8ec18", "6.err-guarantorbond-unauthorized-82b42900", "6.err-layerxtimelockcore-callfailed-8c6081f3", "6.err-layerxtimelockcore-invalidoperation-398d4d32", "6.err-layerxtimelockcore-operationnotready-f800799b", "6.err-layerxtimelockcore-unauthorized-82b42900", "6.err-layerxvault-depositrootalreadyregistered-aa2e362e", "6.err-layerxvault-depositrootproposeronly-1abb3555", "6.err-layerxvault-invaliddepositroot-aced36ac", "6.err-layerxvault-invalidrelease-1cbb0709", "6.err-merklelib-merkleindexoutofrange-38de686d", "6.err-nativestateproof-invalidpath-20db8267", "6.err-nativestateproof-rootmismatch-5ade0455", "6.err-nativestateproof-wrongmodule-8290c0ea", "6.err-nativestateproof-wrongversion-bcb184aa", "6.err-paxeerbetadeploymentvalidator-invalidbetadeploymentinput-59f0acf6", "6.err-paxeerbetadeploymentvalidator-invalidgenesisartifacts-db77ffb3", "6.err-paxeerbetadeploymentvalidator-invalidguarantor-02b613b9", "6.err-paxeerbetadeploymentvalidator-invalidusdl-bc9e8e99", "6.err-paxeerbetadeploymentvalidator-unfundedguarantor-67290a9a", "6.err-paxeerbetadeploymentvalidator-wrongpaxeerchain-fd7279ba", "6.err-preinstalls-duplicatecomponentaddress-635ed4e1", "6.err-preinstalls-invalidcomponentmanifest-4a2ef030", "6.err-rev-lxp-precompile-arg-count", "6.err-rev-lxp-precompile-non-payable", "6.err-rev-lxp-precompile-unknown-method", "6.err-rev-lxp-precompile-wei-remainder", "6.err-rev-lxp-xweb-already-fulfilled", "6.err-rev-lxp-xweb-bad-signature", "6.err-rev-lxp-xweb-below-threshold", "6.err-rev-lxp-xweb-callback-budget", "6.err-rev-lxp-xweb-callback-gas", "6.err-rev-lxp-xweb-callback-recorded", "6.err-rev-lxp-xweb-delegatecall", "6.err-rev-lxp-xweb-fulfil-evm-only", "6.err-rev-lxp-xweb-invalid-api", "6.err-rev-lxp-xweb-invalid-attestors", "6.err-rev-lxp-xweb-invalid-envelope", "6.err-rev-lxp-xweb-invalid-genesis", "6.err-rev-lxp-xweb-invalid-length", "6.err-rev-lxp-xweb-invalid-level", "6.err-rev-lxp-xweb-invalid-params", "6.err-rev-lxp-xweb-invalid-request", "6.err-rev-lxp-xweb-invalid-threshold", "6.err-rev-lxp-xweb-keeper-missing", "6.err-rev-lxp-xweb-not-expired", "6.err-rev-lxp-xweb-paused", "6.err-rev-lxp-xweb-payload-size", "6.err-rev-lxp-xweb-refunded", "6.err-rev-lxp-xweb-response-too-large", "6.err-rev-lxp-xweb-staticcall", "6.err-rev-lxp-xweb-unauthorized", "6.err-rev-lxp-xweb-unknown-attestor", "6.err-rev-lxp-xweb-unknown-kind", "6.err-rev-lxp-xweb-unknown-request", "6.err-rev-lxp-xweb-wrong-fee", "6.err-safecall-callfailed-e1eec8f1", "6.err-safecall-targethasnocode-fff23361", "6.err-sdk-xweb-10-callback-gas", "6.err-sdk-xweb-11-wrong-fee", "6.err-sdk-xweb-12-unknown-request", "6.err-sdk-xweb-13-already-fulfilled", "6.err-sdk-xweb-14-refunded", "6.err-sdk-xweb-15-response-too-large", "6.err-sdk-xweb-16-invalid-length", "6.err-sdk-xweb-18-below-threshold", "6.err-sdk-xweb-19-not-expired", "6.err-sdk-xweb-2-unauthorized", "6.err-sdk-xweb-20-unknown-attestor", "6.err-sdk-xweb-21-callback-recorded", "6.err-sdk-xweb-22-invalid-request", "6.err-sdk-xweb-23-invalid-api"]
+registration = "Compared precompiles/setup.go and generated dispatch with current constructors and live node application registration. Plan activation and reserved addresses retain the declared v7.0 boundary; legacy types and selectors remain replay artifacts."
+anchor = "Compared protobuf/type encodings, keeper genesis/retirement state, fail-closed wrappers, proof and merge tests, and bounded bond-return migration. Current refusal semantics supersede historical finality prose; source/documentation findings name that drift."
+pointers = "Compared creation and lookup method signatures, fixed addresses, version/exists tuples, query response metadata and wrapper deployments. Nonpayable runtime versus payable advertised ABI, unchecked metadata and incomplete freeze coverage are findings."
+solo = "Compared claim message encoding, signer/caller binding, chain/account sequence, gas accounting and native/CW20/CW721 transport. Claim-all pagination has an explicit runtime finding; finite transfers and replay authentication retain their declared contract."
+web = "Compared canonical origin-one request/result ABI, errors, fees, callbacks, gas/activation, program record and fulfilment paths with actual EVM log decoder, durable Rust pending/cursor state, attestation and observation transport. Two blocking findings describe program-event semantics and cross-origin journal identity."
+programs = "Compared the member view-height proof and registration/parity coverage with declared host ABI and committed-view behavior. The broad programme interface rows are context for this slice; they do not enlarge the allowed edit scope."
+wasm = "Compared standalone WasmApp initialization, codec/ante/module wiring and genesis/export/support fixture types with consumed SDK/consensus interfaces. Deliberate test application names are not treated as a retired layerxd runtime."
+security = "Reviewed static/delegatecall/payability guards, caller/signer checks, size/gas/fee boundaries and fail-closed retirement behavior on exposed paths. No bypass or data-loss claim is inferred from tests that were only read."
+recovery = "Reviewed retained genesis/migration and bond-return state and real watcher journal/cursor ordering. The high collision finding includes repeated delivery and restart consequences; no live restart rehearsal was run during this record-only task."

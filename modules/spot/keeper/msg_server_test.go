@@ -1,6 +1,7 @@
 package keeper_test
 
 import (
+	"bytes"
 	"math/big"
 	"testing"
 
@@ -63,7 +64,7 @@ func requireLog(t *testing.T, l *ethtypes.Log, address common.Address, topics []
 	for _, w := range words {
 		data = append(data, w...)
 	}
-	require.Equal(t, data, l.Data)
+	require.True(t, bytes.Equal(data, l.Data), "log data: expected %x, got %x", data, l.Data)
 }
 
 func logsSince(ctx sdk.Context, before int) []*ethtypes.Log {
@@ -83,10 +84,17 @@ func syncToken(capBps uint64, paused bool) types.TokenParams {
 }
 
 func TestUpdateParamsRegistersNewToken(t *testing.T) {
-	k, ctx := newSpotEnv(t, *types.DefaultGenesis())
+	testUpdateParamsRegistersNewToken(t)
+}
+
+func testUpdateParamsRegistersNewToken(t *testing.T) {
+	t.Helper()
+	e := newRepair17Env(t)
+	k, ctx := e.a.SpotKeeper, e.ctx
 	server := keeper.NewMsgServerImpl(k)
 	params := getParams(t, k, ctx)
 	token := syncToken(9_000, true)
+	token.Address, token.MarketID = e.native, types.PAXMarketID
 	token.Decimals = 0
 	params.Tokens = []types.TokenParams{token}
 	params.SwapPaused = true
@@ -101,16 +109,20 @@ func TestUpdateParamsRegistersNewToken(t *testing.T) {
 	require.Equal(t, []types.TokenParams{token}, stored.Tokens)
 	require.True(t, stored.SwapPaused)
 	books := k.ExportGenesis(ctx).Books
-	require.Equal(t, []types.TokenBook{{Token: syncPointer, Reserves: sdk.ZeroInt(),
+	require.Equal(t, []types.TokenBook{{Token: e.native, Reserves: sdk.ZeroInt(),
 		TotalDeposited: sdk.ZeroInt(), TotalWithdrawn: sdk.ZeroInt(), Decimals: 6,
-		ShareDenom: k.ShareDenom(syncPointer)}}, books)
+		ShareDenom: k.ShareDenom(e.native)}}, books)
 	logs := logsSince(ctx, before)
-	require.Len(t, logs, 3)
+	require.Len(t, logs, 4)
 	requireLog(t, logs[0], pecor, []common.Hash{keeper.PausedTopic},
 		common.LeftPadBytes(types.GovernanceEVMAddress().Bytes(), 32))
-	tokenTopic := common.BytesToHash(syncPointer.Bytes())
+	tokenTopic := common.BytesToHash(e.native.Bytes())
 	requireLog(t, logs[1], pecorVault, []common.Hash{keeper.TokenRegisteredTopic, tokenTopic}, word(6), word(0))
 	requireLog(t, logs[2], pecorVault, []common.Hash{keeper.UtilizationCapUpdatedTopic, tokenTopic}, word(9_000))
+	pointer, _, exists := e.a.EvmKeeper.GetERC20NativePointer(ctx, k.ShareDenom(e.native))
+	require.True(t, exists)
+	requireLog(t, logs[3], pecorVault, []common.Hash{crypto.Keccak256Hash([]byte("ShareTokenCreated(address,address)")),
+		tokenTopic, common.BytesToHash(pointer.Bytes())})
 
 	before = len(ctx.EVMEventManager().Events())
 	_, err = server.UpdateParams(sdk.WrapSDKContext(ctx), &types.MsgUpdateParams{
@@ -120,6 +132,14 @@ func TestUpdateParamsRegistersNewToken(t *testing.T) {
 	require.Empty(t, logsSince(ctx, before))
 	require.Equal(t, books, k.ExportGenesis(ctx).Books)
 	require.Equal(t, stored, getParams(t, k, ctx))
+
+	// Unpause the governance-created pool before exercising the public vault.
+	stored.Tokens[0].Paused = false
+	_, err = server.UpdateParams(sdk.WrapSDKContext(ctx), &types.MsgUpdateParams{
+		Authority: governanceAuthority, Params: stored,
+	})
+	require.NoError(t, err)
+	repairM481PoolLifecycle(e, []common.Address{e.native})
 }
 
 func TestUpdateParamsRefusesUnknownMarket(t *testing.T) {
@@ -209,10 +229,14 @@ func TestParamChangeEmitsPauseLogs(t *testing.T) {
 	params.Tokens = []types.TokenParams{syncToken(9_000, false)}
 	logs, err := update(params)
 	require.NoError(t, err)
-	require.Len(t, logs, 3)
+	require.Len(t, logs, 4)
 	requireLog(t, logs[0], pecor, []common.Hash{keeper.PausedTopic}, governance)
 	requireLog(t, logs[1], pecorVault, []common.Hash{keeper.TokenRegisteredTopic, tokenTopic}, word(6), word(0))
 	requireLog(t, logs[2], pecorVault, []common.Hash{keeper.UtilizationCapUpdatedTopic, tokenTopic}, word(9_000))
+	pointer, _, exists := testkeeper.EVMTestApp.EvmKeeper.GetERC20NativePointer(ctx, k.ShareDenom(syncPointer))
+	require.True(t, exists)
+	requireLog(t, logs[3], pecorVault, []common.Hash{crypto.Keccak256Hash([]byte("ShareTokenCreated(address,address)")),
+		tokenTopic, common.BytesToHash(pointer.Bytes())})
 	require.True(t, getParams(t, k, ctx).SwapPaused)
 
 	params.SwapPaused, params.OrdersPaused = false, true

@@ -123,8 +123,8 @@ func (k Keeper) GetOrUpdateLatestMinter(
 	currentReleaseMinter := k.GetMinter(ctx)
 	nextScheduledRelease := GetNextScheduledTokenRelease(epoch, params.TokenReleaseSchedule, currentReleaseMinter)
 
-	// There's still an ongoing release (> 0 remaining amount or same start date) or there's no release scheduled
-	if currentReleaseMinter.OngoingRelease() || nextScheduledRelease == nil || nextScheduledRelease.GetStartDate() == currentReleaseMinter.GetStartDate() {
+	// There's still an ongoing release (> 0 remaining amount) or there's no release scheduled
+	if currentReleaseMinter.OngoingRelease() || nextScheduledRelease == nil {
 		logger.Debug("Ongoing token release or no nextScheduledRelease", "minter", currentReleaseMinter)
 		return currentReleaseMinter
 	}
@@ -159,6 +159,12 @@ func GetNextScheduledTokenRelease(
 	currentMinter types.Minter,
 ) *types.ScheduledTokenRelease {
 	for _, scheduledRelease := range tokenReleaseSchedule {
+		if !currentMinter.OngoingRelease() &&
+			scheduledRelease.GetStartDate() == currentMinter.GetStartDate() &&
+			scheduledRelease.GetEndDate() == currentMinter.GetEndDate() {
+			continue
+		}
+
 		scheduledStartDate, err := time.Parse(types.TokenReleaseDateFormat, scheduledRelease.GetStartDate())
 		if err != nil {
 			// This should not happen as the scheduled release date is validated when the param is updated

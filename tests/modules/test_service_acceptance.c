@@ -1,5 +1,8 @@
 #include "test_service_helpers.h"
 
+#include "layerx/lxp_snapshot.h"
+
+#include <stdio.h>
 #include <string.h>
 
 static size_t offer_payload(uint8_t *out, uint8_t offer_marker,
@@ -127,6 +130,237 @@ static int lifecycle(uint8_t marker, uint8_t *agreement_id,
                  ++(*sequence), marker, &status) != LXP_OK || status != LXP_OK)
         return 1;
     return 0;
+}
+
+static int correction_failed(int line)
+{
+    (void)fprintf(stderr, "corrected delivery check failed at line %d\n", line);
+    return 1;
+}
+
+static int correction_reopen(void)
+{
+    static uint8_t snapshot_bytes[65536];
+    lxp_arena arena;
+    lxp_byte_span snapshot;
+    lxp_snapshot_manifest_record manifest;
+    uint8_t before[32];
+    uint8_t after[32];
+    FILE *file;
+    size_t length;
+    int failed = 1;
+
+    if (lxp_state_root(&service_kernel, before) != LXP_OK ||
+        lxp_arena_init(&arena, snapshot_bytes, sizeof(snapshot_bytes)) != LXP_OK ||
+        lxp_snapshot_write(&service_kernel, store_state.next_sequence - 1U,
+                           &arena, &snapshot) != LXP_OK ||
+        lxp_snapshot_manifest_build(snapshot.bytes, snapshot.length,
+            store_state.next_sequence - 1U, before,
+            service_kernel.current_state_root, &manifest) != LXP_OK)
+        return correction_failed(__LINE__);
+    file = tmpfile();
+    if (file == NULL) return correction_failed(__LINE__);
+    length = snapshot.length;
+    if (fwrite(snapshot.bytes, 1U, length, file) != length ||
+        fflush(file) != 0 || fseek(file, 0L, SEEK_SET) != 0)
+        goto finish;
+    if (lxp_state_store_destroy(&store_state) != LXP_OK ||
+        lxp_state_store_init(&store_state, 0U) != LXP_OK ||
+        lxp_kernel_create(&service_kernel, &store_state, &state_journal,
+                          &parameter_set, 0U) != LXP_OK ||
+        lxp_kernel_register_module(&service_kernel,
+                                   lx_service_module_iface()) != LXP_OK)
+        goto finish;
+    (void)memset(snapshot_bytes, 0, sizeof(snapshot_bytes));
+    if (fread(snapshot_bytes, 1U, length, file) != length ||
+        lxp_snapshot_load(snapshot_bytes, length, &manifest,
+                          &service_kernel) != LXP_OK ||
+        lxp_snapshot_verify_root(&service_kernel, &manifest) != LXP_OK ||
+        lxp_state_root(&service_kernel, after) != LXP_OK ||
+        memcmp(before, after, sizeof(before)) != 0)
+        goto finish;
+    failed = 0;
+finish:
+    if (fclose(file) != 0) failed = 1;
+    return failed ? correction_failed(__LINE__) : 0;
+}
+
+static int corrected_delivery_outcome(uint8_t default_outcome, unsigned route)
+{
+    uint8_t payload[LX_SERVICE_DELIVER_PAYLOAD_MAX_BYTES];
+    uint8_t agreement_id[32];
+    uint8_t original_id[32];
+    uint8_t corrected_id[32];
+    uint8_t commitment_id[32];
+    uint8_t original_activity[32];
+    uint8_t corrected_activity[32];
+    uint8_t markers[1] = {22U};
+    uint8_t contested[1] = {13U};
+    uint8_t zero_hashes[LX_SERVICE_MAX_DELIVERABLES][32] = {{0U}};
+    uint8_t before[32];
+    uint8_t after[32];
+    lxp_authority_resolved provider = {0};
+    lxp_authority_resolved buyer = {0};
+    lx_service_agreement agreement;
+    lx_service_delivery delivery;
+    lx_service_commitment commitment;
+    lxp_module_ctx ctx;
+    lxp_result outcome = LXP_OK;
+    uint64_t sequence = 0U;
+    uint64_t outcome_time = route == 0U ? 1100U : 1200U;
+    lx_service_agreement_state expected_state = route == 0U ||
+        default_outcome == LX_SERVICE_DEFAULT_ACCEPT ?
+        LX_SERVICE_AGREEMENT_ACCEPTED : LX_SERVICE_AGREEMENT_REJECTED;
+    size_t length;
+    bool complete = false;
+
+    provider.principal[0] = 1U;
+    buyer.principal[0] = 2U;
+    id32(original_id, 103U);
+    id32(corrected_id, 104U);
+    id32(commitment_id, 102U);
+    if (lxp_state_store_init(&store_state, 1U) != LXP_OK ||
+        lxp_kernel_create(&service_kernel, &store_state, &state_journal,
+                          &parameter_set, 0U) != LXP_OK ||
+        lxp_kernel_register_module(&service_kernel,
+                                   lx_service_module_iface()) != LXP_OK ||
+        lifecycle(100U, agreement_id, markers, 1U, &provider, &buyer,
+                  default_outcome, &sequence) != 0 ||
+        open_ctx(&ctx, 100U, sequence) != 0 ||
+        lx_service_delivery_lookup(&ctx, original_id, &delivery) != LXP_OK)
+        return correction_failed(__LINE__);
+    (void)memcpy(original_activity, delivery.activity_id, 32U);
+
+    length = reject_payload(payload, agreement_id, 9U, contested, 1U);
+    if (dispatch(LX_SERVICE_REJECT, payload, length, &buyer, 200U, 6U,
+                 6U, &outcome) != LXP_OK || outcome != LXP_OK ||
+        event_is((uint16_t)LX_SERVICE_EVENT_OUTCOME_REJECTED, agreement_id,
+                 provider.principal, 1U, 6U) != 0 ||
+        open_ctx(&ctx, 200U, 6U) != 0 ||
+        lx_service_agreement_lookup(&ctx, agreement_id, &agreement) != LXP_OK ||
+        agreement.state != LX_SERVICE_AGREEMENT_REJECTED ||
+        agreement.rejection_reason != 9U ||
+        agreement.contested_hash_count != 1U ||
+        agreement.contested_hashes[0][0] != 13U ||
+        agreement.outcome_sequence != 6U || agreement.outcome_timestamp != 200U ||
+        lxp_state_root(&service_kernel, before) != LXP_OK)
+        return correction_failed(__LINE__);
+
+    markers[0] = 44U;
+    length = deliver_payload(payload, corrected_id, agreement_id, markers, 1U);
+    if (dispatch(LX_SERVICE_DELIVER, payload, length, &buyer, 300U, 7U,
+                 7U, &outcome) != LXP_OK ||
+        outcome != LXP_ERR_AGREEMENT_STATE ||
+        dispatch(LX_SERVICE_DELIVER, payload, length, &provider, 1001U, 7U,
+                 7U, &outcome) != LXP_OK ||
+        outcome != LXP_ERR_DELIVERY_DEADLINE_PASSED ||
+        lxp_state_root(&service_kernel, after) != LXP_OK ||
+        memcmp(before, after, sizeof(before)) != 0)
+        return correction_failed(__LINE__);
+    if (expected_activity_id(LX_SERVICE_DELIVER, payload, length, 8U,
+                              corrected_activity) != LXP_OK ||
+        dispatch(LX_SERVICE_DELIVER, payload, length, &provider, 1000U, 8U,
+                 8U, &outcome) != LXP_OK || outcome != LXP_OK ||
+        event_is((uint16_t)LX_SERVICE_EVENT_DELIVERED, corrected_id,
+                 agreement_id, 1U, 8U) != 0 || correction_reopen() != 0)
+        return correction_failed(__LINE__);
+    if (open_ctx(&ctx, 1000U, 9U) != 0 ||
+        lx_service_agreement_lookup(&ctx, agreement_id, &agreement) != LXP_OK ||
+        agreement.state != LX_SERVICE_AGREEMENT_DELIVERED ||
+        agreement.rejection_reason != 0U || agreement.contested_hash_count != 0U ||
+        memcmp(agreement.contested_hashes, zero_hashes, sizeof(zero_hashes)) != 0 ||
+        agreement.default_applied || agreement.outcome_sequence != 0U ||
+        agreement.outcome_timestamp != 0U || agreement.accepted_sequence != 3U ||
+        agreement.delivery_deadline != 1000U ||
+        agreement.acceptance_window_end != 1200U ||
+        agreement.dispute_window_end != 1500U ||
+        agreement.default_outcome != (lx_service_default_outcome)default_outcome ||
+        lx_service_commitment_lookup(&ctx, commitment_id, &commitment) != LXP_OK ||
+        memcmp(commitment.agreement_id, agreement_id, 32U) != 0 ||
+        commitment.global_sequence != 4U ||
+        lx_service_delivery_lookup(&ctx, original_id, &delivery) != LXP_OK ||
+        memcmp(delivery.activity_id, original_activity, 32U) != 0 ||
+        delivery.global_sequence != 5U || delivery.deliverable_count != 1U ||
+        delivery.deliverables[0].artifact_size != 1000U ||
+        delivery.deliverables[0].availability_reference[0] != 22U ||
+        lx_service_delivery_latest(&ctx, agreement_id, &delivery) != LXP_OK ||
+        memcmp(delivery.delivery_id, corrected_id, 32U) != 0 ||
+        memcmp(delivery.activity_id, corrected_activity, 32U) != 0 ||
+        delivery.global_sequence != 8U || delivery.deliverable_count != 1U ||
+        delivery.deliverables[0].artifact_size != 1000U ||
+        delivery.deliverables[0].availability_reference[0] != 44U)
+        return correction_failed(__LINE__);
+
+    if (route == 0U) {
+        length = identifier_payload(payload, agreement_id);
+        if (dispatch(LX_SERVICE_ACCEPT, payload, length, &buyer, outcome_time,
+                     9U, 9U, &outcome) != LXP_OK || outcome != LXP_OK ||
+            event_is((uint16_t)LX_SERVICE_EVENT_OUTCOME_ACCEPTED, agreement_id,
+                     provider.principal,
+                     (uint8_t)LX_SERVICE_AGREEMENT_ACCEPTED, 9U) != 0)
+            return correction_failed(__LINE__);
+    } else {
+        if (open_ctx(&ctx, 1199U, 9U) != 0 ||
+            lx_service_module_iface()->epoch_begin(&ctx, 0U, 1199U) != LXP_OK ||
+            event_buffer.count != 0U ||
+            lx_service_agreement_lookup(&ctx, agreement_id, &agreement) != LXP_OK ||
+            agreement.state != LX_SERVICE_AGREEMENT_DELIVERED ||
+            lxp_module_ctx_commit(&ctx) != LXP_OK ||
+            open_ctx(&ctx, outcome_time, 9U) != 0)
+            return correction_failed(__LINE__);
+        if (route == 1U) {
+            if (lx_service_module_iface()->epoch_begin(&ctx, 0U,
+                                                       outcome_time) != LXP_OK)
+                return correction_failed(__LINE__);
+        } else {
+            if (lx_service_batch_maintenance(&ctx, &complete) != LXP_OK || complete ||
+                lx_service_batch_maintenance(&ctx, &complete) != LXP_OK || !complete)
+                return correction_failed(__LINE__);
+        }
+        {
+            uint8_t event[50];
+            const lxp_effect *effect = &event_buffer.effects[0];
+            (void)memcpy(event, agreement_id, 32U);
+            event[32U] = (uint8_t)expected_state;
+            event[33U] = 1U;
+            be64(event + 34U, 9U);
+            be64(event + 42U, outcome_time);
+            if (event_buffer.count != 1U || effect->kind != LXP_EFFECT_EVENT ||
+                effect->module_id != LXP_MODULE_SERVICE || effect->monetary ||
+                effect->event_type != LX_SERVICE_EVENT_DEFAULT_APPLIED ||
+                effect->body_length != sizeof(event) ||
+                memcmp(effect->body, event, sizeof(event)) != 0 ||
+                lxp_module_ctx_commit(&ctx) != LXP_OK)
+                return correction_failed(__LINE__);
+        }
+    }
+    if (correction_reopen() != 0 || open_ctx(&ctx, outcome_time, 10U) != 0 ||
+        lx_service_agreement_lookup(&ctx, agreement_id, &agreement) != LXP_OK ||
+        agreement.state != expected_state ||
+        agreement.default_applied != (route != 0U) ||
+        agreement.outcome_sequence != 9U ||
+        agreement.outcome_timestamp != outcome_time ||
+        agreement.rejection_reason != 0U || agreement.contested_hash_count != 0U ||
+        lx_service_module_iface()->epoch_begin(&ctx, 0U, outcome_time) != LXP_OK ||
+        event_buffer.count != 0U || lxp_module_ctx_commit(&ctx) != LXP_OK ||
+        lxp_state_store_destroy(&store_state) != LXP_OK)
+        return correction_failed(__LINE__);
+    return 0;
+}
+
+static int test_corrected_delivery_reopen_accept(void)
+{
+    return corrected_delivery_outcome((uint8_t)LX_SERVICE_DEFAULT_REJECT, 0U);
+}
+
+static int test_corrected_delivery_reopen_default_accept(void)
+{
+    return corrected_delivery_outcome((uint8_t)LX_SERVICE_DEFAULT_ACCEPT, 1U);
+}
+
+static int test_corrected_delivery_reopen_default_reject(void)
+{
+    return corrected_delivery_outcome((uint8_t)LX_SERVICE_DEFAULT_REJECT, 2U);
 }
 
 int main(void)
@@ -373,6 +607,11 @@ int main(void)
         !agreement.default_applied || agreement.outcome_sequence != 48U)
         return 1;
 
-    if (lxp_state_store_destroy(&store_state) != LXP_OK) return 1;
+    if (lxp_state_store_destroy(&store_state) != LXP_OK ||
+        test_corrected_delivery_reopen_accept() != 0 ||
+        test_corrected_delivery_reopen_default_accept() != 0 ||
+        test_corrected_delivery_reopen_default_reject() != 0)
+        return 1;
+    (void)puts("corrected delivery: reopen/accept/default accept/default reject passed");
     return 0;
 }

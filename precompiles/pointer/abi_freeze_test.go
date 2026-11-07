@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"fmt"
 	"os"
+	"regexp"
+	"strings"
 	"testing"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/pointer"
@@ -25,6 +27,21 @@ func TestPointerABIFrozen(t *testing.T) {
 	servedABI := precompile.GetABI()
 	require.Equal(t, embeddedABI, servedABI, "served ABI must equal the embedded abi.json")
 
+	solidity, err := os.ReadFile("Pointer.sol")
+	require.NoError(t, err)
+	declarations := regexp.MustCompile(`(?s)function\s+(\w+)\s*\([^)]*\)\s*external\s*([^;]*);`).FindAllStringSubmatch(string(solidity), -1)
+	require.Len(t, declarations, 4, "Solidity must declare all four registration methods")
+	solidityMutability := make(map[string]string)
+	for _, declaration := range declarations {
+		mutability := "nonpayable"
+		for _, token := range strings.Fields(declaration[2]) {
+			if token == "payable" || token == "view" || token == "pure" {
+				mutability = token
+			}
+		}
+		solidityMutability[declaration[1]] = mutability
+	}
+
 	wantMethods := map[string]string{
 		"addCW1155Pointer(string)": "0xa3b62916",
 		"addCW20Pointer(string)":   "0xce875775",
@@ -34,6 +51,9 @@ func TestPointerABIFrozen(t *testing.T) {
 	wantEvents := map[string]string{}
 	gotMethods := make(map[string]string, len(servedABI.Methods))
 	for _, method := range servedABI.Methods {
+		require.Equal(t, "nonpayable", method.StateMutability, "registration accepts zero value only")
+		require.False(t, method.IsPayable())
+		require.Equal(t, method.StateMutability, solidityMutability[method.Name], "ABI/Solidity mutability for %s", method.Name)
 		selector := fmt.Sprintf("0x%x", method.ID)
 		t.Logf("method %s selector %s", method.Sig, selector)
 		require.Len(t, method.ID, 4, "selector for %s", method.Sig)

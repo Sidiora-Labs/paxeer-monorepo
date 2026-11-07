@@ -125,6 +125,11 @@ type descriptorShape map[string]string
 
 func shapeOf(file *descriptorpb.FileDescriptorProto) descriptorShape {
 	shape := descriptorShape{"package": file.GetPackage()}
+	syntax := file.GetSyntax()
+	if syntax == "" {
+		syntax = "proto2"
+	}
+	shape["syntax"] = syntax
 	dependencies, err := json.Marshal(file.GetDependency())
 	if err != nil {
 		panic(err)
@@ -137,11 +142,26 @@ func shapeOf(file *descriptorpb.FileDescriptorProto) descriptorShape {
 		for _, value := range enum.GetValue() {
 			shape["enum value "+name+"."+value.GetName()] = fmt.Sprint(value.GetNumber())
 		}
+		for _, reserved := range enum.GetReservedRange() {
+			shape[fmt.Sprintf("enum %s reserved range [%d,%d]", name, reserved.GetStart(), reserved.GetEnd())] = "present"
+		}
+		for _, reserved := range enum.GetReservedName() {
+			shape["enum "+name+" reserved name "+reserved] = "present"
+		}
 	}
 	var addMessage func(string, *descriptorpb.DescriptorProto)
 	addMessage = func(prefix string, message *descriptorpb.DescriptorProto) {
 		name := prefix + message.GetName()
 		shape["message "+name] = "present"
+		for index, oneof := range message.GetOneofDecl() {
+			shape[fmt.Sprintf("oneof %s[%d] name", name, index)] = oneof.GetName()
+		}
+		for _, reserved := range message.GetReservedRange() {
+			shape[fmt.Sprintf("message %s reserved range [%d,%d)", name, reserved.GetStart(), reserved.GetEnd())] = "present"
+		}
+		for _, reserved := range message.GetReservedName() {
+			shape["message "+name+" reserved name "+reserved] = "present"
+		}
 		for _, field := range message.GetField() {
 			key := "field " + name + "." + field.GetName()
 			shape[key+" name"] = field.GetName()
@@ -149,6 +169,12 @@ func shapeOf(file *descriptorpb.FileDescriptorProto) descriptorShape {
 			shape[key+" label"] = field.GetLabel().String()
 			shape[key+" type"] = field.GetType().String()
 			shape[key+" type_name"] = field.GetTypeName()
+			shape[key+" json_name"] = descriptorJSONName(field)
+			shape[key+" oneof_index"] = "<none>"
+			if field.OneofIndex != nil {
+				shape[key+" oneof_index"] = fmt.Sprint(field.GetOneofIndex())
+			}
+			shape[key+" proto3_optional"] = fmt.Sprint(field.GetProto3Optional())
 		}
 		for _, nested := range message.GetNestedType() {
 			addMessage(name+".", nested)
@@ -179,6 +205,58 @@ func shapeOf(file *descriptorpb.FileDescriptorProto) descriptorShape {
 		}
 	}
 	return shape
+}
+
+func descriptorJSONName(field *descriptorpb.FieldDescriptorProto) string {
+	if field.JsonName != nil {
+		return field.GetJsonName()
+	}
+	var name []byte
+	upper := false
+	for _, char := range []byte(field.GetName()) {
+		if char == '_' {
+			upper = true
+			continue
+		}
+		if upper && char >= 'a' && char <= 'z' {
+			char -= 'a' - 'A'
+		}
+		name = append(name, char)
+		upper = false
+	}
+	return string(name)
+}
+
+func TestDescriptorShapeJSONNameDefaults(t *testing.T) {
+	file := repairM1300Parse(t, `syntax = "proto3"; message M {
+		string request_id = 1; string _leading_name = 2;
+		string consecutive__underscores = 3; string digit_2_name = 4;
+	}`)
+	want := []string{"requestId", "LeadingName", "consecutiveUnderscores", "digit2Name"}
+	for index, field := range file.MessageType[0].Field {
+		if field.GetJsonName() != want[index] {
+			t.Fatalf("compiler JSON name for %s = %q, want %q", field.GetName(), field.GetJsonName(), want[index])
+		}
+	}
+	implicit := proto.Clone(file).(*descriptorpb.FileDescriptorProto)
+	for _, field := range implicit.MessageType[0].Field {
+		field.JsonName = nil
+	}
+	if differences := compareShapes(file.GetName(), shapeOf(file), shapeOf(implicit)); len(differences) != 0 {
+		t.Fatalf("omitted default JSON names changed semantics: %v", differences)
+	}
+}
+
+func TestDescriptorShapeReservationOrder(t *testing.T) {
+	source := repairM1300Parse(t, `syntax = "proto3";
+		message M { reserved 10 to 12, 20; reserved "old", "retired"; }
+		enum E { ZERO = 0; reserved 10 to 12, 20; reserved "OLD", "RETIRED"; }`)
+	generated := repairM1300Parse(t, `syntax = "proto3";
+		message M { reserved 20, 10 to 12; reserved "retired", "old"; }
+		enum E { ZERO = 0; reserved 20, 10 to 12; reserved "RETIRED", "OLD"; }`)
+	if differences := compareShapes(source.GetName(), shapeOf(source), shapeOf(generated)); len(differences) != 0 {
+		t.Fatalf("reservation declaration order changed semantics: %v", differences)
+	}
 }
 
 func compareShapes(name string, source, generated descriptorShape) []string {

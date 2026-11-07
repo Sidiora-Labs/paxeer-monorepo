@@ -268,6 +268,11 @@ func committedAccounts(registry unsafe.Pointer) (map[string][]byte, error) {
 			return nil, err
 		}
 		key := accountKey(id)
+		// Standalone snapshot rows frame the account id with a big-endian u32.
+		if uint64(length) > uint64(len(buffer)) || length < 36 ||
+			binary.BigEndian.Uint32(buffer[:4]) != 32 || !bytes.Equal(buffer[4:36], id[:]) {
+			return nil, codeFatalInvariant
+		}
 		if _, duplicate := rows[string(key)]; duplicate {
 			return nil, codeFatalInvariant
 		}
@@ -276,12 +281,8 @@ func committedAccounts(registry unsafe.Pointer) (map[string][]byte, error) {
 	return rows, nil
 }
 
-func (b *branchCtx) commit(h *Host, did [32]byte) error {
+func (b *branchCtx) commitState(h *Host) error {
 	entries, err := h.moduleKV()
-	if err != nil {
-		return err
-	}
-	next, err := h.actorSequence(did)
 	if err != nil {
 		return err
 	}
@@ -319,6 +320,17 @@ func (b *branchCtx) commit(h *Host, did [32]byte) error {
 		case !existed || !bytes.Equal(previous, value):
 			b.store.Set([]byte(key), value)
 		}
+	}
+	return nil
+}
+
+func (b *branchCtx) commit(h *Host, did [32]byte) error {
+	next, err := h.actorSequence(did)
+	if err != nil {
+		return err
+	}
+	if err := b.commitState(h); err != nil {
+		return err
 	}
 	sequence := make([]byte, 8)
 	binary.BigEndian.PutUint64(sequence, next)

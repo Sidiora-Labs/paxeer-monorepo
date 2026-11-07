@@ -937,7 +937,6 @@ dependencies = [
  "ed25519-dalek",
  "layerx-program-sdk",
  "sha2",
- "spin",
 ]
 
 [[package]]
@@ -983,10 +982,12 @@ dependencies = [
 name = "layerx-sdk"
 version = "0.1.0"
 dependencies = [
+ "ed25519-dalek",
  "layerx-agent-api",
  "layerx-client",
  "layerx-crypto",
  "layerx-mirror",
+ "layerx-programs-registry",
  "layerx-proof",
  "layerx-types",
  "layerx-wire",

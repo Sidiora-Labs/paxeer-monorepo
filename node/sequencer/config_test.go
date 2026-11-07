@@ -23,7 +23,7 @@ func seqConfigOptions(t *testing.T, toml string) *viper.Viper {
 
 func TestSequencerConfigDefaultsSequential(t *testing.T) {
 	def := sequencer.DefaultConfig()
-	require.Equal(t, sequencer.Config{Mode: sequencer.ModeSequential}, def)
+	require.Equal(t, sequencer.Config{Mode: sequencer.ModeSequential, WALRetainBlocks: 2}, def)
 	require.Equal(t, "sequential", def.Mode.String())
 	require.NoError(t, def.Validate())
 
@@ -45,6 +45,9 @@ func TestSequencerConfigDefaultsSequential(t *testing.T) {
 	cfg, err = sequencer.ReadConfig(seqConfigOptions(t, `
 [sequencer]
 enable = true
+nonce-queue-max-per-sender = 16
+nonce-queue-max-total = 64
+lease-duration = "1s"
 wal-dir = "data/sequencer-wal"
 receipt-key-file = "config/receipt_key.hex"
 standby-address = "localhost:26700"
@@ -52,12 +55,16 @@ replication-timeout = "250ms"
 `))
 	require.NoError(t, err)
 	require.Equal(t, sequencer.Config{
-		Enable:             true,
-		Mode:               sequencer.ModeSequential,
-		WALDir:             "data/sequencer-wal",
-		ReceiptKeyFile:     "config/receipt_key.hex",
-		StandbyAddress:     "localhost:26700",
-		ReplicationTimeout: 250 * time.Millisecond,
+		Enable:                 true,
+		WALRetainBlocks:        2,
+		NonceQueueMaxPerSender: 16,
+		NonceQueueMaxTotal:     64,
+		LeaseDuration:          time.Second,
+		Mode:                   sequencer.ModeSequential,
+		WALDir:                 "data/sequencer-wal",
+		ReceiptKeyFile:         "config/receipt_key.hex",
+		StandbyAddress:         "localhost:26700",
+		ReplicationTimeout:     250 * time.Millisecond,
 	}, cfg)
 
 	m, err := sequencer.ParseMode("sequential")
@@ -77,12 +84,16 @@ replication-timeout = "250ms"
 
 func TestSequencerConfigRequiresWALAndKey(t *testing.T) {
 	valid := sequencer.Config{
-		Enable:             true,
-		Mode:               sequencer.ModeSequential,
-		WALDir:             "data/sequencer-wal",
-		ReceiptKeyFile:     "config/receipt_key.hex",
-		StandbyAddress:     "localhost:26700",
-		ReplicationTimeout: time.Second,
+		Enable:                 true,
+		WALRetainBlocks:        2,
+		NonceQueueMaxPerSender: 16,
+		NonceQueueMaxTotal:     64,
+		LeaseDuration:          time.Second,
+		Mode:                   sequencer.ModeSequential,
+		WALDir:                 "data/sequencer-wal",
+		ReceiptKeyFile:         "config/receipt_key.hex",
+		StandbyAddress:         "localhost:26700",
+		ReplicationTimeout:     time.Second,
 	}
 	require.NoError(t, valid.Validate())
 
@@ -123,6 +134,9 @@ func TestSequencerConfigRequiresWALAndKey(t *testing.T) {
 	_, err := sequencer.ReadConfig(seqConfigOptions(t, `
 [sequencer]
 enable = true
+nonce-queue-max-per-sender = 16
+nonce-queue-max-total = 64
+lease-duration = "1s"
 receipt-key-file = "config/receipt_key.hex"
 `))
 	require.ErrorIs(t, err, sequencer.ErrConfigWALDir)
@@ -130,6 +144,9 @@ receipt-key-file = "config/receipt_key.hex"
 	_, err = sequencer.ReadConfig(seqConfigOptions(t, `
 [sequencer]
 enable = true
+nonce-queue-max-per-sender = 16
+nonce-queue-max-total = 64
+lease-duration = "1s"
 wal-dir = "data/sequencer-wal"
 `))
 	require.ErrorIs(t, err, sequencer.ErrConfigReceiptKeyFile)
@@ -169,6 +186,9 @@ func TestSequencerConfigRefusesForwardURLOnSequencer(t *testing.T) {
 	cfg, err := sequencer.ReadConfig(seqConfigOptions(t, `
 [sequencer]
 enable = true
+nonce-queue-max-per-sender = 16
+nonce-queue-max-total = 64
+lease-duration = "1s"
 wal-dir = "data/sequencer-wal"
 receipt-key-file = "config/receipt_key.hex"
 receipt-forward-url = "https://sequencer.example/receipts"
@@ -216,6 +236,9 @@ func TestSequencerConfigReadsStandbyRole(t *testing.T) {
 			opts := seqConfigOptions(t, `
 [sequencer]
 enable = true
+nonce-queue-max-per-sender = 16
+nonce-queue-max-total = 64
+lease-duration = "1s"
 wal-dir = "data/sequencer-wal"
 receipt-key-file = "config/receipt_key.hex"
 standby-address = "localhost:26700"
@@ -254,6 +277,9 @@ func TestSequencerConfigSelectsMicroBatch(t *testing.T) {
 	const section = `
 [sequencer]
 enable = true
+nonce-queue-max-per-sender = 16
+nonce-queue-max-total = 64
+lease-duration = "1s"
 mode = "microbatch"
 wal-dir = "data/sequencer-wal"
 receipt-key-file = "config/receipt_key.hex"
@@ -263,12 +289,16 @@ microbatch-max-count = 64
 	cfg, err := sequencer.ReadConfig(seqConfigOptions(t, section))
 	require.NoError(t, err)
 	require.Equal(t, sequencer.Config{
-		Enable:             true,
-		Mode:               sequencer.ModeMicroBatch,
-		WALDir:             "data/sequencer-wal",
-		ReceiptKeyFile:     "config/receipt_key.hex",
-		MicroBatchWindow:   5 * time.Millisecond,
-		MicroBatchMaxCount: 64,
+		Enable:                 true,
+		WALRetainBlocks:        2,
+		NonceQueueMaxPerSender: 16,
+		NonceQueueMaxTotal:     64,
+		LeaseDuration:          time.Second,
+		Mode:                   sequencer.ModeMicroBatch,
+		WALDir:                 "data/sequencer-wal",
+		ReceiptKeyFile:         "config/receipt_key.hex",
+		MicroBatchWindow:       5 * time.Millisecond,
+		MicroBatchMaxCount:     64,
 	}, cfg)
 	require.NoError(t, cfg.Validate())
 	require.Equal(t, "microbatch", cfg.Mode.String())
@@ -302,20 +332,20 @@ microbatch-max-count = 64
 		section string
 		want    error
 	}{
-		{"no window", "[sequencer]\nenable = true\nmode = \"microbatch\"\nwal-dir = \"w\"\nreceipt-key-file = \"k\"\nmicrobatch-max-count = 64\n", sequencer.ErrMicroBatchWindow},
-		{"negative window", "[sequencer]\nenable = true\nmode = \"microbatch\"\nwal-dir = \"w\"\nreceipt-key-file = \"k\"\nmicrobatch-window = \"-1ms\"\nmicrobatch-max-count = 64\n", sequencer.ErrMicroBatchWindow},
-		{"no max count", "[sequencer]\nenable = true\nmode = \"microbatch\"\nwal-dir = \"w\"\nreceipt-key-file = \"k\"\nmicrobatch-window = \"5ms\"\n", sequencer.ErrMicroBatchMaxCount},
-		{"negative max count", "[sequencer]\nenable = true\nmode = \"microbatch\"\nwal-dir = \"w\"\nreceipt-key-file = \"k\"\nmicrobatch-window = \"5ms\"\nmicrobatch-max-count = -1\n", sequencer.ErrMicroBatchMaxCount},
+		{"no window", "[sequencer]\nenable = true\nnonce-queue-max-per-sender = 16\nnonce-queue-max-total = 64\nlease-duration = \"1s\"\nmode = \"microbatch\"\nwal-dir = \"w\"\nreceipt-key-file = \"k\"\nmicrobatch-max-count = 64\n", sequencer.ErrMicroBatchWindow},
+		{"negative window", "[sequencer]\nenable = true\nnonce-queue-max-per-sender = 16\nnonce-queue-max-total = 64\nlease-duration = \"1s\"\nmode = \"microbatch\"\nwal-dir = \"w\"\nreceipt-key-file = \"k\"\nmicrobatch-window = \"-1ms\"\nmicrobatch-max-count = 64\n", sequencer.ErrMicroBatchWindow},
+		{"no max count", "[sequencer]\nenable = true\nnonce-queue-max-per-sender = 16\nnonce-queue-max-total = 64\nlease-duration = \"1s\"\nmode = \"microbatch\"\nwal-dir = \"w\"\nreceipt-key-file = \"k\"\nmicrobatch-window = \"5ms\"\n", sequencer.ErrMicroBatchMaxCount},
+		{"negative max count", "[sequencer]\nenable = true\nnonce-queue-max-per-sender = 16\nnonce-queue-max-total = 64\nlease-duration = \"1s\"\nmode = \"microbatch\"\nwal-dir = \"w\"\nreceipt-key-file = \"k\"\nmicrobatch-window = \"5ms\"\nmicrobatch-max-count = -1\n", sequencer.ErrMicroBatchMaxCount},
 		{"bad window", "[sequencer]\nmicrobatch-window = \"soon\"\n", sequencer.ErrConfigValue},
 		{"bad max count", "[sequencer]\nmicrobatch-max-count = \"many\"\n", sequencer.ErrConfigValue},
-		{"unknown mode", "[sequencer]\nenable = true\nmode = \"parallel\"\nwal-dir = \"w\"\nreceipt-key-file = \"k\"\n", sequencer.ErrConfigMode},
+		{"unknown mode", "[sequencer]\nenable = true\nnonce-queue-max-per-sender = 16\nnonce-queue-max-total = 64\nlease-duration = \"1s\"\nmode = \"parallel\"\nwal-dir = \"w\"\nreceipt-key-file = \"k\"\n", sequencer.ErrConfigMode},
 	} {
 		_, err := sequencer.ReadConfig(seqConfigOptions(t, tc.section))
 		require.ErrorIs(t, err, tc.want, tc.name)
 	}
 
 	// Sequential stays the default and builds the Sequential executor.
-	def, err := sequencer.ReadConfig(seqConfigOptions(t, "[sequencer]\nenable = true\nwal-dir = \"w\"\nreceipt-key-file = \"k\"\n"))
+	def, err := sequencer.ReadConfig(seqConfigOptions(t, "[sequencer]\nenable = true\nnonce-queue-max-per-sender = 16\nnonce-queue-max-total = 64\nlease-duration = \"1s\"\nwal-dir = \"w\"\nreceipt-key-file = \"k\"\n"))
 	require.NoError(t, err)
 	require.Equal(t, sequencer.ModeSequential, def.Mode)
 	opts.Mode = def.Mode

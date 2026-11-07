@@ -1,137 +1,214 @@
 # IBC specification
 
-This documents how CosmWasm contracts are expected to interact with IBC.
+This page describes the implemented CosmWasm IBC path in Paxeer's `paxd`
+application. Contracts execute inside the merged network, and IBC delivers
+messages between chains through clients, connections, channels and relayers.
+The kernel participates in the same network; a receipt is final when its block
+is committed. IBC delivery and acknowledgement still require the corresponding
+proof-bearing transactions on the participating chains.
 
 ## General Concepts
 
-**IBC Enabled** - when instantiating a contract, we detect if it supports IBC messages.
-  We require "feature flags" in the contract/vm handshake to ensure compatibility
-  for features like staking or chain-specific extensions. IBC functionality will require
-  another "feature flag", and the list of "enabled features" can be returned to the `x/wasm`
-  module to control conditional IBC behavior.
-  
-  If this feature is enabled, it is considered "IBC Enabled", and that info will
-  be stored in the ContractInfo. (For mock, we assume all contracts are IBC enabled)
-  
-Also, please read the [IBC Docs](https://docs.cosmos.network/master/ibc/overview.html)
-for detailed descriptions of the terms *Port*, *Client*, *Connection*,
-and *Channel*
-  
+**IBC enabled** means that the contract's Wasm code exposes the IBC entry points
+recognized by the VM. During instantiation, the
+[keeper](keeper/keeper.go) calls `AnalyzeCode` on the code hash and checks
+`HasIBCEntryPoints`. When true, it binds the contract port and stores its name
+in `ContractInfo.IBCPortID`. This detection, rather than a proposed IBC feature
+flag or an assumption about every contract, controls port creation.
+
+The same check runs on migration. Migrating a contract without a port to code
+with IBC callbacks adds its port. Migrating a contract that already has a port
+to code without IBC callbacks fails with `ErrMigrationFailed` and
+`requires ibc callbacks`. See [Governance](Governance.md) for privileged migration
+and instantiation; those operations still use this lifecycle logic.
+
+The [local IBC implementation](../../../interchain/modules/core) owns clients,
+connections, channel state and packet verification. A contract defines its
+application protocol and validates the counterparty, ordering and version.
+
 ## Overview
 
-We use "One Port per Contract", which is the most straight-forward mapping, treating each contract 
-like a module. It does lead to very long portIDs however. Pay special attention to both the Channel establishment 
-(which should be compatible with standard ICS20 modules without changes on their part), as well
-as how contracts can properly identify their counterparty.
+There is one port per IBC-enabled contract. In [keeper/ibc.go](keeper/ibc.go),
+`PortIDForContract` produces `wasm.<bech32-contract-address>`.
+`ContractFromPortID` requires the `wasm.` prefix and parses the remaining address.
+The address identifies the local receiving contract; it is not an EVM hex address.
 
-(We considered on port for the `x/wasm` module and multiplexing on it, but [dismissed that idea](#rejected-ideas))
+`ensureIbcPort` reuses a port whose capability the Wasm module already holds;
+otherwise it binds the port and claims its capability. The module also claims
+channel capabilities during the open handshake. Outgoing packets use the
+calling contract's stored port and an owned channel capability, so a contract
+does not choose another contract's source port.
 
-* Upon `Instantiate`, if a contract is *IBC Enabled*, we dynamically 
-  bind a port for this contract. The port name is `wasm.<contract address>`,
-  eg. `wasm.cosmos1hmdudppzceg27qsuq707tjg8rkgj7g5hnvnw29`
-* If a *Channel* is being established with a registered `wasm.xyz` port,
-  the `x/wasm.Keeper` will handle this and call into the appropriate
-  contract to determine supported protocol versions during the
-  [`ChanOpenTry` and `ChanOpenAck` phases](https://docs.cosmos.network/master/ibc/overview.html#channels).
-  (See [Channel Handshake Version Negotiation](https://docs.cosmos.network/master/ibc/custom.html#channel-handshake-version-negotiation))
-* Both the *Port* and the *Channel* are fully owned by one contract.
-* `x/wasm` will allow both *ORDERED* and *UNORDERED* channels and pass that mode
-  down to the contract in `OnChanOpenTry`, so the contract can decide if it accepts
-  the mode. We will recommend the contract developers stick with *ORDERED* channels
-  for custom protocols unless they can reason about async packet timing.
-* When sending a packet, the CosmWasm contract must specify the local *ChannelID*.
-  As there is a unique *PortID* per contract, that is filled in by `x/wasm`
-  to produce the globally unique `(PortID, ChannelID)`
-* When receiving a Packet (or Ack or Timeout), the contracts receives the local
-  *ChannelID* it came from, as well as the packet that was sent by the counterparty.
-* When receiving an Ack or Timeout packet, the contract also receives the
-  original packet that it sent earlier.
-* We do not support multihop packets in this model (they are rejected by `x/wasm`).
-  They are currently not fully specified nor implemented in IBC 1.0, so let us
-  simplify our model until this is well established
+[node/app.go](../../../node/app.go) registers `NewIBCHandler` for the `wasm`
+module. The IBC core dispatches to this module through capability ownership;
+[ibc.go](ibc.go) resolves the contract address from the local port and constructs
+VM messages. [keeper/relay.go](keeper/relay.go) loads that contract's code and
+state, invokes native VM IBC callbacks, meters their gas and processes their
+responses.
+
+Both ordered and unordered channels reach the contract with their ordering.
+The VM strings are `ORDER_ORDERED` and `ORDER_UNORDERED`. Open-init and open-try
+require exactly one valid connection hop; more or fewer return
+`ErrTooManyConnectionHops`. Channel IDs are parsed and a sequence greater than
+`2^32 - 1` returns `ErrMaxIBCChannels`. The adapter provides no multihop channel
+support.
 
 ## Workflow
 
-Establishing *Clients* and *Connections* is out of the scope of this
-module and must be created by the same means as for `ibc-transfer`
-(via the [go cli](https://github.com/cosmos/relayer) or better [ts-relayer](https://github.com/confio/ts-relayer)).
-`x/wasm` will bind a unique *Port* for each "IBC Enabled" contract.
+### Establish clients, connections and channels
 
-For mocks, all the Packet Handling and Channel Lifecycle Hooks are routed 
-to some Golang stub handler, but containing the contract address, so we
-can perform contract-specific actions for each packet. In a real setting,
-we route to the contract that owns the port/channel and call one of it's various
-entry points.
+Clients and connections are established through the IBC core, normally by a
+relayer. Instantiating an IBC-enabled contract supplies its port; it does not
+create a connection or an open channel. Chain-level inbound and outbound IBC
+policy also applies: the [core message server](../../../interchain/modules/core/keeper/msg_server.go)
+checks directional enablement on connection initiation and packet reception.
+A bound port alone does not establish that IBC traffic is enabled.
 
-Please refer to the CosmWasm repo for all 
-[details on the  IBC API from the point of view of a CosmWasm contract](https://github.com/CosmWasm/cosmwasm/blob/main/IBC.md).
+The channel handshake invokes these contract callbacks:
 
-## Future Ideas
+| IBC module callback | Keeper call | VM call and message variant |
+| --- | --- | --- |
+| `OnChanOpenInit` | `OnOpenChannel` | `IBCChannelOpen`, `open_init` |
+| `OnChanOpenTry` | `OnOpenChannel` | `IBCChannelOpen`, `open_try` |
+| `OnChanOpenAck` | `OnConnectChannel` | `IBCChannelConnect`, `open_ack` |
+| `OnChanOpenConfirm` | `OnConnectChannel` | `IBCChannelConnect`, `open_confirm` |
+| `OnChanCloseInit` | `OnCloseChannel` | `IBCChannelClose`, `close_init` |
+| `OnChanCloseConfirm` | `OnCloseChannel` | `IBCChannelClose`, `close_confirm` |
 
-Here are some ideas we may add in the future
+The channel message contains the local endpoint, counterparty endpoint,
+ordering, version and connection ID. Open-try and open-ack also carry
+`counterparty_version`. The contract should reject incompatible protocols and
+unexpected peers.
 
-### Dynamic Ports and Channels
+Version handling follows this adapter's actual interfaces:
 
-* multiple ports per contract
-* elastic ports that can be assigned to different contracts
-* transfer of channels to another contract
+- Open-init passes the proposed version to the contract and propagates errors,
+  but discards a version returned by `OnOpenChannel`.
+- Open-try accepts a non-empty version returned by the contract; an empty return
+  uses the counterparty's version.
+- `NegotiateAppVersion` returns the proposed version unchanged. It performs no
+  application compatibility checks.
+- Open-ack supplies the counterparty version to the connect callback. Before
+  invoking it, the adapter updates the stored counterparty channel ID so that
+  contract queries and packet sends can use that endpoint during the callback.
 
-This is inspired by the Agoric design, but also adds considerable complexity to both the `x/wasm`
-implementation as well as the correctness reasoning of any given contract. This will not be
-available in the first version of our "IBC Enabled contracts", but we can consider it for later,
-if there are concrete user cases that would significantly benefit from this added complexity. 
+### Send a packet
 
-### Add multihop support
+A contract emits an `IBCMsg.SendPacket` through its response messages. This is
+an example of the `CosmosMsg` JSON payload defined in
+[wasm-runtime/types/msg.go](../../../wasm-runtime/types/msg.go), before wrapping
+it in a response submessage:
 
-Once the ICS and IBC specs fully establish how multihop packets work, we should add support for that.
-Both on setting up the routes with OpenChannel, as well as acting as an intermediate relayer (if that is possible)
+```json
+{
+  "ibc": {
+    "send_packet": {
+      "channel_id": "channel-0",
+      "data": "aGVsbG8=",
+      "timeout": {
+        "block": {"revision": 1, "height": 1000000}
+      }
+    }
+  }
+}
+```
 
-## Rejected Ideas
-  
-### One Port per Module
+Here `data` is the base64 encoding of `hello`. Replace the channel and timeout
+with the connected local channel and a future height on the destination chain.
+A timestamp timeout, when supplied, is a decimal string of nanoseconds since the
+Unix epoch. The packet schema is in
+[wasm-runtime/types/ibc.go](../../../wasm-runtime/types/ibc.go).
 
-We decided on "one port per contract", especially after the IBC team raised
-the max length on port names to allow `wasm-<bech32 address>` to be a valid port.
-Here are the arguments for "one port for x/wasm" vs "one port per contract". Here 
-was an alternate proposal:
+[IBCRawPacketHandler](keeper/handler_plugin.go) fills in the source port from
+`ContractInfo.IBCPortID`, gets the send sequence and counterparty endpoint from
+channel state, retrieves the channel capability, and calls the core
+`SendPacket`. An absent contract port returns `ErrUnsupportedForContract`; an
+empty channel ID returns `ErrEmpty`. Missing sequence, channel or capability
+state is also an error. Sending records a packet for relay; it does not invoke
+the remote contract synchronously.
 
-In this approach, the `x/wasm` module just binds one port to handle all
-modules. This can be well defined name like `wasm`. Since we always
-have `(ChannelID, PortID)` for routing messages, we can reuse one port
-for all contracts as long as we have a clear way to map the `ChannelID`
-to a specific contract when it is being established.
+### Receive, acknowledge and time out
 
+| IBC module callback | Contract selected from | Keeper and VM call |
+| --- | --- | --- |
+| `OnRecvPacket` | Destination port | `OnRecvPacket` → `IBCPacketReceive` |
+| `OnAcknowledgementPacket` | Source port | `OnAckPacket` → `IBCPacketAck` |
+| `OnTimeoutPacket` | Source port | `OnTimeoutPacket` → `IBCPacketTimeout` |
 
-* On genesis we bind the port `wasm` for all communication with the `x/wasm`
-  module.
-* The *Port* is fully owned by `x/wasm`
-* Each *Channel* is fully owned by one contract.
-* `x/wasm` only accepts *ORDERED Channels* for simplicity of contract
-  correctness.
+Packet messages contain the data, source and destination port/channel pairs,
+sequence and timeout. Receive and timeout messages include the packet and
+relayer address. The acknowledgement message includes the acknowledgement bytes,
+`original_packet` and relayer address. The contract must interpret the
+application's acknowledgement format and implement any refund or compensation
+logic for negative acknowledgements and timeouts.
 
-To clarify:
+On receive, the keeper processes the contract's submessages, attributes and
+events and returns acknowledgement bytes. A submessage reply can replace those
+bytes. `ContractConfirmStateAck.Success()` returns true for a contract-produced
+acknowledgement, including one encoding an application error, so its contract
+state changes are retained. A keeper or VM error instead becomes a core error
+acknowledgement; the core discards the failed callback's cached state. The
+adapter always wraps a successful contract result in an acknowledgement; it does
+not expose a deferred-acknowledgement path by returning a nil acknowledgement.
 
-* When a *Channel* is being established with port `wasm`, the
-  `x/wasm.Keeper` must be able to identify for which contract this
-  is destined. **how to do so**??
-  * One idea: the channel name must be the contract address. This means
-    (`wasm`, `cosmos13d...`) will map to the given contract in the wasm module.
-    The problem with this is that if two contracts from chainA want to
-    connect to the same contracts on chainB, they will want to claim the
-    same *ChannelID* and *PortID*. Not sure how to differentiate multiple
-    parties in this way.
-  * Other ideas: have a special field we send on `OnChanOpenInit` that
-    specifies the destination contract, and allow any *ChannelID*.
-    However, looking at [`OnChanOpenInit` function signature](https://docs.cosmos.network/master/ibc/custom.html#implement-ibcmodule-interface-and-callbacks),
-    I don't see a place to put this extra info, without abusing the version field,
-    which is a [specified field](https://docs.cosmos.network/master/ibc/custom.html#channel-handshake-version-negotiation):
-    ```
-    Versions must be strings but can implement any versioning structure. 
-    If your application plans to have linear releases then semantic versioning is recommended.
-    ... 
-    Valid version selection includes selecting a compatible version identifier with a subset 
-    of features supported by your application for that version.
-    ...    
-    ICS20 currently implements basic string matching with a
-    single supported version.
-    ```
+Acknowledgement and timeout callback failures propagate as transaction errors.
+Their successful responses process submessages and events through the same
+contract response handling path.
+
+### Authorization and recovery after restart
+
+Relayed messages pass through the IBC core's proof and channel checks before
+packet callbacks. Receive verification recognizes an already received packet
+and returns a no-op without invoking the contract again. Outgoing packet
+creation requires the Wasm module's channel capability. The relayer address in
+a callback identifies the transaction signer; application authorization must
+also validate the channel and counterparty established by the protocol.
+
+Contract metadata, contract state and IBC channel/packet records live in chain
+stores. [node/legacyabci/begin_block.go](../../../node/legacyabci/begin_block.go)
+calls the capability module's begin-block handler; on the first block after a
+restart, [InitMemStore](../../../sdk/x/capability/keeper/keeper.go) reconstructs
+in-memory capabilities from persisted owners. Port names and contract state are
+not replaced by newly instantiated contracts. The node also restores pinned
+Wasm code through `InitializePinnedCodes` after loading the latest version.
+
+Relayers must resume delivery of pending packets, acknowledgements or timeout
+proofs after restart. Contract protocols should persist pending-operation data
+in contract storage so that later callbacks can settle it. These storage and
+initialization paths describe the recovery mechanism; they do not establish a
+production restart rehearsal.
+
+## Design limits
+
+The current mapping assigns a stable port to each contract. Multiple ports per
+contract, reassignment of a port and transfer of channels between contracts are
+not provided by this adapter. The single-port-per-module alternative is not the
+implemented mapping. Likewise, a custom packet protocol is not automatically
+ICS-20 compatible; interoperability depends on the contract's handshake and
+packet format.
+
+## Tests and implementation references
+
+[ibc_reflect_test.go](ibc_reflect_test.go) exercises Wasm contracts across the
+local IBC test chains. [ibc_test.go](ibc_test.go) covers connection-hop validation
+and packet conversion. [keeper/relay_test.go](keeper/relay_test.go) covers the
+keeper callback adapters. The [IBC testing guide](ibctesting/README.md) describes
+the local chain, endpoint and coordinator helpers. For ordinary contract
+operations and module configuration, see [README.md](README.md); for privileged
+contract lifecycle operations, see [Governance](Governance.md).
+
+### Local native callback example
+
+The committed IBC3 `wasm-runtime/testdata/ibc_reflect.wasm` contract accepts
+`{"reflect_code_id":1}` at instantiation (replace 1 with the uploaded reflect
+code ID). Its ordered channel protocol is `ibc-reflect-v1`; incompatible
+versions are refused. On connect it creates a reflect account. A packet with
+`{"who_am_i":{}}` returns a JSON acknowledgement naming that account. Query
+`{"list_accounts":{}}` to read the stored channel/account association.
+
+`TestRepairM_1289_IBC` in [repair_m1289_test.go](repair_m1289_test.go) exercises
+this native contract through the module callback adapter, including version
+refusal, receive acknowledgements, acknowledgement and timeout callbacks.
+It commits the channel/account association, closes the native VM and persistent
+store, reopens them, restores capabilities and pins, and repeats the query and
+receive callback against the recovered state. These are local recovery checks.

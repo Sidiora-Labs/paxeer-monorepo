@@ -76,6 +76,10 @@ func applyProductionSchema(t *testing.T, ctx context.Context, pool *pgxpool.Pool
 func realReceiptInputs(t *testing.T) runtimedocs.Inputs {
 	t.Helper()
 	root := repositoryRoot()
+	manifest, ok := deployment.Approved(32226215)
+	if !ok {
+		t.Fatal("historical chain-125 deployment manifest is not approved")
+	}
 	reviewed, err := os.ReadFile(filepath.Join(root, "sdk", "launchpad", "protocol", "catalog", "reviewed.json"))
 	if err != nil {
 		t.Fatal(err)
@@ -94,7 +98,7 @@ func realReceiptInputs(t *testing.T) runtimedocs.Inputs {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return runtimedocs.Inputs{Manifest: deployment.Current(), ReviewedCatalog: reviewed, ERC20RuntimeCode: code, PoolRuntimeHash: common.HexToHash("0xa9b304d6d0aa562f283b45978b84ced8840a9331f8ac946742670b1b02a2872d"), Anchor: realAnchor}
+	return runtimedocs.Inputs{Manifest: manifest, ReviewedCatalog: reviewed, ERC20RuntimeCode: code, PoolRuntimeHash: common.HexToHash("0xa9b304d6d0aa562f283b45978b84ced8840a9331f8ac946742670b1b02a2872d"), Anchor: realAnchor}
 }
 
 // The production ingestion path on chain 125 end to end, against actual

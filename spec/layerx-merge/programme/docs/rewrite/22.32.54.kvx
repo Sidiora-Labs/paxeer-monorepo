@@ -1,0 +1,23 @@
+[manifest]
+task = "22.32.54"
+domain = 5
+owner_role = "fm-node-runtime"
+pages = 3
+
+[page.1]
+path = "storage/db_engine/litt/README.md"
+status = "stale"
+bytes = 25661
+source_1 = "record 22.30.53 [doc.readme] (stale): Full page read. Lines 47 and 141 disagree with exact key/value bounds; lines 299-300 use nonexistent Stop; lines 387-394 promise unbounded values; line 475 permits unsupported factor 256. Findings name the corresponding owners."
+
+[page.2]
+path = "storage/db_engine/litt/docs/architecture.md"
+status = "stale"
+bytes = 12363
+source_1 = "record 22.30.53 [doc.architecture] (stale): Full design evolution read. Final round-robin shard placement agrees with the implementation; line 53 describes cache removal on deletion that the current cached wrapper does not implement."
+
+[page.3]
+path = "storage/db_engine/litt/docs/littdb_cli.md"
+status = "stale"
+bytes = 10920
+source_1 = "record 22.30.53 [doc.cli] (stale): Full page read. Lines 11-50 build upstream EigenDA; lines 68-96 and 186-192 use upstream validator configuration; line 206 is invalid JSON; lines 268-269 omit required --no-gc for restore."

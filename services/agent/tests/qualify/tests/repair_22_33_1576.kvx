@@ -1,0 +1,13 @@
+[repair.22.33.1576]
+finding = "real-node-script-function"
+proving_test = "tests/repair_22_33_1576.rs::real_node_script::real_node_prepare_builds_no_kernel_daemon"
+implementation = "Match the production shell function declaration and final invocation as run_real_node_tests, preserving every retirement, mode, setup, prerequisite and build-order assertion."
+proof = "The repair integration target includes the existing regression unchanged apart from the two spelling corrections; it reads the actual committed services/agent/tools/run-real-node-tests.sh in process without executing shell commands or requiring native artifacts."
+baseline = "Not run: task Order 1 and 4 require complete implementation before gates and prohibit a manual verify; the declared repair target did not exist in the unchanged tree. No baseline test failure is claimed."
+wiring_request = "None: the production script already declares and invokes run_real_node_tests; no out-of-path repair is required."
+evidence = "The runner-owned hf-build/hf-done ledger records the exact candidate revision, command, exit and private log path; no qualification is claimed before those gates pass."
+
+[gotcha.real_node_script_function]
+symptom = "The source regression searched for run-real-node-tests and failed before reaching provisioning assertions."
+cause = "The script filename uses hyphens, while its shell function declaration and invocation use underscores."
+action = "Match the real function spelling and include the complete existing regression in the repair gate."

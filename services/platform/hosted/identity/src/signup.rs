@@ -1,13 +1,16 @@
-use crate::store::{PendingSignup, Principal, StarterCredit, Store, SUBJECT_TENANT_CONFLICT};
+use crate::store::{
+    HourlyRefusal, PendingSignup, Principal, SignupDelivery, StarterCredit, Store,
+    SIGNUP_CAPACITY_REACHED, SUBJECT_ALREADY_EXISTS, SUBJECT_TENANT_CONFLICT,
+};
 use serde_json::json;
 use sha2::{Digest, Sha256};
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeSet;
 
 pub const STARTER_CREDIT_AMOUNT: &str = "1000000";
 pub const STARTER_CREDIT_ASSET: &str = "PAX";
 const HOUR: u64 = 3_600;
 const DAY: u64 = 86_400;
-const MAX_TRACKED_KEYS: usize = 65_536;
+pub const MAX_TRACKED_KEYS: usize = crate::store::MAX_SIGNUP_KEYS;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Limits {
@@ -37,12 +40,16 @@ pub enum Refused {
     DailyCapReached(u64),
     EmailRegistered,
     SubjectConflict,
+    SubjectExists,
+    Overloaded,
     TokenUnknown,
     TokenExpired,
     NotVerified,
     AlreadyCredited,
     GrantMismatch,
     Store,
+    Delivery,
+    Entropy,
 }
 
 impl Refused {
@@ -55,12 +62,16 @@ impl Refused {
             Self::EmailRateLimited(after) => (429, "signup_email_rate_limited", Some(after)),
             Self::DailyCapReached(after) => (429, "signup_daily_cap_reached", Some(after)),
             Self::EmailRegistered => (409, "email_registered", None),
+            Self::SubjectExists => (409, "subject_already_exists", None),
+            Self::Overloaded => (503, "signup_capacity_reached", Some(60)),
             Self::SubjectConflict => (409, "subject_tenant_conflict", None),
             Self::TokenUnknown => (404, "verification_not_found", None),
             Self::TokenExpired => (410, "verification_expired", None),
             Self::NotVerified => (403, "verification_required", None),
             Self::AlreadyCredited => (409, "starter_credit_already_claimed", None),
             Self::GrantMismatch => (409, "starter_credit_grant_mismatch", None),
+            Self::Delivery => (503, "verification_delivery_unavailable", Some(30)),
+            Self::Entropy => (503, "entropy_unavailable", Some(5)),
             Self::Store => (503, "store_unavailable", Some(5)),
         }
     }
@@ -77,8 +88,6 @@ pub struct SignupRequest<'a> {
 pub struct Desk {
     limits: Limits,
     disposable: BTreeSet<String>,
-    ip: BTreeMap<String, (u64, u32)>,
-    email: BTreeMap<String, (u64, u32)>,
 }
 
 #[must_use]
@@ -111,23 +120,6 @@ pub fn normalize_email(email: &str) -> Option<(String, String)> {
     (email.len() <= 254 && labels_ok && local_ok).then(|| (email, domain))
 }
 
-fn take(window: &mut (u64, u32), bucket: u64, limit: u32) -> bool {
-    if window.0 != bucket {
-        *window = (bucket, 0);
-    }
-    if window.1 >= limit {
-        return false;
-    }
-    window.1 += 1;
-    true
-}
-
-fn prune(map: &mut BTreeMap<String, (u64, u32)>, bucket: u64) {
-    if map.len() >= MAX_TRACKED_KEYS {
-        map.retain(|_, window| window.0 == bucket);
-    }
-}
-
 impl Desk {
     #[must_use]
     pub fn new(limits: Limits, disposable_domains: impl IntoIterator<Item = String>) -> Self {
@@ -138,8 +130,6 @@ impl Desk {
                 .map(|domain| domain.trim().trim_start_matches('.').to_ascii_lowercase())
                 .filter(|domain| !domain.is_empty() && !domain.starts_with('#'))
                 .collect(),
-            ip: BTreeMap::new(),
-            email: BTreeMap::new(),
         }
     }
 
@@ -172,6 +162,28 @@ impl Desk {
         token_digest: &str,
         now: u64,
     ) -> Result<PendingSignup, Refused> {
+        self.start_inner(store, request, token_digest, now, None)
+    }
+
+    pub fn start_with_delivery(
+        &mut self,
+        store: &mut Store,
+        request: &SignupRequest<'_>,
+        token_digest: &str,
+        now: u64,
+        delivery: SignupDelivery,
+    ) -> Result<PendingSignup, Refused> {
+        self.start_inner(store, request, token_digest, now, Some(delivery))
+    }
+
+    fn start_inner(
+        &mut self,
+        store: &mut Store,
+        request: &SignupRequest<'_>,
+        token_digest: &str,
+        now: u64,
+        delivery: Option<SignupDelivery>,
+    ) -> Result<PendingSignup, Refused> {
         let (email, domain) = normalize_email(request.email).ok_or(Refused::Invalid)?;
         if request.client_ip.is_empty()
             || request.client_ip.len() > 64
@@ -180,6 +192,14 @@ impl Desk {
             || request.signer_public_key.len() != 64
         {
             return Err(Refused::Invalid);
+        }
+        store.reclaim_signups(now).map_err(|_| Refused::Store)?;
+        if let Some(tenant) = store.subject_tenant(request.sub) {
+            return Err(if tenant == request.tenant {
+                Refused::SubjectExists
+            } else {
+                Refused::SubjectConflict
+            });
         }
         let email_digest = sha256_hex(email.as_bytes());
         let outcome = self.admit(store, &domain, request.client_ip, &email_digest, now);
@@ -201,15 +221,17 @@ impl Desk {
             created_at: now,
             expires_at: now.saturating_add(self.limits.token_ttl_seconds),
         };
-        store
-            .put_signup(signup.clone())
-            .map_err(|_| Refused::Store)?;
+        let result = match delivery {
+            Some(delivery) => store.put_signup_delivery(signup.clone(), delivery),
+            None => store.put_signup(signup.clone()),
+        };
+        result.map_err(store_refusal)?;
         Ok(signup)
     }
 
     fn admit(
         &mut self,
-        store: &Store,
+        store: &mut Store,
         domain: &str,
         client_ip: &str,
         email_digest: &str,
@@ -226,17 +248,30 @@ impl Desk {
         if store.signups_on_day(now / DAY) >= self.limits.daily_cap {
             return Err(Refused::DailyCapReached((now / DAY + 1) * DAY - now));
         }
-        prune(&mut self.ip, hour);
-        prune(&mut self.email, hour);
-        let ip = self.ip.entry(client_ip.to_owned()).or_default();
-        if !take(ip, hour, self.limits.per_ip_per_hour) {
-            return Err(Refused::IpRateLimited(next_hour));
+        match store
+            .admit_signup_hour(
+                &sha256_hex(client_ip.as_bytes()),
+                email_digest,
+                now,
+                self.limits.per_ip_per_hour,
+                self.limits.per_email_per_hour,
+            )
+            .map_err(|_| Refused::Store)?
+        {
+            Ok(()) => Ok(()),
+            Err(HourlyRefusal::Ip) => Err(Refused::IpRateLimited(next_hour)),
+            Err(HourlyRefusal::Email) => Err(Refused::EmailRateLimited(next_hour)),
+            Err(HourlyRefusal::Capacity) => Err(Refused::Overloaded),
         }
-        let email = self.email.entry(email_digest.to_owned()).or_default();
-        if !take(email, hour, self.limits.per_email_per_hour) {
-            return Err(Refused::EmailRateLimited(next_hour));
-        }
-        Ok(())
+    }
+}
+
+pub(crate) fn store_refusal(error: String) -> Refused {
+    match error.as_str() {
+        SUBJECT_TENANT_CONFLICT => Refused::SubjectConflict,
+        SUBJECT_ALREADY_EXISTS => Refused::SubjectExists,
+        SIGNUP_CAPACITY_REACHED => Refused::Overloaded,
+        _ => Refused::Store,
     }
 }
 
@@ -254,13 +289,9 @@ pub fn verify(store: &mut Store, token_digest: &str, now: u64) -> Result<Princip
     } else if store.email_in_use(&signup.email_digest) {
         Err(Refused::EmailRegistered)
     } else {
-        store.verify_signup(token_digest, now).map_err(|error| {
-            if error == SUBJECT_TENANT_CONFLICT {
-                Refused::SubjectConflict
-            } else {
-                Refused::Store
-            }
-        })
+        store
+            .verify_signup(token_digest, now)
+            .map_err(store_refusal)
     };
     let _ = store.audit(&json!({
         "event": "signup_verified",

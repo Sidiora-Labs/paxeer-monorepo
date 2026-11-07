@@ -448,26 +448,33 @@ func TestSpecOnly(t *testing.T) {
 	expected := []byte(`{"jsonrpc":"2.0","id":1,"result":"0x1"}`)
 	actualResult := []byte(`{"jsonrpc":"2.0","id":1,"result":"0x2"}`)
 	actualError := []byte(`{"jsonrpc":"2.0","id":1,"error":{"code":-32600,"message":"err"}}`)
-	if !specOnly(t, actualResult, expected) {
-		t.Error("SpecOnly: result vs result should pass")
+	if specOnly(t, []byte(`{"jsonrpc":"2.0","id":1,"method":"eth_chainId"}`), actualResult, expected) {
+		t.Error("wrong deterministic chain ID must fail")
+	}
+	if !specOnly(t, []byte(`{"jsonrpc":"2.0","id":1,"method":"eth_chainId"}`), expected, expected) {
+		t.Error("matching deterministic chain ID must pass")
 	}
 	expErr := []byte(`{"jsonrpc":"2.0","id":1,"error":{}}`)
-	if !specOnly(t, actualError, expErr) {
-		t.Error("SpecOnly: error vs error should pass")
+	if specOnly(t, []byte(`{"jsonrpc":"2.0","id":1,"method":"eth_chainId"}`), actualError, expErr) {
+		t.Error("fixture without declared error code must fail")
 	}
-	if specOnly(t, actualError, expected) {
+	declaredError := []byte(`{"jsonrpc":"2.0","id":1,"error":{"code":-32600,"message":"err"}}`)
+	if !specOnly(t, []byte(`{"jsonrpc":"2.0","id":1,"method":"eth_chainId"}`), actualError, declaredError) {
+		t.Error("matching declared error must pass")
+	}
+	if specOnly(t, []byte(`{"jsonrpc":"2.0","id":1,"method":"eth_chainId"}`), actualError, expected) {
 		t.Error("SpecOnly: error vs result should fail")
 	}
-	if specOnly(t, actualResult, expErr) {
+	if specOnly(t, []byte(`{"jsonrpc":"2.0","id":1,"method":"eth_chainId"}`), actualResult, expErr) {
 		t.Error("SpecOnly: result vs error should fail")
 	}
 }
 
 func TestSpecOnly_InvalidJSON(t *testing.T) {
-	if specOnly(t, []byte("not json"), []byte(`{"result":1}`)) {
+	if specOnly(t, []byte(`{"jsonrpc":"2.0","id":1,"method":"eth_chainId"}`), []byte("not json"), []byte(`{"result":1}`)) {
 		t.Error("invalid actual JSON should fail")
 	}
-	if specOnly(t, []byte(`{"result":1}`), []byte("not json")) {
+	if specOnly(t, []byte(`{"jsonrpc":"2.0","id":1,"method":"eth_chainId"}`), []byte(`{"result":1}`), []byte("not json")) {
 		t.Error("invalid expected JSON should fail")
 	}
 }
@@ -546,5 +553,54 @@ func TestIOTestsDir(t *testing.T) {
 	}
 	if _, err := os.Stat(dir); err != nil {
 		t.Fatalf("ioTestsDir path not exist: %v", err)
+	}
+}
+
+func TestParseIOFile_UnpairedRequests(t *testing.T) {
+	for _, tc := range []struct{ name, content, want string }{
+		{"overwritten", ">> {\"method\":\"eth_chainId\"}\n>> {\"method\":\"eth_blockNumber\"}\n<< {}", "overwrites unmatched request"},
+		{"EOF", ">> {\"method\":\"eth_chainId\"}", "EOF: unmatched request"},
+		{"EOF after complete pair", ">> {}\n<< {}\n>> {}", "EOF: unmatched request"},
+		{"empty request", ">> \n<< {}", "empty request"},
+		{"unpaired response", "<< {}", "response without request"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			pairs, err := parseIOFile(tc.content)
+			if err == nil || !strings.Contains(err.Error(), tc.want) || len(pairs) != 0 {
+				t.Fatalf("parse returned pairs=%v err=%v; want %q", pairs, err, tc.want)
+			}
+		})
+	}
+}
+
+func TestSpecOnly_MethodSchemas(t *testing.T) {
+	for _, tc := range []struct{ name, method, actual, expected string }{
+		{"quantity leading zero", "eth_blockNumber", `"0x01"`, `"0x01"`},
+		{"quantity empty", "eth_getBalance", `"0x"`, `"0x"`},
+		{"quantity decimal", "eth_gasPrice", `12`, `12`},
+		{"quantity wrong type", "eth_chainId", `true`, `true`},
+		{"odd hex data", "eth_call", `"0x1"`, `"0x1"`},
+		{"short storage", "eth_getStorageAt", `"0x00"`, `"0x00"`},
+		{"short address", "eth_coinbase", `"0x00"`, `"0x00"`},
+		{"block missing fields", "eth_getBlockByNumber", `{"number":"0x1","hash":"0xaa"}`, `{}`},
+		{"block wrong type", "eth_getBlockByHash", `[]`, `{}`},
+		{"transaction missing fields", "eth_getTransactionByHash", `{"hash":"0xaa"}`, `{}`},
+		{"receipt missing fields", "eth_getTransactionReceipt", `{"status":"0x1"}`, `{}`},
+		{"proof missing fields", "eth_getProof", `{}`, `{}`},
+		{"access list missing gas", "eth_createAccessList", `{"accessList":[]}`, `{}`},
+		{"log missing fields", "eth_getLogs", `[{}]`, `[{}]`},
+		{"syncing wrong type", "eth_syncing", `true`, `true`},
+		{"filter result wrong type", "eth_uninstallFilter", `"false"`, `"false"`},
+		{"fee history malformed", "eth_feeHistory", `{"oldestBlock":"0x01","baseFeePerGas":[],"gasUsedRatio":[]}`, `{}`},
+		{"unknown success schema", "unknown_method", `{}`, `{}`},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			req := []byte(`{"jsonrpc":"2.0","id":1,"method":"` + tc.method + `"}`)
+			act := []byte(`{"jsonrpc":"2.0","id":1,"result":` + tc.actual + `}`)
+			exp := []byte(`{"jsonrpc":"2.0","id":1,"result":` + tc.expected + `}`)
+			if specOnly(t, req, act, exp) {
+				t.Fatal("malformed method result passed")
+			}
+		})
 	}
 }

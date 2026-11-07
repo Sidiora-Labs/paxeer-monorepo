@@ -1,0 +1,30 @@
+[repair.22.31.37]
+audit = "22.30.26"
+base_revision = "7a46d90eecc4435aea1d78bdd9590421997ccc7e"
+mode = "BUILD"
+qualification = "hf-build, then hf-done; the exact verified candidate revision, command, exit and private evidence path are recorded by the task runner in /out/run/gates.jsonl and the final evidence line."
+baseline = "No baseline gate was run: the explicit task Order forbids verification before complete implementation and requires hf-done as the sole initial verify; no pre-change failures are claimed."
+producer = "Solidity 0.8.27, optimizer 200, viaIR; testdata/repair37 artifacts include source SHA-256 inventories checked by the declared tests."
+native_abi = "precompiles/launchpad/abi.json already has all twelve correct family schemas; delimit its family section without changing any wire entry, and generate NativeLaunchpad from precisely those events."
+
+[finding.native_family_events]
+proof = "TestRepair_37_native_family_events"
+path = "Actual PrecompileExecutor.emitFamily with real keeper-backed EVM state -> JSON transport of emitted logs -> all twelve NativeLaunchpad typed parsers, protocol.LookupEvent and actual indexer decode.Decoder.Decode, asserting every field and unknown-topic/malformed-data refusal."
+
+[finding.retained_emitter_v2]
+proof = "TestRepair_37_retained_emitter_v2"
+path = "Current EventEmitter implementation -> real ERC1967Proxy -> real geth chain and IPC -> generated calls, Parse/Filter/Watch, seven scalar/array tuple families, indexed provenance, one-time v2 migration, role and selector-scoped grants/refusals."
+history = "HistoricalEventEmitterMetaData retains the original 22-method ABI; EventEmitterMetadataAtHeight requires the caller's actual v2 activation height and checks the boundary. NativeLaunchpadMetaData is independent of retained-contract upgrade height."
+
+[finding.beacon_ownership_handoff]
+proof = "TestRepair_37_beacon_ownership_handoff"
+path = "Current UpgradeableBeacon deployed on a real geth chain -> IPC -> generated calls/parsers; owner/pendingOwner, OwnershipTransferStarted, Unauthorized selector, acceptance/clearing and old-owner refusal; reads after closing and reopening the IPC client before and after acceptance."
+
+[wiring.protocol]
+request = "sdk/launchpad/protocol/events.go — owning domain 4: register NativeLaunchpadMetaData separately, retain historical emitter schemas, and select retained EventEmitterMetadataAtHeight using the manifest's actual upgrade height."
+
+[wiring.chain]
+request = "sdk/launchpad/shared/chain/contracts.go — owning domain 4: bind LaunchpadPrecompile at 0x1017 with NewNativeLaunchpad instead of NewEventEmitter; retain EventEmitter exclusively at its retained contract address."
+
+[qualification.fixture_repair]
+observed = "The first hf-done run passed the native and beacon proofs but strict tuple equality exposed a nil-versus-empty math/big zero representation in the input fixture; construct zero from a complete ABI word, retaining all assertions and the zero-value test case."

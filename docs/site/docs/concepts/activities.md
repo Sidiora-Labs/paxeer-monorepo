@@ -1,67 +1,99 @@
 # Activities
 
-Every state-changing operation enters as one signed, canonically encoded
-activity. The protocol specification (`spec/layerx-protocol/spec.kvx`,
-requirement 2) requires the envelope to carry exactly these fields:
-
-`protocol_version`, `network_id`, `activity_type`, `actor_did`, `authority`,
-`account_sequence`, `timestamp_bound`, `idempotency_key`, `fee_limit`,
-`payload_hash`, `payload`, and `signature`.
-
-A submission that omits a field, repeats a field, or carries an undeclared
-field is a malformed envelope. The human read of that design, including the
-LXC/1 wire notes, is [Protocol](../protocol/index.md).
+State changes on Paxeer mainnet-beta enter the merged network as signed
+transactions. The node is `paxd`, the EVM chain id is `125` (`0x7d`), and
+the kernel runs inside the network and participates in block proposal.
+Execution and settlement share the chain's consensus boundary; a successful
+payment is final when its block is committed.
 
 ## Admission and execution
 
-Requirement 2 of `spec/layerx-protocol/spec.kvx` binds:
+For an EVM write, construct and sign an EIP-1559 (type 2) transaction with
+the chain id, sender nonce, destination, ABI-encoded calldata, gas limit,
+and fee caps. Submit its exact signed bytes with `eth_sendRawTransaction`
+to a node's root JSON-RPC endpoint. The returned transaction hash identifies
+the submission; it does not prove successful execution.
 
-- Unsupported `protocol_version` or a `network_id` that is not this chain
-  rejects the activity without consuming sequence or charging a fee.
-- `payload_hash` must be the domain-separated hash of the canonical payload
-  bytes, checked before authority.
-- The signature covers the canonical encoding of every envelope field except
-  `signature` itself, under a key the state machine currently binds to
-  `authority`.
-- `account_sequence` must equal the actor's next expected sequence. A lower
-  value is a replay; a higher value is a gap.
-- `timestamp_bound` is compared to the batch timestamp, never node wall-clock.
-- The same `idempotency_key` from the same actor produces at most one economic
-  result. A later submission returns the original receipt.
-- A computed fee above `fee_limit` rejects the activity without applying
-  effects.
+The precompile resolves the caller's authority and invokes the relevant
+module through the embedded host. For example, `precompiles/layerxledger/`
+delegates to `modules/layerxledger/keeper/`, while `modules/lxphost/` owns
+the kernel integration. Module authorization, account sequences, expiry,
+idempotency, and monetary checks still apply inside that path. An EVM nonce
+and a module's account sequence are distinct values.
 
-Failed activities that are otherwise well-formed and authorised still consume
-sequence, still pay the fee, and still occupy a global sequence number.
-Module effects roll back; bookkeeping does not
-([Protocol](../protocol/index.md), [Modules](../protocol/modules.md)).
+Execution can revert. A committed transaction with `status: "0x0"` is a
+committed failure, not a successful transfer. Check the outcome and payment
+facts as well as inclusion. Gas accounting and the nonce must be handled
+according to the transaction result; do not infer them from an admission
+acknowledgement.
 
 ## Activity type
 
-`activity_type` is module id in the high 16 bits and type ordinal in the low
-16 bits (`include/layerx/lxp_module.h`). The registered modules are
-[Modules](../protocol/modules.md). Programs occupy module `9`
-([Programs](../programs/index.md)).
+Kernel activity types remain internal dispatch identifiers: the high 16 bits
+name the module and the low 16 bits name its operation
+(`include/layerx/lxp_module.h`). They are not JSON-RPC method names or EVM
+addresses. Programs use module `9`.
 
-Beta envelopes use protocol 3 (`LXP_PROTOCOL_VERSION_STATE_COMMITMENT` in
-`include/layerx/lxp_protocol.h`). Occupancy accounting is used by protocol 2
-and 3. The C header default `LXP_PROTOCOL_VERSION` remains 2
-([Protocol](../protocol/index.md)).
+The current EVM entry points include:
+
+| Surface | Address | Contract source |
+| --- | --- | --- |
+| Ledger and exact payments | `0x000000000000000000000000000000000000101A` | `precompiles/layerxledger/abi.json` |
+| Authority | `0x000000000000000000000000000000000000101C` | `precompiles/layerxauth/abi.json` |
+| Programs | `0x000000000000000000000000000000000000101D` | `precompiles/layerxprograms/LayerXPrograms.sol` |
+
+Use the published ABI for argument encoding. Some compatibility selectors
+remain in an ABI while their implementation refuses the operation; payer
+grants and draws, for example, are retired. The
+[payments path](../overview/payments.md) describes supported exact payments
+and the Programs token example.
 
 ## Public submission
 
-Authenticated public submission is `lx_sendActivity` on gateway `POST /rpc`
-([Public JSON-RPC](../platform/gateway-rpc.md)). Commitment names
-`executed`, `batched`, and `finalised` are evidence requirements, not progress
-labels ([Commitment levels](../protocol/commitment-levels.md)).
+The public node endpoints are `https://api-mainnet-beta.paxeer.network`
+and `https://api1.mainnet-beta.paxeer.network` through
+`https://api14.mainnet-beta.paxeer.network`, at the root path. See
+[Public JSON-RPC](../reference/public-rpc.md) for the node list.
 
-The agent layer submits only exact signed canonical bytes over the
-[LayerX Node Interface](../agents/lni.md). An admission acknowledgement is not
-execution.
+The pre-merge `lx_sendActivity` production route is retired; hosted gateway
+dispatch refuses every `lx_` method with JSON-RPC `-32601` (`Method not found`).
+Hosted `px_` methods are declared separately in
+`services/platform/hosted/gateway/openrpc.json`; see
+[Gateway RPC](../platform/gateway-rpc.md). A hosted method's presence does
+not imply that every public node serves it.
 
 ## Status
 
-The envelope, sequence, idempotency, and fee-limit rules are specified and
-implemented in the C17 kernel. Public `lx_sendActivity` admits the Asset
-ordinals listed in [Assets](assets.md). Ordinal 9 (withdraw) is reserved on
-that public path.
+`rpc/sequencer_receipt.go` defines the response of
+`pax_sequencerReceipt([txHash])`:
+
+| Rung | Evidence returned | Meaning |
+| --- | --- | --- |
+| `submitted` | `rung`, `txHash`, `nonce` | The transaction is known, with no execution receipt yet. |
+| `receipted` | Canonical signed `receipt` and its decoded execution fields | Execution has a signed result, without committed block inclusion. |
+| `committed` | The same receipt plus `blockNumber` and `blockHash` | A committed block's sequence batch covers the receipt. |
+
+An unknown hash returns `null`. A node without a receipt source or forwarding
+configuration can refuse the method; that is unavailable evidence, not
+success. `eth_getTransactionReceipt` reads the committed EVM receipt and does
+not expose an early execution receipt as a mined transaction.
+
+Authenticate receipt keys independently, including their authorized height
+ranges. Verify the canonical signature, transaction hash and nonce, decoded
+fields, return-data and log digests; a response's `signingKey` alone is not
+a trust anchor. For commitment, also check matching block and transaction
+inclusion. Notifications are unverified wake-ups: reconcile with verified
+reads after a notification or stream closure. See
+[Commitment levels](../protocol/commitment-levels.md) and
+[Hosted internal](../operators/hosted-internal.md) for the event-delivery boundary.
+
+## Legacy envelope compatibility
+
+The canonical activity envelopes, LXC/1 encoding, module ordinals, and
+older protocol-version rules remain useful when reading fixtures and kernel
+compatibility code. Their reference is [Protocol](../protocol/index.md)
+and the declarations in `include/layerx/lxp_activity.h` and
+`include/layerx/lxp_module.h`. These archival envelope descriptions
+are not instructions for public transaction submission. In particular, the
+pre-merge execution/batch/checkpoint ladder is retired as a payment finality
+recipe; use the receipt rungs above and committed chain inclusion.

@@ -124,19 +124,42 @@ func TestUnlock(t *testing.T) {
 }
 
 func TestPurgeLocks(t *testing.T) {
+	purgeLocksTest(t)
+}
+
+func purgeLocksTest(t *testing.T) {
+	t.Helper()
 	testDir := t.TempDir()
 	rand := util.NewTestRandom()
-	volumes := []string{path.Join(testDir, "volume1", path.Join(testDir, "volume2"), path.Join(testDir, "volume3"))}
+	canonicalDir, err := filepath.EvalSymlinks(testDir)
+	require.NoError(t, err)
+	volumes := []string{
+		filepath.Join(canonicalDir, "volume1"),
+		filepath.Join(canonicalDir, "volume2"),
+		filepath.Join(canonicalDir, "volume3"),
+	}
+	distinctRoots := make(map[string]bool)
+	for _, root := range volumes {
+		require.True(t, filepath.IsAbs(root))
+		require.Equal(t, filepath.Clean(root), root)
+		distinctRoots[root] = true
+	}
+	require.Len(t, volumes, 3)
+	require.Len(t, distinctRoots, 3)
 
 	config, err := litt.DefaultConfig(volumes...)
+	require.NoError(t, err)
 	config.Fsync = false // Disable fsync for faster tests
 	config.TargetSegmentFileSize = 100
-	require.NoError(t, err)
 
 	db, err := littbuilder.NewDB(config)
 	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, db.Close()) })
+	require.ElementsMatch(t, volumes, config.Paths)
 
-	table, err := db.BuildTable(litt.DefaultTableConfig("test_table"))
+	tableConfig := litt.DefaultTableConfig("test_table")
+	tableConfig.ShardingFactor = 3
+	table, err := db.BuildTable(tableConfig)
 	require.NoError(t, err)
 
 	expectedData := make(map[string][]byte)
@@ -150,22 +173,82 @@ func TestPurgeLocks(t *testing.T) {
 		err = table.Put(key, value)
 		require.NoError(t, err, "Failed to put data in table")
 	}
+	require.NoError(t, table.Flush())
+
+	assertRootLocks := func(locked bool) {
+		t.Helper()
+		for _, root := range volumes {
+			lockPath := filepath.Join(root, util.LockfileName)
+			if locked {
+				require.FileExists(t, lockPath)
+				lock, err := util.NewFileLock(slog.Default(), lockPath, false)
+				if lock != nil {
+					lock.Release()
+				}
+				require.Error(t, err, "root must reject another lock owner: %s", root)
+			} else {
+				require.NoFileExists(t, lockPath)
+				lock, err := util.NewFileLock(slog.Default(), lockPath, false)
+				require.NoError(t, err, "root must be available after close: %s", root)
+				lock.Release()
+				require.NoFileExists(t, lockPath)
+			}
+		}
+	}
+	assertRootLocks(true)
 
 	// Opening a second instance of the database should fail due to existing locks.
 	_, err = littbuilder.NewDB(config)
 	require.Error(t, err, "Expected error when opening a second instance of the database with existing locks")
 
-	// Open a new instance of the database at the same time. Normally this is not possible, but it becomes possible
-	// when we purge locks.
-	config.PurgeLocks = true
-	db2, err := littbuilder.NewDB(config)
-	require.NoError(t, err, "Failed to open a second instance of the database")
-
-	// This test doesn't bother to verify the table data, since we are in unsafe territory now with multiple instances
-	// of the database running at the same time.
-
+	lockRecords := make(map[string][]byte)
+	for _, root := range volumes {
+		lockPath := filepath.Join(root, util.LockfileName)
+		lockRecords[lockPath], err = os.ReadFile(lockPath)
+		require.NoError(t, err)
+	}
 	err = db.Close()
 	require.NoError(t, err, "Failed to close the first instance of the database")
-	err = db2.Close()
-	require.NoError(t, err)
+	assertRootLocks(false)
+
+	// Replay the real DB's metadata without retaining a live advisory-lock owner.
+	for lockPath, record := range lockRecords {
+		require.NoError(t, os.WriteFile(lockPath, record, 0600))
+	}
+	assertRootLocks(true)
+	_, err = littbuilder.NewDB(config)
+	require.Error(t, err, "Recorded lock metadata must require an explicit purge")
+
+	purgeConfig := *config
+	purgeConfig.PurgeLocks = true
+	db2, err := littbuilder.NewDB(&purgeConfig)
+	require.NoError(t, err, "Failed to reopen the database with lock purging enabled")
+	t.Cleanup(func() { require.NoError(t, db2.Close()) })
+	assertRootLocks(true)
+
+	verifyData := func(database litt.DB) {
+		t.Helper()
+		recovered, err := database.BuildTable(tableConfig)
+		require.NoError(t, err)
+		require.Equal(t, uint64(len(expectedData)), recovered.KeyCount())
+		for key, expectedValue := range expectedData {
+			value, exists, err := recovered.Get([]byte(key))
+			require.NoError(t, err, key)
+			require.True(t, exists, key)
+			require.Equal(t, expectedValue, value, key)
+		}
+	}
+	verifyData(db2)
+	_, err = littbuilder.NewDB(config)
+	require.Error(t, err, "Reopened database must retain exclusive access")
+	require.NoError(t, db2.Close())
+	assertRootLocks(false)
+
+	db3, err := littbuilder.NewDB(config)
+	require.NoError(t, err, "All roots must reopen normally after the purged owner closes")
+	t.Cleanup(func() { require.NoError(t, db3.Close()) })
+	assertRootLocks(true)
+	verifyData(db3)
+	require.NoError(t, db3.Close())
+	assertRootLocks(false)
 }

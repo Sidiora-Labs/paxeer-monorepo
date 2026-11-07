@@ -20,6 +20,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/client"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/codec"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/tests/mocks"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/testutil"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types/genesis"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types/module"
@@ -243,7 +244,7 @@ func TestManager_InitGenesis(t *testing.T) {
 	require.Panics(t, func() { mm.InitGenesis(ctx, cdc, genesisData, genesis.GenesisImportConfig{}) })
 }
 
-func TestManager_InitGenesisStreamSkipsUnknownModules(t *testing.T) {
+func TestManager_InitGenesisStreamRejectsUnknownModules(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	t.Cleanup(mockCtrl.Finish)
 
@@ -251,7 +252,7 @@ func TestManager_InitGenesisStreamSkipsUnknownModules(t *testing.T) {
 	mockAppModule.EXPECT().Name().Times(2).Return("module1")
 	mm := module.NewManager(mockAppModule)
 
-	ctx := sdk.Context{}
+	ctx := testutil.DefaultContext(sdk.NewKVStoreKey("module1"), sdk.NewTransientStoreKey("transient_module1"))
 	interfaceRegistry := types.NewInterfaceRegistry()
 	cdc := codec.NewProtoCodec(interfaceRegistry)
 	moduleData := json.RawMessage(`{"key": "value"}`)
@@ -265,16 +266,14 @@ func TestManager_InitGenesisStreamSkipsUnknownModules(t *testing.T) {
 		0o600,
 	))
 
-	mockAppModule.EXPECT().InitGenesis(gomock.Eq(ctx), gomock.Eq(cdc), gomock.Eq(moduleData)).Times(1).Return(nil)
+	mockAppModule.EXPECT().InitGenesis(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
 
-	require.Equal(
-		t,
-		abci.ResponseInitChain{Validators: []abci.ValidatorUpdate(nil)},
+	require.PanicsWithError(t, `unknown genesis module "crisis"`, func() {
 		mm.InitGenesis(ctx, cdc, nil, genesis.GenesisImportConfig{
 			StreamGenesisImport: true,
 			GenesisStreamFile:   genesisFile,
-		}),
-	)
+		})
+	})
 }
 
 func TestManager_ExportGenesis(t *testing.T) {

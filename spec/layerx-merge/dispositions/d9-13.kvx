@@ -1,0 +1,15 @@
+[disposition.9.97.15.1]
+finding = "9.97.15.1"
+status = "resolved"
+evidence = "Commit be3b74e4505c56a70a88ba095e18193612aae1ec adds the producer-generated V1-layerxprograms-call case at sdk/platform/conformance/fixtures/sequencer-receipt-v1.json:227 on main, with a successful call to 0x101D and a ProgramCallOutcome log. The producer accepts that call at rpc/sequencer_receipt_vectors_test.go:837, and the AI market consumer decodes its receipt and checks module 12, operation 2 and transaction identity at services/agent/sdk/typescript/test/ai-market.test.ts:2460, following the decoder repair in commit e45224abc."
+
+[disposition.9.35.17.2]
+finding = "9.35.17.2"
+status = "resolved"
+evidence = "Commit 28fb1aae3d610d3de9c09f93747702e3aa998101 migrates the session-key signing preparation on main: services/human/crates/layerx-human-service/tests/session_keys.rs:267 binds the call to its sender and derives the disclosure digest. The EvmPrepared initializer at services/human/crates/layerx-human-service/tests/session_keys.rs:273 supplies from, disclosure and disclosure_digest, and its SigningPreparation contains only transaction and actor_address."
+
+[disposition.9.35.18.1]
+finding = "9.35.18.1"
+status = "open"
+evidence = "On main, services/agent/crates/layerx-agent-api/src/read.rs:912 encodes hashes with a 0x prefix and services/agent/crates/layerx-agentd/src/agent_rpc_adapters.rs:1837 uses that serializer, while its assertion at services/agent/crates/layerx-agentd/src/agent_rpc_adapters.rs:2564 still expects a bare hash. The activity submission helper at services/agent/crates/layerx-agentd/src/human_runtime.rs:19684 also still reads onboarding.activity and decodes it with the Governance registry at line 19699."
+follow_up = "9.98.2"

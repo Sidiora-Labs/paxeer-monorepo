@@ -1,0 +1,10 @@
+[repair.22.31.78]
+finding = "22.30.43/f002"
+base_revision = "630bbaef660d5fa23f2d56d1c74264a6fcaa9325"
+implementation = "Retain counts and singular child subtrees per decoded message instance; repeated child occurrences receive independent state."
+proving_tests = ["TestRepair_78_DuplicateLastCommitChannel", "TestRepair_78_DuplicateSignedHeaderCommitChannel", "TestRepair_78_MergedAncestorChannel", "TestRepair_78_RepeatedChildrenRemainIndependent", "TestRepair_78_SameSchemaDistinctFields"]
+producer_transport_consumer = "Generated protobuf marshal output with duplicate singular fields, real gogo Empty unknown-field preservation, encrypted P2P router and blocksync channel, generated consumer Message decode; over-cap peers disconnect with no delivery."
+baseline = "Not run: the ordered gate contract forbids testing before full implementation and forbids running verify_cmd by hand; no pre-change test failures are claimed."
+qualification = "hf-build then hf-done; the runner gate ledger and final evidence line name the immutable verified revision, exact command, exit and private log."
+plugin_test = "TestRepair_78_PluginDistinguishesRepeatedChildren is added; plugin test execution is outside the declared root-package verify_cmd."
+wiring_request = "Domain 15: regenerate consensus/proto/tendermint/**/*.wireguard.go with the updated consensus/internal/protoutils/wireguard/plugin so repeated nested children (including types.EvidenceList.evidence) carry Repeated: true; until regenerated their counters conservatively merge."

@@ -175,10 +175,14 @@ func (h *Handlers) connectedCreate(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	h.operationMutation(w, r, "stream.create", Operation{Pool: body.PoolAddress, Title: body.Title}, raw, func(ctx context.Context, tx pgx.Tx, d Authorization) (Operation, error) {
+	if err := v2.ValidateJSON("StreamCreateBody", raw); err != nil {
+		h.lifecycleError(w, ErrInvalidRequest)
+		return
+	}
+	h.operationMutationResponse(w, r, "stream.create", Operation{Pool: body.PoolAddress, Title: body.Title}, raw, func(ctx context.Context, tx pgx.Tx, d Authorization) (Operation, error) {
 		ready := h.providerReady != nil && h.providerReady(ctx) == nil
 		return h.lifecycle.CreateTx(ctx, tx, CreateIntent{Wallet: d.Wallet, Pool: body.PoolAddress, Title: body.Title, IdempotencyKey: r.Header.Get("Idempotency-Key")}, CreatorDecision{Wallet: d.Wallet, Pool: d.Pool, Allowed: d.Allowed, ExpiresAt: d.ExpiresAt}, ready)
-	})
+	}, AdaptV2StreamCreate)
 }
 func (h *Handlers) connectedAction(w http.ResponseWriter, r *http.Request, action string) {
 	if h.lifecycle == nil {
@@ -542,21 +546,17 @@ func (h *Handlers) connectedCredential(w http.ResponseWriter, r *http.Request) {
 		h.lifecycleError(w, ErrDenied)
 		return
 	}
-	if strings.HasSuffix(r.URL.Path, "/ingest-key") {
-		if h.ingestKeys == nil {
-			h.lifecycleError(w, ErrUnavailable)
-			return
-		}
-		key, e := h.ingestKeys.LoadKey(r.Context(), o)
-		if e != nil {
-			h.lifecycleError(w, e)
-			return
-		}
-		w.Header().Set("Cache-Control", "no-store")
-		writeJSON(w, 200, map[string]any{"streamId": o.ID, "ingestKey": key})
+	if h.ingestKeys == nil {
+		h.lifecycleError(w, ErrUnavailable)
 		return
 	}
-	h.ingestCredential(w, r)
+	key, e := h.ingestKeys.LoadKey(r.Context(), o)
+	if e != nil {
+		h.lifecycleError(w, e)
+		return
+	}
+	w.Header().Set("Cache-Control", "no-store")
+	writeJSON(w, 200, map[string]any{"streamId": o.ID, "ingestKey": key})
 }
 func (p *RestrictionReader) AllowedTx(ctx context.Context, tx pgx.Tx, wallet, pool string) (bool, error) {
 	if p == nil || tx == nil || !addressPattern.MatchString(wallet) || !addressPattern.MatchString(pool) {
@@ -657,7 +657,7 @@ func NewConnectedRuntime(ctx context.Context, cfg config.Config, pool *pgxpool.P
 		return nil
 	}
 	metrics := &LifecycleMetrics{}
-	deps := Deps{PlaybackWebhookSecret: cfg.PlaybackWebhookSecret, ObserveOutcome: metrics.ObserveWebhook, Lifecycle: lifecycle, Authorize: authorize, ProviderReady: ready, IngestKeys: keys, Viewers: viewers, ViewerTokens: &ViewerTokenAuthority{Key: []byte(cfg.ViewerTokenKey)}, OperationLedger: &sharedauth.Ledger{Pool: pool, Environment: cfg.ActionEnvironment, AuditKey: []byte(cfg.ActionAuditKey)}, OperationVerifier: &sharedauth.WalletOperationVerifier{Backend: backend}, Restrictions: policy, Livepeer: provider, WebhookSecret: cfg.LivepeerWebhookSecret, DecodeWebhook: decode, WebhookMilliseconds: cfg.WebhookTimestampUnit == "milliseconds", Playback: ProviderPlayback(provider, thumbnails), MarketCaps: &MarketCapReader{Pool: pool}}
+	deps := Deps{StudioWebhook: true, PlaybackWebhookSecret: cfg.PlaybackWebhookSecret, ObserveOutcome: metrics.ObserveWebhook, Lifecycle: lifecycle, Authorize: authorize, ProviderReady: ready, IngestKeys: keys, Viewers: viewers, ViewerTokens: &ViewerTokenAuthority{Key: []byte(cfg.ViewerTokenKey)}, OperationLedger: &sharedauth.Ledger{Pool: pool, Environment: cfg.ActionEnvironment, AuditKey: []byte(cfg.ActionAuditKey)}, OperationVerifier: &sharedauth.WalletOperationVerifier{Backend: backend}, Restrictions: policy, Livepeer: provider, WebhookSecret: cfg.LivepeerWebhookSecret, DecodeWebhook: decode, WebhookMilliseconds: cfg.WebhookTimestampUnit == "milliseconds", Playback: ProviderPlayback(provider, thumbnails), MarketCaps: &MarketCapReader{Pool: pool}}
 	return &ConnectedRuntime{Usage: usage, Metrics: metrics, Deps: deps, Provision: &ProvisionWorker{Store: lifecycle, Provider: provider, Credentials: keys, Restrictions: policy}, Reconcile: &ReconcileWorker{Store: lifecycle, Provider: provider, Restrictions: policy, Disagreement: metrics.DisagreementAlert}, Ready: ready}, nil
 }
 func (r *ConnectedRuntime) Run(ctx context.Context) error {

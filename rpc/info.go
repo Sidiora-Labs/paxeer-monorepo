@@ -120,6 +120,7 @@ func (i *InfoAPI) Accounts(ctx context.Context) (result []common.Address, return
 	if err != nil {
 		return []common.Address{}, err
 	}
+	result = make([]common.Address, 0)
 	for addr := range getAddressPrivKeyMap(kb) {
 		result = append(result, common.HexToAddress(addr))
 	}
@@ -187,7 +188,7 @@ func (i *InfoAPI) FeeHistory(ctx context.Context, blockCount gmath.HexOrDecimal6
 	defer func() {
 		recordMetricsWithError(ctx, "eth_feeHistory", i.connectionType, startTime, returnErr, recover())
 	}()
-	result = &FeeHistoryResult{}
+	result = &FeeHistoryResult{OldestBlock: new(hexutil.Big)}
 
 	// logic consistent with go-ethereum's validation (block < 1 means no block)
 	if blockCount < 1 {

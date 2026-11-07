@@ -22,7 +22,15 @@ func TestInfiniteGasMeter(t *testing.T) {
 	require.False(t, meter.IsOutOfGas())
 	meter.ConsumeGas(Gas(math.MaxUint64/2), "consume half max uint64")
 	require.Panics(t, func() { meter.ConsumeGas(Gas(math.MaxUint64/2)+2, "panic") })
-	require.Panics(t, func() { meter.RefundGas(meter.GasConsumed()+1, "refund greater than consumed") })
+	require.Equal(t, uint64(math.MaxUint64), meter.GasConsumed())
+	require.Equal(t, uint64(math.MaxUint64), meter.GasConsumedToLimit())
+
+	refundMeter := NewInfiniteMultiplierGasMeter(1, 1)
+	refundMeter.ConsumeGas(9, "consume 9")
+	require.PanicsWithValue(t, ErrorNegativeGasConsumed{Descriptor: "refund greater than consumed"}, func() {
+		refundMeter.RefundGas(refundMeter.GasConsumed()+1, "refund greater than consumed")
+	})
+	require.Equal(t, uint64(9), refundMeter.GasConsumed())
 	n, d := meter.Multiplier()
 	require.Equal(t, uint64(1), n)
 	require.Equal(t, uint64(1), d)

@@ -1,0 +1,49 @@
+[task]
+id = "22.31.4"
+audit = "22.30.11"
+acceptance = "22998.1"
+verified_revision_source = "The runner records the exact candidate revision, command, exit and private log in /out/run/gates.jsonl."
+baseline = "Not run: the ordered implementation-before-qualification rule and single bounded verify gate prohibit the contradictory baseline instruction. No pre-change test result is claimed."
+
+[finding.personal-sign-bytes]
+test = "personalSignPreservesAuthorizedBytes"
+repair = "Reject malformed hex and non-UTF-8 bytes; preserve empty input and UTF-8 BOM; recover the real message signer."
+
+[finding.eth-sign-digest]
+test = "ethSignUsesCanonicalConstructionAndRecoversSigner"
+repair = "Use the canonical provider construction validation, digest route and recovered signer checks with a pinned authenticated transport."
+
+[finding.session-account-cache]
+test = "sessionAccountCacheTracksIdentityAndReopen"
+additional_test = "staleLookupsAndSigningCannotCrossSessions"
+repair = "Bind account cache and in-flight operations to user identity and auth generation; pin bearer tokens and reject stale responses."
+
+[finding.signer-chain-consent]
+test = "signerAndChainConsentRejectMismatchesBeforeDispatch"
+additional_test = "signingResponsesMustMatchAccountAndChain"
+repair = "Check requested account and explicit chain before dispatch; validate response metadata and recover message and transaction signatures."
+
+[wiring.domain12]
+path = "services/wallet/gateway/src/routes/sign.ts"
+owner = "domain 12 wallet gateway"
+request = "Retain the existing /v1/wallet/sign-digest construction validation and account recovery contract, and address/chain_id evidence on /sign and /send; these existing handlers are exercised without out-of-scope source edits."
+
+[gotcha.auth-lock]
+observed = "Supabase auth subscribers run under its auth lock."
+resolution = "Invalidate session state synchronously, then defer getSession/getWallet until after the callback returns."
+
+[gotcha.text-bytes]
+observed = "A default UTF-8 decoder strips a leading BOM even in fatal mode."
+resolution = "Use ignoreBOM=true to preserve every authorized UTF-8 byte including the BOM."
+
+[gotcha.session-error-boundary]
+observed = "The prior attempt's held digest response reported a session transition as a disconnected gateway error."
+resolution = "Preserve authenticated transport errors, recheck the embedded session on canonical request failures, and assert code 4100 through both providers against a genuine held signing response."
+
+[gotcha.workspace-dependencies]
+observed = "The sandbox installed only apps/perps dependencies, leaving the canonical provider's viem dependency and the real gateway test dependencies absent."
+resolution = "Install the existing wallet workspace dependencies from its frozen lockfile and supply the real Anvil executable required by the integration test."
+revision = "49a303d34250cba56dfefaaf57e238eafc877ed3"
+command = "pnpm --dir apps/perps exec tsc --noEmit"
+exit = 2
+log = "/out/logs/build-1.log"

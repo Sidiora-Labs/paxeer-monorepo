@@ -176,3 +176,138 @@ func TestCompositeApplyUpgradesEndsPendingMergeStores(t *testing.T) {
 		require.Nil(t, cs.GetChildStoreByName(name).Get([]byte("before-upgrade")), name)
 	}
 }
+
+// Unlike the fresh-initialization cases above, this starts from committed
+// legacy state without any merge trees and reopens with the enlarged mount list.
+func runM1197LegacyMergeUpgrade(t *testing.T, mode config.WriteMode) {
+	t.Helper()
+	legacy, err := keys.AllModulesExcept(compositeMergeStoreNames...)
+	require.NoError(t, err)
+	dir := t.TempDir()
+	baseline := seedM1197Predecessor(t, dir, mode, legacy)
+	cs := openM1197Composite(t, dir, mode, keys.MemIAVLStoreKeys)
+	require.Equal(t, baseline, cloneCommitInfo(cs.LastCommitInfo()))
+	requireM1197Seed(t, cs)
+	checkpoint := cs.Version()
+
+	// The pending empty-view contract is currently memiavl-only. Mixed
+	// modes that still route these modules to memiavl require ApplyUpgrades
+	// before access; assert that unsupported pre-upgrade access fails loudly.
+	rejectAbsent := mode == config.MigrateEVM || mode == config.EVMMigrated ||
+		mode == config.MigrateAllButBank || mode == config.TestOnlyDualWrite
+	flatStores := mode == config.AllMigratedButBank || mode == config.MigrateBank || mode == config.FlatKVOnly
+	if mode == config.MemiavlOnly {
+		require.ElementsMatch(t, compositeMergeStoreNames, cs.PendingStores())
+	} else {
+		require.Empty(t, cs.PendingStores())
+	}
+	var upgrades []*proto.TreeNameUpgrade
+	var before, after []*proto.NamedChangeSet
+	for _, name := range compositeMergeStoreNames {
+		require.Equal(t, mode == config.MemiavlOnly, cs.IsPendingStore(name), name)
+		if cs.memIAVL != nil {
+			require.Nil(t, cs.memIAVL.GetChildStoreByName(name), name)
+		}
+		require.Nil(t, storeInfo(cloneCommitInfo(cs.LastCommitInfo()), name), name)
+		iter, err := cs.Iterator(name, nil, nil, true)
+		require.NoError(t, err)
+		require.False(t, iter.Valid(), name)
+		require.NoError(t, iter.Error())
+		require.NoError(t, iter.Close())
+		value, found, err := cs.Get(name, []byte("before-upgrade"))
+		require.Nil(t, value)
+		require.False(t, found)
+		if rejectAbsent {
+			require.ErrorContains(t, err, "store not found: "+name)
+			require.Panics(t, func() { cs.GetChildStoreByName(name).Get([]byte("before-upgrade")) })
+			require.Panics(t, func() { cs.GetChildStoreByName(name).Set([]byte("rejected"), []byte(name)) })
+		} else {
+			require.NoError(t, err)
+			require.Nil(t, cs.GetChildStoreByName(name).Get([]byte("before-upgrade")))
+		}
+		upgrades = append(upgrades, &proto.TreeNameUpgrade{Name: name})
+		before = append(before, &proto.NamedChangeSet{Name: name, Changeset: proto.ChangeSet{Pairs: []*proto.KVPair{
+			{Key: []byte("before-upgrade"), Value: []byte(name)},
+		}}})
+		after = append(after, &proto.NamedChangeSet{Name: name, Changeset: proto.ChangeSet{Pairs: []*proto.KVPair{
+			{Key: []byte("created"), Value: []byte(name)},
+		}}})
+	}
+	if rejectAbsent {
+		require.Error(t, cs.ApplyChangeSets(before), "an absent memiavl tree must reject the batch")
+		// A failed batch can advance an in-memory migration iterator. Reopen
+		// the committed baseline before continuing the supported upgrade path.
+		require.NoError(t, cs.Close())
+		cs = openM1197Composite(t, dir, mode, keys.MemIAVLStoreKeys)
+		require.Equal(t, baseline, cloneCommitInfo(cs.LastCommitInfo()))
+		requireM1197Seed(t, cs)
+	} else {
+		require.NoError(t, cs.ApplyChangeSets(before))
+		for _, name := range compositeMergeStoreNames {
+			if mode == config.MemiavlOnly {
+				require.Len(t, cs.HeldPendingWrites(name), 1, name)
+				require.Nil(t, cs.GetChildStoreByName(name).Get([]byte("before-upgrade")))
+			} else {
+				require.Equal(t, []byte(name), cs.GetChildStoreByName(name).Get([]byte("before-upgrade")))
+			}
+		}
+	}
+
+	require.NoError(t, cs.ApplyUpgrades(upgrades))
+	require.Equal(t, checkpoint, cs.Version())
+	require.Empty(t, cs.PendingStores())
+	for _, name := range compositeMergeStoreNames {
+		require.False(t, cs.IsPendingStore(name), name)
+		require.Empty(t, cs.HeldPendingWrites(name), name)
+		if cs.memIAVL != nil {
+			require.NotNil(t, cs.memIAVL.GetChildStoreByName(name), name)
+		}
+	}
+	require.NoError(t, cs.ApplyChangeSets(after))
+	version, err := cs.Commit()
+	require.NoError(t, err)
+	require.Equal(t, checkpoint+1, version)
+	committed := cloneCommitInfo(cs.LastCommitInfo())
+	require.NotEmpty(t, mergeStateSyncCommitHash(committed))
+	check := func(cs *CompositeCommitStore) {
+		t.Helper()
+		require.Equal(t, committed, cloneCommitInfo(cs.LastCommitInfo()))
+		requireM1197Seed(t, cs)
+		require.Empty(t, cs.PendingStores())
+		for _, name := range compositeMergeStoreNames {
+			value, found, err := cs.Get(name, []byte("created"))
+			require.NoError(t, err)
+			require.True(t, found, name)
+			require.Equal(t, []byte(name), value, name)
+			child := cs.GetChildStoreByName(name)
+			require.Equal(t, version, child.Version())
+			require.Equal(t, []byte(name), child.Get([]byte("created")))
+			require.Nil(t, child.Get([]byte("rejected")))
+			if flatStores {
+				require.Equal(t, []byte(name), child.Get([]byte("before-upgrade")))
+				physical, ok := cs.flatKV.Get(name, []byte("created"))
+				require.True(t, ok)
+				require.Equal(t, []byte(name), physical)
+			} else {
+				require.Nil(t, child.Get([]byte("before-upgrade")))
+				if mode == config.MigrateAllButBank {
+					physical, ok := cs.flatKV.Get(name, []byte("created"))
+					require.True(t, ok)
+					require.Equal(t, []byte(name), physical)
+				} else {
+					require.Equal(t, []byte(name), cs.memIAVL.GetChildStoreByName(name).Get([]byte("created")))
+				}
+			}
+			if cs.memIAVL != nil {
+				info := storeInfo(committed, name)
+				require.NotNil(t, info, name)
+				require.Equal(t, version, info.CommitId.Version)
+				require.NotEmpty(t, info.CommitId.Hash)
+			}
+		}
+	}
+	check(cs)
+	require.NoError(t, cs.Close())
+	cs = openM1197Composite(t, dir, mode, keys.MemIAVLStoreKeys)
+	check(cs)
+}

@@ -3,7 +3,7 @@
 import { useQueries } from "@tanstack/react-query";
 import { buildGetMarginTiers } from "@/core/perps/calls";
 import { getPublicClient } from "@/core/viem/clients";
-import { useMemo } from "react";
+import React, { useMemo } from "react";
 import { cn } from "@/ui/utils/cn";
 import { fmtUsdCompact as fmtUsd, weiToNumber } from "@/ui/utils/format";
 import { coinLogoUrl } from "@/core/perps/config";
@@ -14,7 +14,9 @@ import {
   parsePositionRow,
   pctWad,
   wadToDecimal,
+  type PositionRowInput,
 } from "@/core/perps/pnlHelpers";
+import type { MarginTier } from "@/core/perps/marketConfig";
 import { marketLabel } from "@/core/perps/marketLabel";
 import { usePerpsMarkets } from "@/hooks/perps/usePerpsMarkets";
 import { useRealtimePrices } from "@/hooks/perps/useRealtimePrices";
@@ -45,9 +47,37 @@ interface PositionRow {
   size: bigint; // 18-dec USD
   leverage: bigint; // 18-dec
   entryPrice: bigint; // 18-dec USD
-  markPrice: number; // ticker value, display only
-  unrealizedPnl: bigint; // 18-dec USD
-  pnlPct: bigint; // 18-dec percent of indexed collateral
+  markPrice: number | null; // ticker value, display only
+  valuation: {
+    unrealizedPnl: bigint; // 18-dec USD
+    pnlPct: bigint; // 18-dec percent of indexed collateral
+  } | null;
+}
+
+export function buildPortfolioPositionRow(
+  pos: PositionRowInput,
+  symbol: string,
+  markPrice: number | undefined,
+  tiers: readonly MarginTier[] | undefined,
+): PositionRow {
+  const parsed = parsePositionRow(pos, symbol);
+  const mark = markPriceWad(markPrice);
+  const pnlData = mark > 0n && tiers?.length
+    ? computePositionPnl(parsed, mark, tiers)
+    : null;
+  return {
+    id: String(pos.positionId),
+    symbol,
+    side: pos.isLong ? "long" : "short",
+    size: parsed.sizeUsd,
+    leverage: parsed.leverage,
+    entryPrice: parsed.entryPrice,
+    markPrice: mark > 0n && markPrice !== undefined ? markPrice : null,
+    valuation: pnlData ? {
+      unrealizedPnl: pnlData.unrealizedPnl,
+      pnlPct: pctWad(pnlData.unrealizedPnl, parsed.collateralUsd),
+    } : null,
+  };
 }
 
 export function PortfolioPositionsPanel({
@@ -80,27 +110,7 @@ export function PortfolioPositionsPanel({
   const rows = useMemo<PositionRow[]>(() => {
     return positions.map((pos, index) => {
       const sym = marketLabel(BigInt(pos.marketId), labels);
-      const parsed = parsePositionRow(pos, sym);
-      const markPrice = tickers[sym]?.mark_price ?? 0;
-      const mark = markPriceWad(markPrice);
-      const tiers = tierQueries[index].data;
-      const pnlData =
-        mark > 0n && tiers?.length
-          ? computePositionPnl(parsed, mark, tiers)
-          : null;
-      return {
-        id: String(pos.positionId),
-        symbol: sym,
-        side: pos.isLong ? "long" : "short",
-        size: parsed.sizeUsd,
-        leverage: parsed.leverage,
-        entryPrice: parsed.entryPrice,
-        markPrice,
-        unrealizedPnl: pnlData?.unrealizedPnl ?? 0n,
-        pnlPct: pnlData
-          ? pctWad(pnlData.unrealizedPnl, parsed.collateralUsd)
-          : 0n,
-      };
+      return buildPortfolioPositionRow(pos, sym, tickers[sym]?.mark_price, tierQueries[index].data);
     });
   }, [positions, tickers, tierQueries, labels]);
 
@@ -178,7 +188,7 @@ export function PortfolioPositionsPanel({
   );
 }
 
-function PositionRowItem({ row: r }: { row: PositionRow }) {
+export function PositionRowItem({ row: r }: { row: PositionRow }) {
   return (
     <div
       className="flex md:grid items-center gap-3 px-4 py-3 justify-between"
@@ -224,30 +234,36 @@ function PositionRowItem({ row: r }: { row: PositionRow }) {
         })}
       </span>
       <span className="hidden md:block text-right font-mono tabular-nums text-xs text-muted-foreground">
-        {r.markPrice > 0
+        {r.markPrice !== null
           ? `$${r.markPrice.toLocaleString("en-US", { maximumFractionDigits: 4 })}`
           : "—"}
       </span>
 
       <div className="flex flex-col items-end">
+        {r.valuation === null ? (
+          <span role="status" className="text-xs text-muted-foreground">Valuation unavailable — waiting for a valid price and margin tiers</span>
+        ) : (
+          <>
         <span
           className={cn(
             "font-mono tabular-nums text-xs font-semibold",
-            r.unrealizedPnl >= 0n ? "text-emerald-400" : "text-red-400",
+            r.valuation.unrealizedPnl >= 0n ? "text-emerald-400" : "text-red-400",
           )}
         >
-          {r.unrealizedPnl >= 0n ? "+" : ""}
-          {fmtUsd(wadToDecimal(r.unrealizedPnl))}
+                {r.valuation.unrealizedPnl >= 0n ? "+" : ""}
+                {fmtUsd(wadToDecimal(r.valuation.unrealizedPnl))}
         </span>
         <span
           className={cn(
             "text-[10px] font-mono tabular-nums",
-            r.unrealizedPnl >= 0n ? "text-emerald-400/70" : "text-red-400/70",
+            r.valuation.unrealizedPnl >= 0n ? "text-emerald-400/70" : "text-red-400/70",
           )}
         >
-          {r.pnlPct >= 0n ? "+" : ""}
-          {formatWadFixed(r.pnlPct, 2)}%
+                {r.valuation.pnlPct >= 0n ? "+" : ""}
+                {formatWadFixed(r.valuation.pnlPct, 2)}%
         </span>
+          </>
+        )}
       </div>
     </div>
   );

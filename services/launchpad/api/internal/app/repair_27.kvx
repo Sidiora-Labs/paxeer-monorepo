@@ -1,0 +1,29 @@
+[repair.22.31.27]
+audit = "22.30.20"
+base_revision = "ff6bf6162f496eda36bdb11465eb09d6f21a6fdd"
+mode = "BUILD"
+qualification = "hf-build then hf-done; exact candidate revision, command, exit and private evidence location are retained by /out/run/gates.jsonl and the final evidence line."
+baseline = "No baseline gate was run: the explicit task Order forbids verification before complete implementation and requires hf-done as the sole initial verify; no pre-change test failures are claimed."
+
+[finding.receipt-event-position-invented]
+proof = "TestRepair_27_receipt_event_position, TestRepair_27_log_free_receipts"
+path = "Real chain-125 geth EVM executes two LOG0 creations in one block -> HTTP JSON-RPC -> SDK ReceiptState and production/development HTTP consumers -> identical complete receipts with the real second log index 1."
+log_free = "The frozen ChainPosition requires a real event index. Both producers use ErrReceiptPosition for log-free success/reversion; the API sends 503 INTEGRITY_QUARANTINED with no receipt, while SDK state retains actual committed inclusion. No event index is invented."
+
+[finding.receipt-chain-identity-unchecked]
+proof = "TestRepair_27_wrong_chain, TestRepair_27_conflicting_block, TestRepair_27_conflicting_inclusion, TestRepair_27_missing_receipt, TestRepair_27_pending_and_unknown"
+path = "Actual chain-125/1337 nodes produce committed signed transactions, receipts and blocks -> HTTP transport (selected calls routed to a second actual node without payload modification) -> production RegisterNetworkReads consumer independently refuses foreign, conflicting or missing committed evidence."
+checks = "Check chain 125, receipt identity/status/log provenance, signed transaction hash/chain/signature, transaction inclusion metadata, node-reported block hash at receipt height and by hash, exact transaction hash at receipt index, and unchanged committed height after reading inclusion."
+missing = "A mined transaction without its receipt is quarantined; genuine pending and unknown hashes retain submitted/unknown with null receipt."
+
+[wiring.receipt_contract]
+request = "sdk/launchpad/shared/interfaces and the source v2 contract plus generated Go/TypeScript consumers — owning domain 4, task 22.31.26: define an explicit transaction-only receipt position, regenerate consumers, then enable log-free receipt projection in SDK/API; until then both refuse unrepresentable event positions."
+
+[workflow.gotcha]
+observed = "The audit's baseline-test step conflicts with the task's explicit ordered gate budget, and the receipt-only position requires an out-of-scope source-contract change."
+resolution = "Follow the explicit gate order, claim no baseline result, and record the transaction-only representation as a domain-4 wiring request rather than modifying out-of-scope files."
+
+[qualification.repair_1]
+observed = "The first hf-done run failed at the test helper admission constructor: its one-second wait exceeded the existing maximum 50 milliseconds, before HTTP receipt assertions executed."
+repair = "Use the real constructor's existing 50-millisecond bound, as the package's other network tests do; retain every assertion and production check."
+prior_evidence = "revision 5fd14dd6e8be261ab5c360798b8514cb2f154cef; cg spec done 22.31.27 -f layerx-merge --root /work/paxeer-monorepo; exit 1; /out/logs/verify-1.log"

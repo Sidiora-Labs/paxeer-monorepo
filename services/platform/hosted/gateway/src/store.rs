@@ -861,6 +861,31 @@ impl RedisStore {
         }
     }
 
+    /// Retains the highest authenticated node head across gateway restarts.
+    /// # Errors
+    /// Returns an error if Redis cannot durably record the head.
+    pub fn observe_committed_state(
+        &self,
+        chain: &str,
+        height: u64,
+        hash: &str,
+    ) -> Result<bool, String> {
+        if height == 0 || hash.len() != 64 || !hash.bytes().all(|b| b.is_ascii_hexdigit()) {
+            return Err("invalid committed state".into());
+        }
+        let key = format!(
+            "gateway:committed-state:{}",
+            crate::gateway_digest(&[chain.as_bytes()])
+        );
+        let height = format!("{height:020}");
+        let script = "local old=redis.call('HGET',KEYS[1],'height'); if old and (old>ARGV[1] or (old==ARGV[1] and redis.call('HGET',KEYS[1],'hash')~=ARGV[2])) then return 0 end; redis.call('HSET',KEYS[1],'height',ARGV[1],'hash',ARGV[2]); return 1";
+        match self.command(&["EVAL", script, "1", &key, &height, hash])? {
+            Resp::Integer(1) => Ok(true),
+            Resp::Integer(0) => Ok(false),
+            _ => Err("invalid committed state store response".into()),
+        }
+    }
+
     /// Atomically consumes a TAP registry-key/nonce pair and persists the
     /// credential, exact `LayerX` activity, and signer binding through the
     /// effective credential expiry.

@@ -97,7 +97,7 @@ pub(crate) mod tests {
     use super::*;
     use crate::quote::keccak;
     use crate::tx::{authorization_digest, recover as recover_tx, Authorization};
-    use k256::ecdsa::{RecoveryId, Signature, VerifyingKey};
+    use k256::ecdsa::{RecoveryId, Signature, SigningKey, VerifyingKey};
     use layerx_platform_internal::base64;
     use layerx_platform_internal::kms::{KeyStore, Service, SEAL_LABEL};
     use layerx_platform_internal::seal::SealKey;
@@ -156,6 +156,10 @@ pub(crate) mod tests {
 
         fn var(&self, suffix: &str) -> String {
             format!("{}_{suffix}", self.config.relayer_key_env)
+        }
+
+        fn raw_key(&self, contents: &str) {
+            std::env::set_var(&self.config.relayer_key_env, contents);
         }
 
         fn key_file(&self, contents: &str) -> Result<(), Box<dyn std::error::Error>> {
@@ -331,6 +335,7 @@ pub(crate) mod tests {
 
     impl Drop for Fixture {
         fn drop(&mut self) {
+            std::env::remove_var(&self.config.relayer_key_env);
             for suffix in [
                 "KEY_FILE",
                 "KMS_KEY_ID",
@@ -357,36 +362,56 @@ pub(crate) mod tests {
     }
 
     #[test]
-    fn key_file_produces_sponsor_address() -> Result<(), Box<dyn std::error::Error>> {
-        for encoded in [format!("{:064x}", 1), format!("0x{:064x}\r\n", 1)] {
-            let fixture = Fixture::new()?;
-            fixture.key_file(&encoded)?;
-            let loader = EvmSender::from_env(&fixture.config.relayer_key_env)?;
-            assert_eq!(loader.address(), SPONSOR);
-            let signer = LocalSigner::from_config(&fixture.config)?;
-            assert_eq!(signer.address(), SPONSOR);
-            let digest = keccak(b"key file quote digest");
-            assert_eq!(recover(&digest, &signer.sign_digest(digest)?)?, SPONSOR);
+    fn named_raw_key_produces_sponsor_address() -> Result<(), Box<dyn std::error::Error>> {
+        for key in [1_u8, 0x11] {
+            let secret = format!("{key:02x}").repeat(32);
+            let sponsor = evm_address(SigningKey::from_slice(&[key; 32])?.verifying_key());
+            for encoded in [secret.clone(), format!("0x{secret}")] {
+                let fixture = Fixture::new()?;
+                fixture.raw_key(&encoded);
+                let signer = LocalSigner::from_config(&fixture.config)?;
+                assert_eq!(signer.address(), sponsor);
+                for message in [
+                    &b"raw key quote digest"[..],
+                    b"raw key sponsored transaction",
+                ] {
+                    let digest = keccak(message);
+                    let bytes = signer.sign_digest(digest)?;
+                    assert_eq!(signer.sign_digest(digest)?, bytes);
+                    assert_eq!(recover(&digest, &bytes)?, sponsor);
+                }
+            }
         }
         Ok(())
     }
 
     #[test]
-    fn kms_handle_produces_sponsor_address() -> Result<(), Box<dyn std::error::Error>> {
+    fn key_file_is_refused() -> Result<(), Box<dyn std::error::Error>> {
+        for encoded in [format!("{:064x}", 1), format!("0x{:064x}\r\n", 1)] {
+            let fixture = Fixture::new()?;
+            fixture.key_file(&encoded)?;
+            let loader = EvmSender::from_env(&fixture.config.relayer_key_env)?;
+            assert_eq!(loader.address(), SPONSOR);
+            assert!(matches!(
+                LocalSigner::from_config(&fixture.config),
+                Err(SignerError::KeySource)
+            ));
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn kms_handle_is_refused() -> Result<(), Box<dyn std::error::Error>> {
         let fixture = Fixture::new()?;
         let port = fixture.start_kms()?;
         let (key_id, sponsor) = fixture.create_kms_key(port)?;
         std::env::set_var(fixture.var("KMS_KEY_ID"), &key_id);
         let loader = EvmSender::from_env(&fixture.config.relayer_key_env)?;
         assert_eq!(loader.address(), sponsor);
-        let signer = LocalSigner::from_config(&fixture.config)?;
-        assert_eq!(signer.address(), sponsor);
-        for message in [&b"kms quote digest"[..], b"kms sponsored transaction"] {
-            let digest = keccak(message);
-            let bytes = signer.sign_digest(digest)?;
-            assert_eq!(signer.sign_digest(digest)?, bytes);
-            assert_eq!(recover(&digest, &bytes)?, sponsor);
-        }
+        assert!(matches!(
+            LocalSigner::from_config(&fixture.config),
+            Err(SignerError::KeySource)
+        ));
         Ok(())
     }
 
@@ -398,20 +423,30 @@ pub(crate) mod tests {
             Err(SignerError::KeySource)
         ));
         fixture.key_file(&format!("{:064x}", 1))?;
+        assert!(matches!(
+            LocalSigner::from_config(&fixture.config),
+            Err(SignerError::KeySource)
+        ));
         std::env::set_var(fixture.var("KMS_KEY_ID"), "whk_relayer");
         assert!(matches!(
             LocalSigner::from_config(&fixture.config),
             Err(SignerError::KeySource)
         ));
         std::env::remove_var(fixture.var("KMS_KEY_ID"));
-        for invalid in ["00".repeat(32), "ff".repeat(32), "sensitive-value".into()] {
-            fs::remove_file(fixture.directory.join("relayer.key"))?;
-            fixture.key_file(&invalid)?;
+        for invalid in [
+            String::new(),
+            "00".repeat(32),
+            "ff".repeat(32),
+            "sensitive-value".into(),
+            format!("0x{}\r\n", "11".repeat(32)),
+        ] {
+            fixture.raw_key(&invalid);
             assert!(matches!(
                 LocalSigner::from_config(&fixture.config),
                 Err(SignerError::InvalidKey)
             ));
         }
+        std::env::remove_var(&fixture.config.relayer_key_env);
         std::env::set_var(
             fixture.var("KEY_FILE"),
             fixture.directory.join("missing-relayer.key"),
@@ -455,15 +490,16 @@ pub(crate) mod tests {
     }
 
     #[test]
-    fn kms_authorization_and_type_four_hash_recover_to_loader(
+    fn raw_key_authorization_and_type_four_hash_recover_to_loader(
     ) -> Result<(), Box<dyn std::error::Error>> {
         let fixture = Fixture::new()?;
-        let port = fixture.start_kms()?;
-        let (key_id, sponsor) = fixture.create_kms_key(port)?;
-        std::env::set_var(fixture.var("KMS_KEY_ID"), &key_id);
-        let loader = EvmSender::from_env(&fixture.config.relayer_key_env)?;
+        let secret = "22".repeat(32);
+        fixture.raw_key(&secret);
+        let sponsor = evm_address(SigningKey::from_slice(&[0x22; 32])?.verifying_key());
+        let loader = EvmSender::from_hex_secret(&secret)?;
         assert_eq!(loader.address(), sponsor);
         let signer = LocalSigner::from_config(&fixture.config)?;
+        assert_eq!(signer.address(), sponsor);
         let delegation = signer.sign_authorization(125, [0x44; 20], 9)?;
         let authorization = Authorization {
             chain_id: 125,

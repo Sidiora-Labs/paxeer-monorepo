@@ -1,4 +1,23 @@
 //! Receipt-key and consensus-commit gated submission finality.
+//!
+//! The public wait contract is [`wait_for_rung`], parameterized by
+//! [`VerificationProgress`]. It accepts `&mut P`, a 32-byte idempotency key,
+//! [`Rung`], and u64 start/deadline/poll-interval values in milliseconds; it
+//! returns `Result<WaitResult, FinalityError>`. The deadline is absolute and
+//! inclusive, and the interval must be nonzero. A deadline result reports the
+//! actual reached rung and never upgrades evidence.
+//!
+//! Consumers use [`SubmissionProgress::accepted`] or [`SubmissionProgress::submit`],
+//! then [`SubmissionProgress::observe_receipt`] with published [`ReceiptKeyEntry`]
+//! height windows. [`VerifiedReceipt::verify`] binds a 32-byte transaction hash
+//! to exact signed receipt bytes. [`VerifiedBlock::verify_with_header`] is the
+//! block-commit/inclusion producer; [`VerifiedBlock::verify`] alone cannot
+//! establish transaction coverage. [`augment_verified`] persists the separate
+//! evidence; [`SubmissionProgress::restore`] rechecks it after reopening the store.
+//!
+//! Retired API names: `wait_for_level` and `InclusionBundle` have no current
+//! aliases. Callers must migrate to `wait_for_rung`, `VerifiedReceipt` and
+//! `VerifiedBlock`; archive verification levels cannot substitute for rungs.
 
 use std::collections::BTreeSet;
 
@@ -9,10 +28,14 @@ use layerx_proof::receipt::verify_sequencer_signature;
 use layerx_types::rung::Rung;
 use sha2::{Digest, Sha256};
 
+use crate::read::CheckpointHeader;
+use layerx_crypto::evm_transaction::{decode_signed, transaction_hash};
+use layerx_programs::chain_proof::merkle::hash_from_byte_slices;
+
 use crate::node_rpc::{NodeRpc, NodeRpcError};
 use crate::store::{ObjectKind, Store, StoreError, TenantId, TenantKey};
 
-const RECORD_MAGIC: &[u8; 4] = b"LXF2";
+const RECORD_MAGIC: &[u8; 4] = b"LXF3";
 
 #[derive(Debug)]
 pub enum FinalityError {
@@ -253,6 +276,7 @@ pub struct VerifiedBlock {
     commit: BlockCommit,
     chain_id: String,
     validators: Vec<Validator>,
+    header: Option<CheckpointHeader>,
 }
 
 impl VerifiedBlock {
@@ -268,7 +292,89 @@ impl VerifiedBlock {
             commit: commit.clone(),
             chain_id: chain_id.to_owned(),
             validators: validators.to_vec(),
+            header: None,
         })
+    }
+    /// Authenticates the complete transaction list against the Comet header's data root.
+    /// Comet leaves are SHA-256 transaction hashes, with its simple Merkle domain tags.
+    pub fn verify_with_header(
+        block: &SequencerBlock,
+        commit: &BlockCommit,
+        header: &CheckpointHeader,
+        chain_id: &str,
+        validators: &[Validator],
+    ) -> Result<Self, FinalityError> {
+        let mut verified = Self::verify(block, commit, chain_id, validators)?;
+        let trusted: Vec<_> = validators
+            .iter()
+            .map(|v| crate::read::CommitValidator {
+                address: validator_address(&v.public_key),
+                public_key: v.public_key,
+                voting_power: v.voting_power,
+            })
+            .collect();
+        if header.height != block.number
+            || header.chain_id != chain_id
+            || header.version_block != 11
+            || header.validators_hash != crate::read::validator_set_hash(&trusted)
+            || header.block_hash() != commit.block_hash
+            || block.transactions.is_empty()
+            || block.transactions.len() > 4096
+            || block.transactions.iter().map(Vec::len).sum::<usize>() > 16 * 1024 * 1024
+        {
+            return Err(FinalityError::InvalidCommit);
+        }
+        let native_commit = crate::read::BlockCommit {
+            height: commit.height,
+            round: commit.round,
+            block_id: crate::read::BlockId {
+                hash: commit.block_hash,
+                part_set_total: commit.part_set_total,
+                part_set_hash: commit.part_set_hash,
+            },
+            votes: commit
+                .signatures
+                .iter()
+                .map(|signature| {
+                    let validator = trusted
+                        .iter()
+                        .find(|v| v.address == signature.validator_address)
+                        .ok_or(FinalityError::InvalidCommit)?;
+                    Ok(crate::read::CommitVote {
+                        validator_address: signature.validator_address,
+                        voting_power: validator.voting_power,
+                        timestamp: crate::read::CommitTimestamp {
+                            seconds: signature.timestamp_seconds,
+                            nanos: signature.timestamp_nanos,
+                        },
+                        signature: signature.signature,
+                    })
+                })
+                .collect::<Result<Vec<_>, FinalityError>>()?,
+        };
+        crate::read::checkpoint(block.number, chain_id, header, &native_commit, &trusted)
+            .map_err(|_| FinalityError::InvalidCommit)?;
+        let leaves: Vec<Vec<u8>> = block
+            .transactions
+            .iter()
+            .map(|tx| Sha256::digest(tx).to_vec())
+            .collect();
+        let leaves: Vec<&[u8]> = leaves.iter().map(Vec::as_slice).collect();
+        if header.data_hash != Some(hash_from_byte_slices(&leaves)) {
+            return Err(FinalityError::InvalidCommit);
+        }
+        verified.header = Some(header.clone());
+        Ok(verified)
+    }
+
+    fn binds(&self, receipt: &VerifiedReceipt) -> bool {
+        self.header.is_some()
+            && self.block.number == receipt.height
+            && self
+                .block
+                .transactions
+                .iter()
+                .any(|raw| transaction_hash(raw) == receipt.tx_hash && decode_signed(raw).is_ok())
     }
 }
 
@@ -323,7 +429,7 @@ pub fn augment_verified(
     receipt: &VerifiedReceipt,
     block: Option<&VerifiedBlock>,
 ) -> Result<FinalityRecord, FinalityError> {
-    if block.is_some_and(|block| block.block.number != receipt.height) {
+    if block.is_some_and(|block| !block.binds(receipt)) {
         return Err(FinalityError::InvalidCommit);
     }
     let record = FinalityRecord {
@@ -342,17 +448,23 @@ pub fn augment_verified(
     let key = record_key(tenant, idempotency_key)?;
     let bytes = encode_record(&record)?;
     if let Some(previous) = durable.get(&key) {
-        let previous = previous.bytes();
-        let receipt_end = 161_usize
-            .checked_add(record.receipt_bytes.len())
-            .ok_or(FinalityError::Arithmetic)?;
-        if previous.len() <= receipt_end
-            || previous.get(..68) != bytes.get(..68)
-            || previous.get(69..receipt_end) != bytes.get(69..receipt_end)
-            || previous[68] > record.rung.wire_rank()
-            || (previous[68] == Rung::Committed.wire_rank()
-                && previous.get(receipt_end..receipt_end + 33)
-                    != bytes.get(receipt_end..receipt_end + 33))
+        let previous = decode_record(
+            previous.bytes(),
+            &receipt.key,
+            block.map(|b| (b.chain_id.as_str(), b.validators.as_slice())),
+        )?;
+        if previous.idempotency_key != record.idempotency_key
+            || previous.tx_hash != record.tx_hash
+            || previous.receipt_bytes != record.receipt_bytes
+            || previous.receipt_key != record.receipt_key
+            || previous.height != record.height
+            || previous.rung > record.rung
+            || previous.block.as_ref().is_some_and(|old| {
+                record
+                    .block
+                    .as_ref()
+                    .is_none_or(|new| old.block.hash != new.block.hash)
+            })
         {
             return Err(FinalityError::Corrupt);
         }
@@ -380,6 +492,32 @@ impl SubmissionProgress {
             receipt: None,
             block: None,
         }
+    }
+
+    pub fn restore(
+        store: &Store,
+        tenant: TenantId,
+        idempotency_key: [u8; 32],
+        receipt_key: &ReceiptKeyEntry,
+        chain_id: &str,
+        validators: &[Validator],
+    ) -> Result<Self, FinalityError> {
+        let record = restore_finality(
+            store,
+            tenant,
+            idempotency_key,
+            receipt_key,
+            chain_id,
+            validators,
+        )?;
+        let receipt =
+            VerifiedReceipt::verify(record.tx_hash, &record.receipt_bytes, &[*receipt_key])?;
+        Ok(Self {
+            idempotency_key,
+            tx_hash: record.tx_hash,
+            receipt: Some(receipt),
+            block: record.block,
+        })
     }
 
     pub fn submit(
@@ -427,14 +565,38 @@ impl SubmissionProgress {
             return Err(FinalityError::InvalidCommit);
         }
         let verified = VerifiedBlock::verify(block, commit, chain_id, validators)?;
+        self.observe_verified_block(&verified)
+    }
+
+    pub fn observe_block_with_header(
+        &mut self,
+        block: &SequencerBlock,
+        commit: &BlockCommit,
+        header: &CheckpointHeader,
+        chain_id: &str,
+        validators: &[Validator],
+    ) -> Result<(), FinalityError> {
+        let verified =
+            VerifiedBlock::verify_with_header(block, commit, header, chain_id, validators)?;
+        self.observe_verified_block(&verified)
+    }
+
+    pub fn observe_verified_block(
+        &mut self,
+        verified: &VerifiedBlock,
+    ) -> Result<(), FinalityError> {
+        let receipt = self.receipt.as_ref().ok_or(FinalityError::InvalidReceipt)?;
+        if !verified.binds(receipt) {
+            return Err(FinalityError::InvalidCommit);
+        }
         if self
             .block
             .as_ref()
-            .is_some_and(|previous| previous.block.hash != block.hash)
+            .is_some_and(|previous| previous.block.hash != verified.block.hash)
         {
             return Err(FinalityError::Corrupt);
         }
-        self.block = Some(verified);
+        self.block = Some(verified.clone());
         Ok(())
     }
 
@@ -470,6 +632,25 @@ impl SubmissionProgress {
             }
         }
         Ok(())
+    }
+    pub fn refresh_with_header(
+        &mut self,
+        node: &NodeRpc,
+        commit: &BlockCommit,
+        header: &CheckpointHeader,
+        chain_id: &str,
+        validators: &[Validator],
+    ) -> Result<(), FinalityError> {
+        self.refresh(node, None, chain_id, validators)?;
+        let height = self
+            .receipt
+            .as_ref()
+            .ok_or(FinalityError::InvalidReceipt)?
+            .height;
+        let block = node
+            .block_by_number(height)?
+            .ok_or(FinalityError::InvalidCommit)?;
+        self.observe_block_with_header(&block, commit, header, chain_id, validators)
     }
 }
 
@@ -581,6 +762,19 @@ fn encode_record(record: &FinalityRecord) -> Result<Vec<u8>, FinalityError> {
             bytes.extend_from_slice(&signature.timestamp_nanos.to_be_bytes());
             bytes.extend_from_slice(&signature.signature);
         }
+        let header = block.header.as_ref().ok_or(FinalityError::InvalidCommit)?;
+        push_bytes(
+            &mut bytes,
+            &serde_json::to_vec(header).map_err(|_| FinalityError::Corrupt)?,
+        )?;
+        bytes.extend_from_slice(&block.block.parent_hash);
+        bytes.extend_from_slice(&block.block.timestamp.to_be_bytes());
+        bytes.extend_from_slice(&block.block.transactions_root);
+        bytes.extend_from_slice(&block.block.receipts_root);
+        bytes.extend_from_slice(&(block.block.transactions.len() as u32).to_be_bytes());
+        for raw in &block.block.transactions {
+            push_bytes(&mut bytes, raw)?;
+        }
     } else {
         bytes.push(0);
     }
@@ -613,4 +807,172 @@ fn field(output: &mut Vec<u8>, tag: u8, value: &[u8]) -> Result<(), FinalityErro
     );
     output.extend_from_slice(value);
     Ok(())
+}
+
+/// Reopens retained evidence using the caller's independently trusted key and validator set.
+pub fn restore_finality(
+    store: &Store,
+    tenant: TenantId,
+    idempotency_key: [u8; 32],
+    receipt_key: &ReceiptKeyEntry,
+    chain_id: &str,
+    validators: &[Validator],
+) -> Result<FinalityRecord, FinalityError> {
+    let value = store
+        .get(&record_key(tenant, idempotency_key)?)
+        .ok_or(FinalityError::ProgressUnavailable)?;
+    if value.class() != crate::store::StorageClass::LocalOnly {
+        return Err(FinalityError::Corrupt);
+    }
+    let record = decode_record(value.bytes(), receipt_key, Some((chain_id, validators)))?;
+    if record.idempotency_key != idempotency_key {
+        return Err(FinalityError::Corrupt);
+    }
+    Ok(record)
+}
+
+fn decode_record(
+    bytes: &[u8],
+    key: &ReceiptKeyEntry,
+    trust: Option<(&str, &[Validator])>,
+) -> Result<FinalityRecord, FinalityError> {
+    struct Reader<'a>(&'a [u8]);
+    impl Reader<'_> {
+        fn array<const N: usize>(&mut self) -> Result<[u8; N], FinalityError> {
+            let (head, rest) = self.0.split_at_checked(N).ok_or(FinalityError::Corrupt)?;
+            self.0 = rest;
+            head.try_into().map_err(|_| FinalityError::Corrupt)
+        }
+        fn u32(&mut self) -> Result<u32, FinalityError> {
+            Ok(u32::from_be_bytes(self.array()?))
+        }
+        fn u64(&mut self) -> Result<u64, FinalityError> {
+            Ok(u64::from_be_bytes(self.array()?))
+        }
+        fn data(&mut self) -> Result<Vec<u8>, FinalityError> {
+            let len = self.u32()? as usize;
+            let (head, rest) = self.0.split_at_checked(len).ok_or(FinalityError::Corrupt)?;
+            self.0 = rest;
+            Ok(head.to_vec())
+        }
+    }
+    let mut r = Reader(bytes);
+    if &r.array::<4>()? != RECORD_MAGIC {
+        return Err(FinalityError::Corrupt);
+    }
+    let idempotency_key = r.array()?;
+    let tx_hash = r.array()?;
+    let rank = r.array::<1>()?[0];
+    let height = r.u64()?;
+    let stored_key = ReceiptKeyEntry {
+        key_id: r.array()?,
+        public_key: r.array()?,
+        first_height: r.u64()?,
+        last_height: r.u64()?,
+    };
+    if &stored_key != key {
+        return Err(FinalityError::InvalidReceipt);
+    }
+    let receipt_bytes = r.data()?;
+    let receipt = VerifiedReceipt::verify(tx_hash, &receipt_bytes, &[*key])?;
+    if receipt.height != height {
+        return Err(FinalityError::Corrupt);
+    }
+    let block = match r.array::<1>()?[0] {
+        0 if rank == Rung::Receipted.wire_rank() => None,
+        1 if rank == Rung::Committed.wire_rank() => {
+            let hash = r.array()?;
+            let chain_id = String::from_utf8(r.data()?).map_err(|_| FinalityError::Corrupt)?;
+            let round = r.u32()?;
+            let part_set_total = r.u32()?;
+            let part_set_hash = r.array()?;
+            let count = r.u32()?;
+            if count > 10000 {
+                return Err(FinalityError::Corrupt);
+            }
+            let mut validators = Vec::new();
+            for _ in 0..count {
+                validators.push(Validator {
+                    public_key: r.array()?,
+                    voting_power: r.u64()?,
+                });
+            }
+            let (trusted_chain, trusted_validators) = trust.ok_or(FinalityError::InvalidCommit)?;
+            if chain_id != trusted_chain || validators != trusted_validators {
+                return Err(FinalityError::InvalidCommit);
+            }
+            let count = r.u32()?;
+            if count > validators.len() as u32 {
+                return Err(FinalityError::Corrupt);
+            }
+            let mut signatures = Vec::new();
+            for _ in 0..count {
+                signatures.push(CommitSignature {
+                    validator_address: r.array()?,
+                    timestamp_seconds: i64::from_be_bytes(r.array()?),
+                    timestamp_nanos: r.u32()?,
+                    signature: r.array()?,
+                });
+            }
+            let header: CheckpointHeader =
+                serde_json::from_slice(&r.data()?).map_err(|_| FinalityError::Corrupt)?;
+            let parent_hash = r.array()?;
+            let timestamp = r.u64()?;
+            let transactions_root = r.array()?;
+            let receipts_root = r.array()?;
+            let count = r.u32()?;
+            if count > 4096 {
+                return Err(FinalityError::Corrupt);
+            }
+            let mut transactions = Vec::new();
+            for _ in 0..count {
+                transactions.push(r.data()?);
+            }
+            let block = SequencerBlock {
+                number: height,
+                hash,
+                parent_hash,
+                timestamp,
+                transactions_root,
+                receipts_root,
+                transactions,
+            };
+            let commit = BlockCommit {
+                height,
+                round,
+                block_hash: hash,
+                part_set_total,
+                part_set_hash,
+                signatures,
+            };
+            let verified = VerifiedBlock::verify_with_header(
+                &block,
+                &commit,
+                &header,
+                &chain_id,
+                &validators,
+            )?;
+            if !verified.binds(&receipt) {
+                return Err(FinalityError::InvalidCommit);
+            }
+            Some(verified)
+        }
+        _ => return Err(FinalityError::Corrupt),
+    };
+    if !r.0.is_empty() {
+        return Err(FinalityError::Corrupt);
+    }
+    Ok(FinalityRecord {
+        idempotency_key,
+        tx_hash,
+        rung: if block.is_some() {
+            Rung::Committed
+        } else {
+            Rung::Receipted
+        },
+        receipt_bytes,
+        receipt_key: *key,
+        height,
+        block,
+    })
 }

@@ -1,0 +1,590 @@
+[audit.22.30.36]
+task = "22.30.36"
+revision = "6d2c32a65a1c7989a6a37abf5965929de9769ae4"
+files_reviewed = 34
+findings = 31
+docs_reviewed = 12
+upgrade_ready = false
+blocking = ["metadata-token-identity", "event-argument-collision"]
+
+[file.01]
+path = "apps/launchpad/web/package.json"
+lines = 62
+verdict = "clean"
+note = "Read fully: Next/React scripts and declared dependencies reviewed; this manifest does not itself establish the resolved-lockfile advisory criterion 22076.1."
+
+[file.02]
+path = "apps/launchpad/web/sentry.server.config.ts"
+lines = 14
+verdict = "clean"
+note = "Read fully: optional DSN initialization agrees with the server instrumentation import and uses explicit environment/release configuration."
+
+[file.03]
+path = "apps/launchpad/web/src/middleware.ts"
+lines = 86
+verdict = "clean"
+note = "Read fully: route matching, configured CSP origins and security headers checked against the web origin resolver; chart route policy is explicit."
+
+[file.04]
+path = "apps/launchpad/web/src/new-components/SkiperSquiCircleFilterLayout.tsx"
+lines = 24
+verdict = "clean"
+note = "Read fully: static SVG filter id matches swap-panel CSS usage and the component is mounted by app-shell; hidden SVG is not keyboard-focusable."
+
+[file.05]
+path = "apps/launchpad/web/src/widgets/chat/conversation-list.tsx"
+lines = 123
+verdict = "issues"
+note = "Read fully against bearer-authenticated chat reads, account-session invalidation and public peer-profile reads; application-session lifecycle finding recorded."
+
+[file.06]
+path = "apps/launchpad/web/src/widgets/chat/dm-thread.tsx"
+lines = 44
+verdict = "issues"
+note = "Read fully against useDmChat replay, revision, authentication and read-marker behavior; visible history does not bound the acknowledged sequence."
+
+[file.07]
+path = "apps/launchpad/web/src/widgets/my-token/my-token-view.tsx"
+lines = 110
+verdict = "issues"
+note = "Read fully against Quoter creator pools, token metadata and pool-address holders/trade consumers; identity and wallet-lifecycle findings recorded."
+
+[file.08]
+path = "apps/launchpad/web/tsconfig.json"
+lines = 44
+verdict = "clean"
+note = "Read fully: strict noEmit bundler-resolution configuration and source aliases agree with the Next web layout."
+
+[file.09]
+path = "apps/launchpad/web/vitest.config.ts"
+lines = 25
+verdict = "clean"
+note = "Read fully: default API, gateway, metadata and PNL backend origins are loopback, satisfying the default-origin intent of requirement 4485.1."
+
+[file.10]
+path = "sdk/launchpad/protocol/addresses_test.go"
+lines = 231
+verdict = "clean"
+note = "Read fully against active generation-2 address tables, chain id 125 and role 0x1017; generation-1 addresses are explicitly historical regression input, not an active endpoint."
+
+[file.11]
+path = "sdk/launchpad/protocol/bootstrap/abi_baseline.py"
+lines = 121
+verdict = "issues"
+note = "Read fully: role ABIs take precedence, artifacts remain the fallback, schema changes and hashes are recorded as source evidence; required CLI output argument is absent from registry signature."
+
+[file.12]
+path = "sdk/launchpad/protocol/bootstrap/test_abi_baseline.py"
+lines = 90
+verdict = "clean"
+note = "Read fully: real role ABI and artifact files feed the baseline subprocess; changed names and indexed-field schemas are asserted without claiming live-chain qualification."
+
+[file.13]
+path = "sdk/launchpad/protocol/events.go"
+lines = 137
+verdict = "issues"
+note = "Read fully against all ten binding ABIs and the topic-only indexer decoder/processor; duplicate signature argument-name mismatch recorded."
+
+[file.14]
+path = "sdk/launchpad/protocol/events_test.go"
+lines = 93
+verdict = "issues"
+note = "Read fully: hash, membership and ordering tests are valid but do not cover the colliding role schemas through the consuming processor."
+
+[file.15]
+path = "sdk/launchpad/protocol/role_events_test.go"
+lines = 45
+verdict = "clean"
+note = "Read fully: named role events exist in current role ABIs; their topic lookup checks supplement rather than replace payload-path qualification."
+
+[file.16]
+path = "sdk/launchpad/shared/constants/constants.go"
+lines = 90
+verdict = "issues"
+note = "Read fully: channel strings match producers and broker subscriptions, queue names are compatibility vocabulary and timeframe seconds agree; snapshot comment overstates pnl:update payload."
+
+[file.17]
+path = "sdk/launchpad/shared/constants/constants_test.go"
+lines = 103
+verdict = "clean"
+note = "Read fully: channel/queue uniqueness, exact values and timeframe ordering assertions agree with the current constants; payload semantics are not asserted here."
+
+[file.18]
+path = "sdk/launchpad/shared/log/log.go"
+lines = 68
+verdict = "clean"
+note = "Read fully: JSON slog factory, service tag, level normalization and exact secret-key redaction checked with current callers; it is not a general arbitrary-string sanitizer."
+
+[file.19]
+path = "sdk/launchpad/shared/log/log_test.go"
+lines = 93
+verdict = "clean"
+note = "Read fully: top-level secret redaction, JSON shape, levels and service labels match NewTo behavior; no claim of recursive arbitrary-object sanitization."
+
+[file.20]
+path = "sdk/launchpad/shared/telemetry/metrics.go"
+lines = 135
+verdict = "issues"
+note = "Read fully: bounded labels, read exclusions, counters and Prometheus serialization reviewed; mutation and transaction series have no live instrumentation callers."
+
+[file.21]
+path = "sdk/launchpad/shared/testpki/testpki.go"
+lines = 148
+verdict = "clean"
+note = "Read fully: generated CA/leaf SANs, validity, certificate chain and Ed25519 encodings agree with auth consumers; private key files use 0600 and test identities are ephemeral."
+
+[file.22]
+path = "services/launchpad/Makefile"
+lines = 103
+verdict = "issues"
+note = "Read fully: MODULES agrees with the workspace exclusions, goimports failure is propagated and test-module constrains module/anchored pattern; discovery status can still be swallowed."
+
+[file.23]
+path = "services/launchpad/api/cmd/apid/main.go"
+lines = 19
+verdict = "clean"
+note = "Read fully: signal context, app.Run error logging and nonzero process exit follow the actual API entrypoint lifecycle."
+
+[file.24]
+path = "services/launchpad/api/migrations/migrations.go"
+lines = 12
+verdict = "clean"
+note = "Read fully: tracked SQL is embedded and exported for goose fixtures; production schema provisioning is external to this accessor."
+
+[file.25]
+path = "services/launchpad/api/migrations/migrations_test.go"
+lines = 121
+verdict = "clean"
+note = "Read fully: embedded api_stream migration, table/trigger/index contracts and reverse drops match the tracked migration; actual goose application is covered by the API production integration fixture."
+
+[file.26]
+path = "services/launchpad/pnl-tracker/cmd/pnld/main.go"
+lines = 21
+verdict = "clean"
+note = "Read fully: signal cancellation and app.Run failure exit are correct; the application selects production broker accounting and nonproduction legacy paths."
+
+[file.27]
+path = "services/launchpad/pnl-tracker/internal/position/canonical.go"
+lines = 26
+verdict = "issues"
+note = "Read fully: actual natsdriver.Message carries Subject/Wire and implements the delivery contract; adapter delegates to the durable l16 inbox but has no application caller."
+
+[file.28]
+path = "services/launchpad/pnl-tracker/internal/position/consumer.go"
+lines = 106
+verdict = "clean"
+note = "Read fully: normalized tx-hash/log-index ids agree with reconciliation, amount legs and token lookup feed transactional FoldTrade, duplicate delivery is idempotent and Redis notification/invalidation are explicitly best-effort in this legacy path."
+
+[file.29]
+path = "services/launchpad/pnl-tracker/internal/position/consumer_test.go"
+lines = 177
+verdict = "issues"
+note = "Read fully: real Postgres/Redis exercise unit accounting, rejection, cache invalidation, notification and duplicate folding, using hand-built events within one consumer lifetime."
+
+[file.30]
+path = "services/launchpad/pnl-tracker/internal/reconcile/rebuild.go"
+lines = 20
+verdict = "issues"
+note = "Read fully: parameters and result match l16.Service.Rebuild; app uses the ownership-aware RebuildOwned path directly, leaving this wrapper unused."
+
+[file.31]
+path = "services/launchpad/pnl-tracker/internal/reconcile/reconcile.go"
+lines = 114
+verdict = "issues"
+note = "Read fully: persistent keyset cursor and FoldTrade idempotence agree on trade ids; partial-batch invalidation and missing backfill push findings concern the legacy worker, not active l16 accounting."
+
+[file.32]
+path = "services/launchpad/pnl-tracker/internal/reconcile/reconcile_test.go"
+lines = 129
+verdict = "issues"
+note = "Read fully: actual Postgres/Redis cover keyset drain and same-process overlap; poison-row and stop/reopen notification recovery are not exercised."
+
+[file.33]
+path = "tools/launchpad/coverage-gate.sh"
+lines = 111
+verdict = "issues"
+note = "Read fully: generated-file filtering, hidden SDK profile discovery, module-name reversal and money thresholds checked; expected/current module profile inventory is absent."
+
+[file.34]
+path = "tools/launchpad/production/serial_execution.py"
+lines = 137
+verdict = "clean"
+note = "Read fully against serial evidence callers: bounded process output, timeouts/cancellation, process-group cleanup, fresh external per-check output namespaces, checker/source hashes, HMAC evidence and historical template provenance agree; no active retired network endpoint."
+
+[finding.metadata-token-identity]
+file = "apps/launchpad/web/src/widgets/my-token/my-token-view.tsx"
+line = 33
+class = "interface-mismatch"
+severity = "high"
+observed = "Quoter.getPoolsByCreator returns PoolRegistry pool addresses, but MyTokenView sends each pool address to GET /metadata/{tokenAddress}. Both metadata handlers.go buildOne and production legacy_reads.go resolve metadata by token address; an unknown pool-as-token yields empty metadata rather than the coin name and symbol."
+expected = "The metadata route and gateway proxy require a token address, while the holders and trade panels require the pool address. These two identities must remain distinct through the creator-pool listing."
+proposal = "In apps/launchpad/web/src/widgets/my-token/my-token-view.tsx resolve each pool to its canonical token through the Quoter or pool read model, retain both identities, and request metadata by token. Prove creator discovery through the actual gateway metadata route into rendered names, including an unknown token refusal."
+owner_domain = 4
+interface = "4.http-metadata-get-metadata-token-address-handlers"
+
+[finding.creator-wallet-lifecycle]
+file = "apps/launchpad/web/src/widgets/my-token/my-token-view.tsx"
+line = 40
+class = "runtime-risk"
+severity = "medium"
+observed = "The metadata effect depends only on poolList.length and selectedPool is replaced only when it is falsy. Switching to another creator with the same number of pools does not load that creator metadata, and a previously selected pool survives a change to a disjoint pool list."
+expected = "My coins must display and select pools belonging to the current wallet, and a wallet or pool-list change must prevent an earlier request from installing stale results."
+proposal = "In apps/launchpad/web/src/widgets/my-token/my-token-view.tsx scope metadata requests to the wallet and actual pool identities, cancel obsolete requests, and reset selection whenever it is absent from the current list. Cover two wallets with equal-sized disjoint lists."
+owner_domain = 4
+
+[finding.dm-session-revocation]
+file = "apps/launchpad/web/src/widgets/chat/conversation-list.tsx"
+line = 36
+class = "security"
+severity = "medium"
+observed = "ConversationList fetches bearer-authenticated getDmConversations but its effect observes only wagmi address, isConnected and attempt. It neither subscribes to account-session changes nor registers a private-view invalidator. clearAccountSession can therefore leave conversation peers and unread metadata visible while the wallet remains connected; a pending response can also repopulate them."
+expected = "Private conversation metadata must belong to the current application session and be cleared on logout, expiry or session replacement independently of whether the wallet connection changes."
+proposal = "In apps/launchpad/web/src/widgets/chat/conversation-list.tsx subscribe to the account-transport session epoch, register synchronous revocation cleanup, bind requests to the session AbortSignal and reject responses from older sessions. Verify logout, expiry and login with an unchanged wallet."
+owner_domain = 4
+
+[finding.dm-visible-read-marker]
+file = "apps/launchpad/web/src/widgets/chat/dm-thread.tsx"
+line = 18
+class = "runtime-risk"
+severity = "medium"
+observed = "DmThread invokes markRead whenever chat.messages changes while the document is visible, even when offset selects Earlier messages. use-chat.ts markRead chooses the final message in the entire state and submits its sequence after two seconds, so a newly arrived message outside the displayed slice is marked read."
+expected = "A direct-message read marker must advance only through messages the reader has actually reached; browsing older history must preserve unread status for newer undisplayed messages."
+proposal = "In apps/launchpad/web/src/widgets/chat/dm-thread.tsx and apps/launchpad/web/src/hooks/chat/use-chat.ts pass the highest visible received sequence to markRead and cancel a pending mark when visibility or the viewed range changes. Verify an arrival while Earlier messages is selected."
+owner_domain = 4
+
+[finding.event-argument-collision]
+file = "sdk/launchpad/protocol/events.go"
+line = 58
+class = "interface-mismatch"
+severity = "high"
+observed = "The topic-only eventRegistry retains the first ABI for duplicate topic0 values. SidioraNFT precedes FeesRouter and names the indexed FeeStrategyChanged(uint256,uint8,uint8) argument tokenId; FeesRouter names it nftId. indexer/internal/decode maps this FeesRouter log to tokenId, but processor.handleFeeStrategyChanged reads nftId and rejects it. The emitter-aware registry elsewhere does not repair this exported LookupEvent path."
+expected = "Requirement 4531.1 and the declared LookupEvent consumer require role event arguments to survive ABI decoding into the names and types accepted by the indexer processor, including identical signatures declared by different roles."
+proposal = "In sdk/launchpad/protocol/events.go and services/launchpad/indexer/internal/decode select event schemas by verified emitter role plus topic, or normalize both role variants into an explicit canonical event before processor dispatch. Drive actual encoded logs from each role through Decode and handleFeeStrategyChanged."
+owner_domain = 4
+interface = "4.go-protocol-lookup-event"
+
+[finding.event-schema-path-test]
+file = "sdk/launchpad/protocol/events_test.go"
+line = 24
+class = "test-gap"
+severity = "medium"
+observed = "These tests verify signature hashes, declaring-contract membership, unknown topics and deterministic ordering, but do not decode the colliding FeeStrategyChanged schemas into the processor. The broader bindings proof compares role ABIs and round-trips Initialized; its registry membership check still accepts the first schema for this collision."
+expected = "Requirements 4531.1 and 21057.1 need the real producer ABI through LookupEvent and the indexer consumer to preserve indexed argument names as well as topic signatures, with a refusal for malformed input."
+proposal = "Extend sdk/launchpad/protocol/events_test.go and the owning indexer path proof to encode FeeStrategyChanged using both real role ABIs, decode through the exported registry and assert processor-visible nft identity and strategy values. Include incorrect emitter or malformed topic refusal."
+owner_domain = 4
+
+[finding.abi-cli-output-contract]
+file = "sdk/launchpad/protocol/bootstrap/abi_baseline.py"
+line = 60
+class = "config-drift"
+severity = "low"
+observed = "The CLI requires --output, whereas registry row 4.cli-protocol-abi-baseline-j30 declares python3 bootstrap/abi_baseline.py --contracts <root> [--abi-root <dir>] without that required argument. Invoking the declared command is rejected by argparse before comparison."
+expected = "The published command signature must include every required argument and distinguish read-only ABI evidence generation from deployment or live-chain qualification."
+proposal = "Update the owning CLI declaration in spec/layerx-merge/interfaces.kvx for sdk/launchpad/protocol/bootstrap/abi_baseline.py to include --output <file>, retain required explicit output selection, and document a complete invocation beside the baseline tooling."
+owner_domain = 4
+interface = "4.cli-protocol-abi-baseline-j30"
+
+[finding.pnl-channel-description]
+file = "sdk/launchpad/shared/constants/constants.go"
+line = 23
+class = "doc-drift"
+severity = "low"
+observed = "The derived-state channel comment promises every channel carries the fresh cached snapshot plus its routing key. position/consumer.go instead publishes only {userAddress} on pnl:update and the browser intentionally refetches; the existing consumer test asserts that signal shape."
+expected = "The shared channel descriptions must distinguish snapshot payloads from invalidation signals so another consumer does not interpret a routing-only message as a complete portfolio."
+proposal = "In sdk/launchpad/shared/constants/constants.go describe pnl:update explicitly as a user-scoped invalidation signal and point consumers to the portfolio read path. Keep the existing producer and broker forwarding contract aligned."
+owner_domain = 4
+interface = "4.go-shared-constants-channel-pnl-update"
+
+[finding.mutation-commit-telemetry]
+file = "sdk/launchpad/shared/telemetry/metrics.go"
+line = 63
+class = "wiring-gap"
+severity = "medium"
+observed = "RecordMutation and RecordCommit are exported but have no call sites in launchpad services, SDK or tools. New initializes their series to zero and WritePrometheus exports them, while running services instrument only reads; mutations and durable commits therefore remain unobserved by these counters."
+expected = "The advertised sli_mutation_* and durable_transaction_* metrics must reflect actual validation, authoritative transaction, outbox and acknowledgement outcomes from the service handling the operation."
+proposal = "Wire sdk/launchpad/shared/telemetry/metrics.go RecordMutation and RecordCommit at the real launchpad mutation/commit boundaries, preserving bounded service and route labels. Verify successful commit, rollback and missing-ack outcomes through actual operations and exported metrics."
+owner_domain = 4
+interface = "4.go-shared-telemetry-metrics-record-mutation"
+
+[finding.canonical-consumer-adapter]
+file = "services/launchpad/pnl-tracker/internal/position/canonical.go"
+line = 14
+class = "dead-code"
+severity = "low"
+observed = "NewCanonicalConsumer and ProcessDelivery have no call sites. The application runs l16.AccountingConsumer and PrepareAndConsume directly, so this adapter is not the running production delivery boundary even though it exposes that role."
+expected = "A delivery adapter should either be the application-owned entry path or be absent; production accounting must continue to use its durable inbox and real broker acknowledgement lifecycle."
+proposal = "In services/launchpad/pnl-tracker/internal/app/app.go and internal/position/canonical.go choose one broker-delivery entry path: wire the adapter with actual natsdriver messages or remove the redundant wrapper. Preserve the currently wired l16 durability and recovery path."
+owner_domain = 4
+
+[finding.inventory-rebuild-adapter]
+file = "services/launchpad/pnl-tracker/internal/reconcile/rebuild.go"
+line = 12
+class = "dead-code"
+severity = "low"
+observed = "NewInventoryRebuilder and RebuildPartition have no callers. The running journey invokes live.RebuildOwned directly in internal/app/app.go, while this unused adapter exposes the lower-level Service.Rebuild API."
+expected = "The supported rebuild entry point must be clear and remain subject to the ownership, epoch and committed-height checks used by the running inventory service."
+proposal = "In services/launchpad/pnl-tracker/internal/reconcile/rebuild.go remove the unused lower-level adapter or wire an explicitly authorized application path to it with the same ownership and epoch guarantees as RebuildOwned. Keep one documented rebuild lifecycle."
+owner_domain = 4
+
+[finding.legacy-reconcile-cache-recovery]
+file = "services/launchpad/pnl-tracker/internal/reconcile/reconcile.go"
+line = 76
+class = "restart-recovery"
+severity = "medium"
+observed = "RunOnce commits each FoldTrade before advancing the cursor and invalidating touched users. A later poison row returns after advancing over successful rows; an AdvanceCursor error also returns before invalidation. Retrying committed rows yields inserted=false, so their touched users are never invalidated. This worker is the nonproduction legacy path; TTL limits stale-cache duration."
+expected = "A successfully folded trade must leave a recoverable cache invalidation obligation even when the batch stops, the cursor update fails or the process restarts between database commit and invalidation."
+proposal = "In services/launchpad/pnl-tracker/internal/reconcile/reconcile.go persist invalidation intent with each fold or durably drain touched users before advancing; make replay restore outstanding invalidations. Verify partial success followed by a poison row, cursor failure and restart without modifying the active l16 accounting path."
+owner_domain = 4
+
+[finding.legacy-reconcile-push]
+file = "services/launchpad/pnl-tracker/internal/reconcile/reconcile.go"
+line = 96
+class = "wiring-gap"
+severity = "medium"
+observed = "The legacy reconciler invalidates Redis caches after a completed batch but never emits pnl:update. In contrast position.Consumer emits the userAddress signal after a new fold, so push-first clients can remain on an old portfolio after backfill until another event or explicit refresh."
+expected = "Where the legacy realtime and backfill paths are enabled, a newly folded portfolio change must reach the same client refresh contract regardless of which path recovered the trade."
+proposal = "In services/launchpad/pnl-tracker/internal/reconcile/reconcile.go publish the same user-scoped pnl:update signal for durably changed users, with a recoverable notification obligation and deduplication. Prove a backfilled swap reaches the actual broker and portfolio refresh subscriber."
+owner_domain = 4
+interface = "4.go-shared-constants-channel-pnl-update"
+
+[finding.legacy-reconcile-restart-test]
+file = "services/launchpad/pnl-tracker/internal/reconcile/reconcile_test.go"
+line = 75
+class = "test-gap"
+severity = "medium"
+observed = "The overlap test seeds indexer rows directly and calls Store.FoldTrade to simulate the realtime consumer. All reconciliation tests run on one process lifetime; none stops after a committed prefix, reopens persisted state and checks cursor, portfolio, cache and notification convergence after a poison row."
+expected = "Backfill recovery must be proven using the actual enabled producer and consumer path across reopening persistent state, including partial-batch failure and duplicate overlap, rather than only direct store insertion."
+proposal = "Extend services/launchpad/pnl-tracker/internal/reconcile/reconcile_test.go with a real legacy producer-to-consumer/backfill flow using actual Postgres and Redis; stop after a committed prefix, reopen the worker and assert one trade, the correct cursor, refreshed cache and user notification."
+owner_domain = 4
+
+[finding.legacy-consumer-path-test]
+file = "services/launchpad/pnl-tracker/internal/position/consumer_test.go"
+line = 44
+class = "test-gap"
+severity = "medium"
+observed = "Consumer tests use real Postgres and Redis but invoke ProcessEvent with hand-built SwapEvent values and synthetic addresses. The separate webhook tests also hand-build their event bodies; these checks do not prove actual indexer-produced bytes, transport decoding and consumer state survive stop and reopen."
+expected = "The legacy swap interface needs one producer-through-transport consumer proof with real emitted event shape and persisted idempotence across restart. Existing canonical l16 recovery coverage does not establish this separate legacy interface."
+proposal = "Extend services/launchpad/pnl-tracker/internal/position/consumer_test.go and the owning webhook path proof to obtain a swap from the real indexer producer, deliver its serialized bytes through the enabled transport, reopen the consumer store and redeliver. Assert one trade, buy/sell units, cache invalidation and pnl:update."
+owner_domain = 4
+
+[finding.make-package-discovery]
+file = "services/launchpad/Makefile"
+line = 47
+class = "runtime-risk"
+severity = "medium"
+observed = "has_pkgs discards go list stderr and recipes test only whether its stdout is empty. A package discovery failure with no stdout is treated as an empty scaffold and skipped by build, vet, lint, test, race and cover instead of failing the gate."
+expected = "A module in MODULES may be skipped only after successful discovery proves it has no packages; parse, dependency and module-resolution errors must make the requested verification command fail."
+proposal = "In services/launchpad/Makefile capture and propagate go list exit status before checking its output, retaining empty-scaffold support only on successful discovery. Add a workspace-gate regression for a listed module with a real package discovery error."
+owner_domain = 4
+interface = "4.mk-launchpad-build-j29"
+
+[finding.coverage-module-inventory]
+file = "tools/launchpad/coverage-gate.sh"
+line = 25
+class = "wiring-gap"
+severity = "medium"
+observed = "The coverage gate iterates only profiles already present in COVER_DIR and requires merely one profile. It has no expected MODULES inventory or freshness check, so missing module profiles are invisible and retained profiles from an earlier cover run can substitute for modules skipped by failed discovery."
+expected = "A gate described as enforcing every module coverage threshold must account for every current code-bearing module and use coverage generated for the current candidate, while explicitly identifying genuinely empty modules."
+proposal = "In tools/launchpad/coverage-gate.sh and services/launchpad/Makefile pass the expected module inventory and a fresh run manifest, reject missing or stale profiles and record explicit empty-module results. Cover omission of one money module while another module has a passing profile."
+owner_domain = 4
+interface = "4.cli-lp-tools-coverage-gate"
+
+[finding.beta-site]
+file = "docs/site/docs/operators/beta-cluster.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The daemon inventory and bringup instructions describe layerx-node, paxeer-boundary, relay-archive, intent-ingester and layerxd bootstrap/settlement as active cluster components. These are pre-merge services, not the specified single paxd BFT network."
+expected = "Audit brief network facts 1-3 require one chain whose paxd kernel proposes blocks, final committed receipts and public node JSON-RPC at the root path; operators must not deploy retired services."
+proposal = "Rewrite docs/site/docs/operators/beta-cluster.md and docs/wiki/BetaCluster.md together around current paxd images, tenant configuration, native funding, root-path RPC readiness and committed finality; remove retired daemon and settlement bringup instructions."
+owner_domain = 16
+
+[finding.beta-wiki]
+file = "docs/wiki/BetaCluster.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The daemon inventory and bringup instructions describe layerx-node, paxeer-boundary, relay-archive, intent-ingester and layerxd bootstrap/settlement as active cluster components. These are pre-merge services, not the specified single paxd BFT network."
+expected = "Audit brief network facts 1-3 require one chain whose paxd kernel proposes blocks, final committed receipts and public node JSON-RPC at the root path; operators must not deploy retired services."
+proposal = "Rewrite docs/site/docs/operators/beta-cluster.md and docs/wiki/BetaCluster.md together around current paxd images, tenant configuration, native funding, root-path RPC readiness and committed finality; remove retired daemon and settlement bringup instructions."
+owner_domain = 16
+
+[finding.boundary-site]
+file = "docs/site/docs/concepts/paxeer-boundary.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The page presents layerx-paxeer-boundary as the only TLS path into Paxeer and describes paxeer-client, an old method allowlist and the pre-merge settlement flow as running infrastructure."
+expected = "The merged network exposes node RPC directly at the documented root-path node origins and separates hosted px_ contracts from node namespaces; no retired boundary daemon is the mandatory ingress."
+proposal = "Replace docs/site/docs/concepts/paxeer-boundary.md and docs/wiki/PaxeerBoundary.md with current node and hosted gateway trust boundaries, namespaces, authentication and finality. Remove the retired boundary/client deployment and settlement instructions."
+owner_domain = 8
+
+[finding.boundary-wiki]
+file = "docs/wiki/PaxeerBoundary.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The page presents layerx-paxeer-boundary as the only TLS path into Paxeer and describes paxeer-client, an old method allowlist and the pre-merge settlement flow as running infrastructure."
+expected = "The merged network exposes node RPC directly at the documented root-path node origins and separates hosted px_ contracts from node namespaces; no retired boundary daemon is the mandatory ingress."
+proposal = "Replace docs/site/docs/concepts/paxeer-boundary.md and docs/wiki/PaxeerBoundary.md with current node and hosted gateway trust boundaries, namespaces, authentication and finality. Remove the retired boundary/client deployment and settlement instructions."
+owner_domain = 8
+
+[finding.cli-site]
+file = "docs/site/docs/platform/cli.md"
+line = 8
+class = "doc-drift"
+severity = "medium"
+observed = "The CLI guide requires a /rpc endpoint and later describes unified /rpc and old Programs REST ingress. Its wallet/token discussion around lines 106-139 also says commands are absent despite listing those commands earlier in the same page."
+expected = "CLI guidance must use current node root-path RPC or the specifically declared hosted interface and present one consistent inventory of implemented wallet and token commands."
+proposal = "Rewrite docs/site/docs/platform/cli.md and docs/wiki/Cli.md against the current CLI help and hosted OpenRPC contract, replacing retired router and Programs ingress examples and reconciling the wallet/token command table with the walkthrough."
+owner_domain = 8
+
+[finding.cli-wiki]
+file = "docs/wiki/Cli.md"
+line = 8
+class = "doc-drift"
+severity = "medium"
+observed = "The CLI guide requires a /rpc endpoint and later describes unified /rpc and old Programs REST ingress. Its wallet/token discussion around lines 106-139 also says commands are absent despite listing those commands earlier in the same page."
+expected = "CLI guidance must use current node root-path RPC or the specifically declared hosted interface and present one consistent inventory of implemented wallet and token commands."
+proposal = "Rewrite docs/site/docs/platform/cli.md and docs/wiki/Cli.md against the current CLI help and hosted OpenRPC contract, replacing retired router and Programs ingress examples and reconciling the wallet/token command table with the walkthrough."
+owner_domain = 8
+
+[finding.gateway-site]
+file = "docs/site/docs/platform/hosted-gateway.md"
+line = 39
+class = "doc-drift"
+severity = "medium"
+observed = "The gateway guide combines eth/lx/px behind a unified router and advertises /rpc, /rpc/schema and /rpc/ws. It also retains old Programs REST writes and daemon LNI registry instructions; the site and wiki even disagree on the displayed method count."
+expected = "Node JSON-RPC is served at the root by paxd node origins; hosted px_ methods follow services/platform/hosted/gateway/openrpc.json and do not create a separate LayerX/router interface."
+proposal = "Rewrite docs/site/docs/platform/hosted-gateway.md and docs/wiki/HostedGateway.md from services/platform/hosted/gateway/openrpc.json, distinguishing node and hosted endpoints and current auth/errors. Remove retired router paths, old Programs write ingress and daemon LNI procedures."
+owner_domain = 8
+
+[finding.gateway-wiki]
+file = "docs/wiki/HostedGateway.md"
+line = 39
+class = "doc-drift"
+severity = "medium"
+observed = "The gateway guide combines eth/lx/px behind a unified router and advertises /rpc, /rpc/schema and /rpc/ws. It also retains old Programs REST writes and daemon LNI registry instructions; the site and wiki even disagree on the displayed method count."
+expected = "Node JSON-RPC is served at the root by paxd node origins; hosted px_ methods follow services/platform/hosted/gateway/openrpc.json and do not create a separate LayerX/router interface."
+proposal = "Rewrite docs/site/docs/platform/hosted-gateway.md and docs/wiki/HostedGateway.md from services/platform/hosted/gateway/openrpc.json, distinguishing node and hosted endpoints and current auth/errors. Remove retired router paths, old Programs write ingress and daemon LNI procedures."
+owner_domain = 8
+
+[finding.workspace-site]
+file = "docs/site/docs/programs/workspace.md"
+line = 15
+class = "doc-drift"
+severity = "medium"
+observed = "The workspace map still lists layerx-programs-protocol-adapter, says generate-abi-vectors.py requires ABI_VERSION 2 although the current generator requires ABI v4 and the runtime binds ABI_V4_VERSION, and links the old cmd/layerxd WAL path as an active runtime component."
+expected = "The merged Programs guide must name current components and registration ABI versions, with release guest settings, build-time chain domain and the 524288-byte envelope-inclusive deployment limit."
+proposal = "Update docs/site/docs/programs/workspace.md and docs/wiki/ProgramsWorkspace.md to remove retired adapter/daemon paths, map supported host/guest registration ABIs and document the release opt-level z build, chain domain and 104-byte envelope within the deployment limit."
+owner_domain = 13
+
+[finding.workspace-wiki]
+file = "docs/wiki/ProgramsWorkspace.md"
+line = 15
+class = "doc-drift"
+severity = "medium"
+observed = "The workspace map still lists layerx-programs-protocol-adapter, says generate-abi-vectors.py requires ABI_VERSION 2 although the current generator requires ABI v4 and the runtime binds ABI_V4_VERSION, and links the old cmd/layerxd WAL path as an active runtime component."
+expected = "The merged Programs guide must name current components and registration ABI versions, with release guest settings, build-time chain domain and the 524288-byte envelope-inclusive deployment limit."
+proposal = "Update docs/site/docs/programs/workspace.md and docs/wiki/ProgramsWorkspace.md to remove retired adapter/daemon paths, map supported host/guest registration ABIs and document the release opt-level z build, chain domain and 104-byte envelope within the deployment limit."
+owner_domain = 13
+
+[finding.sdk-symbol-inventory]
+file = "docs/system/sdk.md"
+line = 916
+class = "doc-drift"
+severity = "low"
+observed = "The generated Rust export table lists an item named fn with kind const and later renders incomplete wildcard entries such as abi::. These are parser artifacts rather than callable SDK symbols."
+expected = "The SDK export inventory must expose real Rust declarations and usable qualified names so integrators can find supported functions and re-exports."
+proposal = "Fix the Rust declaration/re-export extraction in the docs inventory generator and regenerate docs/system/sdk.md, treating const fn as a function declaration and expanding or clearly representing wildcard re-exports."
+owner_domain = 16
+
+[finding.launchpad-contract-guide]
+file = "contracts/launchpad/README.md"
+line = 124
+class = "doc-drift"
+severity = "medium"
+observed = "The README says indexers need exactly one EventEmitter address and every event contains poolId, timestamp and block number. Actual role ABIs include directly emitted role events with different fields, including FeeStrategyChanged on FeesRouter and SidioraNFT. This one-address subscription misses role-specific emissions such as FeeStrategyChanged and AccountingMigrated."
+expected = "Launchpad integration guidance must describe all deployed role event emitters and their exact payloads so indexers can subscribe to and interpret role-specific events correctly."
+proposal = "Rewrite contracts/launchpad/README.md event subscription guidance from current role ABIs and the protocol registry, listing emitter identities and exact role payloads, including distinct fee-strategy schemas. Document which events are mirrored through EventEmitter and which require direct subscriptions."
+owner_domain = 4
+
+[finding.launchpad-routing-guide]
+file = "contracts/launchpad/README.md"
+line = 55
+class = "doc-drift"
+severity = "medium"
+observed = "The architecture narrative says there are no multi-token paths, but Router exposes swapTokenForToken and the role ABI includes MultihopSwap, routing between tokens through the common USDL asset."
+expected = "The contract guide must distinguish each pool's USDL pairing from the router's supported token-to-token path, including both legs and their slippage constraints."
+proposal = "Update contracts/launchpad/README.md routing guidance against contracts/launchpad/contracts/periphery/Router.sol and its role ABI, documenting supported token-to-token paths through USDL and the associated quote, minimum-output and event behavior."
+owner_domain = 4
+
+[finding.launchpad-governance-guide]
+file = "contracts/launchpad/README.md"
+line = 243
+class = "doc-drift"
+severity = "medium"
+observed = "Deployment Details names SID as the governance token and says the initial multisig transitions to full SID-holder governance, while line 116 correctly documents initializeAdmin as the default and token governance as an explicit GOVERNANCE_MODE=token choice."
+expected = "Deployment details must agree with the administrator-controlled default and must not imply a required SID token or automatic transition to token voting for an administrator-only deployment."
+proposal = "Align the Deployment Details section in contracts/launchpad/README.md with its GovernanceModule section and contracts/launchpad/scripts/deploy.js: describe admin governance as the default, the explicit token-mode choice and the actual configured administrator/Timelock responsibilities."
+owner_domain = 4
+
+[doc.beta-site]
+path = "docs/site/docs/operators/beta-cluster.md"
+status = "misleading"
+notes = "Lines 3-7 and 26-50 retain the old daemon and settlement inventory; later LNI/cluster sections also require the merged-network operator rewrite. Site-specific custody and explorer guidance is part of that drift."
+
+[doc.beta-wiki]
+path = "docs/wiki/BetaCluster.md"
+status = "misleading"
+notes = "Lines 3-7 and 26-50 retain the old daemon and settlement inventory; later LNI/cluster sections also require the merged-network operator rewrite. Site-specific custody and explorer guidance is part of that drift."
+
+[doc.boundary-site]
+path = "docs/site/docs/concepts/paxeer-boundary.md"
+status = "misleading"
+notes = "Lines 3-7 describe the retired boundary and client; the allowlist around line 38 and settlement narrative around lines 119-129 belong to the old interface."
+
+[doc.boundary-wiki]
+path = "docs/wiki/PaxeerBoundary.md"
+status = "misleading"
+notes = "Lines 3-7 describe the retired boundary and client; the allowlist around line 38 and settlement narrative around lines 119-129 belong to the old interface."
+
+[doc.cli-site]
+path = "docs/site/docs/platform/cli.md"
+status = "misleading"
+notes = "Retired endpoint at line 8 and unified interface around lines 277-299; command availability claims around lines 106-139 contradict the earlier command table."
+
+[doc.cli-wiki]
+path = "docs/wiki/Cli.md"
+status = "misleading"
+notes = "Retired endpoint at line 8 and unified interface around lines 277-299; command availability claims around lines 106-139 contradict the earlier command table."
+
+[doc.gateway-site]
+path = "docs/site/docs/platform/hosted-gateway.md"
+status = "misleading"
+notes = "Lines 39-52 advertise the retired unified surface; lines 198-209 retain old program writes and lines 617-632 retain daemon registry operations. Synchronize the method inventory between mirrors."
+
+[doc.gateway-wiki]
+path = "docs/wiki/HostedGateway.md"
+status = "misleading"
+notes = "Lines 39-52 advertise the retired unified surface; lines 198-209 retain old program writes and lines 617-632 retain daemon registry operations. Synchronize the method inventory between mirrors."
+
+[doc.workspace-site]
+path = "docs/site/docs/programs/workspace.md"
+status = "stale"
+notes = "Line 15 lists the retired adapter, line 37 incorrectly says the generator requires ABI_VERSION 2 instead of the current ABI v4 policy and line 156 points into cmd/layerxd. Both mirrors require the same current workspace and ABI map."
+
+[doc.workspace-wiki]
+path = "docs/wiki/ProgramsWorkspace.md"
+status = "stale"
+notes = "Line 15 lists the retired adapter, line 37 incorrectly says the generator requires ABI_VERSION 2 instead of the current ABI v4 policy and line 156 points into cmd/layerxd. Both mirrors require the same current workspace and ABI map."
+
+[doc.sdk-symbol-inventory]
+path = "docs/system/sdk.md"
+status = "stale"
+notes = "The TS/Python/Rust page is an export inventory rather than a launchpad Go guide; the Rust item at line 916 and incomplete use entries around line 943 are malformed."
+
+[doc.launchpad-contract-guide]
+path = "contracts/launchpad/README.md"
+status = "misleading"
+notes = "Line 55 denies multi-token paths; line 124 promises a universal EventEmitter payload; governance discussion around lines 243-244 conflicts with the admin default at line 116. Separate findings cover each discrepancy."

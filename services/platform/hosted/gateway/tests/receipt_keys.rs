@@ -1064,6 +1064,29 @@ impl Gateway {
         panic!("gateway did not become live")
     }
 
+    fn assert_retired_rpc_path(&self) -> Result<(), String> {
+        let body = r#"{"jsonrpc":"2.0","id":81,"method":"px_getReceiptKeys","params":[]}"#;
+        let mut stream =
+            TcpStream::connect(("127.0.0.1", self.port)).map_err(|error| error.to_string())?;
+        stream
+            .set_read_timeout(Some(Duration::from_secs(30)))
+            .map_err(|error| error.to_string())?;
+        write!(stream, "POST /rpc HTTP/1.1\r\nHost: localhost\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}", body.len()).map_err(|error| error.to_string())?;
+        let mut answer = Vec::new();
+        stream
+            .read_to_end(&mut answer)
+            .map_err(|error| error.to_string())?;
+        let end = answer
+            .windows(4)
+            .position(|window| window == b"\r\n\r\n")
+            .ok_or("refusal header terminator")?;
+        assert!(String::from_utf8_lossy(&answer[..end]).starts_with("HTTP/1.1 404 "));
+        let body: Value =
+            serde_json::from_slice(&answer[end + 4..]).map_err(|error| error.to_string())?;
+        assert_eq!(body["error"]["code"], "not_found");
+        Ok(())
+    }
+
     fn receipt_keys(&self, params: Value) -> Result<Value, String> {
         let call =
             json!({"jsonrpc": "2.0", "id": 81, "method": "px_getReceiptKeys", "params": params});
@@ -1073,7 +1096,7 @@ impl Gateway {
         stream
             .set_read_timeout(Some(Duration::from_secs(30)))
             .map_err(|error| error.to_string())?;
-        write!(stream, "POST /rpc HTTP/1.1\r\nHost: localhost\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}", body.len())
+        write!(stream, "POST / HTTP/1.1\r\nHost: localhost\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}", body.len())
             .map_err(|error| error.to_string())?;
         let mut answer = Vec::new();
         stream
@@ -1118,6 +1141,7 @@ fn receipt_keys_method_answers_the_pinned_list() -> TestResult {
         assert_eq!(authorization.last_batch_number(), last);
     }
     let gateway = Gateway::start_pinned(&kernel, Some(&configured));
+    gateway.assert_retired_rpc_path()?;
     let answer = gateway.receipt_keys(json!([]))?;
     assert_eq!(answer["result"], expected, "{answer}");
     assert!(answer.get("error").is_none());

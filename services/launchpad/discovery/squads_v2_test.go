@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"math"
 	"reflect"
+	"strconv"
 	"testing"
 	"time"
 
@@ -17,12 +18,13 @@ func TestAdaptV2SquadEnvelopesMatchFrozenSchema(t *testing.T) {
 		OwnerAccountID: "c5a4386a-0037-48e7-8b3d-593f6770b50d",
 		Name:           "Research",
 		Policy:         "request",
+		Visibility:     "private",
 		Revision:       3,
 	}
 	at := time.Date(2026, 10, 26, 12, 34, 56, 123456789, time.FixedZone("test", 2*60*60))
 	members := []Membership{
 		{SquadID: q.ID, AccountID: q.OwnerAccountID, Role: "owner", Status: "active", JoinedAt: at.Add(-time.Hour), Revision: 3},
-		{SquadID: q.ID, AccountID: "ea18012a-5e1b-4bb9-9e0d-8d29e416a5d5", Role: "member", Status: "active", JoinedAt: at, ProofReference: "private-proof", Revision: 3},
+		{SquadID: q.ID, AccountID: "ea18012a-5e1b-4bb9-9e0d-8d29e416a5d5", Role: "member", Status: "active", JoinedAt: at, ProofReference: "private-proof", Revision: 7},
 	}
 	wantSquad := v2.Squad{
 		SquadId: q.ID, Name: q.Name, Description: "", Visibility: "private",
@@ -75,19 +77,24 @@ func TestAdaptV2SquadEnvelopesMatchFrozenSchema(t *testing.T) {
 		}
 	})
 	t.Run("membership", func(t *testing.T) {
-		body, err := AdaptV2SquadMembership(requestID, members[1], at)
-		assertEnvelope(t, "SquadMembershipResponse", body, err, "3")
+		body, err := AdaptV2SquadMembership(requestID, members[1], q, at)
+		assertEnvelope(t, "SquadMembershipResponse", body, err, "7")
 		var got v2.SquadMembershipResponse
 		if err := json.Unmarshal(body, &got); err != nil {
 			t.Fatal(err)
 		}
 		want := v2.SquadMembership{
 			SquadId: q.ID, AccountId: members[1].AccountID,
-			Role: "member", State: "active", Revision: "3",
+			Role: "member", State: "active", Revision: "7",
 		}
 		if got.Data.Membership != want || got.Data.SquadRevision != "3" {
 			t.Errorf("membership data = %+v, want %+v and squadRevision 3", got.Data, want)
 		}
+	})
+	t.Run("independent uint64 membership precision", func(t *testing.T) {
+		next, m := q, members[1]
+		next.Revision, m.Revision = math.MaxUint64-1, math.MaxUint64
+		assertSquadMembershipRevisions(t, MembershipMutation{Squad: next, Membership: m}, at)
 	})
 	t.Run("full uint64 precision", func(t *testing.T) {
 		next := q
@@ -125,7 +132,7 @@ func TestAdaptV2SquadEnvelopesMatchFrozenSchema(t *testing.T) {
 		}{
 			{"request ID", func() ([]byte, error) { return AdaptV2SquadCreate("invalid", q, at) }},
 			{"squad", func() ([]byte, error) { return AdaptV2SquadRead(requestID, invalidSquad, members, at) }},
-			{"membership", func() ([]byte, error) { return AdaptV2SquadMembership(requestID, invalidMember, at) }},
+			{"membership", func() ([]byte, error) { return AdaptV2SquadMembership(requestID, invalidMember, q, at) }},
 		} {
 			t.Run(tc.name, func(t *testing.T) {
 				if body, err := tc.adapt(); err == nil || body != nil {
@@ -134,4 +141,29 @@ func TestAdaptV2SquadEnvelopesMatchFrozenSchema(t *testing.T) {
 			})
 		}
 	})
+}
+
+// Used with a reopened store's mutation result by TestRepairM_983_squad_revision_test_fixture.
+func assertSquadMembershipRevisions(t *testing.T, result MembershipMutation, at time.Time) {
+	t.Helper()
+	q, m := result.Squad, result.Membership
+	if q.Revision == m.Revision {
+		t.Fatal("fixture must distinguish squad and membership revision identities")
+	}
+	body, err := AdaptV2SquadMembership(discoveryErrorRequestID, m, q, at)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := v2.ValidateJSON("SquadMembershipResponse", body); err != nil {
+		t.Fatal(err)
+	}
+	var got v2.SquadMembershipResponse
+	if err := json.Unmarshal(body, &got); err != nil {
+		t.Fatal(err)
+	}
+	memberRevision, squadRevision := strconv.FormatUint(m.Revision, 10), strconv.FormatUint(q.Revision, 10)
+	want := v2.SquadMembership{SquadId: q.ID, AccountId: m.AccountID, Role: m.Role, State: m.Status, Revision: v2.PositiveUInt256(memberRevision)}
+	if got.Data.Membership != want || string(got.Data.SquadRevision) != squadRevision || got.Revision == nil || string(*got.Revision) != memberRevision {
+		t.Fatalf("independent revisions lost: %+v, squad=%s member=%s", got, squadRevision, memberRevision)
+	}
 }

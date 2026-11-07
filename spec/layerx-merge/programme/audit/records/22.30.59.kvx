@@ -1,0 +1,1830 @@
+[audit.22.30.59]
+task = "22.30.59"
+revision = "2b99f88520e4e809ad5593f3bee2df74fe355d7b"
+files_reviewed = 214
+findings = 39
+docs_reviewed = 26
+upgrade_ready = false
+blocking = ["1", "2"]
+produced_interfaces_reviewed = 400
+consumed_interfaces_reviewed = 368
+requirements_reviewed = 80
+review_basis = "Current package source and acceptance criteria; ibc-go provenance dispositions are explicit. Real node/module/codec transports and recovery paths inform findings. Historical contract statuses remain pinned snapshots; source issues and prose/registry drift are separately located."
+
+[file.1]
+path = "interchain/modules/light-clients/06-solomachine/doc.go"
+lines = 7
+verdict = "vendored"
+note = "Vendored ibc-go 06-solomachine material, provenance interchain/README.md; upstream implementation/tests/spec retained. Vendored verdict is a provenance disposition, not an independent clean-source certification."
+
+[file.2]
+path = "interchain/modules/light-clients/06-solomachine/module.go"
+lines = 10
+verdict = "vendored"
+note = "Vendored ibc-go 06-solomachine material, provenance interchain/README.md; upstream implementation/tests/spec retained. Vendored verdict is a provenance disposition, not an independent clean-source certification."
+
+[file.3]
+path = "interchain/modules/light-clients/06-solomachine/spec/01_concepts.md"
+lines = 163
+verdict = "issues"
+note = "Vendored ibc-go documentation read in full; concrete v2 representation/example discrepancies are recorded in findings."
+
+[file.4]
+path = "interchain/modules/light-clients/06-solomachine/spec/02_state.md"
+lines = 9
+verdict = "vendored"
+note = "Vendored ibc-go 06-solomachine material, provenance interchain/README.md; upstream implementation/tests/spec retained. Vendored verdict is a provenance disposition, not an independent clean-source certification."
+
+[file.5]
+path = "interchain/modules/light-clients/06-solomachine/spec/03_state_transitions.md"
+lines = 39
+verdict = "issues"
+note = "Vendored ibc-go documentation read in full; concrete v2 representation/example discrepancies are recorded in findings."
+
+[file.6]
+path = "interchain/modules/light-clients/06-solomachine/spec/README.md"
+lines = 25
+verdict = "vendored"
+note = "Vendored ibc-go 06-solomachine material, provenance interchain/README.md; upstream implementation/tests/spec retained. Vendored verdict is a provenance disposition, not an independent clean-source certification."
+
+[file.7]
+path = "interchain/modules/light-clients/06-solomachine/types/client_state.go"
+lines = 491
+verdict = "vendored"
+note = "Vendored ibc-go 06-solomachine material, provenance interchain/README.md; upstream implementation/tests/spec retained. Vendored verdict is a provenance disposition, not an independent clean-source certification."
+
+[file.8]
+path = "interchain/modules/light-clients/06-solomachine/types/client_state_test.go"
+lines = 844
+verdict = "vendored"
+note = "Vendored ibc-go 06-solomachine material, provenance interchain/README.md; upstream implementation/tests/spec retained. Vendored verdict is a provenance disposition, not an independent clean-source certification."
+
+[file.9]
+path = "interchain/modules/light-clients/06-solomachine/types/codec.go"
+lines = 131
+verdict = "vendored"
+note = "Vendored ibc-go 06-solomachine material, provenance interchain/README.md; upstream implementation/tests/spec retained. Vendored verdict is a provenance disposition, not an independent clean-source certification."
+
+[file.10]
+path = "interchain/modules/light-clients/06-solomachine/types/codec_test.go"
+lines = 186
+verdict = "vendored"
+note = "Vendored ibc-go 06-solomachine material, provenance interchain/README.md; upstream implementation/tests/spec retained. Vendored verdict is a provenance disposition, not an independent clean-source certification."
+
+[file.11]
+path = "interchain/modules/light-clients/06-solomachine/types/consensus_state.go"
+lines = 61
+verdict = "vendored"
+note = "Vendored ibc-go 06-solomachine material, provenance interchain/README.md; upstream implementation/tests/spec retained. Vendored verdict is a provenance disposition, not an independent clean-source certification."
+
+[file.12]
+path = "interchain/modules/light-clients/06-solomachine/types/consensus_state_test.go"
+lines = 74
+verdict = "vendored"
+note = "Vendored ibc-go 06-solomachine material, provenance interchain/README.md; upstream implementation/tests/spec retained. Vendored verdict is a provenance disposition, not an independent clean-source certification."
+
+[file.13]
+path = "interchain/modules/light-clients/06-solomachine/types/errors.go"
+lines = 18
+verdict = "vendored"
+note = "Vendored ibc-go 06-solomachine material, provenance interchain/README.md; upstream implementation/tests/spec retained. Vendored verdict is a provenance disposition, not an independent clean-source certification."
+
+[file.14]
+path = "interchain/modules/light-clients/06-solomachine/types/header.go"
+lines = 68
+verdict = "vendored"
+note = "Vendored ibc-go 06-solomachine material, provenance interchain/README.md; upstream implementation/tests/spec retained. Vendored verdict is a provenance disposition, not an independent clean-source certification."
+
+[file.15]
+path = "interchain/modules/light-clients/06-solomachine/types/header_test.go"
+lines = 98
+verdict = "vendored"
+note = "Vendored ibc-go 06-solomachine material, provenance interchain/README.md; upstream implementation/tests/spec retained. Vendored verdict is a provenance disposition, not an independent clean-source certification."
+
+[file.16]
+path = "interchain/modules/light-clients/06-solomachine/types/misbehaviour.go"
+lines = 77
+verdict = "vendored"
+note = "Vendored ibc-go 06-solomachine material, provenance interchain/README.md; upstream implementation/tests/spec retained. Vendored verdict is a provenance disposition, not an independent clean-source certification."
+
+[file.17]
+path = "interchain/modules/light-clients/06-solomachine/types/misbehaviour_handle.go"
+lines = 86
+verdict = "vendored"
+note = "Vendored ibc-go 06-solomachine material, provenance interchain/README.md; upstream implementation/tests/spec retained. Vendored verdict is a provenance disposition, not an independent clean-source certification."
+
+[file.18]
+path = "interchain/modules/light-clients/06-solomachine/types/misbehaviour_handle_test.go"
+lines = 264
+verdict = "vendored"
+note = "Vendored ibc-go 06-solomachine material, provenance interchain/README.md; upstream implementation/tests/spec retained. Vendored verdict is a provenance disposition, not an independent clean-source certification."
+
+[file.19]
+path = "interchain/modules/light-clients/06-solomachine/types/misbehaviour_test.go"
+lines = 129
+verdict = "vendored"
+note = "Vendored ibc-go 06-solomachine material, provenance interchain/README.md; upstream implementation/tests/spec retained. Vendored verdict is a provenance disposition, not an independent clean-source certification."
+
+[file.20]
+path = "interchain/modules/light-clients/06-solomachine/types/proof.go"
+lines = 477
+verdict = "vendored"
+note = "Vendored ibc-go 06-solomachine material, provenance interchain/README.md; upstream implementation/tests/spec retained. Vendored verdict is a provenance disposition, not an independent clean-source certification."
+
+[file.21]
+path = "interchain/modules/light-clients/06-solomachine/types/proof_test.go"
+lines = 102
+verdict = "vendored"
+note = "Vendored ibc-go 06-solomachine material, provenance interchain/README.md; upstream implementation/tests/spec retained. Vendored verdict is a provenance disposition, not an independent clean-source certification."
+
+[file.22]
+path = "interchain/modules/light-clients/06-solomachine/types/proposal_handle.go"
+lines = 63
+verdict = "vendored"
+note = "Vendored ibc-go 06-solomachine material, provenance interchain/README.md; upstream implementation/tests/spec retained. Vendored verdict is a provenance disposition, not an independent clean-source certification."
+
+[file.23]
+path = "interchain/modules/light-clients/06-solomachine/types/proposal_handle_test.go"
+lines = 88
+verdict = "vendored"
+note = "Vendored ibc-go 06-solomachine material, provenance interchain/README.md; upstream implementation/tests/spec retained. Vendored verdict is a provenance disposition, not an independent clean-source certification."
+
+[file.24]
+path = "interchain/modules/light-clients/06-solomachine/types/solomachine.go"
+lines = 50
+verdict = "vendored"
+note = "Vendored ibc-go 06-solomachine material, provenance interchain/README.md; upstream implementation/tests/spec retained. Vendored verdict is a provenance disposition, not an independent clean-source certification."
+
+[file.25]
+path = "interchain/modules/light-clients/06-solomachine/types/solomachine_test.go"
+lines = 127
+verdict = "vendored"
+note = "Vendored ibc-go 06-solomachine material, provenance interchain/README.md; upstream implementation/tests/spec retained. Vendored verdict is a provenance disposition, not an independent clean-source certification."
+
+[file.26]
+path = "interchain/modules/light-clients/06-solomachine/types/update.go"
+lines = 90
+verdict = "vendored"
+note = "Vendored ibc-go 06-solomachine material, provenance interchain/README.md; upstream implementation/tests/spec retained. Vendored verdict is a provenance disposition, not an independent clean-source certification."
+
+[file.27]
+path = "interchain/modules/light-clients/06-solomachine/types/update_test.go"
+lines = 181
+verdict = "vendored"
+note = "Vendored ibc-go 06-solomachine material, provenance interchain/README.md; upstream implementation/tests/spec retained. Vendored verdict is a provenance disposition, not an independent clean-source certification."
+
+[file.28]
+path = "interchain/modules/light-clients/07-tendermint/doc.go"
+lines = 5
+verdict = "vendored"
+note = "Vendored ibc-go 07-tendermint material, provenance interchain/README.md; upstream implementation/tests/spec retained. Vendored verdict is a provenance disposition, not an independent clean-source certification."
+
+[file.29]
+path = "interchain/modules/light-clients/07-tendermint/module.go"
+lines = 10
+verdict = "vendored"
+note = "Vendored ibc-go 07-tendermint material, provenance interchain/README.md; upstream implementation/tests/spec retained. Vendored verdict is a provenance disposition, not an independent clean-source certification."
+
+[file.30]
+path = "interchain/modules/light-clients/07-tendermint/types/client_state.go"
+lines = 587
+verdict = "vendored"
+note = "Vendored ibc-go 07-tendermint material, provenance interchain/README.md; upstream implementation/tests/spec retained. Vendored verdict is a provenance disposition, not an independent clean-source certification."
+
+[file.31]
+path = "interchain/modules/light-clients/07-tendermint/types/client_state_test.go"
+lines = 874
+verdict = "vendored"
+note = "Vendored ibc-go 07-tendermint material, provenance interchain/README.md; upstream implementation/tests/spec retained. Vendored verdict is a provenance disposition, not an independent clean-source certification."
+
+[file.32]
+path = "interchain/modules/light-clients/07-tendermint/types/codec.go"
+lines = 28
+verdict = "vendored"
+note = "Vendored ibc-go 07-tendermint material, provenance interchain/README.md; upstream implementation/tests/spec retained. Vendored verdict is a provenance disposition, not an independent clean-source certification."
+
+[file.33]
+path = "interchain/modules/light-clients/07-tendermint/types/consensus_state.go"
+lines = 59
+verdict = "vendored"
+note = "Vendored ibc-go 07-tendermint material, provenance interchain/README.md; upstream implementation/tests/spec retained. Vendored verdict is a provenance disposition, not an independent clean-source certification."
+
+[file.34]
+path = "interchain/modules/light-clients/07-tendermint/types/consensus_state_test.go"
+lines = 88
+verdict = "vendored"
+note = "Vendored ibc-go 07-tendermint material, provenance interchain/README.md; upstream implementation/tests/spec retained. Vendored verdict is a provenance disposition, not an independent clean-source certification."
+
+[file.35]
+path = "interchain/modules/light-clients/07-tendermint/types/errors.go"
+lines = 26
+verdict = "vendored"
+note = "Vendored ibc-go 07-tendermint material, provenance interchain/README.md; upstream implementation/tests/spec retained. Vendored verdict is a provenance disposition, not an independent clean-source certification."
+
+[file.36]
+path = "interchain/modules/light-clients/07-tendermint/types/fraction.go"
+lines = 25
+verdict = "vendored"
+note = "Vendored ibc-go 07-tendermint material, provenance interchain/README.md; upstream implementation/tests/spec retained. Vendored verdict is a provenance disposition, not an independent clean-source certification."
+
+[file.37]
+path = "interchain/modules/light-clients/07-tendermint/types/genesis.go"
+lines = 22
+verdict = "vendored"
+note = "Vendored ibc-go 07-tendermint material, provenance interchain/README.md; upstream implementation/tests/spec retained. Vendored verdict is a provenance disposition, not an independent clean-source certification."
+
+[file.38]
+path = "interchain/modules/light-clients/07-tendermint/types/genesis_test.go"
+lines = 89
+verdict = "vendored"
+note = "Vendored ibc-go 07-tendermint material, provenance interchain/README.md; upstream implementation/tests/spec retained. Vendored verdict is a provenance disposition, not an independent clean-source certification."
+
+[file.39]
+path = "interchain/modules/light-clients/07-tendermint/types/header.go"
+lines = 82
+verdict = "vendored"
+note = "Vendored ibc-go 07-tendermint material, provenance interchain/README.md; upstream implementation/tests/spec retained. Vendored verdict is a provenance disposition, not an independent clean-source certification."
+
+[file.40]
+path = "interchain/modules/light-clients/07-tendermint/types/header_test.go"
+lines = 80
+verdict = "vendored"
+note = "Vendored ibc-go 07-tendermint material, provenance interchain/README.md; upstream implementation/tests/spec retained. Vendored verdict is a provenance disposition, not an independent clean-source certification."
+
+[file.41]
+path = "interchain/modules/light-clients/07-tendermint/types/misbehaviour.go"
+lines = 132
+verdict = "vendored"
+note = "Vendored ibc-go 07-tendermint material, provenance interchain/README.md; upstream implementation/tests/spec retained. Vendored verdict is a provenance disposition, not an independent clean-source certification."
+
+[file.42]
+path = "interchain/modules/light-clients/07-tendermint/types/misbehaviour_handle.go"
+lines = 143
+verdict = "vendored"
+note = "Vendored ibc-go 07-tendermint material, provenance interchain/README.md; upstream implementation/tests/spec retained. Vendored verdict is a provenance disposition, not an independent clean-source certification."
+
+[file.43]
+path = "interchain/modules/light-clients/07-tendermint/types/misbehaviour_handle_test.go"
+lines = 431
+verdict = "vendored"
+note = "Vendored ibc-go 07-tendermint material, provenance interchain/README.md; upstream implementation/tests/spec retained. Vendored verdict is a provenance disposition, not an independent clean-source certification."
+
+[file.44]
+path = "interchain/modules/light-clients/07-tendermint/types/misbehaviour_test.go"
+lines = 244
+verdict = "vendored"
+note = "Vendored ibc-go 07-tendermint material, provenance interchain/README.md; upstream implementation/tests/spec retained. Vendored verdict is a provenance disposition, not an independent clean-source certification."
+
+[file.45]
+path = "interchain/modules/light-clients/07-tendermint/types/proposal_handle.go"
+lines = 102
+verdict = "vendored"
+note = "Vendored ibc-go 07-tendermint material, provenance interchain/README.md; upstream implementation/tests/spec retained. Vendored verdict is a provenance disposition, not an independent clean-source certification."
+
+[file.46]
+path = "interchain/modules/light-clients/07-tendermint/types/proposal_handle_test.go"
+lines = 270
+verdict = "vendored"
+note = "Vendored ibc-go 07-tendermint material, provenance interchain/README.md; upstream implementation/tests/spec retained. Vendored verdict is a provenance disposition, not an independent clean-source certification."
+
+[file.47]
+path = "interchain/modules/light-clients/07-tendermint/types/store.go"
+lines = 374
+verdict = "vendored"
+note = "Vendored ibc-go 07-tendermint material, provenance interchain/README.md; upstream implementation/tests/spec retained. Vendored verdict is a provenance disposition, not an independent clean-source certification."
+
+[file.48]
+path = "interchain/modules/light-clients/07-tendermint/types/store_test.go"
+lines = 194
+verdict = "vendored"
+note = "Vendored ibc-go 07-tendermint material, provenance interchain/README.md; upstream implementation/tests/spec retained. Vendored verdict is a provenance disposition, not an independent clean-source certification."
+
+[file.49]
+path = "interchain/modules/light-clients/07-tendermint/types/tendermint_test.go"
+lines = 95
+verdict = "vendored"
+note = "Vendored ibc-go 07-tendermint material, provenance interchain/README.md; upstream implementation/tests/spec retained. Vendored verdict is a provenance disposition, not an independent clean-source certification."
+
+[file.50]
+path = "interchain/modules/light-clients/07-tendermint/types/update.go"
+lines = 271
+verdict = "vendored"
+note = "Vendored ibc-go 07-tendermint material, provenance interchain/README.md; upstream implementation/tests/spec retained. Vendored verdict is a provenance disposition, not an independent clean-source certification."
+
+[file.51]
+path = "interchain/modules/light-clients/07-tendermint/types/update_test.go"
+lines = 457
+verdict = "vendored"
+note = "Vendored ibc-go 07-tendermint material, provenance interchain/README.md; upstream implementation/tests/spec retained. Vendored verdict is a provenance disposition, not an independent clean-source certification."
+
+[file.52]
+path = "interchain/modules/light-clients/07-tendermint/types/upgrade.go"
+lines = 156
+verdict = "vendored"
+note = "Vendored ibc-go 07-tendermint material, provenance interchain/README.md; upstream implementation/tests/spec retained. Vendored verdict is a provenance disposition, not an independent clean-source certification."
+
+[file.53]
+path = "interchain/modules/light-clients/07-tendermint/types/upgrade_test.go"
+lines = 480
+verdict = "vendored"
+note = "Vendored ibc-go 07-tendermint material, provenance interchain/README.md; upstream implementation/tests/spec retained. Vendored verdict is a provenance disposition, not an independent clean-source certification."
+
+[file.54]
+path = "interchain/modules/light-clients/09-localhost/doc.go"
+lines = 5
+verdict = "vendored"
+note = "Vendored ibc-go 09-localhost material, provenance interchain/README.md; upstream implementation/tests/spec retained. Vendored verdict is a provenance disposition, not an independent clean-source certification."
+
+[file.55]
+path = "interchain/modules/light-clients/09-localhost/module.go"
+lines = 10
+verdict = "vendored"
+note = "Vendored ibc-go 09-localhost material, provenance interchain/README.md; upstream implementation/tests/spec retained. Vendored verdict is a provenance disposition, not an independent clean-source certification."
+
+[file.56]
+path = "interchain/modules/light-clients/09-localhost/types/client_state.go"
+lines = 344
+verdict = "vendored"
+note = "Vendored ibc-go 09-localhost material, provenance interchain/README.md; upstream implementation/tests/spec retained. Vendored verdict is a provenance disposition, not an independent clean-source certification."
+
+[file.57]
+path = "interchain/modules/light-clients/09-localhost/types/client_state_test.go"
+lines = 526
+verdict = "vendored"
+note = "Vendored ibc-go 09-localhost material, provenance interchain/README.md; upstream implementation/tests/spec retained. Vendored verdict is a provenance disposition, not an independent clean-source certification."
+
+[file.58]
+path = "interchain/modules/light-clients/09-localhost/types/codec.go"
+lines = 16
+verdict = "vendored"
+note = "Vendored ibc-go 09-localhost material, provenance interchain/README.md; upstream implementation/tests/spec retained. Vendored verdict is a provenance disposition, not an independent clean-source certification."
+
+[file.59]
+path = "interchain/modules/light-clients/09-localhost/types/errors.go"
+lines = 10
+verdict = "vendored"
+note = "Vendored ibc-go 09-localhost material, provenance interchain/README.md; upstream implementation/tests/spec retained. Vendored verdict is a provenance disposition, not an independent clean-source certification."
+
+[file.60]
+path = "interchain/modules/light-clients/09-localhost/types/keys.go"
+lines = 6
+verdict = "vendored"
+note = "Vendored ibc-go 09-localhost material, provenance interchain/README.md; upstream implementation/tests/spec retained. Vendored verdict is a provenance disposition, not an independent clean-source certification."
+
+[file.61]
+path = "interchain/modules/light-clients/09-localhost/types/localhost_test.go"
+lines = 37
+verdict = "vendored"
+note = "Vendored ibc-go 09-localhost material, provenance interchain/README.md; upstream implementation/tests/spec retained. Vendored verdict is a provenance disposition, not an independent clean-source certification."
+
+[file.62]
+path = "modules/layerxcustody/handler.go"
+lines = 74
+verdict = "clean"
+note = "Whole file reviewed against historical state, retirement gates, evidence/identifier encodings and atomic custody accounting. Declared surface: NewProposalHandler, execute."
+
+[file.63]
+path = "modules/layerxcustody/handler_retire_test.go"
+lines = 70
+verdict = "clean"
+note = "Whole file reviewed for producer-shaped fixtures, real declarations, authorization/refusal behavior and recovery where applicable. Coverage: TestCustodyProposalIsRefusedFromTheMergePlanHeight."
+
+[file.64]
+path = "modules/layerxcustody/handler_test.go"
+lines = 405
+verdict = "clean"
+note = "Whole file reviewed for producer-shaped fixtures, real declarations, authorization/refusal behavior and recovery where applicable. Coverage: TestCustodyProposalSetsAssetAndDepositRootAuthority, TestCustodyProposalRefusals, TestSubmitCustodyProposalFile, TestCustodyProposalExecutesOnlyFromActivationHeight, TestCustodyProposalRejectsWrongContent, TestCustodyProposalRejectsUnauthorizedMessages, TestCustodyProposalPreservesMessageOrder, TestCustodyProposalRollsBackStateIndexesAndEvents, TestCustodyProposalRetirementRefusesAllGovernanceMessages, TestCustodyProposalWithoutUpgradeReaderPreservesStateAndEvents, TestCustodyProposalRollsBackAllGovernanceStateAndEvents, TestCustodyProposalRefusesTypedNilWithoutMutation."
+
+[file.65]
+path = "modules/layerxcustody/keeper/anchor.go"
+lines = 108
+verdict = "clean"
+note = "Whole file reviewed against historical state, retirement gates, evidence/identifier encodings and atomic custody accounting. Declared surface: SequencerAuthorization, FinalizedStateRoot, FinalizedReceiptRoot, LatestFinalizedBatch, FinalizedCheckpoint, GetCheckpoint, setCheckpoint, RegisterCheckpoint, IterateCheckpoints."
+
+[file.66]
+path = "modules/layerxcustody/keeper/anchor_reader_test.go"
+lines = 181
+verdict = "clean"
+note = "Whole file reviewed for producer-shaped fixtures, real declarations, authorization/refusal behavior and recovery where applicable. Coverage: TestWithdrawalReadsAnchorFinalizedCheckpoint."
+
+[file.67]
+path = "modules/layerxcustody/keeper/claims.go"
+lines = 556
+verdict = "clean"
+note = "Whole file reviewed against historical state, retirement gates, evidence/identifier encodings and atomic custody accounting. Declared surface: GetClaim, setClaim, IterateClaims, GetNullifier, setNullifier, IterateNullifiers, WithdrawalIDUsed, BalanceConsumed, transition."
+
+[file.68]
+path = "modules/layerxcustody/keeper/deposit.go"
+lines = 123
+verdict = "clean"
+note = "Whole file reviewed against historical state, retirement gates, evidence/identifier encodings and atomic custody accounting. Declared surface: GetDepositNonce, setDepositNonce, GetDeposit, GetDepositByIndex, setDeposit, IterateDeposits, Deposit."
+
+[file.69]
+path = "modules/layerxcustody/keeper/deposit_root.go"
+lines = 105
+verdict = "clean"
+note = "Whole file reviewed against historical state, retirement gates, evidence/identifier encodings and atomic custody accounting. Declared surface: setDepositRoot, GetDepositRoot, RegisterDepositRoot."
+
+[file.70]
+path = "modules/layerxcustody/keeper/deposit_root_test.go"
+lines = 202
+verdict = "clean"
+note = "Whole file reviewed for producer-shaped fixtures, real declarations, authorization/refusal behavior and recovery where applicable. Coverage: TestDepositRootRegistration, TestDepositRootRegistrationByAnySender."
+
+[file.71]
+path = "modules/layerxcustody/keeper/genesis.go"
+lines = 105
+verdict = "clean"
+note = "Whole file reviewed against historical state, retirement gates, evidence/identifier encodings and atomic custody accounting. Declared surface: InitGenesis, iterateKeys, ExportGenesis."
+
+[file.72]
+path = "modules/layerxcustody/keeper/genesis_retire_test.go"
+lines = 113
+verdict = "issues"
+note = "Whole file reviewed; its concrete discrepancies, lifecycle or coverage gaps and owning repair proposals appear in finding entries."
+
+[file.73]
+path = "modules/layerxcustody/keeper/inclusion_retired_test.go"
+lines = 118
+verdict = "clean"
+note = "Whole file reviewed for producer-shaped fixtures, real declarations, authorization/refusal behavior and recovery where applicable. Coverage: TestWithdrawalInclusionAndExitBalanceRetired, TestWithdrawalNullifierUnchangedWithoutVerify."
+
+[file.74]
+path = "modules/layerxcustody/keeper/invariants.go"
+lines = 52
+verdict = "clean"
+note = "Whole file reviewed against historical state, retirement gates, evidence/identifier encodings and atomic custody accounting. Declared surface: RegisterInvariants, SolvencyInvariant."
+
+[file.75]
+path = "modules/layerxcustody/keeper/keeper.go"
+lines = 251
+verdict = "issues"
+note = "Whole file reviewed; its concrete discrepancies, lifecycle or coverage gaps and owning repair proposals appear in finding entries."
+
+[file.76]
+path = "modules/layerxcustody/keeper/keeper_test.go"
+lines = 445
+verdict = "clean"
+note = "Whole file reviewed for producer-shaped fixtures, real declarations, authorization/refusal behavior and recovery where applicable. Coverage: TestDepositMovesFundsIntoTheModuleAccountAndRecords, TestForcedExitClosesDepositsWithAConstantFreezeRead, TestGenesisRoundTrip, TestSolvencyInvariantDetectsMissingFunds, TestAuthorityGatesAdministration."
+
+[file.77]
+path = "modules/layerxcustody/keeper/merge_release_test.go"
+lines = 157
+verdict = "issues"
+note = "Whole file reviewed; its concrete discrepancies, lifecycle or coverage gaps and owning repair proposals appear in finding entries."
+
+[file.78]
+path = "modules/layerxcustody/keeper/migrations.go"
+lines = 16
+verdict = "clean"
+note = "Whole file reviewed against historical state, retirement gates, evidence/identifier encodings and atomic custody accounting. Declared surface: NewMigrator, Migrate1to2."
+
+[file.79]
+path = "modules/layerxcustody/keeper/migrations_test.go"
+lines = 68
+verdict = "clean"
+note = "Whole file reviewed for producer-shaped fixtures, real declarations, authorization/refusal behavior and recovery where applicable. Coverage: TestMigrate1to2SeedsExitCheckpoint."
+
+[file.80]
+path = "modules/layerxcustody/keeper/msg_server.go"
+lines = 187
+verdict = "clean"
+note = "Whole file reviewed against historical state, retirement gates, evidence/identifier encodings and atomic custody accounting. Declared surface: NewMsgServerImpl, UpdateParams, SetAsset, RegisterCheckpoint, SetEmergency, CancelClaim, RequestWithdrawal, FinaliseWithdrawal, exitEvidence."
+
+[file.81]
+path = "modules/layerxcustody/keeper/proof_0x1013_layerxcustody_test.go"
+lines = 303
+verdict = "clean"
+note = "Whole file reviewed for producer-shaped fixtures, real declarations, authorization/refusal behavior and recovery where applicable. Coverage: TestProof0x1013LayerxcustodyProducerTransportConsumer, TestProof0x1013LayerxcustodyNilMessages."
+
+[file.82]
+path = "modules/layerxcustody/keeper/release.go"
+lines = 74
+verdict = "issues"
+note = "Whole file reviewed; its concrete discrepancies, lifecycle or coverage gaps and owning repair proposals appear in finding entries."
+
+[file.83]
+path = "modules/layerxcustody/keeper/release_test.go"
+lines = 249
+verdict = "clean"
+note = "Whole file reviewed for producer-shaped fixtures, real declarations, authorization/refusal behavior and recovery where applicable. Coverage: TestReleaseRetiredMovesEveryCustodiedBalanceToTheAuthority, TestReleaseRetiredCancelsPendingClaims, TestReleaseRetiredIsRefusedBeforeTheMergePlanHeight."
+
+[file.84]
+path = "modules/layerxcustody/keeper/retire.go"
+lines = 15
+verdict = "issues"
+note = "Whole file reviewed; its concrete discrepancies, lifecycle or coverage gaps and owning repair proposals appear in finding entries."
+
+[file.85]
+path = "modules/layerxcustody/keeper/retire_admin_test.go"
+lines = 113
+verdict = "clean"
+note = "Whole file reviewed for producer-shaped fixtures, real declarations, authorization/refusal behavior and recovery where applicable. Coverage: TestAdministrationIsRefusedFromTheMergePlanHeight."
+
+[file.86]
+path = "modules/layerxcustody/keeper/retire_anchor_test.go"
+lines = 52
+verdict = "clean"
+note = "Whole file reviewed for producer-shaped fixtures, real declarations, authorization/refusal behavior and recovery where applicable. Coverage: TestCheckpointRegistrationIsRefusedFromTheMergePlanHeight."
+
+[file.87]
+path = "modules/layerxcustody/keeper/retire_claims_test.go"
+lines = 119
+verdict = "clean"
+note = "Whole file reviewed for producer-shaped fixtures, real declarations, authorization/refusal behavior and recovery where applicable. Coverage: TestWithdrawalIsRefusedFromTheMergePlanHeight, TestForcedExitIsRefusedFromTheMergePlanHeight, TestCancelClaimIsRefusedFromTheMergePlanHeight."
+
+[file.88]
+path = "modules/layerxcustody/keeper/retire_deposit_root_test.go"
+lines = 128
+verdict = "clean"
+note = "Whole file reviewed for producer-shaped fixtures, real declarations, authorization/refusal behavior and recovery where applicable. Coverage: TestDepositRootRegistrationIsRefusedFromTheMergePlanHeight."
+
+[file.89]
+path = "modules/layerxcustody/keeper/retire_deposit_test.go"
+lines = 71
+verdict = "clean"
+note = "Whole file reviewed for producer-shaped fixtures, real declarations, authorization/refusal behavior and recovery where applicable. Coverage: TestDepositIsRefusedFromTheMergePlanHeight."
+
+[file.90]
+path = "modules/layerxcustody/keeper/retire_msg_server_test.go"
+lines = 118
+verdict = "clean"
+note = "Whole file reviewed for producer-shaped fixtures, real declarations, authorization/refusal behavior and recovery where applicable. Coverage: TestPermissionlessCustodyMsgsAreRefusedFromTheMergePlanHeight, TestGovernanceCustodyMsgsAreRefusedFromTheMergePlanHeight."
+
+[file.91]
+path = "modules/layerxcustody/keeper/retire_test.go"
+lines = 52
+verdict = "clean"
+note = "Whole file reviewed for producer-shaped fixtures, real declarations, authorization/refusal behavior and recovery where applicable. Coverage: TestRetiredFollowsTheMergePlanDoneHeight, TestRetiredIsFalseWithoutAnUpgradeReader."
+
+[file.92]
+path = "modules/layerxcustody/module.go"
+lines = 138
+verdict = "clean"
+note = "Whole file reviewed against historical state, retirement gates, evidence/identifier encodings and atomic custody accounting. Declared surface: NewAppModuleBasic, Name, RegisterLegacyAminoCodec, RegisterInterfaces, DefaultGenesis, ValidateGenesis, ValidateGenesisStream, RegisterRESTRoutes, RegisterGRPCGatewayRoutes."
+
+[file.93]
+path = "modules/layerxcustody/module_retire_test.go"
+lines = 14
+verdict = "clean"
+note = "Whole file reviewed for producer-shaped fixtures, real declarations, authorization/refusal behavior and recovery where applicable. Coverage: TestCustodyModuleRegistersNoTxCommand."
+
+[file.94]
+path = "modules/layerxcustody/types/anchor.go"
+lines = 41
+verdict = "clean"
+note = "Whole file reviewed against historical state, retirement gates, evidence/identifier encodings and atomic custody accounting. Declared surface: anchor."
+
+[file.95]
+path = "modules/layerxcustody/types/codec.go"
+lines = 49
+verdict = "clean"
+note = "Whole file reviewed against historical state, retirement gates, evidence/identifier encodings and atomic custody accounting. Declared surface: RegisterCodec, RegisterInterfaces, init."
+
+[file.96]
+path = "modules/layerxcustody/types/errors.go"
+lines = 36
+verdict = "clean"
+note = "Whole file reviewed against historical state, retirement gates, evidence/identifier encodings and atomic custody accounting. Declared surface: errors."
+
+[file.97]
+path = "modules/layerxcustody/types/expected_keepers.go"
+lines = 33
+verdict = "clean"
+note = "Whole file reviewed against historical state, retirement gates, evidence/identifier encodings and atomic custody accounting. Declared surface: expected_keepers."
+
+[file.98]
+path = "modules/layerxcustody/types/genesis.go"
+lines = 225
+verdict = "clean"
+note = "Whole file reviewed against historical state, retirement gates, evidence/identifier encodings and atomic custody accounting. Declared surface: DefaultGenesis, Validate, Minimum, Cap, Validate, Validate, Validate, Validate."
+
+[file.99]
+path = "modules/layerxcustody/types/governance_activation.go"
+lines = 5
+verdict = "clean"
+note = "Whole file reviewed against historical state, retirement gates, evidence/identifier encodings and atomic custody accounting. Declared surface: governance_activation."
+
+[file.100]
+path = "modules/layerxcustody/types/hex.go"
+lines = 55
+verdict = "clean"
+note = "Whole file reviewed against historical state, retirement gates, evidence/identifier encodings and atomic custody accounting. Declared surface: Hash32, ParseHash32, ParseNonZeroHash32, Address, ParseAddress, ParseAmount."
+
+[file.101]
+path = "modules/layerxcustody/types/ids.go"
+lines = 106
+verdict = "clean"
+note = "Whole file reviewed against historical state, retirement gates, evidence/identifier encodings and atomic custody accounting. Declared surface: mustType, packedDigest, DepositID, WithdrawalClaimID, ExitClaimID, ExitWithdrawalID, WithdrawalNullifier, AmountInt."
+
+[file.102]
+path = "modules/layerxcustody/types/keys.go"
+lines = 74
+verdict = "clean"
+note = "Whole file reviewed against historical state, retirement gates, evidence/identifier encodings and atomic custody accounting. Declared surface: join, AssetKey, AssetTotalsKey, AssetPointerKey, DepositKey, DepositRootKey, DepositIndexKey, DepositNonceKey, ClaimKey."
+
+[file.103]
+path = "modules/layerxcustody/types/msgs.go"
+lines = 181
+verdict = "clean"
+note = "Whole file reviewed against historical state, retirement gates, evidence/identifier encodings and atomic custody accounting. Declared surface: signer, validSigner, validWithdrawalEvidence, validExitEvidence, Route, Type, GetSigners, GetSignBytes, ValidateBasic."
+
+[file.104]
+path = "modules/layerxcustody/types/params.go"
+lines = 90
+verdict = "clean"
+note = "Whole file reviewed against historical state, retirement gates, evidence/identifier encodings and atomic custody accounting. Declared surface: DefaultParams, Decode, Validate."
+
+[file.105]
+path = "modules/layerxcustody/types/proposal.go"
+lines = 188
+verdict = "clean"
+note = "Whole file reviewed against historical state, retirement gates, evidence/identifier encodings and atomic custody accounting. Declared surface: init, GovernanceAuthority, NewCustodyProposal, GetTitle, GetDescription, ProposalRoute, ProposalType, ValidateBasic, GetMessages."
+
+[file.106]
+path = "modules/layerxcustody/types/proposal_test.go"
+lines = 256
+verdict = "clean"
+note = "Whole file reviewed for producer-shaped fixtures, real declarations, authorization/refusal behavior and recovery where applicable. Coverage: TestCustodyProposalTypedMessageRoundTrip, TestCustodyProposalAuthorityRefusals, TestCustodyProposalMalformedContentRefusals, TestCustodyProposalRejectsUnsupportedMessages, TestCustodyProposalNilMessageRefusals."
+
+[file.107]
+path = "modules/layerxcustody/types/retire.go"
+lines = 3
+verdict = "clean"
+note = "Whole file reviewed against historical state, retirement gates, evidence/identifier encodings and atomic custody accounting. Declared surface: retire."
+
+[file.108]
+path = "modules/layerxcustody/types/retire_event_test.go"
+lines = 35
+verdict = "clean"
+note = "Whole file reviewed for producer-shaped fixtures, real declarations, authorization/refusal behavior and recovery where applicable. Coverage: TestEventRetiredReleaseRoundTripsAsATypedEvent."
+
+[file.109]
+path = "modules/layerxcustody/types/retire_test.go"
+lines = 51
+verdict = "clean"
+note = "Whole file reviewed for producer-shaped fixtures, real declarations, authorization/refusal behavior and recovery where applicable. Coverage: TestModuleRetiredErrorIsCode29OfTheCustodyCodespace, TestMergePlanUpgradeIsTheCommonMergePlan."
+
+[file.110]
+path = "modules/tokenfactory/README.md"
+lines = 193
+verdict = "issues"
+note = "Whole file reviewed; its concrete discrepancies, lifecycle or coverage gaps and owning repair proposals appear in finding entries."
+
+[file.111]
+path = "modules/tokenfactory/client/cli/proof_cli_test.go"
+lines = 309
+verdict = "clean"
+note = "Whole file reviewed for producer-shaped fixtures, real declarations, authorization/refusal behavior and recovery where applicable. Coverage: TestProofCli."
+
+[file.112]
+path = "modules/tokenfactory/client/cli/query.go"
+lines = 219
+verdict = "clean"
+note = "Whole file reviewed against issuer/admin separation, pause refusals, registered messages/queries and persistent state encodings. Declared surface: GetQueryCmd, GetParams, GetCmdDenomAuthorityMetadata, GetCmdDenomPaused, GetCmdDenomsFromCreator, GetCmdDenomMetadata, GetCmdDenomAllowList."
+
+[file.113]
+path = "modules/tokenfactory/client/cli/query_denom_paused_test.go"
+lines = 42
+verdict = "clean"
+note = "Whole file reviewed for producer-shaped fixtures, real declarations, authorization/refusal behavior and recovery where applicable. Coverage: TestGetCmdDenomPausedArgs."
+
+[file.114]
+path = "modules/tokenfactory/client/cli/query_metadata_cli_test.go"
+lines = 169
+verdict = "clean"
+note = "Whole file reviewed for producer-shaped fixtures, real declarations, authorization/refusal behavior and recovery where applicable. Coverage: TestGetCmdDenomMetadataArgs, TestGetCmdDenomAllowListArgs."
+
+[file.115]
+path = "modules/tokenfactory/client/cli/tx.go"
+lines = 397
+verdict = "clean"
+note = "Whole file reviewed against issuer/admin separation, pause refusals, registered messages/queries and persistent state encodings. Declared surface: GetTxCmd, NewCreateDenomCmd, NewUpdateDenomCmd, NewMintCmd, NewBurnCmd, NewChangeAdminCmd, NewSetDenomMetadataCmd, NewSetDenomPausedCmd, ParseMetadataJSON."
+
+[file.116]
+path = "modules/tokenfactory/client/cli/tx_set_denom_paused_test.go"
+lines = 100
+verdict = "clean"
+note = "Whole file reviewed for producer-shaped fixtures, real declarations, authorization/refusal behavior and recovery where applicable. Coverage: TestNewSetDenomPausedCmd."
+
+[file.117]
+path = "modules/tokenfactory/client/cli/tx_test.go"
+lines = 293
+verdict = "clean"
+note = "Whole file reviewed for producer-shaped fixtures, real declarations, authorization/refusal behavior and recovery where applicable. Coverage: TestParseMetadata, Test_ParseAllowListJSON, TestNewCreateDenomCmd_AllowList, TestNewUpdateDenomCmd_AllowList."
+
+[file.118]
+path = "modules/tokenfactory/client/wasm/bindings/msgs.go"
+lines = 28
+verdict = "clean"
+note = "Whole file reviewed against issuer/admin separation, pause refusals, registered messages/queries and persistent state encodings. Declared surface: UnmarshalJSON."
+
+[file.119]
+path = "modules/tokenfactory/client/wasm/bindings/proof_wasm_test.go"
+lines = 218
+verdict = "clean"
+note = "Whole file reviewed for producer-shaped fixtures, real declarations, authorization/refusal behavior and recovery where applicable. Coverage: TestProofWasmProducerTransportConsumer."
+
+[file.120]
+path = "modules/tokenfactory/client/wasm/bindings/queries.go"
+lines = 34
+verdict = "clean"
+note = "Whole file reviewed against issuer/admin separation, pause refusals, registered messages/queries and persistent state encodings. Declared surface: Validate."
+
+[file.121]
+path = "modules/tokenfactory/client/wasm/denom_paused_query_test.go"
+lines = 100
+verdict = "clean"
+note = "Whole file reviewed for producer-shaped fixtures, real declarations, authorization/refusal behavior and recovery where applicable. Coverage: TestWasmGetDenomPaused."
+
+[file.122]
+path = "modules/tokenfactory/client/wasm/encoder.go"
+lines = 84
+verdict = "clean"
+note = "Whole file reviewed against issuer/admin separation, pause refusals, registered messages/queries and persistent state encodings. Declared surface: EncodeTokenFactoryCreateDenom, EncodeTokenFactoryMint, EncodeTokenFactoryBurn, EncodeTokenFactoryChangeAdmin, EncodeTokenFactorySetMetadata, EncodeTokenFactorySetDenomPaused."
+
+[file.123]
+path = "modules/tokenfactory/client/wasm/encoder_set_denom_paused_test.go"
+lines = 70
+verdict = "clean"
+note = "Whole file reviewed for producer-shaped fixtures, real declarations, authorization/refusal behavior and recovery where applicable. Coverage: TestEncodeTokenFactorySetDenomPaused."
+
+[file.124]
+path = "modules/tokenfactory/client/wasm/query.go"
+lines = 40
+verdict = "clean"
+note = "Whole file reviewed against issuer/admin separation, pause refusals, registered messages/queries and persistent state encodings. Declared surface: NewTokenFactoryWasmQueryHandler, GetDenomAuthorityMetadata, GetDenomsFromCreator, GetDenomPaused."
+
+[file.125]
+path = "modules/tokenfactory/handler.go"
+lines = 15
+verdict = "clean"
+note = "Whole file reviewed against issuer/admin separation, pause refusals, registered messages/queries and persistent state encodings. Declared surface: NewProposalHandler."
+
+[file.126]
+path = "modules/tokenfactory/keeper/admins.go"
+lines = 90
+verdict = "clean"
+note = "Whole file reviewed against issuer/admin separation, pause refusals, registered messages/queries and persistent state encodings. Declared surface: GetAuthorityMetadata, setAuthorityMetadata, setAdmin, SetIssuerDid, IssuerDid."
+
+[file.127]
+path = "modules/tokenfactory/keeper/admins_test.go"
+lines = 412
+verdict = "issues"
+note = "Whole file reviewed; its concrete discrepancies, lifecycle or coverage gaps and owning repair proposals appear in finding entries."
+
+[file.128]
+path = "modules/tokenfactory/keeper/app_export_paused_test.go"
+lines = 99
+verdict = "clean"
+note = "Whole file reviewed for producer-shaped fixtures, real declarations, authorization/refusal behavior and recovery where applicable. Coverage: TestAppExportImportKeepsPausedDenoms."
+
+[file.129]
+path = "modules/tokenfactory/keeper/bankactions.go"
+lines = 66
+verdict = "clean"
+note = "Whole file reviewed against issuer/admin separation, pause refusals, registered messages/queries and persistent state encodings. Declared surface: mintTo, burnFrom."
+
+[file.130]
+path = "modules/tokenfactory/keeper/bankactions_test.go"
+lines = 209
+verdict = "issues"
+note = "Whole file reviewed; its concrete discrepancies, lifecycle or coverage gaps and owning repair proposals appear in finding entries."
+
+[file.131]
+path = "modules/tokenfactory/keeper/createdenom.go"
+lines = 114
+verdict = "clean"
+note = "Whole file reviewed against issuer/admin separation, pause refusals, registered messages/queries and persistent state encodings. Declared surface: CreateDenom, createDenomAfterValidation, validateCreateDenom, validateUpdateDenom, validateAllowListSize, validateAllowList."
+
+[file.132]
+path = "modules/tokenfactory/keeper/createdenom_test.go"
+lines = 289
+verdict = "clean"
+note = "Whole file reviewed for producer-shaped fixtures, real declarations, authorization/refusal behavior and recovery where applicable. Coverage: TestMsgCreateDenom, TestCreateDenom, TestUpdateDenom."
+
+[file.133]
+path = "modules/tokenfactory/keeper/creators.go"
+lines = 41
+verdict = "clean"
+note = "Whole file reviewed against issuer/admin separation, pause refusals, registered messages/queries and persistent state encodings. Declared surface: addDenomFromCreator, getDenomsFromCreator, GetAllDenomsFromCreator, GetAllDenomsIterator."
+
+[file.134]
+path = "modules/tokenfactory/keeper/denom_pause_conformance_test.go"
+lines = 166
+verdict = "clean"
+note = "Whole file reviewed for producer-shaped fixtures, real declarations, authorization/refusal behavior and recovery where applicable. Coverage: TestDenomPauseBankPathConformance."
+
+[file.135]
+path = "modules/tokenfactory/keeper/denom_pause_giga_test.go"
+lines = 131
+verdict = "clean"
+note = "Whole file reviewed for producer-shaped fixtures, real declarations, authorization/refusal behavior and recovery where applicable. Coverage: TestDenomPauseGigaBankRefuses."
+
+[file.136]
+path = "modules/tokenfactory/keeper/denom_pause_send_test.go"
+lines = 59
+verdict = "clean"
+note = "Whole file reviewed for producer-shaped fixtures, real declarations, authorization/refusal behavior and recovery where applicable. Coverage: TestDenomPauseBlocksSend."
+
+[file.137]
+path = "modules/tokenfactory/keeper/denom_pause_test.go"
+lines = 229
+verdict = "clean"
+note = "Whole file reviewed for producer-shaped fixtures, real declarations, authorization/refusal behavior and recovery where applicable. Coverage: TestDenomPauseAdminOnly, TestDenomPauseMintBurn, TestDenomPauseRepeatRefused, TestDenomPauseFixtureParity."
+
+[file.138]
+path = "modules/tokenfactory/keeper/denom_paused_surface_test.go"
+lines = 109
+verdict = "clean"
+note = "Whole file reviewed for producer-shaped fixtures, real declarations, authorization/refusal behavior and recovery where applicable. Coverage: TestDenomPausedSurfaceConformance."
+
+[file.139]
+path = "modules/tokenfactory/keeper/genesis.go"
+lines = 80
+verdict = "clean"
+note = "Whole file reviewed against issuer/admin separation, pause refusals, registered messages/queries and persistent state encodings. Declared surface: InitGenesis, ExportGenesis."
+
+[file.140]
+path = "modules/tokenfactory/keeper/genesis_paused_test.go"
+lines = 73
+verdict = "clean"
+note = "Whole file reviewed for producer-shaped fixtures, real declarations, authorization/refusal behavior and recovery where applicable. Coverage: TestGenesisPausedRoundTrip, TestInitGenesisPausedUnknownDenomPanics."
+
+[file.141]
+path = "modules/tokenfactory/keeper/genesis_test.go"
+lines = 47
+verdict = "clean"
+note = "Whole file reviewed for producer-shaped fixtures, real declarations, authorization/refusal behavior and recovery where applicable. Coverage: TestGenesis."
+
+[file.142]
+path = "modules/tokenfactory/keeper/grpc_denom_paused_test.go"
+lines = 90
+verdict = "clean"
+note = "Whole file reviewed for producer-shaped fixtures, real declarations, authorization/refusal behavior and recovery where applicable. Coverage: TestQueryDenomPausedReportsState, TestQueryDenomPausedRejectsEmptyDenom."
+
+[file.143]
+path = "modules/tokenfactory/keeper/grpc_query.go"
+lines = 104
+verdict = "clean"
+note = "Whole file reviewed against issuer/admin separation, pause refusals, registered messages/queries and persistent state encodings. Declared surface: Params, DenomAuthorityMetadata, DenomsFromCreator, DenomMetadata, DenomAllowList, DenomPaused."
+
+[file.144]
+path = "modules/tokenfactory/keeper/grpc_query_test.go"
+lines = 273
+verdict = "clean"
+note = "Whole file reviewed for producer-shaped fixtures, real declarations, authorization/refusal behavior and recovery where applicable. Coverage: TestDenomMetadataRequest, TestDenomAllowListRequest, TestDenomsFromCreatorPagination, TestKeeper_DenomAllowList."
+
+[file.145]
+path = "modules/tokenfactory/keeper/invariants.go"
+lines = 28
+verdict = "clean"
+note = "Whole file reviewed against issuer/admin separation, pause refusals, registered messages/queries and persistent state encodings. Declared surface: RegisterInvariants, PausedDenomsInvariant."
+
+[file.146]
+path = "modules/tokenfactory/keeper/invariants_test.go"
+lines = 60
+verdict = "clean"
+note = "Whole file reviewed for producer-shaped fixtures, real declarations, authorization/refusal behavior and recovery where applicable. Coverage: TestPausedDenomsInvariantBroken."
+
+[file.147]
+path = "modules/tokenfactory/keeper/issuer.go"
+lines = 38
+verdict = "clean"
+note = "Whole file reviewed against issuer/admin separation, pause refusals, registered messages/queries and persistent state encodings. Declared surface: requireIssuer, SetDenomPausedByIssuer."
+
+[file.148]
+path = "modules/tokenfactory/keeper/issuer_event_test.go"
+lines = 47
+verdict = "clean"
+note = "Whole file reviewed for producer-shaped fixtures, real declarations, authorization/refusal behavior and recovery where applicable. Coverage: TestSetIssuerDidEmitsEvent."
+
+[file.149]
+path = "modules/tokenfactory/keeper/issuer_keeper_assert_test.go"
+lines = 52
+verdict = "clean"
+note = "Whole file reviewed for producer-shaped fixtures, real declarations, authorization/refusal behavior and recovery where applicable. Coverage: TestKeeperImplementsIssuerKeeper."
+
+[file.150]
+path = "modules/tokenfactory/keeper/issuer_pause_fixture_test.go"
+lines = 39
+verdict = "clean"
+note = "Whole file reviewed for producer-shaped fixtures, real declarations, authorization/refusal behavior and recovery where applicable. Coverage: TestIssuerPauseFixtureParity."
+
+[file.151]
+path = "modules/tokenfactory/keeper/issuer_pause_matrix_test.go"
+lines = 112
+verdict = "clean"
+note = "Whole file reviewed for producer-shaped fixtures, real declarations, authorization/refusal behavior and recovery where applicable. Coverage: TestIssuerPauseAuthorityMatrix."
+
+[file.152]
+path = "modules/tokenfactory/keeper/issuer_pause_test.go"
+lines = 80
+verdict = "clean"
+note = "Whole file reviewed for producer-shaped fixtures, real declarations, authorization/refusal behavior and recovery where applicable. Coverage: TestSetDenomPausedByIssuerMatches, TestSetDenomPausedByIssuerRefusesOtherDid."
+
+[file.153]
+path = "modules/tokenfactory/keeper/issuer_supply.go"
+lines = 41
+verdict = "issues"
+note = "Whole file reviewed; its concrete discrepancies, lifecycle or coverage gaps and owning repair proposals appear in finding entries."
+
+[file.154]
+path = "modules/tokenfactory/keeper/issuer_supply_test.go"
+lines = 133
+verdict = "clean"
+note = "Whole file reviewed for producer-shaped fixtures, real declarations, authorization/refusal behavior and recovery where applicable. Coverage: TestMintByIssuerRespectsPause, TestBurnByIssuerRefusesOtherDid."
+
+[file.155]
+path = "modules/tokenfactory/keeper/keeper.go"
+lines = 77
+verdict = "clean"
+note = "Whole file reviewed against issuer/admin separation, pause refusals, registered messages/queries and persistent state encodings. Declared surface: NewKeeper, GetDenomPrefixStore, GetCreatorPrefixStore, GetCreatorsPrefixStore, CreateModuleAccount, GetDenomAllowListMaxSize."
+
+[file.156]
+path = "modules/tokenfactory/keeper/keeper_deps_test.go"
+lines = 61
+verdict = "clean"
+note = "Whole file reviewed for producer-shaped fixtures, real declarations, authorization/refusal behavior and recovery where applicable. Coverage: TestNewKeeperWithoutDistrKeeper."
+
+[file.157]
+path = "modules/tokenfactory/keeper/keeper_test.go"
+lines = 63
+verdict = "clean"
+note = "Whole file reviewed for producer-shaped fixtures, real declarations, authorization/refusal behavior and recovery where applicable. Coverage: TestKeeperTestSuite, TestCreateModuleAccount."
+
+[file.158]
+path = "modules/tokenfactory/keeper/ledger_issuer_bind_test.go"
+lines = 125
+verdict = "clean"
+note = "Whole file reviewed for producer-shaped fixtures, real declarations, authorization/refusal behavior and recovery where applicable. Coverage: TestLedgerRegisterBindsIssuerDid."
+
+[file.159]
+path = "modules/tokenfactory/keeper/migrations.go"
+lines = 79
+verdict = "clean"
+note = "Whole file reviewed against issuer/admin separation, pause refusals, registered messages/queries and persistent state encodings. Declared surface: NewMigrator, Migrate2to3, Migrate3to4, Migrate4to5, SetMetadata."
+
+[file.160]
+path = "modules/tokenfactory/keeper/migrations_test.go"
+lines = 130
+verdict = "clean"
+note = "Whole file reviewed for producer-shaped fixtures, real declarations, authorization/refusal behavior and recovery where applicable. Coverage: TestMigrate2to3, TestMigrate3To4, TestMigrate4To5."
+
+[file.161]
+path = "modules/tokenfactory/keeper/msg_server.go"
+lines = 257
+verdict = "clean"
+note = "Whole file reviewed against issuer/admin separation, pause refusals, registered messages/queries and persistent state encodings. Declared surface: NewMsgServerImpl, CreateDenom, UpdateDenom, Mint, Burn, ChangeAdmin, SetDenomMetadata, SetDenomPaused."
+
+[file.162]
+path = "modules/tokenfactory/keeper/params.go"
+lines = 18
+verdict = "clean"
+note = "Whole file reviewed against issuer/admin separation, pause refusals, registered messages/queries and persistent state encodings. Declared surface: GetParams, SetParams."
+
+[file.163]
+path = "modules/tokenfactory/keeper/pause.go"
+lines = 46
+verdict = "clean"
+note = "Whole file reviewed against issuer/admin separation, pause refusals, registered messages/queries and persistent state encodings. Declared surface: IsDenomPaused, setDenomPaused, GetPausedDenoms, SendEnabledChecker."
+
+[file.164]
+path = "modules/tokenfactory/keeper/pause_test.go"
+lines = 43
+verdict = "clean"
+note = "Whole file reviewed for producer-shaped fixtures, real declarations, authorization/refusal behavior and recovery where applicable. Coverage: TestDenomPauseStore."
+
+[file.165]
+path = "modules/tokenfactory/keeper/paused_denoms_test.go"
+lines = 43
+verdict = "clean"
+note = "Whole file reviewed for producer-shaped fixtures, real declarations, authorization/refusal behavior and recovery where applicable. Coverage: TestGetPausedDenomsSorted."
+
+[file.166]
+path = "modules/tokenfactory/keeper/proof_genesis_test.go"
+lines = 266
+verdict = "issues"
+note = "Whole file reviewed; its concrete discrepancies, lifecycle or coverage gaps and owning repair proposals appear in finding entries."
+
+[file.167]
+path = "modules/tokenfactory/keeper/proof_issuer_did_test.go"
+lines = 149
+verdict = "clean"
+note = "Whole file reviewed for producer-shaped fixtures, real declarations, authorization/refusal behavior and recovery where applicable. Coverage: TestProofIssuerDid, TestProofIssuerDidAdminConsumers."
+
+[file.168]
+path = "modules/tokenfactory/keeper/set_denom_paused_refusal_test.go"
+lines = 89
+verdict = "clean"
+note = "Whole file reviewed for producer-shaped fixtures, real declarations, authorization/refusal behavior and recovery where applicable. Coverage: TestSetDenomPausedMissingDenom, TestSetDenomPausedRefusesAdminWhenIssuerBound."
+
+[file.169]
+path = "modules/tokenfactory/module.go"
+lines = 235
+verdict = "issues"
+note = "Whole file reviewed; its concrete discrepancies, lifecycle or coverage gaps and owning repair proposals appear in finding entries."
+
+[file.170]
+path = "modules/tokenfactory/types/authority_metadata.go"
+lines = 39
+verdict = "clean"
+note = "Whole file reviewed against issuer/admin separation, pause refusals, registered messages/queries and persistent state encodings. Declared surface: Validate, isLayerXDid."
+
+[file.171]
+path = "modules/tokenfactory/types/codec.go"
+lines = 58
+verdict = "clean"
+note = "Whole file reviewed against issuer/admin separation, pause refusals, registered messages/queries and persistent state encodings. Declared surface: RegisterCodec, RegisterInterfaces, init."
+
+[file.172]
+path = "modules/tokenfactory/types/denoms.go"
+lines = 84
+verdict = "clean"
+note = "Whole file reviewed against issuer/admin separation, pause refusals, registered messages/queries and persistent state encodings. Declared surface: GetTokenDenom, DeconstructDenom, NewTokenFactoryDenomMintCoinsRestriction."
+
+[file.173]
+path = "modules/tokenfactory/types/denoms_test.go"
+lines = 153
+verdict = "clean"
+note = "Whole file reviewed for producer-shaped fixtures, real declarations, authorization/refusal behavior and recovery where applicable. Coverage: TestDecomposeDenoms, TestGetTokenDenom."
+
+[file.174]
+path = "modules/tokenfactory/types/errors.go"
+lines = 48
+verdict = "clean"
+note = "Whole file reviewed against issuer/admin separation, pause refusals, registered messages/queries and persistent state encodings. Declared surface: errors."
+
+[file.175]
+path = "modules/tokenfactory/types/errors_registry_test.go"
+lines = 44
+verdict = "clean"
+note = "Whole file reviewed for producer-shaped fixtures, real declarations, authorization/refusal behavior and recovery where applicable. Coverage: TestErrorCodesTwentyEightToThirty."
+
+[file.176]
+path = "modules/tokenfactory/types/events.go"
+lines = 25
+verdict = "clean"
+note = "Whole file reviewed against issuer/admin separation, pause refusals, registered messages/queries and persistent state encodings. Declared surface: events."
+
+[file.177]
+path = "modules/tokenfactory/types/events_test.go"
+lines = 59
+verdict = "clean"
+note = "Whole file reviewed for producer-shaped fixtures, real declarations, authorization/refusal behavior and recovery where applicable. Coverage: TestEventAttributeNamesFrozen."
+
+[file.178]
+path = "modules/tokenfactory/types/expected_issuer.go"
+lines = 13
+verdict = "clean"
+note = "Whole file reviewed against issuer/admin separation, pause refusals, registered messages/queries and persistent state encodings. Declared surface: expected_issuer."
+
+[file.179]
+path = "modules/tokenfactory/types/expected_keepers.go"
+lines = 30
+verdict = "clean"
+note = "Whole file reviewed against issuer/admin separation, pause refusals, registered messages/queries and persistent state encodings. Declared surface: expected_keepers."
+
+[file.180]
+path = "modules/tokenfactory/types/expected_keepers_test.go"
+lines = 33
+verdict = "clean"
+note = "Whole file reviewed for producer-shaped fixtures, real declarations, authorization/refusal behavior and recovery where applicable. Coverage: TestBankKeeperMethodSetFrozen."
+
+[file.181]
+path = "modules/tokenfactory/types/genesis.go"
+lines = 59
+verdict = "clean"
+note = "Whole file reviewed against issuer/admin separation, pause refusals, registered messages/queries and persistent state encodings. Declared surface: DefaultGenesis, Validate."
+
+[file.182]
+path = "modules/tokenfactory/types/genesis_issuer_test.go"
+lines = 45
+verdict = "clean"
+note = "Whole file reviewed for producer-shaped fixtures, real declarations, authorization/refusal behavior and recovery where applicable. Coverage: TestGenesisRejectsMalformedIssuerDid."
+
+[file.183]
+path = "modules/tokenfactory/types/genesis_paused_test.go"
+lines = 57
+verdict = "clean"
+note = "Whole file reviewed for producer-shaped fixtures, real declarations, authorization/refusal behavior and recovery where applicable. Coverage: TestGenesisPausedDenomsWireField."
+
+[file.184]
+path = "modules/tokenfactory/types/genesis_paused_validate_test.go"
+lines = 106
+verdict = "clean"
+note = "Whole file reviewed for producer-shaped fixtures, real declarations, authorization/refusal behavior and recovery where applicable. Coverage: TestGenesisPausedDenomsMustBeKnown, TestGenesisPausedDenomsUnique."
+
+[file.185]
+path = "modules/tokenfactory/types/genesis_test.go"
+lines = 139
+verdict = "clean"
+note = "Whole file reviewed for producer-shaped fixtures, real declarations, authorization/refusal behavior and recovery where applicable. Coverage: TestGenesisState_Validate."
+
+[file.186]
+path = "modules/tokenfactory/types/keys.go"
+lines = 55
+verdict = "clean"
+note = "Whole file reviewed against issuer/admin separation, pause refusals, registered messages/queries and persistent state encodings. Declared surface: GetDenomPrefixStore, GetCreatorPrefix, GetCreatorsPrefix, GetDenomPausedKey."
+
+[file.187]
+path = "modules/tokenfactory/types/keys_layout_test.go"
+lines = 95
+verdict = "clean"
+note = "Whole file reviewed for producer-shaped fixtures, real declarations, authorization/refusal behavior and recovery where applicable. Coverage: TestStoreKeyLayoutFrozen."
+
+[file.188]
+path = "modules/tokenfactory/types/msgs.go"
+lines = 279
+verdict = "issues"
+note = "Whole file reviewed; its concrete discrepancies, lifecycle or coverage gaps and owning repair proposals appear in finding entries."
+
+[file.189]
+path = "modules/tokenfactory/types/msgs_test.go"
+lines = 417
+verdict = "issues"
+note = "Whole file reviewed; its concrete discrepancies, lifecycle or coverage gaps and owning repair proposals appear in finding entries."
+
+[file.190]
+path = "modules/tokenfactory/types/params.go"
+lines = 46
+verdict = "clean"
+note = "Whole file reviewed against issuer/admin separation, pause refusals, registered messages/queries and persistent state encodings. Declared surface: ParamKeyTable, DefaultParams, Validate, ParamSetPairs, validateDenomAllowListMaxSize."
+
+[file.191]
+path = "modules/tokenfactory/types/params_test.go"
+lines = 154
+verdict = "clean"
+note = "Whole file reviewed for producer-shaped fixtures, real declarations, authorization/refusal behavior and recovery where applicable. Coverage: TestDefaultParams, TestParams_Validate, Test_validateDenomAllowListMaxSize, TestParams_ParamSetPairs."
+
+[file.192]
+path = "modules/tokenfactory/types/proof_events_test.go"
+lines = 249
+verdict = "clean"
+note = "Whole file reviewed for producer-shaped fixtures, real declarations, authorization/refusal behavior and recovery where applicable. Coverage: TestProofEventsAdminPauseTransport, TestProofEventsIssuerTransport, TestProofEventsMalformedSignerRefused."
+
+[file.193]
+path = "modules/tokenfactory/types/query_additional_bindings_test.go"
+lines = 116
+verdict = "clean"
+note = "Whole file reviewed for producer-shaped fixtures, real declarations, authorization/refusal behavior and recovery where applicable. Coverage: TestDenomAuthorityMetadataQueryParamBinding, TestDenomPausedQueryParamBinding."
+
+[file.194]
+path = "modules/tokenfactory/types/query_denom_paused_test.go"
+lines = 171
+verdict = "clean"
+note = "Whole file reviewed for producer-shaped fixtures, real declarations, authorization/refusal behavior and recovery where applicable. Coverage: TestQueryDenomPausedWireShape."
+
+[file.195]
+path = "wasm/contrib/devtools/Makefile"
+lines = 85
+verdict = "issues"
+note = "Whole file reviewed; its concrete discrepancies, lifecycle or coverage gaps and owning repair proposals appear in finding entries."
+
+[file.196]
+path = "wasm/contrib/devtools/README.md"
+lines = 9
+verdict = "clean"
+note = "Whole page reviewed against companion scripts and declarations; upstream provenance and the intended local example are explicit."
+
+[file.197]
+path = "wasm/contrib/local/00-genesis.sh"
+lines = 28
+verdict = "clean"
+note = "Whole upstream-wasmd local example reviewed against its companion scripts: local testing identity, addresses, contract fixture paths and command flow. No separate Paxeer/LayerX runtime service is implied."
+
+[file.198]
+path = "wasm/contrib/local/01-accounts.sh"
+lines = 18
+verdict = "clean"
+note = "Whole upstream-wasmd local example reviewed against its companion scripts: local testing identity, addresses, contract fixture paths and command flow. No separate Paxeer/LayerX runtime service is implied."
+
+[file.199]
+path = "wasm/contrib/local/02-contracts.sh"
+lines = 81
+verdict = "clean"
+note = "Whole upstream-wasmd local example reviewed against its companion scripts: local testing identity, addresses, contract fixture paths and command flow. No separate Paxeer/LayerX runtime service is implied."
+
+[file.200]
+path = "wasm/contrib/local/03-grpc-queries.sh"
+lines = 31
+verdict = "clean"
+note = "Whole upstream-wasmd local example reviewed against its companion scripts: local testing identity, addresses, contract fixture paths and command flow. No separate Paxeer/LayerX runtime service is implied."
+
+[file.201]
+path = "wasm/contrib/local/README.md"
+lines = 27
+verdict = "issues"
+note = "Whole file reviewed; its concrete discrepancies, lifecycle or coverage gaps and owning repair proposals appear in finding entries."
+
+[file.202]
+path = "wasm/contrib/local/setup_wasmd.sh"
+lines = 36
+verdict = "clean"
+note = "Whole upstream-wasmd local example reviewed against its companion scripts: local testing identity, addresses, contract fixture paths and command flow. No separate Paxeer/LayerX runtime service is implied."
+
+[file.203]
+path = "wasm/contrib/local/start_node.sh"
+lines = 4
+verdict = "clean"
+note = "Whole upstream-wasmd local example reviewed against its companion scripts: local testing identity, addresses, contract fixture paths and command flow. No separate Paxeer/LayerX runtime service is implied."
+
+[file.204]
+path = "wasm/contrib/prometheus/README.md"
+lines = 54
+verdict = "clean"
+note = "Whole page reviewed against companion scripts and declarations; upstream provenance and the intended local example are explicit."
+
+[file.205]
+path = "wasm/contrib/prometheus/prometheus.yaml"
+lines = 11
+verdict = "clean"
+note = "Whole scrape configuration reviewed against its README: consensus instrumentation endpoint and interval agree; application REST telemetry is documented separately."
+
+[file.206]
+path = "wasm/contrib/prototools-docker/Dockerfile"
+lines = 51
+verdict = "issues"
+note = "Whole file reviewed; its concrete discrepancies, lifecycle or coverage gaps and owning repair proposals appear in finding entries."
+
+[file.207]
+path = "wasm/contrib/prototools-docker/README.md"
+lines = 21
+verdict = "issues"
+note = "Whole file reviewed; its concrete discrepancies, lifecycle or coverage gaps and owning repair proposals appear in finding entries."
+
+[file.208]
+path = "wasm/contrib/relayer-tests/README.md"
+lines = 13
+verdict = "clean"
+note = "Whole page reviewed against companion scripts and declarations; upstream provenance and the intended local example are explicit."
+
+[file.209]
+path = "wasm/contrib/relayer-tests/configs/wasmd/chains/ibc-0.json"
+lines = 1
+verdict = "clean"
+note = "Whole local relayer configuration reviewed: chain identity, address prefix, RPC port and demo path agree with the two-chain caller. Explicit upstream-wasmd example, not mainnet deployment configuration."
+
+[file.210]
+path = "wasm/contrib/relayer-tests/configs/wasmd/chains/ibc-1.json"
+lines = 1
+verdict = "clean"
+note = "Whole local relayer configuration reviewed: chain identity, address prefix, RPC port and demo path agree with the two-chain caller. Explicit upstream-wasmd example, not mainnet deployment configuration."
+
+[file.211]
+path = "wasm/contrib/relayer-tests/configs/wasmd/paths/demo.json"
+lines = 1
+verdict = "clean"
+note = "Whole local relayer configuration reviewed: chain identity, address prefix, RPC port and demo path agree with the two-chain caller. Explicit upstream-wasmd example, not mainnet deployment configuration."
+
+[file.212]
+path = "wasm/contrib/relayer-tests/init_two_chainz_relayer.sh"
+lines = 64
+verdict = "issues"
+note = "Whole file reviewed; its concrete discrepancies, lifecycle or coverage gaps and owning repair proposals appear in finding entries."
+
+[file.213]
+path = "wasm/contrib/relayer-tests/one_chain.sh"
+lines = 115
+verdict = "issues"
+note = "Whole file reviewed; its concrete discrepancies, lifecycle or coverage gaps and owning repair proposals appear in finding entries."
+
+[file.214]
+path = "wasm/contrib/relayer-tests/test_ibc_transfer.sh"
+lines = 26
+verdict = "issues"
+note = "Whole file reviewed; its concrete discrepancies, lifecycle or coverage gaps and owning repair proposals appear in finding entries."
+
+[finding.1]
+file = "modules/layerxcustody/keeper/release.go"
+line = 57
+class = "interface-mismatch"
+severity = "high"
+observed = "ReleaseRetired resolves empty Params.Authority to the gov module address (keeper.go:89-93), then calls SendCoinsFromModuleToAccount. node/app.go:890-891 supplies the SDK BankKeeper, whose keeper.go:391 rejects this blocked recipient. A mapped asset with a positive balance makes node/upgrades.go:551 return an error and prevents ApplyUpgrade from completing the merge."
+expected = "Requirements 6485.1 and 6485.4 require the real merge plan to release every mapped balance to its authority once. The default governance authority is a supported configuration and must receive those balances through a lawful bank transfer."
+proposal = "In modules/layerxcustody/keeper/release.go and types/expected_keepers.go provide a governed module-to-module transfer for the default gov destination, retaining the account transfer for valid external authorities and preserving bank protections. Extend keeper/merge_release_test.go to apply the real merge with default params, positive balances and pending claims; assert balances, cancellations and exactly-once behavior."
+owner_domain = 6
+interface = "6.go-lxcustody-keeper-releaseretired-j36"
+
+[finding.2]
+file = "modules/layerxcustody/keeper/retire.go"
+line = 14
+class = "restart-recovery"
+severity = "high"
+observed = "Retired depends entirely on the upgrade done-height store. Custody ExportGenesis at keeper/genesis.go:76 exports no retirement activation; sdk/x/upgrade/module.go:104-130 ignores genesis and exports an empty object. node/app.go:1669 restores module versions but no done heights. A fresh app importing post-merge state reports Retired false and reopens deposits/admin writes, while new proof withdrawal and exit verification still return ErrModuleRetired."
+expected = "Requirements 6481.3, 6482.4 and 6482.7 and brief check_5 require a merged network recovered from exported state to retain retirement. It must refuse new deposits into custody whose new proof release paths are already retired."
+proposal = "Define validated activation recovery in sdk/x/upgrade and node genesis, or a specified custody genesis lifecycle field. Coordinate modules/layerxcustody/keeper/genesis.go: its SetParams/SetAsset currently reject an already-restored retirement marker, so historical loading needs an internal initialization path distinct from runtime mutation. Prove full app export, close, fresh InitChain and post-import deposit/admin refusals."
+owner_domain = 6
+interface = "6.go-lxcustody-keeper-retired-j36"
+
+[finding.3]
+file = "modules/tokenfactory/module.go"
+line = 187
+class = "runtime-risk"
+severity = "medium"
+observed = "ExportGenesisStream creates an unbuffered goroutine that reads am.ExportGenesis(ctx, cdc) after returning. The captured SDK context references mutable stores: advancing or closing them before that read can change the snapshot or fail the read. sdk/types/module/module.go:464 currently drains immediately; a production concurrent mutation was not established."
+expected = "The streaming genesis API should capture the producer state at invocation, matching the synchronous stream implementations and mutation-before-drain assertions in keeper/proof_genesis_test.go. Recovery bytes should not depend on goroutine scheduling."
+proposal = "In modules/tokenfactory/module.go marshal synchronously, enqueue the snapshot on a one-element buffered channel and close it before returning, matching the other repaired module streams. Add tokenfactory stream tests that mutate state and close the producer before draining, asserting exact snapshot bytes and finite channel closure."
+owner_domain = 6
+interface = "6.go-tokenfactory-module-appmodule-exportgenesisstream-j35"
+
+[finding.4]
+file = "modules/tokenfactory/keeper/issuer_supply.go"
+line = 17
+class = "runtime-risk"
+severity = "medium"
+observed = "MintByIssuer checks recipient bech32 encoding before mintTo, but bankactions.go:23 mints supply before SendCoinsFromModuleToAccount at line 34 can refuse a valid blocked recipient such as gov. With no local CacheContext, the exported keeper call can return an error after leaving minted coins and bank events in its caller context. Only tests and the IssuerKeeper declaration currently call this supply API."
+expected = "An issuer mint refused by bank destination policy should leave supply, account/module balances and events unchanged. The direct keeper API exposed by requirement 6249.1 cannot assume that every consumer supplies transaction-level rollback."
+proposal = "Make MintByIssuer in modules/tokenfactory/keeper/issuer_supply.go atomic across mintTo and event emission with an SDK cache committed only on success. Add a real app BankKeeper test in keeper/proof_issuer_did_test.go using a valid blocked module destination; assert refusal, unchanged supply, both balances and events."
+owner_domain = 6
+interface = "6.go-tokenfactory-mintbyissuer-j35"
+
+[finding.5]
+file = "modules/layerxcustody/keeper/keeper.go"
+line = 144
+class = "runtime-risk"
+severity = "medium"
+observed = "SetAsset compares raw asset.Pointer with stored other.Pointer before canonicalizing it at lines 162-165. ParseAddress accepts alternate hex letter case; stored pointers use EIP-55. A second asset can reuse the same 20-byte pointer under another spelling and overwrite AssetPointerKey while both asset records remain."
+expected = "SetAsset lines 131-133 promise that a pointer already bound to another asset is refused. Pointer identity is the 20-byte address regardless of textual case; the asset store and pointer lookup must agree on its owner."
+proposal = "In modules/layerxcustody/keeper/keeper.go parse and canonicalize the pointer before the conflict scan, comparing address bytes or the existing pointer index before writing. Add lower-case, upper-case and EIP-55 alias cases in keeper/keeper_test.go for two assets and assert unchanged original records and indexes on refusal."
+owner_domain = 6
+interface = "6.msg-layerxcustody-setasset"
+
+[finding.6]
+file = "modules/layerxcustody/keeper/merge_release_test.go"
+line = 49
+class = "test-gap"
+severity = "medium"
+observed = "prepareCustodyMerge replaces the default governance authority with a random ordinary account at lines 49-52 before either real merge-plan test runs. The tests cover account-destination release but miss the blocked default gov module recipient."
+expected = "Requirement 6485.4 requires the actual upgrade keeper release path to work for supported configurations, including default authority. An ordinary-account fixture does not establish module-recipient compatibility with the production bank keeper."
+proposal = "Add a default-authority case in modules/layerxcustody/keeper/merge_release_test.go using the real app bank keeper and scheduled v7.0 plan with native/factory balances and pending claims. Assert governance destination balances, terminal claims/nullifiers and repeat refusal; retain the explicit-account case."
+owner_domain = 6
+interface = "6.go-lxcustody-keeper-releaseretired-j36"
+
+[finding.7]
+file = "modules/layerxcustody/keeper/genesis_retire_test.go"
+line = 69
+class = "test-gap"
+severity = "medium"
+observed = "TestGenesisRoundTripAfterRetiredRelease asserts Retired only in the source context at line 50. After fresh-app import at line 69 it compares historical records and solvency but never asserts Retired or attempts a new deposit/admin operation. Equal exported custody records hide lost activation."
+expected = "Brief check_5 and requirements 6481.3 and 6482.4 require recovery of both historical custody data and its retired lifecycle. Fresh consumer observations must prove the same refusal as the merged source."
+proposal = "Extend modules/layerxcustody/keeper/genesis_retire_test.go with app-produced export, real close/reopen and fresh InitChain. Assert recovered Retired, deposit/admin refusals, unchanged balances and no new events. Restore activation through the specified validated production initialization path instead of manually marking the consumer done."
+owner_domain = 6
+interface = "6.go-lxcustody-keeper-retired-j36"
+
+[finding.8]
+file = "modules/tokenfactory/types/msgs.go"
+line = 178
+class = "runtime-risk"
+severity = "medium"
+observed = "MsgChangeAdmin.ValidateBasic always parses NewAdmin as bech32 and rejects the empty string. Keeper ChangeAdmin accepts empty admin; README.md:17 promises renunciation with that value, and admins_test.go directly accepts it through the msg server. A normal validated transaction cannot perform the documented renunciation."
+expected = "The admin lifecycle must agree across signed message validation, CLI/wasm encoders and keeper state. Supported renunciation must be reachable through the user transaction path and preserve the independent issuer DID."
+proposal = "Resolve renunciation policy in modules/tokenfactory/types/msgs.go, keeper/admins.go and README.md. If empty admin stays supported, permit it explicitly while validating nonempty addresses, then prove a signed/validated ChangeAdmin transaction through the real app route, CLI/wasm encoding and issuer preservation."
+owner_domain = 6
+interface = "6.go-tokenfactory-types-msgchangeadmin-validatebasic-j35"
+
+[finding.9]
+file = "modules/tokenfactory/keeper/admins_test.go"
+line = 63
+class = "test-gap"
+severity = "medium"
+observed = "TestAdminMsgs and empty-admin cases call msgServer.ChangeAdmin directly and accept success. They bypass MsgChangeAdmin.ValidateBasic, which rejects those messages. Keeper-only success therefore does not prove the advertised transaction lifecycle."
+expected = "Admin lifecycle tests must cover behavior reachable by a user transaction, including validation, authorization and issuer retention. Direct server success is insufficient while the message validation refuses the same value."
+proposal = "Retain keeper assertions in modules/tokenfactory/keeper/admins_test.go and add a producer-created signed ChangeAdmin transaction through real app validation and routing. Assert the approved renunciation outcome and an unauthorized refusal, with unchanged issuer DID and supply."
+owner_domain = 6
+interface = "6.msg-tokenfactory-changeadmin"
+
+[finding.10]
+file = "modules/tokenfactory/keeper/bankactions_test.go"
+line = 197
+class = "test-gap"
+severity = "low"
+observed = "TestBurnDenom declares amount 1000 for its over-balance row at line 182 but constructs every burn with literal 10 at line 197. The row also selects a non-admin, so its refusal exercises authorization rather than its named condition. TestMultipleInterleavedMintsBurns independently covers an over-balance burn."
+expected = "Each table row should submit its declared amount and isolate the named refusal. The over-balance case should reach the balance check with a valid admin and prove unchanged supply and balances."
+proposal = "In modules/tokenfactory/keeper/bankactions_test.go use tc.amount in the coin, select the lawful admin for the over-balance row and assert the specific insufficient-funds refusal plus unchanged balances and supply. Preserve the separate authorization and interleaved cases."
+owner_domain = 6
+
+[finding.11]
+file = "modules/tokenfactory/types/msgs_test.go"
+line = 255
+class = "test-gap"
+severity = "medium"
+observed = "TestMsgBurn and TestMsgChangeAdmin use msg := baseMsg where baseMsg is a pointer. The empty-sender case mutates the same message used by later zero/negative-amount, empty-admin and invalid-denom cases. Generic Error assertions can pass because Sender remains empty instead of exercising the intended field."
+expected = "Brief check_7 requires one-field validation cases to use otherwise valid producer-shaped messages. A prior invalid sender must not mask missing validation of another field."
+proposal = "Create a fresh constructor result or value copy per case in modules/tokenfactory/types/msgs_test.go. Assert exact wrapped error identities for sender, amount, denom and new admin, aligning the empty-admin case with the approved public renunciation policy."
+owner_domain = 6
+
+[finding.12]
+file = "modules/tokenfactory/keeper/proof_genesis_test.go"
+line = 214
+class = "test-gap"
+severity = "medium"
+observed = "TestProofGenesisListedModuleConsumers tests mutation-before-drain snapshots for transfer, launchpad, anchor, bridge and custody but omits tokenfactory.AppModule. The tokenfactory producer/consumer proof uses synchronous ExportGenesis, leaving its deferred ExportGenesisStream outside the snapshot assertions."
+expected = "The exported tokenfactory stream needs real producer/consumer snapshot coverage equivalent to the other module streams. Synchronous JSON/protobuf recovery cannot establish the asynchronous path behavior."
+proposal = "Add the real tokenfactory AppModule to modules/tokenfactory/keeper/proof_genesis_test.go stream cases. Mutate a valid producer parameter before drain and assert earlier snapshot bytes; use the disk harness to close the producer before consuming, then prove channel closure and consumer round-trip."
+owner_domain = 6
+interface = "6.go-tokenfactory-module-appmodule-exportgenesisstream-j35"
+
+[finding.13]
+file = "wasm/contrib/relayer-tests/one_chain.sh"
+line = 99
+class = "config-drift"
+severity = "medium"
+observed = "The script accepts PROFPORT at line 28 but Linux and macOS rewrites replace localhost:6060 with P2PPORT at lines 99 and 107. Profiling binds the peer port instead of the requested profiling port, conflicting with the peer listener when profiling is enabled."
+expected = "The local harness should honor independently supplied RPC, peer, profiling and gRPC ports. Its two-chain caller supplies separate profiling ports 6060 and 6061."
+proposal = "Use PROFPORT in both platform branches of wasm/contrib/relayer-tests/one_chain.sh and check generated configs for the requested distinct listener ports before starting. Retain local ibc-0 and ibc-1 identities, which intentionally target upstream test chains."
+owner_domain = 6
+
+[finding.14]
+file = "wasm/contrib/relayer-tests/init_two_chainz_relayer.sh"
+line = 53
+class = "config-drift"
+severity = "medium"
+observed = "RELAYER_CONF points to the working-directory .relayer and is deleted at line 33, but rly config, keys and light calls at lines 53-64 never receive it through --home. They use the relayer default home rather than the directory reset by the harness."
+expected = "Local setup and subsequent transfer operations should share an explicit isolated relayer home. Resetting another directory must not retain old chains/keys or mutate an unrelated relayer installation."
+proposal = "Thread a shared explicit relayer home through wasm/contrib/relayer-tests/init_two_chainz_relayer.sh and test_ibc_transfer.sh, passing --home on every rly call. Restrict cleanup to that home and use it for config, key restore, link, query and transfer."
+owner_domain = 6
+
+[finding.15]
+file = "wasm/contrib/relayer-tests/init_two_chainz_relayer.sh"
+line = 36
+class = "runtime-risk"
+severity = "medium"
+observed = "The setup script invokes killall wasmd before starting its two instances. This targets every matching executable rather than nodes owned by this harness and can terminate an unrelated developer node."
+expected = "A local example should stop only its own earlier child processes and leave unrelated nodes running. Node lifecycle ownership should be tied to the dedicated test homes and tracked process identities."
+proposal = "Replace killall in wasm/contrib/relayer-tests/init_two_chainz_relayer.sh with child PID tracking under the harness data root, populated by one_chain.sh. Validate process identity/home before signaling, wait for those children and implement scoped trap cleanup on failure."
+owner_domain = 6
+
+[finding.16]
+file = "wasm/contrib/relayer-tests/test_ibc_transfer.sh"
+line = 20
+class = "test-gap"
+severity = "medium"
+observed = "The script reports success whenever destination balance does not end in 100000000000test. Empty or unrelated successful balance output passes; it never checks the sent 1000000test as a destination IBC voucher or successful packet acknowledgement."
+expected = "IBC transfer success requires the actual destination voucher denom and amount, successful acknowledgement and source movement. Absence of an old native balance is not proof of delivery."
+proposal = "In wasm/contrib/relayer-tests/test_ibc_transfer.sh capture initial balances and packet identity, derive the expected ICS20 denom trace from the real path and poll with a finite timeout for successful acknowledgement and exact voucher increment. Reject empty/unparseable output and retain refusals."
+owner_domain = 6
+
+[finding.17]
+file = "wasm/contrib/devtools/Makefile"
+line = 64
+class = "config-drift"
+severity = "medium"
+observed = "Tool recipes at lines 64, 74 and 79 use go get from /tmp to install statik, runsim and golangci-lint. The root declares Go 1.25.8; modern go get does not install commands and rejects this outside-module use. The recipes cannot produce their binary prerequisites with the supported toolchain."
+expected = "The tools target should install pinned executable prerequisites to TOOLS_DESTDIR under the repository Go version without changing project dependency manifests."
+proposal = "Update wasm/contrib/devtools/Makefile to version-pinned go install with explicit GOBIN matching TOOLS_DESTDIR and tool versions compatible with supported Go. Remove the obsolete /tmp workaround and update devtools/README.md installation guidance."
+owner_domain = 16
+
+[finding.18]
+file = "wasm/contrib/prototools-docker/Dockerfile"
+line = 8
+class = "config-drift"
+severity = "medium"
+observed = "The helper pins buf 0.30.0 and Go 1.16.8/1.17.3, whereas the root buf.gen.yaml uses version v2 and go.mod declares 1.25.8. Its independently selected regen protobuf/gocosmos stack also differs from the root generator path. This image cannot consume the current root buf v2 config."
+expected = "Requirement 7288.1 assigns reproducible generation to root plugins/options. A supported helper should use the same configuration and generator resolution, or be explicitly historical upstream tooling."
+proposal = "Retire this alternate image from supported generation or update wasm/contrib/prototools-docker/Dockerfile to the root Go/buf toolchain and build/proto/gocosmos generator with root mapping options. Direct its README to the single authoritative generation path."
+owner_domain = 16
+
+[finding.19]
+file = "wasm/contrib/prototools-docker/README.md"
+line = 20
+class = "doc-drift"
+severity = "medium"
+observed = "The build example tags cosmwasm/prototools-docker at line 16, but the run example requests cosmwasm/prototool-docker. It mounts the SDK at /workspace/cosmos_sdk_dir while COSMOS_SDK_DIR is /cosmos_sdk_dir and resolves the external cosmos-sdk module instead of the local fork."
+expected = "Copyable instructions should run the built image and mount this repository SDK at the exact path used by consumers. Generation should follow the root configuration."
+proposal = "Rewrite wasm/contrib/prototools-docker/README.md for the supported root generation workflow. If retaining the helper, use the same image tag, mount local sdk/ at COSMOS_SDK_DIR and specify a valid working directory and compatible toolchain."
+owner_domain = 16
+
+[finding.20]
+file = "wasm/contrib/local/README.md"
+line = 18
+class = "doc-drift"
+severity = "medium"
+observed = "Setup/start use command-scoped HOME=/tmp/trash at lines 10-11; the Next shell examples run 01-accounts.sh and 02-contracts.sh without it. Those scripts query validator/fred through the default wasmd home and therefore use a different keyring from the initialized node."
+expected = "The upstream local example must retain one isolated node home/keyring for every shell, query and transaction. New-shell instructions should preserve the initialization context."
+proposal = "Update wasm/contrib/local/README.md to pass the same isolated home throughout both shells, preferably via a dedicated variable and explicit --home support in the companion scripts. Carry that context to the grpc example and retain the upstream-wasmd prerequisite."
+owner_domain = 16
+
+[finding.21]
+file = "modules/tokenfactory/README.md"
+line = 20
+class = "doc-drift"
+severity = "medium"
+observed = "The guide covers admin mint/burn but omits MsgSetDenomPaused, issuer_did, issuer-only pause control, pause query surfaces and paused_denoms recovery. Lines 17-18 also promise empty-admin renunciation despite MsgChangeAdmin.ValidateBasic rejecting it."
+expected = "The module guide should explain the issuer/admin split and requirements 6241-6270 pause/recovery behavior, including the intentional keeper-level module-transfer exemption. Lifecycle examples should work through validated transactions."
+proposal = "Expand modules/tokenfactory/README.md with issuer binding, approved admin renunciation, pause authority/refusals, gRPC/REST/CLI/wasm queries and genesis preservation. State the user transfer pause exemption for module flows and align renunciation prose with types/msgs.go."
+owner_domain = 6
+
+[finding.22]
+file = "README.md"
+line = 44
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 44-47 present two execution domains and a separate layerxd daemon settling checkpoints through layerxAnchor. Lines 79 and 181 call the merge a draft and repeat separate settlement; line 145 offers make layerxd as a supported build path."
+expected = "Brief facts 1-2 define one BFT paxd network on EVM chain ID 125 with the kernel merged into the node and receipt finality at block commit. The separate daemon/custody/anchor settlement deployment is retired."
+proposal = "Rewrite README.md overview, build examples and upgrade text for merged paxd, committed-block finality and root-path public RPC. Explicitly label any retained pre-merge architecture/build references historical and remove them from current operator instructions."
+owner_domain = 17
+
+[finding.23]
+file = "docs/readme/README.pt-BR.md"
+line = 37
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 37-39 describe separate paxd and layerxd execution domains joined by custody/anchor precompiles. Line 125 and the diagram around 152 show layerxd as a running LNI sequencer and checkpoint/custody flows as current services."
+expected = "Brief facts 1-2 require translations to describe the single merged BFT paxd network, integrated block-proposing kernel and retired custody/anchor service lifecycle consistently with canonical documentation."
+proposal = "Rewrite docs/readme/README.pt-BR.md lines 37-39, runtime/build descriptions and architecture diagram for merged paxd on chain ID 125. Remove live layerxd/LNI settlement arrows, describe block-commit receipt finality and synchronize with the corrected canonical README."
+owner_domain = 17
+
+[finding.24]
+file = "docs/readme/README.fr.md"
+line = 37
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 37-39 describe separate paxd and layerxd execution domains joined by custody/anchor precompiles. Line 125 and the diagram around 152 show layerxd as a running LNI sequencer and checkpoint/custody flows as current services."
+expected = "Brief facts 1-2 require translations to describe the single merged BFT paxd network, integrated block-proposing kernel and retired custody/anchor service lifecycle consistently with canonical documentation."
+proposal = "Rewrite docs/readme/README.fr.md lines 37-39, runtime/build descriptions and architecture diagram for merged paxd on chain ID 125. Remove live layerxd/LNI settlement arrows, describe block-commit receipt finality and synchronize with the corrected canonical README."
+owner_domain = 17
+
+[finding.25]
+file = "docs/readme/README.ja.md"
+line = 37
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 37-39 describe separate paxd and layerxd execution domains joined by custody/anchor precompiles. Line 125 and the diagram around 152 show layerxd as a running LNI sequencer and checkpoint/custody flows as current services."
+expected = "Brief facts 1-2 require translations to describe the single merged BFT paxd network, integrated block-proposing kernel and retired custody/anchor service lifecycle consistently with canonical documentation."
+proposal = "Rewrite docs/readme/README.ja.md lines 37-39, runtime/build descriptions and architecture diagram for merged paxd on chain ID 125. Remove live layerxd/LNI settlement arrows, describe block-commit receipt finality and synchronize with the corrected canonical README."
+owner_domain = 17
+
+[finding.26]
+file = "docs/readme/README.ru.md"
+line = 37
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 37-39 describe separate paxd and layerxd execution domains joined by custody/anchor precompiles. Line 125 and the diagram around 152 show layerxd as a running LNI sequencer and checkpoint/custody flows as current services."
+expected = "Brief facts 1-2 require translations to describe the single merged BFT paxd network, integrated block-proposing kernel and retired custody/anchor service lifecycle consistently with canonical documentation."
+proposal = "Rewrite docs/readme/README.ru.md lines 37-39, runtime/build descriptions and architecture diagram for merged paxd on chain ID 125. Remove live layerxd/LNI settlement arrows, describe block-commit receipt finality and synchronize with the corrected canonical README."
+owner_domain = 17
+
+[finding.27]
+file = "docs/readme/README.zh-CN.md"
+line = 37
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 37-39 describe separate paxd and layerxd execution domains joined by custody/anchor precompiles. Line 125 and the diagram around 152 show layerxd as a running LNI sequencer and checkpoint/custody flows as current services."
+expected = "Brief facts 1-2 require translations to describe the single merged BFT paxd network, integrated block-proposing kernel and retired custody/anchor service lifecycle consistently with canonical documentation."
+proposal = "Rewrite docs/readme/README.zh-CN.md lines 37-39, runtime/build descriptions and architecture diagram for merged paxd on chain ID 125. Remove live layerxd/LNI settlement arrows, describe block-commit receipt finality and synchronize with the corrected canonical README."
+owner_domain = 17
+
+[finding.28]
+file = "docs/readme/README.de.md"
+line = 37
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 37-39 describe separate paxd and layerxd execution domains joined by custody/anchor precompiles. Line 125 and the diagram around 152 show layerxd as a running LNI sequencer and checkpoint/custody flows as current services."
+expected = "Brief facts 1-2 require translations to describe the single merged BFT paxd network, integrated block-proposing kernel and retired custody/anchor service lifecycle consistently with canonical documentation."
+proposal = "Rewrite docs/readme/README.de.md lines 37-39, runtime/build descriptions and architecture diagram for merged paxd on chain ID 125. Remove live layerxd/LNI settlement arrows, describe block-commit receipt finality and synchronize with the corrected canonical README."
+owner_domain = 17
+
+[finding.29]
+file = "docs/readme/README.es.md"
+line = 37
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 37-39 describe separate paxd and layerxd execution domains joined by custody/anchor precompiles. Line 125 and the diagram around 152 show layerxd as a running LNI sequencer and checkpoint/custody flows as current services."
+expected = "Brief facts 1-2 require translations to describe the single merged BFT paxd network, integrated block-proposing kernel and retired custody/anchor service lifecycle consistently with canonical documentation."
+proposal = "Rewrite docs/readme/README.es.md lines 37-39, runtime/build descriptions and architecture diagram for merged paxd on chain ID 125. Remove live layerxd/LNI settlement arrows, describe block-commit receipt finality and synchronize with the corrected canonical README."
+owner_domain = 17
+
+[finding.30]
+file = "docs/paxeer-network.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 3-9 present Paxeer as a separate LayerX settlement/custody layer, independently replayed sequencer and trust boundary. Line 9 promises a public faucet, and line 38 lists retired custody/anchor settlement components as current services."
+expected = "The finished network has one BFT chain, integrated kernel and block-commit receipt finality. The brief retires separate settlement services; the current README describes mainnet beta without a general-purpose faucet."
+proposal = "Rewrite docs/paxeer-network.md for the merged network and supported modules. Remove independent sequencer/custody settlement claims, align funding guidance with mainnet-beta policy and label retained historical module paths by lifecycle."
+owner_domain = 17
+
+[finding.31]
+file = "docs/MONOREPO.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The opening names the kernel layerxd with an independent release/trust boundary, while lines 70-72 retain custody/checkpoints/guarantors/emergency exits as the current settlement boundary. This presents a pre-merge deployment as current monorepo guidance."
+expected = "Brief facts 1-2 place the kernel inside paxd and retire the separate daemon/settlement deployment. Source layout guidance must distinguish retained historical paths from running components."
+proposal = "Update docs/MONOREPO.md introduction and trust-boundary section for the integrated kernel and retired settlement modules. Keep layout migration tables grounded in existing paths and distinguish historical deployments from supported runtime instructions."
+owner_domain = 17
+
+[finding.32]
+file = "docs/system/precompiles.md"
+line = 1285
+class = "doc-drift"
+severity = "medium"
+observed = "The layerxcustody ABI section at 1285-1320 lists deposit, proof withdrawal, forced exit and root registration at 0x1013 with no retirement warning; later Solidity declarations repeat them. Readers see selector syntax without the actual merged-network availability/refusal lifecycle."
+expected = "Public precompile documentation should state activation/retirement as well as ABI syntax. Requirements 6482 and 6968 retire custody mutations/proof paths; retained declarations do not mean those operations are available."
+proposal = "Add lifecycle metadata to the docs/system/precompiles.md generator source/template and render retirement and refusal behavior beside 0x1013 and its methods. Clearly label historical ABI declarations and link merged-network behavior without restoring retired services."
+owner_domain = 17
+
+[finding.33]
+file = "docs/system/chain-modules.md"
+line = 197
+class = "doc-drift"
+severity = "medium"
+observed = "The custody section at 197-235 lists parameters, mutation messages and LayerXCustody proposal as an ordinary module API without the merge gate or ErrModuleRetired. It appears to offer transactions/governance that keeper/message/proposal paths refuse after v7.0."
+expected = "The module guide should distinguish retained historical state/schema from supported operations. Requirements 6482-6483 close custody mutations/proposals after the merge while history remains representable."
+proposal = "Add lifecycle metadata to the docs/system/chain-modules.md generator and render the retirement height, ErrModuleRetired and historical-state purpose beside the custody message/proposal list. Explain merge release/recovery without advertising retired transactions."
+owner_domain = 17
+
+[finding.34]
+file = "interchain/modules/light-clients/06-solomachine/spec/01_concepts.md"
+line = 9
+class = "doc-drift"
+severity = "low"
+observed = "The vendored concepts page describes a frozen sequence at 9-13 and setting it to the offending sequence at 155. The v2 ClientState field at types/solomachine.pb.go:96 is IsFrozen bool and the misbehaviour handler sets that boolean."
+expected = "Solo-machine documentation should name the v2 persisted field and its boolean lifecycle. Consumers should not expect a numeric frozen-sequence field in client serialization."
+proposal = "Update interchain/modules/light-clients/06-solomachine/spec/01_concepts.md to describe IsFrozen and boolean freeze/unfreeze transitions, preserving vendored provenance and matching the v2 proto and handlers."
+owner_domain = 6
+
+[finding.35]
+file = "interchain/modules/light-clients/06-solomachine/spec/01_concepts.md"
+line = 104
+class = "doc-drift"
+severity = "medium"
+observed = "The recipe marshals protoSigData into bz at 94 but assigns signing.SingleSignatureData pointer sigData to TimestampedSignatureData.SignatureData at 104. The generated field is []byte and its verifier unmarshals an encoded signature descriptor; the documented example cannot compile or emit that wire shape."
+expected = "The proof producer must put serialized SignatureDescriptor.Data bytes into TimestampedSignatureData.SignatureData and marshal the wrapper for the actual verifier. A signing object differs from its encoded byte slice."
+proposal = "Correct interchain/modules/light-clients/06-solomachine/spec/01_concepts.md to assign bz to SignatureData with consistently scoped timestamp variables. Add an executable example using the real codec and solo-machine verifier to prove documented bytes round-trip."
+owner_domain = 6
+interface = "15.go-interchain-modules-light-clients-06-solomachine-types-unmarshal-signature-data-j57"
+
+[finding.36]
+file = "interchain/modules/light-clients/06-solomachine/spec/03_state_transitions.md"
+line = 29
+class = "doc-drift"
+severity = "low"
+observed = "The transition guide says proposal recovery sets frozen sequence to zero and misbehaviour sets it to the offending sequence at 39. The v2 implementation uses IsFrozen bool and retains Sequence separately as the latest sequence."
+expected = "Transitions should match the v2 persisted state representation and not imply that a numeric offending sequence is retained as the freeze marker."
+proposal = "Revise interchain/modules/light-clients/06-solomachine/spec/03_state_transitions.md lines 29 and 39 to describe boolean unfreeze/freeze, distinguishing Sequence from IsFrozen and matching proposal_handle.go and misbehaviour_handle.go."
+owner_domain = 6
+
+[finding.37]
+file = "spec/layerx-merge/interfaces.kvx"
+line = 280484
+class = "doc-drift"
+severity = "low"
+observed = "Row 6.go-tokenfactory-newkeeper-j35 still declares six arguments including DistrKeeper and lists unrelated interchain callers. keeper/keeper.go:26-32 takes five arguments and real app/test callers use that shape. Notes mention removal but leave the old signature/change status."
+expected = "The current registry should expose the landed signature and live consumer paths. Requirement 6266.1 removes DistrKeeper; current integration should not require inferring the actual call shape from notes."
+proposal = "Reconcile 6.go-tokenfactory-newkeeper-j35 in spec/layerx-merge/interfaces.kvx with the five-argument declaration, actual node/app.go/test callers and landed status. Keep the former signature explicitly historical."
+owner_domain = 6
+interface = "6.go-tokenfactory-newkeeper-j35"
+
+[finding.38]
+file = "spec/layerx-merge/interfaces.kvx"
+line = 292585
+class = "doc-drift"
+severity = "low"
+observed = "Row 6.proto-tokenfactory-genesisstate lists params field 1 and factory_denoms field 2 but omits repeated string paused_denoms field 3 present in api/tokenfactory/genesis.proto and actual exports. A separate context describes the addition but the consumed message signature remains older."
+expected = "The consumed GenesisState row should give the complete current wire schema including field 3 required by 6241.1, so recovery consumers retain paused state."
+proposal = "Update 6.proto-tokenfactory-genesisstate signature, source location and landed status in spec/layerx-merge/interfaces.kvx to include paused_denoms = 3 and link actual export/import consumers. Keep the pinned historical contract distinct."
+owner_domain = 6
+interface = "6.proto-tokenfactory-genesisstate"
+
+[finding.39]
+file = "spec/layerx-merge/interfaces.kvx"
+line = 280504
+class = "doc-drift"
+severity = "low"
+observed = "Row 6.go-tokenfactory-paxtokenfactoryquery-j35 names only DenomAuthorityMetadata and DenomsFromCreator. bindings/queries.go:10 now includes DenomPaused and node/wasmbinding/queries.go:130 routes it. Notes describe the addition but the structural signature/change status remain older."
+expected = "Requirement 6258.1 makes denom_paused a served wasm query; the registry declaration should expose its optional request field, JSON name and actual consumer beside existing alternatives."
+proposal = "Reconcile 6.go-tokenfactory-paxtokenfactoryquery-j35 in spec/layerx-merge/interfaces.kvx with all three optional query fields, JSON names, exactly-one validation and node/wasmbinding/queries.go caller. Identify the landed shape and keep historical versions in pinned snapshots."
+owner_domain = 6
+interface = "6.go-tokenfactory-paxtokenfactoryquery-j35"
+
+[doc.1]
+path = "README.md"
+status = "misleading"
+notes = "Lines 44-47, 79, 145 and 181 retain separate layerxd/checkpoint deployment; update overview, build examples and upgrades for merged paxd."
+
+[doc.2]
+path = "docs/readme/README.pt-BR.md"
+status = "misleading"
+notes = "Lines 37-39 and 125-239 present separate layerxd/LNI sequencing and active custody/anchor flows; translated prose and diagram require the same merged-network rewrite."
+
+[doc.3]
+path = "docs/readme/README.fr.md"
+status = "misleading"
+notes = "Lines 37-39 and 125-239 present separate layerxd/LNI sequencing and active custody/anchor flows; translated prose and diagram require the same merged-network rewrite."
+
+[doc.4]
+path = "docs/readme/README.ja.md"
+status = "misleading"
+notes = "Lines 37-39 and 125-239 present separate layerxd/LNI sequencing and active custody/anchor flows; translated prose and diagram require the same merged-network rewrite."
+
+[doc.5]
+path = "docs/readme/README.ru.md"
+status = "misleading"
+notes = "Lines 37-39 and 125-239 present separate layerxd/LNI sequencing and active custody/anchor flows; translated prose and diagram require the same merged-network rewrite."
+
+[doc.6]
+path = "docs/readme/README.zh-CN.md"
+status = "misleading"
+notes = "Lines 37-39 and 125-239 present separate layerxd/LNI sequencing and active custody/anchor flows; translated prose and diagram require the same merged-network rewrite."
+
+[doc.7]
+path = "docs/readme/README.de.md"
+status = "misleading"
+notes = "Lines 37-39 and 125-239 present separate layerxd/LNI sequencing and active custody/anchor flows; translated prose and diagram require the same merged-network rewrite."
+
+[doc.8]
+path = "docs/readme/README.es.md"
+status = "misleading"
+notes = "Lines 37-39 and 125-239 present separate layerxd/LNI sequencing and active custody/anchor flows; translated prose and diagram require the same merged-network rewrite."
+
+[doc.9]
+path = "docs/paxeer-network.md"
+status = "misleading"
+notes = "Lines 3-9, 20 and 38 retain separate sequencer/settlement/custody boundaries; the faucet claim at 9 also conflicts with mainnet-beta guidance."
+
+[doc.10]
+path = "docs/MONOREPO.md"
+status = "misleading"
+notes = "Lines 3 and 70-72 confuse retained source layout with retired separate kernel and settlement deployment; correct runtime lifecycle while preserving factual paths."
+
+[doc.11]
+path = "docs/system/precompiles.md"
+status = "misleading"
+notes = "ABI inventory read; custody at 1285-1320 and later Solidity declarations need retirement/refusal annotations beside historical selector syntax."
+
+[doc.12]
+path = "docs/system/chain-modules.md"
+status = "misleading"
+notes = "Declaration inventory read; custody messages/proposal at 197-235 lack retirement lifecycle and retained historical-state purpose."
+
+[doc.13]
+path = "interchain/README.md"
+status = "accurate"
+notes = "Identifies ibc-go vendoring, local imports, paxd core/transfer wiring, unwired ICA and non-functional localhost client; provides provenance for vendored verdicts."
+
+[doc.14]
+path = "interchain/modules/light-clients/06-solomachine/spec/01_concepts.md"
+status = "misleading"
+notes = "Vendored v2 guide retains numeric freeze prose at 9-13 and 155; proof sample at 104 assigns a signing object where encoded bytes are required."
+
+[doc.15]
+path = "interchain/modules/light-clients/06-solomachine/spec/02_state.md"
+status = "accurate"
+notes = "Vendored overview of client/consensus storage and header/proposal updates, interpreted with the v2 embedded ConsensusState and core client storage."
+
+[doc.16]
+path = "interchain/modules/light-clients/06-solomachine/spec/03_state_transitions.md"
+status = "stale"
+notes = "Vendored transitions at 29 and 39 describe a numeric frozen sequence, whereas actual v2 freeze/recovery use IsFrozen bool."
+
+[doc.17]
+path = "interchain/modules/light-clients/06-solomachine/spec/README.md"
+status = "accurate"
+notes = "Vendored ICS06 abstract and links describe solo-machine clients accurately; detailed concepts/transition defects are separately located."
+
+[doc.18]
+path = "modules/tokenfactory/README.md"
+status = "misleading"
+notes = "Admin-only guide omits issuer/pause/query/recovery behavior; renunciation at 17-18 conflicts with normal Msg validation."
+
+[doc.19]
+path = "wasm/contrib/devtools/README.md"
+status = "stale"
+notes = "Correct upstream provenance and wasm/Makefile inclusion; install claim depends on modern-Go-incompatible recipes at Makefile:64,74,79."
+
+[doc.20]
+path = "wasm/contrib/local/README.md"
+status = "misleading"
+notes = "Correct upstream-wasmd scope; commands at 18-19 lose the isolated HOME context used at 10-11 and use a different keyring."
+
+[doc.21]
+path = "wasm/contrib/prometheus/README.md"
+status = "accurate"
+notes = "Separates REST application telemetry from consensus instrumentation on 26660; supplied scrape and local Grafana guidance match the stated example."
+
+[doc.22]
+path = "wasm/contrib/prototools-docker/README.md"
+status = "misleading"
+notes = "Line 20 mismatches built image tag and SDK mount/environment path; helper toolchain also conflicts with root buf v2 generation."
+
+[doc.23]
+path = "wasm/contrib/relayer-tests/README.md"
+status = "accurate"
+notes = "Explicitly targets upstream local wasmd with its working directory and prerequisites; ibc-0/ibc-1 are intentional local identities, not mainnet configuration drift. Script defects have findings."
+
+[doc.24]
+path = "spec/layerx-merge/contracts/tokenfactory.md"
+status = "accurate"
+notes = "Pinned 2a1033aa2 acceptance snapshot, including planned anchors and UNRUN qualification, is historical rather than current delivery status. Issuer/pause/recovery rules and intentional module-transfer exemption guide the review."
+
+[doc.25]
+path = "spec/layerx-merge/contracts/ibc.md"
+status = "accurate"
+notes = "Pinned 2a1033aa2 snapshot; relevant light-client proof/codec/store declarations match the vendored interfaces. Planned anchors are historical status. Unrelated IBC surfaces belong to other audit slices."
+
+[doc.26]
+path = "spec/layerx-merge/interfaces.kvx"
+status = "stale"
+notes = "Package-listed 400 produced and 368 consumed rows reviewed, including correctly retired custody CLI entries; three tokenfactory declarations retain older signatures despite landed code and change notes."

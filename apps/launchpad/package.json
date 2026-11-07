@@ -48,7 +48,8 @@
       "esbuild@<0.28.1": "0.28.1",
       "glob@<14.0.2": "14.0.2",
       "minimatch@<11.0.1": "11.0.1",
-      "zod@<4.6.6": "4.6.6"
+      "zod@<4.6.6": "4.6.6",
+      "deepmerge": "npm:@stackline/deepmerge@1.1.0"
     },
     "patchedDependencies": {
       "metro@0.84.4": "patches/metro@0.84.4.patch"

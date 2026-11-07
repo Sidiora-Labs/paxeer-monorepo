@@ -1,225 +1,174 @@
-# Paxeer Components — Next.js Drop-in Package
+# Paxeer Components — Visual Demonstrations
 
-39 production-ready React components built on the Paxeer brand system: trading surfaces, portfolio analytics, leaderboards, and novel primitives (gesture unlock, gas-weather widget, topographic orderbook, etc.). Every component is a named TSX export with `"use client"` ready for Next.js App Router.
+This directory is a collection of React visual demonstrations and experiments
+exported by [`index.ts`](index.ts). The components contain sample data, local
+state, timers and simulated interactions. They are not a production trading
+SDK and are not mounted by the application's current page modules. A rendered
+balance, network status, successful button animation or slider completion here
+does not establish a wallet connection or submit a transaction.
 
----
+For production UI work, start with the wired widgets listed below and the
+[data API guide](../../../../../docs/perps/data-api.md). The [deployment guide](../../../deploy/README.md)
+explains gateway configuration; the
+[SettingsModal guide](../../app/modals/SettingsModal.md) distinguishes working
+themes from local-only preference switches.
 
 ## Install
 
-### 1. Copy files
+These files already live inside the Next.js application's `src` tree and use
+its `@/` alias. No separate package install or folder-copy workflow is needed
+for this checkout. They use React and local helpers in [`_shared.tsx`](_shared.tsx),
+with inline styles, SVGs and CSS variables. The demonstration token sheet is
+[`paxeer-tokens.css`](../../styles/paxeer-tokens.css); the current application
+loads [`globals.css`](../../styles/globals.css) and `apple-ui.css` through
+[`pages/_app.tsx`](../../pages/_app.tsx), rather than importing that demo sheet.
 
-```
-your-app/
-├── app/
-│   └── globals.css
-├── components/
-│   └── paxeer/              ← copy this folder
-│       ├── _shared.tsx
-│       ├── ActiveOrders.tsx
-│       ├── … 38 more
-│       └── index.ts
-├── public/
-│   └── fonts/               ← copy the 6 OTFs here
-└── styles/
-    └── paxeer-tokens.css    ← copy this file
-```
-
-### 2. Fonts
-
-Drop the 6 `PPPangramSansRounded-*.otf` files into `public/fonts/`. The CSS already references them.
-
-### 3. Wire the tokens stylesheet
-
-In `app/layout.tsx` (or wherever your root styles are imported):
-
-```tsx
-import "@/styles/paxeer-tokens.css";
-import "./globals.css";
-```
-
-You'll also want a minimal base:
-
-```css
-/* globals.css */
-body {
-  background: var(--bg);
-  color: var(--fg);
-  font-family: var(--font-body);
-}
-```
-
-### 4. Dependencies
-
-Only React 18+. No other runtime deps. TypeScript recommended.
-
-```json
-{
-  "dependencies": {
-    "react": "^18.3.0",
-    "react-dom": "^18.3.0"
-  }
-}
-```
-
----
+Copying a component into another project requires reviewing its real imports,
+style/font assets, TypeScript types, timers and interactions. The collection
+is not published with an independent compatibility or production-readiness
+contract. Components using hooks are client components; that directive does
+not certify server rendering or accessibility behavior.
 
 ## Usage
 
-```tsx
-"use client";
-import { OrderBook, CumulativePnL, Leaderboard, Overview } from "@/components/paxeer";
+For a local visual preview, use the exported components with their actual
+signatures:
 
-export default function DashboardPage() {
+```tsx
+import { Overview, OrderBook, ConfirmSlider } from "@/components/paxeer";
+
+export function ComponentPreview() {
   return (
-    <main style={{ display: "grid", gap: 16, padding: 24 }}>
+    <div style={{ display: "grid", gap: 16 }}>
       <Overview />
-      <CumulativePnL />
       <OrderBook />
-      <Leaderboard />
-    </main>
+      <ConfirmSlider label="Preview interaction" confirmedLabel="Preview complete" />
+    </div>
   );
 }
 ```
 
----
+This displays demonstration content. It is not an example of live market data
+or order confirmation.
 
 ## Wiring live data
 
-Most components ship with **sensible placeholder data** so they render out-of-the-box. To plug in real data, you have three options:
+The application uses the Pages Router. Follow
+[`page-modules/perps/index.tsx`](../../page-modules/perps/index.tsx), which
+composes the following widgets and their domain hooks:
 
-### Option A: Fork the component (simplest)
+| Surface | Wired implementation |
+| --- | --- |
+| Pair header and market selection | [`PairHeader`](../../widgets/trading/PairHeader.tsx), [`MarketSelectorPanel`](../../widgets/trading/MarketSelectorPanel.tsx) |
+| Orderbook and depth | [`Orderbook` / `DepthPanel`](../../widgets/trading/Orderbook.tsx) |
+| Chart and candle datafeed | [`Chart`](../../widgets/trading/Chart.tsx) |
+| Order entry | [`PerpsOrderForm`](../../widgets/trading/PerpsOrderForm.tsx) |
+| Position management | [`PerpsPositionsPanel`](../../widgets/trading/PerpsPositionsPanel.tsx) |
+| Markets table | [`MarketsTable`](../../widgets/markets/MarketsTable.tsx) and [`useMarketsRows`](../../widgets/markets/useMarketsRows.ts) |
+| Wallet identity and collateral operations | [`WalletControlPanel`](../../app/modals/WalletControlPanel.tsx), [`DepositWithdrawModal`](../../app/modals/DepositWithdrawModal.tsx) |
 
-Open e.g. `components/paxeer/OrderBook.tsx`, replace the hard-coded arrays with props or data fetched from your API / SDK. The data shapes are all at the top of each file.
+Use each widget's declared props and its existing parent for provider/context
+requirements. Market streams are in
+[`hooks/perps/useMarketsStream.ts`](../../hooks/perps/useMarketsStream.ts) and
+[`hooks/perps/useSidPaxMarketStream.ts`](../../hooks/perps/useSidPaxMarketStream.ts);
+chain and gateway configuration live under `core`. The demo `OrderBook` is a
+different export from the wired `Orderbook` widget (including capitalization).
 
-### Option B: Pass props (recommended going forward)
+Paxeer mainnet-beta is one network, chain ID 125. The integrated kernel
+participates in proposal and receipts are final at block commit. A demo
+network selector does not switch the real chain. Use the actual chain/wallet
+integration, configured node root JSON-RPC endpoints and application gateway.
 
-Many components are structured so the data arrays sit at the top of the function — easy to lift into a `props` object. For example, for `Leaderboard.tsx`:
-
-```tsx
-type Row = { rank: number; addr: string; pnl: number; trades: number; wr: number; hold: string; vol: number; me?: boolean };
-export function Leaderboard({ rows }: { rows?: Row[] }) {
-  const data = rows ?? DEFAULT_ROWS;
-  // …
-}
-```
-
-Then in a Next.js server component:
-
-```tsx
-import { Leaderboard } from "@/components/paxeer";
-
-export default async function Page() {
-  const rows = await fetch("https://api.paxeer.io/leaderboard?range=7d").then(r => r.json());
-  return <Leaderboard rows={rows} />;
-}
-```
-
-### Option C: Wrap with a data-fetching HOC
-
-For live-updating components (Orderbook, Recent Trades, Reaction Rail), wrap with a hook:
-
-```tsx
-"use client";
-import useSWR from "swr";
-import { OrderBook } from "@/components/paxeer";
-
-export function LiveOrderBook({ pair }: { pair: string }) {
-  const { data } = useSWR(`/api/orderbook/${pair}`, { refreshInterval: 1000 });
-  return <OrderBook data={data} />;
-}
-```
-
----
+The demo `Leaderboard` has no `rows` prop and the demo `OrderBook` has no `data`
+prop. Wrapping either in a fetch hook cannot inject values through an absent
+interface. Adapting a demonstration requires an explicit typed data/callback
+contract and real consumer wiring. Follow the existing application transport
+and unavailable/error handling; do not carry sample balances or simulated
+success states into trading surfaces.
 
 ## Component map
 
 ### Primitives
-| Component | Props |
-|---|---|
-| `AddressChip` | `address`, `ens?` |
-| `SmartButton` | `label`, `onClick?`, `variant?` |
-| `DataInput` | `label`, `value`, `onChange` |
-| `NetworkPill` | `chainId?` |
-| `ConfirmSlider` | `onConfirm` |
+
+These are the current interfaces of the components previously presented as
+generic primitives:
+
+| Component | Actual input and behavior |
+| --- | --- |
+| `AddressChip` | No props; sample address/name/balance and illustrative QR/actions |
+| `SmartButton` | No props; clicks cycle local idle/loading/success states using timers |
+| `DataInput` | No props; local amount and token selection using sample tokens |
+| `NetworkPill` | No props; local selection among predefined sample networks/latencies |
+| `ConfirmSlider` | `label`, `confirmedLabel`, `accent`, each with a default; pointer drag changes local state and resets after a timer |
+
+`AddressChip` does not accept `address`/`ens`; `SmartButton` has no caller
+`onClick`; `DataInput` has no controlled `value`/`onChange`; `NetworkPill` has
+no `chainId`; `ConfirmSlider` has no `onConfirm` callback. Its sample swap
+summary is fixed even when the label changes.
 
 ### Trading
-| Component | Description |
-|---|---|
-| `OrderEntry` | Buy/sell limit + market entry |
-| `OrderBook` | Classic L2 book, bids + asks |
-| `RecentTrades` | Trade tape |
-| `DepthChart` | Bid/ask cumulative-depth curve |
-| `PositionCard` | Position with liq distance, funding, P&L |
-| `MagneticSwap` | Novel token swap with magnetized inputs |
+
+`OrderEntry`, `OrderBook`, `RecentTrades`, `DepthChart`, `PositionCard` and
+`MagneticSwap` illustrate trading layouts. Their sample figures and local
+interactions are not market execution or portfolio accounting. Use the wired
+trading widgets for application work.
+
+`PositionCard` accepts a `data` object with `sym`, `side`, `size`, `entry`,
+`mark`, `lev`, `liq`, `funding`, `pnl` and `pnlPct`. A falsy `data` uses its
+sample position; its action buttons have no execution handlers. This display
+shape is not the application's canonical position type.
 
 ### Analytics
-| Component | Description |
-|---|---|
-| `Overview` | 4-stat portfolio strip |
-| `Performance` | 7D KPIs + daily P&L bars |
-| `CumulativePnL` | Area chart w/ 1D-ALL range toggle |
-| `FeesBreakdown` | Donut of fee categories |
-| `ActiveOrders` | Open-orders table |
-| `ClosedPositions` | Realized-P&L log |
-| `TradesTable` | Full trade history |
-| `TransfersHistory` | Deposits + withdrawals |
+
+`Overview`, `Performance`, `CumulativePnL`, `FeesBreakdown`, `ActiveOrders`,
+`ClosedPositions`, `TradesTable` and `TransfersHistory` illustrate statistics,
+charts and tables. They do not obtain the connected account's history.
 
 ### Social
-| Component | Description |
-|---|---|
-| `Leaderboard` | Ranked table w/ medals + YOU row |
-| `LeaderboardStats` | 4-tile cumulative totals |
-| `TraderCard` | Profile + copy-trade |
-| `ReactionRail` | Live emoji bursts |
+
+`Leaderboard`, `LeaderboardStats`, `TraderCard` and `ReactionRail` demonstrate
+ranking, profile and reaction layouts. Do not infer real copy-trading,
+identity or leaderboard endpoints from their content.
 
 ### Novel / experimental
-| Component | Description |
-|---|---|
-| `CommandPalette` | ⌘K fuzzy jump |
-| `LeverageDial` | Rotary 1×–100× |
-| `GestureUnlock` | 3×3 pattern signer |
-| `TradePathSankey` | Value-flow ribbon diagram |
-| `OrderbookTopo` | Orderbook as topographic heatmap |
-| `GhostHold` | P&L vs. HODL-overlay |
-| `GasWeather` | Gwei as weather |
-| `TxSimulator` | Before/after balance diff |
-| `RiskDial` | Composite 0–100 risk gauge |
-| `EpochCountdown` | Concentric countdown rings |
-| `TransferModal` | Deposit/withdraw modal (`initialMode?: "deposit"\|"withdraw"`) |
 
----
+The barrel also exports `CommandPalette`, `LeverageDial`, `GestureUnlock`,
+`TradePathSankey`, `OrderbookTopo`, `GhostHold`, `GasWeather`, `TxSimulator`,
+`RiskDial`, `EpochCountdown`, `TransferModal`, `LiquidStat`, `OrbitalSelector`,
+`PulseFeed`, `RadialAllocator` and `ShardStatus`. Read each source for its
+individual interface and local behavior; names such as unlock, simulator or
+status do not imply security, transaction simulation or network telemetry.
+`TransferModal` accepts `initialMode` (default `deposit`, with `withdraw` used
+for the alternate view). It is a demonstration distinct from the wired
+collateral modal.
 
 ## Customization
 
-All visual tokens are CSS variables on `:root` in `paxeer-tokens.css`. Override in your own stylesheet or set at runtime:
-
-```ts
-document.documentElement.style.setProperty("--accent", "#05C168");
-```
-
-### Dark/light mode
-
-Everything's dark-mode by design. For a light variant, override `--bg`, `--fg`, and `--border*` under a `[data-theme="light"]` selector.
-
----
+Styles use shared CSS variables including `--bg`, `--fg`, `--border-soft`,
+`--font-body` and `--accent-solid`. Review the actual token stylesheet and
+component values before overriding them. Changing a visual token does not add
+live data or a transaction handler, and adding a theme selector does not make
+every demo support that theme.
 
 ## Types
 
-The `_shared.tsx` module exports a `Token` type and the `TOKENS` array used by most components:
+[`_shared.tsx`](_shared.tsx) exports `Token`, the sample `TOKENS` array, `Icon`,
+`cx`, `fmt`, `shortAddr`, `TokenBadge` and `useAnimatedNumber`. They are
+re-exported through the barrel:
 
 ```tsx
-import { TOKENS, Token, fmt, shortAddr } from "@/components/paxeer";
+import { TOKENS, fmt, shortAddr } from "@/components/paxeer";
+import type { Token } from "@/components/paxeer";
 ```
 
----
+These are demo helpers/data, not the canonical market catalog, token registry,
+wallet balance source or amount parser for transaction construction.
 
 ## Notes / caveats
 
-- **Placeholder data** is currently hard-coded in each component. Lift it to props before shipping.
-- **Icons** are inline SVGs — no icon library required, but also not tree-shaken. If bundle size matters, pull the ones you need from `_shared.tsx`'s `Icon` map.
-- **Tweaks** (grid / density) are baked into the demo gallery only, not the components.
-- **SSR-safe**: every component is marked `"use client"` because most use hooks or event handlers.
-
----
-
-Built on Paxeer Brand Identity System v2.0. For source gallery and design rationale, see the standalone `Paxeer Components Gallery.html`.
+Review keyboard and screen-reader operation, hydration, timers, cleanup,
+responsive behavior and types before adapting a component. The gallery's
+illustrative QR code, latency values, balances and local success animations
+must not be presented as operational results. For supported application flows,
+trace a wired widget through its actual hooks and transports using the
+[API contract](../../../../../docs/perps/data-api.md).

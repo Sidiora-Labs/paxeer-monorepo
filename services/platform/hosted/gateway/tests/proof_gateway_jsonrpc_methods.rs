@@ -1,4 +1,4 @@
-//! Proves: ReceiptKeyList / paxeer::relay / chain_reads::dispatch / rpc_faucet::dispatch -> layerx-gateway /rpc JSON-RPC -> SequencerEndpoint and PaymentRpc and gatewayReceiptKeys.
+//! Proves: ReceiptKeyList / paxeer::relay / chain_reads::dispatch / rpc_faucet::dispatch -> layerx-gateway / JSON-RPC -> SequencerEndpoint and PaymentRpc and gatewayReceiptKeys.
 //!
 //! Repairs SequencerEndpoint::receipt_keys: the producer returns an object
 //! containing `keys` with numeric ranges, not a bare array of EVM quantities.
@@ -10,12 +10,11 @@
 //! a consensus backend. src/rpc.rs::dispatch gates px_requestFunds on Identity
 //! before parsing params, so malformed input also returns kernel_unavailable.
 //! These branches must refuse explicitly; they must never invent chain or
-//! funding evidence. Successful consensus, sequencer and faucet production is
-//! not covered by this test: their producer executables are not built by this
-//! task's declared cargo build. No fabricated upstream is substituted here.
-//! rpc/sequencer_receipt.go::SequencerReceiptResult::Verify and
-//! layerx_proof::sequencer_logs::verify_logs need a real signed node receipt;
-//! the receipt-key result alone is not such a receipt.
+//! funding evidence. The shared repair proof relays committed node transcripts,
+//! verifies their signed receipt and Comet evidence with the Rust consumers,
+//! and reopens the gateway on its persisted receipt-key configuration.
+//! Producer build wiring and cross-language expansion are recorded in
+//! tests/repair_22_33_1335.kvx.
 
 #![allow(non_snake_case)]
 use layerx_client::sequencer::{decode_receipt_keys, SequencerEndpoint, SequencerError};
@@ -30,6 +29,14 @@ use std::process::{Child, Command, Stdio};
 use std::sync::Arc;
 use std::thread;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
+
+#[path = "support/repair_22_33_1335.rs"]
+mod repair_proof;
+
+#[test]
+fn signed_node_receipt_and_committed_evidence_recover() {
+    repair_proof::proof_success_and_recovery();
+}
 
 fn command(program: &str, arguments: &[&str]) {
     let output = Command::new(program)
@@ -321,8 +328,14 @@ impl Gateway {
     fn rpc(&self, method: &str, params: Value) -> Value {
         let call =
             json!({"jsonrpc": "2.0", "id": "chain-read", "method": method, "params": params});
+        assert_eq!(
+            self.exchange("POST", "/rpc", call.to_string().as_bytes())
+                .expect("retired RPC refusal")
+                .0,
+            404
+        );
         let (status, body) = self
-            .exchange("POST", "/rpc", call.to_string().as_bytes())
+            .exchange("POST", "/", call.to_string().as_bytes())
             .unwrap_or_else(|error| panic!("RPC exchange: {error}"));
         assert_eq!(status, 200, "{}", String::from_utf8_lossy(&body));
         let answer: Value =
@@ -344,7 +357,7 @@ fn key_document(seed: u8) -> String {
 }
 
 fn consumer(gateway: &Gateway) -> SequencerEndpoint {
-    SequencerEndpoint::new(&format!("http://127.0.0.1:{}/rpc", gateway.port), &[])
+    SequencerEndpoint::new(&format!("http://127.0.0.1:{}/", gateway.port), &[])
         .expect("real gateway endpoint")
 }
 
@@ -522,7 +535,7 @@ fn sdk_consumers(gateway: &Gateway, directory: &Path, document: &Value) {
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../..");
     let captured = directory.join("producer.json");
     fs::write(&captured, document.to_string()).expect("retain real producer result");
-    let url = format!("http://127.0.0.1:{}/rpc", gateway.port);
+    let url = format!("http://127.0.0.1:{}/", gateway.port);
     let python = Command::new("python3")
         .env("PYTHONPATH", root.join("services/agent/sdk/python"))
         .args([

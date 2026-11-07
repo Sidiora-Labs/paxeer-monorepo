@@ -4,10 +4,9 @@ import (
 	"bytes"
 	"encoding/binary"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"os"
-	"regexp"
-	"strings"
 	"testing"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/xweb/types"
@@ -17,15 +16,11 @@ import (
 
 func kernelVectorBytes(t *testing.T, source, symbol string) []byte {
 	t.Helper()
-	pattern := `(?m)^static const uint8_t ` + regexp.QuoteMeta(symbol) +
-		`\[\] = \{\s*((?:0x[0-9a-fA-F]{2}U,\s*)*0x[0-9a-fA-F]{2}U\s*)\};`
-	arrays := regexp.MustCompile(pattern).FindAllStringSubmatch(source, -1)
-	require.Len(t, arrays, 1, "%s must have exactly one canonical byte array", symbol)
-	var encoded strings.Builder
-	for _, token := range regexp.MustCompile(`0x([0-9a-fA-F]{2})U`).FindAllStringSubmatch(arrays[0][1], -1) {
-		encoded.WriteString(token[1])
-	}
-	decoded, err := hex.DecodeString(encoded.String())
+	var vectors map[string]string
+	require.NoError(t, json.Unmarshal([]byte(source), &vectors))
+	encoded, found := vectors[symbol]
+	require.True(t, found, "%s must have a canonical byte vector", symbol)
+	decoded, err := hex.DecodeString(encoded)
 	require.NoError(t, err)
 	return decoded
 }
@@ -40,7 +35,7 @@ type kernelProgramFixture struct {
 
 func newKernelProgramFixture(t *testing.T) kernelProgramFixture {
 	t.Helper()
-	source, err := os.ReadFile("../../../tests/modules/test_web_intake.c")
+	source, err := os.ReadFile("testdata/kernel-program-vectors.json")
 	require.NoError(t, err)
 	vector := func(symbol string, size int) []byte {
 		value := kernelVectorBytes(t, string(source), symbol)

@@ -136,8 +136,53 @@ function parseUpload(value: unknown): UploadResponse {
     ...(data.errors === undefined ? {} : { errors: strings(data.errors, 'errors') }),
   };
 }
-export interface ClientConfig { baseUrl: string }
+export const METADATA_DEFAULT_TIMEOUT_MS = 10_000;
+export const METADATA_MAX_TIMEOUT_MS = 120_000;
+export const METADATA_RESPONSE_LIMITS = {
+  metadata: 256 * 1024,
+  batch: 4 * 1024 * 1024,
+  upload: 64 * 1024,
+  error: 16 * 1024,
+} as const;
+export class MetadataTimeoutError extends Error {
+  constructor(readonly timeoutMs: number) {
+    super(`Metadata request exceeded ${timeoutMs}ms deadline`);
+    this.name = 'MetadataTimeoutError';
+  }
+}
+export class MetadataResponseTooLargeError extends RangeError {
+  constructor(readonly status: number, readonly limitBytes: number) {
+    super(`Metadata HTTP ${status} response exceeds ${limitBytes} bytes`);
+    this.name = 'MetadataResponseTooLargeError';
+  }
+}
+export interface ClientConfig { baseUrl: string; timeoutMs?: number }
 export interface RequestOptions { signal?: AbortSignal }
+
+async function readBoundedBody(response: Response, limitBytes: number): Promise<string> {
+  const declaredLength = response.headers.get('content-length');
+  if (declaredLength !== null && /^\d+$/.test(declaredLength) && Number(declaredLength) > limitBytes) {
+    throw new MetadataResponseTooLargeError(response.status, limitBytes);
+  }
+  if (!response.body) return '';
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  const parts: string[] = [];
+  let bytes = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      bytes += value.byteLength;
+      if (bytes > limitBytes) throw new MetadataResponseTooLargeError(response.status, limitBytes);
+      parts.push(decoder.decode(value, { stream: true }));
+    }
+    parts.push(decoder.decode());
+    return parts.join('');
+  } finally {
+    reader.releaseLock();
+  }
+}
 
 function address(value: string): string {
   if (!/^0x[0-9a-fA-F]{40}$/.test(value)) throw new TypeError('Invalid EVM address');
@@ -145,24 +190,50 @@ function address(value: string): string {
 }
 export function createMetadataClient(initial?: ClientConfig) {
   let baseUrl: string | undefined;
+  let timeoutMs = METADATA_DEFAULT_TIMEOUT_MS;
   function configure(config: ClientConfig): void {
     const url = new URL(config.baseUrl);
     if (!['http:', 'https:'].includes(url.protocol) || url.search || url.hash || url.username || url.password) {
       throw new TypeError('Metadata baseUrl must be an HTTP(S) URL without credentials, query or fragment');
     }
+    const deadline = config.timeoutMs ?? METADATA_DEFAULT_TIMEOUT_MS;
+    if (!Number.isSafeInteger(deadline) || deadline < 1 || deadline > METADATA_MAX_TIMEOUT_MS) {
+      throw new RangeError(`Metadata timeoutMs must be an integer between 1 and ${METADATA_MAX_TIMEOUT_MS}`);
+    }
     baseUrl = config.baseUrl.replace(/\/+$/, '');
+    timeoutMs = deadline;
   }
   if (initial) configure(initial);
-  async function request<T>(path: string, init: RequestInit, parse: (value: unknown) => T): Promise<T> {
+  async function request<T>(path: string, init: RequestInit, parse: (value: unknown) => T, limitBytes: number): Promise<T> {
     if (!baseUrl) throw new Error('Metadata client is not configured');
-    const response = await fetch(baseUrl + path, init);
-    if (!response.ok) throw new MetadataHttpError(response.status, await response.text());
-    return parse(await response.json());
+    const controller = new AbortController();
+    const caller = init.signal;
+    const cancel = () => controller.abort(caller?.reason);
+    if (caller?.aborted) cancel();
+    else caller?.addEventListener('abort', cancel, { once: true });
+    const deadline = timeoutMs;
+    const timer = setTimeout(() => controller.abort(new MetadataTimeoutError(deadline)), deadline);
+    try {
+      controller.signal.throwIfAborted();
+      const response = await fetch(baseUrl + path, { ...init, signal: controller.signal });
+      const body = await readBoundedBody(response, response.ok ? limitBytes : METADATA_RESPONSE_LIMITS.error);
+      controller.signal.throwIfAborted();
+      if (!response.ok) throw new MetadataHttpError(response.status, body);
+      return parse(JSON.parse(body));
+    } catch (error) {
+      if (controller.signal.aborted) throw controller.signal.reason;
+      // Abort unread response bytes on refusal while preserving the original typed error.
+      controller.abort(error);
+      throw error;
+    } finally {
+      clearTimeout(timer);
+      caller?.removeEventListener('abort', cancel);
+    }
   }
   return {
     configure,
     getMetadata(tokenAddress: string, options: RequestOptions = {}): Promise<PublicMetadata> {
-      return request(`/metadata/${address(tokenAddress)}`, { signal: options.signal }, parseMetadata);
+      return request(`/metadata/${address(tokenAddress)}`, { signal: options.signal }, parseMetadata, METADATA_RESPONSE_LIMITS.metadata);
     },
     getMetadataBatch(tokenAddresses: readonly string[], options: RequestOptions = {}): Promise<Record<string, PublicMetadata>> {
       const addresses = [...new Set(tokenAddresses.map(address))];
@@ -175,7 +246,7 @@ export function createMetadataClient(initial?: ClientConfig) {
           if (result[token]?.token_address !== token) throw new MetadataProtocolError(`batch token_address ${token}`);
         }
         return result;
-      });
+      }, METADATA_RESPONSE_LIMITS.batch);
     },
     async uploadMetadata(tokenAddress: string, input: UploadRequest, options: RequestOptions = {}): Promise<UploadResponse> {
       const token = address(tokenAddress);
@@ -188,7 +259,7 @@ export function createMetadataClient(initial?: ClientConfig) {
       if (input.metadata !== undefined) body.append('metadata', JSON.stringify(input.metadata));
       if (input.logo) body.append('logo', input.logo, 'logo');
       if (input.banner) body.append('banner', input.banner, 'banner');
-      const result = await request<UploadResponse>(`/metadata/${token}`, { method: 'POST', body, signal: options.signal }, parseUpload);
+      const result = await request<UploadResponse>(`/metadata/${token}`, { method: 'POST', body, signal: options.signal }, parseUpload, METADATA_RESPONSE_LIMITS.upload);
       if (!result.success) throw new MetadataUploadError(result);
       return result;
     },

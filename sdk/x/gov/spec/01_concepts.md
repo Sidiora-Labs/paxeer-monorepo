@@ -4,211 +4,212 @@ order: 1
 
 # Concepts
 
-_Disclaimer: This is work in progress. Mechanisms are susceptible to change._
+The governance module runs on the Paxeer X chain as wired in
+[node/app.go](../../../../node/app.go). Paxeer is one BFT network: its kernel is
+part of the network and proposes blocks, and a receipt is final when its block
+is committed. Governance proposals change chain state through registered content
+handlers.
 
-The governance process is divided in a few steps that are outlined below:
+The lifecycle is:
 
-- **Proposal submission:** Proposal is submitted to the blockchain with a
-  deposit.
-- **Vote:** Once deposit reaches a certain value (`MinDeposit`), proposal is
-  confirmed and vote opens. Bonded Atom holders can then send `TxGovVote`
-  transactions to vote on the proposal.
-- If the proposal involves a software upgrade:
-    - **Signal:** Validators start signaling that they are ready to switch to the
-    new version.
-    - **Switch:** Once more than 75% of validators have signaled that they are
-    ready to switch, their software automatically flips to the new version.
+- **Proposal submission:** An account submits content and an initial deposit,
+  which may be empty, using `MsgSubmitProposal`.
+- **Deposit:** Contributions accumulate until the applicable minimum deposit is
+  met, or the deposit deadline expires.
+- **Vote:** During the voting period, accounts submit ordinary or weighted votes.
+  Bonded staking power determines their effect at tally time.
+- **Tally and execution:** At the voting deadline, `EndBlocker` tallies the votes
+  and executes the content handler if the proposal passes.
+
+See [State](02_state.md), [Messages](03_messages.md), and [Events](04_events.md)
+for the stored fields, transaction interfaces, and emitted results.
 
 ## Proposal submission
 
 ### Right to submit a proposal
 
-Any Atom holder, whether bonded or unbonded, can submit proposals by sending a
-`TxGovProposal` transaction. Once a proposal is submitted, it is identified by
-its unique `proposalID`.
+Any account can submit a proposal; the handler does not require the proposer to
+be a validator or delegator. The proposer signs `MsgSubmitProposal` and pays the
+initial deposit, if supplied. Each accepted submission receives a unique
+`proposal_id` from the keeper's next-ID counter.
 
 ### Proposal types
 
-In the initial version of the governance module, there are five types of
-proposals:
+Proposal content is packed in protobuf `Any` and must implement the
+[Content interface](../types/content.go). Its proposal type must be registered,
+and its `ProposalRoute()` must identify a registered content handler.
 
-- `TextProposal` All the proposals that do not involve a modification of
-  the source code go under this type. For example, an opinion poll would use a
-  proposal of type `TextProposal`.
-- `SoftwareUpgradeProposal`. If accepted, validators are expected to update
-  their software in accordance with the proposal. They must do so by following
-  a 2-steps process described in the [Software Upgrade](#software-upgrade)
-  section below. Software upgrade roadmap may be discussed and agreed on via
-  `TextProposals`, but actual software upgrades must be performed via
-  `SoftwareUpgradeProposals`.
-- `CommunityPoolSpendProposal` details a proposal for use of community funds,
-  together with how many coins are proposed to be spent, and to which recipient account.
-- `ParameterChangeProposal` defines a proposal to change one or
-  more parameters. If accepted, the requested parameter change is updated
-  automatically by the proposal handler upon conclusion of the voting period.
-- `CancelSoftwareUpgradeProposal` is a gov Content type for cancelling a software upgrade.
+Common content types include:
 
-Other modules may expand upon the governance module by implementing their own
-proposal types and handlers. These types are registered and processed through the
-governance module (eg. `ParamChangeProposal`), which then execute the respective
-module's proposal handler when a proposal passes. This custom handler may perform
-arbitrary state changes.
+- `TextProposal`: records a decision or signal; its handler does not apply
+  application changes.
+- `SoftwareUpgradeProposal`: schedules a named upgrade plan at a block height.
+- `CancelSoftwareUpgradeProposal`: clears the scheduled upgrade plan.
+- `CommunityPoolSpendProposal`: requests a community-pool transfer to a recipient.
+- `ParameterChangeProposal`: requests updates to existing module parameters.
+
+This is not a closed list. The chain application's handler registrations in
+[node/app.go](../../../../node/app.go) include additional module proposal types,
+with Wasm proposals conditional on the enabled proposal configuration. A passing
+proposal executes the corresponding handler in a cached context: success commits
+its changes and records `StatusPassed`; an execution error discards those changes
+and records `StatusFailed`.
 
 ### Expedited Proposals
 
-A proposal can be expedited, making the proposal use shorter voting duration and a higher tally quorum and tally threshold by default. 
+The submission message's `is_expedited` field selects the expedited deposit,
+voting period, quorum, and approval threshold. The keeper stores that flag on the
+proposal. Use the current governance parameters for these values; SDK defaults
+are not a statement of deployed network settings.
 
-If an expedited proposal fails to meet the threshold within the scope of shorter voting duration, the expedited proposal is then converted to a regular proposal and resume voting under regular voting conditions.
+If an expedited tally does not pass, `EndBlocker` converts the proposal to regular
+voting. This applies to every failed tally, including failure from insufficient
+quorum or veto. The conversion behavior is described under
+[Expedited Voting period](#expedited-voting-period).
 
 ## Deposit
 
-To prevent spam, proposals must be submitted with a deposit in the coins defined in the `MinDeposit` param. The voting period will not start until the proposal's deposit equals `MinDeposit`.
+The [deposit keeper](../keeper/deposit.go) holds contributions in the `gov` module
+account. `MsgSubmitProposal` accepts an empty initial coin list. Any non-empty
+coin list must be valid SDK coins, and the contributor must have sufficient
+funds. Other accounts can contribute with `MsgDeposit`.
 
-When a proposal is submitted, it has to be accompanied by a deposit that must be strictly positive, but can be inferior to `MinDeposit`. The submitter doesn't need to pay for the entire deposit on their own. If a proposal's deposit is inferior to `MinDeposit`, other token holders can increase the proposal's deposit by sending a `Deposit` transaction. The deposit is kept in an escrow in the governance `ModuleAccount` until the proposal is finalized (passed or rejected).
+Voting starts when total deposits are greater than or equal to every coin amount
+in `MinDeposit`, or `MinExpeditedDeposit` for an expedited proposal. Contributions
+may continue while the proposal is in either deposit or voting status. Activation
+sets the voting times and moves the proposal from the inactive queue to the
+active queue.
 
-Once the proposal's deposit reaches `MinDeposit`, it enters voting period. If proposal's deposit does not reach `MinDeposit` before `MaxDepositPeriod`, proposal closes and nobody can deposit on it anymore.
+If the minimum is not met, `EndBlocker` deletes the proposal and burns its deposits
+when the deposit deadline is reached. The deadline is based on submission time
+plus `MaxDepositPeriod`.
 
 ### Deposit refund and burn
 
-When a the a proposal finalized, the coins from the deposit are either refunded or burned, according to the final tally of the proposal:
+At the final tally, deposits are normally refunded to their contributors. The
+[tally implementation](../keeper/tally.go) requests burning when quorum is not met
+or the veto fraction exceeds `VetoThreshold`. With no bonded stake it does not
+request burning. Once quorum is met, an all-abstain result also does not request
+burning. A passing proposal's deposits are refunded even if its content handler
+subsequently fails.
 
-- If the proposal is approved or if it's rejected but _not_ vetoed, deposits will automatically be refunded to their respective depositor (transferred from the governance `ModuleAccount`).
-- When the proposal is vetoed with a supermajority, deposits be burned from the governance `ModuleAccount`.
+Failed expedited proposals retain their deposits during conversion to regular
+voting; the later regular tally determines refund or burn.
 
 ## Vote
 
 ### Participants
 
-_Participants_ are users that have the right to vote on proposals. On the
-Cosmos Hub, participants are bonded Atom holders. Unbonded Atom holders and
-other users do not get the right to participate in governance. However, they
-can submit and deposit on proposals.
-
-Note that some _participants_ can be forbidden to vote on a proposal under a
-certain validator if:
-
-- _participant_ bonded or unbonded Atoms to said validator after proposal
-  entered voting period.
-- _participant_ became validator after proposal entered voting period.
-
-This does not prevent _participant_ to vote with Atoms bonded to other
-validators. For example, if a _participant_ bonded some Atoms to validator A
-before a proposal entered voting period and other Atoms to validator B after
-proposal entered voting period, only the vote under validator B will be
-forbidden.
+Accounts may record votes while the proposal is in voting status. The vote
+handler does not require a staking balance. At tally time, voting power comes
+from delegations to the current bonded validators; a vote without such power has
+no weight. The tally reads current staking state, rather than a snapshot of the
+validator set or delegations at the start of voting.
 
 ### Voting period
 
-Once a proposal reaches `MinDeposit`, it immediately enters `Voting period`. We
-define `Voting period` as the interval between the moment the vote opens and
-the moment the vote closes. `Voting period` should always be shorter than
-`Unbonding period` to prevent double voting. The initial value of
-`Voting period` is 2 weeks.
+When deposits activate voting, `VotingStartTime` becomes the current block time
+and `VotingEndTime` becomes that time plus the applicable voting period. The
+regular duration is `VotingParams.VotingPeriod`. Proposals are tallied by
+`EndBlocker` at their deadline; this module does not close voting early when a
+particular level of support is reached.
 
 ### Expedited Voting period
 
-Expedited Proposal will have a shorter `Expedited Voting Period` compared to a regular `Voting Period`. 
-If the proposal has not passed after the `Expedited Voting Period`, it will be automatically 
-converted back to a regular proposal and fall back to use `Voting Period` unless the proposal is vetoed.
+An expedited proposal starts with `VotingParams.ExpeditedVotingPeriod`. When its
+tally fails, conversion clears the proposal's `IsExpedited` flag, keeps its voting
+status, votes, and deposits, and sets its end time to the original
+`VotingStartTime + VotingParams.VotingPeriod`. It is requeued for a regular tally;
+the extension is not a fresh full voting period from the conversion time.
+
+For example, a delegator holding 6 of 16 bonded tokens can cast a minority Yes
+vote before conversion. Its 37.5% participation misses the default expedited
+quorum (66.7%) but meets the regular quorum (33.4%). If no one changes that vote,
+the regular tally passes. Votes and deposits survive a committed-store restart
+between those tallies; conversion does not require accounts to vote again.
 
 ### Option set
 
-The option set of a proposal refers to the set of choices a participant can
-choose from when casting its vote.
+The protobuf `VoteOption` values are:
 
-The initial option set includes the following options:
+| Option       | Value | Meaning                               |
+| ------------ | ----- | ------------------------------------- |
+| Yes          | 1     | Support the proposal                  |
+| Abstain      | 2     | Participate without support or veto   |
+| No           | 3     | Oppose the proposal                   |
+| NoWithVeto   | 4     | Oppose and count toward the veto test |
 
-- `Yes`
-- `No`
-- `NoWithVeto`
-- `Abstain`
-
-`NoWithVeto` counts as `No` but also adds a `Veto` vote. `Abstain` option
-allows voters to signal that they do not intend to vote in favor or against the
-proposal but accept the result of the vote.
-
-_Note: from the UI, for urgent proposals we should maybe add a ‘Not Urgent’
-option that casts a `NoWithVeto` vote._
+Value 0 is unspecified and is not a valid vote. Abstentions count toward quorum
+but are excluded from the approval denominator. Veto uses total participating
+power, including abstentions, as its denominator.
 
 ### Weighted Votes
 
-[ADR-037](../../../docs/architecture/adr-037-gov-split-vote.md) introduces the weighted vote feature which allows a staker to split their votes into several voting options. For example, it could use 70% of its voting power to vote Yes and 30% of its voting power to vote No.
-
-Often times the entity owning that address might not be a single individual. For example, a company might have different stakeholders who want to vote differently, and so it makes sense to allow them to split their voting power. Currently, it is not possible for them to do "passthrough voting" and giving their users voting rights over their tokens. However, with this system, exchanges can poll their users for voting preferences, and then vote on-chain proportionally to the results of the poll.
-
-To represent weighted vote on chain, we use the following Protobuf message.
-
-+++ https://github.com/cosmos/cosmos-sdk/blob/v0.43.0-alpha1/proto/cosmos/gov/v1beta1/gov.proto#L32-L40
-
-+++ https://github.com/cosmos/cosmos-sdk/blob/v0.43.0-alpha1/proto/cosmos/gov/v1beta1/gov.proto#L126-L137
-
-For a weighted vote to be valid, the `options` field must not contain duplicate vote options, and the sum of weights of all options must be equal to 1.
+[Weighted voting](../types/vote.go) splits voting power across options, for
+example 70% `Yes` and 30% `No`. An account can
+submit this distribution with `MsgVoteWeighted`. Each option must be valid and
+unique, each decimal weight must be greater than zero and at most one, and the
+weights must sum exactly to one. `MsgVote` is stored as a single option with
+weight one. A later vote replaces the account's earlier vote on that proposal.
 
 ### Quorum
 
-Quorum is defined as the minimum percentage of voting power that needs to be
-casted on a proposal for the result to be valid.
-
-For expedited proposals, it would need to reach a higher quorum.
+Quorum compares total participating voting power, including abstentions, with
+total bonded tokens. Participation must be greater than or equal to `Quorum`, or
+`ExpeditedQuorum` for an expedited proposal. With no bonded tokens the proposal
+cannot pass.
 
 ### Threshold
 
-Threshold is defined as the minimum proportion of `Yes` votes (excluding
-`Abstain` votes) for the proposal to be accepted.
-
-Initially, the threshold is set at 50% with a possibility to veto if more than
-1/3rd of votes (excluding `Abstain` votes) are `NoWithVeto` votes. This means
-that proposals are accepted if the proportion of `Yes` votes (excluding
-`Abstain` votes) at the end of the voting period is superior to 50% and if the
-proportion of `NoWithVeto` votes is inferior to 1/3 (excluding `Abstain`
-votes).
-
-For expedited proposals, it would require a higher threshold.
+After quorum is met, the tally rejects an all-abstain result. It then rejects a
+veto fraction **strictly greater than** `VetoThreshold`, before checking approval.
+The `Yes` share of non-abstaining power must be **strictly greater than**
+`Threshold`, or `ExpeditedThreshold` for an expedited proposal. Equality with the
+approval threshold does not pass; equality with the veto threshold does not veto.
 
 ### Inheritance
 
-If a delegator does not vote, it will inherit its validator vote.
+The tally first applies each voting delegator's weighted options to that
+account's delegated power and deducts its shares from the corresponding
+validator's inherited power. A validator's vote then applies to the remaining
+power of its delegators. Thus an explicit delegator vote overrides inheritance
+regardless of whether it was submitted before or after the validator's vote.
 
-- If the delegator votes before its validator, it will not inherit from the
-  validator's vote.
-- If the delegator votes after its validator, it will override its validator
-  vote with its own. If the proposal is urgent, it is possible
-  that the vote will close before delegators have a chance to react and
-  override their validator's vote. This is not a problem, as proposals require more than 2/3rd of the total voting power to pass before the end of the voting period. If more than 2/3rd of validators collude, they can censor the votes of delegators anyway.
+### Validator's punishment for non-voting
 
-### Validator’s punishment for non-voting
-
-At present, validators are not punished for failing to vote.
+The governance tally does not slash validators for failing to vote.
 
 ### Governance address
 
-Later, we may add permissioned keys that could only sign txs from certain modules. For the MVP, the `Governance address` will be the main validator address generated at account creation. This address corresponds to a different PrivKey than the Tendermint PrivKey which is responsible for signing consensus messages. Validators thus do not have to sign governance transactions with the sensitive Tendermint PrivKey.
+Governance messages are signed by account addresses: the proposer, depositor, or
+voter. The tally recognizes a validator vote by converting the voter's account
+address bytes to a validator operator address. Governance transactions do not
+use the consensus signing key.
 
 ## Software Upgrade
 
-If proposals are of type `SoftwareUpgradeProposal`, then nodes need to upgrade
-their software to the new version that was voted. This process is divided in
-two steps.
+### Schedule
 
-### Signal
+The [software-upgrade proposal handler](../../upgrade/handler.go) calls
+`ScheduleUpgrade` with the proposal's `Plan`. A plan has a non-empty `name`, a
+positive `height`, and optional `info`. Time-based plans are rejected, as are
+plans scheduled below the current height or with an already completed name.
+Scheduling stores one plan; a new plan replaces the pending plan. A passing
+`CancelSoftwareUpgradeProposal` clears it.
 
-After a `SoftwareUpgradeProposal` is accepted, validators are expected to
-download and install the new version of the software while continuing to run
-the previous version. Once a validator has downloaded and installed the
-upgrade, it will start signaling to the network that it is ready to switch by
-including the proposal's `proposalID` in its _precommits_.(_Note: Confirmation
-that we want it in the precommit?_)
+### Apply
 
-Note: There is only one signal slot per _precommit_. If several
-`SoftwareUpgradeProposals` are accepted in a short timeframe, a pipeline will
-form and they will be implemented one after the other in the order that they
-were accepted.
-
-### Switch
-
-Once a block contains more than 2/3rd _precommits_ where a common
-`SoftwareUpgradeProposal` is signaled, all the nodes (including validator
-nodes, non-validating full nodes and light-nodes) are expected to switch to the
-new version of the software.
-
-_Note: Not clear how the flip is handled programmatically_
+The [upgrade BeginBlocker](../../upgrade/abci.go) checks the plan at its target
+height. A binary with the matching named handler applies the upgrade. Without
+that handler, the node writes upgrade information to disk and halts so the
+appropriate binary can be installed. The pending plan remains available after
+that halt; the installed handler applies it on restart at the scheduled height,
+records completion and clears the plan. A completed name cannot be rescheduled.
+A configured skip height instead clears the pending plan without applying it.
+For a non-minor upgrade, starting a binary with the handler before the scheduled
+height aborts. A plan whose `info` has `"upgradeType":"minor"` permits the new
+binary to start early; application still occurs at the scheduled height.
+Operators must coordinate binary deployment
+for the scheduled height; proposal approval does not download or switch binaries
+through proposal-ID signals in precommits. See the
+[upgrade module](../../upgrade/spec/01_concepts.md) for upgrade operation details.

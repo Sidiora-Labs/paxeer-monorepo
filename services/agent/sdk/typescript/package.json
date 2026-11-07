@@ -30,7 +30,13 @@
   ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "test": "npm run build && node dist/test/launchpad-approval.test.js && node dist/test/integration.test.js && node dist/test/retired-kernel-receipts.test.js && node dist/test/receipt-fixture.test.js && node dist/test/agent-http.test.js && node dist/test/program-lifecycle.test.js && node dist/test/native-capabilities.test.js && node dist/test/program-executed-v3.test.js && node dist/test/rpc.test.js && node dist/test/account-bound-call.test.js && node dist/test/intent.test.js && node dist/test/px.test.js && node dist/test/ai-market.test.js && node dist/test/account-derivation.test.js && node dist/test/trading-payload.test.js && node dist/test/binding-preflight.test.js && node dist/test/precompile-calls.test.js && node dist/test/gas-station.test.js && node dist/test/web-search.test.js && node dist/test/xweb-api.test.js && node dist/test/native-abi5.test.js && node dist/test/revert.test.js && node dist/test/abi-tuple-width.test.js && node dist/test/agent-envelope-bootstrap-credential.test.js && node dist/test/names.test.js && node dist/test/chains.test.js"
+    "test": "npm run build && node scripts/run-tests.mjs self-contained",
+    "test:self-contained": "npm run build && node scripts/run-tests.mjs self-contained",
+    "test:anvil": "npm run build && node scripts/run-tests.mjs anvil",
+    "test:ci": "npm run build && node scripts/run-tests.mjs ci",
+    "test:external-node": "npm run build && node scripts/run-tests.mjs external-node",
+    "test:case-file": "npm run build && node scripts/run-tests.mjs case-file",
+    "test:native-effect-case": "npm run build && node scripts/run-tests.mjs native-effect-case"
   },
   "engines": {
     "node": ">=22"
@@ -48,5 +54,14 @@
     "@scure/bip39": "2.4.0",
     "ws": "8.21.3"
   },
-  "module": "./dist/src/index.js"
+  "module": "./dist/src/index.js",
+  "sdkTestRequirements": {
+    "anvil": [
+      "exchange-v2.test.ts",
+      "gas-station.test.ts"
+    ],
+    "case-file": [
+      "agent-operation-envelope.test.ts"
+    ]
+  }
 }

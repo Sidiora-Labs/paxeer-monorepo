@@ -1,0 +1,23 @@
+[repair.22.31.67]
+audit = "22.30.39"
+finding = "8"
+implementation = "Frozen follow, unfollow, followers and follow-stats refusals use a schema-validated Error writer with complete required fields, frozen error codes, sanitized messages and propagated request identity."
+proof = "Finding 8: TestRepair_67_FrozenErrorsDriveSDK drives real Store.Follow input validation and registered frozen handlers through an HTTP reverse proxy, SDK decodeV2Contract and SdkClient transport; it asserts all seven required error fields, identity, status and code, and zero acquired database connections. It needs no PostgreSQL, Redis, S3, Anvil or live RPC endpoint."
+additional_tests = "TestContractErrorMapping proves wrapped error mappings and private-message redaction; TestContractErrorRequestIdentity proves preserved or newly generated request identities."
+missing_path = "The follow policy deliberately converts absent accounts to ErrDenied; TestContractErrorMapping drives the shared writer NOT_FOUND branch with pgx.ErrNoRows through the real SDK, without changing authorization policy or requiring a database."
+baseline = "The supplied previous-attempt evidence reports TestRepair_67_FrozenErrorsDriveSDK dependency-stats failed with actual HTTP 502 versus required 503. No unchanged-tree run is repeated: the ordered instructions require implementation, hf-build, then hf-done. The supplied evidence did not include a revision/log for that failure, so none is invented."
+evidence = "The runner's private /out/run/gates.jsonl and the final evidence JSON record the exact candidate revision, command, exit code and private gate log; this source record makes no unexecuted gate claim."
+wiring_sdk = "sdk/launchpad/packages/sdk/src/transport.ts, SDK owning domain 4: preserve the validated message and details in HttpError.envelope instead of replacing message with code and details with null."
+wiring_gateway = "services/launchpad/gateway, gateway owning domain 4: retain frozen follow error bodies and X-Request-ID in deployed upstream forwarding; the scoped proof uses the real standard HTTP reverse proxy."
+
+[qualification.1]
+revision = "d13de55298c75db2ca40dcf8755fd6447cc352e6"
+command = "cg spec done 22.31.67 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Five existing connected tests lack leased L37_PHASE2 fixture variables, and TestPhase4InteractionsMeasurement lacks pinned allocation/artifact metadata; the new proof originally inherited the missing fixture dependency."
+assumption = "The task proof can use L37_TEST_DSN and real migrations directly; external connected/measurement fixture requirements remain intact and are not chased."
+
+[continuation]
+implementation = "Replaced the external PostgreSQL fixture with real pre-transaction validation and a closed real pool; retained the original mapping and identity assertions and made the mapping cases drive the SDK. Middleware extends the request context to preserve Chi routing metadata instead of replacing it."
+gotcha = "Replacing an HTTP request context with a stored background context drops Chi route parameters and can panic behind the reverse proxy, producing HTTP 502 instead of the handler response."

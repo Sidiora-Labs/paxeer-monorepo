@@ -11,6 +11,11 @@ interface ILayerXPrograms {
         uint128 amount;
     }
 
+    struct ReceiptAuthority {
+        bytes canonicalReceipt;
+        uint64 blockHeight;
+    }
+
     event ProgramDeployed(bytes32 indexed programId, bytes32 codeHash);
 
     event ProgramUpgraded(bytes32 indexed programId, bytes32 oldCodeHash, bytes32 newCodeHash);
@@ -101,6 +106,11 @@ interface ILayerXPrograms {
 
     event StorageRetired(bytes32 indexed activityId, uint8 frameIndex, bytes frame);
 
+    /// @dev response is the complete canonical terminal-applied-legs/v1 frame,
+    /// including execution, occupancy/authority attachments and applied transfer legs.
+    /// responseCapacity bounds nested guest bytes; it does not bound this frame.
+    /// Consumers must validate the frame and bind its transfer root to independently
+    /// verified receipt evidence before using the guest response. See response.md.
     function call(
         bytes32 programId,
         uint16 abiVersion,
@@ -111,6 +121,19 @@ interface ILayerXPrograms {
         uint32 responseCapacity,
         uint64[7] calldata budget,
         uint128 feeLimit
+    ) external returns (int32 terminalResult, uint8 terminalKind, bytes memory response);
+
+    function callWithReceipts(
+        bytes32 programId,
+        uint16 abiVersion,
+        string calldata entrypoint,
+        bytes calldata callData,
+        bytes calldata capabilities,
+        bytes calldata accessDeclaration,
+        uint32 responseCapacity,
+        uint64[7] calldata budget,
+        uint128 feeLimit,
+        ReceiptAuthority[] calldata receiptAuthorities
     ) external returns (int32 terminalResult, uint8 terminalKind, bytes memory response);
 
     function deploy(
@@ -181,6 +204,7 @@ interface ILayerXPrograms {
 
     function getStateHead(bytes32 programId) external view returns (bytes memory stateRecord);
 
+    /// @dev An absent account returns (0, false); frozen is the host freeze flag.
     function getValueAccount(bytes32 programId, bytes32 accountId) external view returns (uint128 balance, bool frozen);
 
     function getWebRequest(bytes32 programId, uint64 requestId) external view returns (bytes memory record);
@@ -246,6 +270,9 @@ interface ILayerXPrograms {
         bytes calldata seed
     ) external;
 
+    /// @dev Uses the same terminal frame and nested guest responseCapacity as call.
+    /// Simulation evidence must be checked against a trusted simulation context;
+    /// no state or receipt logs are committed. See response.md.
     function simulateCall(
         bytes32 programId,
         uint16 abiVersion,

@@ -1,0 +1,9 @@
+[repair.22.31.101]
+finding = "22.30.5.13"
+implementation = "src/modules/stream/lx_stream_payload.c shares value validation between each producer and its paired decoder, before writing bytes."
+proving_tests = ["tests/modules/test_stream_meter.c:stream_payload_encode_implies_decode", "tests/modules/test_stream_meter.c:stream_payload_kernel_path"]
+properties = "1000 seeded inputs per payload, all decoder value refusal classes, invalid full-width modes, bounded authority counts, strict authority ordering, and unchanged output on refusal."
+path = "Real encoders emit open, top-up, signed meter, pause and settle bytes; the registered kernel consumer commits records and canonical ledger transfers."
+baseline = "Not run: the ordered task instructions prohibit testing before implementation and direct verification only through hf-done; no previous gate ledger exists."
+wiring_requests = []
+evidence = "The runner gate ledger records the exact candidate revision, command, exit and private log for hf-build and hf-done; final response copies the last gate record."

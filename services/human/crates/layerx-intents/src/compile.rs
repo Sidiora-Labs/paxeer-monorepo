@@ -165,6 +165,7 @@ pub fn compile(intent: &Intent, registry: &ModuleRegistry) -> Result<CompiledInt
         && !matches!(
             intent.kind(),
             IntentKind::SessionGrant(_)
+                | IntentKind::KeyRotation(_)
                 | IntentKind::RecoveryRegistration(_)
                 | IntentKind::NativeBudgetCreate(_)
                 | IntentKind::NativeAssetAccountOpen(_)
@@ -208,7 +209,12 @@ pub fn compile(intent: &Intent, registry: &ModuleRegistry) -> Result<CompiledInt
         }
         IntentKind::DidRegistration(value) => {
             header(&mut encoder, 0x7101, 2)?;
-            did(&mut encoder, &value.did, CompileField::Did)?;
+            did(
+                &mut encoder,
+                &value.did,
+                intent.version().value(),
+                CompileField::Did,
+            )?;
             fixed(
                 &mut encoder,
                 &value.primary_key.bytes(),
@@ -218,7 +224,12 @@ pub fn compile(intent: &Intent, registry: &ModuleRegistry) -> Result<CompiledInt
         }
         IntentKind::KeyRotation(value) => {
             header(&mut encoder, 0x7102, 4)?;
-            did(&mut encoder, &value.did, CompileField::Did)?;
+            did(
+                &mut encoder,
+                &value.did,
+                intent.version().value(),
+                CompileField::Did,
+            )?;
             fixed(
                 &mut encoder,
                 &value.pending_key.bytes(),
@@ -240,16 +251,12 @@ pub fn compile(intent: &Intent, registry: &ModuleRegistry) -> Result<CompiledInt
         }
         IntentKind::RecoveryRegistration(value) => {
             header(&mut encoder, 0x7103, 3)?;
-            if intent.version() == IntentVersion::V3 {
-                fixed(
-                    &mut encoder,
-                    &hash::did_id_for_protocol(&value.did, 3)
-                        .map_err(|error| CompileError::wire(CompileField::Did, error))?,
-                    CompileField::Did,
-                )?;
-            } else {
-                did(&mut encoder, &value.did, CompileField::Did)?;
-            }
+            did(
+                &mut encoder,
+                &value.did,
+                intent.version().value(),
+                CompileField::Did,
+            )?;
             fixed(
                 &mut encoder,
                 &value.recovery_root.bytes(),
@@ -556,8 +563,14 @@ fn account(
     Ok(digest)
 }
 
-fn did(encoder: &mut Encoder, value: &Did, field: CompileField) -> Result<(), CompileError> {
-    let digest = hash::did_id(value).map_err(|error| CompileError::wire(field, error))?;
+fn did(
+    encoder: &mut Encoder,
+    value: &Did,
+    protocol: u16,
+    field: CompileField,
+) -> Result<(), CompileError> {
+    let digest = hash::did_id_for_protocol(value, protocol)
+        .map_err(|error| CompileError::wire(field, error))?;
     fixed(encoder, &digest, field)
 }
 

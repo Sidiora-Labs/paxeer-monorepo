@@ -250,6 +250,10 @@ class RegistrationInputTests(unittest.TestCase):
         self.assertEqual(len(catalog['presets'][0]['counterparties']), 2)
         self.assertNotEqual(*catalog['presets'][0]['counterparties'])
         self.assertEqual(provision.protected_json(self.root / 'purpose-catalog.json'), catalog)
+        template = Path(provision.__file__).with_name('beta-purpose-catalog.json')
+        for preset, configured in zip(catalog['presets'], json.loads(template.read_text())['presets']):
+            self.assertEqual(preset['call_selectors'], configured['call_selectors'])
+            self.assertNotIn('activity_types', preset)
         registry = self.root / 'registry.json'
         value = provision.protected_json(registry)
         del value['schema_version']
@@ -259,6 +263,33 @@ class RegistrationInputTests(unittest.TestCase):
             provision.purpose_catalog(Path(provision.__file__).with_name('beta-purpose-catalog.json'),
                                       registry, self.root / 'treasury.json', self.root / 'sequencer.json',
                                       value['assets'][0]['asset'])
+
+    def test_generated_catalog_refuses_invalid_selectors(self):
+        catalog = generated_catalog(self.root, identity_provider_binary())
+        template = json.loads(Path(provision.__file__).with_name('beta-purpose-catalog.json').read_text())
+        template_path = self.root / 'catalog-template.json'
+        asset = bytes(catalog['presets'][0]['budget_asset']).hex()
+        invalid = (None, '', {}, [], [None], [1], [''], ['a9059cbb'], ['0Xa9059cbb'],
+                   ['0xa9059c'], ['0xa9059cbb00'], ['0xa9059cbg'], ['0xa9059cbb\n'],
+                   ['0xa9059cbb', '0xa9059cbb'], ['0xa9059cbb', '0xA9059CBB'])
+        for selectors in invalid:
+            with self.subTest(selectors=selectors):
+                template['presets'][0]['call_selectors'] = selectors
+                template_path.write_text(json.dumps(template))
+                with self.assertRaises(provision.Refused) as caught:
+                    provision.purpose_catalog(template_path, self.root / 'registry.json',
+                                              self.root / 'treasury.json', self.root / 'sequencer.json', asset)
+                self.assertIn(str(template_path), str(caught.exception))
+        del template['presets'][0]['call_selectors']
+        template_path.write_text(json.dumps(template))
+        with self.assertRaises(provision.Refused):
+            provision.purpose_catalog(template_path, self.root / 'registry.json',
+                                      self.root / 'treasury.json', self.root / 'sequencer.json', asset)
+        template['presets'][0]['call_selectors'] = ['0xA9059CBB']
+        template_path.write_text(json.dumps(template))
+        result = provision.purpose_catalog(template_path, self.root / 'registry.json',
+                                           self.root / 'treasury.json', self.root / 'sequencer.json', asset)
+        self.assertEqual(result['presets'][0]['call_selectors'], ['0xA9059CBB'])
 
     def test_journal_and_complete_assembly_fail_closed_without_upstream(self):
         with self.assertRaises(provision.Refused):
@@ -323,8 +354,8 @@ class RegistrationInputTests(unittest.TestCase):
         paxeer.mkdir()
         provision.write_json(paxeer / 'deployment.json', {'addresses': {}})
         with self.assertRaises(provision.Refused) as caught:
-            provision.movement_source(self.root, self.root / 'secrets')
-        self.assertIn('deployment.json: invalid custody_reference missing', str(caught.exception))
+            provision.funding_evidence(self.root)
+        self.assertIn('owner-registration.json', str(caught.exception))
         self.assertFalse((self.input / 'movement-source.json').exists())
 
     def run_cli(self):

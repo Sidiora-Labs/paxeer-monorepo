@@ -1,0 +1,7 @@
+[repair.rust-build-explorer-verifier.5]
+target = "smart-contract-verifier-server"
+command = "cargo build --locked --manifest-path services/explorer/services/smart-contract-verifier/Cargo.toml -p smart-contract-verifier-server --all-targets"
+revision = "cea04b0a20fed9621b2f2580398024b38b76ff2e"
+result = "already-passing"
+change = "none"
+producer_input_tests = []

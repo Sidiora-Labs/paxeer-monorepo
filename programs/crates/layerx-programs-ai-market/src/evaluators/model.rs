@@ -19,7 +19,8 @@ pub const SIGNED_REPORT_MIN_BYTES: usize = 328;
 pub const SIGNED_REPORT_MAX_BYTES: usize = 1444;
 pub const MAX_GRANT_EPOCHS: u64 = 32;
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 #[repr(u8)]
 pub enum GrantStatus {
     Pending = 1,
@@ -32,6 +33,7 @@ impl GrantStatus {
     ///
     /// # Errors
     /// Returns `NON_CANONICAL` for a byte outside `1..=4`.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn decode(value: u8) -> CodecResult<Self> {
         match value {
             1 => Ok(Self::Pending),
@@ -44,7 +46,8 @@ impl GrantStatus {
 }
 
 /// Owner-chosen terms of one evaluator nomination.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct GrantTerms {
     pub rubric: RubricDigest,
     pub grant_version: Version,
@@ -54,7 +57,8 @@ pub struct GrantTerms {
     pub expiry_epoch_exclusive: u64,
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct EvaluatorGrant {
     pub evaluator: EvaluatorId,
     pub principal: PrincipalId,
@@ -71,6 +75,7 @@ impl EvaluatorGrant {
     ///
     /// # Errors
     /// Returns `NON_CANONICAL` for a zero signing key; `F03_BAD_ACTIVATION` when the span is negative, zero or above `MAX_GRANT_EPOCHS`.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn validate(&self) -> CodecResult<()> {
         nonzero_key(self.signing_key)?;
         let span = self
@@ -128,14 +133,16 @@ pub fn nonzero_key(key: PublicKey32) -> CodecResult<()> {
     }
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct SignedReport<'a> {
     pub body: ReportBody<'a>,
     pub signature: Signature64,
 }
 
 /// A compact reference to a sealed F09 registration, not the remote manifest.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct RegisteredEvidence {
     pub binding: EvaluatorBinding,
     pub root: EvidenceRoot,
@@ -145,7 +152,8 @@ pub struct RegisteredEvidence {
 /// Borrowed frozen facts for pure statement validation. The caller must obtain
 /// them from authoritative state; this value does not authenticate that state,
 /// establish F08 membership, consume a commit or expose a direct-report operation.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct ReportContext<'a> {
     pub binding: EvaluatorBinding,
     pub frozen_grant: EvaluatorGrant,
@@ -156,7 +164,8 @@ pub struct ReportContext<'a> {
     pub evidence: Presence<RegisteredEvidence>,
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct EvaluatorAdmissionConsentV1 {
     pub chain: ChainDomain,
     pub program: ProgramId,
@@ -179,6 +188,7 @@ impl EvaluatorAdmissionConsentV1 {
     ///
     /// # Errors
     /// Returns `NON_CANONICAL` for a zero delegate key, a zero expiry height or a zero derived evaluator; `F08_BAD_CONSENT` when the evaluator does not derive from market, owner and nonce.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn validate(&self) -> CodecResult<()> {
         nonzero_key(self.delegate_key)?;
         if self.expiry_height == 0 {
@@ -190,14 +200,16 @@ impl EvaluatorAdmissionConsentV1 {
         Ok(())
     }
 }
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct SignedEvaluatorConsent {
     pub consent: EvaluatorAdmissionConsentV1,
     pub signature: Signature64,
 }
 /// Exact expected permit/nomination statement. Equality does not authenticate
 /// owner acceptance: F08 must separately enforce its actual kind0 Context.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct ConsentContext {
     pub expected: EvaluatorAdmissionConsentV1,
     pub nomination: EvaluatorGrant,
@@ -205,7 +217,8 @@ pub struct ConsentContext {
 }
 
 /// Host refusal remains distinguishable from typed application errors.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub enum VerificationError {
     Application(ApplicationError),
     #[cfg(target_arch = "wasm32")]

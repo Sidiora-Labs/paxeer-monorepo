@@ -4,6 +4,7 @@
 package ledger
 
 import (
+	"encoding/hex"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -68,6 +69,24 @@ func TestNewPrivKeySecp256k1(t *testing.T) {
 	require.NotNil(t, privKey)
 	require.NotEmpty(t, addr)
 	require.Contains(t, addr, "pax")
+
+	// The device contract uses the requested HRP, independently of SDK config.
+	pub, customAddr, err := (LedgerSECP256K1Mock{}).GetAddressPubKeySECP256K1(path.DerivationPath(), "repair")
+	require.NoError(t, err)
+	require.Len(t, pub, 33)
+	require.Equal(t, privKey.PubKey().Bytes(), pub)
+	expectedAddr, err := types.Bech32ifyAddressBytes("repair", privKey.PubKey().Address())
+	require.NoError(t, err)
+	require.Equal(t, expectedAddr, customAddr)
+	_, _, err = (LedgerSECP256K1Mock{}).GetAddressPubKeySECP256K1(path.DerivationPath(), "")
+	require.Error(t, err)
+
+	// Compare the test device with the pinned driver's recorded device output.
+	require.EqualValues(t, 118, types.GetConfig().GetCoinType())
+	pub, recordedAddr, err := (LedgerSECP256K1Mock{}).GetAddressPubKeySECP256K1([]uint32{44, 118, 0, 0, 0}, "cosmos")
+	require.NoError(t, err)
+	require.Equal(t, "034fef9cd7c4c63588d3b03feb5281b9d232cba34d6f3d71aee59211ffbfe1fe87", hex.EncodeToString(pub))
+	require.Equal(t, "cosmos1w34k53py5v5xyluazqpq65agyajavep2rflq6h", recordedAddr)
 }
 
 func TestPrivKeyLedgerSecp256k1_Sign(t *testing.T) {
@@ -174,4 +193,6 @@ func TestConvertDERtoBER(t *testing.T) {
 	result, err := convertDERtoBER(sig64)
 	require.NoError(t, err)
 	require.Equal(t, sig64, result)
+	t.Run("DER", repairM1348DERConversion)
+	t.Run("malformed DER", repairM1348MalformedDER)
 }

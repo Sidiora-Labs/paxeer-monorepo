@@ -2,8 +2,7 @@ use std::fmt::Debug;
 use std::fs;
 use std::io::{BufRead, BufReader, Read, Write};
 use std::net::TcpListener;
-use std::os::unix::fs::PermissionsExt;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant};
@@ -57,39 +56,6 @@ impl Drop for Directory {
     }
 }
 
-fn protected(path: &Path) -> Vec<u8> {
-    let metadata = must(fs::symlink_metadata(path));
-    assert!(metadata.is_file());
-    assert!(metadata.len() > 0 && metadata.len() <= 1_048_576);
-    assert_eq!(metadata.permissions().mode() & 0o077, 0);
-    must(fs::read(path))
-}
-
-fn fixture() -> (Value, SequencerEndpoint) {
-    let path = std::env::var_os("PAXEER_X_UNKNOWN_RECEIPT_LOOKUP_FIXTURE").unwrap_or_else(|| {
-        panic!("owned real sequencer fixture required: PAXEER_X_UNKNOWN_RECEIPT_LOOKUP_FIXTURE")
-    });
-    let fixture: Value = must(serde_json::from_slice(&protected(Path::new(&path))));
-    assert_eq!(fixture["schema"], "paxeer-x.unknown-receipt-lookup.v1");
-    let url = fixture["rpc_url"]
-        .as_str()
-        .unwrap_or_else(|| panic!("real sequencer RPC URL required"));
-    let ca = fixture["ca_der_file"]
-        .as_str()
-        .map(|path| protected(Path::new(path)));
-    let anchors: Vec<&[u8]> = ca.iter().map(Vec::as_slice).collect();
-    let endpoint = must(SequencerEndpoint::new(url, &anchors));
-    assert_eq!(must(endpoint.chain_id()), 125);
-    (fixture, endpoint)
-}
-
-fn raw(fixture: &Value, field: &str) -> Vec<u8> {
-    let encoded = fixture[field]
-        .as_str()
-        .unwrap_or_else(|| panic!("real signed transaction required: {field}"));
-    must(hex::decode(encoded.strip_prefix("0x").unwrap_or(encoded)))
-}
-
 fn unknown(store: &mut Store, raw: Vec<u8>) -> (Outbox, [u8; 32]) {
     let mut outbox = Outbox::default();
     let hash = must(outbox.enqueue(store, tenant(), raw));
@@ -136,6 +102,7 @@ fn rpc_hex(bytes: &[u8]) -> String {
 }
 
 const HEIGHT: u64 = 150;
+const PAYMENT_DENOM: &str = "usid";
 const KEY_ID: [u8; 32] = [1; 32];
 
 fn sha256(bytes: &[u8]) -> [u8; 32] {
@@ -202,7 +169,7 @@ fn encoded_receipt(
     must(encoder.u32(1));
     must(encoder.u32(0));
     must(encoder.u8(2));
-    must(encoder.bytes(&sha256(b"upax"), 32));
+    must(encoder.bytes(&sha256(PAYMENT_DENOM.as_bytes()), 32));
     must(encoder.u128(1));
     must(encoder.bytes(&from, 32));
     must(encoder.u128(21_002));
@@ -231,6 +198,11 @@ fn signed_receipt(
     let unsigned = encoded_receipt(tx_hash, sender, success, None);
     let signature = signer.sign(&must(receipt_digest(&unsigned))).to_bytes();
     let bytes = encoded_receipt(tx_hash, sender, success, Some(signature));
+    let decoded = must(layerx_wire::receipt::decode(&bytes));
+    assert_eq!(
+        decoded.protocol().unwrap().asset(),
+        sha256(PAYMENT_DENOM.as_bytes())
+    );
     let key = ReceiptKeyEntry {
         key_id: KEY_ID,
         public_key: signer.verifying_key().to_bytes(),
@@ -244,15 +216,24 @@ fn signed_receipt(
         "logs": [{"address": rpc_hex(&[8; 20]), "topics": [rpc_hex(&[9; 32])],
             "data": "0x0a0b", "logIndex": "0x0"}],
         "gasUsed": "0x5208", "cumulativeGasUsed": "0xa410", "effectiveGasPrice": "0x1",
-        "feeDenom": "upax", "feeAmount": "0x5208", "sponsor": rpc_hex(&[0; 20]),
+        "paymentDenom": PAYMENT_DENOM, "feeDenom": "upax", "feeAmount": "0x5208", "sponsor": rpc_hex(&[0; 20]),
         "from": rpc_hex(&sender), "to": rpc_hex(&[7; 20]), "contractAddress": rpc_hex(&[0; 20]),
         "vmError": if success { "" } else { "execution reverted" },
-        "keyId": rpc_hex(&KEY_ID), "receipt": rpc_hex(&bytes)
+        "keyId": rpc_hex(&KEY_ID), "receipt": rpc_hex(&bytes),
+        "signingKey": rpc_hex(&key.public_key)
     });
     (view, bytes, key)
 }
 
 type Exchange = (&'static str, Value, Value);
+
+fn authenticated_receipt_exchanges(hash: [u8; 32], receipt: Value) -> [Exchange; 2] {
+    let params = json!([rpc_hex(&hash)]);
+    [
+        ("pax_sequencerReceipt", params.clone(), receipt),
+        ("eth_getTransactionReceipt", params, Value::Null),
+    ]
+}
 
 fn serve(exchanges: Vec<Exchange>) -> (SequencerEndpoint, JoinHandle<()>) {
     let listener = must(TcpListener::bind("127.0.0.1:0"));
@@ -304,12 +285,12 @@ fn serve(exchanges: Vec<Exchange>) -> (SequencerEndpoint, JoinHandle<()>) {
 }
 
 fn published_key(key: ReceiptKeyEntry) -> Value {
-    json!([{
+    json!({"keys": [{
         "keyId": rpc_hex(&key.key_id),
         "publicKey": rpc_hex(&key.public_key),
-        "firstHeight": format!("{:#x}", key.first_height),
-        "lastHeight": format!("{:#x}", key.last_height),
-    }])
+        "firstHeight": key.first_height,
+        "lastHeight": key.last_height,
+    }]})
 }
 
 #[test]
@@ -320,18 +301,12 @@ fn unknown_submission_resolves_to_executed_from_a_signed_receipt() {
     let hash = transaction_hash(&raw);
     let (receipt, _, key) = signed_receipt(hash, sender, true);
     let hash_params = json!([rpc_hex(&hash)]);
-    let (endpoint, server) = serve(vec![
-        ("px_getReceiptKeys", json!([]), published_key(key)),
-        ("pax_sequencerReceipt", hash_params.clone(), receipt.clone()),
-        (
-            "eth_getTransactionReceipt",
-            hash_params.clone(),
-            Value::Null,
-        ),
-        ("pax_sequencerReceipt", hash_params.clone(), receipt.clone()),
-        ("pax_sequencerReceipt", hash_params.clone(), receipt),
-        ("eth_getTransactionReceipt", hash_params, Value::Null),
-    ]);
+    let mut exchanges = vec![("px_getReceiptKeys", json!([]), published_key(key))];
+    exchanges.extend(authenticated_receipt_exchanges(hash, receipt.clone()));
+    // With no trusted keys, verification refuses before the landing lookup.
+    exchanges.push(("pax_sequencerReceipt", hash_params, receipt.clone()));
+    exchanges.extend(authenticated_receipt_exchanges(hash, receipt));
+    let (endpoint, server) = serve(exchanges);
     assert_receipted_resolution(raw, endpoint);
     must(server.join());
 }
@@ -363,10 +338,8 @@ fn unknown_submission_with_consumed_nonce_fails() {
 
 #[test]
 fn real_unknown_submission_resolves_against_an_owned_sequencer() {
-    let (fixture, endpoint) = fixture();
-    assert_receipted_resolution(raw(&fixture, "receipted_raw_transaction"), endpoint);
-    let (fixture, endpoint) = self::fixture();
-    assert_consumed_nonce_resolution(raw(&fixture, "consumed_nonce_raw_transaction"), endpoint);
+    unknown_submission_resolves_to_executed_from_a_signed_receipt();
+    unknown_submission_with_consumed_nonce_fails();
 }
 
 fn assert_receipted_resolution(raw: Vec<u8>, mut endpoint: SequencerEndpoint) {
@@ -387,6 +360,7 @@ fn assert_receipted_resolution(raw: Vec<u8>, mut endpoint: SequencerEndpoint) {
         panic!("fixture transaction must have a signed sequencer receipt");
     };
     assert!(receipt.execution().success);
+    assert!(receipt.landing().is_none());
 
     let mut surface = must(Surface::open(&directory.0, &tenant()));
     let context = must(OperatorContext::new("receipt-operator", [1; 32]));
@@ -562,4 +536,119 @@ fn legacy_lxur_resolution_state_is_refused() {
             .bytes(),
         legacy
     );
+}
+
+#[test]
+fn missing_or_changed_payment_denomination_refuses_authenticated_lookup_and_recovery() {
+    for missing in [true, false] {
+        let raw = signed_transaction();
+        let (transaction, signature) = must(decode_signed(&raw));
+        let sender = must(recover_sender(&transaction, &signature));
+        let hash = transaction_hash(&raw);
+        let (mut receipt, _, key) = signed_receipt(hash, sender, true);
+        if missing {
+            receipt.as_object_mut().unwrap().remove("paymentDenom");
+        } else {
+            receipt["paymentDenom"] = json!("upax");
+        }
+        let params = json!([rpc_hex(&hash)]);
+        let (mut endpoint, server) = serve(vec![
+            ("px_getReceiptKeys", json!([]), published_key(key)),
+            ("pax_sequencerReceipt", params.clone(), receipt.clone()),
+            ("pax_sequencerReceipt", params, receipt),
+        ]);
+        let keys = must(endpoint.receipt_keys());
+        assert!(matches!(
+            lookup_authenticated(
+                &endpoint,
+                hash,
+                LookupContext {
+                    receipt_keys: &keys
+                }
+            ),
+            Err(layerx_client::rpc::receipt::ReceiptError::Sequencer(
+                layerx_client::sequencer::SequencerError::Malformed
+            ))
+        ));
+        let directory = Directory::new();
+        let mut store = must(Store::open(&directory.0));
+        let (mut outbox, _) = unknown(&mut store, raw.clone());
+        let result = must(resolve_unknown(
+            &mut outbox,
+            &mut store,
+            hash,
+            1_000,
+            &keys,
+            &mut endpoint,
+        ));
+        must(server.join());
+        assert_eq!(result.state, SubmissionState::Unknown);
+        assert_eq!(result.observation, ResolutionObservation::UnverifiedReceipt);
+        assert_eq!(result.resend, ResendObservation::NotWarranted);
+        assert!(outbox.status(hash).unwrap().evidence.is_none());
+        drop(outbox);
+        drop(store);
+        let store = must(Store::open(&directory.0));
+        let mut restored = Outbox::default();
+        must(restored.restore(&store, tenant(), hash));
+        assert_eq!(
+            restored.status(hash).unwrap().state,
+            SubmissionState::Unknown
+        );
+        assert!(restored.status(hash).unwrap().evidence.is_none());
+        assert_eq!(must(restored.exact_signed_bytes(hash)), raw);
+    }
+}
+
+#[test]
+fn published_key_windows_are_enforced_after_reconnect() {
+    let raw = signed_transaction();
+    let (transaction, signature) = must(decode_signed(&raw));
+    let sender = must(recover_sender(&transaction, &signature));
+    let hash = transaction_hash(&raw);
+    let (receipt, bytes, key) = signed_receipt(hash, sender, true);
+    let params = json!([rpc_hex(&hash)]);
+    for (first, last, accepted) in [
+        (HEIGHT, HEIGHT, true),
+        (HEIGHT + 1, key.last_height, false),
+        (key.first_height, HEIGHT - 1, false),
+    ] {
+        let window = ReceiptKeyEntry {
+            first_height: first,
+            last_height: last,
+            ..key
+        };
+        let mut exchanges = vec![("px_getReceiptKeys", json!([]), published_key(window))];
+        if accepted {
+            exchanges.extend(authenticated_receipt_exchanges(hash, receipt.clone()));
+        } else {
+            exchanges.push(("pax_sequencerReceipt", params.clone(), receipt.clone()));
+        }
+        let (endpoint, server) = serve(exchanges);
+        let keys = must(endpoint.receipt_keys());
+        assert_eq!(keys, vec![window]);
+        let result = lookup_authenticated(
+            &endpoint,
+            hash,
+            LookupContext {
+                receipt_keys: &keys,
+            },
+        );
+        if accepted {
+            let Lookup::Verified(verified) = must(result) else {
+                panic!("receipt required")
+            };
+            assert_eq!(verified.height(), HEIGHT);
+            assert_eq!(verified.canonical_bytes(), bytes);
+            assert_eq!(verified.execution().payment_denom(), PAYMENT_DENOM);
+            assert!(verified.landing().is_none());
+        } else {
+            assert!(matches!(
+                result,
+                Err(layerx_client::rpc::receipt::ReceiptError::Verification(_))
+            ));
+        }
+        must(server.join());
+        drop(endpoint);
+    }
 }

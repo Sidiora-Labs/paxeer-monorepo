@@ -41,6 +41,7 @@ const (
 	PathHealth    = "/health"
 	PathMetrics   = "/metrics"
 
+	DefaultAPIReadTimeout  = 15 * time.Second
 	DefaultProtocolTimeout = 5 * time.Minute
 	maxRequestBytes        = 2 << 20
 )
@@ -68,22 +69,29 @@ type Options struct {
 	Replica         func() health.ReplicaState
 	Snapshots       *backup.Writer
 	Metrics         *health.Metrics
+	APIReadTimeout  time.Duration
 	ProtocolTimeout time.Duration
 	PeerTimeout     time.Duration
 	RoundTimeout    time.Duration
 }
 
 type Server struct {
-	opts       Options
-	mux        *http.ServeMux
-	reporter   *health.Reporter
-	keyMu      sync.Mutex
-	keyLocks   map[string]*sync.Mutex
-	spends     *policy.SpendLedger
-	votesMu    sync.Mutex
-	votes      map[string]*refreshVote
-	afterStage func(keyID string)
-	ceremony   *ceremonyImports
+	opts                Options
+	mux                 *http.ServeMux
+	reporter            *health.Reporter
+	keyMu               sync.Mutex
+	keyLocks            map[string]*keyLock
+	spends              *policy.SpendLedger
+	votesMu             sync.Mutex
+	votes               map[string]*refreshVote
+	afterStage          func(keyID string)
+	beforeRefreshCommit func(keyID string)
+	ceremony            *ceremonyImports
+}
+
+type keyLock struct {
+	mu   sync.RWMutex
+	refs int
 }
 
 func New(opts Options) (*Server, error) {
@@ -107,6 +115,9 @@ func New(opts Options) (*Server, error) {
 		return nil, errors.New("server: node id is not among the participants")
 	}
 	opts.Participants = participants
+	if opts.APIReadTimeout <= 0 {
+		opts.APIReadTimeout = DefaultAPIReadTimeout
+	}
 	if opts.ProtocolTimeout <= 0 {
 		opts.ProtocolTimeout = DefaultProtocolTimeout
 	}
@@ -116,7 +127,7 @@ func New(opts Options) (*Server, error) {
 	if err := registerMessages(); err != nil {
 		return nil, err
 	}
-	s := &Server{opts: opts, mux: http.NewServeMux(), keyLocks: make(map[string]*sync.Mutex)}
+	s := &Server{opts: opts, mux: http.NewServeMux(), keyLocks: make(map[string]*keyLock)}
 	if err := s.initPeer(); err != nil {
 		return nil, err
 	}
@@ -291,16 +302,37 @@ func readBody(r *http.Request) ([]byte, *Error) {
 	return body, nil
 }
 
-func (s *Server) lockKey(keyID string) func() {
+func (s *Server) lockKey(keyID string) func() { return s.holdKey(keyID, false) }
+
+func (s *Server) readKey(keyID string) func() { return s.holdKey(keyID, true) }
+
+func (s *Server) holdKey(keyID string, read bool) func() {
 	s.keyMu.Lock()
 	m, ok := s.keyLocks[keyID]
 	if !ok {
-		m = &sync.Mutex{}
+		m = &keyLock{}
 		s.keyLocks[keyID] = m
 	}
+	m.refs++
 	s.keyMu.Unlock()
-	m.Lock()
-	return m.Unlock
+	if read {
+		m.mu.RLock()
+	} else {
+		m.mu.Lock()
+	}
+	return func() {
+		if read {
+			m.mu.RUnlock()
+		} else {
+			m.mu.Unlock()
+		}
+		s.keyMu.Lock()
+		m.refs--
+		if m.refs == 0 {
+			delete(s.keyLocks, keyID)
+		}
+		s.keyMu.Unlock()
+	}
 }
 
 func (s *Server) shareStats() (uint64, uint64, error) {
@@ -415,7 +447,7 @@ func APITLSConfig(certFile, keyFile string, clients *ClientAuthorities) (*tls.Co
 }
 
 func (s *Server) Serve(l net.Listener, cfg *tls.Config) *http.Server {
-	srv := &http.Server{Handler: s.mux, TLSConfig: cfg, ReadHeaderTimeout: 10 * time.Second}
+	srv := &http.Server{Handler: s.mux, TLSConfig: cfg, ReadHeaderTimeout: 10 * time.Second, ReadTimeout: s.opts.APIReadTimeout}
 	go func() { _ = srv.Serve(tls.NewListener(l, cfg)) }()
 	return srv
 }

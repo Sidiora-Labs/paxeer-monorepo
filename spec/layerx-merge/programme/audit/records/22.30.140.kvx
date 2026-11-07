@@ -1,0 +1,1855 @@
+# Pre-upgrade audit: web explorer, JavaScript SDK and bridge governance proposals.
+
+[audit.22.30.140]
+task = "22.30.140"
+revision = "2b99f88520e4e809ad5593f3bee2df74fe355d7b"
+files_reviewed = 197
+findings = 47
+docs_reviewed = 34
+upgrade_ready = false
+blocking = ["bridge-asset-binding"]
+lines_reviewed = 28631
+produces_reviewed = 400
+consumes_reviewed = 197
+
+[file.001]
+path = "apps/explorer/instrumentation.ts"
+lines = 8
+verdict = "clean"
+note = "Node-runtime registration imports startup and conditionally enables OpenTelemetry; the hook does not register an RPC or tenant route."
+
+[file.002]
+path = "apps/explorer/ui/block/BlockCeloEpochTag.tsx"
+lines = 57
+verdict = "clean"
+note = "Celo-specific epoch badge is feature-gated and links to the configured epoch surface; it does not define Paxeer finality."
+
+[file.003]
+path = "apps/explorer/ui/block/BlockDeposits.spec.tsx"
+lines = 95
+verdict = "clean"
+note = "Deposit-tab assertions cover the visible loading, pagination and empty states using the deposits response contract."
+
+[file.004]
+path = "apps/explorer/ui/block/BlockDeposits.tsx"
+lines = 62
+verdict = "clean"
+note = "Deposit rows consume the block deposit query and preserve pagination and loading/error states."
+
+[file.005]
+path = "apps/explorer/ui/block/BlockDetails.pw.tsx"
+lines = 70
+verdict = "clean"
+note = "Block detail browser cases review the section order and feature-specific fields; they are presentation cases, not live-node qualification."
+
+[file.006]
+path = "apps/explorer/ui/block/BlockDetails.spec.tsx"
+lines = 190
+verdict = "clean"
+note = "Block detail unit assertions cover the configured block layout and its emitted counts."
+
+[file.007]
+path = "apps/explorer/ui/block/BlockDetails.tsx"
+lines = 695
+verdict = "clean"
+note = "Block details consume the block query and optional chain fields; blob formatting and RPC fallback defects are recorded on their owning files."
+
+[file.008]
+path = "apps/explorer/ui/block/BlockInternalTxs.spec.tsx"
+lines = 86
+verdict = "clean"
+note = "Celo internal-transaction tab assertions preserve its special empty and loading states."
+
+[file.009]
+path = "apps/explorer/ui/block/BlockInternalTxs.tsx"
+lines = 52
+verdict = "clean"
+note = "Internal transaction tab uses the configured chain's block query and list/pagination components."
+
+[file.010]
+path = "apps/explorer/ui/block/BlockWithdrawals.spec.tsx"
+lines = 110
+verdict = "clean"
+note = "Withdrawal assertions cover row visibility and pagination for the beacon-chain feature."
+
+[file.011]
+path = "apps/explorer/ui/block/BlockWithdrawals.tsx"
+lines = 62
+verdict = "clean"
+note = "Withdrawal tab consumes the withdrawal response with optional feature metadata and pagination."
+
+[file.012]
+path = "apps/explorer/ui/block/details/BlockDetailsBaseFeeCelo.pw.tsx"
+lines = 23
+verdict = "clean"
+note = "Celo base-fee browser cases check currency and recipient display for the feature-specific response."
+
+[file.013]
+path = "apps/explorer/ui/block/details/BlockDetailsBaseFeeCelo.tsx"
+lines = 91
+verdict = "clean"
+note = "Celo base-fee display distinguishes native and token-denominated fee amounts using supplied token metadata."
+
+[file.014]
+path = "apps/explorer/ui/block/details/BlockDetailsBlobInfo.spec.tsx"
+lines = 54
+verdict = "issues"
+note = "Excess blob gas unit assertion endorses an incorrect conversion; see blob-gas-test."
+
+[file.015]
+path = "apps/explorer/ui/block/details/BlockDetailsBlobInfo.tsx"
+lines = 86
+verdict = "issues"
+note = "Blob gas counters and monetary fees are mixed in the excess row; see blob-gas-units."
+
+[file.016]
+path = "apps/explorer/ui/block/details/BlockDetailsZilliqaQuorumCertificate.pw.tsx"
+lines = 41
+verdict = "clean"
+note = "Zilliqa certificate browser cases cover configured signer and signature fields without claiming Paxeer consensus evidence."
+
+[file.017]
+path = "apps/explorer/ui/block/details/BlockDetailsZilliqaQuorumCertificate.tsx"
+lines = 119
+verdict = "clean"
+note = "Zilliqa certificate rendering is confined to supplied Zilliqa-specific block fields."
+
+[file.018]
+path = "apps/explorer/ui/block/useBlockBlobTxsQuery.tsx"
+lines = 26
+verdict = "clean"
+note = "Blob transaction pagination is enabled by the blob tab and uses the block identifier in the API query."
+
+[file.019]
+path = "apps/explorer/ui/block/useBlockDepositsQuery.tsx"
+lines = 43
+verdict = "clean"
+note = "Deposit query activation and page parameters match the deposit tab and block identifier."
+
+[file.020]
+path = "apps/explorer/ui/block/useBlockInternalTxsQuery.tsx"
+lines = 25
+verdict = "clean"
+note = "Internal transaction query preserves Celo-specific enablement and block pagination."
+
+[file.021]
+path = "apps/explorer/ui/block/useBlockQuery.tsx"
+lines = 159
+verdict = "issues"
+note = "API updates retain the selected chain, but degraded RPC client/cache selection loses it; see rpc-cache-domain."
+
+[file.022]
+path = "apps/explorer/ui/block/useBlockTxsQuery.tsx"
+lines = 176
+verdict = "issues"
+note = "Transaction fallback uses an unscoped RPC client/cache; see rpc-txs-domain."
+
+[file.023]
+path = "apps/explorer/ui/block/useBlockWithdrawalsQuery.tsx"
+lines = 142
+verdict = "clean"
+note = "Withdrawal query keeps feature gating, tab enablement and API pagination aligned."
+
+[file.024]
+path = "apps/explorer/ui/contractVerification/ContractVerificationForm.pw.tsx"
+lines = 270
+verdict = "clean"
+note = "Verification browser cases exercise method-dependent fields and socket outcomes; recovery defects are recorded on the form."
+
+[file.025]
+path = "apps/explorer/ui/contractVerification/ContractVerificationForm.tsx"
+lines = 224
+verdict = "issues"
+note = "Verification submission and socket recovery have a completion defect; the registry also assigns a spurious agent submit edge."
+
+[file.026]
+path = "apps/explorer/ui/contractVerification/ContractVerificationFormCodeSnippet.tsx"
+lines = 16
+verdict = "clean"
+note = "Foundry/Hardhat snippets use the configured explorer API and address context for their selected verification method."
+
+[file.027]
+path = "apps/explorer/ui/contractVerification/ContractVerificationFormRow.tsx"
+lines = 25
+verdict = "clean"
+note = "Verification row layout handles labels, hints and grouped form content without introducing transport behavior."
+
+[file.028]
+path = "apps/explorer/ui/contractVerification/ContractVerificationMethod.tsx"
+lines = 29
+verdict = "clean"
+note = "Method selection uses the configured verification options and the declared form method values."
+
+[file.029]
+path = "apps/explorer/ui/contractVerification/fields/ContractVerificationFieldAddress.tsx"
+lines = 34
+verdict = "clean"
+note = "Address field validates the EVM address and follows the form's contract address state."
+
+[file.030]
+path = "apps/explorer/ui/contractVerification/fields/ContractVerificationFieldAutodetectArgs.tsx"
+lines = 34
+verdict = "clean"
+note = "Constructor autodetection toggles the manual-argument field in the same verification form state."
+
+[file.031]
+path = "apps/explorer/ui/contractVerification/fields/ContractVerificationFieldCode.tsx"
+lines = 29
+verdict = "clean"
+note = "Code field binds source text and its language-specific guidance to the selected form method."
+
+[file.032]
+path = "apps/explorer/ui/contractVerification/fields/ContractVerificationFieldCommit.tsx"
+lines = 119
+verdict = "clean"
+note = "Commit field binds the repository commit identifier used by the Stylus verification payload."
+
+[file.033]
+path = "apps/explorer/ui/contractVerification/fields/ContractVerificationFieldCompiler.tsx"
+lines = 99
+verdict = "clean"
+note = "Compiler selection filters configured compiler versions and retains the chosen compiler option."
+
+[file.034]
+path = "apps/explorer/ui/contractVerification/fields/ContractVerificationFieldConstructorArgs.tsx"
+lines = 32
+verdict = "issues"
+note = "Manual ABI argument validation rejects valid sizes and empty lists; see constructor-length."
+
+[file.035]
+path = "apps/explorer/ui/contractVerification/fields/ContractVerificationFieldEvmVersion.tsx"
+lines = 49
+verdict = "clean"
+note = "EVM version selection uses the configured compiler choices and verification payload field."
+
+[file.036]
+path = "apps/explorer/ui/contractVerification/fields/ContractVerificationFieldGitHubRepo.tsx"
+lines = 84
+verdict = "clean"
+note = "Repository field binds the GitHub URL required by the repository verification method."
+
+[file.037]
+path = "apps/explorer/ui/contractVerification/fields/ContractVerificationFieldIsYul.tsx"
+lines = 20
+verdict = "clean"
+note = "Yul selection is restricted to the appropriate compiler/form mode and payload flag."
+
+[file.038]
+path = "apps/explorer/ui/contractVerification/fields/ContractVerificationFieldLibraries.tsx"
+lines = 70
+verdict = "clean"
+note = "Libraries field manages the address/name array in form state and serializes through the shared verification formatter."
+
+[file.039]
+path = "apps/explorer/ui/contractVerification/fields/ContractVerificationFieldLibraryItem.tsx"
+lines = 88
+verdict = "clean"
+note = "Library row validates its address and removes the indexed item from the parent field array."
+
+[file.040]
+path = "apps/explorer/ui/contractVerification/fields/ContractVerificationFieldLicenseType.tsx"
+lines = 33
+verdict = "clean"
+note = "License options use the configured list and declared license field value."
+
+[file.041]
+path = "apps/explorer/ui/contractVerification/fields/ContractVerificationFieldMethod.tsx"
+lines = 111
+verdict = "clean"
+note = "Method field binds one allowed method and triggers the form's method-specific reset."
+
+[file.042]
+path = "apps/explorer/ui/contractVerification/fields/ContractVerificationFieldName.tsx"
+lines = 34
+verdict = "clean"
+note = "Contract name field populates the selected verification method's name field."
+
+[file.043]
+path = "apps/explorer/ui/contractVerification/fields/ContractVerificationFieldOptimization.tsx"
+lines = 46
+verdict = "clean"
+note = "Optimization toggle and runs field share the declared optimization payload state."
+
+[file.044]
+path = "apps/explorer/ui/contractVerification/fields/ContractVerificationFieldSources.tsx"
+lines = 188
+verdict = "clean"
+note = "Source/interface uploads initialize arrays on addition and safely remove indexed files; the shared method payload preserves each file's text."
+
+[file.045]
+path = "apps/explorer/ui/contractVerification/fields/ContractVerificationFieldZkCompiler.tsx"
+lines = 53
+verdict = "clean"
+note = "ZK compiler selection reads configured versions and the form's selected verification mode."
+
+[file.046]
+path = "apps/explorer/ui/contractVerification/methods/ContractVerificationFlattenSourceCode.tsx"
+lines = 30
+verdict = "clean"
+note = "Flattened Solidity method composes source, compiler, optimization and constructor controls using the shared form fields."
+
+[file.047]
+path = "apps/explorer/ui/contractVerification/methods/ContractVerificationMultiPartFile.tsx"
+lines = 33
+verdict = "clean"
+note = "Multipart Solidity method composes file uploads and compiler/library options using the multipart payload."
+
+[file.048]
+path = "apps/explorer/ui/contractVerification/methods/ContractVerificationSolidityFoundry.tsx"
+lines = 44
+verdict = "clean"
+note = "Foundry method presents the supported command snippet using the current explorer API configuration."
+
+[file.049]
+path = "apps/explorer/ui/contractVerification/methods/ContractVerificationSolidityHardhat.tsx"
+lines = 69
+verdict = "clean"
+note = "Hardhat method presents configuration and command guidance for the current explorer API."
+
+[file.050]
+path = "apps/explorer/ui/contractVerification/methods/ContractVerificationSourcify.tsx"
+lines = 38
+verdict = "clean"
+note = "Sourcify method delegates to its documented verification path and does not invent a local payload."
+
+[file.051]
+path = "apps/explorer/ui/contractVerification/methods/ContractVerificationStandardInput.tsx"
+lines = 34
+verdict = "clean"
+note = "Standard-input Solidity method binds compiler and JSON source to the standard-input payload."
+
+[file.052]
+path = "apps/explorer/ui/contractVerification/methods/ContractVerificationStylusGitHubRepo.tsx"
+lines = 37
+verdict = "clean"
+note = "Stylus method binds GitHub repository, commit, version and path to the configured repository verification option."
+
+[file.053]
+path = "apps/explorer/ui/contractVerification/methods/ContractVerificationVyperContract.tsx"
+lines = 24
+verdict = "clean"
+note = "Vyper code method uses the Vyper compiler list and source controls."
+
+[file.054]
+path = "apps/explorer/ui/contractVerification/methods/ContractVerificationVyperMultiPartFile.tsx"
+lines = 51
+verdict = "clean"
+note = "Vyper multipart method distinguishes source files and optional interface uploads in the form payload."
+
+[file.055]
+path = "apps/explorer/ui/contractVerification/methods/ContractVerificationVyperStandardInput.tsx"
+lines = 25
+verdict = "clean"
+note = "Vyper standard-input method binds the Vyper compiler and JSON input to its declared request."
+
+[file.056]
+path = "apps/explorer/ui/contractVerification/types.ts"
+lines = 94
+verdict = "clean"
+note = "Form method unions and method-specific field types agree with the shared serializer and configured verification options."
+
+[file.057]
+path = "apps/explorer/ui/contractVerification/useFormConfigQuery.tsx"
+lines = 21
+verdict = "clean"
+note = "Verification configuration query loads the form's compiler, option and license lists with the expected resource identity."
+
+[file.058]
+path = "apps/explorer/ui/contractVerification/utils.ts"
+lines = 368
+verdict = "clean"
+note = "Default values and serializers preserve source text, multipart arrays and method-specific payload names; optional interfaces are initialized by the upload control."
+
+[file.059]
+path = "apps/explorer/ui/zetaChain/ZetaChainCCTXsTab.pw.tsx"
+lines = 70
+verdict = "clean"
+note = "CCTX browser examples cover mined/pending layouts; the default-tab filter binding defect belongs to the tab component."
+
+[file.060]
+path = "apps/explorer/ui/zetaChain/ZetaChainCCTXsTab.tsx"
+lines = 188
+verdict = "issues"
+note = "Default cctx URL binds filter callbacks to the pending query while showing validated rows; see zeta-default-tab."
+
+[file.061]
+path = "apps/explorer/ui/zetaChain/ZetaChainEvmTransactions.tsx"
+lines = 128
+verdict = "clean"
+note = "Zeta EVM transaction wrapper uses the configured optional feature and shared transaction list."
+
+[file.062]
+path = "apps/explorer/ui/zetaChain/cctxDetails/ZetaChainCCTXDetails.tsx"
+lines = 333
+verdict = "clean"
+note = "CCTX detail rows consume the outbound parameter records and declared inbound/status metadata, linking receiver and abort-address entities through feature chain metadata."
+
+[file.063]
+path = "apps/explorer/ui/zetaChain/cctxDetails/ZetaChainCCTXDetailsLifecycleIn.tsx"
+lines = 107
+verdict = "clean"
+note = "Inbound lifecycle distinguishes pending and completed inbound steps using source-chain metadata."
+
+[file.064]
+path = "apps/explorer/ui/zetaChain/cctxDetails/ZetaChainCCTXDetailsLifecycleOut.tsx"
+lines = 246
+verdict = "issues"
+note = "Outbound lifecycle converts a gas counter with native currency decimals; see zeta-outbound-gas."
+
+[file.065]
+path = "apps/explorer/ui/zetaChain/cctxDetails/ZetaChainCCTXDetailsRelatedTx.tsx"
+lines = 53
+verdict = "clean"
+note = "Related transaction links distinguish EVM transactions and cross-chain IDs using configured chain metadata."
+
+[file.066]
+path = "apps/explorer/ui/zetaChain/cctxs/ZetaChainCCTXListItem.tsx"
+lines = 69
+verdict = "clean"
+note = "Mobile CCTX rows use the declared token amount/decimals and source/destination status fields."
+
+[file.067]
+path = "apps/explorer/ui/zetaChain/cctxs/ZetaChainCCTXsStats.tsx"
+lines = 74
+verdict = "clean"
+note = "CCTX statistics query consumes the feature service's aggregate counters and loading state."
+
+[file.068]
+path = "apps/explorer/ui/zetaChain/cctxs/ZetaChainCCTxs.tsx"
+lines = 197
+verdict = "clean"
+note = "CCTX list/table selection preserves mobile layout, filters, pagination and visible status."
+
+[file.069]
+path = "apps/explorer/ui/zetaChain/cctxs/ZetaChainCCTxsTable.tsx"
+lines = 145
+verdict = "clean"
+note = "CCTX table maps configured columns to the service transaction rows."
+
+[file.070]
+path = "apps/explorer/ui/zetaChain/cctxs/ZetaChainCCTxsTableItem.tsx"
+lines = 66
+verdict = "clean"
+note = "CCTX table row renders declared address, chain, status, amount and timestamp values."
+
+[file.071]
+path = "apps/explorer/ui/zetaChain/filters/ZetaChainAddressFilter.tsx"
+lines = 197
+verdict = "clean"
+note = "Address filter resolves selected addresses through the Zeta feature and returns the declared filter values."
+
+[file.072]
+path = "apps/explorer/ui/zetaChain/filters/ZetaChainAgeFilter.tsx"
+lines = 40
+verdict = "clean"
+note = "Age filter maps relative time selection to the shared timestamp/filter representation."
+
+[file.073]
+path = "apps/explorer/ui/zetaChain/filters/ZetaChainAssetFilter.tsx"
+lines = 220
+verdict = "clean"
+note = "Asset filter binds token symbols and the declared coin-type filter without changing raw amounts."
+
+[file.074]
+path = "apps/explorer/ui/zetaChain/filters/ZetaChainFilterByColumn.tsx"
+lines = 121
+verdict = "clean"
+note = "Column filter composes the configured source/destination and asset controls."
+
+[file.075]
+path = "apps/explorer/ui/zetaChain/filters/ZetaChainFilterTags.tsx"
+lines = 155
+verdict = "clean"
+note = "Filter tags reflect active values and invoke the corresponding removal callback."
+
+[file.076]
+path = "apps/explorer/ui/zetaChain/filters/ZetaChainReceiverFilter.tsx"
+lines = 29
+verdict = "clean"
+note = "Receiver filter delegates address selection to the destination-side filter keys."
+
+[file.077]
+path = "apps/explorer/ui/zetaChain/filters/ZetaChainSenderFilter.tsx"
+lines = 29
+verdict = "clean"
+note = "Sender filter delegates address selection to the source-side filter keys."
+
+[file.078]
+path = "apps/explorer/ui/zetaChain/filters/ZetaChainStatusFilter.tsx"
+lines = 91
+verdict = "clean"
+note = "Status filter uses the declared reduced status set and form callbacks."
+
+[file.079]
+path = "apps/explorer/ui/zetaChain/filters/index.ts"
+lines = 7
+verdict = "clean"
+note = "Filter barrel exposes the maintained filter components and associated types."
+
+[file.080]
+path = "apps/explorer/ui/zetaChain/useZetaChainConfig.ts"
+lines = 40
+verdict = "clean"
+note = "Zeta configuration query consumes the optional configured chains URL and caches service chain metadata."
+
+[file.081]
+path = "sdk/js/README.md"
+lines = 317
+verdict = "issues"
+note = "SDK provenance names upstream v1.0.6-pax.1 and first-party maintenance; runnable examples and registry documentation have the recorded drift."
+
+[file.082]
+path = "sdk/js/package.json"
+lines = 66
+verdict = "issues"
+note = "CJS, ESM and declaration subpaths are maintained separately; stale registry descriptions of root/vendor entries are recorded."
+
+[file.083]
+path = "sdk/js/test/abci-encoding-requests.test.cjs"
+lines = 44
+verdict = "clean"
+note = "ABCI request retirement assertions match the in-tree consensus proto rather than upstream request namespaces."
+
+[file.084]
+path = "sdk/js/test/abci-encoding-responses.test.cjs"
+lines = 137
+verdict = "clean"
+note = "ABCI response removals preserve current event codecs and reject response exports absent from the consensus proto."
+
+[file.085]
+path = "sdk/js/test/encoding-declarations-tendermint.test.cjs"
+lines = 74
+verdict = "clean"
+note = "Declaration/runtime probes check maintained Tendermint fields and unavailable retired symbols."
+
+[file.086]
+path = "sdk/js/test/encoding-namespace.test.cjs"
+lines = 51
+verdict = "clean"
+note = "Namespace assertions remove retired Cosmos modules while preserving current chain mint exposure."
+
+[file.087]
+path = "sdk/js/test/encoding-registry.test.cjs"
+lines = 41
+verdict = "clean"
+note = "Registry/Amino assertions remove retired package type URLs and retain current bank transactions."
+
+[file.088]
+path = "sdk/js/test/evm-config-tx-encoding.test.cjs"
+lines = 92
+verdict = "clean"
+note = "EVM config and Asset unit cases preserve added protobuf fields and registry/Amino conversions; these are local codec checks."
+
+[file.089]
+path = "sdk/js/test/evm-encoding-declarations.test.cjs"
+lines = 205
+verdict = "clean"
+note = "CJS/ESM codecs and declaration probes compare current EVM fields, including the genesis dependency import."
+
+[file.090]
+path = "sdk/js/test/evm-params-encoding.test.cjs"
+lines = 241
+verdict = "issues"
+note = "Local protobuf field and safe-integer checks are useful, but real node codec integration is absent; see sdk-wire-real-producer."
+
+[file.091]
+path = "sdk/js/test/package.test.cjs"
+lines = 66
+verdict = "clean"
+note = "Entry-point assertions retain first-party provenance, no vendor pin and separate CJS/ESM runtime targets."
+
+[file.092]
+path = "sdk/js/test/rest-namespace.test.cjs"
+lines = 51
+verdict = "clean"
+note = "REST namespace retirement preserves the maintained paxchain mint surface."
+
+[file.093]
+path = "sdk/js/test/retired-encoding-cjs-accesscontrol-crisis-mint.test.cjs"
+lines = 34
+verdict = "clean"
+note = "Retirement assertions for retired encoding cjs accesscontrol crisis mint agree with intentional removal; legacy names are absence checks, not active endpoints."
+
+[file.094]
+path = "sdk/js/test/retired-encoding-cjs-accesscontrol-x.test.cjs"
+lines = 20
+verdict = "clean"
+note = "Retirement assertions for retired encoding cjs accesscontrol x agree with intentional removal; legacy names are absence checks, not active endpoints."
+
+[file.095]
+path = "sdk/js/test/retired-encoding-esm-accesscontrol-crisis-mint.test.cjs"
+lines = 26
+verdict = "clean"
+note = "Retirement assertions for retired encoding esm accesscontrol crisis mint agree with intentional removal; legacy names are absence checks, not active endpoints."
+
+[file.096]
+path = "sdk/js/test/retired-encoding-esm-accesscontrol-x.test.cjs"
+lines = 15
+verdict = "clean"
+note = "Retirement assertions for retired encoding esm accesscontrol x agree with intentional removal; legacy names are absence checks, not active endpoints."
+
+[file.097]
+path = "sdk/js/test/retired-encoding-types-accesscontrol-crisis-mint-part-a.test.cjs"
+lines = 23
+verdict = "issues"
+note = "Retirement assertions correctly require removed Cosmos declarations to be absent; registry rows still advertise those deleted exports."
+
+[file.098]
+path = "sdk/js/test/retired-encoding-types-accesscontrol-crisis-mint-part-b.test.cjs"
+lines = 17
+verdict = "clean"
+note = "Retirement assertions for retired encoding types accesscontrol crisis mint part b agree with intentional removal; legacy names are absence checks, not active endpoints."
+
+[file.099]
+path = "sdk/js/test/retired-encoding-types-accesscontrol-x-part-a.test.cjs"
+lines = 19
+verdict = "clean"
+note = "Retirement assertions for retired encoding types accesscontrol x part a agree with intentional removal; legacy names are absence checks, not active endpoints."
+
+[file.100]
+path = "sdk/js/test/retired-encoding-types-accesscontrol-x-part-b.test.cjs"
+lines = 18
+verdict = "clean"
+note = "Retirement assertions for retired encoding types accesscontrol x part b agree with intentional removal; legacy names are absence checks, not active endpoints."
+
+[file.101]
+path = "sdk/js/test/retired-rest-clients.test.cjs"
+lines = 23
+verdict = "clean"
+note = "Negative resolution assertions cover removed REST clients in CJS, ESM and declaration forms."
+
+[file.102]
+path = "sdk/js/test/retired-tendermint-check-tx-type.test.cjs"
+lines = 60
+verdict = "clean"
+note = "CheckTxType retirement matches the maintained consensus proto while keeping MisbehaviorType utilities."
+
+[file.103]
+path = "sdk/js/test/retired-types-cjs-accesscontrol-crisis-mint.test.cjs"
+lines = 37
+verdict = "clean"
+note = "Retirement assertions for retired types cjs accesscontrol crisis mint agree with intentional removal; legacy names are absence checks, not active endpoints."
+
+[file.104]
+path = "sdk/js/test/retired-types-cjs-accesscontrol-x.test.cjs"
+lines = 20
+verdict = "clean"
+note = "Retirement assertions for retired types cjs accesscontrol x agree with intentional removal; legacy names are absence checks, not active endpoints."
+
+[file.105]
+path = "sdk/js/test/retired-types-esm-accesscontrol-crisis-mint.test.cjs"
+lines = 26
+verdict = "clean"
+note = "Retirement assertions for retired types esm accesscontrol crisis mint agree with intentional removal; legacy names are absence checks, not active endpoints."
+
+[file.106]
+path = "sdk/js/test/retired-types-esm-accesscontrol-x.test.cjs"
+lines = 20
+verdict = "clean"
+note = "Retirement assertions for retired types esm accesscontrol x agree with intentional removal; legacy names are absence checks, not active endpoints."
+
+[file.107]
+path = "sdk/js/test/retired-types-types-accesscontrol-crisis-mint.test.cjs"
+lines = 35
+verdict = "clean"
+note = "Retirement assertions for retired types types accesscontrol crisis mint agree with intentional removal; legacy names are absence checks, not active endpoints."
+
+[file.108]
+path = "sdk/js/test/retired-types-types-accesscontrol-x.test.cjs"
+lines = 25
+verdict = "clean"
+note = "Retirement assertions for retired types types accesscontrol x agree with intentional removal; legacy names are absence checks, not active endpoints."
+
+[file.109]
+path = "sdk/js/test/tendermint-encoding.test.cjs"
+lines = 100
+verdict = "clean"
+note = "Proposal proposer address and current consensus/version exports are checked as local codec contracts."
+
+[file.110]
+path = "sdk/js/test/tendermint-params-encoding.test.cjs"
+lines = 125
+verdict = "clean"
+note = "Block parameter wire fields and ed25519-only key support agree with the maintained consensus declarations in local codec cases."
+
+[file.111]
+path = "sdk/js/test/tokenfactory-encoding.test.cjs"
+lines = 131
+verdict = "clean"
+note = "Issuer identity and pagination fields are checked across tokenfactory codecs and conversions."
+
+[file.112]
+path = "sdk/js/test/tokenfactory-rest.test.cjs"
+lines = 67
+verdict = "issues"
+note = "Escaped denom/pagination URL assertions replace fetch and lack real query-handler evidence; see sdk-rest-real-transport."
+
+[file.113]
+path = "sdk/js/test/types-declarations-app.test.cjs"
+lines = 157
+verdict = "clean"
+note = "TypeScript diagnostics require current EVM/tokenfactory fields and reject missing newly required fields."
+
+[file.114]
+path = "sdk/js/test/types-declarations-tendermint.test.cjs"
+lines = 127
+verdict = "clean"
+note = "TypeScript diagnostics retain current Tendermint fields and reject retired key/version/message declarations."
+
+[file.115]
+path = "services/bridge/deploy/proposals/cmd/paxeer-bridge-proposals/main.go"
+lines = 24
+verdict = "issues"
+note = "The CLI forwards arguments and reports generator failure, but its no-partial-output promise disagrees with publication behavior."
+
+[file.116]
+path = "services/bridge/deploy/proposals/manifest.go"
+lines = 130
+verdict = "issues"
+note = "Attestor membership, ordering, threshold and placeholders are validated; trailing JSON validation is incomplete."
+
+[file.117]
+path = "services/bridge/deploy/proposals/proposals.go"
+lines = 1174
+verdict = "issues"
+note = "Governance bodies use module message types; legacy asset binding, JSON tail validation and output recovery require the recorded changes."
+
+[file.118]
+path = "services/bridge/deploy/proposals/proposals_test.go"
+lines = 1163
+verdict = "issues"
+note = "Positive message round trips and preflight refusals are covered locally; interrupted multi-output generation lacks recovery coverage."
+
+[file.119]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/etherscan.ex"
+lines = 3112
+verdict = "issues"
+note = "Indexed address/transaction/token serialization is independent of the unrelated ABI callers inferred by the registry."
+
+[file.120]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/plug/admin/check_owner_registered_test.exs"
+lines = 27
+verdict = "clean"
+note = "Reviewed plug/admin/check owner registered test assertions against the matching view/plug behavior, including its accepted values, escaping and error/empty cases where exercised."
+
+[file.121]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/plug/admin/require_admin_role_test.exs"
+lines = 42
+verdict = "clean"
+note = "Reviewed plug/admin/require admin role test assertions against the matching view/plug behavior, including its accepted values, escaping and error/empty cases where exercised."
+
+[file.122]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/plug/fetch_user_from_session_test.exs"
+lines = 46
+verdict = "clean"
+note = "Reviewed plug/fetch user from session test assertions against the matching view/plug behavior, including its accepted values, escaping and error/empty cases where exercised."
+
+[file.123]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/plug/rate_limit_test.exs"
+lines = 483
+verdict = "clean"
+note = "Reviewed plug/rate limit test assertions against the matching view/plug behavior, including its accepted values, escaping and error/empty cases where exercised."
+
+[file.124]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/views/abi_encoded_value_view_test.exs"
+lines = 125
+verdict = "clean"
+note = "Reviewed views/abi encoded value view test assertions against the matching view/plug behavior, including its accepted values, escaping and error/empty cases where exercised."
+
+[file.125]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/views/address_coin_balance_view_test.exs"
+lines = 62
+verdict = "clean"
+note = "Reviewed views/address coin balance view test assertions against the matching view/plug behavior, including its accepted values, escaping and error/empty cases where exercised."
+
+[file.126]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/views/address_contract_view_test.exs"
+lines = 17
+verdict = "clean"
+note = "Reviewed views/address contract view test assertions against the matching view/plug behavior, including its accepted values, escaping and error/empty cases where exercised."
+
+[file.127]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/views/address_token_balance_view_test.exs"
+lines = 67
+verdict = "clean"
+note = "Reviewed views/address token balance view test assertions against the matching view/plug behavior, including its accepted values, escaping and error/empty cases where exercised."
+
+[file.128]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/views/address_transaction_view_test.exs"
+lines = 5
+verdict = "clean"
+note = "Reviewed views/address transaction view test assertions against the matching view/plug behavior, including its accepted values, escaping and error/empty cases where exercised."
+
+[file.129]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/views/address_view_test.exs"
+lines = 362
+verdict = "issues"
+note = "Address rendering assertions mutate global settings from an async test module without restoring them; see address-test-global-state."
+
+[file.130]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/views/api/v2/paxeer_x/unified_account_view_gone_test.exs"
+lines = 11
+verdict = "clean"
+note = "The legacy unified-account view is intentionally absent; its retirement regression does not expose a separate LayerX account interface."
+
+[file.131]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/views/api/v2/transaction_view_test.exs"
+lines = 173
+verdict = "clean"
+note = "Reviewed views/api/v2/transaction view test assertions against the matching view/plug behavior, including its accepted values, escaping and error/empty cases where exercised."
+
+[file.132]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/views/api_docs_view_test.exs"
+lines = 101
+verdict = "clean"
+note = "Reviewed views/api docs view test assertions against the matching view/plug behavior, including its accepted values, escaping and error/empty cases where exercised."
+
+[file.133]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/views/block_view_test.exs"
+lines = 98
+verdict = "clean"
+note = "Reviewed views/block view test assertions against the matching view/plug behavior, including its accepted values, escaping and error/empty cases where exercised."
+
+[file.134]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/views/currency_helper_test.exs"
+lines = 64
+verdict = "clean"
+note = "Reviewed views/currency helper test assertions against the matching view/plug behavior, including its accepted values, escaping and error/empty cases where exercised."
+
+[file.135]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/views/error_helper_test.exs"
+lines = 44
+verdict = "clean"
+note = "Reviewed views/error helper test assertions against the matching view/plug behavior, including its accepted values, escaping and error/empty cases where exercised."
+
+[file.136]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/views/error_view_test.exs"
+lines = 22
+verdict = "clean"
+note = "Reviewed views/error view test assertions against the matching view/plug behavior, including its accepted values, escaping and error/empty cases where exercised."
+
+[file.137]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/views/internal_transaction_view_test.exs"
+lines = 40
+verdict = "clean"
+note = "Reviewed views/internal transaction view test assertions against the matching view/plug behavior, including its accepted values, escaping and error/empty cases where exercised."
+
+[file.138]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/views/layout_view_test.exs"
+lines = 203
+verdict = "issues"
+note = "Layout assertions leak release/network settings and reset chain configuration instead of restoring it; see layout-test-global-state."
+
+[file.139]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/views/nft_helper_test.exs"
+lines = 29
+verdict = "clean"
+note = "Reviewed views/nft helper test assertions against the matching view/plug behavior, including its accepted values, escaping and error/empty cases where exercised."
+
+[file.140]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/views/render_helper_test.exs"
+lines = 22
+verdict = "clean"
+note = "Reviewed views/render helper test assertions against the matching view/plug behavior, including its accepted values, escaping and error/empty cases where exercised."
+
+[file.141]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/views/search_view_test.exs"
+lines = 44
+verdict = "clean"
+note = "Reviewed views/search view test assertions against the matching view/plug behavior, including its accepted values, escaping and error/empty cases where exercised."
+
+[file.142]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/views/smart_contract_view_test.exs"
+lines = 50
+verdict = "clean"
+note = "Reviewed views/smart contract view test assertions against the matching view/plug behavior, including its accepted values, escaping and error/empty cases where exercised."
+
+[file.143]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/views/tab_helper_test.exs"
+lines = 57
+verdict = "clean"
+note = "Reviewed views/tab helper test assertions against the matching view/plug behavior, including its accepted values, escaping and error/empty cases where exercised."
+
+[file.144]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/views/tokens/helper_test.exs"
+lines = 79
+verdict = "clean"
+note = "Reviewed views/tokens/helper test assertions against the matching view/plug behavior, including its accepted values, escaping and error/empty cases where exercised."
+
+[file.145]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/views/tokens/holder_view_test.exs"
+lines = 81
+verdict = "clean"
+note = "Reviewed views/tokens/holder view test assertions against the matching view/plug behavior, including its accepted values, escaping and error/empty cases where exercised."
+
+[file.146]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/views/tokens/instance/overview_view_test.exs"
+lines = 122
+verdict = "clean"
+note = "Reviewed views/tokens/instance/overview view test assertions against the matching view/plug behavior, including its accepted values, escaping and error/empty cases where exercised."
+
+[file.147]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/views/tokens/overview_view_test.exs"
+lines = 167
+verdict = "clean"
+note = "Reviewed views/tokens/overview view test assertions against the matching view/plug behavior, including its accepted values, escaping and error/empty cases where exercised."
+
+[file.148]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/views/tokens/read_contract_view_test.exs"
+lines = 3
+verdict = "clean"
+note = "Reviewed views/tokens/read contract view test assertions against the matching view/plug behavior, including its accepted values, escaping and error/empty cases where exercised."
+
+[file.149]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/views/tokens/smart_contract_view_test.exs"
+lines = 131
+verdict = "clean"
+note = "Reviewed views/tokens/smart contract view test assertions against the matching view/plug behavior, including its accepted values, escaping and error/empty cases where exercised."
+
+[file.150]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/views/tokens/transfer_view_test.exs"
+lines = 3
+verdict = "clean"
+note = "Reviewed views/tokens/transfer view test assertions against the matching view/plug behavior, including its accepted values, escaping and error/empty cases where exercised."
+
+[file.151]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/views/transaction_view_test.exs"
+lines = 383
+verdict = "clean"
+note = "Reviewed views/transaction view test assertions against the matching view/plug behavior, including its accepted values, escaping and error/empty cases where exercised."
+
+[file.152]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/views/wei_helper_test.exs"
+lines = 8
+verdict = "clean"
+note = "Reviewed views/wei helper test assertions against the matching view/plug behavior, including its accepted values, escaping and error/empty cases where exercised."
+
+[file.153]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/smart_contract/audit_report.ex"
+lines = 169
+verdict = "clean"
+note = "Audit-report schema validates contract/report metadata and persists the declared association."
+
+[file.154]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/smart_contract/external_library.ex"
+lines = 12
+verdict = "clean"
+note = "External library schema records a library name and canonical address for verification metadata."
+
+[file.155]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/smart_contract/legacy_helper.ex"
+lines = 112
+verdict = "clean"
+note = "Historical address/external-library conversions stay within explorer persistence compatibility; they do not launch a retired runtime."
+
+[file.156]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/smart_contract/proxy.ex"
+lines = 504
+verdict = "issues"
+note = "Resolver orchestration batches storage/call reads, but eth_call error classification can overwrite known implementations."
+
+[file.157]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/smart_contract/proxy/basic_implementation_getter.ex"
+lines = 49
+verdict = "clean"
+note = "Generic implementation calls use the shared RPC/address decoding contract and distinguish unavailable resolution."
+
+[file.158]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/smart_contract/proxy/clone_with_immutable_arguments.ex"
+lines = 32
+verdict = "clean"
+note = "Clone bytecode patterns extract the embedded implementation address before immutable trailing arguments."
+
+[file.159]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/smart_contract/proxy/eip_1167.ex"
+lines = 41
+verdict = "clean"
+note = "Minimal-proxy bytecode patterns extract the 20-byte target using fixed prefix/suffix matching."
+
+[file.160]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/smart_contract/proxy/eip_1822.ex"
+lines = 32
+verdict = "clean"
+note = "EIP-1822 resolution declares its implementation storage requirement and decodes through shared proxy helpers."
+
+[file.161]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/smart_contract/proxy/eip_1967.ex"
+lines = 60
+verdict = "clean"
+note = "EIP-1967 implementation/beacon paths declare storage and method requirements with shared address extraction."
+
+[file.162]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/smart_contract/proxy/eip_2535.ex"
+lines = 58
+verdict = "clean"
+note = "Diamond resolution consumes facet address results and returns implementation addresses through the resolver contract."
+
+[file.163]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/smart_contract/proxy/eip_7702.ex"
+lines = 22
+verdict = "clean"
+note = "EIP-7702 delegation designator matching extracts the delegated address from its defined bytecode shape."
+
+[file.164]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/smart_contract/proxy/erc_7760.ex"
+lines = 71
+verdict = "clean"
+note = "ERC-7760 bytecode variants select the corresponding EIP-1967 implementation/beacon resolver."
+
+[file.165]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/smart_contract/proxy/master_copy.ex"
+lines = 46
+verdict = "clean"
+note = "Safe/master-copy bytecode constants select the resolver; embedded vendor bytecode is reference data inside maintained source."
+
+[file.166]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/smart_contract/proxy/models/implementation.ex"
+lines = 666
+verdict = "clean"
+note = "Proxy implementation persistence stores resolved addresses/names and returns existing data on explicit fetch failure; error misclassification is owned by proxy.ex."
+
+[file.167]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/smart_contract/proxy/resolved_delegate_proxy.ex"
+lines = 68
+verdict = "clean"
+note = "ResolvedDelegateProxy matches reference bytecode, reads address-manager/name storage and resolves getAddress through shared RPC helpers."
+
+[file.168]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/smart_contract/proxy/resolver_behaviour.ex"
+lines = 55
+verdict = "clean"
+note = "Resolver callbacks distinguish direct resolution, prefetched requirements, unsupported patterns and fetch errors."
+
+[file.169]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/smart_contract/proxy/verification_status.ex"
+lines = 117
+verdict = "issues"
+note = "Proxy verification statuses persist attempt lifecycle, but seconds-resolution attempt IDs collide for concurrent requests."
+
+[file.170]
+path = "services/explorer/backend/apps/explorer/lib/explorer/chain/smart_contract/verification_status.ex"
+lines = 146
+verdict = "issues"
+note = "Contract verification status lookup includes persisted and queued attempts, but seconds-resolution IDs do not distinguish concurrent submissions."
+
+[file.171]
+path = "services/explorer/backend/apps/explorer/lib/explorer/market/fetcher/coin.ex"
+lines = 224
+verdict = "issues"
+note = "Coin source selection and ETS publication are wired; abnormal task termination can stop refresh permanently."
+
+[file.172]
+path = "services/explorer/backend/apps/explorer/lib/explorer/market/fetcher/history.ex"
+lines = 192
+verdict = "issues"
+note = "History records are persisted across successful fetch cycles; ignored task exits can prevent subsequent cycle scheduling."
+
+[file.173]
+path = "services/explorer/backend/apps/explorer/lib/explorer/market/fetcher/token.ex"
+lines = 152
+verdict = "clean"
+note = "Token fetch batching/state uses the configured source and imports the supplied market fields; provider-specific defects are recorded on their adapters."
+
+[file.174]
+path = "services/explorer/backend/apps/explorer/lib/explorer/market/market.ex"
+lines = 164
+verdict = "clean"
+note = "Market readers compose native/secondary rates, persisted history and coin metadata through configured sources."
+
+[file.175]
+path = "services/explorer/backend/apps/explorer/lib/explorer/market/market_history.ex"
+lines = 104
+verdict = "clean"
+note = "Daily market-history schema/upsert keys preserve date and secondary-coin identity and combine supplied market fields."
+
+[file.176]
+path = "services/explorer/backend/apps/explorer/lib/explorer/market/market_history_cache.ex"
+lines = 77
+verdict = "issues"
+note = "Thirty-day history cache filters native/secondary records, but freshness and data publication are not atomic."
+
+[file.177]
+path = "services/explorer/backend/apps/explorer/lib/explorer/market/source.ex"
+lines = 368
+verdict = "clean"
+note = "Provider behavior and HTTP helpers define supported quote/history/token operations, response decoding and error returns."
+
+[file.178]
+path = "services/explorer/backend/apps/explorer/lib/explorer/market/source/coin_gecko.ex"
+lines = 294
+verdict = "clean"
+note = "CoinGecko adapter uses configured coin/platform identifiers and maps supported quote and history responses into market fields."
+
+[file.179]
+path = "services/explorer/backend/apps/explorer/lib/explorer/market/source/coin_market_cap.ex"
+lines = 204
+verdict = "issues"
+note = "CoinMarketCap maps provider data, but BTC conversion reads a configuration owner different from the configured flag."
+
+[file.180]
+path = "services/explorer/backend/apps/explorer/lib/explorer/market/source/crypto_compare.ex"
+lines = 100
+verdict = "clean"
+note = "CryptoCompare adapter maps configured symbol quotes and daily history with explicit provider error handling."
+
+[file.181]
+path = "services/explorer/backend/apps/explorer/lib/explorer/market/source/crypto_rank.ex"
+lines = 198
+verdict = "clean"
+note = "CryptoRank adapter maps supported quote/token operations using configured IDs and pagination."
+
+[file.182]
+path = "services/explorer/backend/apps/explorer/lib/explorer/market/source/defillama.ex"
+lines = 87
+verdict = "clean"
+note = "DefiLlama adapter supplies TVL history through the declared market-history source behavior."
+
+[file.183]
+path = "services/explorer/backend/apps/explorer/lib/explorer/market/source/dia.ex"
+lines = 280
+verdict = "issues"
+note = "DIA quote/token mappings use configured chain/address identifiers; task exit/timeout handling does not preserve failed-token retry behavior."
+
+[file.184]
+path = "services/explorer/backend/apps/explorer/lib/explorer/market/source/mobula.ex"
+lines = 187
+verdict = "clean"
+note = "Mobula adapter maps configured asset/platform query results to quote/history/token fields and propagates returned request errors."
+
+[file.185]
+path = "services/explorer/backend/apps/explorer/lib/explorer/market/token.ex"
+lines = 56
+verdict = "clean"
+note = "Market quote value object preserves optional price/supply/volume metadata and provider timestamps without additional network calls."
+
+[file.186]
+path = "services/explorer/backend/apps/explorer/test/explorer/chain_test.exs"
+lines = 2575
+verdict = "issues"
+note = "Chain query coverage includes balance and supply behavior; disabled daily-ordering coverage and leaked supply configuration remain."
+
+[file.187]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/zksync/batches_status_tracker.ex"
+lines = 242
+verdict = "clean"
+note = "Optional zkSync tracker reconciles committed/proven/executed states and uses persisted batch lifecycle data; it does not define Paxeer BFT finality."
+
+[file.188]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/zksync/discovery/batches_data.ex"
+lines = 413
+verdict = "clean"
+note = "Optional zkSync batch discovery fetches batch metadata and passes complete import data to its persistence path."
+
+[file.189]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/zksync/discovery/workers.ex"
+lines = 174
+verdict = "clean"
+note = "zkSync discovery workers connect batch acquisition, block ranges and import results for the optional chain feature."
+
+[file.190]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/zksync/status_tracking/committed.ex"
+lines = 86
+verdict = "clean"
+note = "zkSync commitment tracking selects the appropriate persisted lifecycle state and discovers its L1 commitment transaction."
+
+[file.191]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/zksync/status_tracking/common.ex"
+lines = 178
+verdict = "clean"
+note = "zkSync shared status tracking coordinates lifecycle transaction discovery, block windows and persistence boundaries."
+
+[file.192]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/zksync/status_tracking/executed.ex"
+lines = 86
+verdict = "clean"
+note = "zkSync execution tracking follows its optional rollup's L1 lifecycle and marks imported batch execution state."
+
+[file.193]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/zksync/status_tracking/proven.ex"
+lines = 73
+verdict = "clean"
+note = "zkSync proof tracking follows the optional rollup's L1 lifecycle and stored proof transaction identity."
+
+[file.194]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/zksync/transaction_batch.ex"
+lines = 149
+verdict = "clean"
+note = "Optional zkSync batch loop advances discovery using database state and configured block bounds."
+
+[file.195]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/zksync/utils/db.ex"
+lines = 206
+verdict = "clean"
+note = "zkSync persistence helpers query batches and lifecycle transactions with database-backed restart state."
+
+[file.196]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/zksync/utils/logging.ex"
+lines = 143
+verdict = "clean"
+note = "zkSync logging helpers report batch and lifecycle progress without changing consensus or persisted state."
+
+[file.197]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/zksync/utils/rpc.ex"
+lines = 443
+verdict = "clean"
+note = "zkSync RPC helpers encode configured rollup/L1 requests and translate returned block/transaction data for the optional tracker."
+
+[finding.bridge-output-recovery]
+file = "services/bridge/deploy/proposals/proposals.go"
+line = 715
+class = "restart-recovery"
+severity = "medium"
+observed = "Run publishes bundle.Write before WriteProposals and writeAtomically; a later output failure leaves a nonempty bodies directory, and rerunning with the same arguments is refused by requireEmpty."
+expected = "The command promises that a refused run writes nothing and operators need a recoverable complete set of governance bodies, proposals and readback expectations."
+proposal = "Stage all requested outputs before publishing them in services/bridge/deploy/proposals/proposals.go, or persist a manifest that permits an interrupted generation to resume and verify identical existing outputs."
+owner_domain = 14
+interface = "14.go-bridge-proposals-run-j55"
+
+[finding.blob-gas-units]
+file = "apps/explorer/ui/block/details/BlockDetailsBlobInfo.tsx"
+line = 78
+class = "runtime-risk"
+severity = "medium"
+observed = "Excess blob gas is rendered through GasPriceValue, converting a gas counter into a price in gwei; BlockDetailsBlobInfo.spec.tsx expects 0.079429632 for the counter."
+expected = "excess_blob_gas is the running count of gas above the target, whereas blob_gas_price is a price per unit and alone needs a currency conversion."
+proposal = "Render excess_blob_gas as an integer gas count in apps/explorer/ui/block/details/BlockDetailsBlobInfo.tsx and update the accompanying assertion using a block response from the backend."
+owner_domain = 14
+
+[finding.blob-gas-test]
+file = "apps/explorer/ui/block/details/BlockDetailsBlobInfo.spec.tsx"
+line = 38
+class = "test-gap"
+severity = "medium"
+observed = "The fourth blob value is asserted to contain 0.079429632, endorsing the price formatter's conversion of the excess_blob_gas count."
+expected = "The explorer must display excess blob gas in gas units, with its value matching the backend block field without a wei-to-gwei conversion."
+proposal = "Assert the backend-emitted integer excess gas count and its unit in apps/explorer/ui/block/details/BlockDetailsBlobInfo.spec.tsx after correcting the associated display component."
+owner_domain = 14
+
+[finding.rpc-cache-domain]
+file = "apps/explorer/ui/block/useBlockQuery.tsx"
+line = 55
+class = "config-drift"
+severity = "medium"
+observed = "The API block cache includes multichainContext.chain.id, but RPC latest and block query keys omit the chain and the fallback calls the singleton publicClient."
+expected = "A sub-chain or multichain block request must retain its selected chain throughout fallback and cache lookup; equal heights are not network-wide identities."
+proposal = "Resolve the RPC client from the selected chain in apps/explorer/ui/block/useBlockQuery.tsx and include that chain in both RPC query keys, with coverage for switching chains during API failure."
+owner_domain = 14
+interface = "14.cfg-fe-chain-rpcurls"
+
+[finding.rpc-txs-domain]
+file = "apps/explorer/ui/block/useBlockTxsQuery.tsx"
+line = 64
+class = "config-drift"
+severity = "medium"
+observed = "RPC transaction fallback uses the global publicClient and a block_txs query key containing heightOrHash without the selected chain."
+expected = "Transactions shown for a tenant block must come from that tenant's chain and cannot reuse the cache of the same height on a different chain."
+proposal = "Use the selected chain's RPC client and chain-scoped query key in apps/explorer/ui/block/useBlockTxsQuery.tsx, consistent with the normal API query context."
+owner_domain = 14
+interface = "14.cfg-fe-chain-rpcurls"
+
+[finding.verification-completion]
+file = "apps/explorer/ui/contractVerification/ContractVerificationForm.tsx"
+line = 135
+class = "runtime-risk"
+severity = "medium"
+observed = "handleSocketError closes over the initial formState.isSubmitting through an empty dependency list, so it returns before resolving submitPromiseResolver after a socket failure during submission; the HTTP catch also returns without displaying its error."
+expected = "A submitted verification must reach a visible success, rejection or recoverable connection failure and release its loading state when the result transport closes."
+proposal = "Track current submission state in a ref in apps/explorer/ui/contractVerification/ContractVerificationForm.tsx, resolve pending submissions on close/unmount and display POST failures; add polling recovery for a lost verification_result."
+owner_domain = 14
+interface = "14.ws-explorer-push-addresses-hash-verification-result"
+
+[finding.constructor-length]
+file = "apps/explorer/ui/contractVerification/fields/ContractVerificationFieldConstructorArgs.tsx"
+line = 14
+class = "runtime-risk"
+severity = "medium"
+observed = "Manual constructor_args is marked required and capped at 255 characters. Four ABI words need 256 hex characters before an optional prefix, and a valid empty argument list is rejected when autodetection is disabled."
+expected = "Verification must accept ABI constructor arguments supported by the compiler and deployed contract, including empty and dynamic argument lists."
+proposal = "Use the backend verification payload size limit and validate even-length hex in apps/explorer/ui/contractVerification/fields/ContractVerificationFieldConstructorArgs.tsx; permit an empty argument list when the contract has no constructor parameters."
+owner_domain = 14
+
+[finding.zeta-default-tab]
+file = "apps/explorer/ui/zetaChain/ZetaChainCCTXsTab.tsx"
+line = 94
+class = "wiring-gap"
+severity = "medium"
+observed = "tab=cctx enables cctxsValidatedQuery and displays the mined tab, but the query variable chooses cctxsPendingQuery unless tab is exactly cctx_mined, so filter callbacks on the default CCTX tab update the inactive pending query."
+expected = "The default CCTX tab and cctx_mined must apply filters to the same validated request that provides the visible rows and pagination."
+proposal = "Select the pending query only for cctx_pending in apps/explorer/ui/zetaChain/ZetaChainCCTXsTab.tsx and cover filtering on the default cctx URL using the emitted request."
+owner_domain = 14
+
+[finding.zeta-outbound-gas]
+file = "apps/explorer/ui/zetaChain/cctxDetails/ZetaChainCCTXDetailsLifecycleOut.tsx"
+line = 93
+class = "runtime-risk"
+severity = "medium"
+observed = "Both Gas used displays divide outboundParam.gas_used by 10 ** config.chain.currency.decimals, turning a destination gas-unit count into a tiny native-currency fraction."
+expected = "gas_used is a gas count on the outbound chain and must be displayed as such; native currency decimals apply to amounts or fees."
+proposal = "Render gas_used as an integer in apps/explorer/ui/zetaChain/cctxDetails/ZetaChainCCTXDetailsLifecycleOut.tsx and obtain fee metadata separately when displaying a destination transaction fee."
+owner_domain = 14
+
+[finding.sdk-examples]
+file = "sdk/js/README.md"
+line = 118
+class = "doc-drift"
+severity = "medium"
+observed = "The Encoder-only examples reference undeclared MsgSend.$type at lines 118 and 193. The Stargate example constructs AminoTypes at line 141 without importing it and selects arctic-1 at rpc-arctic-1.pax-apis.com without explaining its relationship to Paxeer mainnet-beta."
+expected = "A developer must be able to copy the SDK examples using declared runtime values and imports, and select a documented Cosmos transport and network compatible with the merged Paxeer deployment."
+proposal = "In sdk/js/README.md qualify MsgSend through Encoder, import AminoTypes, and replace or clearly label the Arctic sample with the supported Cosmos transport, chain identity and denom. Compile each complete example against the maintained package."
+owner_domain = 14
+
+[finding.bridge-asset-binding]
+file = "services/bridge/deploy/proposals/proposals.go"
+line = 391
+class = "interface-mismatch"
+severity = "high"
+observed = "Run without -authority/-vault uses LoadChainConfig, and SetCaps checks the first asset's address but copies its independent asset_id into MsgSetCap. A native address of zero with a different 20-byte asset_id passes these checks. Paxeer registers that other asset while PaxeerXVault.depositNative emits zero; Keeper.BridgeIn rejects the real deposit with ErrUnknownAsset."
+expected = "MsgSetCap.asset must identify the asset emitted by the remote vault. chainconfig.validateEVMAsset requires asset_id == address, and validateSolanaAsset binds each mint to its handle, with a specific Sidiora mapping. Governance must not open a bridge whose capped assets differ from its deposits."
+proposal = "Route legacy and canonical input through the same asset-binding validation in services/bridge/deploy/proposals/proposals.go before generating any bodies. Reject mismatched EVM IDs and Solana mint handles, then prove the accepted cap against a vault-emitted deposit through the real bridge keeper."
+owner_domain = 14
+interface = "6.proto-layerxbridge-msgsetcap"
+
+[finding.bridge-json-tail]
+file = "services/bridge/deploy/proposals/proposals.go"
+line = 181
+class = "runtime-risk"
+severity = "medium"
+observed = "LoadChainConfig uses decoder.More() after decoding a top-level object. More only checks for an enclosing array/object terminator, so a trailing closing brace or bracket is treated as end-of-input and the invalid governance input is accepted."
+expected = "The legacy loader promises to reject anything after the document, and the canonical chainconfig loader requires the next Decode to return io.EOF. Both proposal inputs must reject malformed or concatenated JSON consistently."
+proposal = "In services/bridge/deploy/proposals/proposals.go replace the top-level More check with a second Decode that must return io.EOF. Cover trailing closing tokens, a second object and whitespace-only tails without weakening existing refusal checks."
+owner_domain = 14
+interface = "14.go-bridge-proposals-loadchainconfig-j55"
+
+[finding.manifest-json-tail]
+file = "services/bridge/deploy/proposals/manifest.go"
+line = 42
+class = "runtime-risk"
+severity = "medium"
+observed = "LoadAttestorManifest uses decoder.More() to reject trailing input after the top-level manifest. A stray closing bracket or brace makes More return false, so a corrupt manifest can still be treated as the committed attestor authority."
+expected = "The attestor manifest is one complete JSON document, and every byte beyond permitted trailing whitespace must be rejected before its signer set authorizes proposal generation."
+proposal = "In services/bridge/deploy/proposals/manifest.go require an EOF from a second Decode and test malformed closing tokens and extra documents alongside the existing unknown-field and signer-order refusals."
+owner_domain = 14
+interface = "14.go-bridge-proposals-loadattestormanifest-j55"
+
+[finding.bridge-recovery-tests]
+file = "services/bridge/deploy/proposals/proposals_test.go"
+line = 1121
+class = "test-gap"
+severity = "medium"
+observed = "TestRunWritesNoProposalsOrBodiesWhenTheProposalsCannotBeWritten supplies an already occupied proposals directory, exercising preflight refusal. The suite does not exercise a failure after bodies are published, such as a failed readback rename, or recovery from that interrupted generation."
+expected = "The bridge publication promise includes filesystem failures and recovery across all requested outputs; successful preflight refusal alone cannot establish that a failed run leaves no partial operator bundle."
+proposal = "Extend services/bridge/deploy/proposals/proposals_test.go with real temporary filesystem failure and restart cases after fixing publication. Assert complete bodies/proposals/readback identity and safe retry using the same arguments."
+owner_domain = 14
+interface = "14.go-bridge-proposals-bundle-writeproposals-j55"
+
+[finding.bridge-cli-output-promise]
+file = "services/bridge/deploy/proposals/cmd/paxeer-bridge-proposals/main.go"
+line = 6
+class = "doc-drift"
+severity = "medium"
+observed = "The command help comment promises no partial output when the command refuses. Run publishes bodies before proposals and readback, so a later filesystem error returns failure with those bodies already present."
+expected = "Operators need an accurate failure and recovery contract for governance artifacts, including whether a failed generation left usable or incomplete outputs."
+proposal = "Update services/bridge/deploy/proposals/cmd/paxeer-bridge-proposals/main.go with the actual publication and recovery contract when services/bridge/deploy/proposals/proposals.go stages the complete bundle."
+owner_domain = 14
+interface = "14.cli-bridge-paxeer-bridge-proposals-j55"
+
+[finding.proxy-call-error-cache]
+file = "services/explorer/backend/apps/explorer/lib/explorer/chain/smart_contract/proxy.ex"
+line = 354
+class = "runtime-risk"
+severity = "medium"
+observed = "handle_response turns every eth_call error into {:ok, nil}, including transport failure or unavailable RPC methods. A call-based resolver can therefore find no implementation and persist empty implementation data, replacing previously discovered addresses instead of taking the :error path that preserves them."
+expected = "An EVM revert indicating an unsupported proxy method is different from failure to query the node. RPC outages must preserve known implementation and ABI data until an authoritative response can replace it."
+proposal = "In services/explorer/backend/apps/explorer/lib/explorer/chain/smart_contract/proxy.ex classify revert errors explicitly, propagate transport/provider failures as :error, and cover loss and recovery of the actual RPC connection while retaining cached implementation data."
+owner_domain = 14
+interface = "14.cfg-explorer-proxy"
+
+[finding.proxy-verification-uid]
+file = "services/explorer/backend/apps/explorer/lib/explorer/chain/smart_contract/proxy/verification_status.ex"
+line = 86
+class = "runtime-risk"
+severity = "medium"
+observed = "generate_uid concatenates the contract address with a seconds-resolution timestamp. Two submissions for the same address within one second get the same primary key; callers ignore insert_status errors and both jobs can update that same status row."
+expected = "Each accepted verification attempt needs a distinct durable identity, or explicit idempotent admission, so polling one submission cannot return the result of another concurrent attempt."
+proposal = "Generate a collision-resistant attempt ID in services/explorer/backend/apps/explorer/lib/explorer/chain/smart_contract/proxy/verification_status.ex and update its validator and callers together. Handle insertion conflicts explicitly and prove two simultaneous real submissions keep separate status transitions."
+owner_domain = 14
+
+[finding.contract-verification-uid]
+file = "services/explorer/backend/apps/explorer/lib/explorer/chain/smart_contract/verification_status.ex"
+line = 109
+class = "runtime-risk"
+severity = "medium"
+observed = "generate_uid concatenates the contract address with a seconds-resolution timestamp. Two submissions for the same address within one second get the same primary key; callers ignore insert_status errors and both jobs can update that same status row."
+expected = "Each accepted verification attempt needs a distinct durable identity, or explicit idempotent admission, so polling one submission cannot return the result of another concurrent attempt."
+proposal = "Generate a collision-resistant attempt ID in services/explorer/backend/apps/explorer/lib/explorer/chain/smart_contract/verification_status.ex and update its validator and callers together. Handle insertion conflicts explicitly and prove two simultaneous real submissions keep separate status transitions."
+owner_domain = 14
+
+[finding.coin-task-recovery]
+file = "services/explorer/backend/apps/explorer/lib/explorer/market/fetcher/coin.ex"
+line = 122
+class = "restart-recovery"
+severity = "medium"
+observed = "Coin starts async_nolink fetches but discards task references. Its :DOWN handler ignores all reasons, while only a successful or returned-error result schedules the next refresh. A provider exception leaves that coin's refresh loop stopped with stale ETS data until the server is restarted."
+expected = "Native and secondary exchange rates must resume refresh after a failed provider task and retain last-known data with a detectable failure state during the interruption."
+proposal = "In services/explorer/backend/apps/explorer/lib/explorer/market/fetcher/coin.ex track task references by coin, demonitor completed tasks and schedule bounded retries for abnormal DOWN events. Exercise a real provider failure followed by a successful refresh without restarting the application."
+owner_domain = 14
+interface = "14.cfg-explorer-explorer-market-fetcher-coin"
+
+[finding.history-task-recovery]
+file = "services/explorer/backend/apps/explorer/lib/explorer/market/fetcher/history.ex"
+line = 153
+class = "restart-recovery"
+severity = "medium"
+observed = "History ignores :DOWN from async_nolink tasks. An exceptional provider result never marks its type finished or increments failed_attempts, so maybe_insert_and_schedule_refetch never schedules the next fetch_all cycle, stopping unrelated history refreshes as well."
+expected = "One failed history provider must reach bounded retry or a recorded exhausted state so other history types and later scheduled cycles continue to progress."
+proposal = "In services/explorer/backend/apps/explorer/lib/explorer/market/fetcher/history.ex retain monitor-to-type identity, route abnormal DOWN through bounded failure handling and reschedule the cycle once each type is terminal. Cover provider failure, other-type persistence and subsequent recovery."
+owner_domain = 14
+interface = "14.cfg-explorer-explorer-market-fetcher-history"
+
+[finding.dia-task-exits]
+file = "services/explorer/backend/apps/explorer/lib/explorer/market/source/dia.ex"
+line = 90
+class = "runtime-risk"
+severity = "medium"
+observed = "DIA's async_stream result mapper handles {:error, {token, reason}}, although task exits use {:exit, {input, reason}} with zip_input_on_exit. The linked stream also retains the default timeout action of exiting its caller. An exceptional or timed-out quote therefore escapes the intended failed-token retry path."
+expected = "An unavailable token quote must become a bounded provider error associated with that token; it must not terminate the entire fetch task or bypass the configured retry lifecycle."
+proposal = "In services/explorer/backend/apps/explorer/lib/explorer/market/source/dia.ex use supervised unlinked tasks with an explicit bounded timeout policy, handle the documented :exit result and retain failed tokens for retry. Exercise actual task exits and timeout completion."
+owner_domain = 14
+
+[finding.btc-config-owner]
+file = "services/explorer/backend/apps/explorer/lib/explorer/market/source/coin_market_cap.ex"
+line = 90
+class = "config-drift"
+severity = "medium"
+observed = "CoinMarketCap checks Application.get_env(:explorer, Explorer.Market)[:fetch_btc_value], but the only configured fetch_btc_value in the explorer tree is under Explorer.Market.Fetcher.Coin in runtime/test.exs. Registry row 14.cfg-explorer-explorer-market-fetcher-coin also assigns it to Coin, so enabling that documented key does not enable BTC conversion."
+expected = "The configured flag and the adapter must share one owner and meaning, with the actual runtime configuration declaring the supported setting."
+proposal = "In services/explorer/backend/apps/explorer/lib/explorer/market/source/coin_market_cap.ex read the agreed configuration owner; align services/explorer/backend/config/runtime.exs, tests and registry row 14.cfg-explorer-explorer-market-fetcher-coin. Verify a configured BTC conversion request and its returned value."
+owner_domain = 14
+interface = "14.cfg-explorer-explorer-market-fetcher-coin"
+
+[finding.address-test-global-state]
+file = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/views/address_view_test.exs"
+line = 149
+class = "test-gap"
+severity = "medium"
+observed = "AddressViewTest runs async: true while writing global :show_percentage and :explorer/:supply application settings. These writes are neither isolated nor restored, allowing concurrent tests and later examples to observe another example's rendering policy."
+expected = "Explorer view tests must assert their intended configuration independently of execution order and must not change the configuration seen by concurrent tests."
+proposal = "Make configuration-mutating examples in services/explorer/backend/apps/block_scout_web/test/block_scout_web/views/address_view_test.exs serial and restore every original application setting with on_exit, or inject the rendering configuration locally."
+owner_domain = 14
+
+[finding.layout-test-global-state]
+file = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/views/layout_view_test.exs"
+line = 54
+class = "test-gap"
+severity = "medium"
+observed = "LayoutViewTest writes :blockscout_version, :release_link and :other_networks without restoring them. Its only on_exit unconditionally resets BlockScoutWeb.Chain to [] rather than restoring the original value, leaking configuration and discarding any configured chain identity."
+expected = "Layout tests must preserve the original global configuration and leave later explorer tests observing the same chain and release settings as before the example."
+proposal = "In services/explorer/backend/apps/block_scout_web/test/block_scout_web/views/layout_view_test.exs snapshot and restore every changed key, preserving absent keys with delete_env. Keep these examples serial and retain all rendering assertions."
+owner_domain = 14
+
+[finding.chain-test-disabled-ordering]
+file = "services/explorer/backend/apps/explorer/test/explorer/chain_test.exs"
+line = 2402
+class = "test-gap"
+severity = "medium"
+observed = "The balance-history example 'uses last block value if there a couple of change in the same day' is commented out under '# Flaky test'. No assertion in that example executes, leaving the latest daily balance selection unqualified."
+expected = "Daily balance history must select the defined latest block deterministically, with an executing regression for multiple same-day changes; acceptance 22998.1 does not permit skipping a failing assertion as qualification."
+proposal = "In services/explorer/backend/apps/explorer/test/explorer/chain_test.exs restore this regression using fixed timestamps and explicitly ordered block numbers. Resolve any producer disagreement in the owning history query without weakening or dropping the expected balance."
+owner_domain = 14
+
+[finding.chain-test-supply-state]
+file = "services/explorer/backend/apps/explorer/test/explorer/chain_test.exs"
+line = 2137
+class = "test-gap"
+severity = "medium"
+observed = "The total_supply and circulating_supply examples replace :explorer/:supply with ProofOfAuthority at lines 2137 and 2146 and never restore the prior supply module, so later tests inherit a different supply implementation."
+expected = "Chain tests must not change the configured supply provider beyond their own example or make subsequent results depend on randomized test order."
+proposal = "Restore the original :explorer/:supply setting with on_exit in services/explorer/backend/apps/explorer/test/explorer/chain_test.exs, keeping the existing total and circulating supply assertions and preserving an originally absent key."
+owner_domain = 14
+
+[finding.registry-sdk-package]
+file = "sdk/js/package.json"
+line = 47
+class = "doc-drift"
+severity = "medium"
+observed = "Registry rows 14.cfg-sdkjs-package-main and 14.cfg-sdkjs-package-module still advertise removed root entries; 14.cfg-sdkjs-package-exports-types describes declaration-only runtime targets; 14.cfg-sdkjs-vendor-ref, -sha and -url name absent sdk/js/VENDOR.kvx. The maintained manifest and req 14001 intentionally use CJS/ESM runtime subpaths and no vendor pin."
+expected = "The interface registry must describe the maintained package entry points and ownership so integrators can distinguish available runtime modules from removed vendor metadata."
+proposal = "Reconcile these six rows in spec/layerx-merge/interfaces.kvx against sdk/js/package.json and req 14001, retaining working subpath exports and retiring root/vendor declarations. Point their contracts at a maintained SDK page instead of the absent contracts/sdk-js.md."
+owner_domain = 14
+interfaces = ["14.cfg-sdkjs-package-main","14.cfg-sdkjs-package-module","14.cfg-sdkjs-package-exports-types","14.cfg-sdkjs-vendor-ref","14.cfg-sdkjs-vendor-sha","14.cfg-sdkjs-vendor-url"]
+
+[finding.registry-sdk-retired-codecs]
+file = "sdk/js/test/retired-encoding-types-accesscontrol-crisis-mint-part-a.test.cjs"
+line = 1
+class = "doc-drift"
+severity = "medium"
+observed = "The package's produced registry rows under 14.ts-sdkjs-encoding-cosmos-accesscontrol-* and 14.ts-sdkjs-encoding-cosmos-accesscontrol-x-* declare 78 exports at paths already deleted by reqs 14010-14017. Several registries and aminoConverters rows remain stable even though the retirement tests require their modules and namespace entries to be absent."
+expected = "Intentionally retired Cosmos codecs must remain absent, and registry declarations must identify their retirement rather than advertise them as callable stable exports."
+proposal = "Retire all 78 accesscontrol/accesscontrol_x rows in spec/layerx-merge/interfaces.kvx and regenerate their consumer inventories, using sdk/js/test/retired-encoding-types-accesscontrol-crisis-mint-part-a.test.cjs and its siblings as the current absence contract. Preserve the retirement assertions."
+owner_domain = 14
+interfaces = ["14.ts-sdkjs-encoding-cosmos-accesscontrol-accesscontrol-accessoperation-fns","14.ts-sdkjs-encoding-cosmos-accesscontrol-accesscontrol-accessoperation-type","14.ts-sdkjs-encoding-cosmos-accesscontrol-accesscontrol-aminoconverters","14.ts-sdkjs-encoding-cosmos-accesscontrol-accesscontrol-messagedependencymapping-fns","14.ts-sdkjs-encoding-cosmos-accesscontrol-accesscontrol-messagedependencymapping-type","14.ts-sdkjs-encoding-cosmos-accesscontrol-accesscontrol-registry","14.ts-sdkjs-encoding-cosmos-accesscontrol-accesscontrol-wasmaccessoperation-fns","14.ts-sdkjs-encoding-cosmos-accesscontrol-accesscontrol-wasmaccessoperation-type","14.ts-sdkjs-encoding-cosmos-accesscontrol-accesscontrol-wasmaccessoperations-fns","14.ts-sdkjs-encoding-cosmos-accesscontrol-accesscontrol-wasmaccessoperations-type","14.ts-sdkjs-encoding-cosmos-accesscontrol-accesscontrol-wasmcontractreference-fns","14.ts-sdkjs-encoding-cosmos-accesscontrol-accesscontrol-wasmcontractreference-type","14.ts-sdkjs-encoding-cosmos-accesscontrol-accesscontrol-wasmcontractreferences-fns","14.ts-sdkjs-encoding-cosmos-accesscontrol-accesscontrol-wasmcontractreferences-type","14.ts-sdkjs-encoding-cosmos-accesscontrol-accesscontrol-wasmdependencymapping-fns","14.ts-sdkjs-encoding-cosmos-accesscontrol-accesscontrol-wasmdependencymapping-type","14.ts-sdkjs-encoding-cosmos-accesscontrol-constants-accessoperationselectortypefromjson","14.ts-sdkjs-encoding-cosmos-accesscontrol-constants-accessoperationselectortypetojson","14.ts-sdkjs-encoding-cosmos-accesscontrol-constants-accesstypefromjson","14.ts-sdkjs-encoding-cosmos-accesscontrol-constants-accesstypetojson","14.ts-sdkjs-encoding-cosmos-accesscontrol-constants-resourcetypefromjson","14.ts-sdkjs-encoding-cosmos-accesscontrol-constants-resourcetypetojson","14.ts-sdkjs-encoding-cosmos-accesscontrol-constants-wasmmessagesubtypefromjson","14.ts-sdkjs-encoding-cosmos-accesscontrol-constants-wasmmessagesubtypetojson","14.ts-sdkjs-encoding-cosmos-accesscontrol-legacy-aminoconverters","14.ts-sdkjs-encoding-cosmos-accesscontrol-legacy-legacyaccessoperationwithselector-fns","14.ts-sdkjs-encoding-cosmos-accesscontrol-legacy-legacyaccessoperationwithselector-type","14.ts-sdkjs-encoding-cosmos-accesscontrol-legacy-legacywasmdependencymapping-fns","14.ts-sdkjs-encoding-cosmos-accesscontrol-legacy-legacywasmdependencymapping-type","14.ts-sdkjs-encoding-cosmos-accesscontrol-legacy-registry","14.ts-sdkjs-encoding-cosmos-accesscontrol-x-genesis-aminoconverters","14.ts-sdkjs-encoding-cosmos-accesscontrol-x-genesis-genesisstate-fns","14.ts-sdkjs-encoding-cosmos-accesscontrol-x-genesis-genesisstate-type","14.ts-sdkjs-encoding-cosmos-accesscontrol-x-genesis-params-fns","14.ts-sdkjs-encoding-cosmos-accesscontrol-x-genesis-params-type","14.ts-sdkjs-encoding-cosmos-accesscontrol-x-genesis-registry","14.ts-sdkjs-encoding-cosmos-accesscontrol-x-gov-aminoconverters","14.ts-sdkjs-encoding-cosmos-accesscontrol-x-gov-msgupdateresourcedependencymappingproposal-fns","14.ts-sdkjs-encoding-cosmos-accesscontrol-x-gov-msgupdateresourcedependencymappingproposal-type","14.ts-sdkjs-encoding-cosmos-accesscontrol-x-gov-msgupdateresourcedependencymappingproposaljsonfile-fns","14.ts-sdkjs-encoding-cosmos-accesscontrol-x-gov-msgupdateresourcedependencymappingproposaljsonfile-type","14.ts-sdkjs-encoding-cosmos-accesscontrol-x-gov-msgupdateresourcedependencymappingproposalresponse-fns","14.ts-sdkjs-encoding-cosmos-accesscontrol-x-gov-msgupdateresourcedependencymappingproposalresponse-type","14.ts-sdkjs-encoding-cosmos-accesscontrol-x-gov-msgupdatewasmdependencymappingproposal-fns","14.ts-sdkjs-encoding-cosmos-accesscontrol-x-gov-msgupdatewasmdependencymappingproposal-type","14.ts-sdkjs-encoding-cosmos-accesscontrol-x-gov-msgupdatewasmdependencymappingproposaljsonfile-fns","14.ts-sdkjs-encoding-cosmos-accesscontrol-x-gov-msgupdatewasmdependencymappingproposaljsonfile-type","14.ts-sdkjs-encoding-cosmos-accesscontrol-x-gov-registry","14.ts-sdkjs-encoding-cosmos-accesscontrol-x-query-aminoconverters","14.ts-sdkjs-encoding-cosmos-accesscontrol-x-query-listresourcedependencymappingrequest-fns","14.ts-sdkjs-encoding-cosmos-accesscontrol-x-query-listresourcedependencymappingrequest-type","14.ts-sdkjs-encoding-cosmos-accesscontrol-x-query-listresourcedependencymappingresponse-fns","14.ts-sdkjs-encoding-cosmos-accesscontrol-x-query-listresourcedependencymappingresponse-type","14.ts-sdkjs-encoding-cosmos-accesscontrol-x-query-listwasmdependencymappingrequest-fns","14.ts-sdkjs-encoding-cosmos-accesscontrol-x-query-listwasmdependencymappingrequest-type","14.ts-sdkjs-encoding-cosmos-accesscontrol-x-query-listwasmdependencymappingresponse-fns","14.ts-sdkjs-encoding-cosmos-accesscontrol-x-query-listwasmdependencymappingresponse-type","14.ts-sdkjs-encoding-cosmos-accesscontrol-x-query-queryparamsrequest-fns","14.ts-sdkjs-encoding-cosmos-accesscontrol-x-query-queryparamsrequest-type","14.ts-sdkjs-encoding-cosmos-accesscontrol-x-query-queryparamsresponse-fns","14.ts-sdkjs-encoding-cosmos-accesscontrol-x-query-queryparamsresponse-type","14.ts-sdkjs-encoding-cosmos-accesscontrol-x-query-registry","14.ts-sdkjs-encoding-cosmos-accesscontrol-x-query-resourcedependencymappingfrommessagekeyrequest-fns","14.ts-sdkjs-encoding-cosmos-accesscontrol-x-query-resourcedependencymappingfrommessagekeyrequest-type","14.ts-sdkjs-encoding-cosmos-accesscontrol-x-query-resourcedependencymappingfrommessagekeyresponse-fns","14.ts-sdkjs-encoding-cosmos-accesscontrol-x-query-resourcedependencymappingfrommessagekeyresponse-type","14.ts-sdkjs-encoding-cosmos-accesscontrol-x-query-wasmdependencymappingrequest-fns","14.ts-sdkjs-encoding-cosmos-accesscontrol-x-query-wasmdependencymappingrequest-type","14.ts-sdkjs-encoding-cosmos-accesscontrol-x-query-wasmdependencymappingresponse-fns","14.ts-sdkjs-encoding-cosmos-accesscontrol-x-query-wasmdependencymappingresponse-type","14.ts-sdkjs-encoding-cosmos-accesscontrol-x-tx-aminoconverters","14.ts-sdkjs-encoding-cosmos-accesscontrol-x-tx-msgregisterwasmdependency-fns","14.ts-sdkjs-encoding-cosmos-accesscontrol-x-tx-msgregisterwasmdependency-type","14.ts-sdkjs-encoding-cosmos-accesscontrol-x-tx-msgregisterwasmdependencyresponse-fns","14.ts-sdkjs-encoding-cosmos-accesscontrol-x-tx-msgregisterwasmdependencyresponse-type","14.ts-sdkjs-encoding-cosmos-accesscontrol-x-tx-registerwasmdependencyjsonfile-fns","14.ts-sdkjs-encoding-cosmos-accesscontrol-x-tx-registerwasmdependencyjsonfile-type","14.ts-sdkjs-encoding-cosmos-accesscontrol-x-tx-registry"]
+
+[finding.registry-etherscan-edges]
+file = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/etherscan.ex"
+line = 544
+class = "doc-drift"
+severity = "low"
+observed = "Registry rows 6.sol-evmcompatibilitytester-gaslimit-f68016b7 and 4.sevt-ieventemitter-tokentransfer-d1630e8d list Etherscan fields and Explorer.Chain.TokenTransfer use as callers. These paths serialize indexed transactions/transfers; they neither call EVMCompatibilityTester.gasLimit nor decode IEventEmitter.TokenTransfer."
+expected = "Declared consumed interfaces must identify a real producer-to-consumer transport. Equal field and module names must not imply a dependency on an unrelated contract ABI."
+proposal = "Correct the caller extraction and these two rows in spec/layerx-merge/interfaces.kvx; keep services/explorer/backend/apps/block_scout_web/lib/block_scout_web/etherscan.ex bound to its actual indexed transfer schema and add real ABI consumers only where decoding is implemented."
+owner_domain = 17
+interfaces = ["4.sevt-ieventemitter-tokentransfer-d1630e8d","6.sol-evmcompatibilitytester-gaslimit-f68016b7"]
+
+[finding.registry-form-submit-edge]
+file = "apps/explorer/ui/contractVerification/ContractVerificationForm.tsx"
+line = 211
+class = "doc-drift"
+severity = "low"
+observed = "Registry row 9.http-rpc-submit lists the verification form's type='submit' button as a consumer of the agent POST /rpc operation=submit interface. onFormSubmit instead POSTs general:contract_verification and receives verification_result on an address channel; no agent RPC request is made."
+expected = "The verification transport declaration must describe its actual explorer HTTP and address-channel lifecycle without treating an HTML submit control as an agent API invocation."
+proposal = "Remove the lexical caller from row 9.http-rpc-submit in spec/layerx-merge/interfaces.kvx and retain the explorer verification HTTP/WS edges for apps/explorer/ui/contractVerification/ContractVerificationForm.tsx."
+owner_domain = 17
+interface = "9.http-rpc-submit"
+
+[finding.routes-retired-router]
+file = "docs/system/routes.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The generated catalogue is titled Router routes; its kernel description retains a sequencer and it lists the /rpc/evm/ws route at line 908 as a live developer surface."
+expected = "The merged chain exposes root JSON-RPC on the documented Paxeer nodes, with one BFT commit finality and no router or unified /rpc family."
+proposal = "Update the route source and tools/docs/gen-system-docs.sh, then regenerate docs/system/routes.md from active routes. Remove retired router/sequencer entries and document root node RPC separately from hosted px_ methods."
+owner_domain = 17
+
+[finding.launchpad-event-guide]
+file = "contracts/launchpad/README.md"
+line = 124
+class = "doc-drift"
+severity = "medium"
+observed = "The EventEmitter paragraph says every event carries a poolId and indexers need track exactly one address. IEventEmitter also declares pool-independent TokenTransfer, ConfigUpdated, TreasuryFlow and generic EventLog channels; these do not contain a poolId."
+expected = "Indexers need each event's actual topic/data schema and provenance. Pool identity is available only on the event types or named generic fields that declare it."
+proposal = "Revise contracts/launchpad/README.md to distinguish pool events from token, treasury, configuration and generic channels; link the current IEventEmitter ABI and explain which events an explorer actually decodes."
+owner_domain = 4
+
+[finding.unified-network-retired-finality]
+file = "docs/wiki/UnifiedNetwork.md"
+line = 11
+class = "doc-drift"
+severity = "medium"
+observed = "The page describes a separate cmd/layerxd sequencer and evidence verification, custody at 0x1013, checkpoint finality/challenges at 0x1014, and delayed forced exits as the running unified-network architecture."
+expected = "Paxeer is one paxd BFT chain on EVM chain ID 125; the kernel proposes blocks inside that network, receipts are final on commit, and the retired separate sequencer/checkpoint architecture is historical."
+proposal = "Rewrite docs/wiki/UnifiedNetwork.md around the merged network's active modules, precompiles and committed receipt evidence. Label any retained pre-merge ABI reference as historical and remove it from current deployment guidance."
+owner_domain = 17
+
+[finding.sdk-doc-rust-parser]
+file = "docs/system/sdk.md"
+line = 916
+class = "doc-drift"
+severity = "low"
+observed = "The Rust public API table lists an item named fn with kind const, while programs/sdk/rust/src/lib.rs declares the const functions programs_escrow_reference and programs_vault_reference. Re-export rows such as abi:: omit the exported identifiers."
+expected = "An SDK catalogue must name actual exported symbols and their kinds so developers can locate callable functions and types; fn is a keyword rather than a public constant."
+proposal = "Correct Rust item/re-export parsing in tools/docs/gen-system-docs.sh and regenerate docs/system/sdk.md with both const function names and complete re-export names from programs/sdk/rust/src/lib.rs."
+owner_domain = 16
+
+[finding.bridge-doc-publication]
+file = "contracts/bridge/README.md"
+line = 150
+class = "doc-drift"
+severity = "medium"
+observed = "The page says generator messages cannot drift from keeper acceptance and that a refused generation writes nothing. Legacy asset IDs are not bound to remote asset addresses, and failure during proposals/readback publication can leave bodies on disk."
+expected = "Operator guidance must describe semantic asset validation as well as protobuf compatibility and provide an accurate atomic-publication or interrupted-run recovery contract."
+proposal = "Update contracts/bridge/README.md after correcting services/bridge/deploy/proposals/proposals.go. State the asset binding checks, staged publication boundary and safe recovery procedure for an interrupted bundle."
+owner_domain = 14
+
+[finding.root-retired-daemon]
+file = "README.md"
+line = 47
+class = "doc-drift"
+severity = "medium"
+observed = "The root component guide presents layerxd as a separately running daemon whose checkpoints settle through layerxAnchor, and the build instructions still recommend make layerxd at line 145."
+expected = "The maintained network runs paxd with its merged kernel and finality on BFT commit; a separate LayerX daemon is not a component an operator should build or launch for that network."
+proposal = "Revise README.md component, build and precompile sections to identify the merged paxd path and active upgrade addresses. Move retained legacy daemon details into an explicitly historical migration reference."
+owner_domain = 17
+
+[finding.qualification-retired-exit]
+file = "docs/QUALIFICATION.md"
+line = 21
+class = "doc-drift"
+severity = "medium"
+observed = "The qualification matrix and lines 79-82 require live custody reconciliation and a sequencer-offline emergency exit from the last finalized checkpoint as current deployment evidence."
+expected = "Release qualification must measure the merged BFT chain's committed execution and recovery, rather than require a retired sequencer and checkpoint exit model as current authority."
+proposal = "Rewrite docs/QUALIFICATION.md deployment evidence around paxd commit finality, validator/kernel recovery and the active custody/account path. Keep historical qualification evidence clearly tied to its prior architecture."
+owner_domain = 16
+
+[finding.network-retired-settlement]
+file = "docs/paxeer-network.md"
+line = 5
+class = "doc-drift"
+severity = "medium"
+observed = "The network introduction says ordinary LayerX activity stays on LayerX and periodically settles checkpoints on Paxeer independently of a sequencer. Its module table at line 38 includes retired mint and layerxanchor settlement components as current."
+expected = "The network guide must describe one Paxeer chain with a merged kernel and the actual active module set, so integrators do not design a separate settlement boundary."
+proposal = "Rewrite docs/paxeer-network.md introduction, runtime/module inventory and settlement explanations from the merged paxd registration and commit lifecycle; retain the tenant namespace explanation that still matches the target architecture."
+owner_domain = 17
+
+[finding.monorepo-retired-runtime]
+file = "docs/MONOREPO.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The monorepo introduction names paxd and layerxd as two network components and says each keeps its own qualification and trust boundary."
+expected = "The tree guide must identify the kernel as part of the single BFT network and distinguish historical code directories from separately operated production services."
+proposal = "Update docs/MONOREPO.md runtime description and build/trust-boundary references for the merged paxd system, marking any legacy layerxd tree as retired rather than a deployable network component."
+owner_domain = 17
+
+[finding.fork-runbook-retired-probe]
+file = "docs/runbooks/paxeer-x-fork.md"
+line = 318
+class = "doc-drift"
+severity = "medium"
+observed = "The upgrade runbook still requires a successful 0x1014 anchor probe in section 6, despite its merge rehearsal section removing the anchor module. Its introduction also frames v6.6 custody/anchor activation as the target fork."
+expected = "A merge operator must have one versioned upgrade checklist whose expected modules and precompiles agree with the v7 merged chain, without requiring a retired anchor to answer successfully."
+proposal = "Split historical v6.6 instructions from the merge path in docs/runbooks/paxeer-x-fork.md; replace the 0x1014 acceptance probe with checks of active merged state and BFT commit/restart recovery."
+owner_domain = 16
+
+[finding.quickstart-retired-rpc]
+file = "docs/site/docs/overview/quickstart.md"
+line = 177
+class = "doc-drift"
+severity = "medium"
+observed = "The quickstart directs public payment clients to POST /rpc and GET /rpc/ws, advertises api-mainnet-beta.paxeer.network/rpc at lines 229-230, uses lx_sendActivity and checkpoint/sequencer evidence, and treats 0x1014 as live settlement in its exported environment and finality section."
+expected = "The current developer path must use the root Paxeer JSON-RPC contract or explicitly documented hosted px_ gateway methods and treat receipts as final when their BFT block is committed."
+proposal = "Rewrite docs/site/docs/overview/quickstart.md payment, endpoint, funding and finality steps for the merged chain and supported hosted contract. Replace retired router and anchor calls with executable current commands, keeping the private disposable-cluster context explicit."
+owner_domain = 17
+
+[finding.registry-contract-pages-missing]
+file = "sdk/js/README.md"
+line = 1
+class = "doc-drift"
+severity = "medium"
+observed = "Produced and consumed registry rows point at absent contract pages including contracts/sdk-js.md, contracts/bridge-deploy.md, contracts/explorer-ws.md and contracts/explorer-config.md. Every distinct contract-page target used by this package is absent, so their anchors cannot supply the declared integration contract."
+expected = "SDK, bridge and explorer interfaces need reachable, current documentation of their fields, encodings, errors and lifecycle, with registry links that lead to those contracts."
+proposal = "Reconcile contract links in spec/layerx-merge/interfaces.kvx with maintained SDK, bridge and explorer documentation; create current contract pages where needed and retire obsolete targets. Start with sdk/js/README.md, contracts/bridge/README.md and the explorer HTTP/WS schemas."
+owner_domain = 17
+
+[finding.sdk-rest-real-transport]
+file = "sdk/js/test/tokenfactory-rest.test.cjs"
+line = 8
+class = "test-gap"
+severity = "medium"
+observed = "Both tokenfactory REST tests replace global fetch and return a hand-built body. They assert the requested URL but never send an escaped factory denom or pagination through the actual Cosmos gateway, so slash decoding and producer response fields are not proven."
+expected = "Req 14031's escaped denom and pagination need agreement across the SDK, HTTP transport and real query handler. A fetch replacement cannot establish the producer-to-consumer path required by brief fact 7."
+proposal = "Add a real local query-service integration beside sdk/js/test/tokenfactory-rest.test.cjs that serves the registered tokenfactory handler, invokes the maintained Querier over HTTP and asserts metadata and pagination from actual stored state. Keep the focused URL assertions."
+owner_domain = 14
+
+[finding.sdk-wire-real-producer]
+file = "sdk/js/test/evm-params-encoding.test.cjs"
+line = 30
+class = "test-gap"
+severity = "medium"
+observed = "writeFeeTokenFields builds expected protobuf bytes in JavaScript, and the round-trip tests encode/decode with the same SDK codecs. They never decode a Params payload emitted by the maintained Go module or return an SDK-encoded message to that module."
+expected = "Req 14028 requires the declared fields to agree with the node producer. Local codec self-consistency and hand-written wire expectations do not establish a cross-language producer-to-consumer round trip."
+proposal = "Extend sdk/js/test/evm-params-encoding.test.cjs with a bounded integration using the actual Go Params codec and module query response, covering all current fields in both directions and preserving existing safe-integer refusal assertions."
+owner_domain = 14
+
+[finding.history-cache-publication]
+file = "services/explorer/backend/apps/explorer/lib/explorer/market/market_history_cache.ex"
+line = 51
+class = "runtime-risk"
+severity = "medium"
+observed = "update_cache publishes :last_update before :history using two independent ConCache.put calls. A concurrent first fetch can observe a fresh timestamp and a nil history, then call Enum.filter on nil; an existing cache can expose old history as freshly updated."
+expected = "A cached market history and its freshness timestamp must be observed as one consistent value, including the first concurrent requests after startup or cache expiry."
+proposal = "In services/explorer/backend/apps/explorer/lib/explorer/market/market_history_cache.ex publish timestamp and history as one cache entry or use an atomic per-key update. Exercise concurrent first reads and expiry while preserving the last complete history."
+owner_domain = 14
+interface = "14.cfg-explorer-explorer-market-markethistorycache"
+
+[finding.launchpad-governance-summary]
+file = "contracts/launchpad/README.md"
+line = 244
+class = "doc-drift"
+severity = "medium"
+observed = "The deployment summary lists SID as the governance token and a network-owned multisig as initial administrator, while the same page explains initializeAdmin is the default, no SID_ADDRESS is required, and omission of GOVERNANCE_ADMIN_ADDRESS leaves decision authority with the deployment wallet."
+expected = "Launchpad operators must see the actual administrator-controlled default and the explicit token-governance opt-in before assuming a deployment has a voting token or multisig decision authority."
+proposal = "Reconcile the deployment summary in contracts/launchpad/README.md with its GovernanceModule paragraph and operations/README.md. State the default deployer authority, required multisig override and explicit GOVERNANCE_MODE=token choice without claiming a live governance transition."
+owner_domain = 4
+
+[finding.event-migration-retry-doc]
+file = "contracts/launchpad/docs/interfaces/IEventEmitter.md"
+line = 708
+class = "doc-drift"
+severity = "low"
+observed = "The generated API page describes reinitializeV2 as 'Idempotent', but EventEmitter.sol sets _v2Initialized and reverts Unauthorized on every repeated call, even with the same administrator argument."
+expected = "An upgrade operator must know that this migration is once-only and that retrying a confirmed migration reverts; idempotency must not imply a harmless repeat transaction."
+proposal = "Correct the reinitializeV2 NatSpec in contracts/launchpad/contracts/interfaces/IEventEmitter.sol and regenerate contracts/launchpad/docs/interfaces/IEventEmitter.md to describe once-only behavior and readback/reconciliation before a retry."
+owner_domain = 4
+
+[doc.001]
+path = "docs/system/routes.md"
+status = "stale"
+notes = "Lines 3, 31-36 and 908 describe a router, sequencer/settlement boundary and /rpc/evm/ws as current. Regenerate the active route catalogue and separate root node RPC from hosted methods."
+
+[doc.002]
+path = "contracts/launchpad/README.md"
+status = "misleading"
+notes = "Line 124 overstates poolId coverage of central events; lines 244-245 imply token/multisig governance contrary to the administrator-mode default explained on line 116. Operator safety and restart sections remain useful."
+
+[doc.003]
+path = "docs/wiki/UnifiedNetwork.md"
+status = "stale"
+notes = "Lines 11, 54-88 and 186-206 describe a separate layerxd sequencer, custody withdrawals and checkpoint/anchor finality. Rewrite for merged paxd execution and BFT commit finality."
+
+[doc.004]
+path = "docs/system/sdk.md"
+status = "stale"
+notes = "Lines 916 and 943-959 misparse public Rust const functions and grouped re-exports. The TypeScript/Python sections catalogue the named agent SDK entry points; this is not a catalogue of sdk/js."
+
+[doc.005]
+path = "contracts/launchpad/docs/interfaces/IEventEmitter.md"
+status = "misleading"
+notes = "Typed event/function shapes match the declared interface, including TokenTransfer without poolId. Line 708 incorrectly promises idempotent reinitializeV2 behavior; repeated execution reverts Unauthorized."
+
+[doc.006]
+path = "contracts/bridge/README.md"
+status = "stale"
+notes = "Line 150 overstates semantic compatibility and no-output-on-refusal guarantees. Legacy schema generation can disagree on asset binding, and a failure after body publication can leave an incomplete bundle."
+
+[doc.007]
+path = "README.md"
+status = "stale"
+notes = "Lines 47, 83 and 145 present the separate layerxd/checkpoint architecture and retired precompile registration/build guidance as current. Update to merged paxd and versioned active upgrade addresses."
+
+[doc.008]
+path = "docs/QUALIFICATION.md"
+status = "stale"
+notes = "Line 21 and lines 79-82 require sequencer-offline checkpoint exits as current deployment qualification. Replace that authority/recovery model with merged-chain commit and restart evidence."
+
+[doc.009]
+path = "docs/paxeer-network.md"
+status = "stale"
+notes = "Line 5 separates LayerX execution from periodic Paxeer settlement, and line 38 lists retired mint/anchor modules as current. Tenant namespace concepts remain applicable to the merged network."
+
+[doc.010]
+path = "docs/MONOREPO.md"
+status = "stale"
+notes = "Line 3 calls paxd and layerxd separate live network components with independent trust boundaries. Align runtime ownership and build guidance with the merged kernel."
+
+[doc.011]
+path = "docs/runbooks/paxeer-x-fork.md"
+status = "misleading"
+notes = "Lines 5-8 frame the old activation, while section 4 rehearses the merge and line 318 still requires 0x1014 anchor success. Split historical versions and use one consistent merge acceptance checklist."
+
+[doc.012]
+path = "docs/site/docs/overview/quickstart.md"
+status = "misleading"
+notes = "Lines 20, 177-239, 313-319 and 601-654 retain /rpc, /rpc/ws, lx_sendActivity, a separate sequencer authority and 0x1014 settlement. Public guidance must use current root RPC/hosted contracts and BFT commit finality."
+
+[doc.013]
+path = "sdk/js/README.md"
+status = "stale"
+notes = "Provenance and /encoding exports match the maintained SDK, but lines 118/193 use undeclared MsgSend, line 141 lacks AminoTypes import and lines 136-145 select an unexplained Arctic network."
+
+[doc.014]
+path = "contracts/address-inventory.md"
+status = "missing"
+notes = "The package's interface registry references this contract page and anchors, but the page is absent from the audited tree. Rebind active contracts to maintained documentation and retire obsolete references."
+
+[doc.015]
+path = "contracts/agent-api.md"
+status = "missing"
+notes = "The package's interface registry references this contract page and anchors, but the page is absent from the audited tree. Rebind active contracts to maintained documentation and retire obsolete references."
+
+[doc.016]
+path = "contracts/bridge-deploy.md"
+status = "missing"
+notes = "The package's interface registry references this contract page and anchors, but the page is absent from the audited tree. Rebind active contracts to maintained documentation and retire obsolete references."
+
+[doc.017]
+path = "contracts/bridge-vectors.md"
+status = "missing"
+notes = "The package's interface registry references this contract page and anchors, but the page is absent from the audited tree. Rebind active contracts to maintained documentation and retire obsolete references."
+
+[doc.018]
+path = "contracts/cosmos-fork.md"
+status = "missing"
+notes = "The package's interface registry references this contract page and anchors, but the page is absent from the audited tree. Rebind active contracts to maintained documentation and retire obsolete references."
+
+[doc.019]
+path = "contracts/evm-rpc.md"
+status = "missing"
+notes = "The package's interface registry references this contract page and anchors, but the page is absent from the audited tree. Rebind active contracts to maintained documentation and retire obsolete references."
+
+[doc.020]
+path = "contracts/explorer-config.md"
+status = "missing"
+notes = "The package's interface registry references this contract page and anchors, but the page is absent from the audited tree. Rebind active contracts to maintained documentation and retire obsolete references."
+
+[doc.021]
+path = "contracts/explorer-frontend-config.md"
+status = "missing"
+notes = "The package's interface registry references this contract page and anchors, but the page is absent from the audited tree. Rebind active contracts to maintained documentation and retire obsolete references."
+
+[doc.022]
+path = "contracts/explorer-http-api.md"
+status = "missing"
+notes = "The package's interface registry references this contract page and anchors, but the page is absent from the audited tree. Rebind active contracts to maintained documentation and retire obsolete references."
+
+[doc.023]
+path = "contracts/explorer-metrics.md"
+status = "missing"
+notes = "The package's interface registry references this contract page and anchors, but the page is absent from the audited tree. Rebind active contracts to maintained documentation and retire obsolete references."
+
+[doc.024]
+path = "contracts/explorer-ws.md"
+status = "missing"
+notes = "The package's interface registry references this contract page and anchors, but the page is absent from the audited tree. Rebind active contracts to maintained documentation and retire obsolete references."
+
+[doc.025]
+path = "contracts/launchpad.md"
+status = "missing"
+notes = "The package's interface registry references this contract page and anchors, but the page is absent from the audited tree. Rebind active contracts to maintained documentation and retire obsolete references."
+
+[doc.026]
+path = "contracts/platform-cli.md"
+status = "missing"
+notes = "The package's interface registry references this contract page and anchors, but the page is absent from the audited tree. Rebind active contracts to maintained documentation and retire obsolete references."
+
+[doc.027]
+path = "contracts/platform-gateway.md"
+status = "missing"
+notes = "The package's interface registry references this contract page and anchors, but the page is absent from the audited tree. Rebind active contracts to maintained documentation and retire obsolete references."
+
+[doc.028]
+path = "contracts/platform-hosted.md"
+status = "missing"
+notes = "The package's interface registry references this contract page and anchors, but the page is absent from the audited tree. Rebind active contracts to maintained documentation and retire obsolete references."
+
+[doc.029]
+path = "contracts/platform-middleware.md"
+status = "missing"
+notes = "The package's interface registry references this contract page and anchors, but the page is absent from the audited tree. Rebind active contracts to maintained documentation and retire obsolete references."
+
+[doc.030]
+path = "contracts/platform-ramps.md"
+status = "missing"
+notes = "The package's interface registry references this contract page and anchors, but the page is absent from the audited tree. Rebind active contracts to maintained documentation and retire obsolete references."
+
+[doc.031]
+path = "contracts/platform-relay-archive.md"
+status = "missing"
+notes = "The package's interface registry references this contract page and anchors, but the page is absent from the audited tree. Rebind active contracts to maintained documentation and retire obsolete references."
+
+[doc.032]
+path = "contracts/proto-api.md"
+status = "missing"
+notes = "The package's interface registry references this contract page and anchors, but the page is absent from the audited tree. Rebind active contracts to maintained documentation and retire obsolete references."
+
+[doc.033]
+path = "contracts/rpc.md"
+status = "missing"
+notes = "The package's interface registry references this contract page and anchors, but the page is absent from the audited tree. Rebind active contracts to maintained documentation and retire obsolete references."
+
+[doc.034]
+path = "contracts/sdk-js.md"
+status = "missing"
+notes = "The package's interface registry references this contract page and anchors, but the page is absent from the audited tree. Rebind active contracts to maintained documentation and retire obsolete references."
+
+

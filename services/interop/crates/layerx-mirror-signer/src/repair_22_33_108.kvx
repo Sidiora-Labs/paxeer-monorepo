@@ -1,0 +1,9 @@
+[repair.22.33.108]
+audit = "22.30.112"
+signer_role_alias = "repair_22_33_108::signer_role_alias_rejects_shared_identities_across_handles; repair_22_33_108::signer_role_alias_separated_keys_sign_through_the_real_client"
+signer_secret_readability = "repair_22_33_108::signer_secret_readability_requires_owner_only_files_for_both_algorithms; repair_22_33_108::signer_secret_readability_rechecks_symlink_targets_after_replacement; repair_22_33_108::signer_secret_readability_checks_the_descriptor_during_atomic_replacement"
+symlink_policy = "Follow symlinks for projected secrets; check metadata and read bytes on the same opened descriptor."
+trusted_group_policy = "No trusted group: all group and other access bits are refused."
+baseline = "Not run: the task-specific gate order requires complete implementation before building or testing, and permits verification only through hf-done; no pre-change failures are claimed."
+wiring_requests = "None: both proposals are implemented within the signer paths."
+evidence = "The bounded hf-build/hf-done private gate ledger records the exact candidate revision, command, exit code and log path."

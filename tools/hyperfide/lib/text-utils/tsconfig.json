@@ -1,0 +1,10 @@
+{
+  "extends": [
+    "@hyperfide/tsconfig/base.json",
+    "@hyperfide/tsconfig/typecheck-overrides.json"
+  ],
+  "compilerOptions": {
+    "rootDir": "."
+  },
+  "include": ["src", "test"]
+}

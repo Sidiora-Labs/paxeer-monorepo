@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	goredis "github.com/redis/go-redis/v9"
@@ -40,16 +41,54 @@ func NewSwapConsumer(st *store.Store, rdb *goredis.Client, logger *slog.Logger) 
 	return &SwapConsumer{store: st, redis: rdb, logger: logger}
 }
 
-// ProcessEvent applies one Swap event end to end, in the same ordered sequence as
-// the TS StatsSwapConsumer.processEvent: (1) record the transaction, (2) update
-// the 1-minute volume bucket + trader, (3) recompute rolling stats, (4) snapshot
-// the price, (5) compute price changes, (6) update price/mcap/high-low, (7) cache.
+// ProcessEvent commits the swap inbox and all derived stats as one transaction.
+// Redelivery refreshes the cache from committed state without applying the fill again.
 func (c *SwapConsumer) ProcessEvent(ctx context.Context, ev SwapEvent) error {
-	if _, err := project(ctx, c.store, ev, false); err != nil {
+	return c.processEvent(ctx, ev, nil)
+}
+
+// ProcessWebhookEvent commits the swap and holder delta under the same inbox.
+// Webhook dispatch must call this instead of ProcessEvent followed by ProcessSwap.
+func (c *SwapConsumer) ProcessWebhookEvent(ctx context.Context, ev SwapEvent, holder *HolderTracker) error {
+	if holder == nil || holder.store == nil || holder.store.Pool() != c.store.Pool() {
+		return fmt.Errorf("consumer: webhook holder must share the swap database")
+	}
+	return c.processEvent(ctx, ev, holder)
+}
+
+func (c *SwapConsumer) processEvent(ctx context.Context, ev SwapEvent, holder *HolderTracker) error {
+	tx, err := c.store.Pool().Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("consumer: begin swap: %w", err)
+	}
+	defer func() {
+		cleanup, cancel := context.WithTimeout(context.WithoutCancel(ctx), time.Second)
+		defer cancel()
+		_ = tx.Rollback(cleanup)
+	}()
+
+	inserted, err := project(ctx, c.store.WithTx(tx), ev, shareddb.NowSeconds())
+	if err != nil {
 		return err
 	}
-	// 7. Cache the fresh row in Redis.
-	return cachePoolStats(ctx, c.store, c.redis, ev.PoolAddress)
+	holderApplied := false
+	if inserted && holder != nil {
+		holderApplied, err = holder.ApplySwapTx(ctx, tx, HolderSwap{
+			PoolAddress: ev.PoolAddress, Sender: ev.Sender, IsBuy: ev.IsBuy,
+			AmountIn: ev.AmountIn, AmountOut: ev.AmountOut,
+		})
+		if err != nil {
+			return err
+		}
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("consumer: commit swap: %w", err)
+	}
+	if holder != nil && (holderApplied || !inserted) {
+		// Redelivery also restores a refresh lost between commit and scheduling.
+		holder.ScheduleRefresh(ev.PoolAddress)
+	}
+	return c.CachePoolStats(ctx, ev.PoolAddress)
 }
 
 // ProjectTx applies steps 1-6 of ProcessEvent inside the caller's transaction:
@@ -65,7 +104,7 @@ func (c *SwapConsumer) ProjectTx(ctx context.Context, tx pgx.Tx, ev SwapEvent) (
 	if st == nil {
 		return false, fmt.Errorf("consumer: swap projection transaction required")
 	}
-	return project(ctx, st, ev, true)
+	return project(ctx, st, ev, ev.BlockTimestamp)
 }
 
 // CachePoolStats refreshes the Redis pool_stats cache and publishes stats:update
@@ -74,14 +113,9 @@ func (c *SwapConsumer) CachePoolStats(ctx context.Context, poolAddress string) e
 	return cachePoolStats(ctx, c.store, c.redis, poolAddress)
 }
 
-// project runs steps 1-6 against st. When st is bound to a transaction the
-// inbox insert and every derived write share that transaction. With
-// stopOnDuplicate an already-recorded id ends the projection (inbox
-// semantics); without it steps 2-6 run regardless, preserving the webhook's
-// historical ProcessEvent behaviour.
-func project(ctx context.Context, st *store.Store, ev SwapEvent, stopOnDuplicate bool) (bool, error) {
-	now := shareddb.NowSeconds()
-
+// project runs steps 1-6 against a transaction-bound store. The inbox insert
+// and every derived write commit together; duplicates never repeat an effect.
+func project(ctx context.Context, st *store.Store, ev SwapEvent, now int64) (bool, error) {
 	// 1. Record transaction (idempotent on txHash-logIndex).
 	inserted, err := st.RecordTransaction(ctx, store.TransactionRow{
 		ID:             fmt.Sprintf("%s-%d", ev.TxHash, ev.LogIndex),
@@ -95,7 +129,7 @@ func project(ctx context.Context, st *store.Store, ev SwapEvent, stopOnDuplicate
 		BlockTimestamp: ev.BlockTimestamp,
 		TxHash:         ev.TxHash,
 	})
-	if err != nil || (stopOnDuplicate && !inserted) {
+	if err != nil || !inserted {
 		return false, err
 	}
 

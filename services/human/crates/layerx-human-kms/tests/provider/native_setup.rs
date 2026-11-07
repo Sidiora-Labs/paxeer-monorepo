@@ -1,57 +1,15 @@
 use super::{
-    checked, construct_signing_call, encoded_disclosure, evm_signing_request, facts, registry,
-    request, verify_evm_signature, Host, Result,
+    checked, encoded_disclosure, evm_signing_request, facts, registry, request,
+    verify_evm_signature, Host, Result,
 };
 use layerx_crypto::disclosure::{
     DisclosedNativeBudgetCreate, DisclosedNativeOperation, Disclosure, DisclosureError,
 };
 use layerx_crypto::onboarding::OnboardingConsent;
+use layerx_human_kms::call::{bind_call, CallBinding};
 use layerx_intents::canonical as hash;
-use layerx_types::account::AccountId;
 use layerx_types::ids::Did;
-use layerx_types::payload::{ActivityType, ModuleId, Payload};
-
-fn qualification_finding(message: impl std::fmt::Display) -> Result<()> {
-    use std::io::Write as _;
-    writeln!(std::io::stderr(), "qualification finding: {message}")?;
-    Ok(())
-}
-
-fn account(name: &str) -> Result<[u8; 32]> {
-    checked(hash::account_id_for_protocol(
-        &checked(AccountId::parse(name))?,
-        3,
-    ))
-}
-
-fn payload(module: ModuleId, ordinal: u16, bytes: &[u8]) -> Result<Payload> {
-    checked(Payload::new(
-        &registry()?,
-        checked(ActivityType::new(module, ordinal))?,
-        bytes,
-    ))
-}
-
-fn native_budget(version: u16) -> Result<Vec<u8>> {
-    checked(layerx_intents::vectors::native_budget_create(
-        version,
-        account(&format!(
-            "agent:did:layerx:alice:budget:{}",
-            "08".repeat(32)
-        ))?,
-        account(&format!("agent:did:layerx:alice:asset:{}", "03".repeat(32)))?,
-    ))
-}
-
-fn recovery(extended: bool) -> Result<Vec<u8>> {
-    checked(layerx_intents::vectors::native_recovery_policy(
-        extended,
-        checked(hash::did_id_for_protocol(
-            &checked(Did::new(b"did:layerx:alice"))?,
-            3,
-        ))?,
-    ))
-}
+use layerx_types::payload::{ModuleId, Payload};
 
 pub(super) fn mutated_native(disclosure: &Disclosure) -> Vec<Disclosure> {
     let mutations: &[fn(&mut DisclosedNativeBudgetCreate)] = &[
@@ -118,134 +76,90 @@ pub(super) fn mutated_native(disclosure: &Disclosure) -> Vec<Disclosure> {
 }
 
 fn sign_setup(
+    kind: &str,
     host: &Host,
     (binding, handle, _public): ([u8; 32], &[u8], [u8; 32]),
-    (canonical, _call_disclosure): &(Vec<u8>, Disclosure),
-    disclosure: &Disclosure,
+    (canonical, _call_disclosure): &(Vec<u8>, CallBinding),
+    disclosure: &CallBinding,
 ) -> Result<[u8; 65]> {
-    let encoded = encoded_disclosure(disclosure)?;
+    let encoded = disclosure.disclosure_bytes()?;
     let (request, digest) = evm_signing_request(host, binding, handle, canonical, &encoded)?;
     let response = host.call(&request)?;
-    assert_eq!(response[7], 0);
-    assert_eq!(response.len(), 73);
-    verify_evm_signature(host, handle, &digest, &response[8..])?;
-    for changed in mutated_native(disclosure) {
-        assert_eq!(
-            changed.reencode(),
-            Err(DisclosureError::FieldMismatch("native_operation"))
-        );
-        assert_eq!(
-            host.call(
-                &evm_signing_request(
-                    host,
-                    binding,
-                    handle,
-                    canonical,
-                    &encoded_disclosure(&changed)?
-                )?
-                .0
-            )?[7],
-            1
-        );
-    }
-    if disclosure.onboarding.is_some() {
-        assert_eq!(encoded[0], 4);
-        let mut changed = encoded.clone();
-        let last = changed.len() - 1;
-        changed[last] ^= 1;
-        assert_eq!(
-            host.call(&evm_signing_request(host, binding, handle, canonical, &changed)?.0)?[7],
-            1
-        );
+    assert_eq!(response[7], 0, "native creation {kind} signing refused");
+    assert_eq!(
+        response.len(),
+        73,
+        "native creation {kind} signature length"
+    );
+    verify_evm_signature(host, binding, handle, &digest, &response[8..])?;
+    if let Some(shared) = disclosure.shared_disclosure() {
+        for changed in mutated_native(shared) {
+            assert_eq!(
+                changed.reencode(),
+                Err(DisclosureError::FieldMismatch("native_operation"))
+            );
+            assert_eq!(
+                host.call(
+                    &evm_signing_request(
+                        host,
+                        binding,
+                        handle,
+                        canonical,
+                        &encoded_disclosure(&changed)?
+                    )?
+                    .0
+                )?[7],
+                1
+            );
+        }
+        if shared.onboarding.is_some() {
+            assert_eq!(encoded[0], 4);
+            let mut changed = encoded.clone();
+            let last = changed.len() - 1;
+            changed[last] ^= 1;
+            assert_eq!(
+                host.call(&evm_signing_request(host, binding, handle, canonical, &changed)?.0)?[7],
+                1
+            );
+        }
+    } else {
+        assert_eq!(encoded[0], 1, "native consent account-commitment view");
+        for index in [0, 1, 9, 33, encoded.len() - 1] {
+            let mut changed = encoded.clone();
+            changed[index] ^= 1;
+            assert_eq!(
+                host.call(&evm_signing_request(host, binding, handle, canonical, &changed)?.0)?[7],
+                1,
+                "native consent disclosure corruption {index}"
+            );
+        }
     }
     Ok(response[8..].try_into()?)
 }
 
-pub(super) fn setup_call(
-    payload: Payload,
-    (sequence, fee): (u64, u128),
-) -> Result<layerx_crypto::evm_transaction::Eip1559Call> {
-    use layerx_crypto::disclosure::call::ledger_selector;
-    let bytes = payload.as_bytes();
-    let (suffix, data) = match payload.activity_type().module() {
-        ModuleId::Budget => {
-            if bytes.len() != 211 {
-                let version = bytes
-                    .get(..2)
-                    .map(|bytes| u16::from_be_bytes([bytes[0], bytes[1]]))
-                    .ok_or("truncated budget version")?;
-                return Err(format!(
-                    "budget version {version} has no budgetCreate call form for {} bytes",
-                    bytes.len()
-                )
-                .into());
-            }
-            let mut data = ledger_selector("budgetCreate(bytes32,bytes32,bytes32,bytes32,uint128,uint128,uint128,uint64,uint64,uint64,uint64,uint8)").to_vec();
-            for (start, length) in [
-                (2, 32),
-                (34, 32),
-                (66, 32),
-                (98, 32),
-                (130, 16),
-                (146, 16),
-                (162, 16),
-                (178, 8),
-                (186, 8),
-                (194, 8),
-                (202, 8),
-                (210, 1),
-            ] {
-                let mut word = [0; 32];
-                word[32 - length..]
-                    .copy_from_slice(bytes.get(start..start + length).ok_or("truncated budget")?);
-                data.extend(word);
-            }
-            (0x1b, data)
-        }
-        ModuleId::Governance => {
-            let mut data = ledger_selector("recordLifecycle(bytes,bytes32)").to_vec();
-            let mut offset = [0; 32];
-            offset[31] = 64;
-            data.extend(offset);
-            data.extend([4; 32]);
-            let mut length = [0; 32];
-            length[24..].copy_from_slice(&(bytes.len() as u64).to_be_bytes());
-            data.extend(length);
-            data.extend(bytes);
-            data.resize(4 + 96 + bytes.len().div_ceil(32) * 32, 0);
-            (0x1c, data)
-        }
-        ModuleId::Asset => {
-            let payment = checked(layerx_crypto::payments::Payment::decode(
-                ModuleId::Asset,
-                payload.activity_type().ordinal(),
-                bytes,
-                b"did:layerx:alice",
-            ))?;
-            (
-                0x1a,
-                checked(layerx_crypto::disclosure::call::encode_payment_call(
-                    &payment,
-                    b"did:layerx:alice",
-                ))?,
-            )
-        }
-        _ => return Err("unsupported setup payload".into()),
-    };
-    let mut to = [0; 20];
-    to[18..].copy_from_slice(&[0x10, suffix]);
-    Ok(layerx_crypto::evm_transaction::Eip1559Call {
-        chain_id: 125,
-        nonce: sequence,
-        max_priority_fee_per_gas: 0,
-        max_fee_per_gas: fee,
-        gas_limit: 1,
-        to,
-        data,
-    })
+#[path = "native_setup_vectors.rs"]
+mod vectors;
+pub(super) use vectors::setup_call;
+use vectors::{creation_cases, creation_limits, native_budget, payload, recovery, CREATION_KINDS};
+
+fn construct_signing_call(
+    call: &layerx_crypto::evm_transaction::Eip1559Call,
+    from: [u8; 20],
+) -> Result<(Vec<u8>, CallBinding)> {
+    let bound = bind_call(call, from)?;
+    let canonical = bound.reencode()?;
+    assert_eq!(
+        canonical,
+        layerx_human_kms::attestor::unsigned_evm_transaction(call)
+    );
+    Ok((canonical, bound))
 }
 
-fn setup_disclosure(_public: [u8; 32], payload: &Payload, call: &Disclosure) -> Result<Disclosure> {
+fn setup_disclosure(
+    _public: [u8; 32],
+    payload: &Payload,
+    call: &CallBinding,
+) -> Result<CallBinding> {
     use layerx_crypto::disclosure::call::ConstructMethod;
     match call.construct_method()? {
         Some(ConstructMethod::AuthLifecycle {
@@ -264,59 +178,44 @@ fn setup_disclosure(_public: [u8; 32], payload: &Payload, call: &Disclosure) -> 
 
 #[test]
 fn native_creation_disclosures_sign_through_real_kms_before_and_after_restart() -> Result<()> {
-    let mut host = Host::new()?;
+    let mut host = Host::for_bindings(&[75])?;
     let target_binding = [75; 32];
     let (target_handle, target_public) =
         facts(&host.call(&request(1, target_binding, &[], None)?)?)?;
     let target = (target_binding, target_handle.as_slice(), target_public);
-    // Kernel Governance::OnboardingConsent has no recordLifecycle call form.
-    let consent = OnboardingConsent {
-        sponsor: checked(hash::did_id_for_protocol(
-            &checked(Did::new(b"did:layerx:sponsor"))?,
-            3,
-        ))?,
-        target: checked(Did::new(b"did:layerx:alice"))?,
-        target_public_key: target_public,
-        native_asset: [3; 32],
-        action_key: [4; 32],
-        expires_at: 1010,
-    };
-    let mut target_operations = vec![payload(
-        ModuleId::Governance,
-        1,
-        &checked(consent.payload())?,
-    )?];
-    for extended in [false, true] {
-        target_operations.push(payload(ModuleId::Governance, 3, &recovery(extended)?)?);
-    }
-    target_operations.push(payload(ModuleId::Budget, 1, &native_budget(1)?)?);
-    let opening = checked(
-        layerx_crypto::payments::Payment::OpenAccount { asset: [3; 32] }
-            .encode(b"did:layerx:alice"),
-    )?;
-    target_operations.push(payload(ModuleId::Asset, 4, &opening)?);
-    let sender = host.sender(&target_handle)?;
+    let target_operations = creation_cases(target_public)?;
+    assert_eq!(
+        target_operations
+            .iter()
+            .map(|(kind, _)| *kind)
+            .collect::<Vec<_>>(),
+        CREATION_KINDS,
+        "declared native creation inventory"
+    );
+    let sender = host.sender(target_binding, &target_handle)?;
     let mut calls = Vec::new();
 
-    for payload in &target_operations {
-        let activity = payload.activity_type();
-        let limits = if activity.module() == ModuleId::Governance && activity.ordinal() == 1 {
-            (0, 0)
-        } else {
-            (7, 1)
-        };
-        match construct_signing_call(&setup_call(payload.clone(), limits)?, sender) {
-            Ok(call) => calls.push((payload.clone(), call)),
-            Err(error) => qualification_finding(format!(
-                "native creation {activity:?}, payload shape {:02x?}/{} refused by bind_call: {error}",
-                &payload.as_bytes()[..4], payload.as_bytes().len()
-            ))?,
-        }
+    for (kind, payload) in &target_operations {
+        let call = construct_signing_call(
+            &setup_call(payload.clone(), creation_limits(payload))?,
+            sender,
+        )
+        .map_err(|error| format!("native creation {kind} refused by bind_call: {error}"))?;
+        calls.push((*kind, payload.clone(), call));
     }
-    assert!(!calls.is_empty(), "no native creation call binds");
-    let (initial_payload, initial_call) = &calls[0];
+    assert_eq!(
+        calls.iter().map(|(kind, _, _)| *kind).collect::<Vec<_>>(),
+        CREATION_KINDS
+    );
+    let (initial_kind, initial_payload, initial_call) = &calls[0];
     let initial_disclosure = setup_disclosure(target_public, initial_payload, &initial_call.1)?;
-    let signature = sign_setup(&host, target, &initial_call, &initial_disclosure)?;
+    let signature = sign_setup(
+        initial_kind,
+        &host,
+        target,
+        &initial_call,
+        &initial_disclosure,
+    )?;
     let mut first = Vec::new();
     for pass in 0..2 {
         if pass == 1 {
@@ -324,21 +223,25 @@ fn native_creation_disclosures_sign_through_real_kms_before_and_after_restart() 
             host.start()?;
         }
         let mut signatures = Vec::new();
-        for (payload, _) in &calls {
-            let limits = if payload.activity_type().module() == ModuleId::Governance
-                && payload.activity_type().ordinal() == 1
-            {
-                (0, 0)
-            } else {
-                (7, 1)
-            };
+        let mut covered = Vec::new();
+        for (kind, payload, _) in &calls {
             let call = construct_signing_call(
-                &setup_call(payload.clone(), limits)?,
-                host.sender(&target_handle)?,
-            )?;
-            let disclosure = setup_disclosure(target_public, payload, &call.1)?;
-            signatures.push(sign_setup(&host, target, &call, &disclosure)?);
+                &setup_call(payload.clone(), creation_limits(payload))?,
+                host.sender(target_binding, &target_handle)?,
+            )
+            .map_err(|error| format!("native creation {kind}, pass {pass}: bind_call: {error}"))?;
+            let disclosure =
+                setup_disclosure(target_public, payload, &call.1).map_err(|error| {
+                    format!("native creation {kind}, pass {pass}: disclosure: {error}")
+                })?;
+            signatures.push(sign_setup(kind, &host, target, &call, &disclosure)?);
+            covered.push(*kind);
         }
+        assert_eq!(
+            covered, CREATION_KINDS,
+            "native creation coverage on pass {pass}"
+        );
+        assert_eq!(signatures.len(), CREATION_KINDS.len());
         assert_eq!(signatures[0], signature);
         if pass == 0 {
             first = signatures;
@@ -378,7 +281,7 @@ fn native_setup_refuses_wrong_accounts_limits_and_payload_shapes() -> Result<()>
         corruptions.push(changed);
         for (index, bytes) in corruptions.into_iter().enumerate() {
             let call = setup_call(payload(ModuleId::Budget, 1, &bytes)?, (7, 1))?;
-            let result = layerx_crypto::disclosure::call::bind_call(&call, [0x41; 20]);
+            let result = bind_call(&call, [0x41; 20]);
             assert!(
                 result.is_err(),
                 "budget version {version}, corruption {index} was admitted"
@@ -386,12 +289,12 @@ fn native_setup_refuses_wrong_accounts_limits_and_payload_shapes() -> Result<()>
         }
         let mut trailing = setup_call(payload(ModuleId::Budget, 1, &original)?, (7, 1))?;
         trailing.data.push(0);
-        assert!(layerx_crypto::disclosure::call::bind_call(&trailing, [0x41; 20]).is_err());
+        assert!(bind_call(&trailing, [0x41; 20]).is_err());
     }
-    let host = Host::new()?;
+    let host = Host::for_bindings(&[76])?;
     let binding = [76; 32];
     let (handle, _) = facts(&host.call(&request(1, binding, &[], None)?)?)?;
-    let sender = host.sender(&handle)?;
+    let sender = host.sender(binding, &handle)?;
     let valid = recovery(false)?;
     let valid_call = setup_call(payload(ModuleId::Governance, 3, &valid)?, (7, 1))?;
     let mut malformed_calls = Vec::new();
@@ -419,31 +322,33 @@ fn native_setup_refuses_wrong_accounts_limits_and_payload_shapes() -> Result<()>
     }
     for (index, call) in malformed_calls.iter().enumerate() {
         assert!(
-            layerx_crypto::disclosure::call::bind_call(call, sender).is_err(),
+            bind_call(call, sender).is_err(),
             "lifecycle shape corruption {index} was admitted"
         );
     }
-    for (start, length) in [(4, 32), (36, 32), (68, 2)] {
-        let mut bytes = valid.clone();
-        bytes[start..start + length].fill(0);
-        let call = setup_call(payload(ModuleId::Governance, 3, &bytes)?, (7, 1))?;
-        let (canonical, disclosure) = construct_signing_call(&call, sender)?;
-        let (request, digest) = evm_signing_request(
-            &host,
-            binding,
-            &handle,
-            &canonical,
-            &encoded_disclosure(&disclosure)?,
-        )?;
-        let response = host.call(&request)?;
-        if response[7] == 0 {
-            qualification_finding(format!(
-                "provider signs recordLifecycle recovery body with bytes {start}..{} zeroed",
-                start + length
-            ))?;
-            verify_evm_signature(&host, &handle, &digest, &response[8..])?;
-        } else {
-            assert_eq!(response[7], 1, "recovery body corruption refusal");
+    for extended in [false, true] {
+        for (field, start, length) in [
+            ("did_id", 4, 32),
+            ("recovery_root", 36, 32),
+            ("threshold", 68, 2),
+        ] {
+            let mut bytes = recovery(extended)?;
+            bytes[start..start + length].fill(0);
+            let call = setup_call(payload(ModuleId::Governance, 3, &bytes)?, (7, 1))?;
+            let (canonical, disclosure) = construct_signing_call(&call, sender)?;
+            let (request, _) = evm_signing_request(
+                &host,
+                binding,
+                &handle,
+                &canonical,
+                &disclosure.disclosure_bytes()?,
+            )?;
+            let response = host.call(&request)?;
+            assert_eq!(
+                response.as_slice(),
+                b"LXKP\0\x07\x05\x01",
+                "zeroed recovery {field}, extended={extended} must return only the LXKP Refused response"
+            );
         }
     }
     let consent = OnboardingConsent {
@@ -462,7 +367,7 @@ fn native_setup_refuses_wrong_accounts_limits_and_payload_shapes() -> Result<()>
             payload(ModuleId::Governance, 1, &checked(consent.payload())?)?,
             (sequence, fee),
         )?;
-        assert!(layerx_crypto::disclosure::call::bind_call(&call, [0x41; 20]).is_err());
+        assert!(bind_call(&call, [0x41; 20]).is_err());
     }
     Ok(())
 }

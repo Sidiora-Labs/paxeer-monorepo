@@ -3,19 +3,20 @@ use layerx_agent_api::export::{FactRef, OfflineExport};
 use layerx_agent_api::prepare::CanonicalBytes;
 use layerx_agent_api::proof::ProofBundle;
 use layerx_agentd::export::{
-    build, decode_header, decode_validators, encode_commit, encode_header, encode_validators,
-    verify, ExportTrustSource,
+    build, decode_header, decode_validators, encode_commit, encode_header,
+    encode_storage_witnesses, encode_validators, verify, ExportTrustSource,
 };
 use layerx_agentd::read::{
     validator_set_hash, BlockCommit, BlockId, CheckpointHeader, CommitTimestamp, CommitValidator,
     CommitVote,
 };
-use layerx_client::sequencer::ReceiptKeyEntry;
+use layerx_client::sequencer::{ReceiptKeyEntry, SequencerEndpoint};
 use layerx_crypto::evm_transaction::{transaction_hash, Eip1559Call};
 use layerx_types::rung::Rung;
 use layerx_wire::encode::Encoder;
 use layerx_wire::hash::receipt_digest;
-use layerx_wire::limits::{MAX_MESSAGE_BYTES, MAX_SEQUENCER_EFFECTS, PROTOCOL_VERSION};
+use layerx_wire::limits::MAX_MESSAGE_BYTES;
+use serde_json::{json, Value};
 use sha2::{Digest as _, Sha256};
 
 pub fn must<T, E: std::fmt::Debug>(value: Result<T, E>) -> T {
@@ -42,6 +43,57 @@ pub fn rlp(payload: &[u8], list: bool) -> Vec<u8> {
     out
 }
 
+pub fn storage_vector() -> Value {
+    let vector: Value = must(serde_json::from_str(include_str!(
+        "../../../../../programs/tests/vectors/ics23-evm-storage-app-hash.json"
+    )));
+    vector["entries"][0].clone()
+}
+
+pub fn storage_node(
+    answers: Vec<(&'static str, Value, Value)>,
+) -> (SequencerEndpoint, std::thread::JoinHandle<()>) {
+    use std::io::{BufRead, BufReader, Read, Write};
+    use std::net::TcpListener;
+    use std::time::Duration;
+    let listener = must(TcpListener::bind("127.0.0.1:0"));
+    let endpoint = must(SequencerEndpoint::new(
+        &format!("http://{}", must(listener.local_addr())),
+        &[],
+    ));
+    let server = std::thread::spawn(move || {
+        for (method, params, result) in answers {
+            let (stream, _) = must(listener.accept());
+            must(stream.set_read_timeout(Some(Duration::from_secs(5))));
+            let mut reader = BufReader::new(stream);
+            let mut length = None;
+            loop {
+                let mut line = String::new();
+                assert_ne!(must(reader.read_line(&mut line)), 0);
+                if line == "\r\n" {
+                    break;
+                }
+                if let Some((name, value)) = line.split_once(':') {
+                    if name.eq_ignore_ascii_case("content-length") {
+                        length = Some(must(value.trim().parse::<usize>()));
+                    }
+                }
+            }
+            let mut bytes = vec![0; length.expect("HTTP request length")];
+            must(reader.read_exact(&mut bytes));
+            let request: Value = must(serde_json::from_slice(&bytes));
+            assert_eq!(request["jsonrpc"], "2.0");
+            assert_eq!(request["method"], method);
+            assert_eq!(request["params"], params);
+            let body = json!({"jsonrpc":"2.0", "id": request["id"], "result": result}).to_string();
+            let mut stream = reader.into_inner();
+            must(write!(stream, "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}", body.len()));
+            must(stream.flush());
+        }
+    });
+    (endpoint, server)
+}
+
 pub struct Fixture {
     pub artifact: OfflineExport,
     pub trust: ExportTrustSource,
@@ -53,81 +105,75 @@ pub struct Fixture {
     pub receipt_path: Vec<Vec<u8>>,
     pub account_id: [u8; 32],
     pub account_proof: Vec<u8>,
+    pub storage: Vec<layerx_client::sequencer::StorageWitness>,
 }
 
 fn signed_receipt(activity: [u8; 32], height: u64, status: bool, key: &SigningKey) -> Vec<u8> {
-    let encode = |signature: Option<[u8; 64]>| {
-        let mut summary = Vec::new();
-        summary.extend_from_slice(&21_000_u64.to_be_bytes());
-        summary.extend_from_slice(&21_000_u64.to_be_bytes());
-        summary.extend_from_slice(&1_u64.to_be_bytes());
-        summary.extend_from_slice(&0_u32.to_be_bytes());
-        summary.extend_from_slice(&[0; 40]);
-        summary.extend_from_slice(&Sha256::digest(b""));
-        summary.extend_from_slice(&0_u32.to_be_bytes());
-        summary.extend_from_slice(&0_u32.to_be_bytes());
-        summary.push(4);
-        summary.extend_from_slice(b"upax");
-        let sequence_hash: [u8; 32] = Sha256::digest(
-            [
-                b"PAXEER/v1/sequence\0".as_slice(),
-                &[4; 32],
-                &7_u64.to_be_bytes(),
-                &activity,
-            ]
-            .concat(),
-        )
-        .into();
-        let mut block = [0; 32];
-        block[24..].copy_from_slice(&height.to_be_bytes());
-        let mut from = [0; 32];
-        from[12..].copy_from_slice(&[0xaa; 20]);
-        let mut to = [0; 32];
-        to[12..].copy_from_slice(&[0xbb; 20]);
-        let mut encoder = Encoder::new(MAX_MESSAGE_BYTES);
-        must(encoder.structure_header_version(0x5201, PROTOCOL_VERSION));
-        must(encoder.u16(PROTOCOL_VERSION));
-        must(encoder.bytes(&activity, 32));
-        must(encoder.u64(7));
-        must(encoder.bytes(&[4; 32], 32));
-        must(encoder.bytes(&sequence_hash, 32));
-        must(encoder.bytes(&Sha256::digest(b""), 32));
-        must(encoder.i32(if status { 0 } else { -1 }));
-        must(encoder.sequence_length(1, MAX_SEQUENCER_EFFECTS));
-        must(encoder.u16(12));
-        must(encoder.u16(0));
-        must(encoder.u16(0));
-        must(encoder.tag(1, 3));
-        must(encoder.u8(0));
-        must(encoder.bytes(&[0; 32], 32));
-        must(encoder.bytes(&summary, 256));
-        must(encoder.u128(21_000));
-        must(encoder.bytes(&block, 32));
-        must(encoder.u16(12));
-        must(encoder.u32(1));
-        must(encoder.u32(0));
-        must(encoder.u8(2));
-        must(encoder.bytes(&Sha256::digest(b"upax"), 32));
-        must(encoder.u128(1));
-        must(encoder.bytes(&from, 32));
-        must(encoder.u128(100));
-        must(encoder.u128(99));
-        must(encoder.u64(1));
-        must(encoder.bytes(&to, 32));
-        must(encoder.u128(10));
-        must(encoder.u128(11));
-        must(encoder.bytes(&[0; 32], 32));
-        must(encoder.bytes(&[0; 32], 32));
-        must(encoder.bytes(&[0x33; 32], 32));
-        must(encoder.u64(1_750_000_000_250));
-        must(encoder.u8(u8::from(signature.is_some())));
-        if let Some(signature) = signature {
-            must(encoder.bytes(&signature, 64));
-        }
-        encoder.finish()
+    use layerx_wire::receipt::{decode, encode, encode_unsigned};
+    let vectors: serde_json::Value = must(serde_json::from_str(include_str!(
+        "../../../../../sdk/platform/conformance/fixtures/sequencer-receipt-v1.json"
+    )));
+    let id = if status {
+        "V1-pax-transfer"
+    } else {
+        "V2-layerxledger-revert"
     };
-    let digest = must(receipt_digest(&encode(None)));
-    encode(Some(key.sign(&digest).to_bytes()))
+    let vector = vectors["cases"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|case| case["id"] == id)
+        .unwrap();
+    let recorded = must(hex::decode(
+        vector["signedReceipt"]
+            .as_str()
+            .unwrap()
+            .strip_prefix("0x")
+            .unwrap(),
+    ));
+    let decoded = must(decode(&recorded));
+    assert_eq!(must(encode(&decoded)), recorded);
+    let source = decoded.protocol().unwrap();
+    let mut unsigned = must(encode_unsigned(&decoded));
+
+    // Rebind the committed node transcript's identifiers, keeping its effect layout.
+    fn replace(bytes: &mut [u8], before: [u8; 32], after: [u8; 32]) {
+        let offsets: Vec<_> = bytes
+            .windows(32)
+            .enumerate()
+            .filter_map(|(offset, value)| (value == before).then_some(offset))
+            .collect();
+        assert_eq!(offsets.len(), 1, "unique transcript field");
+        bytes[offsets[0]..offsets[0] + 32].copy_from_slice(&after);
+    }
+    let resulting = Sha256::digest(
+        [
+            b"PAXEER/v1/sequence\0".as_slice(),
+            &source.previous_state_root(),
+            &source.global_sequence().to_be_bytes(),
+            &activity,
+        ]
+        .concat(),
+    )
+    .into();
+    let mut batch = [0; 32];
+    batch[24..].copy_from_slice(&height.to_be_bytes());
+    replace(&mut unsigned, source.activity_id(), activity);
+    replace(&mut unsigned, source.resulting_state_root(), resulting);
+    replace(&mut unsigned, source.batch_id(), batch);
+    replace(&mut unsigned, source.context_hash(), [0x33; 32]);
+    let decoded = must(decode(&unsigned));
+    let protocol = decoded.protocol().unwrap();
+    assert_eq!(protocol.activity_id(), activity);
+    assert_eq!(protocol.batch_id(), batch);
+    assert_eq!(protocol.result_code() == 0, status);
+    let unsigned = must(encode_unsigned(&decoded));
+    let digest = must(receipt_digest(&unsigned));
+    let mut signed = Encoder::new(MAX_MESSAGE_BYTES);
+    must(signed.fixed(&unsigned[..unsigned.len() - 1]));
+    must(signed.u8(1));
+    must(signed.bytes(&key.sign(&digest).to_bytes(), 64));
+    must(encode(&must(decode(&signed.finish()))))
 }
 
 impl Fixture {
@@ -157,12 +203,20 @@ impl Fixture {
         let digest = must(receipt_digest(&must(
             layerx_wire::receipt::encode_unsigned(&decoded),
         )));
+        let summary = must(layerx_proof::sequencer_logs::decode_summary(&decoded));
+        let cumulative_gas = summary.cumulative_gas_used().to_be_bytes();
+        let cumulative_gas = &cumulative_gas[cumulative_gas
+            .iter()
+            .position(|byte| *byte != 0)
+            .unwrap_or(8)..];
+        let tx_index = u8::try_from(summary.tx_index()).unwrap();
+        assert!((1..128).contains(&tx_index));
         let evm_receipt = [
             &[2][..],
             &rlp(
                 &[
                     rlp(if status { &[1] } else { &[] }, false),
-                    rlp(&[0x52, 0x08], false),
+                    rlp(cumulative_gas, false),
                     rlp(&[0; 256], false),
                     rlp(&[], true),
                 ]
@@ -172,13 +226,24 @@ impl Fixture {
         ]
         .concat();
         let leaf = rlp(
-            &[rlp(&[0x30], false), rlp(&evm_receipt, false)].concat(),
+            &[
+                rlp(&[0x30 | (tx_index & 0x0f)], false),
+                rlp(&evm_receipt, false),
+            ]
+            .concat(),
             true,
         );
         let leaf_hash = transaction_hash(&leaf);
         let mut children = Vec::new();
         for index in 0..17 {
-            children.extend(rlp(if index == 8 { &leaf_hash } else { &[] }, false));
+            children.extend(rlp(
+                if index == usize::from(tx_index >> 4) {
+                    &leaf_hash
+                } else {
+                    &[]
+                },
+                false,
+            ));
         }
         let branch = rlp(&children, true);
         let receipts_root = transaction_hash(&branch);
@@ -211,42 +276,38 @@ impl Fixture {
                 }
             })
             .collect();
-        let account = [0x12; 20];
+        let vector = storage_vector();
+        let account: [u8; 20] = must(hex::decode(vector["address"].as_str().unwrap()))
+            .try_into()
+            .unwrap();
+        let slot: [u8; 32] = must(hex::decode(vector["slot"].as_str().unwrap()))
+            .try_into()
+            .unwrap();
         let mut account_id = [0; 32];
         account_id[12..].copy_from_slice(&account);
-        let storage_hash = transaction_hash(&[0x80]);
-        let code_hash = transaction_hash(&[]);
-        let account_value = rlp(
-            &[
-                rlp(&[1], false),
-                rlp(&[9], false),
-                rlp(&storage_hash, false),
-                rlp(&code_hash, false),
-            ]
-            .concat(),
-            true,
-        );
-        let account_leaf = rlp(
-            &[
-                rlp(&[&[0x20][..], &transaction_hash(&account)].concat(), false),
-                rlp(&account_value, false),
-            ]
-            .concat(),
-            true,
-        );
-        let state_root = transaction_hash(&account_leaf);
-        let account_proof = rlp(
-            &[
-                rlp(&account, false),
-                rlp(&[9], false),
-                rlp(&[1], false),
-                rlp(&storage_hash, false),
-                rlp(&code_hash, false),
-                rlp(&rlp(&account_leaf, false), true),
-            ]
-            .concat(),
-            true,
-        );
+        let (endpoint, server) = storage_node(vec![(
+            "eth_getProof",
+            json!([
+                format!("0x{}", hex::encode(account)),
+                [format!("0x{}", hex::encode(slot))],
+                format!("{height:#x}")
+            ]),
+            vector["response"].clone(),
+        )]);
+        let witnesses = must(endpoint.storage_witness(&account, &[slot], height));
+        server.join().unwrap();
+        let account_proof = must(encode_storage_witnesses(&witnesses))
+            .as_bytes()
+            .to_vec();
+        let state_root = must(hex::decode(vector["app_hash"].as_str().unwrap()))
+            .try_into()
+            .unwrap();
+        for witness in &witnesses {
+            must(layerx_client::storage_witness::verify_storage_witness(
+                witness, state_root,
+            ));
+        }
+        let storage = witnesses;
         let header = CheckpointHeader {
             version_block: 11,
             version_app: 1,
@@ -326,6 +387,7 @@ impl Fixture {
             receipt_path,
             account_id,
             account_proof,
+            storage,
         }
     }
 
@@ -339,6 +401,24 @@ impl Fixture {
             hex::encode(self.account_id)
         )));
         artifact.bundles[0].account_proof = Some(canonical(self.account_proof.clone()));
+        let artifact = must(artifact.validate());
+        assert_eq!(artifact.facts.len(), artifact.bundles.len());
+        assert_eq!(artifact.bundles.len(), 1);
+        assert_eq!(
+            must(decode_header(
+                artifact.bundles[0]
+                    .block_header
+                    .as_ref()
+                    .unwrap()
+                    .as_bytes()
+            )),
+            self.header,
+        );
+        let encoded = must(layerx_agentd::export::serialize_export(&artifact));
+        assert_eq!(
+            must(layerx_agentd::export::deserialize_export(&encoded)),
+            artifact
+        );
         artifact
     }
 }
@@ -435,5 +515,82 @@ fn offline_export_requires_complete_authenticated_inclusion() {
             state.bundles[0].validator_set.as_ref().unwrap().as_bytes()
         )),
         fixture.validators
+    );
+}
+
+#[test]
+fn state_export_uses_ics23_store_and_app_witness_and_rejects_tampering() {
+    use layerx_client::storage_witness::verify_storage_witness;
+    let fixture = Fixture::new(8, true);
+    let state = fixture.state_artifact();
+    let mut bad_root = fixture.header.app_hash;
+    bad_root[0] ^= 1;
+    assert!(verify_storage_witness(&fixture.storage[0], bad_root).is_err());
+    assert_eq!(
+        must(layerx_agentd::export::decode_storage_witnesses(
+            state.bundles[0].account_proof.as_ref().unwrap().as_bytes()
+        )),
+        fixture.storage,
+    );
+    assert!(matches!(
+        layerx_agentd::export::verify_storage_witness(&fixture.storage[0], bad_root),
+        Err(layerx_agentd::export::ExportProduceError::Contract),
+    ));
+    let mut invalid_root = state.clone();
+    let mut header = fixture.header.clone();
+    header.app_hash = bad_root;
+    let mut commit = fixture.commit.clone();
+    commit.block_id.hash = header.block_hash();
+    for index in 0..commit.votes.len() {
+        commit.votes[index].signature = SigningKey::from_bytes(&[index as u8 + 1; 32])
+            .sign(&commit.vote_sign_bytes(&header.chain_id, commit.votes[index].timestamp))
+            .to_bytes();
+    }
+    invalid_root.bundles[0].block_header = Some(canonical(encode_header(&header)));
+    invalid_root.bundles[0].commit = Some(canonical(encode_commit(&commit, &fixture.validators)));
+    assert!(matches!(
+        verify(&invalid_root, &fixture.trust),
+        Err(layerx_agentd::export::ExportProduceError::Contract),
+    ));
+    for mutation in ["key", "value", "account", "store", "app"] {
+        let mut storage = fixture.storage.clone();
+        match mutation {
+            "key" => storage[0].slot[0] ^= 1,
+            "value" => storage[0].value[0] ^= 1,
+            "account" => storage[0].address[0] ^= 1,
+            "store" => storage[0].ops[0].data[10] ^= 1,
+            _ => storage[0].ops[1].data[10] ^= 1,
+        }
+        assert!(verify_storage_witness(&storage[0], fixture.header.app_hash).is_err());
+        let mut changed = state.clone();
+        changed.bundles[0].account_proof = Some(must(encode_storage_witnesses(&storage)));
+        assert!(
+            matches!(
+                verify(&changed, &fixture.trust),
+                Err(layerx_agentd::export::ExportProduceError::Contract),
+            ),
+            "tampered {mutation} witness",
+        );
+    }
+    let mut foreign = state.clone();
+    foreign.facts[0] = must(FactRef::new(format!(
+        "state:{}:{}",
+        hex::encode(transaction_hash(
+            foreign.bundles[0].raw_transaction.as_bytes()
+        )),
+        hex::encode({
+            let mut account = fixture.account_id;
+            account[31] ^= 1;
+            account
+        })
+    )));
+    assert!(matches!(
+        verify(&foreign, &fixture.trust),
+        Err(layerx_agentd::export::ExportProduceError::Contract),
+    ));
+    // Required success assertion also guards the daemon consumer's ICS23 wiring.
+    assert_eq!(
+        must(verify(&state, &fixture.trust)).achieved_rung,
+        Rung::Committed
     );
 }
