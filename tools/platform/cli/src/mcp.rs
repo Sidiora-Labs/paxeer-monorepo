@@ -113,7 +113,22 @@ impl InstalledSession {
 
 /// Serves the live daemon's catalogue, optionally narrowed to read-only tools.
 pub fn serve(binding: &Path, read_only: bool) -> Result<(), String> {
+    serve_io(
+        binding,
+        read_only,
+        &mut io::stdin().lock(),
+        &mut io::stdout().lock(),
+    )
+}
+
+/// Runs the same installed stdio protocol with caller-owned streams.
+pub fn serve_io<R: BufRead, W: Write>(
+    binding: &Path,
+    read_only: bool,
+    reader: &mut R,
+    writer: &mut W,
+) -> Result<(), String> {
     let declared = Binding::open(binding).map_err(|error| error.detail())?;
     let mut session = InstalledSession::open(&declared, read_only)?;
-    session.serve(&mut io::stdin().lock(), &mut io::stdout().lock())
+    session.serve(reader, writer)
 }

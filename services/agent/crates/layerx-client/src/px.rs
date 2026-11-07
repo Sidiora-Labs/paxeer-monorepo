@@ -1,12 +1,38 @@
-//! Hosted gateway reads. Each public read crosses the JSON-RPC transport
-//! again; this endpoint retains neither account state nor a cached network head.
+//! Node-root reads and explicitly configured hosted service operations.
+//!
+//! The recommended mainnet endpoint is `https://api1.mainnet-beta.paxeer.network/`;
+//! api2 through api14 serve the same root interface. Each read crosses the
+//! transport again. Registration and funding require a separate hosted endpoint.
 
 use serde_json::{json, Map, Value};
 
 use crate::sequencer::{SequencerEndpoint, SequencerError};
 
+pub const DEFAULT_NODE_ENDPOINT: &str = "https://api1.mainnet-beta.paxeer.network/";
+
+pub const NODE_READ_METHODS: [&str; 15] = [
+    "px_resolveAccount",
+    "px_getAccount",
+    "px_getBalances",
+    "px_listAssets",
+    "px_getNetwork",
+    "px_getCapabilities",
+    "px_getRouteCatalogue",
+    "px_getHistory",
+    "px_getUnifiedHistory",
+    "px_listHolderRecords",
+    "px_getCommit",
+    "px_getValidators",
+    "px_getReceiptKeys",
+    "px_getSequenceBatch",
+    "pax_sequencerReceipt",
+];
+
 #[derive(Debug)]
-pub struct PxEndpoint(SequencerEndpoint);
+pub struct PxEndpoint {
+    node: SequencerEndpoint,
+    gateway: Option<SequencerEndpoint>,
+}
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct PxResolvedIdentities {
@@ -141,32 +167,66 @@ pub struct PxNetworkHead {
 
 impl From<SequencerEndpoint> for PxEndpoint {
     fn from(endpoint: SequencerEndpoint) -> Self {
-        Self(endpoint)
+        Self {
+            node: endpoint,
+            gateway: None,
+        }
     }
 }
 
 impl PxEndpoint {
     pub fn new(url: &str, trust_anchors: &[&[u8]]) -> Result<Self, SequencerError> {
-        SequencerEndpoint::new(url, trust_anchors).map(Self)
+        SequencerEndpoint::new_node(url, trust_anchors).map(Self::from)
+    }
+
+    /// Uses the node for every served read and the gateway only for the two
+    /// hosted service operations. A node refusal never retries on the gateway.
+    pub fn with_gateway(
+        node_url: &str,
+        node_trust_anchors: &[&[u8]],
+        gateway_url: &str,
+        gateway_trust_anchors: &[&[u8]],
+    ) -> Result<Self, SequencerError> {
+        Ok(Self {
+            node: SequencerEndpoint::new_node(node_url, node_trust_anchors)?,
+            gateway: Some(SequencerEndpoint::new(gateway_url, gateway_trust_anchors)?),
+        })
+    }
+
+    pub fn node(&self) -> &SequencerEndpoint {
+        &self.node
+    }
+
+    pub fn call(&self, method: &str, params: &Value) -> Result<Value, SequencerError> {
+        if NODE_READ_METHODS.contains(&method) {
+            self.node.call_raw(method, params)
+        } else if matches!(method, "px_register" | "px_requestFunds") {
+            self.gateway
+                .as_ref()
+                .ok_or(SequencerError::Endpoint)?
+                .call_raw(method, params)
+        } else {
+            Err(SequencerError::Endpoint)
+        }
     }
 
     pub fn account(&self, account: &str) -> Result<PxAccountJoin, SequencerError> {
-        let result = self.0.call_raw("px_getAccount", &json!([account]))?;
+        let result = self.call("px_getAccount", &json!([account]))?;
         decode_account(&result).ok_or(SequencerError::Malformed)
     }
 
     pub fn balances(&self, account: &str) -> Result<PxAccountBalances, SequencerError> {
-        let result = self.0.call_raw("px_getBalances", &json!([account]))?;
+        let result = self.call("px_getBalances", &json!([account]))?;
         decode_balances(&result).ok_or(SequencerError::Malformed)
     }
 
     pub fn list_assets(&self) -> Result<PxAssetTable, SequencerError> {
-        let result = self.0.call_raw("px_listAssets", &json!([]))?;
+        let result = self.call("px_listAssets", &json!([]))?;
         decode_assets(&result).ok_or(SequencerError::Malformed)
     }
 
     pub fn network(&self) -> Result<PxNetworkHead, SequencerError> {
-        let result = self.0.call_raw("px_getNetwork", &json!([]))?;
+        let result = self.call("px_getNetwork", &json!([]))?;
         if result.get("consensus") == Some(&Value::Null)
             && result.get("reason").and_then(Value::as_str) == Some("consensus_unavailable")
         {

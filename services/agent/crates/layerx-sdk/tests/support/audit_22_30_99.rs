@@ -314,7 +314,6 @@ impl LocalNode {
         if state["_committed"].is_null() {
             return rpc;
         }
-        let record = &state["_committed"];
         let authority = layerx_sdk::rpc_verification::node_commit::NodeCommitAuthority::new(
             "committed-fixture".to_owned(),
             vec![(
@@ -327,31 +326,8 @@ impl LocalNode {
             10,
         )
         .expect("independent validator pin");
-        let coverage = layerx_sdk::rpc_verification::node_commit::NodeCommitCoverage {
-            covering_height: 10,
-            batch_transaction: unhex(field(&record["batch"], "tx")),
-            transaction_proof: layerx_sdk::rpc_verification::node_commit::NodeTransactionProof {
-                total: record["batch"]["proof"]["total"]
-                    .as_u64()
-                    .expect("proof total"),
-                index: record["batch"]["proof"]["index"]
-                    .as_u64()
-                    .expect("proof index"),
-                aunts: record["batch"]["proof"]["aunts"]
-                    .as_array()
-                    .expect("proof aunts")
-                    .iter()
-                    .map(|v| {
-                        unhex(v.as_str().expect("aunt"))
-                            .try_into()
-                            .expect("aunt width")
-                    })
-                    .collect(),
-            },
-            activity_ids: vec![fixed_field(&record["receiptJson"], "txHash")],
-        };
-        rpc.with_node_commit_authority(authority, coverage)
-            .expect("real recorded batch inclusion")
+        rpc.with_node_commit_authority(authority)
+            .expect("independent node commit authority")
     }
     fn restart(&mut self) {
         self.server.take();
@@ -443,7 +419,12 @@ fn node_response(state: &mut Value, request: &Value) -> Value {
             }
         }
         "eth_getBlockByNumber" if !state["_committed"].is_null() => {
-            json!({"number":state["_committed"]["receiptJson"]["blockNumber"],"hash":state["_committed"]["receiptJson"]["blockHash"]})
+            json!({"number":state["_committed"]["receiptJson"]["blockNumber"],"hash":state["_committed"]["receiptJson"]["blockHash"],
+                "transactions":[state["_committed"]["receiptJson"]["txHash"]]})
+        }
+        "px_getSequenceBatch" => {
+            assert_eq!(params, &json!(["10"]));
+            state["_committed"]["batch"].clone()
         }
         "px_getCommit" => {
             assert_eq!(params, &json!(["10"]));

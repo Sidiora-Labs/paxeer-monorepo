@@ -13,7 +13,7 @@ discover templates in a package's nested `.github` directory. Open a
 [monorepo issue](https://github.com/Sidiora-Labs/paxeer-monorepo/issues/new), use
 `[QUESTION] wallet: <summary>` as the title, and copy the sections below into its body.
 
-Check the [wallet README](../../README.md) and [changelog](../../CHANGELOG.md) first.
+Check the [wallet README](../../README.md) and [changelog](../../../../docs/wallet/app/CHANGELOG.md) first.
 Use the [bug report prompts](bug_report.md) for reproducible failures or the
 [feature request prompts](feature_request.md) for proposed improvements.
 
@@ -32,7 +32,7 @@ Ask a specific question and describe the result you are trying to achieve.
 
 Paxeer mainnet-beta uses EVM chain id `125` (`0x7d`); identify any selected tenant
 domain when asking about network behavior. See the
-[network context](../../CHANGELOG.md#network-context).
+[network context](../../../../docs/wallet/app/CHANGELOG.md#network-context).
 
 Share only the context needed to answer the question. Never include recovery
 phrases, private keys, passwords, session tokens, or raw wallet storage exports.

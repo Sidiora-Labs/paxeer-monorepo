@@ -1,0 +1,10 @@
+[repair.22.31.569]
+mode = "BUILD"
+base_revision = "e57b549345dba23b1b2c1d43d767624f11aaa97f"
+decisions = ["2669"]
+gotchas = ["3250"]
+evidence = "Exact candidate revision, build and verification commands, exit codes and private logs are recorded by reference to /out/run/gates.jsonl. The final response copies the last bounded gate result; no file is amended after qualification."
+implementation = "RuntimeState preserves the first static supplement refusal site across the engine callback's SupplementRejected mapping. Both executor observer fault paths include that site, while resource and commitment-limit classifications remain intact."
+large_state = "The real authenticated ABI-v2 guest overwrites a pre-existing 4096-byte shared value with 8192 bytes, emits an event and performs three read calls under the declared 1000000 CPU budget and 128-boundary, 1048576-byte replay profile at sequence 1 and height 1000. Assertions cover successful execution, committed bytes, actual events, read usage and portable replay decoding."
+refusal = "SupplementRejected drives the same authenticated request under the minimum 512-byte replay limit, asserts the exact refusal site and proves the existing shared value remains unchanged."
+qualification_repair = "The first verification refused the assertion-heavy guest at retain_boundary_capture.source. The same five exact host-status assertions and all six read-edge assertions now run on decoded real replay boundaries, with full 8192-byte comparisons added for each read. The input remains 8192 bytes with nonzero edge markers; sparse content keeps the encoded engine states within the unchanged 1048576-byte profile. Read accounting includes each five-byte key as required by storage_read_selected."

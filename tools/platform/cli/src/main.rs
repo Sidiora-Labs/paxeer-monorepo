@@ -91,11 +91,7 @@ struct Cli {
         help = "Emit one JSON object instead of human presentation"
     )]
     json: bool,
-    #[arg(
-        long,
-        global = true,
-        help = "Public gateway JSON-RPC endpoint ending in /rpc"
-    )]
+    #[arg(long, global = true, help = "Public node JSON-RPC origin at the root")]
     rpc: Option<String>,
     #[arg(long, global = true, help = "Stored gateway credential alias")]
     gateway_credential: Option<String>,
@@ -198,6 +194,8 @@ enum KeyCommand {
         #[arg(long)]
         did: Option<String>,
     },
+    /// Copy a legacy OS key into this configuration after verifying its public key.
+    MigrateLegacy { name: String },
     /// List public key metadata without opening secret material.
     List,
     /// Show public metadata for one key.
@@ -367,6 +365,8 @@ enum ProgramCommand {
 #[derive(Args)]
 struct ProgramLifecycleArgs {
     #[arg(long)]
+    receipt_policy: PathBuf,
+    #[arg(long)]
     program_id: String,
     #[arg(long)]
     evm_key_file: PathBuf,
@@ -422,6 +422,8 @@ enum ProgramInterfaceCommand {
         artifact: PathBuf,
         #[arg(long)]
         evm_key_file: PathBuf,
+        #[arg(long)]
+        receipt_policy: PathBuf,
         #[arg(long, default_value = "0")]
         fee_limit: String,
         #[arg(long)]
@@ -548,6 +550,10 @@ enum A2aCommand {
         #[arg(long)]
         gateway_credential: String,
         #[arg(long)]
+        faucet_endpoint: Option<String>,
+        #[arg(long)]
+        receipt_policy: Option<PathBuf>,
+        #[arg(long)]
         source_account: Option<String>,
         #[arg(long)]
         asset: Option<String>,
@@ -651,6 +657,8 @@ fn run(
                 environment,
                 key,
                 gateway_credential,
+                faucet_endpoint,
+                receipt_policy,
                 source_account,
                 asset,
                 listen,
@@ -662,6 +670,8 @@ fn run(
                 a2a::serve(
                     &configuration,
                     a2a::ServeRequest {
+                        receipt_policy: receipt_policy.as_deref(),
+                        faucet_endpoint: faucet_endpoint.as_deref(),
                         gateway_credential: &gateway_credential,
                         key,
                         source: source_account.as_deref(),
@@ -896,6 +906,14 @@ fn key(command: KeyCommand) -> Result<CommandOutput, String> {
                 json!({"name": name, "did": metadata.did, "public_key": metadata.public_key}),
             ))
         }
+        KeyCommand::MigrateLegacy { name } => {
+            credential::migrate_legacy_key(&configuration, &name)?;
+            Ok(CommandOutput::new(
+                "key.migrated",
+                "Migrated verified legacy key into this configuration",
+                json!({"name": name}),
+            ))
+        }
         KeyCommand::List => {
             let values = configuration
                 .keys
@@ -1094,14 +1112,16 @@ fn execute_program_lifecycle(
 ) -> Result<CommandOutput, String> {
     let configuration = Configuration::load()?;
     let (environment, client) = program_client(&configuration, rpc, gateway)?;
+    let policy = programs::read_lifecycle_policy(&signing.receipt_policy)?;
     let request = programs::EvmLifecycleRequest {
+        policy: &policy,
         program_id: &signing.program_id,
         fee_limit: &signing.fee_limit,
         key_file: &signing.evm_key_file,
     };
     Ok(CommandOutput::new(
         "program.lifecycle",
-        format!("Programs lifecycle outcome on {environment}"),
+        format!("Programs lifecycle status on {environment}"),
         operation(&client, &request)?,
     ))
 }
@@ -1235,6 +1255,7 @@ fn interface(
             interface,
             artifact,
             evm_key_file,
+            receipt_policy,
             fee_limit,
             idempotency_key,
         } => Ok(CommandOutput::new(
@@ -1243,6 +1264,7 @@ fn interface(
             programs::interface_publish(
                 &client,
                 &programs::EvmLifecycleRequest {
+                    policy: &programs::read_lifecycle_policy(&receipt_policy)?,
                     program_id: &program_id,
                     fee_limit: &fee_limit,
                     key_file: &evm_key_file,
@@ -1422,23 +1444,14 @@ fn chain_command(
     gateway: Option<&str>,
 ) -> Result<CommandOutput, String> {
     let configuration = Configuration::load()?;
-    let (environment_name, environment) = configuration.active_environment()?;
-    let base = match rpc {
-        Some(url) => url
-            .strip_suffix("/rpc")
-            .ok_or("chains RPC URL must end in /rpc")?,
-        None => environment
-            .endpoint
-            .trim_end_matches('/')
-            .strip_suffix("/rpc")
-            .unwrap_or(environment.endpoint.trim_end_matches('/')),
-    };
+    let (_environment_name, environment) = configuration.active_environment()?;
+    let base = chains::node_endpoint(rpc.unwrap_or(&environment.endpoint))?;
     let client = match gateway {
         Some(alias) => layerx_platform_cli::http::Client::new_gateway(
             base,
             credential::gateway(alias)?.ok_or("gateway credential does not exist")?,
         )?,
-        None => layerx_platform_cli::http::Client::new(base, credential::token(environment_name)?)?,
+        None => layerx_platform_cli::http::Client::new(base, None)?,
     };
     let (kind, message, data) = match command {
         ChainsCommand::List => ("chains.list", "Listed chains", chains::list(&client, base)?),
@@ -1455,11 +1468,16 @@ fn chain_command(
         } => {
             let key_file = evm_key_file.or_else(|| std::env::var_os("LAYERX_EVM_KEY_FILE").map(PathBuf::from))
                 .ok_or("chains create requires --evm-key-file or LAYERX_EVM_KEY_FILE from wallet derive --export-private-keys")?;
-            (
-                "chains.created",
-                "Created chain",
-                chains::create(&client, base, &name, tier, fee_share_bps, &key_file)?,
-            )
+            let result = chains::create(&client, base, &name, tier, fee_share_bps, &key_file)?;
+            if matches!(result["state"].as_str(), Some("unknown" | "pending")) {
+                (
+                    "chains.pending",
+                    "Chain creation pending reconciliation",
+                    result,
+                )
+            } else {
+                ("chains.created", "Created chain", result)
+            }
         }
     };
     Ok(CommandOutput::new(kind, message, data))
@@ -1477,18 +1495,13 @@ fn program_client(
     gateway: Option<&str>,
 ) -> Result<(String, Client), String> {
     let (name, environment) = configuration.active_environment()?;
-    let endpoint = match rpc {
-        Some(value) => value.strip_suffix("/rpc").ok_or(
-            "program RPC override must name the published JSON-RPC endpoint ending in /rpc",
-        )?,
-        None => &environment.endpoint,
-    };
+    let endpoint = chains::node_endpoint(rpc.unwrap_or(&environment.endpoint))?;
     let client = match gateway {
         Some(alias) => Client::new_gateway(
             endpoint,
             credential::gateway(alias)?.ok_or("gateway credential does not exist")?,
         )?,
-        None => Client::new(endpoint, credential::token(name)?)?,
+        None => Client::new(endpoint, None)?,
     };
     Ok((name.to_owned(), client))
 }
@@ -1575,6 +1588,8 @@ mod program_arguments_tests {
             "1111111111111111111111111111111111111111111111111111111111111111",
             "--evm-key-file",
             "keys.json",
+            "--receipt-policy",
+            "receipt-policy.json",
         ]
     }
 
@@ -1771,7 +1786,7 @@ mod program_arguments_tests {
         let parsed = Cli::try_parse_from([
             "layerx",
             "--rpc",
-            "https://node.example/rpc",
+            "https://node.example/",
             "--gateway-credential",
             "testnet:program",
             "program",

@@ -29,7 +29,10 @@ use layerx_client::sequencer::{ReceiptKeyEntry, SequencerBlock, SequencerEndpoin
 use layerx_crypto::evm_transaction::transaction_hash;
 use layerx_programs::chain_proof::merkle::hash_from_byte_slices;
 use layerx_proof::receipt::AuthorizedBatch;
-use layerx_sdk::agent_envelope::{AgentEnvelopeTransport, EnvelopeCredential, EnvelopeError};
+use layerx_sdk::agent_envelope::{
+    decode_response_status, AgentEnvelopeTransport, EnvelopeCredential, EnvelopeError,
+    EnvelopeOutcome, NotReadyStatus,
+};
 use layerx_sdk::Operation;
 use openssl::asn1::Asn1Time;
 use openssl::hash::MessageDigest;
@@ -569,14 +572,21 @@ fn receipt_rpc_roundtrip_retains_absent_and_submitted_answers() {
         ],
     );
     let credential = EnvelopeCredential::new("receipt-rpc", [1; 32], [2; 32], 1).unwrap();
-    for (value, status) in [
+    for (value, status, expected_status) in [
         (
             json!({"found":false}),
             json!({"state":"absent","requested":"committed"}),
+            NotReadyStatus::Absent {
+                requested: Rung::Committed,
+            },
         ),
         (
             json!({"found":false,"submitted":{"tx_hash":format!("0x{}",hex::encode(recording.hash)),"nonce":"1"}}),
             json!({"state":"pending","requested":"committed","achieved":"submitted"}),
+            NotReadyStatus::Pending {
+                requested: Rung::Committed,
+                achieved: Rung::Submitted,
+            },
         ),
     ] {
         let (received, outcome) = transport.send_operation_recorded(Operation::ProgramReceipt, RequestId(220), &json!({
@@ -589,13 +599,24 @@ fn receipt_rpc_roundtrip_retains_absent_and_submitted_answers() {
                 json!({"request_id":"220","value":value,"verification_status":status})
             ))
         );
-        // The SDK's public status enum has only Achieved and Below. Preserve its
-        // fail-closed behavior until its owning domain adds absent/pending types.
+        // Recorded exchanges preserve not-ready success material through the
+        // compatibility error API and the public typed outcome decoder.
         assert_eq!(
             outcome,
-            Err(EnvelopeError::Decode {
-                operation: Operation::ProgramReceipt
+            Err(EnvelopeError::NotReady {
+                request_id: RequestId(220),
+                value: value.clone(),
+                status: expected_status.clone(),
             })
+        );
+        let (http_status, document) = received.unwrap();
+        assert_eq!(
+            decode_response_status(http_status, &document),
+            Some(Ok(EnvelopeOutcome::NotReady {
+                request_id: RequestId(220),
+                value,
+                status: expected_status,
+            }))
         );
     }
     server.join().unwrap();

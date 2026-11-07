@@ -216,9 +216,15 @@ func (app *App) RegisterUpgradeHandlers() {
 	// The merge plan brings the sequencer module up from the genesis its plan
 	// carries.
 	app.UpgradeKeeper.SetUpgradeHandler(MergeUpgrade, app.mergeUpgradePlan)
-	app.UpgradeKeeper.SetUpgradeHandler(AnchorStoreDeleteUpgrade, func(ctx sdk.Context, plan upgradetypes.Plan, fromVM module.VersionMap) (module.VersionMap, error) {
-		return app.mm.RunMigrations(ctx, app.configurator, fromVM)
-	})
+	app.UpgradeKeeper.SetUpgradeHandler(AnchorStoreDeleteUpgrade, app.runAnchorStoreDeleteUpgrade)
+}
+
+func (app *App) runAnchorStoreDeleteUpgrade(ctx sdk.Context, plan upgradetypes.Plan, fromVM module.VersionMap) (module.VersionMap, error) {
+	mergeHeight := app.UpgradeKeeper.GetDoneHeight(ctx, MergeUpgrade)
+	if mergeHeight <= 0 || mergeHeight >= ctx.BlockHeight() {
+		return nil, fmt.Errorf("upgrade %s requires upgrade %s to have been applied below height %d (done height %d)", AnchorStoreDeleteUpgrade, MergeUpgrade, ctx.BlockHeight(), mergeHeight)
+	}
+	return app.mm.RunMigrations(ctx, app.configurator, fromVM)
 }
 
 // runXWebUpgrade runs the module migrations with xweb taken as present, so the
@@ -495,15 +501,17 @@ func (app *App) continueMergeUpgradePlan(ctx sdk.Context, plan upgradetypes.Plan
 	return versions, nil
 }
 
+type mergePlanState struct {
+	Leaders          [][]byte              `json:"leaders,omitempty"`
+	ReceiptKeys      seqkeeper.ReceiptKeys `json:"receipt_keys"`
+	LastSeq          uint64                `json:"last_seq,omitempty"`
+	LastSeqHash      []byte                `json:"last_seq_hash,omitempty"`
+	ActivationHeight uint64                `json:"activation_height,omitempty"`
+}
+
 func (app *App) migrateMergeState(ctx sdk.Context, plan upgradetypes.Plan, fromVM module.VersionMap) (module.VersionMap, error) {
 	sequencer := app.mm.Modules[seqtypes.ModuleName]
-	var state struct {
-		Leaders          [][]byte              `json:"leaders,omitempty"`
-		ReceiptKeys      seqkeeper.ReceiptKeys `json:"receipt_keys"`
-		LastSeq          uint64                `json:"last_seq,omitempty"`
-		LastSeqHash      []byte                `json:"last_seq_hash,omitempty"`
-		ActivationHeight uint64                `json:"activation_height,omitempty"`
-	}
+	var state mergePlanState
 	if err := json.Unmarshal([]byte(plan.Info), &state); err != nil {
 		return fromVM, fmt.Errorf("upgrade %s: sequencer genesis: %w", MergeUpgrade, err)
 	}

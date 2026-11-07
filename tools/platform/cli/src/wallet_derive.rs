@@ -120,9 +120,12 @@ fn bind_error(error: BindError) -> String {
     }
 }
 
-fn bind(rpc: &RpcClient, account: &DerivedAccount) -> Result<Value, String> {
+pub fn bind(rpc: &RpcClient, account: &DerivedAccount) -> Result<Value, String> {
     let chain_id = u64::try_from(quantity(&rpc.call("eth_chainId", &json!([]))?, "chain id")?)
         .map_err(|_| "chain id exceeds 64 bits".to_owned())?;
+    if chain_id != 125 {
+        return Err("bind_wrong_chain: expected chain 125".into());
+    }
     let address = account.evm_address();
     let bound = decode_bound_did(&eth_call(rpc, &bound_did_call(&address))?).map_err(bind_error)?;
     let nonce =
@@ -131,7 +134,7 @@ fn bind(rpc: &RpcClient, account: &DerivedAccount) -> Result<Value, String> {
         BindPlan::AlreadyBound => return Ok(json!({"status":"already_bound","chain_id":chain_id})),
         BindPlan::Bind(call) => call,
     };
-    let from = account.evm_address_text();
+    let from = layerx_sdk::rpc::ethereum_address(&address);
     let data = format!("0x{}", hex_encode(call.data()));
     let to = format!("0x{}", hex_encode(&call.to()));
     let evm_nonce = u64::try_from(quantity(
@@ -140,20 +143,26 @@ fn bind(rpc: &RpcClient, account: &DerivedAccount) -> Result<Value, String> {
     )?)
     .map_err(|_| "transaction count exceeds 64 bits".to_owned())?;
     let gas_price = quantity(&rpc.call("eth_gasPrice", &json!([]))?, "gas price")?;
+    let priority = quantity(
+        &rpc.call("eth_maxPriorityFeePerGas", &json!([]))?,
+        "priority fee",
+    )?;
+    let maximum = gas_price
+        .checked_mul(2)
+        .and_then(|price| price.checked_add(priority))
+        .ok_or("gas price is out of range")?;
     let gas_limit = u64::try_from(quantity(
-        &rpc.call(
-            "eth_estimateGas",
-            &json!([{"from": from, "to": to, "data": data}]),
-        )?,
-        "gas estimate",
-    )?)
-    .map_err(|_| "gas estimate exceeds 64 bits".to_owned())?;
+        &rpc.call("eth_estimateGas", &json!([{
+            "from": from, "to": to, "data": data, "type": "0x2",
+            "chainId": format!("0x{chain_id:x}"), "nonce": format!("0x{evm_nonce:x}"),
+            "maxPriorityFeePerGas": format!("0x{priority:x}"), "maxFeePerGas": format!("0x{maximum:x}"),
+            "gas": "0x1c9c380", "value": "0x0", "accessList": []
+        }, "pending"]))?, "gas estimate",
+    )?).map_err(|_| "gas estimate exceeds 64 bits".to_owned())?;
     let fees = BindFees {
         evm_nonce,
-        max_priority_fee_per_gas: gas_price,
-        max_fee_per_gas: gas_price
-            .checked_mul(2)
-            .ok_or("gas price is out of range")?,
+        max_priority_fee_per_gas: priority,
+        max_fee_per_gas: maximum,
         gas_limit,
     };
     let raw = sign_bind_transaction(account, chain_id, &call, fees).map_err(bind_error)?;

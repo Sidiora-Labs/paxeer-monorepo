@@ -19,28 +19,28 @@ interface ChartColorToken {
 
 export const CHART_COLOR_TOKENS: Record<ChartColorRole, ChartColorToken> = {
   line: {
-    light: 'theme.graph.line._light',
-    dark: 'theme.graph.line._dark',
+    light: 'accent',
+    dark: 'accent',
   },
   areaStart: {
-    light: 'theme.graph.gradient.start._light',
-    dark: 'theme.graph.gradient.start._dark',
+    light: 'chart.area.start',
+    dark: 'chart.area.start',
   },
   areaStop: {
-    light: 'theme.graph.gradient.stop._light',
-    dark: 'theme.graph.gradient.stop._dark',
+    light: 'chart.area.stop',
+    dark: 'chart.area.stop',
   },
   bar: {
-    light: 'theme.graph.line._light',
-    dark: 'theme.graph.line._dark',
+    light: 'accent',
+    dark: 'accent',
   },
   axis: {
     light: 'text.secondary',
     dark: 'text.secondary',
   },
   grid: {
-    light: 'border.divider',
-    dark: 'border.divider',
+    light: 'chart.grid',
+    dark: 'chart.grid',
   },
 };
 

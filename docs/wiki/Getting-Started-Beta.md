@@ -1,233 +1,152 @@
 # Getting started
 
-This checklist uses an operator-deployed hosted gateway and the custody-credit
-funding path available to approved developers. Access requires credentials and
-independently supplied verification policy.
+Paxeer mainnet-beta is one BFT network, with EVM chain ID `125` (`0x7d`).
+The kernel runs inside the network and proposes blocks. Use ordinary signed
+EVM transactions for transfers and native precompile calls; a receipt is final
+when its block is committed. [Unified network](UnifiedNetwork.md) describes
+the execution and evidence model.
 
 ## Endpoints and trust
 
+The public node JSON-RPC is served at the root path:
+
 ```sh
 export RPC_URL=https://api-mainnet-beta.paxeer.network
+
+curl --fail-with-body --silent --show-error "$RPC_URL" \
+  --header 'Content-Type: application/json' \
+  --data '{"jsonrpc":"2.0","id":1,"method":"eth_chainId","params":[]}'
 ```
 
-This is the public node JSON-RPC at the root path (EVM chain ID `125`).
-The other public node names are `api1` through
-`api14.mainnet-beta.paxeer.network`, also at the root. There is no separate
-public LayerX interface. The `lx_*` and `px_*` calls below require an
-operator-deployed hosted gateway; the node names do not serve those methods.
-Obtain its full JSON-RPC URL from the operator before continuing:
+Require `result` to be `"0x7d"` before signing. The other public node names
+are `https://api1.mainnet-beta.paxeer.network` through
+`https://api14.mainnet-beta.paxeer.network`, also at the root. Compare
+`eth_blockNumber` when choosing a current node; an unavailable or lagging node
+is not evidence that a transaction failed.
 
-```sh
-export GATEWAY_RPC_URL="${LAYERX_GATEWAY_RPC_URL:?Set the operator-provided gateway JSON-RPC URL}"
-```
-
-Store a gateway `LayerX-Key` credential under the CLI alias `beta`, keep it out of
-command history, and obtain the network id and
-receipt-policy trust pins independently of any response you are verifying.
-
-For the disposable local beta cluster, follow [Quickstart](Quickstart.md)
-and source `build/beta-cluster/env`. That file exports the local origins,
-credential-file paths, and `LAYERX_TEST_CA_FILE` at
-`build/beta-cluster/ca/ca.crt`. Add `--cacert "$LAYERX_TEST_CA_FILE"` only to
-requests for those local cluster endpoints.
+The node also serves the `px` namespace at the root. `px_register` and
+`px_requestFunds` are operations of the operator-deployed hosted gateway,
+whose contract is `services/platform/hosted/gateway/openrpc.json`; obtain its
+endpoint and any credentials from the operator when using those operations.
+The old `lx_sendActivity` integration flow is retired.
 
 ## Wallet and funding
 
-For a public identity, create an ordinary signing key. Public
-`wallet create` is deliberately unavailable because the gateway exposes no
-DID-registration route:
+Connect a signing wallet to chain `125` and obtain native PAX for transaction
+fees from an existing funded account or an operator-provided allocation.
+Check the address and balance with `eth_getBalance(address, "latest")`.
+A DID binding does not supply gas or create a ledger balance.
+
+For a wallet whose EVM key and DID derive from one secret, follow
+[One account](../site/docs/concepts/one-account.md). The CLI can derive the pair from
+standard input and bind it through the node:
 
 ```sh
-layerx key create alice
-layerx key default alice
-layerx wallet list
+layerx wallet derive --index 0 < phrase.txt
+layerx wallet derive --bind --rpc "$RPC_URL" < phrase.txt
 ```
 
-There is no public faucet. An account is funded by an authenticated custody
-credit: deposit into the custody precompile
-`0x0000000000000000000000000000000000001013` on Paxeer chain `125` through one
-of the [public RPC names](PublicRpc.md), then build the credit from that deposit's
-evidence, sign the funding activity with the account's own key, and submit it
-through the operator-deployed gateway. [Custody credit](Custody.md) documents
-every input and refusal.
+Keep the phrase file private. The bind transaction needs native funding and
+must commit before a later operation relies on the binding. Custody-credit
+scripts and deposit-based account opening are retired; funding and ledger
+account opening use the current chain operations described below.
 
-```sh
-python tests/bridge/custody_credit.py attest \
-  --rpc "$FIRST_RPC" --rpc "$SECOND_RPC" --comet-rpc "$COMET_RPC" \
-  --ca-bundle "$CA_BUNDLE" --disposable-identity "$IDENTITY" \
-  --profile custody.profile --network-id "$NETWORK_ID" \
-  --transaction "$DEPOSIT_TRANSACTION" --beneficiary "$WALLET_DID" \
-  --beneficiary-key "$WALLET_PUBLIC_KEY" --expected-amount "$AMOUNT" \
-  --output custody.credit
-build/tests/bridge/sign-credit custody.profile custody.credit "$WALLET_DID" \
-  "$WALLET_KEY" "$WALLET_SEQUENCE" "$TIMESTAMP_MS" funding.activity
+## Submit a native transaction
 
-jq -cn --arg canonical "$(xxd -p funding.activity | tr -d '\n')" \
-  '{jsonrpc:"2.0",id:1,method:"lx_sendActivity",params:[$canonical,"executed"]}' |
-  curl --fail-with-body --silent --show-error "$GATEWAY_RPC_URL" \
-    --header 'Content-Type: application/json' \
-    --header "Authorization: LayerX-Key $GATEWAY_KEY_ID:$GATEWAY_KEY_SECRET" \
-    --data-binary @- > funding-response.json
-```
+For a browser application using ethers v6 and an EIP-1193 wallet, this function
+requests the user's approval for a native PAX transfer. Supply the intended
+recipient and amount from the application's payment screen.
 
-The credit's idempotency is the deposit nullifier in `custody.credit.nullifier`,
-so a repeated submission of the same deposit cannot credit it twice. A signed
-credit is admissible for five minutes; sign it right before submitting. Accept
-funding only after the `executed` outcome and a confirming `lx_getAccount`,
-`lx_getBalance`, or `lx_getBalances` read.
+```ts
+import { BrowserProvider, parseEther } from "ethers";
 
-## Run the register, open, mint, send flow
-
-The tracked real-process flow performs these writes in order
-after funding: Asset register, per-Asset account open, mint, then native-Asset
-SEND. Register, open, mint, and SEND are four fresh signed canonical
-activities. Each is submitted through the same exact JSON-RPC method and waits
-for `executed` before the next activity is built
-(`services/platform/hosted/gateway/tests/local/lifecycle.rs:1614-1647, 1650-1813,
-1888-1931`).
-
-Read the identity sequence before constructing each activity. SEND also
-consumes the source-account sequence. Set each activity variable only after
-those reads, using freshly encoded, disclosed, and signed bytes. Do not copy
-canonical bytes from a previous run: sequence, timestamps, and idempotency are
-bound into the signature.
-
-```sh
-rpc_read() {
-  jq -cn --argjson id "$1" --arg method "$2" --argjson params "$3" \
-    '{jsonrpc:"2.0",id:$id,method:$method,params:$params}' |
-    curl --fail-with-body --silent --show-error "$GATEWAY_RPC_URL" \
-      --header 'Content-Type: application/json' --data-binary @-
-}
-
-rpc_write() {
-  jq -cn --argjson id "$1" --arg canonical "$2" \
-    '{jsonrpc:"2.0",id:$id,method:"lx_sendActivity",params:[$canonical,"executed"]}' |
-    curl --fail-with-body --silent --show-error "$GATEWAY_RPC_URL" \
-      --header 'Content-Type: application/json' \
-      --header "Authorization: LayerX-Key $GATEWAY_KEY_ID:$GATEWAY_KEY_SECRET" \
-      --data-binary @-
-}
-
-rpc_read 90 lx_getSequence \
-  "$(jq -cn --arg did "$WALLET_DID" '[$did,"identity"]')" \
-  > register-sequence.json
-export REGISTER_ACTIVITY_HEX='<fresh signed Asset register activity>'
-rpc_write 101 "$REGISTER_ACTIVITY_HEX" > register-response.json
-
-# After verifying register-response.json and reading the fresh sequence:
-rpc_read 91 lx_getSequence \
-  "$(jq -cn --arg did "$WALLET_DID" '[$did,"identity"]')" \
-  > open-sequence.json
-export OPEN_ACTIVITY_HEX='<fresh signed Asset account-open activity>'
-rpc_write 102 "$OPEN_ACTIVITY_HEX" > open-response.json
-
-# After verifying open-response.json and reading the fresh sequence:
-rpc_read 92 lx_getSequence \
-  "$(jq -cn --arg did "$WALLET_DID" '[$did,"identity"]')" \
-  > mint-sequence.json
-export MINT_ACTIVITY_HEX='<fresh signed Asset mint activity>'
-rpc_write 103 "$MINT_ACTIVITY_HEX" > mint-response.json
-
-# After verifying mint-response.json and reading both required sequences:
-rpc_read 93 lx_getSequence \
-  "$(jq -cn --arg did "$WALLET_DID" '[$did,"identity"]')" \
-  > send-identity-sequence.json
-rpc_read 94 lx_getSequence \
-  "$(jq -cn --arg account "$SOURCE_ACCOUNT_ID" '[$account]')" \
-  > send-account-sequence.json
-export SEND_ACTIVITY_HEX='<fresh signed Asset SEND activity>'
-rpc_write 104 "$SEND_ACTIVITY_HEX" > send-response.json
-```
-
-Every successful write must have `result.commitment == "executed"`, a nonempty
-`result.receipt`, and `result.result_code == 0`. Verify the sequencer signature
-and exact activity binding under independently supplied policy before using
-the result. The register payload fixes the Asset ID, salt, symbol, name,
-decimals, supply cap, issuer kind, and custody reference. Account open names
-that Asset; mint names its derived per-Asset account and amount; SEND names the
-source/destination DIDs, native Asset, amount, source-account sequence, validity
-window, idempotency key, and fee limit. Use the canonical builders described in
-[Assets and tokens](Assets.md) rather than hand-assembling these payloads.
-
-## Read sequences, balances, and receipts
-
-Reads need no gateway key. This helper preserves the exact positional method
-contract; it is the same `rpc_read` helper used above:
-
-```sh
-rpc_read 201 lx_getAccount \
-  "$(jq -cn --arg account "$SOURCE_ACCOUNT_ID" '[$account]')"
-rpc_read 202 lx_getSequence \
-  "$(jq -cn --arg did "$WALLET_DID" '[$did,"identity"]')"
-rpc_read 203 lx_getSequence \
-  "$(jq -cn --arg account "$SOURCE_ACCOUNT_ID" '[$account]')"
-rpc_read 204 lx_getBalance \
-  "$(jq -cn --arg account "$SOURCE_ACCOUNT_ID" '[$account]')"
-rpc_read 205 lx_getBalance \
-  "$(jq -cn --arg account "$DESTINATION_ACCOUNT_ID" '[$account]')"
-rpc_read 206 lx_getBalances \
-  "$(jq -cn --arg did "$WALLET_DID" '[$did]')"
-rpc_read 207 lx_listAssets '[]'
-rpc_read 208 lx_getAsset \
-  "$(jq -cn --arg asset "$ASSET_ID" '[$asset]')"
-
-export SEND_ACTIVITY_ID="$(jq -r '.result.activity_id' send-response.json)"
-rpc_read 209 lx_getReceipt \
-  "$(jq -cn --arg activity "$SEND_ACTIVITY_ID" '[$activity]')" \
-  > receipt-response.json
-rpc_read 210 lx_getActivityStatus \
-  "$(jq -cn --arg activity "$SEND_ACTIVITY_ID" '[$activity]')" \
-  > status-response.json
-```
-
-Use `lx_getSequence([did, "identity"])` for the envelope sequence and
-`lx_getSequence([account_id])` for a source-account sequence; they are
-independent. Build a new activity only after reading the sequence it consumes.
-The flow test reads the source-account sequence before SEND, then proves that
-the `lx_getReceipt` and `lx_getActivityStatus` receipt bytes equal the receipt
-returned by the write
-(`services/platform/hosted/gateway/tests/local/lifecycle.rs:971-988, 1777-1885`).
-
-`lx_getBalances` fails closed if the native DID-account listing cannot be fully
-decoded or comes back with no entries, because an empty listing carries no proof
-of absence. JSON-RPC code `-32001` with
-`error.data.error.code == "did_account_listing_unavailable"` is unavailable
-evidence, not a partial or empty balance list.
-
-## Error and recovery contract
-
-JSON-RPC responses use HTTP 200 even when they contain `error`. The exact
-failure envelope is:
-
-```json
-{
-  "jsonrpc": "2.0",
-  "id": 1,
-  "error": {
-    "code": -32602,
-    "message": "Invalid params"
+async function transferPax(recipient: string, amountPax: string) {
+  const provider = new BrowserProvider(window.ethereum);
+  if ((await provider.getNetwork()).chainId !== 125n) {
+    throw new Error("Connect the wallet to Paxeer mainnet-beta (chain 125)");
   }
+  await provider.send("eth_requestAccounts", []);
+  const signer = await provider.getSigner();
+  const tx = await signer.sendTransaction({
+    to: recipient,
+    value: parseEther(amountPax),
+  });
+  const receipt = await tx.wait();
+  if (receipt === null || receipt.status !== 1) {
+    throw new Error(`Transfer did not succeed: ${tx.hash}`);
+  }
+  return { transactionHash: tx.hash, receipt };
 }
 ```
 
-Invalid params are `-32602`; missing/invalid authorization or scope is
-`-32002`; an unavailable read or submission is `-32001`; rate/capacity refusal
-is `-32005`; invalid upstream data is `-32603`. Proxied typed failures are kept
-under `error.data` (`services/platform/hosted/gateway/src/rpc.rs:153-184, 242-256`).
+Applications that sign locally submit the signed bytes with
+`eth_sendRawTransaction`. Retain those bytes and their transaction hash before
+broadcasting. The browser wallet handles signing in the example above; the
+public node does not hold the user's signing key.
 
-For a requested `executed`, `batched`, or `finalised` level that is not yet
-available, the response is `-32001` and `error.data` includes
-`state: "pending"`, `requested_commitment`, and either current `evidence` or
-the upstream pending body (`services/platform/hosted/gateway/src/rpc.rs:219-224,
-334-357`). Retain the exact signed activity and recover by activity id with
-`lx_getActivityStatus`, `lx_getReceipt`, and the required `lx_getProof` reads.
-Never replace an uncertain payment with a newly signed debit.
+## Ledger assets and payments
 
-The complete 15-method contract and error codes are in
-[Public JSON-RPC](PublicRpc.md). The exact unshortened register/open/mint/SEND
-requests and balance/receipt responses captured by the tracked flow are in
-[Public payment API](PublicAPI.md). Full wallet, token, LXT-20, and HTTP 402
-commands are in [Payments developer path](PaymentsQuickstart.md).
+The native LayerXLedger precompile is
+`0x000000000000000000000000000000000000101a`. Its exact ABI is
+[`precompiles/layerxledger/abi.json`](../../precompiles/layerxledger/abi.json); implementation and keeper logic live in
+`precompiles/layerxledger/` and `modules/layerxledger/`.
 
+The register/open/mint/payment lifecycle uses EVM transactions to that
+precompile. Bind each participating EVM address to its DID first. Wait for a
+successful committed receipt after each prerequisite write:
+
+| Step | Call and authority |
+| --- | --- |
+| Register | The issuer calls `register(assetId, salt, symbol, name, decimals, supplyCap, issuerKind, custodyReference)` with the asset's canonical parameters. |
+| Open | Each owner calls `openAccount(assetId)` to open its per-asset account. |
+| Identify | Read `accountId(owner, assetId)`, where `owner` is the bound DID public key as `bytes32`. Use these per-asset IDs for payments. |
+| Mint | The authorized issuer calls `mint(assetId, accountId, amount)` within the asset's cap and policy. This is asset issuance, not a public gas faucet. |
+| Pay | The source owner calls `payExact(from, to, assetId, amount, expiresAtMs, paymentReference)`. Amount is integer asset units; expiry is Unix milliseconds and the reference is `bytes32`. |
+| Read | Use `balanceOf(accountId, assetId)`, `getAsset(assetId)` and `nextSequence(accountId, assetId)` through `eth_call`. |
+
+`payExact` selects the next account sequence in the keeper and emits
+`PaymentExact`. The `send(bytes envelope)` entry point also exists for the
+canonical signed SEND envelope; its encoding is not interchangeable with
+`payExact` calldata. Use the ABI and canonical builders for the chosen entry
+point. The real-process lifecycle in `daemon/committed-fixture/vector_v4.go`
+binds two identities, registers an asset, opens both accounts, mints and pays
+through these EVM calls.
+
+A native wallet balance and a per-asset ledger balance are different records
+within the same chain. Read the balance appropriate to the operation; opening
+an account does not mint units.
+
+## Receipts and recovery
+
+Read `eth_getTransactionReceipt(transactionHash)` for the EVM outcome.
+A null receipt means no receipt is available from that node yet; status
+`"0x0"` records an execution failure and `"0x1"` records success. Commitment
+and execution success must both be established before delivering a payment.
+
+Where configured, `pax_sequencerReceipt(transactionHash)` exposes
+`submitted`, `receipted` and `committed` progress with a signed execution
+receipt. A signature alone proves neither block inclusion nor commitment.
+For independent verification, authenticate receipt key pins and chain trust,
+then verify the transaction and execution-result inclusion proofs and BFT
+commits as described in [SDK terminal verification](SdkTerminalVerification.md).
+
+If a request times out, recover by the existing transaction hash. Check the
+receipt and account nonce before authorizing another debit; rebroadcasting
+identical signed bytes preserves the hash. Do not turn an uncertain payment
+into a newly signed payment automatically.
+
+Inspect the JSON-RPC `error` field even after a successful HTTP response.
+`-32601` means the method is unavailable on that endpoint; `-32602` means
+invalid parameters. The optional receipt API answers `-32000` when it has
+neither a local receipt source nor a configured forwarding endpoint. Gateway
+errors have their own declared method contract; preserve their typed data
+instead of interpreting unavailable evidence as a zero balance or success.
+
+For service-managed payments, use
+[Human service journeys](../site/docs/human/journeys.md) and the deployment's
+authentication and allowance policy.
+
+[One account](../site/docs/concepts/one-account.md) ·
+[Unified network](UnifiedNetwork.md) ·
+[SDK terminal verification](SdkTerminalVerification.md) ·
 [Home](Home.md)

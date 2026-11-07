@@ -1,13 +1,4 @@
-#[path = "../src/config.rs"]
-mod config;
-#[path = "../src/credential.rs"]
-mod credential;
-#[path = "../src/encoding.rs"]
-mod encoding;
-#[path = "../src/file_store.rs"]
-mod file_store;
-#[path = "../src/http.rs"]
-mod http;
+use layerx_platform_cli::{encoding, http};
 #[path = "../src/programs.rs"]
 mod programs;
 
@@ -63,7 +54,7 @@ fn capture() -> (String, std::thread::JoinHandle<Value>) {
         reader
             .read_line(&mut line)
             .unwrap_or_else(|error| panic!("{error}"));
-        assert_eq!(line, "POST /rpc HTTP/1.1\r\n");
+        assert_eq!(line, "POST / HTTP/1.1\r\n");
         let mut length = None;
         loop {
             line.clear();
@@ -152,7 +143,7 @@ fn program_simulate_uses_eth_call_on_layerxprograms() -> Result<(), String> {
         &[
             "--json",
             "--rpc",
-            &format!("{endpoint}/rpc"),
+            &endpoint,
             "program",
             "simulate",
             &"11".repeat(32),
@@ -290,14 +281,7 @@ fn receipt_get_accepts_transaction_hash() -> Result<(), String> {
     let (endpoint, recorded) = capture();
     let result = cli(
         directory.path(),
-        &[
-            "--json",
-            "--rpc",
-            &format!("{endpoint}/rpc"),
-            "receipt",
-            "get",
-            &hash,
-        ],
+        &["--json", "--rpc", &endpoint, "receipt", "get", &hash],
     );
     assert!(
         !result.status.success(),
@@ -320,7 +304,7 @@ fn receipt_get_accepts_transaction_hash() -> Result<(), String> {
             &[
                 "--json",
                 "--rpc",
-                "http://127.0.0.1:1/rpc",
+                "http://127.0.0.1:1/",
                 "receipt",
                 "get",
                 &invalid,
@@ -336,3 +320,7 @@ fn receipt_get_accepts_transaction_hash() -> Result<(), String> {
     }
     Ok(())
 }
+
+// Audit proofs use committed node output and production CLI consumers.
+#[path = "repair_22_33_1496.rs"]
+mod audit_22_33_1496;

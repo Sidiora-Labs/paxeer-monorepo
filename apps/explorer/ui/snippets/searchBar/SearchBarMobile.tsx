@@ -27,6 +27,8 @@ import SearchBarInput from 'ui/snippets/searchBar/SearchBarInput';
 import SearchBarRecentKeywords from './SearchBarRecentKeywords';
 import SearchBarSuggest from './SearchBarSuggest/SearchBarSuggest';
 import useQuickSearchQuery from './useQuickSearchQuery';
+import useSearchShortcut from './useSearchShortcut';
+import { useSearchAssistant } from './useSearchQuery';
 import { getSearchRedirectRoute, useSearchRedirect, useSearchRequestGuard } from './utils';
 
 const paxeerXFeature = config.features.paxeerXLists;
@@ -37,11 +39,14 @@ type Props = {
 };
 
 const SearchBarMobile = ({ isHeroBanner, onGoToSearchResults }: Props) => {
+  const triggerRef = React.useRef<HTMLDivElement>(null);
   const inputRef = React.useRef<HTMLFormElement>(null);
   const router = useRouter();
 
   const { open, onOpen, onClose, onOpenChange } = useDisclosure();
-  const { searchTerm, debouncedSearchTerm, handleSearchTermChange, query, zetaChainCCTXQuery, externalSearchItem } = useQuickSearchQuery();
+  const search = useQuickSearchQuery();
+  const { searchTerm, debouncedSearchTerm, handleSearchTermChange, query, zetaChainCCTXQuery, externalSearchItem } = search;
+  const assistant = useSearchAssistant(search);
   const recentSearchKeywords = getRecentSearchKeywords();
   const resolveSearchRoute = useSearchRedirect();
   const searchGuard = useSearchRequestGuard();
@@ -56,6 +61,22 @@ const SearchBarMobile = ({ isHeroBanner, onGoToSearchResults }: Props) => {
     searchTermRef.current = value;
     handleSearchTermChange(value);
   }, [ searchGuard, handleSearchTermChange ]);
+
+  const setSearchForm = React.useCallback((form: HTMLFormElement | null) => {
+    inputRef.current = form;
+    if (open) {
+      form?.querySelector('input')?.focus();
+    }
+  }, [ open ]);
+
+  const getInitialFocus = React.useCallback(() => inputRef.current?.querySelector('input') ?? null, []);
+
+  const focusSearch = React.useCallback(() => {
+    onOpen();
+    inputRef.current?.querySelector('input')?.focus();
+  }, [ onOpen ]);
+
+  useSearchShortcut(open ? inputRef : triggerRef, focusSearch);
 
   const handleOpenChange = React.useCallback((details: { open: boolean }) => {
     if (!details.open) {
@@ -90,8 +111,14 @@ const SearchBarMobile = ({ isHeroBanner, onGoToSearchResults }: Props) => {
 
   const handleSubmit = React.useCallback((event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (assistant.canAsk) {
+      searchGuard.discard();
+      void assistant.ask();
+
+      return;
+    }
     navigateToResults(true);
-  }, [ navigateToResults ]);
+  }, [ assistant, navigateToResults, searchGuard ]);
 
   const handleViewAllResultsClick = React.useCallback(() => {
     navigateToResults(false);
@@ -149,6 +176,7 @@ const SearchBarMobile = ({ isHeroBanner, onGoToSearchResults }: Props) => {
   } else {
     trigger = (
       <Button
+        aria-label="Search"
         variant="header"
         flexShrink={ 0 }
         p={ 0 }
@@ -163,56 +191,66 @@ const SearchBarMobile = ({ isHeroBanner, onGoToSearchResults }: Props) => {
   }
 
   return (
-    <DrawerRoot placement="bottom" open={ open } onOpenChange={ handleOpenChange } unmountOnExit={ false } lazyMount={ true }>
-      <DrawerTrigger asChild>
-        { trigger }
-      </DrawerTrigger>
-      <DrawerContent h="75vh" overflowY="hidden">
-        <DrawerHeader>
-          <DrawerTitle>Search</DrawerTitle>
-          <DrawerCloseTrigger/>
-        </DrawerHeader>
-        <DrawerBody overflow="hidden" display="flex" flexDirection="column">
-          <SearchBarInput
-            ref={ inputRef }
-            onChange={ handleTermChange }
-            onClear={ handleClear }
-            onSubmit={ handleSubmit }
-            value={ searchTerm }
-            mb={ 5 }
-          />
-          { searchTerm.trim().length === 0 && recentSearchKeywords.length > 0 && (
-            <SearchBarRecentKeywords onClick={ handleTermChange }/>
-          ) }
-          { searchTerm.trim().length > 0 && (
-            <SearchBarSuggest
-              query={ query }
-              searchTerm={ debouncedSearchTerm }
-              onItemClick={ handleItemClick }
-              zetaChainCCTXQuery={ zetaChainCCTXQuery }
-              externalSearchItem={ externalSearchItem }
+    <Box ref={ triggerRef } w={ isHeroBanner ? '640px' : 'auto' } maxW="100%">
+      <DrawerRoot
+        placement="bottom"
+        open={ open }
+        onOpenChange={ handleOpenChange }
+        initialFocusEl={ getInitialFocus }
+        unmountOnExit={ false }
+        lazyMount={ true }
+      >
+        <DrawerTrigger asChild>
+          { trigger }
+        </DrawerTrigger>
+        <DrawerContent h="75vh" overflowY="hidden" bg="raised" color="text.primary" borderColor="hairline">
+          <DrawerHeader>
+            <DrawerTitle>Search</DrawerTitle>
+            <DrawerCloseTrigger/>
+          </DrawerHeader>
+          <DrawerBody overflow="hidden" display="flex" flexDirection="column">
+            <SearchBarInput
+              ref={ setSearchForm }
+              onChange={ handleTermChange }
+              onClear={ handleClear }
+              onSubmit={ handleSubmit }
+              value={ searchTerm }
+              mb={ 5 }
             />
-          ) }
-        </DrawerBody>
-        { (query.data && query.data?.length > 0) && (
-          <DrawerFooter
-            borderTop="1px solid"
-            borderColor="border.divider"
-            pt={ 3 }
-            px={ 5 }
-            pb={ 5 }
-            justifyContent="center"
-          >
-            <Link
-              onClick={ handleViewAllResultsClick }
-              textStyle="sm"
+            { searchTerm.trim().length === 0 && recentSearchKeywords.length > 0 && (
+              <SearchBarRecentKeywords onClick={ handleTermChange }/>
+            ) }
+            { searchTerm.trim().length > 0 && (
+              <SearchBarSuggest
+                assistant={ assistant }
+                query={ query }
+                searchTerm={ debouncedSearchTerm }
+                onItemClick={ handleItemClick }
+                zetaChainCCTXQuery={ zetaChainCCTXQuery }
+                externalSearchItem={ externalSearchItem }
+              />
+            ) }
+          </DrawerBody>
+          { (query.data && query.data?.length > 0) && (
+            <DrawerFooter
+              borderTop="1px solid"
+              borderColor="hairline"
+              pt={ 3 }
+              px={ 5 }
+              pb={ 5 }
+              justifyContent="center"
             >
-              View all results
-            </Link>
-          </DrawerFooter>
-        ) }
-      </DrawerContent>
-    </DrawerRoot>
+              <Link
+                onClick={ handleViewAllResultsClick }
+                textStyle="sm"
+              >
+                View all results
+              </Link>
+            </DrawerFooter>
+          ) }
+        </DrawerContent>
+      </DrawerRoot>
+    </Box>
   );
 };
 

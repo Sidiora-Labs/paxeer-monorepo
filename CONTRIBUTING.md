@@ -70,7 +70,7 @@ make specgen-lint      # generated rule files match spec/workflow.kvx
 
 `scripts/ci/layout-check.sh` fails while any file or configuration names a path that has moved. The pre-commit hooks in `.pre-commit-config.yaml` check whitespace, Markdown, YAML, `cargo fmt` and `forge fmt`. Moved trees keep their own targets, such as `make agent-build`, `make human-build` and `make bridge-test-evm`.
 
-`make ci`, `make paxeer-ci` and `make monorepo-ci` are aggregate gates; they run at the wave or release boundary rather than per task. `make ci` includes sanitizer and reproducibility runs. Merged-network acceptance coverage, domain ownership and release qualification are described in the [test plan](spec/layerx-merge/docs/plans/test-plan.md); use the owning specification's declared gates for execution, ledger, replay, recovery and cross-architecture changes.
+`make ci`, `make paxeer-ci` and `make monorepo-ci` are aggregate gates; they run at release boundaries rather than on every change. `make ci` includes sanitizer and reproducibility runs. Merged-network acceptance coverage, domain ownership and release qualification are described in the [test plan](spec/layerx-merge/docs/plans/test-plan.md); use the owning specification's declared gates for execution, ledger, replay, recovery and cross-architecture changes.
 
 ## Pull requests
 

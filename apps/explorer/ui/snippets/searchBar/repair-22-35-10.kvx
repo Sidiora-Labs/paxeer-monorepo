@@ -1,0 +1,37 @@
+[repair.22.35.10]
+base_revision = "15479a3ee8d574f03df80663cec3d984dfd1d55b"
+gotcha = "3237; decision 2652"
+implementation = "An opt-in Ask feature calls a server-only OpenAI-compatible endpoint; desktop and mobile search share eligibility, answer state and request cancellation. Answers use semantic colours, an uppercase ASK label and a model-output disclaimer."
+proof = "The route tests use real HTTP request parsing and the declared mocked upstream fetch; panel tests drive real search input through HTTP into the production route and back into the rendered answer. No credential or live endpoint is needed."
+security = "Validate question length and context types, reject upstream redirects, bound request time, return only answer and configured model, redact credential echoes, and never forward upstream errors or metadata."
+
+[qualification]
+policy = "Gate results are recorded by reference before qualification. No result is claimed in this record; no source is amended after a passing gate."
+ledger = "/out/run/gates.jsonl"
+verified_revision = "revision in the final verify row of the ledger"
+gate_results = "command, exit and log in the build and verify rows of the ledger"
+build_command = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json"
+verify_command = "cg spec done 22.35.10 -f layerx-merge --root /work/paxeer-monorepo"
+verify_target = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json && yarn vitest run nextjs/pages-tests/api/repair-22-35-10.spec.ts ui/snippets/searchBar/repair-22-35-10.spec.tsx"
+build_log = "/out/logs/build-1.log (repair reruns increment the suffix)"
+verify_log = "/out/logs/verify-1.log (repair reruns increment the suffix)"
+
+[preparation]
+formatter = "The first formatting attempt ran during dependency linking and could not load ESLint's not-yet-linked source-code module; it changed no source. Formatting waits for the complete frozen dependency installation."
+dependencies = "Unchanged explorer dependencies are installed outside the source tree and exposed through the ignored node_modules symlink; private preparation logs are in /out/logs/format-deps.log and /out/logs/format-22-35-10.log."
+
+[repair_cycle.1]
+revision = "80051e5e099dbc5161a9e1f99aeb1cb21b55113b"
+command = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json"
+exit = 2
+log = "/out/logs/build-1.log"
+observed = "The repository types JSON.parse as unknown; six test accesses to the captured completion request require a runtime shape check."
+repair = "Validate the actual parsed completion request as a model string and role/content message array before the existing assertions; retain all assertions and add a shape assertion."
+
+[repair_cycle.2]
+revision = "7e522f416fbc883cfb611923f21022e430c1ff60"
+command = "cg spec done 22.35.10 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Seven API tests and three panel tests passed; three search assertions saw undefined query data because the response fixture omitted JSON Content-Type, and the panel background shorthand computed as transparent."
+repair = "Return application/json with the real search response fixtures and use the explicit semantic background-colour property on the answer panel; retain every assertion and timeout bound."

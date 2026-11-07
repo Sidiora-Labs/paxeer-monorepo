@@ -21,6 +21,9 @@ changelog:
     - title: Contracts
       labels:
         - area:contracts
+    - title: Wallet
+      labels:
+        - area:wallet
     - title: Paxeer Network
       labels:
         - area:paxeer
@@ -30,6 +33,9 @@ changelog:
     - title: Documentation
       labels:
         - area:docs
+    - title: Continuous integration
+      labels:
+        - area:ci
     - title: Other
       labels:
         - "*"

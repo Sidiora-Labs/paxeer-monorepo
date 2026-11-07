@@ -41,8 +41,9 @@ def request_funds(endpoint: str, session_token: str, did: str, signer_public_key
 ```
 
 `PaymentRpc` refuses non-HTTPS endpoints except loopback
-`http://localhost`, `127.0.0.1`, or `::1`, and requires path
-`/rpc`. The generated agent operation `"faucet.claim"` exists on
+`http://localhost`, `127.0.0.1`, or `::1`, and requires the root path
+(`/` or empty) unless the endpoint equals the configured
+`hosted_gateway_endpoint`. The generated agent operation `"faucet.claim"` exists on
 `Client.call` / `ProductionClient.agent` but
 `AgentHttpTransport` is programs-only.
 
@@ -61,7 +62,7 @@ def send(rpc: PaymentRpc, canonical_hex: str, commitment: str = "executed") -> d
 `lx_sendActivity` attach `LayerX-Key` via `headers`, not Bearer.
 
 Hosted human-plane send, as in
-`services/platform/docs/samples/first-payment-python`:
+`services/platform/examples/samples/first-payment-python`:
 
 ```python
 from layerx_sdk import IdempotencyKey, ProductionClient

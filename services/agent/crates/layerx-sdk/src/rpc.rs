@@ -197,7 +197,205 @@ macro_rules! read_result {
         }
     )+};
 }
-read_result!(BalancesSnapshot, FeeEstimate);
+read_result!(FeeEstimate);
+
+/// Bank balances at one committed node height. These are read observations, not state proofs.
+#[derive(Clone, Debug, PartialEq)]
+pub struct BalancesSnapshot(serde_json::Map<String, Value>);
+impl BalancesSnapshot {
+    #[must_use]
+    pub const fn unverified_fields(&self) -> &serde_json::Map<String, Value> {
+        &self.0
+    }
+    #[must_use]
+    pub fn into_value(self) -> Value {
+        Value::Object(self.0)
+    }
+}
+impl TryFrom<Value> for BalancesSnapshot {
+    type Error = RpcError;
+    fn try_from(value: Value) -> Result<Self, Self::Error> {
+        let fields = object(&value)?;
+        if fields.get("height").and_then(Value::as_u64).is_none()
+            || fields.get("units").and_then(Value::as_str) != Some("base")
+            || fields.get("evidence").and_then(Value::as_str) != Some("committed_eth_call")
+            || value["account"]["layerx_did"].as_str().is_none()
+            || value["account"]["bound"] != true
+            || value["account"]["evm_address"]
+                .as_str()
+                .is_none_or(|address| validate_address(address).is_err())
+        {
+            return Err(RpcError::InvalidResponse);
+        }
+        let rows = value["balances"]
+            .as_array()
+            .filter(|rows| rows.len() <= 256)
+            .ok_or(RpcError::InvalidResponse)?;
+        let mut denoms = std::collections::BTreeSet::new();
+        for row in rows {
+            let denom = row["denom"]
+                .as_str()
+                .filter(|text| !text.is_empty() && text.len() <= 256)
+                .ok_or(RpcError::InvalidResponse)?;
+            let amount = row["amount"].as_str().ok_or(RpcError::InvalidResponse)?;
+            if !denoms.insert(denom) || !canonical_uint256(amount) {
+                return Err(RpcError::InvalidResponse);
+            }
+        }
+        Ok(Self(fields.clone()))
+    }
+}
+fn canonical_uint256(text: &str) -> bool {
+    const MAX: &str =
+        "115792089237316195423570985008687907853269984665640564039457584007913129639935";
+    !text.is_empty()
+        && text.bytes().all(|b| b.is_ascii_digit())
+        && (text == "0" || !text.starts_with('0'))
+        && (text.len() < MAX.len() || (text.len() == MAX.len() && text <= MAX))
+}
+
+/// Native source-account evidence, independent of an Ethereum transaction nonce.
+#[derive(Clone, Debug, PartialEq)]
+pub struct LedgerAccountSnapshot {
+    pub account_id: [u8; 32],
+    pub asset_id: [u8; 32],
+    pub owner: [u8; 32],
+    pub next_sequence: u64,
+    pub height: u64,
+    pub balance: u128,
+    raw: Value,
+}
+impl LedgerAccountSnapshot {
+    #[must_use]
+    pub fn into_value(self) -> Value {
+        self.raw
+    }
+    pub fn decode(value: Value, did: &str, asset: [u8; 32]) -> Result<Self, RpcError> {
+        let fields = object(&value)?;
+        let owner = decode_hex::<32>(
+            did.strip_prefix("did:layerx:")
+                .ok_or(RpcError::InvalidRequest)?,
+        )?;
+        let mut native = [0; 32];
+        native[0] = 1;
+        let name = layerx_wire::account::account_name_for_asset(did, asset, native)
+            .map_err(|_| RpcError::InvalidRequest)?;
+        let expected = layerx_wire::hash::account_id_for_protocol(&name, 3)
+            .map_err(|_| RpcError::InvalidRequest)?;
+        if text_field(fields, "did")? != did
+            || text_field(fields, "evidence")? != "committed_eth_call"
+            || fixed_hex_field::<32>(fields, "owner")? != owner
+            || fixed_hex_field::<32>(fields, "asset_id")? != asset
+            || fixed_hex_field::<32>(fields, "account_id")? != expected
+        {
+            return Err(RpcError::InvalidResponse);
+        }
+        Ok(Self {
+            account_id: expected,
+            asset_id: asset,
+            owner,
+            next_sequence: decimal_u64_field(fields, "next_sequence")?,
+            height: unsigned_field(fields, "height")?,
+            balance: decimal_u128_field(fields, "balance")?,
+            raw: value,
+        })
+    }
+}
+
+/// Hosted asset inventory with custody metadata and explicitly unverified native observations.
+#[derive(Clone, Debug, PartialEq)]
+pub struct CustodyAssetPage {
+    pub assets: Vec<Value>,
+    pub next_cursor: Option<u64>,
+    pub height: u64,
+    raw: Value,
+}
+impl CustodyAssetPage {
+    #[must_use]
+    pub fn into_value(self) -> Value {
+        self.raw
+    }
+    pub fn decode(value: Value, cursor: Option<u64>, limit: u16) -> Result<Self, RpcError> {
+        if limit == 0 || limit > 16 {
+            return Err(RpcError::InvalidRequest);
+        }
+        if cursor.is_some_and(|cursor| registration_cursor(&cursor.to_string()).is_err()) {
+            return Err(RpcError::InvalidRequest);
+        }
+        let fields = object(&value)?;
+        if text_field(fields, "evidence")? != "committed_eth_call"
+            || text_field(fields, "units")? != "base"
+            || text_field(fields, "order")? != "registration"
+            || unsigned_field::<u64>(fields, "joined_limit")? != 16
+        {
+            return Err(RpcError::InvalidResponse);
+        }
+        let assets = value["assets"]
+            .as_array()
+            .filter(|rows| rows.len() <= usize::from(limit))
+            .ok_or(RpcError::InvalidResponse)?;
+        let mut seen = std::collections::BTreeSet::new();
+        for row in assets {
+            let id = fixed_hex_field::<32>(object(row)?, "asset_id")?;
+            if id == [0; 32] || !seen.insert(id) {
+                return Err(RpcError::InvalidResponse);
+            }
+            let kind = row["kind"]
+                .as_str()
+                .filter(|kind| !kind.is_empty())
+                .ok_or(RpcError::InvalidResponse)?;
+            let metadata = ["name", "symbol", "decimals", "supply"];
+            if metadata.iter().any(|field| row.get(*field).is_none()) || row.get("denom").is_none()
+            {
+                return Err(RpcError::InvalidResponse);
+            }
+            let unavailable = metadata.iter().all(|field| row[*field].is_null());
+            if !unavailable {
+                for name in ["name", "symbol"] {
+                    row[name]
+                        .as_str()
+                        .filter(|value| !value.is_empty())
+                        .ok_or(RpcError::InvalidResponse)?;
+                }
+                row["decimals"]
+                    .as_u64()
+                    .filter(|v| *v <= 255)
+                    .ok_or(RpcError::InvalidResponse)?;
+                if !canonical_uint256(row["supply"].as_str().ok_or(RpcError::InvalidResponse)?) {
+                    return Err(RpcError::InvalidResponse);
+                }
+                if matches!(kind, "layerx" | "ledger") {
+                    let asset = AssetMetadata::try_from(row)?;
+                    if row["supply"] != asset.total_units.to_string() {
+                        return Err(RpcError::InvalidResponse);
+                    }
+                }
+            }
+            if !row["denom"].is_null() && row["denom"].as_str().is_none() {
+                return Err(RpcError::InvalidResponse);
+            }
+        }
+        let next_cursor = match value.get("next_cursor") {
+            Some(Value::Null) => None,
+            Some(Value::String(text)) => {
+                Some(registration_cursor(text).map_err(|_| RpcError::InvalidResponse)?)
+            }
+            _ => return Err(RpcError::InvalidResponse),
+        };
+        if next_cursor.is_some()
+            && (next_cursor.is_some_and(|next| next <= cursor.unwrap_or(0))
+                || assets.len() != usize::from(limit))
+        {
+            return Err(RpcError::InvalidResponse);
+        }
+        Ok(Self {
+            assets: assets.clone(),
+            next_cursor,
+            height: unsigned_field(fields, "height")?,
+            raw: value,
+        })
+    }
+}
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct AssetMetadata {
@@ -928,7 +1126,7 @@ impl RpcClient {
         signer_public_key: &[u8; 32],
     ) -> Result<FaucetGrant, RpcError> {
         let params = faucet_selector(did, signer_public_key)?;
-        self.call("lx_requestFunds", &params)?.try_into()
+        self.call("px_requestFunds", &params)?.try_into()
     }
 
     pub(crate) fn precompile_read(&self, to: [u8; 20], data: &[u8]) -> Result<Vec<u8>, RpcError> {
@@ -968,7 +1166,79 @@ impl RpcClient {
     /// Rejects malformed DID selectors and preserves upstream enumeration unavailability.
     pub fn get_balances(&self, did: &str) -> Result<BalancesSnapshot, RpcError> {
         layerx_types::ids::Did::new(did.as_bytes()).map_err(|_| RpcError::InvalidRequest)?;
-        self.call("px_getBalances", &json!([did]))?.try_into()
+        let snapshot = self.call("px_getBalances", &json!([did]))?;
+        if snapshot["account"]["layerx_did"] != did {
+            return Err(RpcError::InvalidResponse);
+        }
+        snapshot.try_into()
+    }
+
+    /// Reads native ownership and the independent source sequence at a single committed height.
+    pub fn get_ledger_account(
+        &self,
+        did: &str,
+        asset: [u8; 32],
+    ) -> Result<LedgerAccountSnapshot, RpcError> {
+        let owner = did
+            .strip_prefix("did:layerx:")
+            .ok_or(RpcError::InvalidRequest)?;
+        if decode_hex::<32>(owner)? == [0; 32] || asset == [0; 32] {
+            return Err(RpcError::InvalidRequest);
+        }
+        LedgerAccountSnapshot::decode(
+            self.call("px_getAccount", &json!([did, encode_hex(&asset)]))?,
+            did,
+            asset,
+        )
+    }
+
+    /// Pages the hosted custody inventory. The response is a node observation, not a state proof.
+    pub fn list_custody_assets_page(
+        &self,
+        cursor: Option<u64>,
+        limit: Option<u16>,
+    ) -> Result<CustodyAssetPage, RpcError> {
+        let count = limit.unwrap_or(16);
+        if cursor.is_some_and(|cursor| registration_cursor(&cursor.to_string()).is_err())
+            || count == 0
+            || count > 16
+        {
+            return Err(RpcError::InvalidRequest);
+        }
+        CustodyAssetPage::decode(
+            self.call(
+                "px_listAssets",
+                &match (cursor, limit) {
+                    (None, None) => json!([]),
+                    (Some(cursor), None) => json!([cursor.to_string()]),
+                    (cursor, Some(limit)) => {
+                        json!([cursor.map(|cursor| cursor.to_string()), limit])
+                    }
+                },
+            )?,
+            cursor,
+            count,
+        )
+    }
+
+    pub fn get_custody_asset(&self, asset: [u8; 32]) -> Result<Value, RpcError> {
+        if asset == [0; 32] {
+            return Err(RpcError::InvalidRequest);
+        }
+        let mut cursor = None;
+        loop {
+            let page = self.list_custody_assets_page(cursor, None)?;
+            if let Some(row) = page
+                .assets
+                .iter()
+                .find(|row| row["asset_id"] == encode_hex(&asset))
+            {
+                return Ok(
+                    json!({"asset":row,"height":page.height,"units":"base","evidence":"committed_eth_call"}),
+                );
+            }
+            cursor = Some(page.next_cursor.ok_or(RpcError::InvalidResponse)?);
+        }
     }
 
     /// Opens an authenticated public subscription. Notifications are unverified hints.
@@ -1043,7 +1313,12 @@ impl RpcClient {
             return Err(RpcError::InvalidRequest);
         }
         let params = list_assets_params(cursor, limit);
-        let snapshot: AssetListSnapshot = self.call("px_listAssets", &params)?.try_into()?;
+        let value = self.call("px_listAssets", &params)?;
+        if value.get("evidence").and_then(Value::as_str) == Some("committed_eth_call") {
+            // Hosted inventory observations cannot satisfy the older state-proof API.
+            return Err(RpcError::MissingFinalityTrust);
+        }
+        let snapshot: AssetListSnapshot = value.try_into()?;
         if snapshot.assets.len() > usize::from(limit.unwrap_or(LIST_ASSETS_DEFAULT_PAGE))
             || cursor.is_some_and(|cursor| {
                 snapshot
@@ -1125,7 +1400,7 @@ impl RpcClient {
             return Err(RpcError::InvalidRequest);
         }
         let transaction = json!({
-            "from": format!("0x{}", encode_hex(&from)), "type": "0x2",
+            "from": ethereum_address(&from), "type": "0x2",
             "chainId": format!("0x{:x}", call.chain_id), "nonce": format!("0x{:x}", call.nonce),
             "maxPriorityFeePerGas": format!("0x{:x}", call.max_priority_fee_per_gas),
             "maxFeePerGas": format!("0x{:x}", call.max_fee_per_gas), "gas": format!("0x{:x}", call.gas_limit),
@@ -1406,6 +1681,21 @@ pub(crate) fn check_transaction_revert(receipt: &Value) -> Result<(), RpcError> 
         }
         _ => Err(RpcError::InvalidResponse),
     }
+}
+
+/// Canonical lower-case Ethereum address used by RPC requests.
+#[must_use]
+pub fn ethereum_address(address: &[u8; 20]) -> String {
+    format!("0x{}", encode_hex(address))
+}
+
+/// Parses a hosted indexer registration cursor without treating it as an asset ID.
+pub fn registration_cursor(text: &str) -> Result<u64, RpcError> {
+    text.parse::<u64>()
+        .ok()
+        .filter(|cursor| *cursor > 0 && i64::try_from(*cursor).is_ok())
+        .filter(|cursor| cursor.to_string() == text)
+        .ok_or(RpcError::InvalidRequest)
 }
 
 pub(crate) fn encode_hex(bytes: &[u8]) -> String {

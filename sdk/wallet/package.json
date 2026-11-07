@@ -2,7 +2,7 @@
   "name": "@paxeer/wallet",
   "version": "0.1.0",
   "description": "Paxeer Universal Embedded Wallet SDK \u2014 drop-in for any Paxeer app. Email/social sign-in via Supabase, transparent server-side signing, no popups.",
-  "license": "UNLICENSED",
+  "license": "Apache-2.0",
   "type": "module",
   "main": "./dist/index.js",
   "module": "./dist/index.js",

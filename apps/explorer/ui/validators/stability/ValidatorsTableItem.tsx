@@ -10,9 +10,10 @@ import ValidatorStatus from 'ui/shared/statusTag/ValidatorStabilityStatus';
 interface Props {
   data: ValidatorStability;
   isLoading?: boolean;
+  columns: { status: boolean; blocks: boolean };
 }
 
-const ValidatorsTableItem = ({ data, isLoading }: Props) => {
+const ValidatorsTableItem = ({ data, isLoading, columns }: Props) => {
   return (
     <TableRow>
       <TableCell verticalAlign="middle">
@@ -22,14 +23,12 @@ const ValidatorsTableItem = ({ data, isLoading }: Props) => {
           truncation="constant"
         />
       </TableCell>
-      <TableCell verticalAlign="middle">
-        <ValidatorStatus state={ data.state } isLoading={ isLoading }/>
-      </TableCell>
-      <TableCell verticalAlign="middle" isNumeric>
-        <Skeleton loading={ isLoading }>
-          { data.blocks_validated_count.toLocaleString() }
-        </Skeleton>
-      </TableCell>
+      { columns.status && (
+        <TableCell>{ data.state == null ? '—' : <ValidatorStatus state={ data.state } isLoading={ isLoading }/> }</TableCell>
+      ) }
+      { columns.blocks && (
+        <TableCell isNumeric><Skeleton loading={ isLoading }>{ data.blocks_validated_count?.toLocaleString() ?? '—' }</Skeleton></TableCell>
+      ) }
     </TableRow>
   );
 };

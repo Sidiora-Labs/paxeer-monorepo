@@ -12,6 +12,7 @@ from layerx_sdk.account_derivation import keccak256
 from layerx_sdk.production import PlatformSdkError, SdkErrorCode
 from layerx_sdk.revert import RevertReasonError
 from layerx_sdk.verifier import SequencerReceiptVerificationError
+from layerx_sdk.x402 import PaymentBindingError
 from layerx_sdk.x402_draw import PreparedGrantDraws
 from layerx_sdk.x402_http import (
     BuyerMiddleware,
@@ -24,7 +25,8 @@ from layerx_sdk.x402_http import (
     grant_payment_header,
 )
 from test_sequencer_receipt import _bytes, _key, _payment_vector
-from test_x402_draw_sequencer import _grant_inputs, _payment_terms
+from test_x402_draw_sequencer import _receipt_rpc, _grant_inputs, _payment_terms
+from test_ai_market_commit import commit_producer
 from receipt_transport import recorded_payment_rpc
 
 
@@ -187,9 +189,9 @@ def _verify_buyer_receipt(tmp_path, vector, rpc, exchanges):
     raw = _bytes(vector["rawTransaction"])
     key = _key(vector)
     terms = _payment_terms(vector)
-    assert vector["receiptJson"]["txHash"] == "0x" + keccak256(raw).hex()
     required = _required(vector)
     activity = vector["receiptJson"]["txHash"]
+    assert activity == "0x" + keccak256(raw).hex()
     authority = ConfiguredReceiptAuthority(raw)
     buyer = BuyerMiddleware(rpc, [key], authority, [("exact", "layerx:125")])
     payment_header = buyer.prepare(
@@ -213,6 +215,8 @@ def _verify_buyer_receipt(tmp_path, vector, rpc, exchanges):
     assert "0x" + verified.receipt.activity_id.hex() == activity
     assert verified.receipt_digest == _bytes(vector["receiptDigest"])
 
+    with pytest.raises(ValueError, match="^activity-mismatch$"):
+        buyer.prepare(encode_header(required), vector["rawTransaction"], "0x" + "2a" * 32, "0x" + terms["payer"])
     receive, body, offer = _grant_inputs(vector)
     grant_required = {**required, "accepts": [offer]}
     grant_header = grant_payment_header(grant_required, offer, receive.hex())
@@ -296,3 +300,85 @@ def _verify_buyer_receipt(tmp_path, vector, rpc, exchanges):
         ("eth_sendRawTransaction", ["0x" + raw.hex()]),
         ("pax_sequencerReceipt", [activity]),
     ]
+
+
+def test_http_committed_offer_waits_for_verified_inclusion_after_restart(tmp_path, commit_producer):
+    from test_repair_22_31_147 import finality_bundle
+    vector = _payment_vector()
+    raw, signed, key = _bytes(vector["rawTransaction"]), _bytes(vector["signedReceipt"]), _key(vector)
+    activity = vector["receiptJson"]["txHash"]
+    terms = _payment_terms(vector)
+    required = _required(vector)
+    required["accepts"][0]["extra"] = {"layerx": {"commitment": "committed"}}
+    produced = commit_producer(raw, int(vector["receiptJson"]["height"], 16) + 1)
+    trust, evidence = finality_bundle(produced)
+    path = tmp_path / "committed-buyer.sqlite"
+    fulfilled = tmp_path / "committed-seller.sqlite"
+    releases = []
+    def release():
+        releases.append(True)
+        return b"committed resource"
+    with _receipt_rpc(vector) as (rpc, node):
+        authority = ConfiguredReceiptAuthority(raw, rpc=rpc, receipt_keys=(key,), commit_trust=trust, committed_evidence=evidence)
+        # Reopening after each outcome proves only one submission crosses PaymentRpc.
+        for rung in ("unknown", "submitted", "receipted"):
+            if rung == "unknown":
+                node.receipts.pop(activity)
+            elif rung == "submitted":
+                node.receipts[activity] = {"txHash": activity, "nonce": vector["receiptJson"]["nonce"], "rung": rung}
+            else:
+                node.add_recording(vector)
+                node.receipts[activity]["rung"] = rung
+                node.receipts[activity].pop("blockNumber")
+                node.receipts[activity].pop("blockHash")
+                assert node.receipts[activity]["receipt"] == vector["signedReceipt"]
+            buyer = BuyerMiddleware(rpc, (key,), authority, [("exact", "layerx:125")], journal_path=path)
+            assert buyer.prepare(encode_header(required), vector["rawTransaction"], activity, "0x" + terms["payer"]) is None
+            buyer._submissions.close()
+            with sqlite3.connect(path) as db:
+                assert db.execute("SELECT tx_hash, canonical FROM buyer_submissions").fetchall() == [(activity, raw)]
+        seller = SellerMiddleware(required, (key,), ConfiguredReceiptAuthority(raw), FulfillmentStore(fulfilled))
+        with pytest.raises(PaymentBindingError):
+            seller.handle("buyer", _payment_header(required, signed), release)
+        assert releases == []
+        with sqlite3.connect(fulfilled) as db:
+            assert db.execute("SELECT * FROM payment_fulfillments").fetchall() == []
+        node.receipts[activity] = {**vector["receiptJson"], "rung": "committed", "blockHash": "0x" + produced["header_hash"]}
+        buyer = BuyerMiddleware(rpc, (key,), authority, [("exact", "layerx:125")], journal_path=path)
+        header = buyer.prepare(encode_header(required), vector["rawTransaction"], activity, "0x" + terms["payer"])
+        assert header is not None
+        for reopen in range(2):
+            seller = SellerMiddleware(required, (key,), authority, FulfillmentStore(fulfilled))
+            status, headers, resource = seller.handle("buyer", header, release)
+            assert (status, resource) == (200, b"committed resource")
+            assert buyer.capture_settlement(headers["PAYMENT-RESPONSE"], header).canonical_bytes == signed
+        assert releases == [True]
+        sends = [request for request in node.requests if request["method"] == "eth_sendRawTransaction"]
+        assert len(sends) == 1 and sends[0]["params"] == [vector["rawTransaction"]]
+        buyer._submissions.close()
+
+
+def test_http_emitted_receive_registration_cannot_release_retired_grant(tmp_path):
+    vector = _payment_vector()
+    required = _required(vector)
+    key = _key(vector)
+    with _receipt_rpc(vector) as (rpc, node):
+        from test_repair_22_33_17 import draw_inputs
+        receive, body, offer, values, canonical, actor = draw_inputs()
+        grant_required = {**required, "accepts": [offer]}
+        grant_header = grant_payment_header(grant_required, offer, receive.hex())
+        grant_digest = sha256(json.dumps(decode_header(grant_header), sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+        draw_path = tmp_path / "buyer-draws.sqlite"
+        draw = PreparedGrantDraws(draw_path, actor, 125, rpc, ConfiguredReceiptAuthority(canonical), [key])
+        with pytest.raises(RevertReasonError, match="LXP_NO_PAYER_GRANT"):
+            draw.register("buyer", grant_digest, canonical, receive, body["idempotencyKey"])
+        grant_seller = SellerMiddleware(grant_required, [key], ConfiguredReceiptAuthority(canonical), FulfillmentStore(tmp_path / "grant-buyer.sqlite"), draw=draw)
+        releases = []
+        with pytest.raises(RevertReasonError, match="LXP_NO_PAYER_GRANT"):
+            grant_seller.handle("buyer", grant_header, lambda: releases.append(True))
+        assert releases == []
+        with sqlite3.connect(draw_path) as db:
+            assert db.execute("SELECT * FROM grant_draws").fetchall() == []
+        assert node.requests == []
+        with sqlite3.connect(tmp_path / "grant-buyer.sqlite") as db:
+            assert db.execute("SELECT * FROM payment_fulfillments").fetchall() == []

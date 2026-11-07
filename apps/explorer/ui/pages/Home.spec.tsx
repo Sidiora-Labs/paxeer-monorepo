@@ -5,6 +5,7 @@ import React from 'react';
 import * as blockMock from 'mocks/blocks/block';
 import * as dailyTxsMock from 'mocks/stats/daily_txs';
 import * as statsMock from 'mocks/stats/index';
+import { tokenInfoERC20b } from 'mocks/tokens/tokenInfo';
 import * as txMock from 'mocks/txs/tx';
 import { render, routerState } from 'ui/shared/layout/testWrapper';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
@@ -39,6 +40,10 @@ describe('Home', () => {
     fetchMock.resetMocks();
     fetchMock.mockResponse((request) => {
       const body = (() => {
+        if (request.url.includes('/api/v2/tokens')) {
+          return { items: [ tokenInfoERC20b ], next_page_params: null };
+        }
+
         if (request.url.includes('/api/v2/main-page/blocks')) {
           return [ blockMock.base, blockMock.base2 ];
         }
@@ -62,20 +67,20 @@ describe('Home', () => {
     });
   });
 
-  it('puts the hero, the divided stats card and the lists in that order', async() => {
+  it('puts the ticker, hero, stat tiles and lists in that order', async() => {
     const { container } = render(<Home/>);
 
-    await screen.findByText('Latest blocks');
+    await screen.findByText(tokenInfoERC20b.symbol!);
 
-    expect(Array.from(container.querySelectorAll('[data-label="hero"], [data-label="home-stats"], [data-label="home-lists"]'))
+    expect(Array.from(container.querySelectorAll('[data-label="ticker-strip"], [data-label="hero"], [data-label="home-stats"], [data-label="home-lists"]'))
       .map((item) => item.getAttribute('data-label')))
-      .toEqual([ 'hero', 'home-stats', 'home-lists' ]);
+      .toEqual([ 'ticker-strip', 'hero', 'home-stats', 'home-lists' ]);
   });
 
-  it('sets the blocks card beside the transactions card', async() => {
+  it('sets the blocks table beside the transactions table', async() => {
     const { container } = render(<Home/>);
 
-    await screen.findByText('Latest blocks');
+    await screen.findByText(tokenInfoERC20b.symbol!);
 
     const lists = container.querySelector('[data-label="home-lists"]') as HTMLElement;
 
@@ -86,7 +91,7 @@ describe('Home', () => {
   it('carries the search field of the page in the hero', async() => {
     const { container } = render(<Home/>);
 
-    await screen.findByText('Latest blocks');
+    await screen.findByText(tokenInfoERC20b.symbol!);
 
     expect(container.querySelector('[data-label="hero"] [data-label="hero-search"] input')).not.toBeNull();
   });

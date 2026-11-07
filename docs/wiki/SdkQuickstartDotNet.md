@@ -18,18 +18,18 @@ principal creation.
 
 ## Fund from faucet
 
-No `lx_requestFunds` wrapper. `AgentFaucetClaimAsync` /
+No `px_requestFunds` wrapper. `AgentFaucetClaimAsync` /
 `ReadAsync(PlatformOperation.AgentFaucetClaim, …)` exists on the
 catalog and needs an agent-plane `IPlatformTransport`. Use
-[Hosted faucet](HostedFaucet.md) or `lx_requestFunds` as documented
-on [Public JSON-RPC](PublicRpc.md).
+`px_requestFunds` on the configured hosted gateway as documented
+on [Hosted faucet](HostedFaucet.md).
 
 ---
 
 ## Send
 
 Human-plane quote then commit, as in
-`services/platform/docs/samples/first-payment-csharp`:
+`services/platform/examples/samples/first-payment-csharp`:
 
 ```csharp
 using System.Text;

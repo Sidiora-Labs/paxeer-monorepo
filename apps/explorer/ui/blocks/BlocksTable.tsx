@@ -10,6 +10,7 @@ import useInitialList from 'lib/hooks/useInitialList';
 import getNetworkValidatorTitle from 'lib/networks/getNetworkValidatorTitle';
 import { TableBody, TableColumnHeader, TableHeaderSticky, TableRoot, TableRow } from 'toolkit/chakra/table';
 import BlocksTableItem from 'ui/blocks/BlocksTableItem';
+import { LIST_TABLE_STYLES } from 'ui/shared/Page/ListPage';
 import * as SocketNewItemsNotice from 'ui/shared/SocketNewItemsNotice';
 import TimeFormatToggle from 'ui/shared/time/TimeFormatToggle';
 
@@ -47,7 +48,7 @@ const BlocksTable = ({ data, isLoading, top, page, showSocketInfo, socketInfoNum
 
   return (
     <AddressHighlightProvider>
-      <TableRoot variant="scan" minWidth={ chainData ? '1100px' : '1070px' } fontWeight={ 500 }>
+      <TableRoot variant="scan" css={ LIST_TABLE_STYLES } minWidth={ chainData ? '1100px' : '1070px' } fontWeight={ 500 }>
         <TableHeaderSticky top={ top }>
           <TableRow>
             { chainData && <TableColumnHeader width="38px"/> }
@@ -55,18 +56,18 @@ const BlocksTable = ({ data, isLoading, top, page, showSocketInfo, socketInfoNum
               Block
               <TimeFormatToggle/>
             </TableColumnHeader>
-            <TableColumnHeader width="120px">Size, bytes</TableColumnHeader>
+            <TableColumnHeader width="120px" isNumeric>Size, bytes</TableColumnHeader>
             { !appConfig.UI.views.block.hiddenFields?.miner && (
               <TableColumnHeader width={ `${ VALIDATOR_COL_WEIGHT / widthBase * 100 }%` } minW="160px">
                 { capitalize(getNetworkValidatorTitle()) }
               </TableColumnHeader>
             ) }
             <TableColumnHeader width="64px" isNumeric>Txn</TableColumnHeader>
-            <TableColumnHeader width={ `${ GAS_COL_WEIGHT / widthBase * 100 }%` }>Gas used</TableColumnHeader>
+            <TableColumnHeader width={ `${ GAS_COL_WEIGHT / widthBase * 100 }%` } isNumeric>Gas used</TableColumnHeader>
             { !isRollup && !appConfig.UI.views.block.hiddenFields?.total_reward &&
-              <TableColumnHeader width={ `${ REWARD_COL_WEIGHT / widthBase * 100 }%` }>Reward { currency.symbol || 'ETH' }</TableColumnHeader> }
+              <TableColumnHeader width={ `${ REWARD_COL_WEIGHT / widthBase * 100 }%` } isNumeric>Reward { currency.symbol || 'ETH' }</TableColumnHeader> }
             { !isRollup && !appConfig.UI.views.block.hiddenFields?.burnt_fees &&
-              <TableColumnHeader width={ `${ FEES_COL_WEIGHT / widthBase * 100 }%` }>Burnt fees { currency.symbol || 'ETH' }</TableColumnHeader> }
+              <TableColumnHeader width={ `${ FEES_COL_WEIGHT / widthBase * 100 }%` } isNumeric>Burnt fees { currency.symbol || 'ETH' }</TableColumnHeader> }
             { !isRollup && !appConfig.UI.views.block.hiddenFields?.base_fee &&
               <TableColumnHeader width="150px" isNumeric>Base fee</TableColumnHeader> }
           </TableRow>

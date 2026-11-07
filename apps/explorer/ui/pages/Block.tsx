@@ -1,7 +1,9 @@
 import { chakra, Flex } from '@chakra-ui/react';
-import { capitalize, pickBy } from 'es-toolkit';
+import { capitalize } from 'es-toolkit';
 import { useRouter } from 'next/router';
 import React from 'react';
+
+import type { TabItemRegular } from 'toolkit/components/AdaptiveTabs/types';
 
 import { route, routeParams } from 'nextjs/routes';
 
@@ -11,8 +13,10 @@ import throwOnAbsentParamError from 'lib/errors/throwOnAbsentParamError';
 import throwOnResourceLoadError from 'lib/errors/throwOnResourceLoadError';
 import getNetworkValidatorTitle from 'lib/networks/getNetworkValidatorTitle';
 import getQueryParamString from 'lib/router/getQueryParamString';
+import { Badge } from 'toolkit/chakra/badge';
 import { Link } from 'toolkit/chakra/link';
 import { Skeleton } from 'toolkit/chakra/skeleton';
+import RoutedTabs from 'toolkit/components/RoutedTabs/RoutedTabs';
 import BlockCeloEpochTag from 'ui/block/BlockCeloEpochTag';
 import BlockDeposits from 'ui/block/BlockDeposits';
 import BlockDetails from 'ui/block/BlockDetails';
@@ -32,13 +36,10 @@ import * as BlockEntity from 'ui/shared/entities/block/BlockEntity';
 import IconSvg from 'ui/shared/IconSvg';
 import NetworkExplorers from 'ui/shared/NetworkExplorers';
 import PageTitle from 'ui/shared/Page/PageTitle';
-import type { ScanSectionTabItem } from 'ui/shared/scan';
-import { ScanSectionTabs } from 'ui/shared/scan';
+import { entityTabGroup } from 'ui/shared/RoutedTabs/EntityTabs';
 import TxsWithFrontendSorting from 'ui/txs/TxsWithFrontendSorting';
 
-interface BlockTab extends ScanSectionTabItem {
-  component: React.ReactNode;
-}
+type BlockTab = TabItemRegular;
 
 const beaconChainFeature = config.features.beaconChain;
 const apiDocsFeature = config.features.apiDocs;
@@ -46,7 +47,7 @@ const apiDocsFeature = config.features.apiDocs;
 const BlockPageContent = () => {
   const router = useRouter();
   const heightOrHash = getQueryParamString(router.query.height_or_hash);
-  const tab = getQueryParamString(router.query.tab);
+  const tab = getQueryParamString(router.query.tab) || 'txs';
   const multichainContext = useMultichainContext();
 
   const blockQuery = useBlockQuery({ heightOrHash });
@@ -59,7 +60,7 @@ const BlockPageContent = () => {
   const tabs: Array<BlockTab> = React.useMemo(() => ([
     {
       id: 'index',
-      title: 'Overview',
+      title: 'Details',
       component: (
         <>
           <Flex rowGap={{ base: 1, lg: 2 }} mb={{ base: 3, lg: 6 }} flexDir="column">
@@ -125,17 +126,12 @@ const BlockPageContent = () => {
     blockBlobTxsQuery, blockDepositsQuery, blockInternalTxsQuery, blockQuery, blockTxsQuery, blockWithdrawalsQuery,
   ]);
 
-  const activeTab = tabs.find(({ id }) => id === tab) ?? tabs[0];
-
-  const handleTabChange = React.useCallback((value: string) => {
-    const queryForPathname = pickBy(router.query, (_, key) => router.pathname.includes(`[${ String(key) }]`));
-
-    router.push(
-      { pathname: router.pathname, query: { ...queryForPathname, tab: value } },
-      undefined,
-      { shallow: true },
-    );
-  }, [ router ]);
+  const transactionTabs = tabs.filter(({ id }) => [ 'txs', 'internal_txs', 'blob_txs', 'deposits' ].includes(String(id)));
+  const entityTabs = [
+    entityTabGroup('txs', 'Transactions', transactionTabs),
+    ...tabs.filter(({ id }) => id === 'withdrawals'),
+    ...tabs.filter(({ id }) => id === 'index'),
+  ];
 
   throwOnAbsentParamError(heightOrHash);
 
@@ -165,17 +161,6 @@ const BlockPageContent = () => {
   const beforeTitleElement = multichainContext?.chain ? (
     <BlockEntity.Icon variant="heading" chain={ multichainContext.chain } isLoading={ blockQuery.isPlaceholderData }/>
   ) : null;
-
-  const titleContentAfter = (
-    <>
-      <Skeleton loading={ blockQuery.isPlaceholderData }>
-        <chakra.span textStyle="lg" color="text.secondary" data-block-number>
-          #{ blockQuery.data?.height }
-        </chakra.span>
-      </Skeleton>
-      <BlockCeloEpochTag blockQuery={ blockQuery }/>
-    </>
-  );
 
   const titleSecondRow = (
     <>
@@ -209,25 +194,36 @@ const BlockPageContent = () => {
     </Link>
   ) : null;
 
+  const finality = (() => {
+    if (blockQuery.data?.is_pending_update) {
+      return { label: 'Pending', bg: 'bg.surface', color: 'text.muted' };
+    }
+    if (blockQuery.data?.type === 'block') {
+      return { label: 'Confirmed', bg: 'positiveSoft', color: 'positive' };
+    }
+    return { label: blockQuery.data?.type, bg: 'negativeSoft', color: 'negative' };
+  })();
+
   return (
     <>
       <TextAd mb={ 6 }/>
       <PageTitle
-        title={ titleText }
+        kind="BLOCK"
+        title={ `${ titleText } #${ blockQuery.data?.height ?? heightOrHash }` }
+        identifier={ blockQuery.data?.hash ?? heightOrHash }
+        tags={ (
+          <>
+            <Badge borderRadius="full" loading={ blockQuery.isPlaceholderData } bg={ finality.bg } color={ finality.color }>
+              { finality.label }
+            </Badge>
+            <BlockCeloEpochTag blockQuery={ blockQuery }/>
+          </>
+        ) }
         beforeTitle={ beforeTitleElement }
-        contentAfter={ titleContentAfter }
         secondRow={ titleSecondRow }
         isLoading={ blockQuery.isPlaceholderData }
       />
-      <Flex flexDir="column" rowGap={{ base: 3, lg: 4 }}>
-        <ScanSectionTabs
-          items={ tabs.map(({ id, title }) => ({ id, title })) }
-          value={ activeTab?.id ?? 'index' }
-          onValueChange={ handleTabChange }
-          rightSlot={ apiEntry }
-        />
-        { activeTab?.component }
-      </Flex>
+      <RoutedTabs tabs={ entityTabs } displayMode="entity" defaultTabId="txs" rightSlot={ apiEntry }/>
     </>
   );
 };

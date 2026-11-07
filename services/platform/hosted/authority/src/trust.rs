@@ -126,4 +126,4 @@ pub(super) fn authorization(
     Ok(key)
 }
 
-pub(crate) const EXPECTED_CHAIN_ID: u64 = 125;
+pub(crate) use layerx_platform_authority::committed::EXPECTED_CHAIN_ID;

@@ -12,7 +12,7 @@ Time series storage · real-time state · relational data · event sourcing unif
 <p align="center">
   <img src="https://img.shields.io/badge/Project-PerfDB-FFFFFF?style=for-the-badge&amp;labelColor=004CED" alt="Project: PerfDB" />
   <img src="https://img.shields.io/badge/Built_by-Sidiora_Labs-004CED?style=for-the-badge&amp;labelColor=000000" alt="Built by Sidiora Labs" />
-  <a href="#license"><img src="https://img.shields.io/badge/License-MIT_OR_Apache--2.0-004CED?style=for-the-badge&amp;labelColor=000000" alt="License: MIT OR Apache-2.0" /></a>
+  <a href="#license"><img src="https://img.shields.io/badge/License-Apache--2.0-004CED?style=for-the-badge&amp;labelColor=000000" alt="License: Apache-2.0" /></a>
   <img src="https://img.shields.io/badge/Status-Pre--release-FF6B35?style=for-the-badge&amp;labelColor=000000" alt="Status: Pre-release" />
 </p>
 
@@ -321,7 +321,7 @@ design rationale and the systems it replaces.
 
 ## Contributing
 
-Contributions are welcome. See [`CONTRIBUTING.md`](CONTRIBUTING.md) for
+Contributions are welcome. See [`CONTRIBUTING.md`](../../../CONTRIBUTING.md) for
 setup instructions, code standards, and the PR process.
 
 ```bash
@@ -335,16 +335,12 @@ cargo fmt
 
 ## Security
 
-See [`SECURITY.md`](SECURITY.md) for the vulnerability disclosure process.
+See [`SECURITY.md`](../../../SECURITY.md) for the vulnerability disclosure process.
 
 ## License
 
-Licensed under either of:
-
-- Apache License, Version 2.0 ([LICENSE-APACHE](LICENSE-APACHE) or <http://www.apache.org/licenses/LICENSE-2.0>)
-- MIT License ([LICENSE-MIT](LICENSE-MIT) or <http://opensource.org/licenses/MIT>)
-
-at your option.
+Licensed under Apache-2.0 (Apache License, Version 2.0). See the repository
+[LICENSE](../../../LICENSE) or <http://www.apache.org/licenses/LICENSE-2.0>.
 
 ### Acknowledgments
 
@@ -368,5 +364,5 @@ at your option.
 </p>
 
 <p align="center">
-  <sub>SPDX-License-Identifier: MIT OR Apache-2.0</sub>
+  <sub>SPDX-License-Identifier: Apache-2.0</sub>
 </p>

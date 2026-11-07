@@ -1,0 +1,42 @@
+[repair]
+task = "22.31.570"
+requirement = "22998.1"
+gotcha = "3254"
+decision = "2672"
+base = "f0bebed1e4f6c22052872170fb54bc8c2b2b9f95"
+
+[sites.replay]
+path = "src/policy/approval.rs::ApprovalRegistry::replay_tenant"
+change = "Decode tenant Outbox approval-released-v1 records with decode_released and validate_replayed; reconstruct Approved state and the recorded submission reference in the audit entry before inserting with the existing DuplicateHold check. Bound program records remain owned by replay_program_terminals."
+preserved = "replay_released and the PreparedActivity reservation restoration are unchanged; only ordinary released terminal snapshots join the existing terminal insertion list."
+reads = "get_scoped and list_scoped, through their timed variants and ApprovalService, now return the released terminal after restart. The existing decision journal and recovered submission queue answer a repeated grant with its recorded outcome and release identity."
+
+[sites.refusals]
+path = "src/human_runtime.rs"
+native_get = "rpc_approval_get_native names boundary, read_id and response failures with their originating Debug error."
+native_decide = "rpc_approval_decide_native names native_approval_digest, decide, commit and response failures with their originating Debug error; digest and sequence guard refusals name the mismatched field."
+lookup = "UnifiedAgentOwner approval_get, approval_get_facts, approval_budget_after and approval_decide name the lookup error via approval_refused; the response class stays HumanOperationError::Refused."
+delegates = "The other approval_get implementations delegate through the shared owner or return Unavailable; they contain no lookup-to-Refused conversion in this revision. The owner's lookup diagnostic therefore also covers the shared implementation."
+
+[proof]
+path = "tests/repair_22_31_570.rs"
+test = "released_terminal_approval_replays_with_its_release_and_refusal_cause"
+fixture = "The recorded authority, native committed-store proof helper and runtime-clock server from tests/human_approval_budget_actor.rs; actual TLS and node transports, canonical EVM preparation, managed identity, durable Store and UnifiedAgentOwner."
+boundary = "Calls the production HumanOperations approval_get, approval_approve and approval_list boundary with real typed arguments, without constructing wire messages or replacing operation implementations."
+restart = "Hold one reserved preparation, grant through the boundary, assert the hold was replaced by its durable release, drop every store owner, reopen Store and construct UnifiedAgentOwner to run tenant replay. Compare the complete get response before and after reopening and the complete list row, including Approved and the same release reference."
+decision = "Repeat the original grant with the same disclosure digest and decision key; require the same complete result, exactly one queued preparation, unchanged reservation count and exposure, unchanged release bytes, and DuplicateHold on a duplicate replay."
+refusal = "An unknown identifier must return Refused through ordinary get, facts get and approve. A child process runs the real scenario with uncaptured stderr; its parent asserts Registry(NotFound) for both get diagnostics and NotFound for the decision lookup."
+
+[notes]
+lookup_sites = "The shared get expression also occurs in approval_budget_after, besides ordinary and facts get; diagnostics name each owning operation."
+scope = "The task's explicit four-file scope supersedes general ledger-writing instructions; observations and evidence references are retained here."
+
+[evidence]
+policy = "Finalize this record before qualification; results are referenced rather than transcribed after the candidate has been built."
+ledger = "/out/run/gates.jsonl"
+verified_revision = "/out/run/gates.jsonl: final passing verify row revision; must equal the preceding passing build row revision"
+build = "hf-build: cargo build --locked --manifest-path services/agent/crates/layerx-agentd/Cargo.toml --tests"
+verify = "hf-done: cg spec done 22.31.570 -f layerx-merge --root /work/paxeer-monorepo; cargo test --locked --manifest-path services/agent/crates/layerx-agentd/Cargo.toml --test repair_22_31_570, plus graph checks"
+results = "/out/run/gates.jsonl: command, exit and private log fields of the build and verify rows, including bounded repairs; no pass is claimed before execution"
+build_log = "/out/logs/build-1.log"
+verify_log = "/out/logs/verify-1.log"

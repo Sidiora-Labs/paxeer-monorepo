@@ -2,7 +2,7 @@
   "name": "@paxeer/names",
   "version": "0.1.0",
   "description": "Paxeer names, manifests and content hashes",
-  "license": "UNLICENSED",
+  "license": "Apache-2.0",
   "packageManager": "pnpm@10.15.1",
   "engines": {
     "node": ">=18.0.0",

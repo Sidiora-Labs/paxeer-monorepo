@@ -40,7 +40,8 @@ export const recipe = defineSlotRecipe({
       _focusVisible: {
         zIndex: 1,
         outline: '2px solid',
-        outlineColor: 'colorPalette.focusRing',
+        outlineColor: 'focusRing',
+        outlineOffset: '2px',
       },
       _disabled: {
         cursor: 'not-allowed',
@@ -260,6 +261,47 @@ export const recipe = defineSlotRecipe({
       unstyled: {},
     },
   },
+
+  compoundVariants: [
+    {
+      variant: [ 'solid', 'secondary', 'pill', 'segmented' ],
+      css: {
+        list: {
+          borderBottomWidth: '1px',
+          borderColor: 'hairline',
+          flexWrap: 'nowrap',
+          overflowX: 'auto',
+          _horizontal: { _before: { display: 'none' } },
+        },
+        trigger: {
+          textStyle: 'body',
+          fontWeight: '500',
+          color: 'text.secondary',
+          bg: 'transparent',
+          borderWidth: '0',
+          borderBottomWidth: '2px',
+          borderColor: 'transparent',
+          borderRadius: 'none',
+          flexShrink: 0,
+          whiteSpace: 'nowrap',
+          _first: { borderTopLeftRadius: 'none', borderBottomLeftRadius: 'none' },
+          _last: { borderTopRightRadius: 'none', borderBottomRightRadius: 'none' },
+          _notLast: { borderRightWidth: '0', _selected: { borderRightWidth: '0' } },
+          _hover: { color: 'text.primary', borderColor: 'transparent' },
+          _selected: {
+            color: 'accent',
+            bg: 'transparent',
+            borderColor: 'accent',
+            borderRightWidth: '0',
+            '& + *': { borderLeftWidth: '0' },
+            _hover: { color: 'accent', borderColor: 'accent' },
+          },
+        },
+        content: { _horizontal: { pt: '24px' }, _vertical: { ps: '24px' } },
+        indicator: { display: 'none' },
+      },
+    },
+  ],
 
   defaultVariants: {
     size: 'md',

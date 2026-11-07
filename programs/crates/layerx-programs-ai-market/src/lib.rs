@@ -30,6 +30,7 @@ pub mod reputation_codec;
 pub mod reputation_transition;
 pub mod reward_math;
 pub mod rewards;
+pub mod rooms;
 pub mod roster;
 pub mod state;
 pub mod tasks;
@@ -216,6 +217,8 @@ mod deployment {
 
 #[cfg(target_arch = "wasm32")]
 mod guest {
+    // Deployment qualification must build with release opt-level z and measure the
+    // packaged Wasm plus its 104-byte envelope against the 524288-byte ceiling.
     use crate::dispatch::{self, Buffers, Routed, SCRATCH_BYTES};
     use crate::host_adapter::{AdapterError, ApplicationEvent, DirectCall};
     use crate::registry_ops::CallContext;
@@ -341,7 +344,12 @@ mod guest {
     }
 }
 
-pub use errors::{ApplicationError, CodecResult};
+pub use errors::{
+    ApplicationError, CodecResult, F11_ASK_UNFUNDED, F11_BATCH_UNSEALED, F11_BID_BELOW_FLOOR,
+    F11_BOND_INSUFFICIENT, F11_BOND_LOCKED, F11_CHALLENGE_WINDOW_CLOSED, F11_ROOM_CLOSED,
+    F11_ROOM_UNKNOWN, F11_ROSTER_DIGEST_MISMATCH, F11_SPLIT_EXCEEDS_SETTLED,
+};
+pub use policy::{MarketPolicy, RoomProfile};
 pub use types::*;
 
 pub const SCHEMA_VERSION: u16 = 1;
@@ -361,3 +369,267 @@ pub const MAX_TASKS: usize = 64;
 pub const MAX_RETAINED_EPOCHS: usize = 32;
 pub const MAX_PAYOUT_IDENTITIES: usize = 256;
 pub const MAX_CHUNK_BYTES: usize = 8_192;
+
+#[cfg(test)]
+extern crate self as layerx_programs_ai_market;
+#[cfg(test)]
+#[path = "../tests/support/repair_478_fixture.rs"]
+mod repair_478_fixture;
+
+#[cfg(test)]
+mod repair478_fund_tests {
+    use crate::{
+        codec::{self, Envelope},
+        errors::{WRONG_EPOCH, WRONG_ROSTER},
+        registry_ops::CallContext,
+        rewards::*,
+        state::{decode_shared_state, encode_shared_state, ActorSlot, Section},
+        types::*,
+        MAX_STATE_BYTES,
+    };
+    #[test]
+    fn repair478_fund_head_carries_populated_regions_and_epoch_binding() {
+        use super::*;
+        use crate::{
+            admission::AdmissionTable,
+            aggregation_codec::{EpochAggregation, QualityStatus, WorkerAggregate},
+            registry::market_clock,
+            registry_ops::PolicySection,
+            reputation_transition,
+            reward_math::allocate,
+            types::{PublicKey32, RequestId},
+        };
+        let f = crate::repair_478_fixture::fixture([12; 32], [13; 32]).unwrap();
+        let mut state = decode_shared_state(&f.next).unwrap();
+        let source = state.feature_sections[Section::SettlementClaims.index()];
+        let rewards = decode_reward_state(source).unwrap();
+        let mut refunded = vec![0; REWARD_STATE_BYTES];
+        rewards
+            .refund_free(
+                FundingPhase::Closing,
+                &RefundRequest {
+                    expected_refunded: 0,
+                    amount: 10,
+                    recipient: rewards.ledger().unwrap().refund_recipient,
+                },
+                RequestDigest::new([21; 32]).unwrap(),
+                ResultDigest::new([22; 32]).unwrap(),
+                &mut refunded,
+            )
+            .unwrap();
+        let worker = WorkerRosterEntry {
+            worker: WorkerId::new([23; 32]).unwrap(),
+            owner: PrincipalId::new([12; 32]).unwrap(),
+            recipient: AccountId::new([24; 32]).unwrap(),
+            generation: Version::new(1).unwrap(),
+            key_version: Version::new(1).unwrap(),
+            public_key: PublicKey32([25; 32]),
+            metadata: crate::types::MetadataDigest::new([26; 32]).unwrap(),
+        };
+        let roster = RosterDigest::new([27; 32]).unwrap();
+        let header =
+            PolicySection::decode(state.feature_sections[Section::PolicyLifecycle.index()])
+                .unwrap()
+                .header;
+        let epoch = 7;
+        let opening_height = header.origin_height + epoch * 128;
+        let height = opening_height + 127;
+        assert_eq!(
+            market_clock(header.origin_height, height).unwrap().epoch,
+            epoch
+        );
+        let mut reserved = vec![0; REWARD_STATE_BYTES];
+        decode_reward_state(&refunded)
+            .unwrap()
+            .reserve_epoch(epoch, 40, roster, &[worker], opening_height, &mut reserved)
+            .unwrap();
+        let binding = FrozenBinding {
+            chain: header.deployment_chain_domain,
+            program: header.program_id,
+            market: header.market_id,
+            epoch,
+            config: Version::new(header.active_config_version).unwrap(),
+            roster,
+        };
+        let output = WorkerAggregate::new(
+            worker.worker,
+            worker.generation,
+            3,
+            QualityStatus::ScoredPositive,
+            1,
+            1,
+        )
+        .unwrap();
+        let outputs = [output];
+        let aggregation = EpochAggregation::structural(
+            binding,
+            Digest32::new([29; 32]).unwrap(),
+            &[worker],
+            &outputs,
+        )
+        .unwrap();
+        let allocation = allocate(40, &[output]).unwrap();
+        let mut settled = vec![0; REWARD_STATE_BYTES];
+        decode_reward_state(&reserved)
+            .unwrap()
+            .terminalize(
+                &binding,
+                aggregation.root(),
+                &allocation,
+                &[worker],
+                height,
+                &mut settled,
+            )
+            .unwrap();
+        // The real F06 producers retain a populated dictionary, terminal row
+        // and refund cursor; the strict decoder proves all of their bindings.
+        let strict = decode_reward_state(&settled).unwrap();
+        assert_eq!(strict.ledger().unwrap().retained_epochs, 1);
+        assert!(!strict.ledger().unwrap().active_reserve);
+        assert_eq!(strict.row(epoch).unwrap().status, EpochStatus::Terminal);
+        assert_eq!(strict.dictionary().occupied(), 1);
+        assert_eq!(strict.row(7).unwrap().roster, roster);
+        assert!(strict.last_refund().unwrap().is_some());
+        let mut table = AdmissionTable::new();
+        table.begin_epoch(epoch);
+        let mut table_bytes = vec![0; 1024];
+        let n = table.encode(&mut table_bytes).unwrap();
+        let (region, _) = reputation_transition::split_joint(
+            state.feature_sections[Section::ReputationAdmission.index()],
+        )
+        .unwrap();
+        let mut joint = vec![0; Section::ReputationAdmission.payload_cap()];
+        let n =
+            reputation_transition::encode_joint(&region.unwrap(), &table_bytes[..n], &mut joint)
+                .unwrap();
+        state.feature_sections[Section::ReputationAdmission.index()] = &joint[..n];
+        state.feature_sections[Section::SettlementClaims.index()] = &settled;
+        let mut current = vec![0; MAX_STATE_BYTES];
+        let mut control = vec![0; Section::Control.payload_cap()];
+        let n = encode_shared_state(&state, &mut current, &mut control).unwrap();
+        current.truncate(n);
+        let committed = decode_shared_state(&current).unwrap();
+        let (_, admission) = reputation_transition::split_joint(
+            committed.feature_sections[Section::ReputationAdmission.index()],
+        )
+        .unwrap();
+        assert_eq!(
+            AdmissionTable::decode(admission).unwrap().current_epoch(),
+            Some(epoch)
+        );
+        let decoded = codec::decode_envelope(&f.fund).unwrap();
+        let mut payload = vec![0; FUND_PAYLOAD_BYTES];
+        FundRequest {
+            amount: 25,
+            refund_recipient: strict.ledger().unwrap().refund_recipient,
+            policy_version: FUNDING_POLICY_VERSION,
+            consent: true,
+        }
+        .encode(&mut payload)
+        .unwrap();
+        let envelope = Envelope {
+            epoch,
+            expiry: height + 1000,
+            roster: Presence::Present(roster),
+            sequence: 3,
+            request: RequestId::new([28; 32]).unwrap(),
+            payload: &payload,
+            ..decoded.envelope
+        };
+        let ctx = CallContext {
+            chain: envelope.chain,
+            program: envelope.program,
+            principal: envelope.actor,
+            height,
+        };
+        let mut call = vec![0; crate::MAX_ENVELOPE_BYTES];
+        let n = codec::encode_envelope(&envelope, &mut call).unwrap();
+        call.truncate(n);
+        let mut next = vec![0xa5; MAX_STATE_BYTES];
+        let mut scratch = vec![0; SCRATCH_BYTES];
+        let mut event = vec![0; crate::MAX_EVENT_BYTES];
+        let Outcome::Applied {
+            state_len,
+            before,
+            after,
+            ..
+        } = apply(
+            &ctx,
+            &codec::decode_envelope(&call).unwrap(),
+            &current,
+            &mut next,
+            &mut scratch,
+            &mut event,
+        )
+        .unwrap()
+        else {
+            panic!("populated Fund must apply");
+        };
+        assert_eq!(after, before.deposit(25).unwrap());
+        let produced = decode_shared_state(&next[..state_len]).unwrap();
+        let funded =
+            decode_reward_state(produced.feature_sections[Section::SettlementClaims.index()])
+                .unwrap();
+        assert_eq!(funded.ledger().unwrap(), after);
+        assert_eq!(&funded.bytes()[LEDGER_BYTES..], &settled[LEDGER_BYTES..]);
+        for section in [
+            Section::IdentityRoster,
+            Section::CurrentReports,
+            Section::ReputationAdmission,
+        ] {
+            assert_eq!(
+                produced.feature_sections[section.index()],
+                state.feature_sections[section.index()]
+            );
+        }
+        assert_eq!(produced.revision, state.revision + 1);
+        assert_eq!(
+            produced
+                .control
+                .replay
+                .actor(ActorSlot::OWNER)
+                .unwrap()
+                .last
+                .unwrap()
+                .sequence,
+            3
+        );
+        // The binding checks still reject the wrong epoch or roster before any write.
+        for (epoch, binding, error) in [
+            (6, Presence::Present(roster), WRONG_EPOCH),
+            (
+                7,
+                Presence::Present(RosterDigest::new([30; 32]).unwrap()),
+                WRONG_ROSTER,
+            ),
+        ] {
+            let bad = Envelope {
+                epoch,
+                roster: binding,
+                ..envelope
+            };
+            let n = codec::encode_envelope(&bad, &mut call).unwrap();
+            next.fill(0xa5);
+            assert_eq!(
+                apply(
+                    &ctx,
+                    &codec::decode_envelope(&call[..n]).unwrap(),
+                    &current,
+                    &mut next,
+                    &mut scratch,
+                    &mut event
+                ),
+                Err(error)
+            );
+            assert!(next.iter().all(|byte| *byte == 0xa5));
+        }
+        let missing_roster = Envelope {
+            roster: Presence::Absent,
+            ..envelope
+        };
+        assert_eq!(
+            codec::encode_envelope(&missing_roster, &mut call),
+            Err(WRONG_ROSTER)
+        );
+    }
+}

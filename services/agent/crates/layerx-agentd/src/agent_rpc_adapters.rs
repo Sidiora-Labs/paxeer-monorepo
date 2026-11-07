@@ -1759,7 +1759,7 @@ fn budget_record_wire(
                 "revoked": view.revoked,
                 "delegates": view.delegates.iter().map(|delegate| hexv(delegate)).collect::<Vec<_>>(),
                 "source_account": view.source_account.as_ref().map(|account| hexv(account)),
-                "achieved_rung": view.achieved_rung.name(),
+                "achieved_verification_level": view.achieved_rung.name(),
             }),
             Some(VerificationStatus::Achieved(legacy_level(
                 view.achieved_rung,

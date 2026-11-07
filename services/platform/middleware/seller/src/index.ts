@@ -1,5 +1,4 @@
 import {
-  encodePaymentCommitmentEvidence,
   paymentAccount,
   paymentCommitment,
   paymentCurrency,
@@ -127,8 +126,8 @@ export type MiddlewareErrorCode =
   | "webhook-replay";
 
 export class MiddlewareError extends Error {
-  public constructor(public readonly code: MiddlewareErrorCode, public readonly detail?: string) {
-    super(detail === undefined ? code : `${code}: ${detail}`);
+  public constructor(public readonly code: MiddlewareErrorCode, public readonly detail?: string, options?: ErrorOptions) {
+    super(detail === undefined ? code : `${code}: ${detail}`, options);
     this.name = "MiddlewareError";
   }
 }
@@ -214,7 +213,7 @@ export class ReceiptPayloadAuthority implements SellerPaymentAuthority {
       verifyReceiptDigest(evidence.receiptDigest, verified.receiptDigest);
       await verifyPortableNodeReceiptJson(evidence, verified);
     } catch (error) {
-      if (error instanceof PlatformSdkError) throw new MiddlewareError("verification-failure");
+      if (error instanceof PlatformSdkError) throw new MiddlewareError("verification-failure", undefined, { cause: error });
       throw error;
     }
     return { kind: "settled", ...evidence };
@@ -387,8 +386,10 @@ export class SellerMiddleware<T> {
       receiptDigest: stored.receiptDigest,
       receiptKey: stored.receiptKey,
       ...portableNodeFields(stored),
-      ...(storedVerification.commitmentEvidence === undefined ? {} :
-        encodePaymentCommitmentEvidence(storedVerification.commitmentEvidence)),
+      ...(commitmentEvidence === undefined ? {} : {
+        landingBlockHeight: `0x${commitmentEvidence.landingBlockHeight.toString(16)}`,
+        landingBlockHash: `0x${toHex(commitmentEvidence.blockHeader.blockId.hash)}`,
+      }),
     };
     const settlement: SettlementResponse = {
       success: true,
@@ -476,7 +477,7 @@ export async function verifyPaymentReceipt(
       throw new MiddlewareError("verification-failure");
     }
   } catch (error) {
-    throw new MiddlewareError("verification-failure");
+    throw new MiddlewareError("verification-failure", undefined, { cause: error });
   }
   const { receipt } = verified;
   if (!["exact", "metered", "subscription"].includes(requirements.scheme)
@@ -1328,6 +1329,7 @@ async function sha256(...values: readonly Uint8Array[]): Promise<Uint8Array> {
 }
 
 export {
+  HostedGatewayRpc,
   PaymentRpc,
   PaymentRpcError,
   rpcHex,

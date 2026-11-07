@@ -17,7 +17,7 @@ const chainId = config.chain.id;
 
 const hooksConfig = {
   router: {
-    query: { hash, tab: 'token_transfers' },
+    query: { hash, tab: 'metadata' },
     isReady: true,
   },
 };
@@ -34,7 +34,7 @@ test.beforeEach(async({ mockApiResponse, mockTextAd }) => {
   await mockTextAd();
 });
 
-test('base view', async({ render, page, createSocket }) => {
+test('base view +@dark-mode', async({ render, page, createSocket }) => {
   const component = await render(<Token/>, { hooksConfig }, { withSocket: true });
 
   const socket = await createSocket();
@@ -46,7 +46,7 @@ test('base view', async({ render, page, createSocket }) => {
   });
 });
 
-test('with verified info', async({ render, page, createSocket, mockApiResponse, mockAssetResponse }) => {
+test('with verified info +@dark-mode', async({ render, page, createSocket, mockApiResponse, mockAssetResponse }) => {
   test.slow();
   await mockApiResponse('contractInfo:token_verified_info', verifiedAddressesMocks.TOKEN_INFO_APPLICATION.APPROVED, { pathParams: { chainId, hash } });
   await mockAssetResponse(tokenInfo.icon_url as string, './playwright/mocks/image_s.jpg');
@@ -66,11 +66,11 @@ test('with verified info', async({ render, page, createSocket, mockApiResponse, 
   });
 });
 
-test('bridged token', async({ render, page, createSocket, mockApiResponse, mockAssetResponse, mockEnvs }) => {
+test('bridged token +@dark-mode', async({ render, page, createSocket, mockApiResponse, mockAssetResponse, mockEnvs }) => {
   const hash = bridgedTokenA.address_hash;
   const hooksConfig = {
     router: {
-      query: { hash, tab: 'token_transfers' },
+      query: { hash, tab: 'metadata' },
     },
   };
 
@@ -93,7 +93,7 @@ test('bridged token', async({ render, page, createSocket, mockApiResponse, mockA
   });
 });
 
-test('scam token', async({ render, page, createSocket, mockApiResponse, mockEnvs }) => {
+test('scam token +@dark-mode', async({ render, page, createSocket, mockApiResponse, mockEnvs }) => {
   await mockEnvs([
     [ 'NEXT_PUBLIC_VIEWS_TOKEN_SCAM_TOGGLE_ENABLED', 'true' ],
   ]);
@@ -112,7 +112,7 @@ test('scam token', async({ render, page, createSocket, mockApiResponse, mockEnvs
 test.describe('mobile', () => {
   test.use({ viewport: devices['iPhone 13 Pro'].viewport });
 
-  test('base view', async({ render, page, createSocket }) => {
+  test('base view +@dark-mode', async({ render, page, createSocket }) => {
     test.slow();
     const component = await render(<Token/>, { hooksConfig }, { withSocket: true });
     const socket = await createSocket();
@@ -126,7 +126,7 @@ test.describe('mobile', () => {
     });
   });
 
-  test('with verified info', async({ render, page, createSocket, mockApiResponse, mockAssetResponse }) => {
+  test('with verified info +@dark-mode', async({ render, page, createSocket, mockApiResponse, mockAssetResponse }) => {
     test.slow();
     await mockApiResponse('contractInfo:token_verified_info', verifiedAddressesMocks.TOKEN_INFO_APPLICATION.APPROVED, { pathParams: { chainId, hash } });
     await mockAssetResponse(tokenInfo.icon_url as string, './playwright/mocks/image_s.jpg');
@@ -144,17 +144,27 @@ test.describe('mobile', () => {
   });
 });
 
-test('decimal string supplies preserve precision and zero', async({ render, page, createSocket }) => {
+test('decimal string supplies preserve precision and zero +@dark-mode', async({ render, page, createSocket }) => {
   const component = await render(<Token/>, { hooksConfig }, { withSocket: true });
   const socket = await createSocket();
   const channel = await socketServer.joinChannel(socket, `tokens:${ hash }`);
   for (const totalSupply of [ '9007199254740993000000000000000001', '0' ]) {
     socket.send(JSON.stringify([ ...channel, 'total_supply', { total_supply: totalSupply } ]));
     const expected = new BigNumber(totalSupply).shiftedBy(-Number(tokenInfo.decimals)).dp(3).toFormat();
-    await expect(component.locator('[data-token-card="Overview"]')).toContainText(`${ expected } ARIA`);
+    await expect(component.locator('[data-token-card="TOKEN INFO"]')).toContainText(`${ expected } ARIA`);
     if (totalSupply !== '0') {
       await component.getByText(expected, { exact: true }).hover();
       await expect(page.getByRole('tooltip')).toContainText(new BigNumber(totalSupply).shiftedBy(-Number(tokenInfo.decimals)).toFormat());
     }
   }
+});
+
+test('markets without a rate +@mobile +@dark-mode', async({ render, mockApiResponse, page }) => {
+  await mockApiResponse('general:token', { ...tokenInfo, exchange_rate: null, circulating_market_cap: null }, { pathParams: { hash } });
+  const component = await render(<Token/>, { hooksConfig: { router: { query: { hash, tab: 'markets' }, isReady: true } } });
+  await expect(component.locator('[data-stat-tile="Price"] [data-stat-value]')).toHaveText('—');
+  await expect(component).toHaveScreenshot({
+    mask: [ page.locator(pwConfig.adsBannerSelector) ],
+    maskColor: pwConfig.maskColor,
+  });
 });

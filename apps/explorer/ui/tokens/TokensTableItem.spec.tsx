@@ -43,10 +43,10 @@ describe('getNativePrice', () => {
 });
 
 describe('TokensTableItem', () => {
-  it('lays the token out over the eight scan columns', () => {
+  it('lays the token out over the seven market columns', () => {
     const { container } = renderItem(tokenMock.tokenInfo);
 
-    expect(container.querySelectorAll('[data-token-row] td')).toHaveLength(8);
+    expect(container.querySelectorAll('[data-token-row] td')).toHaveLength(7);
     expect(container.querySelector('[data-token-rank]')?.textContent).toBe('1');
     expect(container.querySelector('[data-token-holders]')?.textContent).toBe('46,554');
   });
@@ -60,13 +60,14 @@ describe('TokensTableItem', () => {
     expect(placeholders.map((item) => item.textContent)).toEqual([ TOKEN_VALUE_PLACEHOLDER, TOKEN_VALUE_PLACEHOLDER ]);
   });
 
-  it('writes the coin-denominated price only when the coin price is known', () => {
+  it('uses only the API price even when a native coin price is available', () => {
     const { container: withoutPrice } = renderItem(tokenMock.tokenInfo);
 
     expect(withoutPrice.querySelector('[data-token-native-price]')).toBeNull();
 
     const { container: withPrice } = renderItem(tokenMock.tokenInfo, '1.5');
 
-    expect(withPrice.querySelector('[data-token-native-price]')?.textContent).toContain('1.340067');
+    expect(withPrice.querySelector('[data-token-native-price]')).toBeNull();
+    expect(withPrice.querySelector('[data-token-price]')?.textContent).toBe('$2.0101');
   });
 });

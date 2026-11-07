@@ -154,7 +154,7 @@ async function pendingTitleCountsCurrentPageInsteadOfMinedHistory() {
   const { container, client } = renderTransactionPage('pending', { hasPages: true, hasNextPage: true });
   await waitFor(() => {
     expect(client.getQueryData([ 'general:stats' ])).toEqual({ ...statsFixtures.base, total_transactions: minedTotal });
-    expect(container.querySelector('[data-scan-table-card] [data-title]')?.textContent)
+    expect(container.querySelector('[data-list-page] [data-title]')?.textContent)
       .toBe('Pending transactions on this page: 3');
   });
   expect(requests).toContain('/api/v2/transactions?filter=pending');
@@ -168,7 +168,7 @@ async function pendingTitleUsesShortLaterPageWithoutEstimatingATotal() {
   const { container, client } = renderTransactionPage('pending', { page: 2, hasPages: true, canGoBackwards: true });
   await waitFor(() => {
     expect(client.getQueryState([ 'general:stats' ])?.status).toBe('success');
-    expect(container.querySelector('[data-scan-table-card] [data-title]')?.textContent)
+    expect(container.querySelector('[data-list-page] [data-title]')?.textContent)
       .toBe('Pending transactions on this page: 1');
   });
   expect(transactionLinks(container)).toEqual([ `/tx/${ pendingRows[0].hash }` ]);
@@ -177,7 +177,7 @@ async function pendingTitleUsesShortLaterPageWithoutEstimatingATotal() {
 async function validatedTitleRetainsMatchingMinedTotal() {
   const { container } = renderTransactionPage('validated');
   await waitFor(() => {
-    expect(container.querySelector('[data-scan-table-card] [data-title]')?.textContent)
+    expect(container.querySelector('[data-list-page] [data-title]')?.textContent)
       .toBe('Latest 2 from a total of 82,258,122 transactions');
   });
   expect(requests).toContain('/api/v2/transactions?filter=validated');
@@ -193,7 +193,7 @@ async function emptyPendingPageDoesNotAdvertiseMinedHistory() {
     expect(container.textContent).toContain('There are no transactions.');
   });
   expect(requests).toContain('/api/v2/transactions?filter=pending');
-  expect(container.querySelector('[data-scan-table-card]')).toBeNull();
+  expect(container.querySelector('[data-list-page]')).toBeNull();
 }
 
 test('pendingTitleCountsCurrentPageInsteadOfMinedHistory', pendingTitleCountsCurrentPageInsteadOfMinedHistory);

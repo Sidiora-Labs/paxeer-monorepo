@@ -3,7 +3,7 @@ use std::io::Read;
 use std::os::unix::fs::MetadataExt;
 use std::path::Path;
 
-pub(super) fn read(path: &Path, maximum: u64) -> Result<Vec<u8>, ()> {
+pub fn read(path: &Path, maximum: u64) -> Result<Vec<u8>, ()> {
     if !path.is_absolute() || fs::canonicalize(path).map_err(|_| ())? != path {
         return Err(());
     }
