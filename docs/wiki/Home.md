@@ -109,7 +109,7 @@ availability from its operator.
 - [Bridge](Bridge.md)
 - [Fees](Fees.md)
 - [Sequencing](Sequencing.md)
-- [Finality](Finality.md)
+- [Finality (retired)](Finality.md)
 - [Data availability](DataAvailability.md)
 - [Agent API](AgentApi.md)
 - [MCP](Mcp.md)
