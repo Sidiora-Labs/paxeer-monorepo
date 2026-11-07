@@ -1,5 +1,6 @@
 import { defineConfig } from 'vitest/config';
 import path from 'node:path';
+import ledgerProof from './src/surfaces/test/fixtures/ledger-proof-v1.json';
 
 const walletSdk = path.resolve(__dirname, '../../sdk/wallet/src/index.ts');
 const layerxSdkBrowser = path.resolve(
@@ -11,6 +12,7 @@ export default defineConfig({
   test: {
     environment: 'node',
     globals: true,
+    provide: { ledgerProof },
     include: ['src/**/*.test.ts', 'src/**/*.test.tsx'],
   },
   resolve: {
@@ -29,6 +31,7 @@ export default defineConfig({
       '@scure/bip39',
       'ws',
       'react',
+      'react-dom',
     ],
   },
 });
