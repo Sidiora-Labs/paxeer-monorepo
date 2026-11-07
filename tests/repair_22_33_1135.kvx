@@ -1,0 +1,39 @@
+[task]
+id = "22.33.1135"
+finding = "22.30.5.12"
+status = "implemented_pending_qualification"
+repair = "Replace the combining-block approximation with allocation-free Unicode 15.0.0 NFC validation: strict UTF-8 decoding, pinned canonical combining classes, scalar NFC exclusions, unblocked canonical composition pairs, precomposed-starter decomposition prefixes for intervening lower-class marks and algorithmic Hangul L+V and LV+T composition detection. Canonical text is preserved byte-for-byte; noncanonical input is refused before the writer changes."
+proving_tests = ["codec_nfc_boundary_vectors", "codec_nfc_unicode_15_conformance", "codec_nfc_kernel_transport"]
+test_paths = ["tests/codec/lxp_test_codec_composite.c", "tests/codec/lxp_test_fee_meter_refused.c"]
+gate_mapping = "test-codec-limits executes the boundary and Unicode conformance functions; test-codec executes codec_nfc_kernel_transport from the existing native fee/asset harness after its retained cases. All prior assertions and cases remain active."
+conformance = "The committed, unmodified Unicode 15.0.0 NormalizationTest.txt supplies 19074 rows. Each of its five columns is accepted exactly when it equals the specified NFC column (c2 for c1/c2/c3; c4 for c4/c5), proving 95370 production writer decisions, unchanged-byte refusals and canonical codec transport round trips."
+corpus_source = "https://www.unicode.org/Public/15.0.0/ucd/NormalizationTest.txt"
+corpus_sha256 = "fb9ac8cc154a80cad6caac9897af55a4e75176af6f4e2bb6edc2bf8b1d57f326"
+unicode_pin = "The immutable tables embedded in src/codec/lxp_codec.c come from Python's Unicode 15.0.0 UCD; tests/codec/generate_nfc_tables.py regenerates them and refuses a different database version. The generator is development tooling, not a gate/runtime dependency. Unicode data terms accompany the corpus in tests/vectors/codec/UNICODE-LICENSE.txt."
+kernel_proof = "The production text writer emits canonical combining-mark, precomposed Hangul and blocked Hangul application text. Its transported/read bytes become the request key of a real Send, signed with its recomputed context and existing account owner. Production Send/activity encode/decode and signature verification feed lxp_kernel_execute_activity with the committed native asset/fee fixture and in-memory stores. The test reads the exact text from the transported Send and asserts the resulting transfer, fees, balances, nonces, identity sequence, activity id, text-bound context/authorization hashes, effects, committed state roots and signed receipt transport verification. Noncanonical Latin and decomposed Hangul are refused before encoding and leave all fixture state unchanged."
+baseline = "The initial tree had only the runner's .cgignore and in_progress setup; the supplied gate counters were zero and no gates.jsonl existed. The explicit ordered instructions prohibit pre-implementation tests and a manual verify_cmd run, overriding do_5's unchanged-tree baseline request. No baseline test pass or pre-existing test failure is claimed."
+wiring_requests = []
+qualification = "Only hf-build (make -s all) followed by hf-done (cg spec done 22.33.1135 -f layerx-merge --root /work/paxeer-monorepo, executing make -s test-codec test-codec-limits test-codec-vectors test-codec-version) establishes qualification. Exact candidate revision, command, exit and private log are retained by the runner in /out/run/gates.jsonl and copied in the final response. The runner publishes the qualified candidate."
+
+[gotcha.1]
+symptom = "The baseline and spec-record steps conflict with the explicit gate order and file scope."
+resolution = "Run only the bounded wrappers after implementation; keep the finding/test mapping and gotchas in this in-scope task record instead of editing spec/ or GOTCHA.kvx."
+
+[gotcha.2]
+symptom = "The codec text writer is not currently called by another production module; activity text fields use generic byte spans."
+resolution = "Exercise the repaired writer directly and carry its actual emitted text through the existing signed native activity producer, transport, asset consumer and committed receipt harness; do not change another module's text policy outside scope."
+
+[gotcha.3]
+symptom = "The Codify index omits Makefile matches and the wrapper binaries live under /out/run/bin rather than /usr/local/bin."
+resolution = "Use the actual working-tree Makefile and command -v results for the declared gates; do not infer a missing target from an indexed search."
+
+[gotcha.4]
+symptom = "The native Send module binds its source account name to the actor DID; replacing the actor with Unicode application text produces a refusal receipt."
+resolution = "Carry the text as a real Send request key instead, preserving its legitimate owner and recomputing both production signing preimages. Keep the success, economic, nonce, root and receipt assertions and add text-bound context/authorization hash assertions."
+
+[qualification.1]
+revision = "acd337ebdef38eb1a1a767c66ec628cbc1782a9b"
+command = "cg spec done 22.33.1135 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The retained codec audit cases passed; the new kernel transport case failed its successful-receipt assertion because its actor did not own the source account. The task-scoped repair carries codec-produced text in the signed request key while preserving all success and committed-state assertions."

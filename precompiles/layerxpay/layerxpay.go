@@ -225,7 +225,7 @@ func (p *Executor) Execute(ctx sdk.Context, method *abi.Method, caller common.Ad
 		output, err = p.budgetHandlers(ctx, method, caller, args, key, evm)
 	case "escrowOpen", "escrowCapture", "escrowPartialCapture", "escrowRelease", "escrowTimeout", "escrowDisputeOpen", "escrowDisputeResolve":
 		output, err = p.escrowHandlers(ctx, method, caller, args, key, evm)
-	case "streamOpen", "streamTopUp", "streamMeter", "streamSettle", "streamPause", "streamResume", "streamClose":
+	case "streamOpen", streamOpenForAsk, "streamTopUp", "streamMeter", "streamSettle", "streamPause", "streamResume", "streamClose":
 		output, err = p.streamHandlers(ctx, method, caller, args, key, evm)
 	case "serviceOfferPublish", "serviceOfferWithdraw", "serviceAgreementPropose", "serviceAgreementAccept", "serviceCommitTask", "serviceCommitAbandon", "serviceToolExecAttest", "serviceProgressReport", "serviceDeliver", "serviceAccept", "serviceReject", serviceDisputeOpen, "serviceDisputeResolve":
 		output, err = p.serviceHandlers(ctx, method, caller, args, key, evm)
@@ -347,7 +347,7 @@ func (p *Executor) view(ctx sdk.Context, method *abi.Method, args []interface{})
 	switch method.Name {
 	case "getEscrow", "escrowRemaining", "getEscrowResult":
 		return p.escrowHandlers(ctx, method, common.Address{}, args, [32]byte{}, nil)
-	case "getStream", "getStreamResult", "streamAccrued":
+	case "getStream", "getStreamResult", "streamAccrued", askStreamOf:
 		return p.streamHandlers(ctx, method, common.Address{}, args, [32]byte{}, nil)
 	case "getBudget", "budgetRemaining":
 		return p.budgetHandlers(ctx, method, common.Address{}, args, [32]byte{}, nil)
