@@ -92,6 +92,17 @@ jobs:
         env:
           CC: ${{ matrix.compiler }}
         run: make build test scan-consensus
+      - name: Install Foundry for core suites
+        uses: foundry-rs/foundry-toolchain@908c540300062bd5a7e473851cdb4282204cee09 # v1.9.1
+        with:
+          version: v1.7.1
+          cache: false
+      - name: Install arithmetic proof tools for core suites
+        run: sudo apt-get update && sudo apt-get install --yes cbmc z3 clang
+      - name: Run all core C suites
+        env:
+          CC: ${{ matrix.compiler }}
+        run: make core-test-all
 
   solidity:
     runs-on: ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && 'ubuntu-24.04' || vars.CI_LINUX_RUNNER || 'ubuntu-24.04' }}
