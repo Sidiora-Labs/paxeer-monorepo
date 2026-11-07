@@ -33539,3 +33539,59 @@ symbol = "repair_22_33_1536.rs"
 observed = "Attempt 8 at 34a1e6edcd85: build 1 exit 0, verify green; held at publication with a merge conflict on services/agent/crates/layerx-agentd/tests/human_node_budgets.rs against dbd4e68ed9."
 assumption = "The sibling part changed four lines of a file the attempt rewrites; the union is the intended state of the file."
 severity = "high"
+
+[finding.22.37.2.3]
+task = "22.37.2"
+file = "tools/hyperfide/tests/hyperfide/cases/source_control/layout_receipt_gate_test.py"
+symbol = "layout_receipt_gate_test.py"
+observed = "Attempt 3 at b046a74dc9cf: build 2 exit 0, verify 2 exit 1: the fifteen gate fixtures passed and the pending aggregation check refused one unexpected missing evidence of kind follow-on-authorization naming the candidate revision itself with eight changed paths; zero regressions, the five driver receipts pending as expected."
+assumption = "The only refusal is the self-reference of the allowlist, which the ruling resolves by construction."
+severity = "high"
+
+[finding.22.38.9.2]
+task = "22.38.9"
+file = "precompiles/layerxpay/stream_ask_test.go"
+symbol = "stream_ask_test.go"
+observed = "Attempt 2 at 0ab010459bb7: build 2 exit 0, verify 2 exit 1: TestStreamAskOpenAndHostMeter and every TestStreamAskOpenValidation case failed with LXP_PRECOMPILE_UNKNOWN_METHOD: askStreamOf at budget_test.go line 133, because the entry point never routes the two new methods."
+assumption = "The handlers exist in stream.go; two switch arms in the entry point connect them."
+severity = "high"
+
+[finding.22.33.1523.1]
+task = "22.33.1523"
+file = "services/agent/crates/layerx-wire/tests/repair_22_33_1523.rs"
+symbol = "repair_22_33_1523.rs"
+observed = "Attempt 1 at 6511c613c254: build 1 exit 101, seven resolution errors in repair_22_33_1523.rs lines 36 to 48 (five custody-gated modules of layerx_crypto and the unlinked crate layerx_client); the verification never ran."
+assumption = "The errors are entirely in the manifest; the custody feature and the client crate build on the same tree for the other crates of services/agent."
+severity = "high"
+
+[finding.22.31.539.10]
+task = "22.31.539"
+file = "services/agent/crates/layerx-agentd/tests/repair_22_31_539.rs"
+symbol = "repair_22_31_539.rs"
+observed = "Attempt 10 at ed476ecc007e: build 2 exit 0, verify 2 exit 1: one case of tests/repair_22_33_1525.rs panicked at line 63 with the unit refusal Contract (six passed); every other suite of the verification passed."
+assumption = "The refusal comes from one producer check that the backtrace names; the base trees of attempts 9 and 10 carry no change under services/agent, so the cause is inside the attempt tree."
+severity = "high"
+
+[finding.22.37.18.2]
+task = "22.37.18"
+file = "tools/hyperfide/plugins/hyperfide-dispatch/src/integrate/queue.test.ts"
+symbol = "queue.test.ts"
+observed = "Attempt 2 at b34273fede: build 2 exit 0, verify 1 exit 1: fifteen cases failed in two legacy suites of the plugin (ten in the routing module test, five in src/server-backend.test.ts); the queue, runners, spec-source, builder and storage suites and the native outage case passed; the 4.2 case was not reached."
+assumption = "The two legacy suites predate the manager-decision default of the base tree and are outside the touches of this task; the narrowed gate covers every file the task changed."
+severity = "high"
+
+[finding.22.99.77.23]
+task = "22.99.77"
+file = "programs/crates/layerx-programs-ai-market"
+symbol = "layerx-programs-ai-market"
+observed = "Attempt 21 at dd94f1eed20d: build 3 exit 101 at tests/view_binding.rs line 332, the carried assertion expects ten availability entries while feature_availability returns eleven."
+assumption = "The stale width is an edit carried from the earlier base of the attempt; the main tree already asserts the eleven entries."
+severity = "high"
+
+[finding.22.37.2.4]
+task = "22.37.2"
+file = "tools/hyperfide/tests/hyperfide/cases/source_control/layout_receipt_gate_test.py"
+symbol = "layout_receipt_gate_test.py"
+observed = "Attempt 4 at 97407a1e9e: build 1 exit 0, verify 1 exit 1: seventeen gate fixtures passed, the aggregation report recorded zero regressions and the five pending driver receipts, and the pending aggregation check refused on the one failed check source.final-revision-clean."
+assumption = "The dirty state comes from the untracked lockfile and prepare outputs the dependency installation generates (gotcha 3397); with the check reading tracked content only the report is clean at the candidate revision."
+severity = "high"
