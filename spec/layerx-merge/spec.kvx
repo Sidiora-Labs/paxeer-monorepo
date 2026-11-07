@@ -329982,7 +329982,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.16]
 title = "Remove the pending task reference from the vendored project documentation page"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -330011,7 +330011,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.15]
 title = "Repoint the light client detection link to the local detection spec"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -330271,7 +330271,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.5]
 title = "Drop the HOME containment check from the blocktest home preparation"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -330300,7 +330300,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.3]
 title = "Run the c17 job on hosted Ubuntu and clear LD_PRELOAD for the ASan test rules"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
