@@ -197,6 +197,70 @@ struct lxp_programs_call_activity {
     uint32_t emitted_event_count;
 };
 
+static _Thread_local const char *call_stage = "prepare";
+static _Thread_local lxp_result replay_execution_status = LXP_OK;
+static _Thread_local char *replay_execution_fault;
+static _Thread_local const char *replay_refusal_stage = "none";
+static _Thread_local const char *replay_refusal_site = "none";
+static _Thread_local const char *replay_refusal_field = "none";
+
+const char *layerx_programs_call_replay_refusal_field(bool reset)
+{
+    const char *field = replay_refusal_field;
+    if (reset) {
+        call_stage = "prepare";
+        replay_execution_status = LXP_OK;
+        free(replay_execution_fault);
+        replay_execution_fault = NULL;
+        replay_refusal_stage = "none";
+        replay_refusal_site = "none";
+        replay_refusal_field = "none";
+    }
+    return field;
+}
+
+lxp_result layerx_programs_call_replay_execution_status(void)
+{
+    return replay_execution_status;
+}
+
+const char *layerx_programs_call_replay_execution_fault(void)
+{
+    return replay_execution_fault != NULL ? replay_execution_fault : "none";
+}
+
+const char *layerx_programs_call_replay_refusal_site(void)
+{
+    return replay_refusal_site;
+}
+
+const char *layerx_programs_call_replay_refusal_stage(void)
+{
+    return replay_refusal_stage;
+}
+
+static lxp_result call_refuse_at(const char *site, const char *field,
+                                lxp_result status)
+{
+    replay_refusal_stage = call_stage;
+    replay_refusal_site = site;
+    replay_refusal_field = field;
+    return status;
+}
+
+static lxp_result call_result_at(const char *site, const char *field,
+                                lxp_result status)
+{
+    if (strcmp(replay_refusal_field, "none") == 0 &&
+        (status == LXP_ERR_NON_CANONICAL ||
+         status == LXP_ERR_VERSION_UNSUPPORTED || status == LXP_ERR_ROOT_MISMATCH))
+        return call_refuse_at(site, field, status);
+    return status;
+}
+
+#define CALL_REFUSE(field, status) call_refuse_at(__func__, (field), (status))
+#define CALL_RESULT(field, status) call_result_at(__func__, (field), (status))
+
 static lxp_result replay_host_fact(lxp_programs_call_activity *value, uint8_t tag,
     const uint8_t *first, size_t first_length, const uint8_t *second, size_t second_length);
 static lxp_result replay_host_failure(lxp_programs_call_activity *value, uint8_t tag,
@@ -251,6 +315,7 @@ static void call_activity_release(void *state)
 extern lxp_result layerx_programs_call_sandbox_execution_principal(
     uint64_t token, const uint8_t program[32], uint8_t principal[32]);
 extern int32_t layerx_programs_call_payload_offset(const uint8_t *payload, size_t length);
+extern size_t layerx_programs_call_fault_text(uint8_t *buffer, size_t capacity);
 extern int32_t layerx_programs_event_envelope_validate(const uint8_t *evidence,
     size_t length, const uint8_t principal[32], uint32_t count);
 
@@ -258,14 +323,14 @@ static lxp_result call_execution_principal(const lxp_programs_call_activity *val
                                            uint8_t principal[32])
 {
     lxp_result status;
-    if (value == NULL || value->authority == NULL) return LXP_ERR_NON_CANONICAL;
+    if (value == NULL || value->authority == NULL) return CALL_REFUSE("authority", LXP_ERR_NON_CANONICAL);
     status = layerx_programs_call_sandbox_execution_principal(
         (uint64_t)(uintptr_t)value, value->program_id, principal);
     if (status == LXP_ERR_UNKNOWN_FIELD) {
         (void)memcpy(principal, value->authority->principal, 32U);
         return LXP_OK;
     }
-    return status;
+    return CALL_RESULT("layerx_programs_call_sandbox_execution_principal", status);
 }
 
 static lxp_result call_namespace_for_program(const lxp_programs_call_activity *value,
@@ -275,14 +340,14 @@ static lxp_result call_namespace_for_program(const lxp_programs_call_activity *v
 {
     const lxp_call_admission_facts *admission;
     if (value == NULL || length == NULL || selector > 1U)
-        return LXP_ERR_NON_CANONICAL;
+        return CALL_REFUSE("namespace.selector", LXP_ERR_NON_CANONICAL);
     admission = lxp_ctx_call_admission(value->ctx);
     if (admission == NULL) return LXP_FATAL_INVARIANT;
     (void)memcpy(bytes, program_id, 32U);
     bytes[32] = (uint8_t)(selector == 0U ? 0U : 1U);
     if (selector == 0U) {
         lxp_result status = call_execution_principal(value, bytes + 33U);
-        if (status != LXP_OK) return status;
+        if (status != LXP_OK) return CALL_RESULT("call_execution_principal", status);
         *length = 65U;
     } else *length = 33U;
     return LXP_OK;
@@ -477,7 +542,7 @@ lxp_result layerx_programs_call_storage_final_begin(
         (lxp_programs_call_activity *)(uintptr_t)token;
     void *allocation; lxp_result status;
     if (value == NULL || value->ctx == NULL || selector > 1U ||
-        value->storage_final[selector].begun) return LXP_ERR_NON_CANONICAL;
+        value->storage_final[selector].begun) return CALL_REFUSE("storage_final.begin", LXP_ERR_NON_CANONICAL);
     if (count > INT32_MAX) return LXP_ERR_LENGTH_LIMIT;
     if (count == 0U) { value->storage_final[selector].begun = true; return LXP_OK; }
     if (sizeof(lxp_programs_storage_cell) > SIZE_MAX / count) return LXP_ERR_LENGTH_LIMIT;
@@ -501,9 +566,9 @@ lxp_result layerx_programs_call_storage_final_cell(
     lxp_programs_storage_cell *cell; void *key, *cell_value; lxp_result status;
     if (value == NULL || selector > 1U || index >= value->storage_final[selector].count ||
         key_length == 0U || key_length > LX_PROGRAMS_STORAGE_MAX_KEY_BYTES ||
-        value_length > LX_PROGRAMS_STORAGE_MAX_VALUE_BYTES) return LXP_ERR_NON_CANONICAL;
+        value_length > LX_PROGRAMS_STORAGE_MAX_VALUE_BYTES) return CALL_REFUSE("storage_final.cell.lengths", LXP_ERR_NON_CANONICAL);
     cell = &value->storage_final[selector].cells[index];
-    if (cell->key != NULL) return LXP_ERR_NON_CANONICAL;
+    if (cell->key != NULL) return CALL_REFUSE("storage_final.cell.key", LXP_ERR_NON_CANONICAL);
     status = lxp_ctx_arena_alloc(value->ctx, key_length, 1U, &key);
     if (status != LXP_OK) return status;
     status = lxp_ctx_arena_alloc(value->ctx, value_length == 0U ? 1U : value_length,
@@ -522,7 +587,7 @@ lxp_result layerx_programs_call_storage_final_byte(
         (lxp_programs_call_activity *)(uintptr_t)token;
     lxp_programs_storage_cell *cell; uint8_t *bytes; uint32_t length;
     if (value == NULL || selector > 1U || index >= value->storage_final[selector].count)
-        return LXP_ERR_NON_CANONICAL;
+        return CALL_REFUSE("storage_final.cell.index", LXP_ERR_NON_CANONICAL);
     cell = &value->storage_final[selector].cells[index];
     if (section == 0U) { bytes = (uint8_t *)cell->key; length = cell->key_length; }
     else if (section == 1U) { bytes = (uint8_t *)cell->value; length = cell->value_length; }
@@ -539,8 +604,8 @@ lxp_result layerx_programs_call_storage_final_apply(uint64_t token,
     uint8_t ns[65]; uint16_t ns_length; lxp_result status;
     if (value == NULL || selector > 1U || !value->storage_settlement_authorized ||
         !value->storage_final[selector].begun)
-        return LXP_ERR_NON_CANONICAL;
-    if (value->storage_final[selector].applied) return LXP_ERR_NON_CANONICAL;
+        return CALL_REFUSE("storage_final.authorized", LXP_ERR_NON_CANONICAL);
+    if (value->storage_final[selector].applied) return CALL_REFUSE("storage_final.applied", LXP_ERR_NON_CANONICAL);
     status = call_namespace(value, selector, ns, &ns_length);
     if (status != LXP_OK) return status;
     status = lxp_programs_storage_stage_final(value->ctx, ns, ns_length,
@@ -654,7 +719,7 @@ static lxp_result catalog_fill_visit(const uint8_t *key, size_t key_length,
         return LXP_FATAL_INVARIANT;
     status = lxp_programs_program_active(value->ctx, key + 8U);
     if (status == LXP_ERR_PROGRAM_REFUSED) return LXP_OK;
-    if (status != LXP_OK) return status;
+    if (status != LXP_OK) return CALL_RESULT("lxp_programs_program_active", status);
     if (value->catalog_cursor >= value->catalog_count)
         return LXP_FATAL_INVARIANT;
     entry = &value->catalog[value->catalog_cursor];
@@ -662,7 +727,7 @@ static lxp_result catalog_fill_visit(const uint8_t *key, size_t key_length,
     if (lxp_protocol_version_uses_occupancy(value->ctx->protocol_version)) {
         status = lxp_programs_account_owner_read(
             value->ctx, entry->program_id, entry->owner);
-        if (status != LXP_OK) return status;
+        if (status != LXP_OK) return CALL_RESULT("lxp_programs_account_owner_read", status);
     } else {
         (void)memcpy(entry->owner, record + 1U, 32U);
     }
@@ -670,7 +735,7 @@ static lxp_result catalog_fill_visit(const uint8_t *key, size_t key_length,
     entry->abi_version = read_u16(record + 65U);
     status = lxp_programs_artifact_open(value->ctx, entry->program_id,
                                         entry->code_hash, &wasm, &wasm_length);
-    if (status != LXP_OK) return status;
+    if (status != LXP_OK) return CALL_RESULT("lxp_programs_artifact_open", status);
     if (wasm_length == 0U || wasm_length > UINT32_MAX) return LXP_ERR_LENGTH_LIMIT;
     entry->wasm_length = (uint32_t)wasm_length;
     ++value->catalog_cursor;
@@ -684,10 +749,10 @@ static lxp_result call_catalog_build(lxp_programs_call_activity *value)
     void *allocation;
     lxp_result status;
     if (value == NULL || value->ctx == NULL || value->catalog != NULL ||
-        value->catalog_count != 0U) return LXP_ERR_NON_CANONICAL;
+        value->catalog_count != 0U) return CALL_REFUSE("catalog.state", LXP_ERR_NON_CANONICAL);
     status = lxp_ctx_kv_iter(value->ctx, prefix, sizeof(prefix),
                              catalog_count_visit, value);
-    if (status != LXP_OK) return status;
+    if (status != LXP_OK) return CALL_RESULT("lxp_ctx_kv_iter", status);
     count = value->catalog_count;
     if (count == 0U || count > INT32_MAX ||
         sizeof(*value->catalog) > SIZE_MAX / count)
@@ -696,7 +761,7 @@ static lxp_result call_catalog_build(lxp_programs_call_activity *value)
                                  (size_t)count * sizeof(*value->catalog),
                                  _Alignof(lxp_programs_call_catalog_entry),
                                  &allocation);
-    if (status != LXP_OK) return status;
+    if (status != LXP_OK) return CALL_RESULT("lxp_ctx_arena_alloc", status);
     value->catalog = allocation;
     (void)memset(value->catalog, 0, (size_t)count * sizeof(*value->catalog));
     status = lxp_ctx_kv_iter(value->ctx, prefix, sizeof(prefix),
@@ -719,7 +784,7 @@ lxp_result layerx_programs_call_catalog_count(uint64_t token)
     const lxp_programs_call_activity *value =
         (const lxp_programs_call_activity *)(uintptr_t)token;
     if (value == NULL || value->catalog == NULL || value->catalog_count == 0U ||
-        value->catalog_count > INT32_MAX) return LXP_ERR_NON_CANONICAL;
+        value->catalog_count > INT32_MAX) return CALL_REFUSE("catalog.count", LXP_ERR_NON_CANONICAL);
     return (lxp_result)value->catalog_count;
 }
 
@@ -735,7 +800,7 @@ static lxp_result catalog_interface(lxp_programs_call_activity *value,
     size_t stored_length;
     lxp_result status;
     if (entry == NULL || encoding == NULL || length == NULL)
-        return LXP_ERR_NON_CANONICAL;
+        return CALL_REFUSE("catalog.index", LXP_ERR_NON_CANONICAL);
     resolution = call_resolution(value, entry);
     if (resolution != NULL && resolution->interface_resolved) {
         *encoding = resolution->interface;
@@ -748,14 +813,14 @@ static lxp_result catalog_interface(lxp_programs_call_activity *value,
         *encoding = NULL;
         *length = 0U;
     } else {
-        if (status != LXP_OK) return status;
+        if (status != LXP_OK) return CALL_RESULT("lxp_ctx_kv_get", status);
         if (stored_length <= 72U || stored_length > 1024U ||
             lxp_ct_memcmp(stored, entry->program_id, 32U) != 0 ||
             read_u32(stored + 32U) == 0U ||
             read_u32(stored + 68U) != stored_length - 72U)
             return LXP_ERR_CONTEXT_MISMATCH;
         status = lxp_hash_sha256(stored + 72U, stored_length - 72U, digest);
-        if (status != LXP_OK) return status;
+        if (status != LXP_OK) return CALL_RESULT("lxp_hash_sha256", status);
         if (lxp_ct_memcmp(digest, stored + 36U, 32U) != 0)
             return LXP_ERR_CONTEXT_MISMATCH;
         *encoding = stored + 72U;
@@ -795,7 +860,7 @@ lxp_result layerx_programs_call_catalog_wasm_length(uint64_t token,
     lxp_programs_call_catalog_entry *entry = catalog_entry(
         (lxp_programs_call_activity *)(uintptr_t)token, index);
     if (entry == NULL || entry->wasm_length == 0U ||
-        entry->wasm_length > INT32_MAX) return LXP_ERR_NON_CANONICAL;
+        entry->wasm_length > INT32_MAX) return CALL_REFUSE("catalog.wasm_length", LXP_ERR_NON_CANONICAL);
     return (lxp_result)entry->wasm_length;
 }
 
@@ -805,7 +870,7 @@ lxp_result layerx_programs_call_catalog_abi_version(uint64_t token,
     lxp_programs_call_catalog_entry *entry = catalog_entry(
         (lxp_programs_call_activity *)(uintptr_t)token, index);
     return entry == NULL || entry->abi_version == 0U ?
-           LXP_ERR_NON_CANONICAL : (lxp_result)entry->abi_version;
+           CALL_REFUSE("catalog.abi_version", LXP_ERR_NON_CANONICAL) : (lxp_result)entry->abi_version;
 }
 
 lxp_result layerx_programs_call_catalog_identity_byte(
@@ -814,7 +879,7 @@ lxp_result layerx_programs_call_catalog_identity_byte(
     lxp_programs_call_catalog_entry *entry = catalog_entry(
         (lxp_programs_call_activity *)(uintptr_t)token, index);
     const uint8_t *bytes;
-    if (entry == NULL || offset >= 32U) return LXP_ERR_NON_CANONICAL;
+    if (entry == NULL || offset >= 32U) return CALL_REFUSE("catalog.identity.offset", LXP_ERR_NON_CANONICAL);
     if (section == 0U) bytes = entry->program_id;
     else if (section == 1U) bytes = entry->code_hash;
     else if (section == 2U) bytes = entry->owner;
@@ -832,7 +897,7 @@ lxp_result layerx_programs_call_catalog_wasm_byte(uint64_t token,
     const uint8_t *wasm;
     size_t wasm_length;
     lxp_result status;
-    if (entry == NULL) return LXP_ERR_NON_CANONICAL;
+    if (entry == NULL) return CALL_REFUSE("catalog.index", LXP_ERR_NON_CANONICAL);
     status = call_artifact(value, entry, &wasm, &wasm_length);
     if (status != LXP_OK) return status;
     if (wasm_length != entry->wasm_length || offset >= wasm_length)
@@ -847,7 +912,7 @@ lxp_result layerx_programs_call_receipt_view_begin(
         (lxp_programs_call_activity *)(uintptr_t)token;
     uint8_t digest[32];
     lxp_result status;
-    if (value == NULL || value->ctx == NULL) return LXP_ERR_NON_CANONICAL;
+    if (value == NULL || value->ctx == NULL) return CALL_REFUSE("activity.context", LXP_ERR_NON_CANONICAL);
     write_u64(digest, d0);
     write_u64(digest + 8U, d1);
     write_u64(digest + 16U, d2);
@@ -926,32 +991,32 @@ lxp_result layerx_programs_call_arbiter_authority_begin(
     uint8_t *bytes;
     size_t offset = 0U;
     lxp_result status;
-    if (value == NULL) return LXP_ERR_NON_CANONICAL;
+    if (value == NULL) return CALL_REFUSE("activity", LXP_ERR_NON_CANONICAL);
     value->arbiter_authority_active = false;
     (void)memset(value->arbiter_authority, 0,
                  sizeof(value->arbiter_authority));
     if (value->ctx == NULL || value->ctx->module_id != LXP_MODULE_PROGRAMS ||
         value->authority == NULL ||
         value->network_id == 0U || expected_height == 0U)
-        return LXP_ERR_NON_CANONICAL;
+        return CALL_REFUSE("authority.context", LXP_ERR_NON_CANONICAL);
     write_u64(digest, d0);
     write_u64(digest + 8U, d1);
     write_u64(digest + 16U, d2);
     write_u64(digest + 24U, d3);
     if (lxp_ct_is_zero(digest, sizeof(digest)))
-        return LXP_ERR_NON_CANONICAL;
+        return CALL_REFUSE("receipt.digest", LXP_ERR_NON_CANONICAL);
     (void)memset(&facts, 0, sizeof(facts));
     status = lxp_ctx_verified_receipt_authority_facts(
         value->ctx, digest, &facts);
     if (status != LXP_OK) return status;
     if (facts.version != 2U)
-        return LXP_ERR_VERSION_UNSUPPORTED;
+        return CALL_REFUSE("receipt.version", LXP_ERR_VERSION_UNSUPPORTED);
     if (facts.network_id != value->network_id)
         return LXP_ERR_WRONG_NETWORK;
     if (lxp_ct_memcmp(facts.receipt_digest, digest, sizeof(digest)) != 0)
-        return LXP_ERR_ROOT_MISMATCH;
+        return CALL_REFUSE("receipt.digest", LXP_ERR_ROOT_MISMATCH);
     if (facts.block_height != expected_height)
-        return LXP_ERR_ROOT_MISMATCH;
+        return CALL_REFUSE("receipt.height", LXP_ERR_ROOT_MISMATCH);
     if (facts.block_height >= value->ctx->batch_number)
         return LXP_ERR_NOT_YET_VALID;
     bytes = value->arbiter_authority;
@@ -1024,7 +1089,7 @@ lxp_result layerx_programs_call_balance_view_begin(
     uint8_t input[96];
     lx_programs_balance_view verified;
     lxp_result status;
-    if (value == NULL || value->ctx == NULL) return LXP_ERR_NON_CANONICAL;
+    if (value == NULL || value->ctx == NULL) return CALL_REFUSE("activity.context", LXP_ERR_NON_CANONICAL);
     (void)memset(&value->balance_view, 0, sizeof(value->balance_view));
     write_u64(account, a0);
     write_u64(account + 8U, a1);
@@ -1049,7 +1114,7 @@ lxp_result layerx_programs_call_balance_view_begin(
         lxp_ct_memcmp(verified.receipt_digest, digest, 32U) != 0 ||
         lxp_ct_is_zero(verified.state_root, 32U) ||
         verified.observed_sequence == 0U)
-        return replay_host_failure(value, 2U, LXP_ERR_ROOT_MISMATCH, input, sizeof(input));
+        return replay_host_failure(value, 2U, CALL_REFUSE("balance.state_root", LXP_ERR_ROOT_MISMATCH), input, sizeof(input));
     (void)memcpy(value->balance_view.account, verified.account.id, 32U);
     (void)memcpy(value->balance_view.asset, verified.account.asset_id, 32U);
     value->balance_view.balance = verified.balance;
@@ -1117,7 +1182,7 @@ lxp_result layerx_programs_call_oracle_view_begin(
     uint8_t market_id[32];
     lx_oracle_committed committed;
     lxp_result status;
-    if (value == NULL || value->ctx == NULL) return LXP_ERR_NON_CANONICAL;
+    if (value == NULL || value->ctx == NULL) return CALL_REFUSE("activity.context", LXP_ERR_NON_CANONICAL);
     (void)memset(&value->oracle_view, 0, sizeof(value->oracle_view));
     write_u64(market_id, m0);
     write_u64(market_id + 8U, m1);
@@ -1126,7 +1191,7 @@ lxp_result layerx_programs_call_oracle_view_begin(
     status = lx_oracle_committed_read(value->ctx, market_id, &committed);
     if (status != LXP_OK) return replay_host_failure(value, 3U, status, market_id, sizeof(market_id));
     if (lxp_ct_memcmp(committed.market_id, market_id, 32U) != 0)
-        return replay_host_failure(value, 3U, LXP_ERR_ROOT_MISMATCH, market_id, sizeof(market_id));
+        return replay_host_failure(value, 3U, CALL_REFUSE("oracle.market_id", LXP_ERR_ROOT_MISMATCH), market_id, sizeof(market_id));
     status = lx_oracle_committed_encode(&committed, value->oracle_view.record);
     if (status != LXP_OK) return replay_host_failure(value, 3U, status, market_id, sizeof(market_id));
     (void)memcpy(value->oracle_view.market_id, market_id, 32U);
@@ -1164,7 +1229,7 @@ lxp_result layerx_programs_call_web_view_begin(
     lxp_programs_call_activity *value =
         (lxp_programs_call_activity *)(uintptr_t)token;
     uint8_t input[40];
-    if (value == NULL || value->ctx == NULL) return LXP_ERR_NON_CANONICAL;
+    if (value == NULL || value->ctx == NULL) return CALL_REFUSE("activity.context", LXP_ERR_NON_CANONICAL);
     write_u64(input, p0);
     write_u64(input + 8U, p1);
     write_u64(input + 16U, p2);
@@ -1191,7 +1256,7 @@ static lxp_result catalog_storage_cell(lxp_programs_call_activity *value,
                                        uint32_t *value_length, uint32_t *count)
 {
     lxp_programs_call_catalog_entry *entry = catalog_entry(value, program_index);
-    if (entry == NULL) return LXP_ERR_NON_CANONICAL;
+    if (entry == NULL) return CALL_REFUSE("catalog.index", LXP_ERR_NON_CANONICAL);
     return storage_cell_resolved(value, entry, selector, index, key,
                                  key_length, cell_value, value_length, count);
 }
@@ -1256,7 +1321,7 @@ static lxp_result catalog_storage_final_slot(lxp_programs_call_activity *value,
 {
     lxp_programs_call_catalog_entry *entry = catalog_entry(value, program_index);
     if (entry == NULL || selector > 1U || cells == NULL || count == NULL)
-        return LXP_ERR_NON_CANONICAL;
+        return CALL_REFUSE("catalog.storage_final.selector", LXP_ERR_NON_CANONICAL);
     *cells = entry->storage_final[selector].cells;
     *count = &entry->storage_final[selector].count;
     return LXP_OK;
@@ -1274,7 +1339,7 @@ lxp_result layerx_programs_call_catalog_storage_final_begin(
                                                     &cells, &stored_count);
     lxp_programs_call_catalog_entry *entry = catalog_entry(value, program_index);
     if (status != LXP_OK || entry == NULL || entry->storage_final[selector].begun)
-        return status == LXP_OK ? LXP_ERR_NON_CANONICAL : status;
+        return status == LXP_OK ? CALL_REFUSE("storage_final.cell", LXP_ERR_NON_CANONICAL) : status;
     if (count > INT32_MAX) return LXP_ERR_LENGTH_LIMIT;
     if (count == 0U) { entry->storage_final[selector].begun = true; return LXP_OK; }
     if (sizeof(*cells) > SIZE_MAX / count) return LXP_ERR_LENGTH_LIMIT;
@@ -1304,8 +1369,8 @@ lxp_result layerx_programs_call_catalog_storage_final_cell(
     if (status != LXP_OK || cells == NULL || index >= *count || key_length == 0U ||
         key_length > LX_PROGRAMS_STORAGE_MAX_KEY_BYTES ||
         value_length > LX_PROGRAMS_STORAGE_MAX_VALUE_BYTES)
-        return status == LXP_OK ? LXP_ERR_NON_CANONICAL : status;
-    if (cells[index].key != NULL) return LXP_ERR_NON_CANONICAL;
+        return status == LXP_OK ? CALL_REFUSE("storage_final.cell", LXP_ERR_NON_CANONICAL) : status;
+    if (cells[index].key != NULL) return CALL_REFUSE("catalog.storage_final.cell.key", LXP_ERR_NON_CANONICAL);
     status = lxp_ctx_arena_alloc(value->ctx, key_length, 1U, &key);
     if (status != LXP_OK) return status;
     status = lxp_ctx_arena_alloc(value->ctx, value_length == 0U ? 1U : value_length,
@@ -1328,7 +1393,7 @@ lxp_result layerx_programs_call_catalog_storage_final_byte(
     lxp_result status = catalog_storage_final_slot(value, program_index, selector,
                                                     &cells, &count);
     if (status != LXP_OK || cells == NULL || index >= *count)
-        return status == LXP_OK ? LXP_ERR_NON_CANONICAL : status;
+        return status == LXP_OK ? CALL_REFUSE("storage_final.cell", LXP_ERR_NON_CANONICAL) : status;
     if (section == 0U) { bytes = (uint8_t *)cells[index].key; length = cells[index].key_length; }
     else if (section == 1U) { bytes = (uint8_t *)cells[index].value; length = cells[index].value_length; }
     else return LXP_ERR_UNKNOWN_FIELD;
@@ -1346,10 +1411,10 @@ lxp_result layerx_programs_call_catalog_storage_final_apply(
     uint8_t ns[65];
     uint16_t ns_length;
     lxp_result status;
-    if (entry == NULL || selector > 1U) return LXP_ERR_NON_CANONICAL;
+    if (entry == NULL || selector > 1U) return CALL_REFUSE("catalog.storage_final.selector", LXP_ERR_NON_CANONICAL);
     if (!value->storage_settlement_authorized ||
-        !entry->storage_final[selector].begun) return LXP_ERR_NON_CANONICAL;
-    if (entry->storage_final[selector].applied) return LXP_ERR_NON_CANONICAL;
+        !entry->storage_final[selector].begun) return CALL_REFUSE("catalog.storage_final.authorized", LXP_ERR_NON_CANONICAL);
+    if (entry->storage_final[selector].applied) return CALL_REFUSE("catalog.storage_final.applied", LXP_ERR_NON_CANONICAL);
     status = call_namespace_for_program(value, entry->program_id, selector,
                                         ns, &ns_length);
     if (status != LXP_OK) return status;
@@ -1364,7 +1429,7 @@ lxp_result layerx_programs_call_storage_final_authorize(uint64_t token)
     lxp_programs_call_activity *value =
         (lxp_programs_call_activity *)(uintptr_t)token;
     if (value == NULL || value->ctx == NULL || value->storage_settlement_authorized)
-        return LXP_ERR_NON_CANONICAL;
+        return CALL_REFUSE("storage_final.authorized", LXP_ERR_NON_CANONICAL);
     value->storage_settlement_authorized = true;
     if (value->resolved != NULL) call_storage_views_release(value->resolved);
     return LXP_OK;
@@ -1375,7 +1440,7 @@ static lxp_result terminal_buffer(lxp_programs_call_activity *value,
                                   uint32_t *length)
 {
     if (value == NULL || !value->terminal.active || bytes == NULL || length == NULL)
-        return LXP_ERR_NON_CANONICAL;
+        return CALL_REFUSE("terminal.state", LXP_ERR_NON_CANONICAL);
     if (section == LX_PROGRAMS_TERMINAL_BYTES_GRAPH) {
         *bytes = value->terminal.graph;
         *length = value->terminal.graph_length;
@@ -1386,7 +1451,7 @@ static lxp_result terminal_buffer(lxp_programs_call_activity *value,
         *bytes = value->terminal.events;
         *length = value->terminal.events_length;
     } else return LXP_ERR_UNKNOWN_FIELD;
-    return *bytes == NULL || *length == 0U ? LXP_ERR_NON_CANONICAL : LXP_OK;
+    return *bytes == NULL || *length == 0U ? CALL_REFUSE("terminal.buffer", LXP_ERR_NON_CANONICAL) : LXP_OK;
 }
 
 lxp_result layerx_programs_call_terminal_begin(
@@ -1428,7 +1493,7 @@ lxp_result layerx_programs_call_terminal_begin(
         events_length == 0U || graph_length > value->terminal.graph_capacity ||
         terminal_length > value->terminal.terminal_capacity ||
         events_length > value->terminal.events_capacity)
-        return LXP_ERR_NON_CANONICAL;
+        return CALL_REFUSE("terminal.lengths", LXP_ERR_NON_CANONICAL);
     if (lxp_protocol_version_uses_occupancy(value->ctx->protocol_version) &&
         terminal_kind == LXP_PROGRAM_TERMINAL_SUCCESS &&
         (value->occupancy == NULL || !value->occupancy->applied) &&
@@ -1437,12 +1502,12 @@ lxp_result layerx_programs_call_terminal_begin(
     if (terminal_kind == LXP_PROGRAM_TERMINAL_SUCCESS) {
         if (value->transfer_set == NULL) {
             if (!lxp_ct_is_zero(transfer_root, sizeof(transfer_root)))
-                return LXP_ERR_NON_CANONICAL;
+                return CALL_REFUSE("terminal.transfer_root", LXP_ERR_NON_CANONICAL);
         } else if (!value->transfer_applied || lxp_ct_memcmp(
                        transfer_root, value->transfer_receipt.transfer_set_root,
-                       sizeof(transfer_root)) != 0) return LXP_ERR_NON_CANONICAL;
+                       sizeof(transfer_root)) != 0) return CALL_REFUSE("terminal.transfer_root", LXP_ERR_NON_CANONICAL);
     } else if (!lxp_ct_is_zero(transfer_root, sizeof(transfer_root))) {
-        return LXP_ERR_NON_CANONICAL;
+        return CALL_REFUSE("terminal.transfer_root", LXP_ERR_NON_CANONICAL);
     }
     value->terminal.active = true;
     value->terminal.terminal_kind = terminal_kind;
@@ -1474,7 +1539,7 @@ lxp_result layerx_programs_call_terminal_reserve(
         (lxp_programs_call_activity *)(uintptr_t)token;
     if (value == NULL || value->ctx == NULL || value->terminal.reserved ||
         graph_capacity == 0U || terminal_capacity == 0U || events_capacity == 0U)
-        return LXP_ERR_NON_CANONICAL;
+        return CALL_REFUSE("terminal.capacities", LXP_ERR_NON_CANONICAL);
     value->terminal.graph = malloc(graph_capacity);
     value->terminal.terminal = malloc(terminal_capacity);
     value->terminal.events = malloc(events_capacity);
@@ -1504,7 +1569,7 @@ lxp_result layerx_programs_call_terminal_byte(uint64_t token, uint16_t section,
     if (status != LXP_OK) return status;
     if (offset >= length) return LXP_ERR_TRUNCATED;
     if (section >= 3U || offset != value->terminal.written[section])
-        return LXP_ERR_NON_CANONICAL;
+        return CALL_REFUSE("terminal.byte_offset", LXP_ERR_NON_CANONICAL);
     bytes[offset] = byte;
     ++value->terminal.written[section];
     return LXP_OK;
@@ -1518,7 +1583,7 @@ lxp_result layerx_programs_call_terminal_applied_begin(uint64_t token, uint32_t 
         value->terminal.applied_length != 0U || length == 0U ||
         length > sizeof(value->terminal.applied_legs) ||
         length != (uint32_t)value->transfer_leg_count * 115U)
-        return LXP_ERR_NON_CANONICAL;
+        return CALL_REFUSE("terminal.applied.length", LXP_ERR_NON_CANONICAL);
     value->terminal.applied_length = length;
     return LXP_OK;
 }
@@ -1528,7 +1593,7 @@ lxp_result layerx_programs_call_terminal_applied_byte(uint64_t token, uint32_t o
     lxp_programs_call_activity *value = (lxp_programs_call_activity *)(uintptr_t)token;
     if (value == NULL || value->ctx == NULL || value->terminal.active ||
         offset != value->terminal.applied_written || offset >= value->terminal.applied_length)
-        return LXP_ERR_NON_CANONICAL;
+        return CALL_REFUSE("terminal.applied.offset", LXP_ERR_NON_CANONICAL);
     value->terminal.applied_legs[offset] = byte;
     ++value->terminal.applied_written;
     return LXP_OK;
@@ -1555,7 +1620,7 @@ static lxp_result terminal_wrap_applied(lxp_programs_call_activity *value)
     if (value->terminal.terminal_kind == LXP_PROGRAM_TERMINAL_SUCCESS) {
         if (value->terminal.applied_written != length ||
             ((length == 0U) != lxp_ct_is_zero(value->terminal.transfer_root, 32U)))
-            return LXP_ERR_NON_CANONICAL;
+            return CALL_REFUSE("terminal.applied.length", LXP_ERR_NON_CANONICAL);
         for (i = 0U; i < count; ++i) {
             status = lxp_merkle_leaf_hash(value->terminal.applied_legs + i * 115U, 115U, hashes[i]);
             if (status != LXP_OK) return status;
@@ -1570,7 +1635,7 @@ static lxp_result terminal_wrap_applied(lxp_programs_call_activity *value)
             count = next;
         }
         if (length != 0U && lxp_ct_memcmp(hashes[0], value->terminal.transfer_root, 32U) != 0)
-            return LXP_ERR_NON_CANONICAL;
+            return CALL_REFUSE("terminal.transfer_root", LXP_ERR_NON_CANONICAL);
     }
     if (prefix + detail_length + 4U + length > value->terminal.terminal_capacity ||
         prefix + detail_length + 4U + length > LXP_MAX_ACTIVITY_BYTES)
@@ -1599,7 +1664,7 @@ lxp_result layerx_programs_call_terminal_publish(uint64_t token)
         value->terminal.written[0] != value->terminal.graph_length ||
         value->terminal.written[1] != value->terminal.terminal_length ||
         value->terminal.written[2] != value->terminal.events_length)
-        return LXP_ERR_NON_CANONICAL;
+        return CALL_REFUSE("terminal.written", LXP_ERR_NON_CANONICAL);
     admission = lxp_ctx_call_admission(value->ctx);
     activity_id = lxp_ctx_activity_id(value->ctx);
     if (admission == NULL || activity_id == NULL) {
@@ -1619,7 +1684,7 @@ lxp_result layerx_programs_call_terminal_publish(uint64_t token)
         if (layerx_programs_event_envelope_validate(value->terminal.events,
                 value->terminal.events_length, execution_principal,
                 value->emitted_event_count) != 0)
-            return LXP_ERR_NON_CANONICAL;
+            return CALL_REFUSE("terminal.event_envelope", LXP_ERR_NON_CANONICAL);
     }
     status = lxp_hash_sha256(value->terminal.graph, value->terminal.graph_length, graph_root);
     if (status == LXP_OK) status = lxp_hash_sha256(value->terminal.terminal,
@@ -1735,7 +1800,7 @@ lxp_result layerx_programs_call_dispute_artifact_open(
     lxp_result status;
     if (value == NULL || value->ctx == NULL || program == NULL || hash == NULL ||
         wasm == NULL || length == NULL || !catalog_contains(value, program) ||
-        lxp_ct_is_zero(hash, 32U)) return LXP_ERR_NON_CANONICAL;
+        lxp_ct_is_zero(hash, 32U)) return CALL_REFUSE("artifact.identity", LXP_ERR_NON_CANONICAL);
     /* The authenticated market profile binds this immutable content hash. The
      * current deployment manifest is deliberately not used to select its bytes. */
     status = lxp_ctx_blob_get(value->ctx, hash, wasm, length);
@@ -1753,7 +1818,7 @@ lxp_result layerx_programs_call_dispute_schedule(
     lxp_result status;
     size_t index;
     if (value == NULL || value->ctx == NULL || output == NULL || version == 0U)
-        return LXP_ERR_NON_CANONICAL;
+        return CALL_REFUSE("schedule.version", LXP_ERR_NON_CANONICAL);
     if (kind == 0U) {
         lx_programs_fee_schedule schedule;
         uint8_t asset[32];
@@ -1805,7 +1870,7 @@ lxp_result layerx_programs_call_event_begin(
         value->emitted_event_count >= LXP_PROGRAMS_EVENT_MAX_COUNT ||
         topic_length > LXP_PROGRAMS_EVENT_MAX_TOPIC_BYTES ||
         data_length > LXP_PROGRAMS_EVENT_MAX_DATA_BYTES)
-        return LXP_ERR_NON_CANONICAL;
+        return CALL_REFUSE("event.lengths", LXP_ERR_NON_CANONICAL);
     admission = lxp_ctx_call_admission(value->ctx);
     if (admission == NULL) return LXP_FATAL_INVARIANT;
     write_u64(value->event.program_id, p0);
@@ -1822,7 +1887,7 @@ lxp_result layerx_programs_call_event_begin(
     if (!catalog_contains(value, value->event.program_id) ||
         lxp_ct_memcmp(value->event.principal, execution_principal, 32U) != 0 ||
         !event_frame_valid(value->event.frame_path, frame_depth))
-        return LXP_ERR_NON_CANONICAL;
+        return CALL_REFUSE("event.frame", LXP_ERR_NON_CANONICAL);
     status = lxp_ctx_arena_alloc(value->ctx, topic_length == 0U ? 1U : topic_length,
                                  1U, &topic);
     if (status != LXP_OK) return status;
@@ -1848,7 +1913,7 @@ lxp_result layerx_programs_call_event_byte(uint64_t token, uint16_t section,
         (lxp_programs_call_activity *)(uintptr_t)token;
     uint8_t *bytes;
     uint32_t length;
-    if (value == NULL || !value->event.active) return LXP_ERR_NON_CANONICAL;
+    if (value == NULL || !value->event.active) return CALL_REFUSE("event.state", LXP_ERR_NON_CANONICAL);
     if (section == 0U) {
         bytes = value->event.topic;
         length = value->event.topic_length;
@@ -1857,7 +1922,7 @@ lxp_result layerx_programs_call_event_byte(uint64_t token, uint16_t section,
         length = value->event.data_length;
     } else return LXP_ERR_UNKNOWN_FIELD;
     if (bytes == NULL || offset >= length) return LXP_ERR_TRUNCATED;
-    if (offset != value->event.written[section]) return LXP_ERR_NON_CANONICAL;
+    if (offset != value->event.written[section]) return CALL_REFUSE("event.byte_offset", LXP_ERR_NON_CANONICAL);
     bytes[offset] = byte;
     ++value->event.written[section];
     return LXP_OK;
@@ -1873,7 +1938,7 @@ lxp_result layerx_programs_call_event_emit(uint64_t token)
     if (value == NULL || value->ctx == NULL || !value->event.active ||
         value->event.written[0] != value->event.topic_length ||
         value->event.written[1] != value->event.data_length)
-        return LXP_ERR_NON_CANONICAL;
+        return CALL_REFUSE("event.written", LXP_ERR_NON_CANONICAL);
     activity_id = lxp_ctx_activity_id(value->ctx);
     if (activity_id == NULL) return LXP_FATAL_INVARIANT;
     event.program_id = value->event.program_id;
@@ -1976,7 +2041,7 @@ lxp_result layerx_programs_call_activity_byte(uint64_t token, uint16_t section,
     const uint8_t *bytes;
     uint32_t length;
     size_t blob_length;
-    if (value == NULL || token == 0U) return LXP_ERR_NON_CANONICAL;
+    if (value == NULL || token == 0U) return CALL_REFUSE("activity.token", LXP_ERR_NON_CANONICAL);
     switch (section) {
     case LX_PROGRAMS_ACTIVITY_BYTES_WASM:
         {
@@ -2021,7 +2086,7 @@ lxp_result layerx_programs_call_transfer_begin(uint64_t token,
     if (value == NULL || value->ctx == NULL || value->transfer_set != NULL ||
         leg_count == 0U ||
         leg_count > LXP_MAX_TRANSFER_SET_LEGS)
-        return LXP_ERR_NON_CANONICAL;
+        return CALL_REFUSE("transfer.leg_count", LXP_ERR_NON_CANONICAL);
     status = lxp_ctx_arena_alloc(value->ctx, sizeof(*value->transfer_set),
                                  _Alignof(lxp_transfer_set), &allocation);
     if (status != LXP_OK) return status;
@@ -2064,7 +2129,7 @@ lxp_result layerx_programs_call_payment_name_byte(
     uint8_t asset[32];
     lxp_result status;
     if (value == NULL || value->ctx == NULL || value->authority == NULL)
-        return LXP_ERR_NON_CANONICAL;
+        return CALL_REFUSE("authority.context", LXP_ERR_NON_CANONICAL);
     runtime = lxp_ctx_module_runtime(value->ctx);
     if (runtime == NULL) return LXP_ERR_MODULE_DISABLED;
     write_u64(asset, a0); write_u64(asset + 8U, a1);
@@ -2100,12 +2165,12 @@ lxp_result layerx_programs_call_transfer_leg(
         value->transfer_set == NULL || value->transfer_sources == NULL ||
         value->transfer_source_authorities == NULL || value->transfer_applied ||
         index >= value->transfer_set->leg_count || value->transfer_leg_written[index])
-        return LXP_ERR_NON_CANONICAL;
+        return CALL_REFUSE("transfer.leg.index", LXP_ERR_NON_CANONICAL);
     if ((source_kind != PROGRAM_TRANSFER_SOURCE_PRINCIPAL &&
          source_kind != PROGRAM_TRANSFER_SOURCE_PROGRAM &&
          source_kind != PROGRAM_TRANSFER_SOURCE_PROGRAM_FUNDING) ||
         frame_depth > 8U || seed_length > 128U)
-        return LXP_ERR_NON_CANONICAL;
+        return CALL_REFUSE("transfer.source", LXP_ERR_NON_CANONICAL);
     runtime = (lx_programs_transfer_runtime *)lxp_ctx_module_runtime(value->ctx);
     if (runtime == NULL || runtime->accounts == NULL || runtime->assets == NULL)
         return LXP_ERR_MODULE_DISABLED;
@@ -2186,13 +2251,13 @@ lxp_result layerx_programs_call_transfer_seed_byte(
         value->transfer_sources == NULL || value->transfer_applied ||
         index >= value->transfer_set->leg_count ||
         !value->transfer_leg_written[index])
-        return LXP_ERR_NON_CANONICAL;
+        return CALL_REFUSE("transfer.leg.index", LXP_ERR_NON_CANONICAL);
     source = &value->transfer_sources[index];
     if ((source->kind != PROGRAM_TRANSFER_SOURCE_PROGRAM &&
          source->kind != PROGRAM_TRANSFER_SOURCE_PROGRAM_FUNDING) ||
         source->seed == NULL || offset != source->seed_written ||
         offset >= source->seed_length)
-        return LXP_ERR_NON_CANONICAL;
+        return CALL_REFUSE("transfer.seed.offset", LXP_ERR_NON_CANONICAL);
     source->seed[offset] = byte;
     source->seed_written += 1U;
     return LXP_OK;
@@ -2237,7 +2302,7 @@ static lxp_result transfer_source_validate(
     if (value == NULL || value->authority == NULL ||
         value->transfer_set == NULL || value->transfer_sources == NULL ||
         index >= value->transfer_set->leg_count)
-        return LXP_ERR_NON_CANONICAL;
+        return CALL_REFUSE("transfer.source", LXP_ERR_NON_CANONICAL);
     source = &value->transfer_sources[index];
     leg = &value->transfer_set->legs[index];
     if (leg->from == NULL || !transfer_frame_canonical(source) ||
@@ -2330,7 +2395,7 @@ static lxp_result transfer_source_authority_add(
             LXP_AUTH_PROGRAM_SPEND : LXP_AUTH_OWNER;
     if (value == NULL || leg == NULL || leg->from == NULL ||
         authority_count == NULL || value->transfer_source_authorities == NULL)
-        return LXP_ERR_NON_CANONICAL;
+        return CALL_REFUSE("transfer.source.authority", LXP_ERR_NON_CANONICAL);
     for (index = 0U; index < *authority_count; ++index)
         if (lxp_ct_memcmp(
                 value->transfer_source_authorities[index].authorized_from,
@@ -2364,7 +2429,7 @@ lxp_result layerx_programs_call_transfer_apply(uint64_t token)
         value->transfer_source_authorities == NULL || value->transfer_applied ||
         value->transfer_set->leg_count == 0U ||
         value->transfer_leg_count != value->transfer_set->leg_count)
-        return LXP_ERR_NON_CANONICAL;
+        return CALL_REFUSE("transfer.state", LXP_ERR_NON_CANONICAL);
     runtime = (lx_programs_transfer_runtime *)lxp_ctx_module_runtime(value->ctx);
     if (runtime == NULL || runtime->accounts == NULL || runtime->assets == NULL)
         return LXP_ERR_MODULE_DISABLED;
@@ -2378,7 +2443,7 @@ lxp_result layerx_programs_call_transfer_apply(uint64_t token)
         size_t account_count = 0U;
         lxp_result status;
         if (runtime->accounts->count > LX_ACCOUNT_REGISTRY_CAPACITY)
-            return LXP_ERR_NON_CANONICAL;
+            return CALL_REFUSE("accounts.count", LXP_ERR_NON_CANONICAL);
         account_ids = calloc(runtime->accounts->count + 1U, sizeof(*account_ids));
         if (account_ids == NULL) return LXP_ERR_ARENA_EXHAUSTED;
         status = lx_account_list_did(runtime->accounts,
@@ -2469,7 +2534,7 @@ lxp_result layerx_programs_call_transfer_root_byte(uint64_t token,
         (const lxp_programs_call_activity *)(uintptr_t)token;
     if (value == NULL || offset >= 32U ||
         lxp_ct_is_zero(value->transfer_receipt.transfer_set_root, 32U))
-        return LXP_ERR_NON_CANONICAL;
+        return CALL_REFUSE("transfer.root.offset", LXP_ERR_NON_CANONICAL);
     return (lxp_result)value->transfer_receipt.transfer_set_root[offset];
 }
 
@@ -2484,13 +2549,14 @@ lxp_result lxp_programs_call_decode(lxp_module_ctx *ctx,
     const lxp_module_registration *registration;
     void *allocation;
     lxp_result status;
+    call_stage = "prepare";
     if (ctx == NULL || payload == NULL || decoded == NULL ||
         payload_length < PROGRAM_CALL_FIXED_BYTES)
         return LXP_ERR_TRUNCATED;
     status = lxp_ctx_arena_alloc(ctx, sizeof(*value),
                                  _Alignof(lxp_programs_call_activity),
                                  &allocation);
-    if (status != LXP_OK) return status;
+    if (status != LXP_OK) return CALL_RESULT("lxp_ctx_arena_alloc", status);
     value = (lxp_programs_call_activity *)allocation;
     (void)memset(value, 0, sizeof(*value));
     value->ctx = ctx;
@@ -2514,18 +2580,22 @@ lxp_result lxp_programs_call_decode(lxp_module_ctx *ctx,
     }
     status = lxp_kernel_module_by_id(ctx->kernel, LXP_MODULE_PROGRAMS,
                                      ctx->epoch, &registration);
-    if (status != LXP_OK) return status;
-    if (lxp_ct_is_zero(value->program_id, sizeof(value->program_id)) ||
-        value->abi_version == 0U ||
-        value->calldata_length > LX_PROGRAMS_MAX_CALLDATA_BYTES ||
-        value->access_declaration_length > LX_PROGRAMS_MAX_ACCESS_DECLARATION_BYTES ||
-        value->response_capacity > LX_PROGRAMS_MAX_RESPONSE_BYTES)
-        return LXP_ERR_NON_CANONICAL;
+    if (status != LXP_OK) return CALL_RESULT("lxp_kernel_module_by_id", status);
+    if (lxp_ct_is_zero(value->program_id, sizeof(value->program_id)))
+        return CALL_REFUSE("call.program_id", LXP_ERR_NON_CANONICAL);
+    if (value->abi_version == 0U)
+        return CALL_REFUSE("call.abi_version", LXP_ERR_NON_CANONICAL);
+    if (value->calldata_length > LX_PROGRAMS_MAX_CALLDATA_BYTES)
+        return CALL_REFUSE("call.calldata_length", LXP_ERR_NON_CANONICAL);
+    if (value->access_declaration_length > LX_PROGRAMS_MAX_ACCESS_DECLARATION_BYTES)
+        return CALL_REFUSE("call.access_declaration_length", LXP_ERR_NON_CANONICAL);
+    if (value->response_capacity > LX_PROGRAMS_MAX_RESPONSE_BYTES)
+        return CALL_REFUSE("call.response_capacity", LXP_ERR_NON_CANONICAL);
     if (value->abi_version > registration->abi_version ||
         value->abi_version > LX_PROGRAMS_GUEST_ABI_V5_VERSION ||
         (value->abi_version >= LX_PROGRAMS_GUEST_ABI_V2_VERSION &&
          !lxp_protocol_version_uses_occupancy(ctx->protocol_version)))
-        return LXP_ERR_VERSION_UNSUPPORTED;
+        return CALL_REFUSE("call.abi_version", LXP_ERR_VERSION_UNSUPPORTED);
     if ((size_t)value->entrypoint_length > SIZE_MAX - cursor)
         return LXP_ERR_LENGTH_LIMIT;
     expected = cursor + (size_t)value->entrypoint_length;
@@ -2538,9 +2608,10 @@ lxp_result lxp_programs_call_decode(lxp_module_ctx *ctx,
     if ((size_t)value->access_declaration_length > SIZE_MAX - expected)
         return LXP_ERR_LENGTH_LIMIT;
     expected += (size_t)value->access_declaration_length;
-    if (expected != payload_length ||
-        !valid_entrypoint(payload + cursor, value->entrypoint_length))
-        return LXP_ERR_NON_CANONICAL;
+    if (expected != payload_length)
+        return CALL_REFUSE("call.payload_length", LXP_ERR_NON_CANONICAL);
+    if (!valid_entrypoint(payload + cursor, value->entrypoint_length))
+        return CALL_REFUSE("call.entrypoint", LXP_ERR_NON_CANONICAL);
     value->entrypoint = payload + cursor;
     cursor += value->entrypoint_length;
     value->calldata = payload + cursor;
@@ -2564,24 +2635,26 @@ lxp_result lxp_programs_call_validate(
     size_t record_length;
     size_t wasm_length;
     lxp_result status;
+    call_stage = "prepare";
     if (ctx == NULL || activity == NULL || authority == NULL || value == NULL ||
         activity->activity_type != LX_PROGRAMS_CALL ||
         lxp_ct_is_zero(authority->principal, sizeof(authority->principal)) ||
         lxp_ct_is_zero(authority->authority_hash, sizeof(authority->authority_hash)))
-        return LXP_ERR_NON_CANONICAL;
+        return CALL_REFUSE("activity.authority", LXP_ERR_NON_CANONICAL);
     value->authority = authority;
     value->network_id = activity->network_id;
     program_key(value->program_id, key);
     status = lxp_ctx_kv_get(ctx, key, sizeof(key), &record, &record_length);
-    if (status != LXP_OK) return status;
+    if (status != LXP_OK) return CALL_RESULT("lxp_ctx_kv_get", status);
     if (record_length != PROGRAM_RECORD_BYTES) return LXP_FATAL_INVARIANT;
-    if (read_u16(record + 65U) != value->abi_version) return LXP_ERR_VERSION_UNSUPPORTED;
+    if (read_u16(record + 65U) != value->abi_version)
+        return CALL_REFUSE("program.abi_version", LXP_ERR_VERSION_UNSUPPORTED);
     status = lxp_programs_program_active(ctx, value->program_id);
-    if (status != LXP_OK) return status;
+    if (status != LXP_OK) return CALL_RESULT("lxp_programs_program_active", status);
     (void)memcpy(value->code_hash, record + 33U, sizeof(value->code_hash));
     status = lxp_programs_artifact_open(ctx, value->program_id, value->code_hash,
                                         &wasm, &wasm_length);
-    if (status != LXP_OK) return status;
+    if (status != LXP_OK) return CALL_RESULT("lxp_programs_artifact_open", status);
     if (wasm_length > UINT32_MAX) return LXP_ERR_LENGTH_LIMIT;
     value->wasm_length = (uint32_t)wasm_length;
     return lxp_ctx_charge_gas(ctx, (uint64_t)PROGRAM_CALL_FIXED_BYTES +
@@ -2606,6 +2679,7 @@ lxp_result lxp_programs_call_schedule_decode(
     lx_account *treasury = NULL;
     size_t owner_index;
     lxp_result status;
+    call_stage = "prepare";
     if (activity == NULL || authority == NULL || admission == NULL ||
         value == NULL || descriptor == NULL || !admission->present ||
         activity->activity_type != LX_PROGRAMS_CALL ||
@@ -2613,12 +2687,12 @@ lxp_result lxp_programs_call_schedule_decode(
         lxp_ct_is_zero(admission->activity_binding, 32U) ||
         lxp_ct_is_zero(authority->principal, 32U) ||
         lxp_ct_is_zero(admission->payer, 32U))
-        return LXP_ERR_NON_CANONICAL;
+        return CALL_REFUSE("admission", LXP_ERR_NON_CANONICAL);
     status = lxp_activity_verify_payload_hash(activity);
-    if (status != LXP_OK) return status;
+    if (status != LXP_OK) return CALL_RESULT("lxp_activity_verify_payload_hash", status);
     if (value->catalog == NULL) {
         status = call_catalog_build(value);
-        if (status != LXP_OK) return status;
+        if (status != LXP_OK) return CALL_RESULT("call_catalog_build", status);
     }
     payload_begin = (uintptr_t)activity->payload.bytes;
     capabilities_begin = (uintptr_t)value->capabilities;
@@ -2630,7 +2704,7 @@ lxp_result lxp_programs_call_schedule_decode(
         int32_t payload_offset = layerx_programs_call_payload_offset(
             activity->payload.bytes, activity->payload.length);
         if (payload_offset < 0 || (uint32_t)payload_offset != value->replay_prefix_length)
-            return LXP_ERR_NON_CANONICAL;
+            return CALL_REFUSE("call.replay_prefix_length", LXP_ERR_NON_CANONICAL);
         capabilities_offset = PROGRAM_CALL_FIXED_BYTES + (size_t)payload_offset;
     }
     if (!checked_size_add(capabilities_offset, value->entrypoint_length,
@@ -2686,19 +2760,20 @@ lxp_result lxp_programs_call_schedule_item_prepare(
     bool occupancy_active, bool effects_complete,
     lxp_programs_schedule_item *item)
 {
+    call_stage = "prepare";
     if (descriptor == NULL || identity_actor == NULL || fee_asset == NULL ||
         occupancy_asset == NULL ||
         item == NULL || lxp_ct_is_zero(descriptor->principal, 32U) ||
         lxp_ct_is_zero(identity_actor, 32U) ||
         lxp_ct_is_zero(descriptor->payer, 32U))
-        return LXP_ERR_NON_CANONICAL;
+        return CALL_REFUSE("schedule.identity", LXP_ERR_NON_CANONICAL);
     (void)memset(item, 0, sizeof(*item));
     item->version = LXP_PROGRAMS_SCHEDULE_ITEM_VERSION;
     item->call = *descriptor;
     (void)memcpy(item->identity_actor, identity_actor, 32U);
     (void)memcpy(item->identity_principal, descriptor->principal, 32U);
     if (!effects_complete) return LXP_OK;
-    if (lxp_ct_is_zero(fee_asset, 32U)) return LXP_ERR_NON_CANONICAL;
+    if (lxp_ct_is_zero(fee_asset, 32U)) return CALL_REFUSE("schedule.fee_asset", LXP_ERR_NON_CANONICAL);
     if (lxp_ct_is_zero(descriptor->fee_treasury, 32U)) return LXP_OK;
     item->protocol_effects_complete = 1U;
     item->account_effect_count = 1U;
@@ -2707,7 +2782,7 @@ lxp_result lxp_programs_call_schedule_item_prepare(
     item->account_effects[0].mode = 1U;
     if (occupancy_active) {
         if (lxp_ct_is_zero(occupancy_asset, 32U))
-            return LXP_ERR_NON_CANONICAL;
+            return CALL_REFUSE("schedule.occupancy_asset", LXP_ERR_NON_CANONICAL);
         (void)memcpy(item->occupancy_asset, occupancy_asset, 32U);
         (void)memcpy(item->occupancy_treasury,
                      descriptor->fee_treasury, 32U);
@@ -2730,22 +2805,23 @@ lxp_result lxp_programs_call_execute(
         (lxp_programs_call_activity *)decoded;
     lxp_result status;
     void *allocation;
+    call_stage = "execute";
     if (ctx == NULL || activity == NULL || authority == NULL || value == NULL ||
         activity->activity_type != LX_PROGRAMS_CALL)
-        return LXP_ERR_NON_CANONICAL;
+        return CALL_REFUSE("activity.type", LXP_ERR_NON_CANONICAL);
     value->authority = authority;
     value->effects = effects;
     value->network_id = activity->network_id;
     status = lxp_ctx_bind_activity_state(ctx, value, call_activity_release);
-    if (status != LXP_OK) return status;
+    if (status != LXP_OK) return CALL_RESULT("lxp_ctx_bind_activity_state", status);
     if (value->catalog == NULL) {
         status = call_catalog_build(value);
-        if (status != LXP_OK) return status;
+        if (status != LXP_OK) return CALL_RESULT("call_catalog_build", status);
     }
     status = lxp_ctx_arena_alloc(ctx, sizeof(*value->occupancy),
                                  _Alignof(lxp_programs_occupancy_bridge),
                                  &allocation);
-    if (status != LXP_OK) return status;
+    if (status != LXP_OK) return CALL_RESULT("lxp_ctx_arena_alloc", status);
     value->occupancy = (lxp_programs_occupancy_bridge *)allocation;
     status = lxp_programs_occupancy_bridge_init(value->occupancy, ctx);
     if (status == LXP_OK &&
@@ -2756,13 +2832,31 @@ lxp_result lxp_programs_call_execute(
             status = lxp_programs_occupancy_bind_call(
                 value->occupancy, value->program_id, execution_principal, value->budget);
     }
-    if (status != LXP_OK) return status;
+    if (status != LXP_OK) return CALL_RESULT("lxp_programs_occupancy_bind_call", status);
     /* The Rust boundary consumes this exact arena-owned activity once. It must
      * publish into the existing C journal before reporting success. */
     status = replay_capture_authority(value, activity, authority);
-    if (status != LXP_OK) return status;
+    if (status != LXP_OK) return CALL_RESULT("replay_capture_authority", status);
     status = call_scalar_begin(value, authority);
-    return status;
+    replay_execution_status = status;
+    {
+        size_t fault_length = layerx_programs_call_fault_text(NULL, 0U);
+        free(replay_execution_fault);
+        replay_execution_fault = NULL;
+        if (fault_length != 0U) {
+            if (fault_length == SIZE_MAX)
+                return CALL_REFUSE("runtime.fault_length", LXP_ERR_LENGTH_LIMIT);
+            replay_execution_fault = malloc(fault_length + 1U);
+            if (replay_execution_fault == NULL)
+                return CALL_REFUSE("runtime.fault_text", LXP_ERR_LENGTH_LIMIT);
+            (void)layerx_programs_call_fault_text(
+                (uint8_t *)replay_execution_fault, fault_length + 1U);
+        }
+    }
+    if (status != LXP_OK && value->replay.max_bytes != 0U &&
+        !value->replay_finished && strcmp(replay_refusal_field, "none") == 0)
+        return CALL_REFUSE("runtime.result", status);
+    return CALL_RESULT("call_scalar_begin", status);
 }
 
 
@@ -2773,7 +2867,7 @@ static lxp_result replay_append(uint8_t **bytes, uint32_t *length,
     if (count > maximum || *length > maximum - count)
         return LXP_ERR_LENGTH_LIMIT;
     if (count == 0U) return LXP_OK;
-    if (data == NULL) return LXP_ERR_NON_CANONICAL;
+    if (data == NULL) return CALL_REFUSE("bytes", LXP_ERR_NON_CANONICAL);
     next = realloc(*bytes, (size_t)*length + count);
     if (next == NULL) return LXP_ERR_LENGTH_LIMIT;
     (void)memcpy(next + *length, data, count);
@@ -2815,7 +2909,7 @@ static lxp_result replay_host_failure(lxp_programs_call_activity *value, uint8_t
     lxp_result status;
     if (value->replay.max_bytes == 0U) return checked_status;
     if (checked_status == LXP_OK || input_length > UINT32_MAX)
-        return LXP_ERR_NON_CANONICAL;
+        return CALL_REFUSE("host_failure.status_or_length", LXP_ERR_NON_CANONICAL);
     header[0] = tag;
     replay_write_u32(header + 1U, (uint32_t)checked_status);
     replay_write_u32(header + 5U, (uint32_t)input_length);
@@ -2856,7 +2950,7 @@ static lxp_result replay_capture_authority(lxp_programs_call_activity *value,
 #define REPLAY_AUTH_BYTES(data, size) do { \
     status = replay_append(&value->replay_authority, &value->replay_authority_length, \
         value->replay.max_bytes, (data), (size)); \
-    if (status != LXP_OK) return status; \
+    if (status != LXP_OK) return CALL_RESULT("replay_append", status); \
 } while (0)
 #define REPLAY_AUTH_U64(number) do { write_u64(scalar, (uint64_t)(number)); REPLAY_AUTH_BYTES(scalar, 8U); } while (0)
 #define REPLAY_AUTH_U128(number) do { REPLAY_AUTH_U64((number).hi); REPLAY_AUTH_U64((number).lo); } while (0)
@@ -2870,7 +2964,7 @@ static lxp_result replay_capture_authority(lxp_programs_call_activity *value,
     if (scope != NULL) {
         if (scope->signer_count > LXP_AUTHORITY_MULTISIG_MAX_SIGNERS ||
             scope->approval_count > LXP_AUTHORITY_MULTISIG_MAX_SIGNERS)
-            return LXP_ERR_NON_CANONICAL;
+            return CALL_REFUSE("authority.scope.signer_counts", LXP_ERR_NON_CANONICAL);
         REPLAY_AUTH_U64(scope->module_mask); REPLAY_AUTH_U64(scope->activity_ordinal_min);
         REPLAY_AUTH_U64(scope->activity_ordinal_max); REPLAY_AUTH_BYTES(scope->asset_id, 32U);
         REPLAY_AUTH_U128(scope->maximum_per_activity); REPLAY_AUTH_U128(scope->maximum_total);
@@ -2896,7 +2990,7 @@ static lxp_result replay_capture_authority(lxp_programs_call_activity *value,
 #undef REPLAY_AUTH_BYTES
     status = replay_append(&value->replay_hosts, &value->replay_hosts_length,
         value->replay.max_bytes, hosts_domain, sizeof(hosts_domain));
-    return status;
+    return CALL_RESULT("replay_append", status);
 }
 
 lxp_result lxp_programs_call_profile_decode(lxp_module_ctx *ctx,
@@ -2908,23 +3002,26 @@ lxp_result lxp_programs_call_profile_decode(lxp_module_ctx *ctx,
     uint32_t maximum_boundaries, maximum_bytes, original_length;
     lxp_programs_call_activity *value;
     lxp_result status;
+    call_stage = "prepare";
     if (payload == NULL || payload_length < 34U || !lxp_ct_is_zero(payload, 34U))
         return lxp_programs_call_decode(ctx, payload, payload_length, decoded);
     if (payload_length < prefix) return LXP_ERR_TRUNCATED;
     if (lxp_ct_memcmp(payload + 34U, domain, sizeof(domain)) != 0)
-        return LXP_ERR_NON_CANONICAL;
+        return CALL_REFUSE("profile.domain", LXP_ERR_NON_CANONICAL);
     cursor = 34U + sizeof(domain);
-    if (read_u16(payload + cursor) != 1U) return LXP_ERR_VERSION_UNSUPPORTED;
+    if (read_u16(payload + cursor) != 1U) return CALL_REFUSE("profile.version", LXP_ERR_VERSION_UNSUPPORTED);
     cursor += 2U;
     maximum_boundaries = read_u32(payload + cursor); cursor += 4U;
     maximum_bytes = read_u32(payload + cursor); cursor += 4U;
     original_length = read_u32(payload + cursor); cursor += 4U;
-    if (maximum_boundaries < 2U || maximum_boundaries > LXP_PROGRAMS_REPLAY_MAX_BOUNDARIES ||
-        maximum_bytes < 512U || maximum_bytes > LXP_PROGRAMS_REPLAY_MAX_BYTES ||
-        original_length != payload_length - cursor)
-        return LXP_ERR_NON_CANONICAL;
+    if (maximum_boundaries < 2U || maximum_boundaries > LXP_PROGRAMS_REPLAY_MAX_BOUNDARIES)
+        return CALL_REFUSE("profile.maximum_boundaries", LXP_ERR_NON_CANONICAL);
+    if (maximum_bytes < 512U || maximum_bytes > LXP_PROGRAMS_REPLAY_MAX_BYTES)
+        return CALL_REFUSE("profile.maximum_bytes", LXP_ERR_NON_CANONICAL);
+    if (original_length != payload_length - cursor)
+        return CALL_REFUSE("profile.original_length", LXP_ERR_NON_CANONICAL);
     status = lxp_programs_call_decode(ctx, payload + cursor, original_length, decoded);
-    if (status != LXP_OK) return status;
+    if (status != LXP_OK) return CALL_RESULT("lxp_programs_call_decode", status);
     value = *decoded;
     value->replay_prefix_length = (uint32_t)cursor;
     value->replay.max_boundaries = maximum_boundaries;
@@ -2935,11 +3032,116 @@ lxp_result lxp_programs_call_profile_decode(lxp_module_ctx *ctx,
 lxp_result layerx_programs_call_replay_profile(uint64_t token, uint16_t section)
 {
     const lxp_programs_call_activity *value = (const lxp_programs_call_activity *)(uintptr_t)token;
-    if (value == NULL) return LXP_ERR_NON_CANONICAL;
+    if (value == NULL) return CALL_REFUSE("activity", LXP_ERR_NON_CANONICAL);
     if (section == 0U) return value->replay.max_bytes != 0U ? 1 : 0;
     if (section == 1U) return (lxp_result)value->replay.max_boundaries;
     if (section == 2U) return (lxp_result)value->replay.max_bytes;
     return LXP_ERR_UNKNOWN_FIELD;
+}
+
+typedef struct replay_record_cursor {
+    const uint8_t *bytes;
+    size_t length, offset;
+} replay_record_cursor;
+
+static const uint8_t *replay_record_read(replay_record_cursor *cursor,
+    size_t length, const char *field)
+{
+    const uint8_t *bytes;
+    if (length > cursor->length - cursor->offset) {
+        (void)CALL_REFUSE(field, LXP_ERR_TRUNCATED);
+        return NULL;
+    }
+    bytes = cursor->bytes + cursor->offset;
+    cursor->offset += length;
+    return bytes;
+}
+
+static lxp_result replay_record_header(lxp_programs_call_activity *value,
+    const uint8_t *bytes, size_t length, uint8_t digest[32])
+{
+    static const uint8_t header_domain[] = "LXP/program-replay-header/v2";
+    static const uint8_t parameters_domain[] = "LXP/program-trace-parameters/v1";
+    replay_record_cursor cursor = {bytes, length, 0U};
+    const uint8_t *field, *versions, *parameters_digest, *policy;
+    uint32_t field_length;
+    uint8_t expected_parameters[32];
+    lxp_hash_context hash;
+    lxp_result status;
+#define HEADER_READ(name, size) do { \
+    field = replay_record_read(&cursor, (size), (name)); \
+    if (field == NULL) return LXP_ERR_TRUNCATED; \
+} while (0)
+    HEADER_READ("header.code_hash", 32U);
+    if (lxp_ct_memcmp(field, value->code_hash, 32U) != 0)
+        return CALL_REFUSE("header.code_hash", LXP_ERR_ROOT_MISMATCH);
+    HEADER_READ("header.input_digest", 32U);
+    (void)memcpy(value->replay.input_digest, field, 32U);
+    HEADER_READ("header.runtime_version", 2U);
+    versions = field;
+    value->replay.runtime_version = read_u16(field);
+    if (value->replay.runtime_version == 0U)
+        return CALL_REFUSE("header.runtime_version", LXP_ERR_VERSION_UNSUPPORTED);
+    HEADER_READ("header.abi_version", 2U);
+    if (read_u16(field) != value->replay.abi_version)
+        return CALL_REFUSE("header.abi_version", LXP_ERR_VERSION_UNSUPPORTED);
+    HEADER_READ("header.fee_schedule_version", 4U);
+    if (read_u32(field) != value->replay.fee_version)
+        return CALL_REFUSE("header.fee_schedule_version", LXP_ERR_VERSION_UNSUPPORTED);
+    HEADER_READ("header.metering_schedule_version", 4U);
+    if (read_u32(field) != value->replay.metering_version)
+        return CALL_REFUSE("header.metering_schedule_version", LXP_ERR_VERSION_UNSUPPORTED);
+    HEADER_READ("header.execution_parameters_digest", 32U);
+    parameters_digest = field;
+    HEADER_READ("header.trace_policy.interval", 8U);
+    policy = field;
+    if (read_u64(field) != 1U)
+        return CALL_REFUSE("header.trace_policy.interval", LXP_ERR_NON_CANONICAL);
+    HEADER_READ("header.trace_policy.maximum_commitments", 4U);
+    if (read_u32(field) != value->replay.max_boundaries)
+        return CALL_REFUSE("header.trace_policy.maximum_commitments", LXP_ERR_NON_CANONICAL);
+    lxp_hash_init(&hash);
+    status = lxp_hash_update(&hash, parameters_domain, sizeof(parameters_domain));
+    if (status == LXP_OK) status = lxp_hash_update(&hash, versions, 12U);
+    if (status == LXP_OK) status = lxp_hash_update(&hash, policy, 12U);
+    if (status == LXP_OK) status = lxp_hash_final(&hash, expected_parameters);
+    if (status != LXP_OK) return CALL_REFUSE("header.execution_parameters_digest", status);
+    if (lxp_ct_memcmp(parameters_digest, expected_parameters, 32U) != 0)
+        return CALL_REFUSE("header.execution_parameters_digest", LXP_ERR_ROOT_MISMATCH);
+    HEADER_READ("header.host_base_state_root", 32U);
+    HEADER_READ("header.receipt_oracle_root", 32U);
+    HEADER_READ("header.balance_oracle_root", 32U);
+    HEADER_READ("header.storage_baseline.length", 4U);
+    field_length = read_u32(field);
+    HEADER_READ("header.storage_baseline", field_length);
+    HEADER_READ("header.semantic_constants.length", 4U);
+    field_length = read_u32(field);
+    HEADER_READ("header.semantic_constants", field_length);
+    HEADER_READ("header.composition_graph.present", 1U);
+    if (*field > 1U)
+        return CALL_REFUSE("header.composition_graph.present", LXP_ERR_NON_CANONICAL);
+    if (*field == 1U) {
+        HEADER_READ("header.composition_graph.length", 4U);
+        field_length = read_u32(field);
+        HEADER_READ("header.composition_graph", field_length);
+    }
+    HEADER_READ("header.response_capacity.present", 1U);
+    if (*field > 1U)
+        return CALL_REFUSE("header.response_capacity.present", LXP_ERR_NON_CANONICAL);
+    if (*field == 1U) {
+        HEADER_READ("header.response_capacity", 8U);
+        if (read_u64(field) > LX_PROGRAMS_MAX_RESPONSE_BYTES ||
+            read_u64(field) != value->response_capacity)
+            return CALL_REFUSE("header.response_capacity", LXP_ERR_NON_CANONICAL);
+    }
+#undef HEADER_READ
+    if (cursor.offset != cursor.length)
+        return CALL_REFUSE("header.length", LXP_ERR_NON_CANONICAL);
+    lxp_hash_init(&hash);
+    status = lxp_hash_update(&hash, header_domain, sizeof(header_domain));
+    if (status == LXP_OK) status = lxp_hash_update(&hash, bytes, length);
+    if (status == LXP_OK) status = lxp_hash_final(&hash, digest);
+    return status == LXP_OK ? status : CALL_REFUSE("header.digest", status);
 }
 
 lxp_result layerx_programs_call_replay_record_begin(uint64_t token, uint32_t length)
@@ -2947,7 +3149,7 @@ lxp_result layerx_programs_call_replay_record_begin(uint64_t token, uint32_t len
     lxp_programs_call_activity *value = (lxp_programs_call_activity *)(uintptr_t)token;
     if (value == NULL || value->replay.max_bytes == 0U || length == 0U ||
         length > value->replay.max_bytes || value->replay_runtime != NULL || value->replay_finished)
-        return LXP_ERR_NON_CANONICAL;
+        return CALL_REFUSE("record.begin", LXP_ERR_NON_CANONICAL);
     value->replay_runtime = malloc(length);
     if (value->replay_runtime == NULL) return LXP_ERR_LENGTH_LIMIT;
     value->replay_runtime_length = length;
@@ -2959,14 +3161,14 @@ lxp_result layerx_programs_call_replay_record_byte(uint64_t token, uint32_t offs
     lxp_programs_call_activity *value = (lxp_programs_call_activity *)(uintptr_t)token;
     if (value == NULL || value->replay_runtime == NULL || value->replay_finished ||
         offset >= value->replay_runtime_length || offset != value->replay_runtime_written)
-        return LXP_ERR_NON_CANONICAL;
+        return CALL_REFUSE("record.byte_offset", LXP_ERR_NON_CANONICAL);
     value->replay_runtime[offset] = byte;
     ++value->replay_runtime_written;
     return LXP_OK;
 }
 
 static lxp_result replay_boundary_root(const uint8_t *bytes, size_t length,
-    uint32_t expected_count, uint8_t root[32])
+    uint32_t expected_count, const uint8_t header_digest[32], uint8_t root[32])
 {
     static const uint8_t witness_domain[] = "LXP/program-replay-witness/v1";
     static const uint8_t leaf_domain[] = "LXP/program-replay-leaf/v1";
@@ -2974,22 +3176,37 @@ static lxp_result replay_boundary_root(const uint8_t *bytes, size_t length,
     uint8_t *hashes;
     size_t cursor, index, count;
     lxp_result status = LXP_OK;
-    if (length < sizeof(witness_domain) + 4U || expected_count == 0U ||
-        expected_count > LXP_PROGRAMS_REPLAY_MAX_BOUNDARIES ||
-        lxp_ct_memcmp(bytes, witness_domain, sizeof(witness_domain)) != 0)
-        return LXP_ERR_NON_CANONICAL;
+    if (length < sizeof(witness_domain) + 32U + 4U)
+        return CALL_REFUSE("witness.length", LXP_ERR_TRUNCATED);
+    if (lxp_ct_memcmp(bytes, witness_domain, sizeof(witness_domain)) != 0)
+        return CALL_REFUSE("witness.domain", LXP_ERR_NON_CANONICAL);
     cursor = sizeof(witness_domain);
+    if (lxp_ct_memcmp(bytes + cursor, header_digest, 32U) != 0)
+        return CALL_REFUSE("witness.header_digest", LXP_ERR_ROOT_MISMATCH);
+    cursor += 32U;
     count = read_u32(bytes + cursor); cursor += 4U;
-    if (count != expected_count) return LXP_ERR_NON_CANONICAL;
+    if (expected_count == 0U || expected_count > LXP_PROGRAMS_REPLAY_MAX_BOUNDARIES ||
+        count != expected_count)
+        return CALL_REFUSE("witness.boundary_count", LXP_ERR_NON_CANONICAL);
     hashes = malloc(count * 32U);
     if (hashes == NULL) return LXP_ERR_LENGTH_LIMIT;
     for (index = 0U; index < count; ++index) {
         lxp_hash_context hash;
         uint8_t fields[8];
         uint32_t leaf_length;
-        if (length - cursor < 4U) { status = LXP_ERR_TRUNCATED; break; }
+        if (length - cursor < 4U) {
+            status = CALL_REFUSE("witness.leaf.length", LXP_ERR_TRUNCATED);
+            break;
+        }
         leaf_length = read_u32(bytes + cursor); cursor += 4U;
-        if (leaf_length == 0U || leaf_length > length - cursor) { status = LXP_ERR_TRUNCATED; break; }
+        if (leaf_length == 0U) {
+            status = CALL_REFUSE("witness.leaf.length", LXP_ERR_NON_CANONICAL);
+            break;
+        }
+        if (leaf_length > length - cursor) {
+            status = CALL_REFUSE("witness.leaf", LXP_ERR_TRUNCATED);
+            break;
+        }
         replay_write_u32(fields, (uint32_t)index); replay_write_u32(fields + 4U, leaf_length);
         lxp_hash_init(&hash);
         status = lxp_hash_update(&hash, leaf_domain, sizeof(leaf_domain));
@@ -2999,7 +3216,8 @@ static lxp_result replay_boundary_root(const uint8_t *bytes, size_t length,
         if (status != LXP_OK) break;
         cursor += leaf_length;
     }
-    if (status == LXP_OK && cursor != length) status = LXP_ERR_NON_CANONICAL;
+    if (status == LXP_OK && cursor != length)
+        status = CALL_REFUSE("witness.length", LXP_ERR_NON_CANONICAL);
     while (status == LXP_OK && count > 1U) {
         size_t next_count = (count + 1U) / 2U;
         for (index = 0U; index < next_count; ++index) {
@@ -3026,50 +3244,71 @@ lxp_result layerx_programs_call_replay_record_finish(uint64_t token)
     static const uint8_t domain[] = "LXP/program-replay-record/v1";
     static const uint8_t native_domain[] = "LXP/program-replay-native-blob/v1";
     lxp_programs_call_activity *value = (lxp_programs_call_activity *)(uintptr_t)token;
-    const uint8_t *bytes;
-    uint8_t digest[32], root[32], length_bytes[4];
-    size_t cursor, fixed = sizeof(domain) + 2U + 64U + 4U + 8U + 8U + 1U + 4U + 64U + 4U;
-    uint32_t witness_length;
+    replay_record_cursor cursor;
+    const uint8_t *field, *header;
+    uint8_t digest[32], header_digest[32], root[32], length_bytes[4];
+    uint32_t header_length, witness_length;
     lxp_result status;
-    if (value == NULL || value->replay_runtime == NULL || value->replay_finished ||
-        value->replay_runtime_written != value->replay_runtime_length ||
-        value->replay_runtime_length < fixed || value->replay_authority == NULL || value->replay_hosts == NULL)
-        return LXP_ERR_NON_CANONICAL;
-    bytes = value->replay_runtime;
-    if (lxp_ct_memcmp(bytes, domain, sizeof(domain)) != 0) return LXP_ERR_NON_CANONICAL;
-    cursor = sizeof(domain);
-    if (read_u16(bytes + cursor) != 1U) return LXP_ERR_VERSION_UNSUPPORTED;
-    cursor += 2U;
-    if (lxp_ct_memcmp(bytes + cursor, value->code_hash, 32U) != 0) return LXP_ERR_ROOT_MISMATCH;
-    (void)memcpy(value->replay.input_digest, bytes + cursor + 32U, 32U);
-    cursor += 64U;
-    value->replay.runtime_version = read_u16(bytes + cursor); cursor += 2U;
-    if (value->replay.runtime_version == 0U || read_u16(bytes + cursor) != value->replay.abi_version)
-        return LXP_ERR_VERSION_UNSUPPORTED;
-    cursor += 2U;
-    if (read_u32(bytes + cursor) != value->replay.fee_version ||
-        read_u32(bytes + cursor + 4U) != value->replay.metering_version)
-        return LXP_ERR_VERSION_UNSUPPORTED;
-    cursor += 8U;
-    if (read_u32(bytes + cursor) != value->replay.max_boundaries ||
-        read_u32(bytes + cursor + 4U) != value->replay.max_bytes)
-        return LXP_ERR_NON_CANONICAL;
-    cursor += 8U;
-    value->replay.terminal_status = bytes[cursor++];
-    if (value->replay.terminal_status > 2U) return LXP_ERR_NON_CANONICAL;
-    value->replay.boundary_count = read_u32(bytes + cursor); cursor += 4U;
+    call_stage = "record_finish";
+    if (value == NULL)
+        return CALL_REFUSE("record.activity", LXP_ERR_NON_CANONICAL);
+    if (value->replay_runtime == NULL || value->replay_finished)
+        return CALL_REFUSE("record.capture_state", LXP_ERR_NON_CANONICAL);
+    if (value->replay_runtime_written != value->replay_runtime_length)
+        return CALL_REFUSE("record.written_length", LXP_ERR_NON_CANONICAL);
+    if (value->replay_authority == NULL)
+        return CALL_REFUSE("record.authority", LXP_ERR_NON_CANONICAL);
+    if (value->replay_hosts == NULL)
+        return CALL_REFUSE("record.hosts", LXP_ERR_NON_CANONICAL);
+    cursor = (replay_record_cursor){value->replay_runtime, value->replay_runtime_length, 0U};
+#define RECORD_READ(name, size) do { \
+    field = replay_record_read(&cursor, (size), (name)); \
+    if (field == NULL) return LXP_ERR_TRUNCATED; \
+} while (0)
+    RECORD_READ("record.domain", sizeof(domain));
+    if (lxp_ct_memcmp(field, domain, sizeof(domain)) != 0)
+        return CALL_REFUSE("record.domain", LXP_ERR_NON_CANONICAL);
+    RECORD_READ("record.version", 2U);
+    if (read_u16(field) != 2U)
+        return CALL_REFUSE("record.version", LXP_ERR_VERSION_UNSUPPORTED);
+    RECORD_READ("record.header_length", 4U);
+    header_length = read_u32(field);
+    RECORD_READ("record.header", header_length);
+    header = field;
+    status = replay_record_header(value, header, header_length, header_digest);
+    if (status != LXP_OK) return status;
+    RECORD_READ("record.maximum_boundaries", 4U);
+    if (read_u32(field) != value->replay.max_boundaries)
+        return CALL_REFUSE("record.maximum_boundaries", LXP_ERR_NON_CANONICAL);
+    RECORD_READ("record.maximum_bytes", 4U);
+    if (read_u32(field) != value->replay.max_bytes)
+        return CALL_REFUSE("record.maximum_bytes", LXP_ERR_NON_CANONICAL);
+    RECORD_READ("record.terminal_status", 1U);
+    value->replay.terminal_status = *field;
+    if (value->replay.terminal_status > 2U)
+        return CALL_REFUSE("record.terminal_status", LXP_ERR_NON_CANONICAL);
+    RECORD_READ("record.boundary_count", 4U);
+    value->replay.boundary_count = read_u32(field);
     if (value->replay.boundary_count == 0U || value->replay.boundary_count > value->replay.max_boundaries)
-        return LXP_ERR_LENGTH_LIMIT;
-    (void)memcpy(value->replay.boundary_root, bytes + cursor, 32U); cursor += 32U;
-    (void)memcpy(value->replay.witness_digest, bytes + cursor, 32U); cursor += 32U;
-    witness_length = read_u32(bytes + cursor); cursor += 4U;
-    if (witness_length != value->replay_runtime_length - cursor) return LXP_ERR_NON_CANONICAL;
-    status = lxp_hash_sha256(bytes + cursor, witness_length, digest);
+        return CALL_REFUSE("record.boundary_count", LXP_ERR_LENGTH_LIMIT);
+    RECORD_READ("record.boundary_root", 32U);
+    (void)memcpy(value->replay.boundary_root, field, 32U);
+    RECORD_READ("record.witness_digest", 32U);
+    (void)memcpy(value->replay.witness_digest, field, 32U);
+    RECORD_READ("record.witness_length", 4U);
+    witness_length = read_u32(field);
+    if (witness_length != cursor.length - cursor.offset)
+        return CALL_REFUSE("record.witness_length", LXP_ERR_NON_CANONICAL);
+    RECORD_READ("record.witness", witness_length);
+#undef RECORD_READ
+    status = lxp_hash_sha256(field, witness_length, digest);
+    if (status != LXP_OK) return CALL_REFUSE("record.witness_digest", status);
+    if (lxp_ct_memcmp(digest, value->replay.witness_digest, 32U) != 0)
+        return CALL_REFUSE("record.witness_digest", LXP_ERR_ROOT_MISMATCH);
+    status = replay_boundary_root(field, witness_length, value->replay.boundary_count, header_digest, root);
     if (status != LXP_OK) return status;
-    if (lxp_ct_memcmp(digest, value->replay.witness_digest, 32U) != 0) return LXP_ERR_ROOT_MISMATCH;
-    status = replay_boundary_root(bytes + cursor, witness_length, value->replay.boundary_count, root);
-    if (status != LXP_OK) return status;
-    if (lxp_ct_memcmp(root, value->replay.boundary_root, 32U) != 0) return LXP_ERR_ROOT_MISMATCH;
+    if (lxp_ct_memcmp(root, value->replay.boundary_root, 32U) != 0)
+        return CALL_REFUSE("record.boundary_root", LXP_ERR_ROOT_MISMATCH);
     status = lxp_hash_sha256(value->replay_authority, value->replay_authority_length, value->replay.authority_root);
     if (status == LXP_OK) status = lxp_hash_sha256(value->replay_hosts, value->replay_hosts_length, value->replay.host_root);
 #define REPLAY_BLOB(data, count) do { if (status == LXP_OK) status = replay_append(&value->replay.bytes, &value->replay.length, value->replay.max_bytes, (data), (count)); } while (0)
@@ -3089,13 +3328,15 @@ lxp_result lxp_programs_call_replay_take(lxp_module_ctx *ctx, lxp_programs_repla
 {
     lxp_programs_call_activity *value;
     lxp_programs_replay_capture *owned;
-    if (ctx == NULL || capture == NULL) return LXP_ERR_NON_CANONICAL;
+    call_stage = "replay_take";
+    if (ctx == NULL || capture == NULL) return CALL_REFUSE("capture.arguments", LXP_ERR_NON_CANONICAL);
     *capture = NULL;
     if (ctx->module_id != LXP_MODULE_PROGRAMS || ctx->activity_state == NULL ||
         ctx->activity_state_release != call_activity_release) return LXP_OK;
     value = ctx->activity_state;
     if (value->replay.max_bytes == 0U) return LXP_OK;
-    if (!value->replay_finished || value->replay.bytes == NULL) return LXP_ERR_NON_CANONICAL;
+    if (!value->replay_finished || value->replay.bytes == NULL)
+        return CALL_RESULT("capture.finished", LXP_ERR_NON_CANONICAL);
     owned = malloc(sizeof(*owned));
     if (owned == NULL) return LXP_ERR_LENGTH_LIMIT;
     *owned = value->replay;
@@ -3116,7 +3357,7 @@ void lxp_programs_replay_capture_release(lxp_programs_replay_capture *capture)
 lxp_result lxp_programs_replay_capture_bytes(const lxp_programs_replay_capture *capture, lxp_byte_span *bytes)
 {
     if (capture == NULL || bytes == NULL || capture->bytes == NULL || capture->length == 0U)
-        return LXP_ERR_NON_CANONICAL;
+        return CALL_REFUSE("capture.bytes", LXP_ERR_NON_CANONICAL);
     bytes->bytes = capture->bytes;
     bytes->length = capture->length;
     return LXP_OK;
