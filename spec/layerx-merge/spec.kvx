@@ -181705,7 +181705,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.135]
 title = "Give the MCP submit tool the A2A outcome shape: invoke refuses an indeterminate submission, invoke_task keeps it unknown"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -333307,7 +333307,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.108]
 title = "Admit the chain trust script to the registry image context and check every copied source of the image tables"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.121"]
