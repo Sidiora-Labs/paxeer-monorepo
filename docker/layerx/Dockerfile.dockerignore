@@ -101,6 +101,8 @@ tests
 !programs/benches/interpreter.rs
 !services/agent/tests/limits/exactly_once.rs
 **/*.md
+!services/agent/crates/layerx-crypto/src/api-contract.md
+!programs/crates/layerx-programs-runtime/src/runtime_contract.md
 !programs/vendor/**
 !include/layerx/lxp_result.h
 !include/layerx/programs.h
@@ -108,6 +110,7 @@ tests
 !services/agent/unsafe-allowlist.toml
 !services/interop/specs/vendor/x402/x402-specification-v2.md
 !spec/layerx-merge/contracts/address-table.md
+!contracts/config/checkpoint-settlement.json
 !programs/vendor/**
 
 **/.env
