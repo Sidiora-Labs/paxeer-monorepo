@@ -151935,7 +151935,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.70]
 title = "Shrink the web assets that ship to every visitor"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.39.61", "22.39.69"]
@@ -174474,7 +174474,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.80]
 title = "Run swift test for the iOS integration package in the platform recipe"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -289297,7 +289297,7 @@ do_18 = "Attempt 35 (566d189c8) fails only because the kernel receipt projection
 
 [task.22.39.8]
 title = "Make the attestor RealProfiles tests pass with the native library built"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.31.614", "22.31.616"]
@@ -332771,7 +332771,7 @@ do_3 = "Attempt 2 (continue, gotcha 3472, decision 2822): the attempt-1 tree 920
 
 [task.22.39.107]
 title = "Let the layerx image stages see the compile-time files their crates include"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
