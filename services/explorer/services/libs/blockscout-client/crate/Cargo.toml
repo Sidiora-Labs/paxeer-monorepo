@@ -9,7 +9,7 @@ authors = ["lymarenko.lev@blockscout.com"]
 description = "API for BlockScout web app"
 
 
-license = "Apache 2.0"
+license = "Apache-2.0"
 
 
 edition = "2021"

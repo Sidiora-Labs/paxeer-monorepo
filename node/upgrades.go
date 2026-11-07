@@ -501,15 +501,17 @@ func (app *App) continueMergeUpgradePlan(ctx sdk.Context, plan upgradetypes.Plan
 	return versions, nil
 }
 
+type mergePlanState struct {
+	Leaders          [][]byte              `json:"leaders,omitempty"`
+	ReceiptKeys      seqkeeper.ReceiptKeys `json:"receipt_keys"`
+	LastSeq          uint64                `json:"last_seq,omitempty"`
+	LastSeqHash      []byte                `json:"last_seq_hash,omitempty"`
+	ActivationHeight uint64                `json:"activation_height,omitempty"`
+}
+
 func (app *App) migrateMergeState(ctx sdk.Context, plan upgradetypes.Plan, fromVM module.VersionMap) (module.VersionMap, error) {
 	sequencer := app.mm.Modules[seqtypes.ModuleName]
-	var state struct {
-		Leaders          [][]byte              `json:"leaders,omitempty"`
-		ReceiptKeys      seqkeeper.ReceiptKeys `json:"receipt_keys"`
-		LastSeq          uint64                `json:"last_seq,omitempty"`
-		LastSeqHash      []byte                `json:"last_seq_hash,omitempty"`
-		ActivationHeight uint64                `json:"activation_height,omitempty"`
-	}
+	var state mergePlanState
 	if err := json.Unmarshal([]byte(plan.Info), &state); err != nil {
 		return fromVM, fmt.Errorf("upgrade %s: sequencer genesis: %w", MergeUpgrade, err)
 	}

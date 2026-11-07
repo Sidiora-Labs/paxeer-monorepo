@@ -33443,3 +33443,59 @@ symbol = "test_ai_host_boundary.c"
 observed = "Attempt 2 at 9b375125bd3c918b1f99ef339636f346481b770f: build 2 exit 0, verify 2 exit 1: CALL execute type=0x90001 and 0x90002 answer kernel status 0 with no refusal; type 0x90003 answers kernel status -3, receipt status 0, field runtime.result, site lxp_programs_call_execute, stage execute, runtime status -741."
 assumption = "The runtime fault is one of the ExecutionFault variants that from_captured folds into -741 and the guest fuel of the short CALL is the first suspect."
 severity = "high"
+
+[finding.22.31.217.11]
+task = "22.31.217"
+file = "services/agent/crates/layerx-agentd/tests/repair_22_31_217.rs"
+symbol = "repair_22_31_217.rs"
+observed = "Attempt 11 at 9902a5e7bb58: build 3 exit 0, dependent-crate check exit 0, verify 1 exit 1 at the earlier revision aa510a73: fifteen cases passed and three failed, two with SummaryBody at line 494 and one with ReceiptSignature at budget_native_capture.rs line 217; the final tree was built but never verified because the repair budget was exhausted."
+assumption = "The two refusals are fixture encodings behind the proof decoders (the summary body layout and the historical kernel key), and the final tree may already have repaired them."
+severity = "high"
+
+[finding.22.31.611.3]
+task = "22.31.611"
+file = "precompiles/layerxpay/escrow_test.go"
+symbol = "escrow_test.go"
+observed = "Attempt 3 at b93e41f5b07e: build 1 exit 0, vet exit 0, verify 1 exit 1: TestPayEscrowPathMatchesHostExecute failed in all four cases at the stored-receipt equality with expected and actual differing only in bytes 0x220 to 0x23f; every other assertion of the case passed."
+assumption = "The keeper binding is production behaviour of the precompile leg and the field-wise comparison with the cross-check through the result record proves the same fact without asserting the unbound bytes."
+severity = "high"
+
+[finding.22.37.14.2]
+task = "22.37.14"
+file = "tools/hyperfide/core/control-plane/src/source_control/workspaces.ts"
+symbol = "workspaces.ts"
+observed = "Attempt 2 at 797babdc3139: build 2 exit 0, verify 2 exit 1: the source-collection checks passed through the retention and object stages; the API verification failed at native_source_collection_api.mjs line 521 with SourceControlError SCOPE_DENIED, Source action is not authorized, under action source.publications.create."
+assumption = "The refuser is the inner acceptance guard; the production authorizer and the handler chain are correct and only the case capability is short of one action."
+severity = "high"
+
+[finding.22.31.586.3]
+task = "22.31.586"
+file = "tests/programs/test_ai_host_boundary.c"
+symbol = "test_ai_host_boundary.c"
+observed = "Attempt 3 at edad3429f05d: build 1 exit 0, dependent-crate check exit 0, verify 1 exit 1: the host boundary proof stopped at CALL execute with kernel_status -3, runtime_status -741 and EngineFault execution trace exceeds commitment limit 128 at site lxp_programs_call_execute stage execute; the agent stopped rather than raise the declaration."
+assumption = "The 128 is the proof declaration and not a product bound, so raising it to the measured need is the same repair class as the fuel declaration of do_6."
+severity = "high"
+
+[finding.22.31.539.9]
+task = "22.31.539"
+file = "services/agent/crates/layerx-agentd/tests/repair_22_31_539.rs"
+symbol = "repair_22_31_539.rs"
+observed = "Attempt 9 at 0c1d2e1d97c1: build 1 exit 0, dependent-crate check exit 0, verify 1 exit 1: the library cases, the eight listed regression targets and the attempt-9 history case passed; tests/repair_22_31_219.rs failed three of eight, all on bare refusals (Refused at line 1104, operation.refused at line 914 twice)."
+assumption = "The refusals follow the store root repair that now lets the cases reach the lifecycle checks, and the refusing check is most likely a fixture shape behind a landed production rule or a level comparison within this task scope."
+severity = "high"
+
+[finding.22.37.12.2]
+task = "22.37.12"
+file = "tools/hyperfide/core/control-plane/src/source_control/queries.ts"
+symbol = "queries.ts"
+observed = "Attempt 2 at 42953af546cf: build 1 exit 0, verify 1 exit 0 (the API, causal-read, batch and graph checks passed); publication refused because the control-plane contracts module of the source_control directory changed outside touches and planned_paths; every other changed file is inside the scope."
+assumption = "The change to the control-plane contracts module is the other half of the SDK contract the task lists, and the tree is otherwise complete and green."
+severity = "high"
+
+[finding.22.37.2.2]
+task = "22.37.2"
+file = "tools/hyperfide/tests/hyperfide/cases/source_control/layout_receipt_gate_test.py"
+symbol = "layout_receipt_gate_test.py"
+observed = "Attempt 2 at d80dd7ef9388: build 1 exit 0, verify 1 exit 1: layout_receipt_gate_test.py passed twelve cases; 0_9.py printed status BLOCKED with checks 5, regressions 0 and missing_evidence 35 (one aggregation-input, 29 follow-on-authorization, five task-runtime-receipt) and exit 2."
+assumption = "The aggregation input and the follow-on allowlist are derivable from the repository history at the final revision; the five driver receipts are outside any task of this feature and the pending check keeps the case honest about them."
+severity = "high"
