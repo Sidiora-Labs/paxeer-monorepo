@@ -34809,3 +34809,19 @@ symbol = "signer.test.ts"
 observed = "Attempt 1 at 38aa1e8e41b6: build exit 0; verification exit 1 twice: 656 passed, two failed (storage forensics names src/widgets/swap/useSwapExecution.ts; token detail precision renders Unknown) and the surfaces receipt suite failed to load on a missing pnpm-workspace.yaml root marker."
 assumption = "The three remaining failures are the only ones outside the fourteen the task names, and each has a single producer."
 severity = "high"
+
+[finding.22.39.54.3]
+task = "22.39.54"
+file = "tests/ci/test_tools_ci_suite_passes.py"
+symbol = "test_tools_ci_suite_passes.py"
+observed = "Attempt 3 at c45e603564a2: build exit 0; verification exit 1: the loadtest job test and the replay-golden test failed because scripts/ci/runner-routing-check.sh reports three jobs of paxeer-go-test.yml with the fixed runner ubuntu-latest; the deselection file and the runner test are in place."
+assumption = "The three jobs run on the routed Linux image; none needs a container runtime."
+severity = "high"
+
+[finding.22.31.540.3]
+task = "22.31.540"
+file = "services/human/crates/layerx-human-service/tests/repair_22_31_540.rs"
+symbol = "repair_22_31_540.rs"
+observed = "Attempt 3 at 9814e658da2c: build exit 0; verification exit 1 twice: three of the four regression tests passed; committed_budget_proof_is_accepted_and_state_proven_proof_is_refused_at_ingress panicked on an unrecorded eth_call to the addr precompile with selector c413bad3 at height 0x8, so the real committed proof verifier refused."
+assumption = "The vector is the only gap; the verifier is right to re-execute the derivation."
+severity = "high"
