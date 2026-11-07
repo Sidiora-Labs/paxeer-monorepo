@@ -1,6 +1,8 @@
 package keeper_test
 
 import (
+	"errors"
+	"fmt"
 	"math/big"
 	"testing"
 	"time"
@@ -11,6 +13,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/codec"
 	codectypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/codec/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/store"
+	sdkerrors "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types/errors"
 	paramtypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/params/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/params/types/proposal"
 	dbm "github.com/tendermint/tm-db"
@@ -20,6 +23,40 @@ import (
 	testkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/tests/testutil/keeper"
 	"github.com/stretchr/testify/require"
 )
+
+func TestFeeTokenRateErrorsCarryTheirCodeAndMessage(t *testing.T) {
+	seen := make(map[uint32]bool)
+	for _, tc := range []struct {
+		name       string
+		err        error
+		registered *sdkerrors.Error
+		code       uint32
+		message    string
+	}{
+		{"stale", evmkeeper.ErrFeeTokenRateStale, types.ErrFeeTokenRateStale, 100, "fee-token rate is stale"},
+		{"unavailable", evmkeeper.ErrFeeTokenRateUnavailable, types.ErrFeeTokenRateUnavailable, 101, "fee-token rate is unavailable"},
+		{"invalid", evmkeeper.ErrFeeTokenRateInvalid, types.ErrFeeTokenRateInvalid, 102, "fee-token rate is invalid"},
+		{"spread", evmkeeper.ErrFeeTokenRateSpread, types.ErrFeeTokenRateSpread, 103, "fee-token rate update exceeds max_fee_token_spread"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			require.Same(t, tc.registered, tc.err)
+			require.False(t, seen[tc.code], "fee-token refusal codes must be distinct")
+			seen[tc.code] = true
+			space, code, message := sdkerrors.ABCIInfo(tc.err, false)
+			require.Equal(t, types.ModuleName, space)
+			require.Equal(t, tc.code, code)
+			require.Equal(t, tc.message, message)
+			require.True(t, errors.Is(fmt.Errorf("%w: denom %q", tc.err, "usid"), tc.err))
+			wrapped := sdkerrors.Wrap(tc.err, "fee-token refusal")
+			require.True(t, errors.Is(wrapped, tc.err))
+			space, code, message = sdkerrors.ABCIInfo(wrapped, false)
+			require.Equal(t, types.ModuleName, space)
+			require.Equal(t, tc.code, code)
+			require.Equal(t, "fee-token refusal: "+tc.message, message)
+		})
+	}
+	require.Len(t, seen, 4)
+}
 
 func TestParams(t *testing.T) {
 	k := &testkeeper.EVMTestApp.EvmKeeper
