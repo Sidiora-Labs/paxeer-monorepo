@@ -619,9 +619,7 @@ mod control_fixture {
                 1,
                 1_002,
             ),
-            Err(AgentFailure::Refused(
-                "lifecycle receipt is not checkpoint-finalized"
-            ))
+            Err(AgentFailure::Refused("lifecycle receipt is not committed"))
         ));
         let finalized = protocol_receipt([0x62; 32]);
         assert!(matches!(

@@ -34809,3 +34809,59 @@ symbol = "signer.test.ts"
 observed = "Attempt 1 at 38aa1e8e41b6: build exit 0; verification exit 1 twice: 656 passed, two failed (storage forensics names src/widgets/swap/useSwapExecution.ts; token detail precision renders Unknown) and the surfaces receipt suite failed to load on a missing pnpm-workspace.yaml root marker."
 assumption = "The three remaining failures are the only ones outside the fourteen the task names, and each has a single producer."
 severity = "high"
+
+[finding.22.39.54.3]
+task = "22.39.54"
+file = "tests/ci/test_tools_ci_suite_passes.py"
+symbol = "test_tools_ci_suite_passes.py"
+observed = "Attempt 3 at c45e603564a2: build exit 0; verification exit 1: the loadtest job test and the replay-golden test failed because scripts/ci/runner-routing-check.sh reports three jobs of paxeer-go-test.yml with the fixed runner ubuntu-latest; the deselection file and the runner test are in place."
+assumption = "The three jobs run on the routed Linux image; none needs a container runtime."
+severity = "high"
+
+[finding.22.31.540.3]
+task = "22.31.540"
+file = "services/human/crates/layerx-human-service/tests/repair_22_31_540.rs"
+symbol = "repair_22_31_540.rs"
+observed = "Attempt 3 at 9814e658da2c: build exit 0; verification exit 1 twice: three of the four regression tests passed; committed_budget_proof_is_accepted_and_state_proven_proof_is_refused_at_ingress panicked on an unrecorded eth_call to the addr precompile with selector c413bad3 at height 0x8, so the real committed proof verifier refused."
+assumption = "The vector is the only gap; the verifier is right to re-execute the derivation."
+severity = "high"
+
+[finding.22.39.128.1]
+task = "22.39.128"
+file = "services/agent/crates/layerx-agentd/src/budget/native_binding.rs"
+symbol = "native_binding.rs"
+observed = "Attempt 2 at 29b48212d94c: build exit 101: two calls in tests/repair_22_33_1520.rs supply six arguments to a reader that now takes seven; the verification did not run."
+assumption = "The reported two calls and the other callers found by the search are the only remaining arity mismatches."
+severity = "high"
+
+[finding.22.39.76.1]
+task = "22.39.76"
+file = "tests/ci/test_core_test_all_wired.py"
+symbol = "test_core_test_all_wired.py"
+observed = "Attempt 1 at f78c369241b0: verification exit 1 after two repair cycles: the equality case fails at sample 0 with status -1001 (LXP_FATAL_INVARIANT) from the serial preparation call; the property source submits LXP_PROTOCOL_VERSION_LEGACY activities that the kernel no longer settles."
+assumption = "The fixture drift is the only cause; the three other ported sources and the Makefile wiring pass at the same tree."
+severity = "high"
+
+[finding.22.39.118.6]
+task = "22.39.118"
+file = "tools/platform/cli::rpc::tests::positional_requests_match_published_contract"
+symbol = "cli::rpc::tests::positional_requests_match_published_contract"
+observed = "Attempt 6 at 95ae016f9080: verification exit 1: mcp_submit_tool_sends_raw_transaction fails at tools/platform/cli/tests/mcp_evm_submit.rs line 159; the toolset returns the unknown rung where the suite expects an error; everything the task owns passed."
+assumption = "The submit tool contract is the only remaining failure under platform-test-tooling."
+severity = "high"
+
+[finding.22.37.4.6]
+task = "22.37.4"
+file = "tools/hyperfide/sdk/client/test/install-status.test.ts"
+symbol = "install-status.test.ts"
+observed = "Attempt 6 at 4531f377a727: verification exit 1 after two repair cycles: the first run failed on the absent /usr/bin/python3 launch (404), the second ran the interrupted install to FAILED with complete cleanup and the replacement to SUCCEEDED, then the new accounting reported no complete receipt.json served because its route keyed on the fixture metadata name while the requests carried the assigned resource identifier."
+assumption = "The accounting route is the only remaining failure; the install flow itself completes on the rebased tree."
+severity = "high"
+
+[finding.22.39.78.1]
+task = "22.39.78"
+file = "tests/ci/test_platform_middleware_suites_wired.py"
+symbol = "test_platform_middleware_suites_wired.py"
+observed = "Attempt 1 at a177aacba81f: verification exit 1 after two repair cycles: 22 pay6 cases fail in four groups owned by x402_http.py, x402.py, x402_agent.py and x402_rpc.py of the Python SDK; everything the task owns passed."
+assumption = "The four Python modules are the only producers of the 22 failures."
+severity = "high"

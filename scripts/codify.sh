@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Codify installer/updater â€” https://codify.centra.ag
+# Codify installer/updater - https://codify.centra.ag
 #   curl -fsSL https://codify.centra.ag/install | bash
 # Env overrides: CODIFY_INSTALL_DIR (target directory), CODIFY_BASE_URL.
 set -euo pipefail
@@ -19,8 +19,8 @@ die()  { printf 'codify install: %s\n' "$*" >&2; exit 1; }
 
 # ---- platform ----
 os="$(uname -s)"; arch="$(uname -m)"
-[ "$os" = "Linux" ] || die "prebuilt binaries are Linux-only for now â€” build from source: https://github.com/sidiora-labs/codify (make && sudo make install)"
-[ "$arch" = "x86_64" ] || die "prebuilt binaries are x86_64-only for now ($arch detected) â€” build from source: https://github.com/sidiora-labs/codify"
+[ "$os" = "Linux" ] || die "prebuilt binaries are Linux-only for now — build from source: https://github.com/sidiora-labs/codify (make && sudo make install)"
+[ "$arch" = "x86_64" ] || die "prebuilt binaries are x86_64-only for now ($arch detected) — build from source: https://github.com/sidiora-labs/codify"
 
 command -v curl >/dev/null || die "curl is required"
 
@@ -43,7 +43,7 @@ say "${DIM}downloading cg $new_ver ...${R}"
 curl -fsSL "$BASE/cg" -o "$tmp/cg"
 want="$(curl -fsSL "$BASE/cg.sha256" | awk '{print $1}')"
 got="$(sha256sum "$tmp/cg" | awk '{print $1}')"
-[ "$want" = "$got" ] || die "checksum mismatch (expected $want, got $got) â€” aborting"
+[ "$want" = "$got" ] || die "checksum mismatch (expected $want, got $got) — aborting"
 chmod +x "$tmp/cg"
 
 # ---- choose install dir ----
@@ -66,19 +66,19 @@ fi
 
 # ---- banner ----
 say ""
-say "${NAVY}  â–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ•— â–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ•— â–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ•— â–ˆâ–ˆâ•—â–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ•—â–ˆâ–ˆâ•—   â–ˆâ–ˆâ•—${R}"
-say "${NAVY} â–ˆâ–ˆâ•”â•â•â•â•â•â–ˆâ–ˆâ•”â•â•â•â–ˆâ–ˆâ•—â–ˆâ–ˆâ•”â•â•â–ˆâ–ˆâ•—â–ˆâ–ˆâ•‘â–ˆâ–ˆâ•”â•â•â•â•â•â•šâ–ˆâ–ˆâ•— â–ˆâ–ˆâ•”â•${R}"
-say "${NAVY} â–ˆâ–ˆâ•‘     â–ˆâ–ˆâ•‘   â–ˆâ–ˆâ•‘â–ˆâ–ˆâ•‘  â–ˆâ–ˆâ•‘â–ˆâ–ˆâ•‘â–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ•—   â•šâ–ˆâ–ˆâ–ˆâ–ˆâ•”â• ${R}"
-say "${NAVY} â–ˆâ–ˆâ•‘     â–ˆâ–ˆâ•‘   â–ˆâ–ˆâ•‘â–ˆâ–ˆâ•‘  â–ˆâ–ˆâ•‘â–ˆâ–ˆâ•‘â–ˆâ–ˆâ•”â•â•â•    â•šâ–ˆâ–ˆâ•”â•  ${R}"
-say "${NAVY} â•šâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ•—â•šâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ•”â•â–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ•”â•â–ˆâ–ˆâ•‘â–ˆâ–ˆâ•‘        â–ˆâ–ˆâ•‘   ${R}"
-say "${NAVY}  â•šâ•â•â•â•â•â• â•šâ•â•â•â•â•â• â•šâ•â•â•â•â•â• â•šâ•â•â•šâ•â•        â•šâ•â•   ${R}"
+say "${NAVY}  ██████╗ ██████╗ ██████╗ ██╗███████╗██╗   ██╗${R}"
+say "${NAVY} ██╔════╝██╔═══██╗██╔══██╗██║██╔════╝╚██╗ ██╔╝${R}"
+say "${NAVY} ██║     ██║   ██║██║  ██║██║█████╗   ╚████╔╝ ${R}"
+say "${NAVY} ██║     ██║   ██║██║  ██║██║██╔══╝    ╚██╔╝  ${R}"
+say "${NAVY} ╚██████╗╚██████╔╝██████╔╝██║██║        ██║   ${R}"
+say "${NAVY}  ╚═════╝ ╚═════╝ ╚═════╝ ╚═╝╚═╝        ╚═╝   ${R}"
 say ""
 if [ -n "$old_ver" ]; then
     say " ${GRN}updated${R} ${B}cg $old_ver -> $new_ver${R} in $dir"
 else
     say " ${GRN}installed${R} ${B}cg $new_ver${R} to $dir"
 fi
-say " ${DIM}the agent workflow tool â€” from small projects to large codebases${R}"
+say " ${DIM}the agent workflow tool — from small projects to large codebases${R}"
 say ""
 say " quick start:"
 say "   ${ACC}cg init${R}            ${DIM}index this project (graph + snapshots)${R}"
@@ -90,5 +90,5 @@ say " docs: ${B}https://github.com/sidiora-labs/codify${R}"
 
 case ":$PATH:" in
     *:"$dir":*) ;;
-    *) say ""; say " ${B}note:${R} $dir is not on your PATH â€” add:  export PATH=\"$dir:\$PATH\"" ;;
+    *) say ""; say " ${B}note:${R} $dir is not on your PATH — add:  export PATH=\"$dir:\$PATH\"" ;;
 esac

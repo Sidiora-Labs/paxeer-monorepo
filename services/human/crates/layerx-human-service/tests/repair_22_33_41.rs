@@ -467,7 +467,7 @@ fn journey_schema_finality_copy_authenticates_committed_receipt() {
     }
     assert_eq!(
         HumanComponentServer::verification_level_name(committed.rung()),
-        "checkpoint-finalised"
+        "committed"
     );
     assert!(prose(JOURNEY_SCHEMA, "module", "network").contains("committed is final"));
     assert!(prose(

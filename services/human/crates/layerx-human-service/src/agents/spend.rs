@@ -283,7 +283,7 @@ impl SpendReconciliation {
         let mut evidence = vec![Sha256::digest(verified.canonical_state()).into()];
         let mut rung = if verified
             .level()
-            .compare(layerx_types::verify::VerificationLevel::CHECKPOINT_FINALISED)
+            .compare(layerx_types::verify::VerificationLevel::COMMITTED)
             .is_ge()
         {
             Rung::Committed
@@ -313,7 +313,7 @@ impl SpendReconciliation {
             evidence.push(receipt.receipt_ref());
             if !receipt
                 .level()
-                .compare(layerx_types::verify::VerificationLevel::CHECKPOINT_FINALISED)
+                .compare(layerx_types::verify::VerificationLevel::COMMITTED)
                 .is_ge()
             {
                 rung = Rung::Receipted;
@@ -391,7 +391,7 @@ impl SpendReconciliation {
             || observed_at >= record.expiry
             || !proof
                 .verification()
-                .compare(layerx_types::verify::VerificationLevel::CHECKPOINT_FINALISED)
+                .compare(layerx_types::verify::VerificationLevel::COMMITTED)
                 .is_ge()
             || proof.remaining() != record.remaining()
         {
@@ -425,7 +425,7 @@ impl SpendReconciliation {
             evidence.push(receipt.receipt_ref());
             if !receipt
                 .level()
-                .compare(layerx_types::verify::VerificationLevel::CHECKPOINT_FINALISED)
+                .compare(layerx_types::verify::VerificationLevel::COMMITTED)
                 .is_ge()
             {
                 rung = Rung::Receipted;

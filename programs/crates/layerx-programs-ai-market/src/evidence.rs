@@ -1733,6 +1733,7 @@ impl EvidenceSeal {
 pub struct SealRegion<'a> {
     pub epoch: u64,
     records: &'a [u8],
+    laps: &'a [u8],
     rest: &'a [u8],
 }
 impl<'a> SealRegion<'a> {
@@ -1747,6 +1748,7 @@ impl<'a> SealRegion<'a> {
             return Ok(Self {
                 epoch: 0,
                 records: &[],
+                laps: &[],
                 rest: &[],
             });
         }
@@ -1758,7 +1760,9 @@ impl<'a> SealRegion<'a> {
         }
         let records = r.take(count * SEAL_RECORD_BYTES)?;
         let rest = feature_bytes.get(r.offset()..).ok_or(NON_CANONICAL)?;
-        if count == 0 && rest.is_empty() {
+        let lap_len = crate::laps::region_length(rest)?;
+        let (laps, rest) = rest.split_at(lap_len);
+        if count == 0 && rest.is_empty() && laps.is_empty() {
             return Err(NON_CANONICAL);
         }
         let mut previous = None;
@@ -1772,8 +1776,19 @@ impl<'a> SealRegion<'a> {
         Ok(Self {
             epoch,
             records,
+            laps,
             rest,
         })
+    }
+    pub(crate) const fn lap_settlements(&self) -> &'a [u8] {
+        self.laps
+    }
+    pub(crate) fn write_lap_prefix(&self, out: &mut [u8]) -> CodecResult<usize> {
+        let mut w = Writer::new(out);
+        w.u64(self.epoch)?;
+        w.u8((self.records.len() / SEAL_RECORD_BYTES) as u8)?;
+        w.put(self.records)?;
+        Ok(w.len())
     }
     const fn of(&self, epoch: u64) -> &'a [u8] {
         if self.epoch == epoch {
@@ -1827,6 +1842,7 @@ impl<'a> SealRegion<'a> {
         w.put(&current[..at])?;
         w.put(&seal.encode()?)?;
         w.put(&current[at..])?;
+        w.put(self.laps)?;
         w.put(self.rest)?;
         Ok(w.len())
     }
@@ -2444,4 +2460,73 @@ pub fn verify_evidence_proof(proof: &EvidenceProof<'_>) -> Conclusions {
         reproduction: Conclusion::Unproven,
         quality: Conclusion::Unproven,
     }
+}
+
+pub fn require_sealed_artifact_chunk_root(
+    state: &SharedState<'_>,
+    epoch: u64,
+    manifest_bytes: &[u8],
+    batch: &crate::laps::ReceiptBatch,
+) -> CodecResult<Digest32> {
+    let (_, admission) =
+        crate::reputation_transition::split_joint(state.section(Section::ReputationAdmission)?)?;
+    let view = state.replace_section(Section::ReputationAdmission, admission)?;
+    let state = &view;
+    let unsealed = crate::errors::F11_BATCH_UNSEALED;
+    let manifest = decode_manifest(manifest_bytes).map_err(|_| unsealed)?;
+    let section = committed(state)?;
+    let (frozen, rewards) = frozen_binding(state, &section, None)?;
+    if frozen.epoch != epoch {
+        return Err(WRONG_EPOCH);
+    }
+    let task_set = tasks::sealed_task_set_with(state, epoch, Some(rewards))?;
+    let chunk_root = wire::sha256([
+        CONTENT_DOMAIN,
+        &manifest.byte_length.to_be_bytes(),
+        &manifest.chunk_count.to_be_bytes(),
+        batch.batch_digest.as_bytes(),
+    ])?;
+    let policy_digest = section.current.digest()?;
+    if manifest.kind != ArtifactKind::EvaluationEvidence
+        || manifest.epoch != epoch
+        || manifest.context.chain != frozen.chain
+        || manifest.context.program != frozen.program
+        || manifest.context.market != frozen.market
+        || manifest.context.policy != policy_digest
+        || manifest.subject != task_set.bytes()
+        || manifest.byte_length == 0
+        || manifest.content_root != chunk_root
+    {
+        return Err(unsealed);
+    }
+    let summary = batch.summary_digest()?;
+    let mut summary_bound = false;
+    for parent in &manifest.parents {
+        let parent = parent.map_err(|_| unsealed)?;
+        if parent.purpose == ParentPurpose::Execution && parent.root == summary.bytes() {
+            summary_bound = true;
+        }
+    }
+    if !summary_bound {
+        return Err(unsealed);
+    }
+    let root = ArtifactManifestRoot::new(wire::sha256([
+        MANIFEST_DOMAIN,
+        &manifest.context.bytes(),
+        &length_u32(manifest_bytes.len()).map_err(|_| unsealed)?,
+        manifest_bytes,
+    ])?)
+    .map_err(|_| unsealed)?;
+    for seal in SealRegion::decode(state.control.feature_bytes)?.seals(epoch) {
+        let seal = seal?;
+        if seal.root.bytes() == root.bytes()
+            && seal.task_set == task_set
+            && seal.task_policy == manifest.context.policy
+            && seal.rubric == section.current.commitments.rubric
+            && seal.mode as u8 == section.current.assessment_mode
+        {
+            return Ok(task_set);
+        }
+    }
+    Err(unsealed)
 }
