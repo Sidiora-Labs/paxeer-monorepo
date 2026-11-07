@@ -1,6 +1,6 @@
 # UI code splitting
 
-Use `apps/app/src/lib/define-split.tsx` for every app UI boundary. This is an
+Use `apps/web/src/lib/define-split.tsx` for every app UI boundary. This is an
 app-local contract, not a Plugin SDK API. App code sorts into three tiers:
 
 | Tier      | What belongs here                                                       | Mechanism                          |
@@ -135,7 +135,7 @@ retained content. Avoid rendering a split merely to preload it.
 ## Enforce the boundary
 
 Add the heavy source module to `splitBoundaries` in
-`apps/app/bundle-budget.json`, listing `boot` and any measured page journey
+`apps/web/bundle-budget.json`, listing `boot` and any measured page journey
 (`ThreadPage`, `NewThreadPage`, `PluginFrontend`) from which it must remain
 absent. A journey is the union of its lazy entry chunks' static closures beyond
 the boot payload: what that page waits for after the shell paints. The checker uses actual emitted module
@@ -151,7 +151,7 @@ Build and check through:
 
 ```sh
 pnpm exec turbo run build --filter=@hyperfide/app
-node apps/app/scripts/check-bundle-budget.mjs
+node apps/web/scripts/check-bundle-budget.mjs
 ```
 
 Verify a negative control: temporarily make the implementation eager in a

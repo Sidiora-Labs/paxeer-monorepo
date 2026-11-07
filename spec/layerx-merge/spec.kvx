@@ -332602,7 +332602,7 @@ do_3 = "Attempt 2 (continue, gotcha 3461, decision 2762): the attempt-1 tree 020
 
 [task.22.39.89]
 title = "Port the runtime, verification and operations pages of the vendored project docs to the current layout and script names"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -332777,7 +332777,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.79]
 title = "Run the wallet gateway, ceremony import and demo suites in the wallet workflow"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -333679,7 +333679,7 @@ do_3 = "Attempt 2 (continue, gotcha 3426, decision 2787): the attempt-1 tree at 
 
 [task.22.39.38]
 title = "Remove internal decision, gotcha and private tooling references from the SDK and interop READMEs and the wiki adapter pages"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.39.37"]
