@@ -5,6 +5,10 @@ umask 077
 if ! declare -F release_node_process >/dev/null; then
   release_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
   source "$release_dir/stage.sh"
+  release_load_identity "$release_dir" || {
+    printf 'rollback: invalid release identity\n' >&2
+    exit 1
+  }
 fi
 
 env_file= mode= receipt= phase= local_only=false
@@ -122,6 +126,7 @@ remote_phase() {
   if [ -n "$step" ]; then printf -v command '%s --phase %q' "$command" "$step"; fi
   {
     declare -f release_operation_lock release_node_process
+    declare -p release_version release_upgrade
     cat -- "${BASH_SOURCE[0]}"
   } | ssh -o BatchMode=yes -o ConnectTimeout=10 -- "$host" "$command"
 }
@@ -184,7 +189,7 @@ units=("${validator_units[@]}" "${fullnode_units[@]}")
 declare -A seen_homes=() seen_units=() seen_archives=()
 for i in "${!homes[@]}"; do
   home=${homes[$i]}
-  [[ $home = /* && $home != / && $home != *'/../'* && $home != */data.v6.12.0-* ]] || fail "invalid home"
+  [[ $home = /* && $home != / && $home != *'/../'* && $home != */data."$release_version"-* ]] || fail "invalid home"
   [ "$(realpath -e -- "$home")" = "$home" ] || fail "home must be canonical: $home"
   name=${home##*/}
   unit=${units[$i]}
@@ -199,7 +204,7 @@ for i in "${!homes[@]}"; do
 done
 
 sha() { sha256sum -- "$1" | cut -d' ' -f1; }
-archive() { printf '%s/%s-pre-v6.12.0.tar.zst' "$snapshot_dir" "${1##*/}"; }
+archive() { printf '%s/%s-pre-%s.tar.zst' "$snapshot_dir" "${1##*/}" "$release_version"; }
 record_dir() {
   if "$forward"; then
     printf '%s/.forward-recovery-%s' "$1" "$release_id"
@@ -207,7 +212,7 @@ record_dir() {
     printf '%s/.rollback-%s' "$1" "$release_id"
   fi
 }
-set_aside() { printf '%s/data.v6.12.0-%s' "$1" "$release_id"; }
+set_aside() { printf '%s/data.%s-%s' "$1" "$release_version" "$release_id"; }
 
 check_archive() {
   local file=$1 role=$2
