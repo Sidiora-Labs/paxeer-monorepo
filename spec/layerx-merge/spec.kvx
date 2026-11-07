@@ -150741,7 +150741,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.27]
 title = "Make the hosted dashboard API proxy origin configurable instead of a fixed private host"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -180002,7 +180002,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.616]
 title = "Refresh the human services lockfiles so the custody consumer builds with the locked flag"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -330389,7 +330389,7 @@ do_6 = "Attempt 3: the closure check is a gate over the whole issue programme; i
 
 [task.22.39.29]
 title = "Make docs/README.md describe the current documentation and the 7.0.0 release"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -330418,7 +330418,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.28]
 title = "Replace the in-network service DNS names in the interop gateway example files with an operator placeholder"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -330507,7 +330507,7 @@ do_3 = "Attempt 2 (continue, decision 2787): the attempt-1 tree at a91d8fab412e 
 
 [task.22.39.24]
 title = "Remove the path filter for a deleted deploy script from seventeen public checks"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -330536,7 +330536,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.23]
 title = "Make the three platform release-gate jobs run their make targets directly and upload a log that exists"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -330623,7 +330623,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.20]
 title = "Mark the wiki and site Finality pages that describe the retired L0 to L4 ladder as retired"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -330653,7 +330653,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.19]
 title = "Close the gap markers of the 7.0.0 release documents for the gaps the tree already fixed"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
