@@ -321,7 +321,7 @@ design rationale and the systems it replaces.
 
 ## Contributing
 
-Contributions are welcome. See [`CONTRIBUTING.md`](CONTRIBUTING.md) for
+Contributions are welcome. See [`CONTRIBUTING.md`](../../../CONTRIBUTING.md) for
 setup instructions, code standards, and the PR process.
 
 ```bash
@@ -335,7 +335,7 @@ cargo fmt
 
 ## Security
 
-See [`SECURITY.md`](SECURITY.md) for the vulnerability disclosure process.
+See [`SECURITY.md`](../../../SECURITY.md) for the vulnerability disclosure process.
 
 ## License
 

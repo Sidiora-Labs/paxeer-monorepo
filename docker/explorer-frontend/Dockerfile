@@ -85,11 +85,12 @@ ENV NODE_ENV=production
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY apps/explorer .
+COPY docs/explorer/ENVS.md ./docs/explorer/ENVS.md
 
 # Build SVG sprite and generate .env.registry with ENVs list and save build args into .env file
 RUN set -a && \
     source ./deploy/scripts/build_sprite.sh && \
-    ./deploy/scripts/collect_envs.sh ./docs/ENVS.md && \
+    ./deploy/scripts/collect_envs.sh ./docs/explorer/ENVS.md && \
     set +a
 
 # Next.js collects completely anonymous telemetry data about general usage.

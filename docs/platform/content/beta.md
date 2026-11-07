@@ -4,9 +4,11 @@
 # Paxeer X Network mainnet-beta contract
 
 This is the canonical beta contract of Paxeer X Network. The beta is
-mainnet-beta: it runs on the Paxeer network, chain 125, and every product
-capability is reached through the unified router at
-`https://api-mainnet-beta.paxeer.network`. LayerX is the kernel domain inside
+mainnet-beta: it runs on the Paxeer network, chain 125. Public node JSON-RPC
+is served at the root path of `https://api-mainnet-beta.paxeer.network` and
+`api1` through `api14.mainnet-beta.paxeer.network`; there is no router and no
+`/rpc` path. Hosted services have their own operator-provided origins. LayerX
+is the kernel domain inside
 Paxeer X Network; it is not a separate network and has no separate beta.
 
 The contract states the surfaces the beta supports, the rung each must reach,
@@ -29,7 +31,7 @@ decision is recorded there.
 | readiness_claim | false |
 | readiness_statement | The Paxeer X Network mainnet-beta is NOT ready: no gate record exists and every surface is at rung source_present. |
 | chain_id | 125 |
-| router_url | https://api-mainnet-beta.paxeer.network |
+| rpc_url | https://api-mainnet-beta.paxeer.network (node root path) |
 | beta_domain | paxeer.network |
 | go_module | github.com/Sidiora-Labs/Paxeer-X-Network |
 | required_rung_functional | runtime_proven |
@@ -72,8 +74,8 @@ report to stdout.
 | Key | Value |
 | --- | --- |
 | chain | Paxeer network, EVM chain id 125 |
-| router | https://api-mainnet-beta.paxeer.network, the canonical entry and discovery surface for every product capability |
-| rpc_records | the existing mainnet-beta RPC records and the chain125 record stay unchanged; product names resolve through the same router catalogue |
+| rpc | https://api-mainnet-beta.paxeer.network and api1 through api14.mainnet-beta.paxeer.network, node JSON-RPC at the root path |
+| rpc_records | the existing mainnet-beta RPC records and the chain125 record stay unchanged |
 | developer_host | dev.paxeer.network |
 | ramp_host | ramp.paxeer.network |
 | emulator_endpoint | http://127.0.0.1:9402, local only |
@@ -88,8 +90,8 @@ faucet or control surface on the mainnet-beta.
 | Surface | Scope | Class | Required rung | Reached rung | Source |
 | --- | --- | --- | --- | --- | --- |
 | paxeer-chain | paxd on chain 125 with the merged precompiles | hosted | deployment_proven | source_present | daemon/paxd, node/, modules/, precompiles/ |
-| router | unified router and its route catalogue | hosted | deployment_proven | source_present | services/platform/hosted/gateway |
-| kernel | LayerX kernel domain behind the router: core, receipt authority and agent boundaries | hosted | deployment_proven | source_present | services/platform/hosted/node, services/platform/hosted/core, services/platform/hosted/authority, services/platform/hosted/agent-boundary |
+| gateway | hosted gateway JSON-RPC at its root path | hosted | deployment_proven | source_present | services/platform/hosted/gateway |
+| kernel | LayerX kernel domain services: core, receipt authority and agent boundaries | hosted | deployment_proven | source_present | services/platform/hosted/node, services/platform/hosted/core, services/platform/hosted/authority, services/platform/hosted/agent-boundary |
 | identity | principals, sessions, introspection and service tokens | hosted | deployment_proven | source_present | services/platform/hosted/identity |
 | registry | hosted program registry | hosted | deployment_proven | source_present | services/platform/hosted/registry |
 | webhooks | signed webhook deliveries | hosted | deployment_proven | source_present | services/platform/hosted/webhooks |

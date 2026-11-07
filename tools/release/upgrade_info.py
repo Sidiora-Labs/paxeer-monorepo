@@ -9,7 +9,11 @@ import sys
 import tempfile
 
 MAX_HEIGHT = (1 << 63) - 1
-RELEASE_URL = "https://github.com/Sidiora-Labs/Paxeer-X-Network/releases/download"
+RELEASE_URL = "https://github.com/Sidiora-Labs/paxeer-monorepo/releases/download"
+REGISTERED_PLAN_NAMES = {
+    "MergeUpgrade": "v7.0",
+    "AnchorStoreDeleteUpgrade": "v7.0-anchor-store-delete",
+}
 
 
 class ArgumentParser(argparse.ArgumentParser):
@@ -23,8 +27,9 @@ def release_identity():
         raise ValueError("invalid release identity")
     for key in ("version", "upgrade"):
         value = identity.get(key)
-        if not isinstance(value, str) or not re.fullmatch(
-            r"v[0-9]+\.[0-9]+\.[0-9]+", value
+        if not isinstance(value, str) or not (
+            re.fullmatch(r"v[0-9]+\.[0-9]+\.[0-9]+", value)
+            or (key == "upgrade" and value in REGISTERED_PLAN_NAMES.values())
         ):
             raise ValueError(f"invalid release {key}")
     return identity

@@ -14,9 +14,10 @@ The pinned builder environment is defined in
 [`builder-environment/`](builder-environment). Kubernetes manifests are
 [`deployment.yaml`](deployment.yaml) and [`journal-pvc.yaml`](journal-pvc.yaml).
 Deploy the service on Kubernetes with [`deployment.yaml`](deployment.yaml), using
-the image built from
-[`docker/platform-registry/Dockerfile`](../../../../docker/platform-registry/Dockerfile).
-Provision the node build boundary as described below before deploying the service.
+the container image built from
+[`docker/platform-registry/Dockerfile`](../../../../docker/platform-registry/Dockerfile),
+where `docker/platform-registry/init.sh` provisions the build boundary without
+systemd before starting the registry.
 
 ## Registry node build boundary
 

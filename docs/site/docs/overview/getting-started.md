@@ -24,11 +24,11 @@ are `https://api1.mainnet-beta.paxeer.network` through
 `eth_blockNumber` when choosing a current node; an unavailable or lagging node
 is not evidence that a transaction failed.
 
-The hosted gateway is an operator-deployed service with its own `px_*`
-contract in `services/platform/hosted/gateway/openrpc.json`. Obtain its
+The node also serves the `px` namespace at the root. `px_register` and
+`px_requestFunds` are operations of the operator-deployed hosted gateway,
+whose contract is `services/platform/hosted/gateway/openrpc.json`; obtain its
 endpoint and any credentials from the operator when using those operations.
-A method declared by the gateway is not a promise that every public node
-serves it. The old `lx_sendActivity` integration flow is retired.
+The old `lx_sendActivity` integration flow is retired.
 
 ## Wallet and funding
 

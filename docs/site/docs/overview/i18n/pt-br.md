@@ -53,7 +53,7 @@ jq -n --arg hash "${TX_HASH:?}" \
 
 Um `result: null` indica que o nó ainda não oferece um recibo para esse hash. Quando o recibo estiver disponível, confira `transactionHash`, `blockHash`, `blockNumber` e `status`: `0x1` indica execução bem-sucedida e `0x0` indica falha. A finalização decorre da confirmação do bloco pelo consenso BFT. Se o envio expirar, consulte o hash original antes de tentar novamente.
 
-Mantenha mais de um nó configurado e compare `eth_blockNumber`, pois os nós podem estar em alturas diferentes. Os namespaces públicos são `debug`, `echo`, `eth`, `net`, `pax`, `test` e `txpool`, conforme a configuração do nó. Métodos `px_` pertencem ao gateway hospedado, cujo contrato é `services/platform/hosted/gateway/openrpc.json`; veja [Gateway JSON-RPC](../../platform/gateway-rpc.md) antes de usá-los.
+Mantenha mais de um nó configurado e compare `eth_blockNumber`, pois os nós podem estar em alturas diferentes. Os namespaces públicos são `debug`, `echo`, `eth`, `net`, `pax`, `px`, `test` e `txpool`, conforme a configuração do nó. O namespace `px` responde a partir do estado do nó; `px_register` e `px_requestFunds` são operações dos serviços hospedados, cujo contrato é `services/platform/hosted/gateway/openrpc.json`; veja [Gateway JSON-RPC](../../platform/gateway-rpc.md).
 
 ## Compilar a partir do código-fonte
 

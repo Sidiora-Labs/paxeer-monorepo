@@ -23,8 +23,9 @@ Public Ethereum JSON-RPC uses HTTPS at the root path of
 `api1.mainnet-beta.paxeer.network` through
 `api14.mainnet-beta.paxeer.network`, and
 `api-mainnet-beta.paxeer.network`. The node namespaces are `debug`, `echo`,
-`eth`, `net`, `pax`, `test` and `txpool`. Hosted `px_` methods belong to the
-[gateway contract](../services/platform/hosted/gateway/openrpc.json).
+`eth`, `net`, `pax`, `px`, `test` and `txpool`. The `px` namespace answers from node state; `px_register` and
+`px_requestFunds` are operations of the hosted identity and faucet
+services declared in [the gateway OpenRPC contract](../services/platform/hosted/gateway/openrpc.json).
 `node.hyperpaxeer.com` is the build library mirror, never an RPC endpoint.
 See [consensus RPC routes](consensus-fork.md#rpc-routes) for the separate local
 consensus listener.

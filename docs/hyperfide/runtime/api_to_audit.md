@@ -1,7 +1,7 @@
 # APIs To Audit
 
 Every public plugin API member ships with an `experimental_` prefix and an
-entry here (see [AGENTS.md](../../../tools/hyperfide/AGENTS.md), "CLI And Plugin API"). Each entry
+entry here (see AGENTS.md, "CLI And Plugin API"). Each entry
 summarizes the API, names where its behavior is documented, and lists what
 must be settled before the prefix drops. Stabilizing means auditing the entry,
 renaming project-wide, and deleting the entry in the same change. An entry

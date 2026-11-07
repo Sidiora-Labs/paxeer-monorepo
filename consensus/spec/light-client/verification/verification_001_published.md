@@ -70,7 +70,7 @@ to the bounded communication and clock assumptions used in the liveness proof.
 
 The upstream discussion of verification metadata and fork detection in
 [Pull Request 479](https://github.com/informalsystems/tendermint-rs/pull/479) and
-[Issue 499](https://github.com/informalsystems/tendermint-rs/issues/499) records
+[Issue 499](https://github.com/cometbft/tendermint-rs/issues/499) records
 historical design context. It is not the current fork's issue status. The
 preliminary IBC questions in Part V remain part of that research discussion;
 consult the Go sources above for implemented behavior.
