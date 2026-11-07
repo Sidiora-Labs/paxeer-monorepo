@@ -34533,3 +34533,19 @@ symbol = "repair_22_31_613.rs"
 observed = "Attempt 1 at 50812234f9c1: build exit 0; verification exit 1: 33 passed, 8 failed, 2 ignored in tests/repair_22_31_613.rs, where eight landed regression files run as path modules of one binary; three preview cases could not spawn anvil, two cases met poisoned locks, and three assertions differed."
 assumption = "The three assertion differences are either process sharing or a refusal the typed change now raises on an accepted path; the separated targets decide which."
 severity = "high"
+
+[finding.22.39.40.3]
+task = "22.39.40"
+file = "tests/ci/test_node_build_workflow_scope.py"
+symbol = "test_node_build_workflow_scope.py"
+observed = "Attempt 3 at 9f57ad7d6553: build exit 0; verification exit 1: the node package with the three-name skip failed sixteen tests and hit the fifteen-minute limit, while attempt 2 passed the same tests at identical node Go sources in 177 seconds."
+assumption = "The sixteen failures come from the qualification environment or from test-order coupling, not from the task sources."
+severity = "high"
+
+[finding.22.39.60.1]
+task = "22.39.60"
+file = "tests/ci/test_repo_hygiene_strays.py"
+symbol = "test_repo_hygiene_strays.py"
+observed = "Attempt 1 at ac30b2418bbc: build exit 0; verification exit 1: two tests passed, test_no_gitkeep_beside_content failed on seventeen markers outside touches and test_no_tracked_git_bundles_or_patch_dirs on the human service export fixture."
+assumption = "No other directory holds a marker beside content and no other .bundle file is tracked."
+severity = "high"

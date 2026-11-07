@@ -10137,6 +10137,18 @@ value = "When a task directs that landed test targets run once at the end and st
 basis = "Gotcha 3506: 22.31.613 attempt 1 folded eight suites into one binary."
 affects = ["22.31.613"]
 
+[decision.2838]
+title = "The callers of a function whose parameters a task changes enter the touches of the task"
+value = "When a do item directs a task to pass a new value through a function, every caller of that function in the crate is in scope for the signature change and is listed in touches by the batch that writes the do item; an attempt that finds a caller outside touches stops without a gate, so the list is completed before the task launches again."
+basis = "Gotcha 3507: 22.39.128 attempt 1 could not pass the signing preparation from the two callers in human_runtime.rs."
+affects = ["22.39.128"]
+
+[decision.2839]
+title = "A hygiene test recognises a Git bundle by its signature line, never by the .bundle suffix"
+value = "A test that forbids tracked Git bundles reads the first line of each candidate and matches the v2 git bundle signature; a product fixture that carries the .bundle suffix with another format is not a Git bundle and stays tracked."
+basis = "Gotcha 3509: the 22.39.60 test matched the human service export fixture by suffix."
+affects = ["22.39.60"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -181504,7 +181516,7 @@ do_2 = "do_2 In src/budget/program_sources.rs validate_prepared and its three ca
 do_3 = "do_3 Add to tests/repair_22_31_217.rs a test in which a carrier produced by prepare::restore_canonical from a real unsigned envelope passes validate_retained_preparation and a carrier whose signing preparation disagrees is refused; the retained settlement tests of human_runtime pass unchanged."
 do_4 = "do_4 Decision 2829: services/agent/Cargo.lock is a planned path and changes only if a dependency changes."
 symbols = []
-touches = ["services/agent/crates/layerx-agentd/src/budget/native_binding.rs", "services/agent/crates/layerx-agentd/src/budget/program_sources.rs", "services/agent/crates/layerx-agentd/tests/repair_22_31_217.rs"]
+touches = ["services/agent/crates/layerx-agentd/src/budget/native_binding.rs", "services/agent/crates/layerx-agentd/src/budget/program_sources.rs", "services/agent/crates/layerx-agentd/tests/repair_22_31_217.rs", "services/agent/crates/layerx-agentd/src/human_runtime.rs"]
 tests = []
 planned_paths = ["services/agent/Cargo.lock"]
 build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --tests"
@@ -181520,6 +181532,7 @@ time_limit_minutes = 240
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_5 = "Attempt 2 (relaunch, gotcha 3507, decision 2838): attempt 1 made no change. services/agent/crates/layerx-agentd/src/human_runtime.rs is now in touches: pass the retained sign::SigningPreparation to the budget sources from the settlement path at its read_program_budget_sources call and from the retained settlement fixture of the retained_settlement_tests module, and make the fixture create the preparation before it validates the sources, so the verifier binds through the preparation as do_1 and do_2 direct. Implement do_1 to do_4 from current main, run the build and the verification at the final revision and record both by reference."
 
 [task.22.39.127]
 title = "Bring the ucp, x402 and web search test suites to green and retire their baseline entries"
@@ -209258,6 +209271,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Attempt 2 (continue, gotcha 3441, decision 2800): the attempt-1 tree 2ebcae0995a4 stands (the standby commit release repair, the bounded test, the activation repairs and the public check test). Repair TestActivationStopsTheBlockWhoseStateCommitmentStoreServesAPlanStoreAsPending so the commitment store the test builds mounts every store the pending plan store iterates (the xweb store among them), or so the test iterates only the stores it mounted, whichever the activation path does in the node. The sequencer gate of this task is now the standby commit test alone: the six other sequencer failures recorded in gotcha 3441 are repair task 22.39.86 and stay out of this task; list them in node/repair_22_39_40.kvx as recorded, not repaired. Run the build and the narrowed verification at the final revision and record both by reference."
 do_5 = "Attempt 3 (continue, gotcha 3464, decision 2820): the attempt-2 tree d51cd029d92d stands (activation tests and standby release). Record TestMergePlanReturnsGuarantorBonds, TestHostedKernelProgramsABIFollowsTheMergeUpgrade and TestHostedKernelProgramsABISurvivesRestart in tests/ci/data/node_go_test_baseline.json with repair task 22.39.116 as the retiring task and the failing assertion as the reason, pass the same -skip pattern in the node test step of .github/workflows/node-build.yml beside a comment naming the file, and run the replaced verification (the whole package with the skip, the standby test and the Python check) at the final revision, recording build and verification by reference."
+do_6 = "Attempt 4 (continue, gotcha 3508, decision 2771): the attempt-3 tree 9f57ad7d6553 stands (the baseline record, the skip in the node test step, the Python check, the activation and standby repairs). Run the verification once at the final tree before any repair. If the whole-package run passes, record it by reference and finish. If names of gotcha 3508 fail again, run each failing name alone with -run: a name that fails alone is repaired in this task only when it reads the changed sources of this task, otherwise it is recorded in node/repair_22_39_40.kvx with its assertion; a name that passes alone fails through state another test leaves, so find that test (the three skipped names ran in attempt 2 and are the first candidates) and make the dependent test set up its own state. Never widen the skip. If TestFinalizeAdoptedSealedBlockMatchesReexecution exceeds the limit again, run it alone and record its duration in the record. Run the build and the verification at the final revision and record both by reference."
 
 [task.22.39.4]
 title = "Make the golangci job pass at the tip"
@@ -333832,7 +333846,7 @@ do_1 = "do_1 Decision 2803, gotcha 3437. Delete the empty files contracts/launch
 do_2 = "do_2 Delete the 21 .gitkeep files that sit in directories already holding real files (16 under the launchpad contracts meta directory, the rest under docs/platform, services/platform/examples, services/platform/hosted/gateway, tools/platform/cli and tools/platform/emulator); list each deleted path in the task record tests/ci/repair_22_39_60.kvx."
 do_3 = "do_3 Write tests/ci/test_repo_hygiene_strays.py with test_no_empty_source_files_outside_allowlist, test_no_tracked_git_bundles_or_patch_dirs, test_no_gitkeep_beside_content and test_no_mojibake_in_owned_text (the common mis-encoded sequences in first-party text files outside the vendored trees)."
 symbols = []
-touches = ["contracts/launchpad/llms.txtslither.config.json", "apps/explorer/ui/shared/sort/getNextSortOrder.tsx", "patches/10292026_01", "apps/perps/public/model.gltf", "scripts/codify.sh", "docs/platform", "services/platform/examples", "services/platform/hosted/gateway", "tools/platform/cli", "tools/platform/emulator"]
+touches = ["contracts/launchpad/llms.txtslither.config.json", "apps/explorer/ui/shared/sort/getNextSortOrder.tsx", "patches/10292026_01", "apps/perps/public/model.gltf", "scripts/codify.sh", "docs/platform", "services/platform/examples", "services/platform/hosted/gateway", "tools/platform/cli", "tools/platform/emulator", "contracts/launchpad/contracts/meta-ag", "contracts/launchpad/scripts/meta-ag", "contracts/launchpad/storage-layout/meta-ag", "contracts/launchpad/test/meta-ag", "services/platform/middleware"]
 tests = ["tests/ci/test_repo_hygiene_strays.py"]
 planned_paths = ["tests/ci/test_repo_hygiene_strays.py", "tests/ci/repair_22_39_60.kvx"]
 build_cmd = "python3 -m py_compile tests/ci/test_repo_hygiene_strays.py"
@@ -333848,6 +333862,7 @@ time_limit_minutes = 45
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Attempt 2 (continue, gotcha 3509, decision 2839): the attempt-1 tree ac30b2418bbc stands (the deleted strays, the re-saved script, the five markers, the four tests, the record). The four launchpad meta-ag directories under contracts, scripts, storage-layout and test and services/platform/middleware are now in touches: delete the sixteen launchpad markers and services/platform/middleware/.gitkeep and list each in tests/ci/repair_22_39_60.kvx as do_2 directs. Make test_no_tracked_git_bundles_or_patch_dirs read the first line of each .bundle candidate and flag only the v2 git bundle signature, so services/human/schema/human-api/golden/current/activity.evidence.bundle, the export fixture the human service reads, stays. Run the build and the verification at the final revision and record both by reference."
 
 [task.22.39.59]
 title = "Add the repository-wide Markdown link guard"
