@@ -206747,7 +206747,7 @@ do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete ap
 
 [task.22.39.4]
 title = "Make the golangci job pass at the tip"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -330209,7 +330209,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.10]
 title = "Add a launchpad test job for the launchpad SDK packages and apps"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -330383,7 +330383,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.2]
 title = "Add a v7.0 merge plan leg to the release rehearsal"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.39.1"]
