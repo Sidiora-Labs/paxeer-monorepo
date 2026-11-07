@@ -1,0 +1,18 @@
+[repair.22.39.146]
+acceptance = "22998.1"
+base_revision = "d52cc786f118a0dfb064373cc05b2745f59d227f"
+decisions = ["2849", "2857", "2861"]
+gotcha = "3548"
+evidence = "The matching hf-build and hf-done rows in /out/run/gates.jsonl name the verified candidate revision, exact commands, exits and private logs; the final hf-done JSON line is the qualification record."
+
+[correction.receipt-digest]
+producer = "services/agent/sdk/typescript/src/verifier.ts:526-570 verifySequencerReceipt, especially line 558: SHA-256 of LXP/v1/receipt domain and canonical unsigned receipt encoding."
+consumer = "services/platform/middleware/seller/src/index.ts:448 verifyPaymentReceipt calls verifyReceiptDigest at line 473; lines 1049-1053 compare the supplied digest with the verifier result."
+repair = "node-fixtures.mjs verifies the exact signedReceipt, rawTransaction and pinned keys and takes receiptDigest from that verification result; remove the unused Keccak import."
+tests = "fixtureReceiptDigestMatchesVerifier compares the exact vector and verifier digest; sellerAcceptsFixtureReceiptDigest verifies the real fixture proof and payment terms and requires refusal after a one-bit digest mutation."
+
+[correction.offer-schemes]
+producer = "services/platform/middleware/seller/src/index.ts:819-846 parseRequirements accepts exact, metered and subscription; metered omits windowSeconds and subscription requires a positive uint64 decimal windowSeconds string."
+python_producer = "services/agent/sdk/python/layerx_sdk/x402_http.py:83-127 validate_requirements accepts the same schemes and window terms."
+repair = "HttpTests.test_offer_mismatch_and_invalid_headers retains unknown-scheme refusal and asserts successful metered validation without a window and subscription validation with windowSeconds 60, preserving payer and purposeHash."
+qualification_limit = "The declared verification executes the Node regression tests and compiles test_http.py; it does not execute the Python HTTP suite. The existing Python validator still requires a layerx network while the TS fixture uses eip155, outside this task's scope."

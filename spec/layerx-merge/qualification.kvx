@@ -35041,3 +35041,139 @@ symbol = "cli::rpc::tests::positional_requests_match_published_contract"
 observed = "Attempt 8 at 05b9761fffef: build exit 0; verification exit 1: the three required rpc tests and the library tests pass; make platform-test-tooling fails two lifecycle cases at program_evm_lifecycle.rs line 150 asserting an error where the producer returns the unknown rung."
 assumption = "The two failures are the stale indeterminate assertion in a second test file; the task tree is complete."
 severity = "high"
+
+[finding.22.39.94.1]
+task = "22.39.94"
+file = "tests/ci/test_pnpm_workspace_roots.py"
+symbol = "test_pnpm_workspace_roots.py"
+observed = "Attempt 1 at 8e020814aea8: build exit 0; verification exit 1: the three wiring tests pass, the frozen install resolves, vitest reports 31 failed, 109 passed, 38 todo in ten files the task never touched."
+assumption = "The wallet suite rotted at main outside this task; the wiring lands with a recorded per-name baseline and a retiring task repairs the suite."
+severity = "high"
+
+[finding.22.39.103.1]
+task = "22.39.103"
+file = "tests/ci/test_workflow_duplicate_jobs.py"
+symbol = "test_workflow_duplicate_jobs.py"
+observed = "Attempt 1 at fe038cf56879: build exit 0; verification exit 1: test_release_workflows_share_toolchain_action passes, test_no_make_target_duplicated_across_automatic_workflows fails on chain.mk install shared by two automatic workflows; the tests that read platform.yml were not run."
+assumption = "The duplicate is a dependency install of the allowlisted class; the other workflow tests must follow the moved lanes before the repair lands."
+severity = "high"
+
+[finding.22.39.118.9]
+task = "22.39.118"
+file = "tools/platform/cli::rpc::tests::positional_requests_match_published_contract"
+symbol = "cli::rpc::tests::positional_requests_match_published_contract"
+observed = "Attempt 9 at 992ae4771ccd: build exit 0; verification exit 1: the three rpc tests and the library tests pass; program_deploy_calldata_matches_vector and program_wind_down_modes_use_layerxprograms fail at program_evm_lifecycle.rs line 58 because the command refuses without --receipt-policy."
+assumption = "The lifecycle test predates the required policy argument; the response-shape assertions of attempt 9 are right and were never reached."
+severity = "high"
+
+[finding.22.39.128.4]
+task = "22.39.128"
+file = "services/agent/crates/layerx-agentd/src/budget/native_binding.rs"
+symbol = "native_binding.rs"
+observed = "Attempt 5 at fb5a29eb0340: build exit 0; verification exit 101: all 19 repair_22_31_217 cases pass; the four retained_settlement_tests cases fail, the first with Refused on the fixture receipt without paymentDenom, the other three on the poisoned environment lock."
+assumption = "The library fixture predates a producer requirement a repair added without running this module; one fixture field completes the task."
+severity = "high"
+
+[finding.22.39.136.4]
+task = "22.39.136"
+file = "services/platform/middleware/conformance/pay6/test_http.py"
+symbol = "test_http.py"
+observed = "Attempt 5 at fc0b73e9b64c: build exit 0; verification exit 1: 17 passed, 4 failed, 3 teardown errors; three failures and the errors come from the seller digest check against the fixture digest, the fourth from the scheme assertion at test_http.py line 122."
+assumption = "Every remaining failure sits in the pay6 fixtures and the seller-side assertion that task 22.39.146 owns."
+severity = "high"
+
+[finding.22.39.142.1]
+task = "22.39.142"
+file = "programs/crates/layerx-programs-ai-market/tests/f11_views.rs"
+symbol = "f11_views.rs"
+observed = "Attempt 1 at 4140d2b8a2f5: build exit 0 at the final tree; the verification at the previous candidate 853d7ece98d5 failed the size assertion at 523935 bytes; the final tree measures 504844 bytes against the 484184 bound and the four f11 binaries never ran because both repair units were spent."
+assumption = "The techniques work and half the modules are done; the remaining large modules hold more than the missing bytes."
+severity = "high"
+
+[finding.22.39.76.3]
+task = "22.39.76"
+file = "tests/ci/test_core_test_all_wired.py"
+symbol = "test_core_test_all_wired.py"
+observed = "Attempt 3 at 230d5e312987: build exit 0; verification exit 2: both CI tests and the four ported suites passed, make core-test-all stopped at Makefile line 1233 (qualify-arith) with required qualification tool is unavailable: cbmc."
+assumption = "The proof tools are a documented prerequisite of the target the task wires; the public step and the gate name them and the job installs them."
+severity = "high"
+
+[finding.22.39.97.1]
+task = "22.39.97"
+file = "tests/ci/test_explorer_test_step.py"
+symbol = "test_explorer_test_step.py"
+observed = "Attempt 1 at 3286fc0c29eb: build exit 0; verification exit 2: both Python tests passed; 18 ExUnit failures, 17 with Tesla.Adapter.Mint unavailable under the application-local mix test form and one websocket termination case timing out after the lifecycle support change."
+assumption = "The verification form, not the dependency configuration, produced seventeen failures; the eighteenth is the task own support change."
+severity = "high"
+
+[finding.22.33.50.7]
+task = "22.33.50"
+file = "services/human/crates/layerx-human-service/tests/repair_22_33_50.rs"
+symbol = "repair_22_33_50.rs"
+observed = "Attempt 8 at 6a0da097460a: build exit 0; verification exit 101: the consensus case passed; both transport cases panicked at the checked helper with ReceiptStoreError::EvidenceVersion from evidence_inventory after persist_evidence wrote the legacy record."
+assumption = "The version-one persistence predates the committed ingress the attempt-7 ruling introduced; removing it completes the task."
+severity = "high"
+
+[finding.22.31.623.3]
+task = "22.31.623"
+file = "tests/ci/test_qualification_suites_collect.py"
+symbol = "test_qualification_suites_collect.py"
+observed = "Attempt 3 at 9b83f21f4914: build exit 0; verification exit 1: 23 failed, 4427 passed, 12 skipped after two repair cycles that settled 80 cases; the collect test never ran."
+assumption = "The remaining cases are named and bounded; one more pass settles them under the same rules."
+severity = "high"
+
+[finding.22.39.54.6]
+task = "22.39.54"
+file = "tests/ci/test_tools_ci_suite_passes.py"
+symbol = "test_tools_ci_suite_passes.py"
+observed = "Attempt 6 at d1ba75e3c32a: build exit 0; verification exit 1: 2 failed, 110 passed, 275 subtests passed; both failures are the routing check refusing the seven fixed runners 22.39.98 introduced."
+assumption = "Nothing in the task tree is wrong; the producer defect is repaired by 22.39.147 and the merge completes the task."
+severity = "high"
+
+[finding.22.39.118.10]
+task = "22.39.118"
+file = "tools/platform/cli::rpc::tests::positional_requests_match_published_contract"
+symbol = "cli::rpc::tests::positional_requests_match_published_contract"
+observed = "Attempt 10 at e47769c1851256419a503fe4c1890f283112fe0e: build exit 0; the library and lifecycle gates passed; make platform-test-tooling exit 1 with 55 passed and 1 failed, the token list step receiving InvalidRequest instead of InvalidResponse."
+assumption = "The refusal sits in a source the attempt did not change; its producer is found by exercising the path, not by reading it."
+severity = "high"
+
+[finding.22.39.138.2]
+task = "22.39.138"
+file = "tests/ci/test_copied_artifacts_in_sync.py"
+symbol = "test_copied_artifacts_in_sync.py"
+observed = "Attempt 2 at 83c683f4987e3847d4a7d4c0d0727420743e17ab: build exit 0; verification 15 passed, 2 failed: the fee-token case receives codespace undefined through the percent-w wrap, the CW1155 burn case receives status 0x1 with the log internal error and the real text hidden."
+assumption = "The fee-token failure is the producer defect 22.39.148 repairs; the CW1155 failure needs the trace option before its cause is known."
+severity = "high"
+
+[finding.22.39.128.5]
+task = "22.39.128"
+file = "services/agent/crates/layerx-agentd/src/budget/native_binding.rs"
+symbol = "native_binding.rs"
+observed = "Attempt 6 at e49db43c7aa431bbb12c55ff717764a21acb7f95: build exit 0; integration tests 19 passed; library retained_settlement_tests 0 passed, 4 failed, the first case refused at the exact fee debit asset check and the other three poisoned by it."
+assumption = "The fixture encodes the wrong asset word; one word follows the reader and the suite settles."
+severity = "high"
+
+[finding.22.39.136.5]
+task = "22.39.136"
+file = "services/platform/middleware/conformance/pay6/test_http.py"
+symbol = "test_http.py"
+observed = "Attempt 6 at 64215035d88ffcc9e8f5eb008f1a095363c35d44: build exit 0; verification 20 passed, 1 failed, the budget receipt proof differing from the recorded fixture receipt at a base that predates 908d90b5c5."
+assumption = "The failing case is the one 22.39.146 repaired on main after the attempt base; the merge settles it."
+severity = "high"
+
+[finding.22.39.68.4]
+task = "22.39.68"
+file = "tests/ci/test_key_material_only_in_fixtures.py"
+symbol = "test_key_material_only_in_fixtures.py"
+observed = "Attempt 4 at 3a7e53ed604a8812edda6c4e7d5e3ff8168be317: build exit 0; key-material test and hosted internal tests passed; the ramp toolkit tests failed in the last binary at the stale off-ramp success assertion."
+assumption = "The task tree is complete; the stale assertions belong to the test crate 22.39.149 settles."
+severity = "high"
+
+[finding.22.39.76.4]
+task = "22.39.76"
+file = "tests/ci/test_core_test_all_wired.py"
+symbol = "test_core_test_all_wired.py"
+observed = "Attempt 4 at 1ab4401a1dc7e419f0b75677eda2a3b80897f8c0: build exit 0; verification exit 1: both wiring tests and the four ported suites passed, qualify-arith refused for the unavailable clang after forge, cbmc and z3 answered."
+assumption = "The gate named the tools of the last failure instead of the tools the proof script resolves; clang completes the set."
+severity = "high"

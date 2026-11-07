@@ -168,14 +168,16 @@ jobs:
           path: |
             /usr/local/lib/librocksdb.*
             /usr/local/include/rocksdb
-          key: rocksdb-v8.9.1-${{ runner.os }}
+          key: rocksdb-v8.9.1-49ce8a1064dd1ad89117899839bf136365e49e79-${{ runner.os }}
 
       - name: Build and Install RocksDB from source
         if: steps.cache-rocksdb.outputs.cache-hit != 'true'
         run: |
-          git clone https://github.com/facebook/rocksdb.git
+          git init rocksdb
+          git -C rocksdb remote add origin https://github.com/facebook/rocksdb.git
+          git -C rocksdb fetch --depth 1 origin 49ce8a1064dd1ad89117899839bf136365e49e79 # v8.9.1
+          git -C rocksdb checkout --detach 49ce8a1064dd1ad89117899839bf136365e49e79
           cd rocksdb
-          git checkout v8.9.1
           make clean
           CXXFLAGS='-march=native -DNDEBUG' make -j"$(nproc)" shared_lib
           sudo make install-shared
