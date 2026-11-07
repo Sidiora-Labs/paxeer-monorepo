@@ -22,84 +22,58 @@ Use [Public JSON-RPC](PublicRpc.md) or the Rust SDK.
 
 ## Fund from faucet
 
-Same limitation. `AgentOperationFaucetClaim` (`"faucet.claim"`)
-exists on the catalog. `NewHumanHTTPTransport` does not implement
-the agent plane. Use [Hosted faucet](HostedFaucet.md) or
-`lx_requestFunds` as documented on [Public JSON-RPC](PublicRpc.md).
+Send `px_requestFunds` to the configured hosted gateway with an identity
+session. Set `HOSTED_GATEWAY_URL`, `SESSION_TOKEN`, `DID`, and
+`SIGNER_PUBLIC_KEY` (the 32-byte public key as lowercase hex):
+
+```sh
+curl --fail-with-body "$HOSTED_GATEWAY_URL" \
+  -H 'Content-Type: application/json' \
+  -H "Authorization: Bearer $SESSION_TOKEN" \
+  --data "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"px_requestFunds\",\"params\":[\"$DID\",\"$SIGNER_PUBLIC_KEY\"]}"
+```
+
+This is the hosted faucet operation; it is separate from node transaction
+submission. See [Hosted faucet](HostedFaucet.md).
 
 ---
 
 ## Send
 
-The shipped send path is the human-plane quote then commit, as in
-`services/platform/examples/samples/first-payment-go`:
+Build and sign a native EVM transaction with your wallet, using the target
+network's chain ID, nonce, gas limit and fees. Set `RAW_TRANSACTION` to its
+`0x`-prefixed signed bytes and `NODE_RPC_URL` to the node root (`/`). Submit
+with `eth_sendRawTransaction`:
 
-```go
-package main
-
-import (
-	"context"
-	"net/http"
-
-	layerx "github.com/Sidiora-Labs/LayerX-Network/sdk/platform/go"
-)
-
-type Money struct {
-	Amount   string `json:"amount"`
-	Currency string `json:"currency"`
-}
-
-type MoveQuoteRequest struct {
-	Source      string `json:"source"`
-	Destination string `json:"destination"`
-	Money       Money  `json:"money"`
-}
-
-type MoveQuote struct {
-	QuoteID string `json:"quote_id"`
-}
-
-type MoveCommitRequest struct {
-	QuoteID string `json:"quote_id"`
-}
-
-type Journey struct {
-	JourneyID string `json:"journey_id"`
-	State     string `json:"state"`
-}
-
-func pay(ctx context.Context, apiURL, apiToken, source, destination, paymentKey string, money Money) (Journey, error) {
-	authorize := func(request *http.Request) error {
-		request.Header.Set("Authorization", "Bearer "+apiToken)
-		return nil
-	}
-	transport, err := layerx.NewHumanHTTPTransport(apiURL, nil, authorize)
-	if err != nil {
-		return Journey{}, err
-	}
-	client, err := layerx.NewClient(transport, nil)
-	if err != nil {
-		return Journey{}, err
-	}
-	key, err := layerx.NewIdempotencyKey(paymentKey)
-	if err != nil {
-		return Journey{}, err
-	}
-	var quote MoveQuote
-	if err := client.Human(ctx, layerx.HumanOperationMoveQuote, MoveQuoteRequest{Source: source, Destination: destination, Money: money}, &quote, layerx.CallOptions{}); err != nil {
-		return Journey{}, err
-	}
-	var journey Journey
-	if err := client.Human(ctx, layerx.HumanOperationMoveCommit, MoveCommitRequest{QuoteID: quote.QuoteID}, &journey, layerx.CallOptions{IdempotencyKey: key}); err != nil {
-		return Journey{}, err
-	}
-	return journey, nil
-}
+```sh
+curl --fail-with-body "$NODE_RPC_URL" \
+  -H 'Content-Type: application/json' \
+  --data "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"eth_sendRawTransaction\",\"params\":[\"$RAW_TRANSACTION\"]}"
 ```
 
-Agent `prepare` / `submit` constants exist
-(`AgentOperationPrepare`, `AgentOperationSubmit`) and need an
-agent-plane `Transport` this module does not ship.
+The result is a transaction hash, not a verified receipt. Set `TX_HASH` to
+that hash and read its committed transaction receipt at the same node root:
+
+```sh
+curl --fail-with-body "$NODE_RPC_URL" \
+  -H 'Content-Type: application/json' \
+  --data "{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"eth_getTransactionReceipt\",\"params\":[\"$TX_HASH\"]}"
+```
+
+A null receipt is pending. Read account balances with `px_getBalances`
+using `DID`, and network state with `px_getNetwork`, at that same root:
+
+```sh
+curl --fail-with-body "$NODE_RPC_URL" \
+  -H 'Content-Type: application/json' \
+  --data "{\"jsonrpc\":\"2.0\",\"id\":3,\"method\":\"px_getBalances\",\"params\":[\"$DID\"]}"
+curl --fail-with-body "$NODE_RPC_URL" \
+  -H 'Content-Type: application/json' \
+  --data '{"jsonrpc":"2.0","id":4,"method":"px_getNetwork","params":[]}'
+```
+
+These wire methods are used by `services/agent/crates/layerx-sdk/src/rpc.rs`.
+This package has no public JSON-RPC wrapper; use an HTTP client as above.
 
 ---
 
