@@ -15,6 +15,9 @@
 //! connect appended /rpc and violated NodeRecording's POST / assertion before decoding.
 //! Final gate revision and private evidence are emitted by hf-build/hf-done.
 
+#[path = "support/clock.rs"]
+mod test_clock;
+
 use std::collections::BTreeMap;
 use std::io::{BufRead, BufReader, Read, Write};
 use std::net::{TcpListener, TcpStream};
@@ -445,6 +448,7 @@ fn purchase(index: usize, account_result: Option<Value>) {
             policy_version: "policy-v1".into(),
         },
         current_sequence: 50,
+        clock: &test_clock::TestClock::new(50),
     };
     let mut payer = NodePayer {
         node: SequencerEndpoint::new(&node.endpoint, &[]).expect("real node transport"),
@@ -965,4 +969,59 @@ fn native_legacy_owner_contract_remains_refused() {
     assert!(layerx_agentd::agent_rpc::validate_mcp_native_request(
         Operation::Prepare, &request["preparation"],
     ).is_err(), "the retired native owner contract must remain refused until domain 9 wires its sender-bound replacement");
+}
+
+#[test]
+fn native_catalogue_advertises_v2_send_purpose_and_preserves_preparation_v1() {
+    let schema = layerx_mcp::catalogue::input_schema("activity.prepare").expect("prepare schema");
+    let variants = schema["oneOf"].as_array().expect("prepare variants");
+    let send = variants
+        .iter()
+        .find(|schema| schema["properties"]["variant"]["enum"] == json!(["native_send_v1"]))
+        .expect("native Send schema");
+    let signed = &send["properties"]["purpose"];
+    assert_eq!(signed["required"], json!(["purpose", "signature"]));
+    assert_eq!(signed["additionalProperties"], false);
+    assert!(signed["properties"].get("owner_public_key").is_none());
+    let purpose = &signed["properties"]["purpose"];
+    let properties = &purpose["properties"];
+    assert_eq!(
+        properties["version"]["enum"],
+        json!([layerx_agent_api::identity::NativeSendPurposeV2::VERSION.to_string()])
+    );
+    assert_eq!(properties["transaction_type"]["enum"], json!(["2"]));
+    assert_eq!(properties["chain_id"]["enum"], json!(["125"]));
+    assert_eq!(properties["evm_sender"]["minLength"], 40);
+    assert_eq!(properties["evm_sender"]["maxLength"], 40);
+    assert_eq!(properties["consent_public_key"]["minLength"], 64);
+    for field in [
+        "consent_public_key",
+        "evm_sender",
+        "transaction_type",
+        "chain_id",
+    ] {
+        assert!(purpose["required"]
+            .as_array()
+            .expect("required fields")
+            .contains(&json!(field)));
+    }
+    for retired in ["owner_public_key", "protocol_version", "network_id"] {
+        assert!(properties.get(retired).is_none());
+    }
+    assert_eq!(purpose["additionalProperties"], false);
+    for variant in ["native_v1", "native_effect_v1"] {
+        let legacy = variants
+            .iter()
+            .find(|schema| schema["properties"]["variant"]["enum"] == json!([variant]))
+            .expect("preparation V1 schema");
+        assert_eq!(
+            legacy["properties"]["purpose"]["properties"]["purpose"]["properties"]["version"]
+                ["enum"],
+            json!(["1"])
+        );
+        assert_eq!(
+            legacy["properties"]["purpose"]["required"],
+            json!(["purpose", "owner_public_key", "signature"])
+        );
+    }
 }

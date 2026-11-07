@@ -9,7 +9,7 @@
 [![badge](https://shieldcn.dev/badge/GOLANG.svg?variant=outline&size=lg&font=geist&logo=go&logoColor=1363e6&labelTextColor=1c3e76&height=56&padX=15&iconSize=28&gap=4&labelGap=12)](#)
 [![badge](https://shieldcn.dev/badge/RUST.svg?variant=outline&size=lg&font=geist&logo=rust&logoColor=ffffff&labelTextColor=1c3e76&height=56&padX=15&iconSize=28&gap=4&labelGap=12)](#)
 [![badge](https://shieldcn.dev/badge/LANGUAGE%20C17.svg?variant=outline&size=lg&font=geist&logo=lu%3ACpu&logoColor=f4f4f2&labelTextColor=1c3e76&height=56&padX=15&iconSize=28&gap=4&labelGap=12)](#)
-[![badge](https://shieldcn.dev/badge/SIDIORA%20LABS.svg?variant=outline&size=lg&font=geist&logo=lu%3AGlobe&logoColor=0043e6&labelTextColor=1c3e76&height=56&padX=15&iconSize=21&gap=4&labelGap=12)](https://github.com/org/Sidiora-Labs)
+[![badge](https://shieldcn.dev/badge/SIDIORA%20LABS.svg?variant=outline&size=lg&font=geist&logo=lu%3AGlobe&logoColor=0043e6&labelTextColor=1c3e76&height=56&padX=15&iconSize=21&gap=4&labelGap=12)](https://github.com/Sidiora-Labs)
 [![badge](https://shieldcn.dev/github/Sidiora-Labs/paxeer-monorepo/ci.svg?variant=outline&size=lg&font=geist&logo=github&logoColor=dadee6&height=56&padX=15&iconSize=21&gap=4&labelGap=12)](https://github.com/Sidiora-Labs/paxeer-monorepo/actions)
 
 
@@ -72,7 +72,7 @@ flowchart LR
     State -->|Transaction receipts, logs and proofs| Client
 ```
 
-The public API reaches the node directly: there is no router and no separate LayerX interface. The hosted gateway is optional developer tooling with its own declared contract; it is outside consensus and does not provide another execution or finality domain. Full and archive nodes serve committed history. A configured standby follows the integrated node's durable WAL for recovery; restart and recovery belong to the node lifecycle, without an external settlement service. See the [sequencing implementation](node/sequencer/) and [consensus block source](node/sequencer/consensus_source.go).
+The public API reaches the node directly at the root path on EVM chain ID 125: there is no router and no separate LayerX interface. The hosted gateway is optional developer tooling with its own declared contract; it is outside consensus and does not provide another execution or finality domain. The archive node `api2.mainnet-beta.paxeer.network` keeps full history; the other thirteen numbered public nodes prune. On a pruned node, `pax_sequencerReceipt` and state queries for heights outside that node's retention return JSON-RPC error `-32000`; this is expected retention behavior, not a defect. Send historical receipt and state queries to `https://api2.mainnet-beta.paxeer.network` at the root path. A configured standby follows the integrated node's durable WAL for recovery; restart and recovery belong to the node lifecycle, without an external settlement service. See the [sequencing implementation](node/sequencer/) and [consensus block source](node/sequencer/consensus_source.go).
 
 ## Documentation
 
@@ -81,10 +81,11 @@ The public API reaches the node directly: there is no router and no separate Lay
 - For wallets, funding and payments, follow the [Payments Quickstart](docs/wiki/PaymentsQuickstart.md).
 - For hosted tooling and disposable integration environments, see the [hosted quickstart](docs/wiki/Quickstart.md). Build the merged node using the [commands below](#build).
 - For protocol references, see [assets](docs/wiki/Assets.md), [committed block evidence](docs/site/docs/concepts/checkpoints.md) and [hosted gateway methods](docs/site/docs/platform/gateway-rpc.md). Hosted payment examples are in the [payment API guide](docs/wiki/PublicAPI.md).
+- Component guides include the [launchpad production checklist](docs/launchpad/production-checklist.md), [perps data API](docs/perps/data-api.md), [agent compatibility matrix](docs/agent/COMPATIBILITY.md) and [portable verification guide](docs/interop/PORTABILITY.md).
 
 ### Quick start: connect to chain 125
 
-Public node JSON-RPC uses the root URL: `https://api-mainnet-beta.paxeer.network` or the numbered nodes `https://api1.mainnet-beta.paxeer.network` through `https://api14.mainnet-beta.paxeer.network`. Send HTTPS JSON-RPC requests to the root path of these hosts, without a route suffix. Node API families include `debug`, `echo`, `eth`, `net`, `pax` and `txpool`; `test` is restricted to non-live chain IDs. The current [node registrations](rpc/server.go) also include `web3`, `pax2` and native `px_` account/history and receipt-key methods. Method availability depends on node configuration and the queried domain. Confirm the chain ID before signing or broadcasting:
+Public node JSON-RPC uses the root URL: `https://api-mainnet-beta.paxeer.network` or the numbered nodes `https://api1.mainnet-beta.paxeer.network` through `https://api14.mainnet-beta.paxeer.network`. Send HTTPS JSON-RPC requests to the root path of these hosts, without a route suffix. Node API families include `debug`, `echo`, `eth`, `net`, `pax`, `px` and `txpool`; `test` is restricted to non-live chain IDs. The [node registrations](rpc/server.go) also include `web3`, `pax2` and native `px_` account/history and receipt-key methods. Method availability depends on node configuration and the queried domain. Confirm the chain ID before signing or broadcasting:
 
 ```sh
 curl --max-time 10 -sS https://api1.mainnet-beta.paxeer.network \
@@ -95,7 +96,7 @@ curl --max-time 10 -sS https://api1.mainnet-beta.paxeer.network \
 
 Configure more than one node and compare `eth_blockNumber` when selecting one near the head. `node.hyperpaxeer.com` is only the hpx library mirror used by build and installation tooling, never a JSON-RPC endpoint.
 
-The hosted gateway's `px_` API is defined by [`services/platform/hosted/gateway/openrpc.json`](services/platform/hosted/gateway/openrpc.json). Obtain its deployment URL and credentials from the operator; the gateway contract does not establish method availability at public node URLs. The prefix alone does not identify the server: for example, `px_getReceiptKeys` is registered by the node, and the gateway relays its governed key ranges. Use each server's declared methods instead of assuming that every hosted method is served by every public node. Mainnet-beta uses real value; hosted funding and private test-environment faucets have their own access policies.
+The node answers the `px` namespace from node state. The hosted gateway's `px_` API is defined by [`services/platform/hosted/gateway/openrpc.json`](services/platform/hosted/gateway/openrpc.json). Obtain its deployment URL and credentials from the operator; the gateway contract does not establish method availability at public node URLs. `px_getReceiptKeys` is registered by the node, and the gateway relays its governed key ranges. `px_register` and `px_requestFunds` are operations of the hosted identity and faucet services: the node validates their parameters and answers `-32004` with data code `hosted_gateway_service_required`. Mainnet-beta uses real value; hosted funding and private test-environment faucets have their own access policies.
 
 ### Submit a transaction and follow its committed receipt
 

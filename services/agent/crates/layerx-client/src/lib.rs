@@ -4,7 +4,7 @@
 //! reads, signed transactions and committed-block evidence. [`px`] joins account,
 //! asset and history data at the hosted gateway; its labels do not prove finality.
 //! [`frame`] provides a generic bounded codec and transport, without a separate
-//! kernel protocol or public LNI boundary.
+//! kernel protocol boundary.
 
 pub mod account_binding;
 pub mod budget;

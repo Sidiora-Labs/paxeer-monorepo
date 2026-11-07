@@ -11,7 +11,7 @@ test.beforeEach(async({ mockEnvs }) => {
   ]);
 });
 
-test('default view +@dark-mode', async({ render }) => {
+test('single top bar +@dark-mode', async({ render }) => {
   const component = await render(<HeaderDesktop/>);
   await expect(component).toHaveScreenshot();
 });

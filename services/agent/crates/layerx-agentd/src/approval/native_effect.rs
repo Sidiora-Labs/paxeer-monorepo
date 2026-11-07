@@ -195,6 +195,7 @@ impl NativeEffectApprovalCarrier {
     pub(crate) fn bind(
         peer: &HumanPeer,
         prepared: &Prepared,
+        preparation_id: [u8; 32],
         origin: &PreparationAuthorization,
         capability: crate::capability::CapabilityId,
         purpose_hash: [u8; 32],
@@ -206,42 +207,90 @@ impl NativeEffectApprovalCarrier {
         >,
         profile: crate::capability::NativeAdmissionProfile,
     ) -> Result<Self, NativeEffectError> {
-        crate::prepare::verify_disclosure_binding(prepared)
-            .map_err(|_| NativeEffectError::Binding)?;
-        let tenant = human_tenant(peer)?;
-        let id: [u8; 32] = Sha256::digest(&prepared.canonical_bytes).into();
-        if origin.session.tenant != tenant
-            || origin.generation == 0
-            || origin.session.session_id.0 == [0; 32]
-            || capability.0 == [0; 32]
-            || purpose_hash == [0; 32]
-            || prepared.envelope.protocol_version() != 3
-            || prepared.envelope.activity_type().module() == ModuleId::Programs
-            || reservation.id != id
-            || reservation.expiry_sequence <= prepared.observed_head_sequence
-            || reservation.core_deadline.is_none_or(|deadline| {
-                deadline.0 != prepared.envelope.timestamp_bound().not_after()
-            })
-        {
-            return Err(NativeEffectError::Binding);
+        let refused = |site, error| {
+            eprintln!("layerx-agentd: native send prepare refused at {site}");
+            error
+        };
+        crate::prepare::verify_disclosure_binding(prepared).map_err(|_| {
+            refused(
+                "approval carrier disclosure binding",
+                NativeEffectError::Binding,
+            )
+        })?;
+        let tenant =
+            human_tenant(peer).map_err(|error| refused("approval carrier tenant", error))?;
+        for (invalid, site) in [
+            (
+                origin.session.tenant != tenant,
+                "approval carrier origin tenant",
+            ),
+            (origin.generation == 0, "approval carrier generation"),
+            (
+                origin.session.session_id.0 == [0; 32],
+                "approval carrier session",
+            ),
+            (capability.0 == [0; 32], "approval carrier zero capability"),
+            (
+                purpose_hash == [0; 32],
+                "approval carrier zero purpose commitment",
+            ),
+            (
+                prepared.envelope.protocol_version() != 3,
+                "approval carrier protocol version",
+            ),
+            (
+                prepared.envelope.activity_type().module() == ModuleId::Programs,
+                "approval carrier programs module",
+            ),
+            (
+                reservation.id != preparation_id,
+                "approval carrier reservation identity",
+            ),
+            (
+                reservation.expiry_sequence <= prepared.observed_head_sequence,
+                "approval carrier reservation expiry sequence",
+            ),
+            (
+                reservation.core_deadline.is_none_or(|deadline| {
+                    deadline.0 != prepared.envelope.timestamp_bound().not_after()
+                }),
+                "approval carrier reservation deadline",
+            ),
+        ] {
+            if invalid {
+                return Err(refused(site, NativeEffectError::Binding));
+            }
         }
         if let crate::capability::NativeAdmissionProfile::Registration { fee_asset } = profile {
             if fee_asset != fee.value.asset.asset_id {
-                return Err(NativeEffectError::Binding);
+                return Err(refused(
+                    "approval carrier registration fee asset",
+                    NativeEffectError::Binding,
+                ));
             }
         }
         let intent = NativeEffectIntent::from_prepared(prepared, fee, purpose_hash, profile)
-            .map_err(|_| NativeEffectError::Policy)?;
-        let decision = policy
-            .evaluate_local(&intent)
-            .map_err(|_| NativeEffectError::Policy)?;
+            .map_err(|_| refused("approval carrier intent", NativeEffectError::Policy))?;
+        let decision = policy.evaluate_local(&intent).map_err(|_| {
+            refused(
+                "approval carrier policy evaluation",
+                NativeEffectError::Policy,
+            )
+        })?;
         let reading = clock
             .sample(std::time::Duration::from_secs(1))
-            .map_err(|_| NativeEffectError::Binding)?;
-        if reading.generation == [0; 16]
-            || reading.unix_milliseconds >= prepared.envelope.timestamp_bound().not_after()
-        {
-            return Err(NativeEffectError::Binding);
+            .map_err(|_| refused("approval carrier clock sample", NativeEffectError::Binding))?;
+        if reading.generation == [0; 16] {
+            return Err(refused(
+                "approval carrier clock generation",
+                NativeEffectError::Binding,
+            ));
+        }
+        if reading.unix_milliseconds >= prepared.envelope.timestamp_bound().not_after() {
+            return Err(refused(
+                "approval carrier clock reading past bound",
+                NativeEffectError::Binding,
+            ));
         }
         let context = match &prepared.disclosure.native_operation {
             Some(DisclosedNativeOperation::BudgetFund(v)) => Some(v.context),
@@ -259,7 +308,7 @@ impl NativeEffectApprovalCarrier {
             actor: prepared.envelope.actor_did().as_bytes().to_vec(),
             session: origin.session.session_id.0,
             generation: origin.generation,
-            preparation: id,
+            preparation: preparation_id,
             activity_module: prepared.envelope.activity_type().module() as u16,
             activity_ordinal: prepared.envelope.activity_type().ordinal(),
             canonical_bytes: prepared.canonical_bytes.clone(),
@@ -276,9 +325,12 @@ impl NativeEffectApprovalCarrier {
             clock_generation: reading.generation,
             budget_expiry_sequence: reservation.expiry_sequence,
             envelope_not_after: prepared.envelope.timestamp_bound().not_after(),
-            budget: reservation
-                .encode()
-                .map_err(|_| NativeEffectError::Budget)?,
+            budget: reservation.encode().map_err(|_| {
+                refused(
+                    "approval carrier budget encoding",
+                    NativeEffectError::Budget,
+                )
+            })?,
             policy_source: policy.source().to_vec(),
             requires_approval: required,
             state: if required {
@@ -290,7 +342,9 @@ impl NativeEffectApprovalCarrier {
             queued_submission: None,
             admission_profile: profile.label().map(str::to_owned),
         };
-        result.validate()?;
+        result
+            .validate()
+            .map_err(|error| refused("approval carrier validation", error))?;
         Ok(result)
     }
 
@@ -363,7 +417,6 @@ impl NativeEffectApprovalCarrier {
             || self.clock_generation == [0; 16]
             || self.canonical_bytes.is_empty()
             || self.canonical_bytes.len() > MAX_CARRIER
-            || self.preparation != <[u8; 32]>::from(Sha256::digest(&self.canonical_bytes))
             || self.created_at_sequence >= self.budget_expiry_sequence
             || self.created_at_unix_seconds == 0
             || self

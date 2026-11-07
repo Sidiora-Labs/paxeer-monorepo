@@ -407,6 +407,7 @@ fn verify(key: PublicKey32, signature: Signature64, digest: Digest32) -> CodecRe
 #[derive(Clone, Copy, Eq, PartialEq)]
 #[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct ManifestSummary {
+    pub version: u16,
     pub market: MarketId,
     pub worker: WorkerId,
     pub owner: PrincipalId,
@@ -416,6 +417,62 @@ pub struct ManifestSummary {
     pub valid_from: u64,
     pub expiry: u64,
     pub digest: MetadataDigest,
+    pub capabilities: Option<CapabilityFields>,
+}
+
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
+pub struct CapabilityFields {
+    pub accelerator_memory_mib: u32,
+    pub system_memory_mib: u32,
+    pub bandwidth_class: u8,
+    pub region_code: [u8; 2],
+    pub attestation_family: u8,
+    pub runtime_kind: u8,
+}
+
+impl CapabilityFields {
+    pub const ENCODED_BYTES: usize = 13;
+
+    pub fn validate(&self) -> CodecResult<()> {
+        if self.bandwidth_class > 4
+            || !self.region_code.iter().all(u8::is_ascii_alphabetic)
+            || self.runtime_kind > 2
+        {
+            return Err(NON_CANONICAL);
+        }
+        Ok(())
+    }
+
+    pub(crate) fn read(r: &mut Reader<'_>) -> CodecResult<Self> {
+        let fields = Self {
+            accelerator_memory_mib: r.u32()?,
+            system_memory_mib: r.u32()?,
+            bandwidth_class: r.u8()?,
+            region_code: r.fixed()?,
+            attestation_family: r.u8()?,
+            runtime_kind: r.u8()?,
+        };
+        fields.validate()?;
+        Ok(fields)
+    }
+
+    pub(crate) fn write(&self, w: &mut Writer<'_>) -> CodecResult<()> {
+        self.validate()?;
+        w.u32(self.accelerator_memory_mib)?;
+        w.u32(self.system_memory_mib)?;
+        w.u8(self.bandwidth_class)?;
+        w.put(&self.region_code)?;
+        w.u8(self.attestation_family)?;
+        w.u8(self.runtime_kind)
+    }
+}
+
+#[derive(Clone, Copy)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
+pub struct ManifestV2<'a> {
+    pub manifest_v1: &'a [u8],
+    pub capabilities: CapabilityFields,
 }
 
 fn ranged(value: u32, max: u32) -> CodecResult<()> {
@@ -489,14 +546,15 @@ pub fn check_uri(uri: &[u8]) -> CodecResult<()> {
 /// Decodes and checks a worker metadata manifest.
 ///
 /// # Errors
-/// Returns `CAPACITY` when the input exceeds `MAX_MANIFEST_BYTES`; `BAD_VERSION` when the version is not 1; `ARITHMETIC` when a URI length does not fit `usize`; `NON_CANONICAL` when the input is short, has trailing bytes, or any field, window, capability, or endpoint is out of bounds or out of order.
+/// Returns `CAPACITY` when the input exceeds `MAX_MANIFEST_BYTES`; `BAD_VERSION` when the version is not 1 or 2; `ARITHMETIC` when a URI length does not fit `usize`; `NON_CANONICAL` when the input is short, has trailing bytes, or any field, window, capability, or endpoint is out of bounds or out of order.
 #[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn decode_manifest(input: &[u8]) -> CodecResult<ManifestSummary> {
     if input.len() > MAX_MANIFEST_BYTES {
         return Err(CAPACITY);
     }
     let mut r = Reader::new(input);
-    if r.u16()? != 1 {
+    let version = r.u16()?;
+    if !matches!(version, 1 | 2) {
         return Err(BAD_VERSION);
     }
     let market = r.market_id()?;
@@ -577,8 +635,14 @@ pub fn decode_manifest(input: &[u8]) -> CodecResult<ManifestSummary> {
     if r.u32()? != 0 {
         return Err(NON_CANONICAL);
     }
+    let capabilities = if version == 2 {
+        Some(CapabilityFields::read(&mut r)?)
+    } else {
+        None
+    };
     r.finish()?;
     Ok(ManifestSummary {
+        version,
         market,
         worker,
         owner,
@@ -588,8 +652,17 @@ pub fn decode_manifest(input: &[u8]) -> CodecResult<ManifestSummary> {
         valid_from,
         expiry,
         digest: MetadataDigest::new(
-            codec::domain_hash("PAXAI/worker-metadata/v1", input)?.bytes(),
+            codec::domain_hash(
+                if version == 1 {
+                    codec::PARTICIPANT_METADATA_DOMAIN_V1
+                } else {
+                    codec::PARTICIPANT_METADATA_DOMAIN_V2
+                },
+                input,
+            )?
+            .bytes(),
         )?,
+        capabilities,
     })
 }
 

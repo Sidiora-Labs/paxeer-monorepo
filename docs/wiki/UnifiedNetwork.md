@@ -180,7 +180,7 @@ Public HTTPS JSON-RPC is at the root of
 `https://api1.mainnet-beta.paxeer.network` through
 `https://api14.mainnet-beta.paxeer.network`. Require `eth_chainId` to return
 `"0x7d"`. The node namespace inventory is `debug`, `echo`, `eth`, `net`,
-`pax`, `test` and `txpool`; method availability depends on configuration.
+`pax`, `px`, `test` and `txpool`; method availability depends on configuration.
 
 The old public `/rpc`, `/rpc/ws` and `/rpc/schema` paths are retired.
 `node.hyperpaxeer.com` is the hpx library mirror used by build scripts, not an RPC endpoint.

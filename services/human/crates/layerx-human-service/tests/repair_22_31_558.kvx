@@ -1,0 +1,26 @@
+[repair]
+task = "22.31.558"
+acceptance = "22998.1"
+decision = "2627: a field rename covers every test target of the crate"
+gotcha = "3180: NativeSendPurposeV2 carries consent_public_key and evm_sender; owner_public_key is no longer a purpose field"
+site = "native_send_producer.rs::genuine_human_owner_session_consent_preview_and_reopen compares first.purpose.consent_public_key with context.session.owner_public_key"
+assertions = "Preserve the exact key equality, consent signature verification, immutable preview, refusal, economic-state and durable reopen assertions. No test is removed, skipped, ignored or weakened."
+
+[inventory]
+paths = ["services/human/crates/layerx-human-service/tests", "services/human/crates/layerx-human-kms/tests"]
+review = "Sweep Rust test targets and support modules for NativeSendPurpose, purpose field accesses, owner_public_key, protocol_version, network_id and V1 names. The producer assertion is the sole stale purpose-field access."
+current = "native_send_purpose.rs and native_journey_approval.rs already use NativeSendPurposeV2 with consent_public_key and evm_sender; KMS tests contain no NativeSendPurpose field accesses."
+retained = "Session and local-grant owner_public_key, preparation-purpose V1, configuration network_id and protocol_version belong to distinct current contracts and retain their existing checks."
+
+[qualification]
+gate_ledger = "/out/run/gates.jsonl"
+revision = "The final kind=verify row names the verified candidate; it must equal the final passing kind=build row revision."
+build = "hf-build records cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --tests with revision, command, exit and private log in the gate ledger."
+verify = "hf-done records cg spec done 22.31.558 -f layerx-merge --root /work/paxeer-monorepo, which runs cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --test native_send_producer -- genuine_human_owner_session_consent_preview_and_reopen."
+results = "Gate outcomes are authoritative only in the gate ledger; this record claims no unrun or failed gate as passed."
+private_evidence = "/out/logs/build-*.log and /out/logs/verify-*.log, exactly as named by each gate ledger row"
+publication = "Runner-owned. This record is written before qualification and is not amended after the gates (gotcha 3142)."
+
+[qualification.external_fixture]
+observed = "The existing focused case requires PAXEER_X_HUMAN_NATIVE_SEND_PRODUCER_FIXTURE, protected browser and attestor material, a runtime clock and live Human/agent/sequencer services, contrary to the task statement that its gate needs no external setup (gotcha 2962)."
+handling = "Preserve every existing check and run the declared gate unchanged; if its fixture is unavailable, the verify ledger row records the exact revision, command, exit and private log of this pre-existing prerequisite failure."

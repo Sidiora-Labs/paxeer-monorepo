@@ -13,7 +13,7 @@
     "test:fulfillment": "node --test test/fulfillment.test.mjs"
   },
   "dependencies": {
-    "@sidiora/layerx-next": "0.1.0",
+    "@sidiora/layerx-next": "file:..",
     "next": "16.4.1",
     "react": "19.2.8",
     "react-dom": "19.2.8"

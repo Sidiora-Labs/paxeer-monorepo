@@ -1,0 +1,154 @@
+[repair.22.33.1336]
+audit = "22.30.72"
+base_revision = "117197c811684e097104c96b29e872d45034cebb"
+status = "implemented-not-qualified"
+baseline = "Not run: the task's ordered gate instructions prohibit verification before full implementation and require hf-done to run the sole verify command; no previous gate ledger existed. No pre-change runtime failures are claimed."
+
+[finding.receipt-key-router-path]
+proof = "repair_22_33_1336::receipt_key_router_path"
+existing_proof = "receipt_keys::receipt_keys_method_answers_the_pinned_list"
+change = "Successful requests use POST /; POST /rpc is explicitly refused. Authentication, pinning, rotation, exact results and invalid-parameter assertions remain intact."
+
+[finding.surface-router-path]
+proof = "repair_22_33_1336::surface_router_path"
+existing_proof = "router_surface::router_answers_every_listed_method; router_surface::chain_only_router_serves_receipts_balances_and_assets"
+change = "Successful requests use POST /; production rpc::route rejects every non-root coordinate, including the old schema route, even when reached directly through the old public_reads dispatcher."
+
+[finding.tap-recovery-proof-gap]
+proof = "tap_nonce::exact_pending_retry_survives_reconstruction_but_altered_nonce_reuse_is_replay; tap_nonce::payment_outbox_commits_with_completion_and_retains_acknowledgements"
+focused_proof = "repair_22_33_1336::tap_recovery_proof_gap_outbox_consumer"
+change = "Redis is killed and reaped, then reopened with the same configuration and AOF directory before retry, event consumption and each acknowledgement recovery. Completion response, receipt, identity and no duplicate acknowledged event are asserted."
+limitation = "The focused gate proves the real receipt codec, producer QueueState and durable Journal stop/reopen path; it does not run or claim Redis crash recovery. The existing Redis tests compile in hf-build but require the external redis-server and openssl executables, forbidden in the focused gate by step 9."
+
+[finding.unified-paths-retired-upgrades]
+proof = "repair_22_33_1336::unified_paths_retired_upgrades"
+existing_proof = "unified_service_paths::register_replaced; unified_service_paths::lx_reads_switched_off"
+change = "OpenRPC is consumed from the maintained committed distribution; lx_ refusals remain, and successful subscription setup targets root rather than /rpc/ws. All retired routes have explicit refusal assertions."
+limitation = "The root subscription authentication assertion deliberately requires real production ingress to reach its subscription handler; main.rs currently does not register it. This check must not be weakened to accept a missing route."
+
+[wiring.main-subscriptions]
+request = "Domain 8 (platform): services/platform/hosted/gateway/src/main.rs must register GET / upgrades with ws::serve while preserving POST / JSON-RPC and retired-route refusals; ws.rs must dispatch only maintained subscription methods at the new coordinate."
+
+[wiring.interface-dispositions]
+request = "Domain 8 (platform specification): retire interface rows 8.http-gateway-any-rpc, 8.http-gateway-any-rpc-schema and 8.ws-gateway-any-rpc-ws in spec/layerx-merge/spec.kvx and regenerate spec/layerx-merge/contracts/platform-gateway.md; declare the maintained root subscription transport and committed OpenRPC distribution."
+
+[wiring.redis-proof]
+request = "Domain 8 (platform storage): provide an approved in-process production Redis engine dependency in services/platform/hosted/gateway/Cargo.toml, or revise the no-external-binary gate constraint, to execute the genuine Redis stop/reopen proofs in the focused target without substituting a fake Redis implementation."
+
+[wiring.workspace-member]
+request = "Domain 8 (platform workspace): reconcile services/platform/Cargo.toml and services/platform/hosted/paxeer/Cargo.toml as required by gotcha 2985 and repair 22.31.465; the gateway gate cannot load the workspace while its declared member manifest is absent."
+
+[continuation]
+base_revision = "8c4a3e7e0bd8b236f61b0f9e0dd18f3cfc360fce"
+review = "Preserved the seven seeded paths and all existing assertions; added real WebSocket upgrade headers to retired-path refusals so the focused transport proof also rejects upgrade attempts."
+baseline = "No pre-change verification run: the ordered gate instructions require implementation first and permit verification only through hf-done after a passing hf-build."
+limitations = "The missing Paxeer manifest remains outside scope; root subscription registration and genuine Redis execution in the focused gate still require the wiring requests above. None of these findings is claimed qualified."
+
+[qualification.build]
+revision = "ddc4db4f104961ad4823a3578d4e0bf7ac288809"
+command = "cargo build --locked --manifest-path services/platform/hosted/gateway/Cargo.toml --tests"
+exit = 101
+log = "/out/logs/build-1.log"
+observed = "Cargo refused the pre-existing workspace member services/platform/hosted/paxeer because its Cargo.toml is absent, before compiling any task source."
+assumption = "The platform workspace owner must repair this out-of-scope member declaration; verification has not run, no gates passed, and this record-only update after the failed build is unqualified."
+
+[gotcha.workspace-member]
+area = "build"
+symptom = "The declared gateway gate cannot load the platform workspace because the hosted/paxeer manifest is missing."
+action = "Record the original gate evidence without changing out-of-scope manifests or rerunning the unchanged failure."
+
+[continuation.attempt4]
+base_revision = "00614466646b07799a236d2742211fd5eb2d85c5"
+review = "Preserved the seven seeded paths and all assertions; the prerequisite now supplies services/platform/hosted/paxeer/Cargo.toml, so the declared gates can proceed past the previously missing manifest."
+baseline = "The current gate ledger starts with zero build and verification runs; previous build evidence above is historical. Ordered gate instructions prohibit a separate pre-change verification run."
+limitations = "Root subscription ingress and genuine Redis crash recovery in the focused target still require the out-of-scope wiring requests above; neither is claimed qualified."
+
+[qualification.attempt4.build]
+revision = "64096ea7bd69179d285bdeadd32753fab72b6567"
+command = "cargo build --locked --manifest-path services/platform/hosted/gateway/Cargo.toml --tests"
+exit = 101
+log = "/out/logs/build-1.log"
+observed = "The pre-existing test repair_22_31_345.rs:12 includes missing services/platform/hosted/paxeer/deployment.yaml; the focused repair target compiled, but the build gate failed and hf-done has not run."
+assumption = "The deployment artifact owner must resolve this unrelated failure; no task assertion or gate is weakened and this record-only update is unqualified."
+
+[wiring.paxeer-deployment]
+request = "Domain 8 (platform deployment): reconcile services/platform/hosted/paxeer/deployment.yaml with its existing consumer services/platform/hosted/gateway/tests/repair_22_31_345.rs; the declared all-tests build cannot qualify until the missing deployment artifact is resolved."
+
+[gotcha.paxeer-deployment]
+area = "build"
+symptom = "Restoring the Paxeer Cargo manifest permits workspace loading but the gateway all-tests build still includes a missing Paxeer deployment artifact."
+action = "Record the exact build failure and request owning-domain wiring; do not change unrelated tests or fabricate the missing artifact."
+
+[continuation.attempt7]
+base_revision = "56b2fb537703927c74af44bb8d056235b67d2af1"
+review = "Preserved the seeded changes; Gateway Drop now joins best-effort, test bodies assert a clean stop, and HTTP consumers read bounded Content-Length responses rather than waiting for an upgraded connection to close."
+baseline = "The supplied attempt-6 report names six failures but aborted before their diagnostics; this continuation follows the ordered gates and does not run the verify command separately."
+
+[gotcha.fixture-drop]
+symptom = "A destructor join panic during assertion unwinding aborts the harness and hides the case report (repository gotcha 3042)."
+action = "Keep Drop best-effort and assert the server thread join explicitly in successful test bodies."
+
+[gotcha.http-response-framing]
+symptom = "Connection: Upgrade leaves the production HTTP connection open after a finite refusal response, racing the fixture's read-to-end timeout."
+action = "Read the bounded HTTP headers and exact Content-Length bytes, then close the client connection."
+
+[qualification.attempt7.first]
+revision = "051d8dd1b3b350bdd8c0ec57dd96dab19b6949ff"
+command = "cg spec done 22.33.1336 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Build and dependent checks passed; verification printed 149 passed and seven failed without aborting."
+assumption = "The five out-of-scope contract failures below remain blocking; task-scoped fixture repairs do not weaken them."
+
+[repair.attempt7.connections]
+change = "Dispatch accepted loopback connections on separate threads, matching the production accept loop so a retained SDK keep-alive connection cannot block later HTTP exchanges; explicitly drop the SDK consumer and join every connection at asserted shutdown."
+
+[repair.attempt7.journal]
+change = "Reopen the production journal with a three-second retry bound for its documented LOCK_REFUSAL only; every other error fails immediately and a persistent lock still fails."
+
+[gotcha.journal-lock]
+symptom = "The first focused gate refused a stop/reopen with the production Journal LOCK_REFUSAL, so the recovery assertions did not execute."
+action = "Use the Journal's documented bounded lock-retry contract at reopen, retaining real journal replay and every recovery assertion."
+
+[wiring.readiness-cases]
+request = "Domain 8 (platform): services/platform/hosted/gateway/src/main.rs complete_readiness_contract_tests must provide real in-process fixtures for real_gateway_readiness_capabilities_contract and real_core_and_identity_readiness_contract; both fail with NotPresent for required case environment variables, which step 9 prohibits this gate from requiring."
+
+[wiring.capabilities-schema]
+request = "Domain 8 (platform): reconcile services/platform/hosted/gateway/src/capabilities.rs:1558 with services/platform/hosted/gateway/openrpc.json; capabilities_schema_declares_every_surface fails because the result description lacks the required -32003 surface_unavailable text."
+
+[wiring.explorer-route-count]
+request = "Domain 8 (platform explorer proxy): reconcile services/platform/hosted/gateway/src/explorer_proxy.rs:465 with the current committed route inventory; explorer_query_and_finite_routes expects 142 entries and the producer declares 145."
+
+[qualification.attempt7.subscription]
+revision = "051d8dd1b3b350bdd8c0ec57dd96dab19b6949ff"
+command = "cg spec done 22.33.1336 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "unified_paths_retired_upgrades reaches production ingress and receives 404 instead of the required 401 authentication refusal on a valid root upgrade."
+assumption = "The existing wiring.main-subscriptions request requires main.rs outside this task's scope; the 401 assertion remains intact."
+
+[continuation.attempt8]
+base_revision = "b66a12fbea8d4662e36b70ae3e870d065605b3fd"
+review = "Preserved all seven seeded paths and assertions, resolved the rpc.rs seed conflict in favor of the current /openrpc.json distribution plus root-only JSON-RPC, and changed the outbox altered-reuse amount from 1 to 2 with an explicit inequality assertion."
+baseline = "The supplied attempt-7 report records 150 passing cases and six failures; the declared verify now excludes the four producer-owned failures by name. No additional pre-change gate was run."
+subscription = "Production main.rs::exchange dispatches explorer WebSocket upgrades but never calls ws::serve for root subscriptions; rpc.rs::route receives no socket and cannot perform an upgrade. The root 401 assertion is retained pending the existing main-subscriptions wiring request."
+evidence = "The runner records this continuation's exact build and verification revisions, commands, exit codes and private log paths in /out/run/gates.jsonl."
+
+[gotcha.altered-reuse-fixture]
+symptom = "The recorded payment amount is already 1, so assigning 1 to the altered observation exercises an identical retry."
+action = "Assign a distinct amount and assert that it differs before requiring the real recovered producer to refuse the changed observation."
+
+[qualification.attempt8.verify]
+revision = "8f81a26ec5113003b03df249fd26bbc3c4476415"
+command = "cg spec done 22.33.1336 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Build and dependent checks passed at this revision; verification reported 151 passed, two failed and four filtered out: root upgrades received 405 rather than 401, and history::tests::unified_history_answer_reads_the_paxeer_node_over_http received public_read_rate_limit."
+assumption = "Root subscription dispatch requires the existing out-of-scope main.rs wiring request; the separate history test calls its producer directly with the shared unattributed-client quota, while this task's HTTP fixture binds real peer identities. Neither failure is weakened or rerun; this evidence-only record update is not qualified."
+
+[continuation.attempt9]
+base_revision = "0a76cd72f6c808eb67379b35bfa45c17d608d093"
+review = "Preserved all seven seeded paths and assertions. main.rs is now in scope: production exchange dispatches GET / WebSocket upgrades to the existing ws::serve handler, which validates the upgrade and authenticates before starting any subscription relay. POST / and retired-path refusals retain their existing dispatch."
+baseline = "The supplied attempt-8 gate records 151 passing cases and two failures; the declared verification now excludes the carried history unit test under decision 2551. The current continuation ledger has zero build and verification runs. No separate pre-change verification is permitted by the ordered gates."
+wiring_resolution = "The main.rs root subscription registration requested in wiring.main-subscriptions is implemented here; ws.rs already limits relayed calls to maintained subscription methods. The separate interface-disposition and in-process Redis wiring requests remain outside scope."
+evidence = "The runner records the final unchanged candidate revision, commands, exit codes and private logs in /out/run/gates.jsonl; this record remains implemented-not-qualified until hf-done passes."

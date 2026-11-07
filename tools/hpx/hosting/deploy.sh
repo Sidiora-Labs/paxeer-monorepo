@@ -19,9 +19,9 @@ NGINX_SITE="/etc/nginx/sites-available/hpx-registry"
 RELEASE_BASE="https://github.com/Sidiora-Labs/Paxeer-X-Network/releases/download/hpx-registry-${SOURCE_REVISION}"
 
 CHAIN_ID="${HPX_CHAIN_ID:-hyperpax_125-1}"
-SEED_PEERS="${HPX_SEED_PEERS:-e9c56cbadc4a96b67f69dcaaa7b4691851e945ca@31.220.74.140:26656}"
-STATESYNC_RPC="${HPX_STATESYNC_RPC:-http://31.220.74.140:26657}"
-STATESYNC_SERVERS="${HPX_STATESYNC_RPC_SERVERS:-31.220.74.140:26657,31.220.74.140:26657}"
+SEED_PEERS="${HPX_SEED_PEERS:?HPX_SEED_PEERS is required}"
+STATESYNC_RPC="${HPX_STATESYNC_RPC:?HPX_STATESYNC_RPC is required}"
+STATESYNC_SERVERS="${HPX_STATESYNC_RPC_SERVERS:?HPX_STATESYNC_RPC_SERVERS is required}"
 FONT_ORIGIN="https://cdn.usercontent.paxeercode.com/fonts"
 FONT_FILES=(
   LTWave-Light.otf

@@ -34,11 +34,13 @@ change the public mainnet root endpoint above.
 ## Served methods
 
 The public node namespaces recorded for mainnet-beta are `debug`, `echo`,
-`eth`, `net`, `pax`, `test`, and `txpool`. Availability of individual methods
+`eth`, `net`, `pax`, `px`, `test`, and `txpool`. Availability of individual methods
 depends on the binary, transport, activation and configuration. The source
-[server.go](../rpc/server.go) additionally contains registrations for `web3`,
-legacy `pax2`, and a compatibility receipt-key API under `px`; their presence
-in source is not a guarantee that every public node exposes them.
+[server.go](../rpc/server.go) additionally registers `web3` and legacy `pax2`;
+their presence in source is not a guarantee that every public node exposes them.
+The `px` namespace answers from node state; `px_register` and `px_requestFunds`
+answer `-32004` with data code `hosted_gateway_service_required` because
+registration and funding are hosted service operations.
 
 Use the actual server's `rpc_modules` and method responses to establish its
 surface. `ServedMethods`, `HTTPMethods`, and `WSMethods` in

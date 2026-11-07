@@ -1,0 +1,26 @@
+{
+  "name": "@paxeer/inference-peer",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Paxeer inference peer with the pinned MIT Pooled WebGPU engine",
+  "type": "module",
+  "license": "(Apache-2.0 AND MIT)",
+  "exports": {
+    ".": "./engine/engine/engine.js",
+    "./dense": "./engine/engine/dense.js",
+    "./qwen35": "./engine/engine/qwen35.js",
+    "./gguf": "./engine/engine/gguf.js",
+    "./tokenizer": "./engine/engine/tokenizer.js",
+    "./sampling": "./engine/room/sampling.js",
+    "./generate": "./engine/engine/generate.js",
+    "./quant": "./engine/engine/quant.js",
+    "./safetensors": "./engine/engine/safetensors.js",
+    "./engine/*": "./engine/engine/*"
+  },
+  "scripts": {
+    "test": "node --test test/vendored_engine.test.mjs"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

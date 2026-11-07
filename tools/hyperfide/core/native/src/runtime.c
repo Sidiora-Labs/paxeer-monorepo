@@ -1,0 +1,1003 @@
+/*
+ * cg state — one truthful view across the independent state machines an
+ * agent otherwise conflates: Git, Codify snapshots, spec declarations, and
+ * live execution attempts. None of these is presented as proof of another.
+ */
+#include "cg.h"
+#include <ctype.h>
+#include <dirent.h>
+#include <sys/stat.h>
+#include <sys/wait.h>
+#include <time.h>
+
+typedef struct {
+    bool available;
+    bool dirty;
+    int changed;
+    char branch[512];
+} GitState;
+
+static void state_git(const Cg *cg, GitState *s) {
+    memset(s, 0, sizeof *s);
+    if (!git_available(cg)) return;
+    StrBuf cmd; sb_init(&cmd);
+    sb_printf(&cmd, "git -C '%s' status --porcelain=v1 --branch 2>/dev/null",
+              cg->root);
+    FILE *f = popen(cmd.p, "r");
+    sb_free(&cmd);
+    if (!f) return;
+    char *line = NULL;
+    size_t cap = 0;
+    ssize_t n;
+    while ((n = getline(&line, &cap, f)) > 0) {
+        while (n > 0 && (line[n - 1] == '\n' || line[n - 1] == '\r'))
+            line[--n] = 0;
+        if (strncmp(line, "## ", 3) == 0) {
+            snprintf(s->branch, sizeof s->branch, "%s", line + 3);
+        } else if (n > 0) {
+            s->changed++;
+        }
+    }
+    free(line);
+    int rc = pclose(f);
+    s->available = WIFEXITED(rc) && WEXITSTATUS(rc) == 0;
+    s->dirty = s->changed > 0;
+}
+
+typedef struct { Cg *g; bool json; } StateVcsCall;
+static int state_call_vcs(void *v) {
+    StateVcsCall *c = v;
+    return cmd_status(c->g, c->json);
+}
+
+typedef struct { bool json; bool reconcile; } StateSpecCall;
+static int state_call_spec(void *v) {
+    StateSpecCall *c = v;
+    char *status[] = { "status" };
+    char *reconcile[] = { "reconcile" };
+    return cmd_spec(1, c->reconcile ? reconcile : status, c->json);
+}
+
+static void state_raw_json(StrBuf *b, const char *raw) {
+    if (!raw) { sb_puts(b, "null"); return; }
+    while (*raw && isspace((unsigned char)*raw)) raw++;
+    size_t n = strlen(raw);
+    while (n && isspace((unsigned char)raw[n - 1])) n--;
+    if (!n) sb_puts(b, "null");
+    else sb_printf(b, "%.*s", (int)n, raw);
+}
+
+static bool state_live_attempt(Cg *cg, const char *agent, SpecAttempt *a,
+                               char host[256], char session[256]) {
+    memset(a, 0, sizeof *a);
+    host[0] = session[0] = 0;
+    sqlite3_stmt *st = cg_prep(cg,
+        "SELECT attempt_id,task,agent,fence,heartbeat,expires,"
+        "ifnull(host,''),ifnull(session,'') FROM attempts "
+        "WHERE agent=? AND state='running' "
+        "AND expires>strftime('%s','now') ORDER BY fence DESC LIMIT 1");
+    sqlite3_bind_text(st, 1, agent, -1, SQLITE_TRANSIENT);
+    bool found = sqlite3_step(st) == SQLITE_ROW;
+    if (found) {
+        snprintf(a->attempt_id, sizeof a->attempt_id, "%s",
+                 (const char *)sqlite3_column_text(st, 0));
+        snprintf(a->task, sizeof a->task, "%s",
+                 (const char *)sqlite3_column_text(st, 1));
+        snprintf(a->agent, sizeof a->agent, "%s",
+                 (const char *)sqlite3_column_text(st, 2));
+        a->fence = (long)sqlite3_column_int64(st, 3);
+        a->heartbeat = (long)sqlite3_column_int64(st, 4);
+        a->expires = (long)sqlite3_column_int64(st, 5);
+        snprintf(host, 256, "%s", (const char *)sqlite3_column_text(st, 6));
+        snprintf(session, 256, "%s",
+                 (const char *)sqlite3_column_text(st, 7));
+    }
+    sqlite3_finalize(st);
+    return found;
+}
+
+int cmd_state(Cg *cg, bool json) {
+    GitState git;
+    state_git(cg, &git);
+    const char *agent = cg_agent_name(NULL);
+    SpecAttempt attempt;
+    char host[256], session[256];
+    bool live = state_live_attempt(cg, agent, &attempt, host, session);
+
+    char *snapshot = NULL, *declaration = NULL, *stale = NULL;
+    StateVcsCall vc = { cg, json };
+    StateSpecCall sc = { json, false }, sr = { json, true };
+    cg_capture(&snapshot, state_call_vcs, &vc);
+    cg_capture(&declaration, state_call_spec, &sc);
+    cg_capture(&stale, state_call_spec, &sr);
+    int jfailed = 0;
+    int jpending = journal_pending(cg, &jfailed);
+
+    if (json) {
+        StrBuf b; sb_init(&b);
+        sb_puts(&b, "{\"git\":{\"available\":");
+        sb_puts(&b, git.available ? "true" : "false");
+        sb_puts(&b, ",\"branch\":");
+        if (git.available) sb_json_str(&b, git.branch);
+        else sb_puts(&b, "null");
+        sb_printf(&b, ",\"dirty\":%s,\"changed\":%d},"
+                  "\"codify_snapshot\":", git.dirty ? "true" : "false",
+                  git.changed);
+        state_raw_json(&b, snapshot);
+        sb_puts(&b, ",\"spec_declaration\":");
+        state_raw_json(&b, declaration);
+        sb_puts(&b, ",\"live_runtime\":{\"agent\":");
+        sb_json_str(&b, agent);
+        sb_puts(&b, ",\"owned_attempt\":");
+        if (!live) {
+            sb_puts(&b, "null");
+        } else {
+            sb_puts(&b, "{\"task\":"); sb_json_str(&b, attempt.task);
+            sb_puts(&b, ",\"attempt_id\":");
+            sb_json_str(&b, attempt.attempt_id);
+            sb_printf(&b, ",\"fence\":%ld,\"heartbeat\":%ld,"
+                      "\"expires\":%ld,\"host\":", attempt.fence,
+                      attempt.heartbeat, attempt.expires);
+            sb_json_str(&b, host);
+            sb_puts(&b, ",\"session\":"); sb_json_str(&b, session);
+            sb_putc(&b, '}');
+        }
+        sb_puts(&b, "},\"stale_state\":");
+        state_raw_json(&b, stale);
+        if (jpending || jfailed)
+            sb_printf(&b, ",\"journal\":{\"pending\":%d,\"failed\":%d}",
+                      jpending, jfailed);
+        native_summary(cg, &b, true);
+        projection_summary(cg, &b, true);       /* codify-v15 3.3 */
+        sb_puts(&b, "}\n");
+        fputs(b.p, stdout);
+        sb_free(&b);
+    } else {
+        printf("Git state: %s", git.available ? git.branch : "unavailable");
+        if (git.available)
+            printf(" — %s (%d changed)", git.dirty ? "dirty" : "clean",
+                   git.changed);
+        putchar('\n');
+        printf("Codify snapshot state:\n%s", snapshot ? snapshot : "");
+        printf("Spec declaration state:\n%s", declaration ? declaration : "");
+        printf("Live runtime ownership: ");
+        if (live)
+            printf("%s attempt %.12s fence %ld (agent %s)\n", attempt.task,
+                   attempt.attempt_id, attempt.fence, agent);
+        else
+            printf("none for agent %s\n", agent);
+        printf("Stale state:\n%s", stale ? stale : "");
+        if (jpending || jfailed)
+            printf("Write journal: %d write(s) queued behind a busy database, "
+                   "%d refused — cg journal list\n", jpending, jfailed);
+        StrBuf nb; sb_init(&nb);
+        native_summary(cg, &nb, false);
+        projection_summary(cg, &nb, false);     /* codify-v15 3.3 */
+        fputs(nb.p, stdout);
+        sb_free(&nb);
+    }
+    free(snapshot); free(declaration); free(stale);
+    return 0;
+}
+
+/* ---------------- normalized lifecycle events ---------------- */
+
+static int runtime_key_cmp(const void *a, const void *b) {
+    return strcmp(*(const char *const *)a, *(const char *const *)b);
+}
+
+/* Reject truncated hook input before the deliberately small JSON accessors
+ * inspect it. The hook boundary needs structural validation, not a full DOM:
+ * nested objects/arrays and quoted delimiters are accepted, while trailing
+ * bytes, mismatched delimiters, and unterminated strings are refused. */
+static bool runtime_json_object_valid(const char *payload) {
+    const char *p = payload;
+    while (*p && isspace((unsigned char)*p)) p++;
+    if (*p != '{') return false;
+    char stack[256];
+    int depth = 0;
+    bool string = false, escape = false;
+    for (; *p; p++) {
+        if (string) {
+            if (escape) escape = false;
+            else if (*p == '\\') escape = true;
+            else if (*p == '"') string = false;
+            continue;
+        }
+        if (*p == '"') { string = true; continue; }
+        if (*p == '{' || *p == '[') {
+            if (depth == (int)sizeof stack) return false;
+            stack[depth++] = *p == '{' ? '}' : ']';
+        } else if (*p == '}' || *p == ']') {
+            if (!depth || stack[depth - 1] != *p) return false;
+            if (--depth == 0) {
+                p++;
+                while (*p && isspace((unsigned char)*p)) p++;
+                return !*p && !string;
+            }
+        }
+    }
+    return false;
+}
+
+/* Stable for top-level JSON key order and insignificant whitespace. Native
+ * hosts use different field names, but preserving every sorted top-level
+ * value keeps unknown fields part of deduplication without storing secrets in
+ * the fingerprint itself. */
+static char *runtime_canonical_json(const char *payload) {
+    char *keys[64];
+    int n = json_object_keys(payload, keys, 64);
+    qsort(keys, (size_t)n, sizeof(char *), runtime_key_cmp);
+    StrBuf b; sb_init(&b);
+    for (int i = 0; i < n; i++) {
+        char *raw = json_get_raw(payload, keys[i]);
+        sb_puts(&b, keys[i]); sb_putc(&b, '=');
+        if (raw) {
+            bool string = false, escape = false;
+            for (const char *p = raw; *p; p++) {
+                if (string) {
+                    sb_putc(&b, *p);
+                    if (escape) escape = false;
+                    else if (*p == '\\') escape = true;
+                    else if (*p == '"') string = false;
+                } else if (*p == '"') {
+                    string = true; sb_putc(&b, *p);
+                } else if (!isspace((unsigned char)*p)) sb_putc(&b, *p);
+            }
+        }
+        sb_putc(&b, '\n');
+        free(raw); free(keys[i]);
+    }
+    if (!n) sb_puts(&b, payload ? payload : "");
+    return b.p;
+}
+
+static char *runtime_first_string(const char *payload,
+                                  const char *const *keys) {
+    for (int i = 0; keys[i]; i++) {
+        char *v = json_get_string(payload, keys[i]);
+        if (v && v[0]) return v;
+        free(v);
+    }
+    return NULL;
+}
+
+static char *runtime_first_raw(const char *payload,
+                               const char *const *keys) {
+    for (int i = 0; keys[i]; i++) {
+        char *v = json_get_raw(payload, keys[i]);
+        if (v && v[0] && strcmp(v, "null") != 0) return v;
+        free(v);
+    }
+    return NULL;
+}
+
+static char *runtime_kind(const char *payload) {
+    static const char *const KEYS[] = {
+        "kind", "event", "type", "hook_event_name", "eventName",
+        "hookType", NULL
+    };
+    char *native = runtime_first_string(payload, KEYS);
+    if (!native) return xstrdup("event");
+    for (char *p = native; *p; p++) *p = (char)tolower((unsigned char)*p);
+    const char *kind = strstr(native, "heartbeat") ? "heartbeat"
+        : strstr(native, "edit") || strstr(native, "write") ? "write"
+        : strstr(native, "command") || strstr(native, "tool") ? "command"
+        : strstr(native, "stop") || strstr(native, "end") ? "stop"
+        : strstr(native, "start") || strstr(native, "session") ? "session"
+        : "event";
+    free(native);
+    return xstrdup(kind);
+}
+
+/* Hashes come from the built-in store's stat cache (vcs_worktree_files), so
+ * a file unchanged since the last snapshot is not read again here or there.
+ * runtime_files stays the current path->hash manifest govern.c diffs work
+ * against; it is written only where a hash moved, in one transaction, since
+ * one autocommit per file cost an fsync each on a branch switch. A caller
+ * already inside a transaction keeps its own. The mtime_ns and ctime_ns
+ * columns are no longer a cache key and are written as 0. */
+void runtime_workspace_revision(Cg *cg, char out[65]) {
+    VcsFile *files = NULL;
+    int n = vcs_worktree_files(cg, &files);
+
+    /* when the database is busy the revision is still exact; the manifest
+     * table is left for the next command instead of waiting or exiting */
+    bool autocommit = sqlite3_get_autocommit(cg->db) != 0;
+    bool own_tx = autocommit && journal_begin(cg) == 0;
+    bool can_write = own_tx || !autocommit;
+    cg_exec(cg, "CREATE TEMP TABLE IF NOT EXISTS runtime_seen("
+                "path TEXT PRIMARY KEY)");
+    cg_exec(cg, "DELETE FROM runtime_seen");
+
+    sqlite3_stmt *find = cg_prep(cg,
+        "SELECT size,hash FROM runtime_files WHERE path=?");
+    sqlite3_stmt *save = cg_prep(cg,
+        "INSERT INTO runtime_files(path,size,mtime_ns,ctime_ns,hash) "
+        "VALUES(?,?,0,0,?) ON CONFLICT(path) DO UPDATE SET "
+        "size=excluded.size,mtime_ns=0,ctime_ns=0,hash=excluded.hash");
+    sqlite3_stmt *seen = cg_prep(cg,
+        "INSERT OR IGNORE INTO runtime_seen(path) VALUES(?)");
+    StrBuf manifest; sb_init(&manifest);
+    for (int i = 0; i < n; i++) {
+        VcsFile *f = &files[i];
+        if (can_write) {
+            sqlite3_bind_text(find, 1, f->path, -1, SQLITE_TRANSIENT);
+            const char *had = sqlite3_step(find) == SQLITE_ROW
+                ? (const char *)sqlite3_column_text(find, 1) : NULL;
+            bool current = had && strcmp(had, f->hash) == 0
+                && sqlite3_column_int64(find, 0) == f->size;
+            sqlite3_reset(find); sqlite3_clear_bindings(find);
+            if (!current) {
+                sqlite3_bind_text(save, 1, f->path, -1, SQLITE_TRANSIENT);
+                sqlite3_bind_int64(save, 2, f->size);
+                sqlite3_bind_text(save, 3, f->hash, -1, SQLITE_TRANSIENT);
+                sqlite3_step(save);
+                sqlite3_reset(save); sqlite3_clear_bindings(save);
+            }
+            sqlite3_bind_text(seen, 1, f->path, -1, SQLITE_TRANSIENT);
+            sqlite3_step(seen);
+            sqlite3_reset(seen); sqlite3_clear_bindings(seen);
+        }
+        sb_puts(&manifest, f->path); sb_putc(&manifest, '\0');
+        sb_puts(&manifest, f->hash); sb_putc(&manifest, '\n');
+    }
+    sqlite3_finalize(find); sqlite3_finalize(save); sqlite3_finalize(seen);
+    if (can_write)
+        cg_exec(cg, "DELETE FROM runtime_files WHERE path NOT IN "
+                    "(SELECT path FROM runtime_seen)");
+    if (own_tx) cg_exec(cg, "COMMIT");
+    sha256_hex(manifest.p ? manifest.p : "", manifest.len, out);
+    sb_free(&manifest);
+    vcs_worktree_files_free(files, n);
+}
+
+typedef struct {
+    long created;
+    const char *source, *kind, *session, *attempt, *task, *fingerprint,
+               *semantic, *revision, *previous, *output_hash, *payload;
+    int evidence, output_changed;
+} RuntimeEventRow;
+
+/* The one runtime_events insert, shared by ingest and the journal replay.
+ * Returns the step result; *inserted says whether a row was added. */
+static int runtime_event_store(Cg *cg, const RuntimeEventRow *r,
+                               bool *inserted) {
+    sqlite3_stmt *ins = cg_prep(cg,
+        "INSERT OR IGNORE INTO runtime_events(created,source,kind,session,"
+        "attempt_id,task,fingerprint,semantic_fingerprint,revision,"
+        "previous_revision,evidence_delta,activity,output_hash,"
+        "output_changed,payload) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)");
+    sqlite3_bind_int64(ins, 1, r->created);
+    sqlite3_bind_text(ins, 2, r->source, -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(ins, 3, r->kind, -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(ins, 4, r->session, -1, SQLITE_TRANSIENT);
+    if (r->attempt && r->attempt[0])
+        sqlite3_bind_text(ins, 5, r->attempt, -1, SQLITE_TRANSIENT);
+    else sqlite3_bind_null(ins, 5);
+    if (r->task && r->task[0])
+        sqlite3_bind_text(ins, 6, r->task, -1, SQLITE_TRANSIENT);
+    else sqlite3_bind_null(ins, 6);
+    sqlite3_bind_text(ins, 7, r->fingerprint, -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(ins, 8, r->semantic, -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(ins, 9, r->revision, -1, SQLITE_TRANSIENT);
+    if (r->previous && r->previous[0])
+        sqlite3_bind_text(ins, 10, r->previous, -1, SQLITE_TRANSIENT);
+    else sqlite3_bind_null(ins, 10);
+    sqlite3_bind_int(ins, 11, r->evidence);
+    sqlite3_bind_int(ins, 12, 1);
+    if (r->output_hash && r->output_hash[0])
+        sqlite3_bind_text(ins, 13, r->output_hash, -1, SQLITE_TRANSIENT);
+    else sqlite3_bind_null(ins, 13);
+    sqlite3_bind_int(ins, 14, r->output_changed);
+    sqlite3_bind_text(ins, 15, r->payload, -1, SQLITE_TRANSIENT);
+    int rc = sqlite3_step(ins);
+    *inserted = rc == SQLITE_DONE && sqlite3_changes(cg->db) == 1;
+    sqlite3_finalize(ins);
+    return rc;
+}
+
+/* Replay of a journaled event.ingest: every column was computed when the
+ * hook fired, so the row lands exactly as it would have then. */
+int runtime_journal_apply(Cg *cg, const char *args, char *err,
+                          size_t errcap) {
+    static const char *const K[] = {
+        "source", "kind", "session", "attempt", "task", "fingerprint",
+        "semantic", "revision", "previous", "output_hash", "payload"
+    };
+    enum { NK = sizeof K / sizeof K[0] };
+    char *v[NK];
+    for (int i = 0; i < NK; i++) v[i] = json_get_string(args, K[i]);
+    int rc = 0;
+    if (!v[0] || !v[1] || !v[2] || !v[5] || !v[6] || !v[7] || !v[10]) {
+        snprintf(err, errcap, "event.ingest without its source, kind, "
+                 "session, fingerprints, revision or payload");
+        rc = -1;
+    } else {
+        RuntimeEventRow r = {
+            json_get_int(args, "created", 0), v[0], v[1], v[2], v[3], v[4],
+            v[5], v[6], v[7], v[8], v[9], v[10],
+            (int)json_get_int(args, "evidence", 0),
+            (int)json_get_int(args, "output_changed", 0)
+        };
+        bool inserted;
+        int src = runtime_event_store(cg, &r, &inserted);
+        if (src != SQLITE_DONE) {
+            snprintf(err, errcap, "%s", sqlite3_errmsg(cg->db));
+            rc = -1;
+        }
+    }
+    for (int i = 0; i < NK; i++) free(v[i]);
+    return rc;
+}
+
+/* a busy database queues the event with every column already computed */
+static bool runtime_event_queue(Cg *cg, const RuntimeEventRow *r) {
+    StrBuf a; sb_init(&a);
+    const char *k[] = { "source", "kind", "session", "attempt", "task",
+                        "fingerprint", "semantic", "revision", "previous",
+                        "output_hash", "payload" };
+    const char *v[] = { r->source, r->kind, r->session, r->attempt, r->task,
+                        r->fingerprint, r->semantic, r->revision, r->previous,
+                        r->output_hash, r->payload };
+    sb_printf(&a, "{\"created\":%ld,\"evidence\":%d,\"output_changed\":%d",
+              r->created, r->evidence, r->output_changed);
+    for (size_t i = 0; i < sizeof k / sizeof k[0]; i++) {
+        sb_printf(&a, ",\"%s\":", k[i]);
+        if (v[i] && v[i][0]) sb_json_str(&a, v[i]); else sb_puts(&a, "null");
+    }
+    sb_putc(&a, '}');
+    char sum[300];
+    snprintf(sum, sizeof sum, "%s/%s %.12s", r->source, r->kind,
+             r->fingerprint);
+    int rc = journal_append(cg, "event.ingest", a.p, sum);
+    sb_free(&a);
+    return rc == 0;
+}
+
+int runtime_event_ingest(Cg *cg, const char *source, const char *payload,
+                         bool json) {
+    if (!payload || !runtime_json_object_valid(payload)) {
+        fprintf(stderr, "cg event: ingest expects one JSON object on stdin\n");
+        return 1;
+    }
+    static const char *const SESSION_KEYS[] = {
+        "session", "session_id", "sessionId", "conversation_id",
+        "thread_id", NULL
+    };
+    static const char *const ATTEMPT_KEYS[] = {
+        "attempt_id", "attemptId", NULL
+    };
+    static const char *const TASK_KEYS[] = { "task", "task_id", NULL };
+    static const char *const OUTPUT_KEYS[] = {
+        "output", "tool_output", "result", "message", NULL
+    };
+    char *kind = runtime_kind(payload);
+    char *session = runtime_first_string(payload, SESSION_KEYS);
+    char *attempt = runtime_first_string(payload, ATTEMPT_KEYS);
+    char *task = runtime_first_string(payload, TASK_KEYS);
+    char *output = runtime_first_raw(payload, OUTPUT_KEYS);
+    const char *env;
+    if (!session && (env = getenv("CG_SESSION")) && env[0])
+        session = xstrdup(env);
+    if (!attempt && (env = getenv("CG_ATTEMPT")) && env[0])
+        attempt = xstrdup(env);
+    if (!task && (env = getenv("CG_TASK")) && env[0]) task = xstrdup(env);
+    if (!task) task = spec_active_tag();
+    if (!session) session = xstrdup("local");
+    if (!attempt) attempt = xstrdup("");
+    if (!task) task = xstrdup("");
+
+    char revision[65], output_hash[65] = "";
+    runtime_workspace_revision(cg, revision);
+    if (output) sha256_hex(output, strlen(output), output_hash);
+
+    char previous[65] = "", previous_output[65] = "";
+    char previous_fingerprint[65] = "", previous_semantic[65] = "";
+    long previous_id = 0;
+    sqlite3_stmt *prev;
+    if (attempt[0]) {
+        prev = cg_prep(cg,
+            "SELECT revision,ifnull(output_hash,''),fingerprint,"
+            "ifnull(semantic_fingerprint,fingerprint),id FROM runtime_events "
+            "WHERE attempt_id=? ORDER BY id DESC LIMIT 1");
+        sqlite3_bind_text(prev, 1, attempt, -1, SQLITE_TRANSIENT);
+    } else {
+        prev = cg_prep(cg,
+            "SELECT revision,ifnull(output_hash,''),fingerprint,"
+            "ifnull(semantic_fingerprint,fingerprint),id FROM runtime_events "
+            "WHERE session=? ORDER BY id DESC LIMIT 1");
+        sqlite3_bind_text(prev, 1, session, -1, SQLITE_TRANSIENT);
+    }
+    bool have_previous = sqlite3_step(prev) == SQLITE_ROW;
+    if (have_previous) {
+        snprintf(previous, sizeof previous, "%s",
+                 (const char *)sqlite3_column_text(prev, 0));
+        snprintf(previous_output, sizeof previous_output, "%s",
+                 (const char *)sqlite3_column_text(prev, 1));
+        snprintf(previous_fingerprint, sizeof previous_fingerprint, "%s",
+                 (const char *)sqlite3_column_text(prev, 2));
+        snprintf(previous_semantic, sizeof previous_semantic, "%s",
+                 (const char *)sqlite3_column_text(prev, 3));
+        previous_id = sqlite3_column_int64(prev, 4);
+    }
+    sqlite3_finalize(prev);
+    bool evidence = have_previous && strcmp(previous, revision) != 0;
+    bool output_changed = have_previous && output_hash[0] &&
+                          strcmp(previous_output, output_hash) != 0;
+
+    char *canonical = runtime_canonical_json(payload);
+    StrBuf seed; sb_init(&seed);
+    sb_printf(&seed, "%s\n%s\n%s\n%s\n%s\n%s\n%s", source, kind,
+              session, attempt, task, revision, canonical);
+    char semantic[65], fingerprint[65];
+    sha256_hex(seed.p, seed.len, semantic);
+    sb_free(&seed); free(canonical);
+
+    bool immediate_duplicate = have_previous &&
+                               strcmp(previous_semantic, semantic) == 0;
+    if (immediate_duplicate) {
+        snprintf(fingerprint, sizeof fingerprint, "%s", previous_fingerprint);
+    } else {
+        StrBuf occurrence; sb_init(&occurrence);
+        sb_printf(&occurrence, "%s\n%s", semantic, previous_fingerprint);
+        sha256_hex(occurrence.p, occurrence.len, fingerprint);
+        sb_free(&occurrence);
+    }
+
+    bool inserted = false, queued = false;
+    long id = immediate_duplicate ? previous_id : 0;
+    if (!immediate_duplicate) {
+        RuntimeEventRow r = {
+            (long)time(NULL), source, kind, session, attempt, task,
+            fingerprint, semantic, revision, previous, output_hash, payload,
+            evidence, output_changed
+        };
+        if (journal_busy_seen()) sqlite3_busy_timeout(cg->db, 0);
+        int rc = runtime_event_store(cg, &r, &inserted);
+        sqlite3_busy_timeout(cg->db, (int)cg->lock_wait_ms);
+        if ((rc & 0xff) == SQLITE_BUSY || (rc & 0xff) == SQLITE_LOCKED) {
+            /* a hook must never lose the event it reports, nor fail the
+             * agent's tool call over a busy database */
+            journal_mark_busy();
+            if (!runtime_event_queue(cg, &r)) {
+                cg_busy_why("the journal under .codegraph/ could not be "
+                            "written");
+                cg_busy_report("The event");
+                exit(CG_EXIT_BUSY);
+            }
+            queued = true;
+            inserted = true;
+            journal_announced();
+        }
+        id = inserted && !queued ? (long)sqlite3_last_insert_rowid(cg->db) : 0;
+    }
+    if (!inserted && !immediate_duplicate) {
+        sqlite3_stmt *q = cg_prep(cg,
+            "SELECT id FROM runtime_events WHERE fingerprint=?");
+        sqlite3_bind_text(q, 1, fingerprint, -1, SQLITE_TRANSIENT);
+        if (sqlite3_step(q) == SQLITE_ROW) id = sqlite3_column_int64(q, 0);
+        sqlite3_finalize(q);
+    }
+    bool implementation = evidence && strcmp(kind, "heartbeat") != 0;
+    if (json) {
+        StrBuf b; sb_init(&b);
+        sb_printf(&b, "{\"id\":%ld,\"duplicate\":%s,\"source\":", id,
+                  inserted ? "false" : "true");
+        sb_json_str(&b, source); sb_puts(&b, ",\"kind\":");
+        sb_json_str(&b, kind); sb_puts(&b, ",\"session\":");
+        sb_json_str(&b, session); sb_puts(&b, ",\"attempt_id\":");
+        if (attempt[0]) sb_json_str(&b, attempt); else sb_puts(&b, "null");
+        sb_puts(&b, ",\"task\":");
+        if (task[0]) sb_json_str(&b, task); else sb_puts(&b, "null");
+        sb_puts(&b, ",\"fingerprint\":"); sb_json_str(&b, fingerprint);
+        sb_puts(&b, ",\"workspace_revision\":"); sb_json_str(&b, revision);
+        sb_printf(&b, ",\"activity\":true,\"output_changed\":%s,"
+                  "\"evidence_delta\":%d,\"implementation_progress\":%s%s}\n",
+                  output_changed ? "true" : "false", evidence,
+                  implementation ? "true" : "false",
+                  queued ? ",\"queued\":true" : "");
+        fputs(b.p, stdout); sb_free(&b);
+    } else {
+        printf("event %ld %s/%s %.12s — activity%s%s%s\n", id, source, kind,
+               fingerprint, output_changed ? ", output changed" : "",
+               evidence ? ", revision changed" : "",
+               implementation ? ", implementation progress" : "");
+        if (queued)
+            printf("  queued: the database is busy; the next cg command that "
+                   "gets the write lock records it\n");
+    }
+    free(kind); free(session); free(attempt); free(task); free(output);
+    return 0;
+}
+
+static int runtime_event_history(Cg *cg, int limit, bool json) {
+    if (limit < 1) limit = 20;
+    sqlite3_stmt *st = cg_prep(cg,
+        "SELECT id,created,source,kind,session,ifnull(attempt_id,''),"
+        "ifnull(task,''),fingerprint,revision,evidence_delta,activity,"
+        "output_changed FROM runtime_events ORDER BY id DESC LIMIT ?");
+    sqlite3_bind_int(st, 1, limit);
+    int n = 0;
+    StrBuf b; sb_init(&b);
+    if (json) sb_puts(&b, "{\"events\":[");
+    while (sqlite3_step(st) == SQLITE_ROW) {
+        if (json) {
+            if (n) sb_putc(&b, ',');
+            sb_printf(&b, "{\"id\":%ld,\"created\":%ld,\"source\":",
+                      (long)sqlite3_column_int64(st, 0),
+                      (long)sqlite3_column_int64(st, 1));
+            sb_json_str(&b, (const char *)sqlite3_column_text(st, 2));
+            sb_puts(&b, ",\"kind\":");
+            sb_json_str(&b, (const char *)sqlite3_column_text(st, 3));
+            sb_puts(&b, ",\"session\":");
+            sb_json_str(&b, (const char *)sqlite3_column_text(st, 4));
+            sb_puts(&b, ",\"attempt_id\":");
+            const char *attempt = (const char *)sqlite3_column_text(st, 5);
+            if (attempt[0]) sb_json_str(&b, attempt); else sb_puts(&b, "null");
+            sb_puts(&b, ",\"task\":");
+            const char *task = (const char *)sqlite3_column_text(st, 6);
+            if (task[0]) sb_json_str(&b, task); else sb_puts(&b, "null");
+            sb_puts(&b, ",\"fingerprint\":");
+            sb_json_str(&b, (const char *)sqlite3_column_text(st, 7));
+            sb_puts(&b, ",\"workspace_revision\":");
+            sb_json_str(&b, (const char *)sqlite3_column_text(st, 8));
+            sb_printf(&b, ",\"evidence_delta\":%d,\"activity\":%s,"
+                      "\"output_changed\":%s}", sqlite3_column_int(st, 9),
+                      sqlite3_column_int(st, 10) ? "true" : "false",
+                      sqlite3_column_int(st, 11) ? "true" : "false");
+        } else {
+            sb_printf(&b, "  #%ld %s/%s session=%s%s%s\n",
+                      (long)sqlite3_column_int64(st, 0),
+                      (const char *)sqlite3_column_text(st, 2),
+                      (const char *)sqlite3_column_text(st, 3),
+                      (const char *)sqlite3_column_text(st, 4),
+                      sqlite3_column_int(st, 9) ? " revision+" : "",
+                      sqlite3_column_int(st, 11) ? " output+" : "");
+        }
+        n++;
+    }
+    sqlite3_finalize(st);
+    if (json) sb_printf(&b, "],\"count\":%d}\n", n);
+    else if (!n) sb_puts(&b, "no runtime events\n");
+    else {
+        StrBuf h; sb_init(&h); sb_printf(&h, "runtime events (%d):\n", n);
+        sb_puts(&h, b.p); sb_free(&b); b = h;
+    }
+    fputs(b.p, stdout); sb_free(&b);
+    return 0;
+}
+
+typedef struct {
+    long id, created;
+    char kind[32], revision[65];
+    bool evidence, output_changed, criterion;
+    char *payload;
+} RuntimeSample;
+
+static bool runtime_contains_ci(const char *s, const char *needle) {
+    if (!s || !needle || !needle[0]) return false;
+    size_t n = strlen(needle);
+    for (; *s; s++) {
+        size_t i = 0;
+        while (i < n && s[i] &&
+               tolower((unsigned char)s[i]) ==
+               tolower((unsigned char)needle[i])) i++;
+        if (i == n) return true;
+    }
+    return false;
+}
+
+static bool runtime_sample_failure(const RuntimeSample *s) {
+    char *v = json_get_raw(s->payload, "success");
+    bool failed = v && strcmp(v, "false") == 0;
+    free(v);
+    v = json_get_raw(s->payload, "ok");
+    failed = failed || (v && strcmp(v, "false") == 0);
+    free(v);
+    long exit_code = json_get_int(s->payload, "exit_code", 0);
+    if (exit_code != 0) failed = true;
+    static const char *const KEYS[] = { "status", "outcome", "result", NULL };
+    for (int i = 0; !failed && KEYS[i]; i++) {
+        v = json_get_string(s->payload, KEYS[i]);
+        failed = v && (runtime_contains_ci(v, "fail") ||
+                       runtime_contains_ci(v, "error"));
+        free(v);
+    }
+    return failed;
+}
+
+static bool runtime_sample_waiting(const RuntimeSample *s) {
+    char *v = json_get_raw(s->payload, "waiting_input");
+    bool waiting = v && strcmp(v, "true") == 0;
+    free(v);
+    v = json_get_raw(s->payload, "requires_user_input");
+    waiting = waiting || (v && strcmp(v, "true") == 0);
+    free(v);
+    return waiting || runtime_contains_ci(s->payload, "waiting_input") ||
+           runtime_contains_ci(s->payload, "waiting for input") ||
+           runtime_contains_ci(s->payload, "permission required");
+}
+
+static int runtime_threshold(const char *name, int dflt, int floor) {
+    const char *raw = getenv(name);
+    int v = raw && raw[0] ? atoi(raw) : dflt;
+    return v < floor ? floor : v;
+}
+
+/* Explain liveness without rewarding churn. The newest uninterrupted window
+ * is classified against a finite recovery ladder; every step is unique and
+ * the terminal step has no continuation, so a controller cannot recursively
+ * turn "try again" into its own useless loop. */
+int runtime_classify_progress(Cg *cg, const char *attempt,
+                              const char *session, RuntimeProgress *out) {
+    memset(out, 0, sizeof *out);
+    if (!attempt || !attempt[0]) attempt = getenv("CG_ATTEMPT");
+    if (!session || !session[0]) session = getenv("CG_SESSION");
+    sqlite3_stmt *st;
+    if (attempt && attempt[0]) {
+        st = cg_prep(cg, "SELECT id,created,kind,revision,evidence_delta,"
+                         "output_changed,ifnull(payload,'{}') "
+                         "FROM runtime_events WHERE attempt_id=?"
+                         " ORDER BY id DESC LIMIT 16");
+        sqlite3_bind_text(st, 1, attempt, -1, SQLITE_TRANSIENT);
+    } else if (session && session[0]) {
+        st = cg_prep(cg, "SELECT id,created,kind,revision,evidence_delta,"
+                         "output_changed,ifnull(payload,'{}') "
+                         "FROM runtime_events WHERE session=?"
+                         " ORDER BY id DESC LIMIT 16");
+        sqlite3_bind_text(st, 1, session, -1, SQLITE_TRANSIENT);
+    } else {
+        st = cg_prep(cg, "SELECT id,created,kind,revision,evidence_delta,"
+                         "output_changed,ifnull(payload,'{}') "
+                         "FROM runtime_events ORDER BY id DESC LIMIT 16");
+    }
+    RuntimeSample samples[16];
+    int n = 0;
+    while (n < 16 && sqlite3_step(st) == SQLITE_ROW) {
+        RuntimeSample *s = &samples[n++];
+        memset(s, 0, sizeof *s);
+        s->id = sqlite3_column_int64(st, 0);
+        s->created = sqlite3_column_int64(st, 1);
+        snprintf(s->kind, sizeof s->kind, "%s",
+                 (const char *)sqlite3_column_text(st, 2));
+        snprintf(s->revision, sizeof s->revision, "%s",
+                 (const char *)sqlite3_column_text(st, 3));
+        s->evidence = sqlite3_column_int(st, 4) != 0;
+        s->output_changed = sqlite3_column_int(st, 5) != 0;
+        s->payload = xstrdup((const char *)sqlite3_column_text(st, 6));
+        char *criterion = json_get_raw(s->payload, "criterion");
+        if (!criterion) criterion = json_get_raw(s->payload, "criteria_covered");
+        s->criterion = criterion && strcmp(criterion, "null") != 0 &&
+                       strcmp(criterion, "[]") != 0 &&
+                       strcmp(criterion, "\"\"") != 0;
+        free(criterion);
+    }
+    sqlite3_finalize(st);
+    if (!n) {
+        snprintf(out->classification, sizeof out->classification, "no_events");
+        snprintf(out->reason, sizeof out->reason,
+                 "no lifecycle evidence has been recorded");
+        snprintf(out->next_action, sizeof out->next_action, "warn");
+        return 0;
+    }
+
+    out->activity = true;
+    out->latest_event_id = samples[0].id;
+    out->age_seconds = (long)time(NULL) - samples[0].created;
+    for (int i = 0; i < n; i++) {
+        if (samples[i].evidence || samples[i].criterion) break;
+        out->no_evidence_events++;
+        if (runtime_sample_failure(&samples[i])) out->repeated_failures++;
+    }
+    out->patch_oscillation = n >= 4 &&
+        strcmp(samples[0].revision, samples[2].revision) == 0 &&
+        strcmp(samples[1].revision, samples[3].revision) == 0 &&
+        strcmp(samples[0].revision, samples[1].revision) != 0;
+
+    int warn = runtime_threshold("CG_PROGRESS_WARN_EVENTS", 3, 1);
+    int replan = runtime_threshold("CG_PROGRESS_REPLAN_EVENTS", 5, warn + 1);
+    int experiment = runtime_threshold("CG_PROGRESS_EXPERIMENT_EVENTS", 7,
+                                       replan + 1);
+    int handoff = runtime_threshold("CG_PROGRESS_HANDOFF_EVENTS", 9,
+                                    experiment + 1);
+    int stop = runtime_threshold("CG_PROGRESS_STOP_EVENTS", 12, handoff + 1);
+    out->signal_events = out->no_evidence_events;
+    if (out->patch_oscillation && out->signal_events < warn)
+        out->signal_events = warn;
+    if (out->repeated_failures >= 2 && out->signal_events < warn)
+        out->signal_events = warn;
+
+    if (runtime_sample_waiting(&samples[0])) {
+        out->waiting = true;
+        out->stage = 4;
+        snprintf(out->classification, sizeof out->classification,
+                 "waiting_input");
+        snprintf(out->reason, sizeof out->reason,
+                 "the latest event explicitly requires user input");
+        snprintf(out->action, sizeof out->action, "waiting_input");
+        snprintf(out->next_action, sizeof out->next_action, "stop");
+    } else if (out->signal_events >= warn) {
+        out->stalled = true;
+        if (out->patch_oscillation) {
+            snprintf(out->classification, sizeof out->classification,
+                     "patch_oscillation");
+            snprintf(out->reason, sizeof out->reason,
+                     "workspace revisions alternate between two prior states");
+        } else if (out->repeated_failures >= 2) {
+            snprintf(out->classification, sizeof out->classification,
+                     "repeated_failure");
+            snprintf(out->reason, sizeof out->reason,
+                     "%d consecutive events repeat failure without new evidence",
+                     out->repeated_failures);
+        } else if (strcmp(samples[0].kind, "command") == 0 ||
+                   strcmp(samples[0].kind, "event") == 0) {
+            snprintf(out->classification, sizeof out->classification,
+                     "repeated_observation");
+            snprintf(out->reason, sizeof out->reason,
+                     "%d observations changed no artifact or criterion",
+                     out->no_evidence_events);
+        } else {
+            snprintf(out->classification, sizeof out->classification,
+                     "no_evidence_window");
+            snprintf(out->reason, sizeof out->reason,
+                     "%d active events produced no implementation evidence",
+                     out->no_evidence_events);
+        }
+        if (out->signal_events >= stop) {
+            out->stage = 5; snprintf(out->action, sizeof out->action, "stop");
+        } else if (out->signal_events >= handoff) {
+            out->stage = 3;
+            snprintf(out->action, sizeof out->action, "handoff");
+            snprintf(out->next_action, sizeof out->next_action, "waiting_input");
+        } else if (out->signal_events >= experiment) {
+            out->stage = 2;
+            snprintf(out->action, sizeof out->action, "bounded_experiment");
+            snprintf(out->next_action, sizeof out->next_action, "handoff");
+        } else if (out->signal_events >= replan) {
+            out->stage = 1;
+            snprintf(out->action, sizeof out->action, "re_plan");
+            snprintf(out->next_action, sizeof out->next_action,
+                     "bounded_experiment");
+        } else {
+            out->stage = 0; snprintf(out->action, sizeof out->action, "warn");
+            snprintf(out->next_action, sizeof out->next_action, "re_plan");
+        }
+        const char *policy = getenv("CG_PROGRESS_ENFORCE");
+        out->enforced = out->stage == 5 && policy &&
+                        (strcmp(policy, "1") == 0 ||
+                         strcmp(policy, "true") == 0);
+    } else if (samples[0].evidence || samples[0].criterion) {
+        snprintf(out->classification, sizeof out->classification,
+                 "progressing");
+        snprintf(out->reason, sizeof out->reason,
+                 "the latest event added workspace or criterion evidence");
+        snprintf(out->next_action, sizeof out->next_action, "warn");
+    } else {
+        snprintf(out->classification, sizeof out->classification, "active");
+        snprintf(out->reason, sizeof out->reason,
+                 "activity is recent and below the advisory stall threshold");
+        snprintf(out->next_action, sizeof out->next_action, "warn");
+    }
+    for (int i = 0; i < n; i++) free(samples[i].payload);
+    return 0;
+}
+
+static void runtime_progress_fields(StrBuf *b, const RuntimeProgress *p) {
+    sb_puts(b, "\"classification\":"); sb_json_str(b, p->classification);
+    sb_puts(b, ",\"reason\":"); sb_json_str(b, p->reason);
+    sb_printf(b, ",\"stalled\":%s,\"waiting\":%s,"
+              "\"no_evidence_events\":%d,\"repeated_failures\":%d,"
+              "\"patch_oscillation\":%s,\"recovery\":{\"action\":",
+              p->stalled ? "true" : "false",
+              p->waiting ? "true" : "false", p->no_evidence_events,
+              p->repeated_failures, p->patch_oscillation ? "true" : "false");
+    if (p->action[0]) sb_json_str(b, p->action); else sb_puts(b, "null");
+    sb_puts(b, ",\"next\":");
+    if (p->next_action[0]) sb_json_str(b, p->next_action);
+    else sb_puts(b, "null");
+    sb_printf(b, ",\"stage\":%d,\"advisory\":%s,\"ladder\":["
+              "\"warn\",\"re_plan\",\"bounded_experiment\",\"handoff\","
+              "\"waiting_input\",\"stop\"]}", p->stage,
+              p->enforced ? "false" : "true");
+}
+
+int runtime_progress(Cg *cg, bool json) {
+    const char *attempt = getenv("CG_ATTEMPT");
+    const char *session = getenv("CG_SESSION");
+    sqlite3_stmt *st;
+    if (attempt && attempt[0]) {
+        st = cg_prep(cg,
+            "SELECT id,created,source,kind,revision,evidence_delta,"
+            "output_changed,session,ifnull(task,'') FROM runtime_events "
+            "WHERE attempt_id=? ORDER BY id DESC LIMIT 1");
+        sqlite3_bind_text(st, 1, attempt, -1, SQLITE_TRANSIENT);
+    } else if (session && session[0]) {
+        st = cg_prep(cg,
+            "SELECT id,created,source,kind,revision,evidence_delta,"
+            "output_changed,session,ifnull(task,'') FROM runtime_events "
+            "WHERE session=? ORDER BY id DESC LIMIT 1");
+        sqlite3_bind_text(st, 1, session, -1, SQLITE_TRANSIENT);
+    } else {
+        st = cg_prep(cg,
+            "SELECT id,created,source,kind,revision,evidence_delta,"
+            "output_changed,session,ifnull(task,'') FROM runtime_events "
+            "ORDER BY id DESC LIMIT 1");
+    }
+    if (sqlite3_step(st) != SQLITE_ROW) {
+        sqlite3_finalize(st);
+        if (json) printf("{\"activity\":false,\"reason\":\"no events\"}\n");
+        else printf("progress: no runtime events\n");
+        return 0;
+    }
+    long id = (long)sqlite3_column_int64(st, 0);
+    long created = (long)sqlite3_column_int64(st, 1);
+    const char *source = (const char *)sqlite3_column_text(st, 2);
+    const char *kind = (const char *)sqlite3_column_text(st, 3);
+    const char *revision = (const char *)sqlite3_column_text(st, 4);
+    bool evidence = sqlite3_column_int(st, 5) != 0;
+    bool output_changed = sqlite3_column_int(st, 6) != 0;
+    const char *ev_session = (const char *)sqlite3_column_text(st, 7);
+    const char *task = (const char *)sqlite3_column_text(st, 8);
+    bool implementation = evidence && strcmp(kind, "heartbeat") != 0;
+    RuntimeProgress progress;
+    runtime_classify_progress(cg, attempt, session, &progress);
+    long age = (long)time(NULL) - created;
+    if (json) {
+        StrBuf b; sb_init(&b);
+        sb_printf(&b, "{\"activity\":true,\"last_event_id\":%ld,"
+                  "\"age_seconds\":%ld,\"source\":", id, age);
+        sb_json_str(&b, source); sb_puts(&b, ",\"kind\":");
+        sb_json_str(&b, kind); sb_puts(&b, ",\"session\":");
+        sb_json_str(&b, ev_session); sb_puts(&b, ",\"task\":");
+        if (task[0]) sb_json_str(&b, task); else sb_puts(&b, "null");
+        sb_puts(&b, ",\"workspace_revision\":"); sb_json_str(&b, revision);
+        sb_printf(&b, ",\"output_changed\":%s,\"evidence_delta\":%d,"
+                  "\"implementation_progress\":%s,",
+                  output_changed ? "true" : "false", evidence,
+                  implementation ? "true" : "false");
+        runtime_progress_fields(&b, &progress);
+        sb_puts(&b, "}\n");
+        fputs(b.p, stdout); sb_free(&b);
+    } else {
+        printf("progress: %s/%s %lds ago — %s%s%s\n", source, kind, age,
+               progress.classification,
+               output_changed ? ", output changed" : "",
+               implementation ? ", implementation progress" :
+               evidence ? ", evidence changed (heartbeat only)" : "");
+        if (progress.action[0])
+            printf("recovery: %s%s — %s\n", progress.action,
+                   progress.enforced ? " (enforced)" : " (advisory)",
+                   progress.reason);
+    }
+    sqlite3_finalize(st);
+    return 0;
+}
+
+int cmd_event(Cg *cg, int argc, char **argv, bool json) {
+    const char *sub = argc > 0 ? argv[0] : "history";
+    const char *source = "generic";
+    int limit = 20;
+    for (int i = 1; i < argc; i++) {
+        if (strcmp(argv[i], "--source") == 0 && i + 1 < argc)
+            source = argv[++i];
+        else if (strcmp(argv[i], "-n") == 0 && i + 1 < argc)
+            limit = atoi(argv[++i]);
+    }
+    if (strcmp(sub, "ingest") == 0) {
+        StrBuf b; sb_init(&b);
+        char chunk[4096];
+        size_t n;
+        while ((n = fread(chunk, 1, sizeof chunk, stdin)) > 0)
+            for (size_t i = 0; i < n; i++) sb_putc(&b, chunk[i]);
+        while (b.len && isspace((unsigned char)b.p[b.len - 1]))
+            b.p[--b.len] = 0;
+        int rc = runtime_event_ingest(cg, source, b.p, json);
+        sb_free(&b);
+        return rc;
+    }
+    if (strcmp(sub, "history") == 0) return runtime_event_history(cg, limit, json);
+    if (strcmp(sub, "progress") == 0) return runtime_progress(cg, json);
+    fprintf(stderr, "usage: cg event [ingest [--source HOST] | history [-n N] | progress]\n");
+    return 1;
+}

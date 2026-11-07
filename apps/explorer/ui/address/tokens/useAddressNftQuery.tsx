@@ -28,7 +28,16 @@ export default function useAddressNftQuery({ scrollRef, enabled = true, addressH
   const router = useRouter();
 
   const displayTypeCookie = cookies.get(cookies.NAMES.ADDRESS_NFT_DISPLAY_TYPE, useAppContext().cookies);
-  const [ displayType, setDisplayType ] = React.useState<TNftDisplayType>(displayTypeCookie === 'list' ? 'list' : 'collection');
+  const routeDisplayType = ((): TNftDisplayType | undefined => {
+    if (router.query.tab === 'tokens_nfts_list') {
+      return 'list';
+    }
+    if (router.query.tab === 'tokens_nfts_collection') {
+      return 'collection';
+    }
+  })();
+  const [ selectedDisplayType, setDisplayType ] = React.useState<TNftDisplayType>(displayTypeCookie === 'list' ? 'list' : 'collection');
+  const displayType = routeDisplayType ?? selectedDisplayType;
   const [ tokenTypes, setTokenTypes ] = React.useState<Array<NFTTokenType> | undefined>(getTokenFilterValue(router.query.type) || []);
 
   const collectionsQuery = useQueryWithPages({
@@ -60,7 +69,10 @@ export default function useAddressNftQuery({ scrollRef, enabled = true, addressH
   const onDisplayTypeChange = React.useCallback((val: string) => {
     cookies.set(cookies.NAMES.ADDRESS_NFT_DISPLAY_TYPE, val);
     setDisplayType(val as TNftDisplayType);
-  }, []);
+    if (routeDisplayType) {
+      router.push({ pathname: router.pathname, query: { ...router.query, tab: 'tokens_nfts' } }, undefined, { shallow: true });
+    }
+  }, [ routeDisplayType, router ]);
 
   const onTokenTypesChange = React.useCallback((value: Array<NFTTokenType>) => {
     nftsQuery.onFilterChange({ type: value });

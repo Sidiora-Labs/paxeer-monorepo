@@ -8,7 +8,7 @@ balance, network status, successful button animation or slider completion here
 does not establish a wallet connection or submit a transaction.
 
 For production UI work, start with the wired widgets listed below and the
-[data API guide](../../../data_api.md). The [deployment guide](../../../deploy/README.md)
+[data API guide](../../../../../docs/perps/data-api.md). The [deployment guide](../../../deploy/README.md)
 explains gateway configuration; the
 [SettingsModal guide](../../app/modals/SettingsModal.md) distinguishes working
 themes from local-only preference switches.
@@ -171,4 +171,4 @@ responsive behavior and types before adapting a component. The gallery's
 illustrative QR code, latency values, balances and local success animations
 must not be presented as operational results. For supported application flows,
 trace a wired widget through its actual hooks and transports using the
-[API contract](../../../data_api.md).
+[API contract](../../../../../docs/perps/data-api.md).

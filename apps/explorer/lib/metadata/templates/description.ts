@@ -82,6 +82,8 @@ const TEMPLATE_MAP: Record<Route['pathname'], string> = {
   '/cross-chain-tx/[id]': DEFAULT_TEMPLATE,
 
   // multichain routes
+  '/chains': DEFAULT_TEMPLATE,
+  '/chains/[id]': DEFAULT_TEMPLATE,
   '/chain/[chain_slug]/accounts/label/[slug]': DEFAULT_TEMPLATE,
   '/chain/[chain_slug]/advanced-filter': DEFAULT_TEMPLATE,
   '/chain/[chain_slug]/block/[height_or_hash]': DEFAULT_TEMPLATE,

@@ -1,3 +1,7 @@
+#define ASSET_NATIVE_HARNESS_ONLY
+#include "test_asset_withdraw_activity.c"
+#undef ASSET_NATIVE_HARNESS_ONLY
+
 #include "test_asset_retirement.h"
 
 #include "layerx/lx_asset.h"
@@ -318,8 +322,14 @@ static int test_historical_withdrawal_v2_reopen(withdraw_fixture *f,
     return 0;
 }
 
+static int test_native_withdraw_replacement(void)
+{
+    return native_transfer_cases();
+}
+
 int main(void)
 {
+    if (test_native_withdraw_replacement() != 0) return 1;
     withdraw_fixture *f = &fixture;
     uint64_t parameters = 1U;
     memset(f, 0, sizeof(*f));

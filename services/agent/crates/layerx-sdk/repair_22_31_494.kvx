@@ -1,0 +1,39 @@
+[repair.22.31.494]
+decision = "2539"
+gotcha = "3026"
+acceptance = "22998.1"
+base_revision = "8a0f29c117b469cdf57fe085a275b5e474a1f942"
+build = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-sdk --tests"
+verify = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-sdk --test repair_22_31_494"
+evidence = "The private hf-build/hf-done ledger records the exact verified candidate revision, command, exit code and log location; this source record does not claim an unrun gate."
+implementation = "Wallet send and payment share execute_signed, which returns the hash and the exact submitted EIP-1559 bytes; successful wallet waits bind those bytes before returning. All payment wrappers inherit binding."
+compatibility = "Existing binary and proof callers outside task scope require Wallet::execute to return a hash. It delegates to the same execute_signed implementation and preserves that public signature."
+inclusion = "This revision has receipt_at_commitment rather than the task description's try_receipt. A served optional inclusion envelope uses the existing verifier and retains exactly its proof, canonical signed batch header and signature. Missing inclusion leaves batch_evidence absent; invalid inclusion refuses."
+transport = "The focused test starts the existing SDK audit-style loopback node protocol peer, using its canonical signed receipt producer, production HTTP transport, local signer, transaction decoder, inclusion verifier and OS clock."
+
+[proof.wallet_send_retains_the_exact_submitted_pax_transaction]
+criterion = "The Send authorization and EIP-1559 signature cross real HTTP submission; independently fetched raw bytes equal canonical_activity byte for byte, recover the wallet sender and contain the original native Send payload."
+
+[proof.inclusion_material_is_retained_exactly_and_independent_lookup_has_no_transaction]
+criterion = "SendDebit binds the exact transaction; every retained proof field, header byte and signature byte equals the served material and re-verifies independently. A separate lookup has no transaction; removing served inclusion leaves both evidence options absent."
+
+[proof.payment_and_issue_bind_the_submitted_bytes_without_inventing_inclusion]
+criterion = "Open account, mint, burn, signed grant issue and revoke retain the exact submitted transaction through payment; summary-only receipts do not invent inclusion evidence."
+
+[proof.invalid_inclusion_material_is_refused_without_dropping_to_summary_verification]
+criterion = "Invalid header signature, sibling, receipt identity, canonical leaf, proof index, validly signed foreign-network header and null inclusion all refuse without falling back to summary verification."
+
+[proof.committed_lookup_keeps_its_verified_block_and_does_not_invent_batch_evidence]
+criterion = "The existing real-node committed transcript crosses loopback HTTP and verifies under pinned validator and receipt authorities; committed_block is retained while canonical_activity and batch_evidence remain absent."
+
+[gotcha.scope]
+observed = "The task's explicit scope and runner publication rule override the general workflow's requests to edit GOTCHA/spec files and commit or push."
+
+[gotcha.api]
+observed = "Changing the public execute return type would break unchanged out-of-scope binary and proof callers; the receipt-producing wallet paths instead use a shared submission method that returns both required values."
+
+[repair.22.31.494.attempt_4]
+decision = "2624"
+gotcha = "3173"
+change = "The loopback nonce handler and submitted sender check compare decoded address bytes so checksummed and lowercase spellings identify the same owner; nonce parameter count and pending selector remain exact. The SDK request builder and every exact transaction and inclusion assertion remain unchanged."
+qualification = "Run hf-build then hf-done on this final candidate. Their private gate ledger is the authoritative result record, containing the exact candidate revision, command, exit code and log location; retaining that external record avoids changing the candidate after qualification."

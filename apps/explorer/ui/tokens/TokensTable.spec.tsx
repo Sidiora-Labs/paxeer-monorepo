@@ -2,7 +2,6 @@
 
 import React from 'react';
 
-import { currencyUnits } from 'lib/units';
 import * as tokenMock from 'mocks/tokens/tokenInfo';
 import { render } from 'ui/shared/layout/testWrapper';
 import { describe, expect, it, vi } from 'vitest';
@@ -19,10 +18,9 @@ const COLUMNS = [
   '#',
   'Token',
   'Price',
-  'Change (%)',
-  'Volume (24H)',
-  'Circulating market cap',
-  'Onchain market cap',
+  'Change 24h',
+  'Market cap',
+  'Volume 24h',
   'Holders',
 ];
 
@@ -54,9 +52,9 @@ describe('TokensTable', () => {
     expect(cells[1]).toContain('ARIANEE (ARIA)');
     expect(cells[1]).toContain('ERC-20');
     expect(cells[2]).toContain('$2.0101');
-    expect(cells[5]).toBe('$117,629,601.62');
-    expect(cells[7]).toBe('46,554');
-    expect(rowCells(container, 1)[6]).toBe('$883,800,000,000,000,000,000');
+    expect(cells[4]).toBe('$117,629,601.62');
+    expect(cells[6]).toBe('46,554');
+    expect(rowCells(container, 1)[4]).toBe('$115,060,192.36');
   });
 
   it('dashes the columns the list endpoint answers with no figure', () => {
@@ -65,14 +63,14 @@ describe('TokensTable', () => {
     const cells = rowCells(container, 0);
 
     expect(cells[3]).toBe(TOKEN_VALUE_PLACEHOLDER);
-    expect(cells[4]).toBe(TOKEN_VALUE_PLACEHOLDER);
+    expect(cells[5]).toBe(TOKEN_VALUE_PLACEHOLDER);
   });
 
-  it('writes the coin-denominated price beneath the fiat price', () => {
+  it('keeps the API price without deriving a coin-denominated price', () => {
     const { container } = render(<TokensTable items={ items } page={ 1 } coinPrice="1.5"/>);
 
-    expect(container.querySelector('[data-token-row] [data-token-native-price]')?.textContent)
-      .toBe(`1.340067 ${ currencyUnits.ether }`);
+    expect(container.querySelector('[data-token-row] [data-token-price]')?.textContent).toBe('$2.0101');
+    expect(container.querySelector('[data-token-native-price]')).toBeNull();
   });
 
   it('asks for a sort from the price, the circulating capitalisation and the holders and from no other column', () => {
@@ -94,7 +92,6 @@ describe('TokensTable', () => {
       undefined,
       undefined,
       'fiat_value-desc',
-      undefined,
       undefined,
       'circulating_market_cap-desc',
       undefined,

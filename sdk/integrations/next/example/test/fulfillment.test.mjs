@@ -4,8 +4,21 @@ import { mkdtemp, mkdir, readFile, writeFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
+import { once } from "node:events";
+import { createServer } from "node:http";
 import { keccak_256 as keccak256 } from "@noble/hashes/sha3.js";
-import { FileFulfillmentRepository } from "../lib/fulfillment.mjs";
+
+const sourceRuntimeUrl = new URL("./source-runtime.mjs", import.meta.url).href;
+await import(sourceRuntimeUrl);
+
+const { FileFulfillmentRepository } = await import("../lib/fulfillment.mjs");
+const { GET } = await import("../app/paid/route.js");
+const { layerx } = await import("../lib/layerx.js");
+const {
+  PAYMENT_REQUIRED_HEADER, PAYMENT_SIGNATURE_HEADER, PAYMENT_RESPONSE_HEADER,
+  decodePaymentRequiredHeader, decodePaymentPayloadHeader, decodeSettlementHeader,
+  encodePaymentPayloadHeader, verifyRpcPayment,
+} = await import("@sidiora/layerx-seller-middleware");
 
 const fixture = JSON.parse(await readFile(new URL("../../../../platform/conformance/fixtures/vector-v5-portable.json", import.meta.url), "utf8"));
 const proof = fixture.bundles.find(value => value.verificationLevel === "receipted");
@@ -18,7 +31,7 @@ const proposed = {
 };
 
 async function parseReceiptKeys() {
-  const environment = await readFile(new URL("../../../../../services/platform/docs/samples/paid-route-next/.env", import.meta.url), "utf8");
+  const environment = await readFile(new URL("../../../../../services/platform/examples/samples/paid-route-next/.env", import.meta.url), "utf8");
   const declared = environment.split("\n").find(line => line.startsWith("LAYERX_RECEIPT_KEYS_JSON="));
   assert.ok(declared);
   const keys = JSON.parse(declared.slice(declared.indexOf("=") + 1));
@@ -137,7 +150,7 @@ test("a process crash after release retains its durable claim until actual recon
     const input = join(root, "input.json");
     await writeFile(input, JSON.stringify(proposed));
     const module = new URL("../lib/fulfillment.mjs", import.meta.url).href;
-    const child = spawn(process.execPath, ["--input-type=module", "-e", `
+    const child = spawn(process.execPath, ["--import", sourceRuntimeUrl, "--input-type=module", "-e", `
       import { readFile, open } from "node:fs/promises";
       import { FileFulfillmentRepository } from ${JSON.stringify(module)};
       const proposed = JSON.parse(await readFile(process.argv[1], "utf8"));
@@ -168,3 +181,185 @@ test("a process crash after release retains its durable claim until actual recon
     await rm(root, { recursive: true });
   }
 });
+
+async function finding023_mountedPaidRouteReplaysCurrentEvidence(t) {
+  const vectors = JSON.parse(await readFile(new URL(
+    "../../../../platform/conformance/fixtures/sequencer-receipt-v1.json", import.meta.url,
+  ), "utf8"));
+  assert.equal(vectors.provenance.generator, "rpc/sequencer_receipt_vectors_test.go");
+  const vector = vectors.cases.find(value => value.id === "V1-layerxledger-pay-exact");
+  assert.ok(vector);
+  const bytes = value => Uint8Array.from(Buffer.from(value.slice(2), "hex"));
+  const pin = {
+    keyId: bytes(vector.pinnedKey.keyId), publicKey: bytes(vector.pinnedKey.publicKey),
+    first_height: BigInt(vector.pinnedKey.firstHeight), last_height: BigInt(vector.pinnedKey.lastHeight),
+  };
+  const log = vector.receiptJson.logs[0];
+  const requirements = {
+    scheme: "exact", network: "eip155:125", amount: BigInt(`0x${log.data.slice(66)}`).toString(),
+    asset: log.data.slice(0, 66), payTo: log.topics[3], maxTimeoutSeconds: 120,
+    extra: { layerx: { commitment: "receipted", purposeHash: log.topics[1].slice(2) } },
+  };
+  const root = await mkdtemp(join(tmpdir(), "next-finding-023-"));
+  const directory = join(root, "state");
+  const environment = {
+    LAYERX_PRINCIPAL: "merchant", LAYERX_PROTECTED_PATH: "/paid", LAYERX_PROTOCOL_VERSION: "3",
+    LAYERX_RESOURCE_URL: "https://merchant.example/paid",
+    LAYERX_X402_SCHEME: requirements.scheme, LAYERX_X402_NETWORK: requirements.network,
+    LAYERX_PRICE: requirements.amount, LAYERX_ASSET: requirements.asset, LAYERX_PAY_TO: requirements.payTo,
+    LAYERX_PAYMENT_TIMEOUT_SECONDS: "120", LAYERX_PAYMENT_PURPOSE_HASH: requirements.extra.layerx.purposeHash,
+    LAYERX_RECEIPT_KEYS_JSON: JSON.stringify([{
+      ...vector.pinnedKey, firstHeight: pin.first_height.toString(), lastHeight: pin.last_height.toString(),
+    }]),
+    LAYERX_WEBHOOK_PATH: "/layerx/webhooks",
+    LAYERX_WEBHOOK_PUBLIC_KEYS_JSON: JSON.stringify({ sequencer: Buffer.from(pin.publicKey).toString("base64") }),
+    LAYERX_FULFILLMENT_DIR: directory,
+  };
+  const previous = Object.fromEntries(Object.keys(environment).map(key => [key, process.env[key]]));
+  Object.assign(process.env, environment);
+  layerx.destroy();
+  let server;
+  const requests = [];
+  const errors = [];
+  async function closeServer() {
+    if (server === undefined) return;
+    const closed = new Promise((resolve, reject) => server.close(error => error ? reject(error) : resolve()));
+    server.closeAllConnections();
+    await closed;
+    server = undefined;
+  }
+  t.after(async () => {
+    await closeServer();
+    layerx.destroy();
+    for (const [key, value] of Object.entries(previous)) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+    await rm(root, { recursive: true, force: true });
+  });
+  async function openServer() {
+    server = createServer(async (request, response) => {
+      try {
+        requests.push({ method: request.method, path: request.url, payment: request.headers[PAYMENT_SIGNATURE_HEADER.toLowerCase()] });
+        const result = await GET(new Request(new URL(request.url, `http://${request.headers.host}`), {
+          method: request.method, headers: request.headers,
+        }));
+        response.writeHead(result.status, Object.fromEntries(result.headers));
+        response.end(Buffer.from(await result.arrayBuffer()));
+      } catch (error) {
+        errors.push(error);
+        response.writeHead(500).end();
+      }
+    });
+    server.listen(0, "127.0.0.1");
+    await once(server, "listening");
+    return `http://127.0.0.1:${server.address().port}/paid`;
+  }
+  function rows() {
+    const database = new DatabaseSync(join(directory, "fulfillments.sqlite"));
+    try {
+      return {
+        fulfillments: database.prepare("SELECT * FROM fulfillment").all(),
+        claims: database.prepare("SELECT * FROM fulfillment_claim").all(),
+      };
+    } finally {
+      database.close();
+    }
+  }
+
+  let url = await openServer();
+  const challenge = await fetch(url);
+  assert.equal(challenge.status, 402);
+  const offered = decodePaymentRequiredHeader(challenge.headers.get(PAYMENT_REQUIRED_HEADER));
+  assert.deepEqual(await challenge.json(), offered);
+  assert.deepEqual(offered, {
+    x402Version: 2, resource: { url: environment.LAYERX_RESOURCE_URL }, accepts: [requirements],
+  });
+  // The real RPC proof producer verifies the recorded node receipt and emits the
+  // current portable buyer evidence; no proposed repository record is supplied.
+  const { kind, verification, ...evidence } = await verifyRpcPayment(
+    vector.receiptJson, vector.rawTransaction, vector.receiptJson.from.slice(2).padStart(64, "0"),
+    offered.accepts[0], [pin],
+  );
+  assert.equal(kind, "verified");
+  assert.equal(verification.txHash, vector.receiptJson.txHash);
+  assert.equal(evidence.format, "layerx-receipt-proof-v2");
+  assert.equal(evidence.verificationLevel, "receipted");
+  const payload = { x402Version: 2, accepted: offered.accepts[0], resource: offered.resource, payload: evidence };
+  const payment = encodePaymentPayloadHeader(payload);
+  assert.deepEqual(decodePaymentPayloadHeader(payment), payload);
+  const paid = header => fetch(url, { headers: { [PAYMENT_SIGNATURE_HEADER]: header } });
+  const resource = await readFile(new URL("../resource.json", import.meta.url), "utf8");
+  const responses = await Promise.all(Array.from({ length: 8 }, () => paid(payment)));
+  assert.deepEqual(errors, []);
+  let settlementHeader;
+  for (const response of responses) {
+    assert.equal(response.status, 200);
+    assert.equal(response.headers.get("content-type"), "application/json");
+    assert.equal(await response.text(), resource);
+    const header = response.headers.get(PAYMENT_RESPONSE_HEADER);
+    if (settlementHeader === undefined) settlementHeader = header;
+    assert.equal(header, settlementHeader);
+    const settlement = decodeSettlementHeader(header);
+    assert.equal(settlement.success, true);
+    assert.equal(settlement.transaction, vector.receiptJson.txHash);
+    assert.equal(settlement.amount, requirements.amount);
+    assert.equal(settlement.network, requirements.network);
+    assert.deepEqual(settlement.extensions.layerx, evidence);
+  }
+  assert.deepEqual(requests[0], { method: "GET", path: "/paid", payment: undefined });
+  assert.equal(requests.length, 9);
+  for (const request of requests.slice(1)) assert.deepEqual(request, { method: "GET", path: "/paid", payment });
+  const before = rows();
+  assert.equal(before.fulfillments.length, 1);
+  assert.deepEqual(before.claims, []);
+  const row = before.fulfillments[0];
+  const stored = await new FileFulfillmentRepository(directory).get(row.id);
+  assert.deepEqual(stored, {
+    ...evidence, idempotencyKey: row.id, requestDigest: row.request_digest,
+    txHash: vector.receiptJson.txHash, resource: { contentType: "application/json", body: resource },
+  });
+
+  await closeServer();
+  layerx.destroy();
+  url = await openServer();
+  const replay = await paid(payment);
+  assert.equal(replay.status, 200);
+  assert.equal(replay.headers.get("content-type"), "application/json");
+  assert.equal(await replay.text(), resource);
+  assert.equal(replay.headers.get(PAYMENT_RESPONSE_HEADER), settlementHeader);
+  assert.deepEqual(await new FileFulfillmentRepository(directory).get(row.id), stored);
+  assert.deepEqual(rows(), before);
+  const conflict = await paid(encodePaymentPayloadHeader({
+    ...payload, resource: { ...offered.resource, description: "different request" },
+  }));
+  assert.equal(conflict.status, 409);
+  const refusal = decodeSettlementHeader(conflict.headers.get(PAYMENT_RESPONSE_HEADER));
+  assert.equal(refusal.success, false);
+  assert.equal(refusal.errorReason, "receipt_reuse");
+  await conflict.arrayBuffer();
+  const corrupted = bytes(evidence.signedReceipt);
+  corrupted[corrupted.length - 1] ^= 1;
+  const invalid = await paid(encodePaymentPayloadHeader({
+    ...payload, payload: { ...evidence, signedReceipt: hex(corrupted) },
+  }));
+  assert.equal(invalid.status, 402);
+  assert.deepEqual(await invalid.json(), { error: "verification-failure" });
+  assert.deepEqual(rows(), before);
+  assert.deepEqual(requests.slice(9), [
+    { method: "GET", path: "/paid", payment },
+    {
+      method: "GET", path: "/paid", payment: encodePaymentPayloadHeader({
+        ...payload, resource: { ...offered.resource, description: "different request" },
+      }),
+    },
+    {
+      method: "GET", path: "/paid", payment: encodePaymentPayloadHeader({
+        ...payload, payload: { ...evidence, signedReceipt: hex(corrupted) },
+      }),
+    },
+  ]);
+  assert.deepEqual(errors, []);
+}
+
+test(finding023_mountedPaidRouteReplaysCurrentEvidence);

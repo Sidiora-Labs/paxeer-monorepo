@@ -12,7 +12,7 @@ use layerx_types::verify::VerificationLevel;
 use sha2::{Digest as _, Sha256};
 
 use crate::budget::{ProgramBudgetReservation, ProgramChargeKind};
-use crate::prepare::{verify_disclosure_binding, Prepared};
+use crate::prepare::Prepared;
 use crate::protocol_evidence::VerifiedReceiptEvidence;
 use crate::sign::VerifiedSubmission;
 
@@ -20,37 +20,73 @@ use super::program_settlement::{ProgramExecutedDebit, ProgramSettlementError};
 
 type DebitKey = ([u8; 32], [u8; 32], ProgramChargeKind, Option<[u8; 32]>);
 
+/// Binds native lifecycle semantics to the exact signed EIP-1559 call.
+/// This is a read-side check; it does not admit a transaction for submission.
+pub fn verify_native_lifecycle_binding(
+    signed_transaction: &[u8],
+    ordinal: u16,
+    payload: &[u8],
+) -> Result<([u8; 32], [u8; 20]), ProgramSettlementError> {
+    use layerx_crypto::disclosure::{call::bind_call, DisclosedNativeOperation};
+    use layerx_crypto::evm_transaction::{decode_signed, recover_sender, transaction_hash};
+    let (call, signature) =
+        decode_signed(signed_transaction).map_err(|_| ProgramSettlementError::Preparation)?;
+    if call.chain_id == 0
+        || call.gas_limit == 0
+        || call.max_priority_fee_per_gas > call.max_fee_per_gas
+    {
+        return Err(ProgramSettlementError::Preparation);
+    }
+    let sender =
+        recover_sender(&call, &signature).map_err(|_| ProgramSettlementError::Preparation)?;
+    let disclosed = bind_call(&call, sender).map_err(|_| ProgramSettlementError::Preparation)?;
+    if disclosed.activity_type.module() != ModuleId::Programs
+        || disclosed.activity_type.ordinal() != ordinal
+    {
+        return Err(ProgramSettlementError::UnsupportedOperation);
+    }
+    let canonical = match disclosed.native_operation {
+        Some(DisclosedNativeOperation::ProgramDeploy(value)) => value.native().encode(),
+        Some(DisclosedNativeOperation::ProgramUpgrade(value)) => value.native().encode(),
+        Some(DisclosedNativeOperation::ProgramWindDown(value)) => value.native().encode(),
+        _ => return Err(ProgramSettlementError::UnsupportedOperation),
+    }
+    .map_err(|_| ProgramSettlementError::Preparation)?;
+    if canonical != payload {
+        return Err(ProgramSettlementError::Preparation);
+    }
+    Ok((transaction_hash(signed_transaction), sender))
+}
+
 pub(super) fn verify_wind_down_debits(
     prepared: &Prepared,
     submission: &VerifiedSubmission,
     receipt: &VerifiedReceiptEvidence,
-    registry: &ModuleRegistry,
+    _registry: &ModuleRegistry,
     prestate: &CommittedExecutionState,
     reservation: &ProgramBudgetReservation,
 ) -> Result<Vec<ProgramExecutedDebit>, ProgramSettlementError> {
-    verify_disclosure_binding(prepared).map_err(|_| ProgramSettlementError::Preparation)?;
+    super::native_binding::verify_retained_submission(prepared, submission)
+        .map_err(|_| ProgramSettlementError::Preparation)?;
+    verify_native_lifecycle_binding(
+        submission.exact_bytes(),
+        prepared.disclosure.activity_type.ordinal(),
+        prepared.envelope.payload().as_bytes(),
+    )?;
     if !matches!(prepared.envelope.authority(), Authority::Owner(_)) {
         return Err(ProgramSettlementError::Preparation);
     }
-    let activity = layerx_wire::activity::decode_signed(submission.exact_bytes(), registry)
-        .map_err(|_| ProgramSettlementError::Preparation)?;
-    if layerx_wire::activity::encode_unsigned(&activity)
-        .map_err(|_| ProgramSettlementError::Preparation)?
-        != prepared.canonical_bytes
-        || layerx_wire::hash::activity_id(&activity)
-            .map_err(|_| ProgramSettlementError::Preparation)?
-            != submission.activity_id()
-    {
-        return Err(ProgramSettlementError::Preparation);
-    }
-    if activity.protocol_version() != 3
-        || activity.activity_type().module() != ModuleId::Programs
-        || activity.activity_type().ordinal() != 7
+    if prepared.disclosure.activity_type.module() != ModuleId::Programs
+        || prepared.disclosure.activity_type.ordinal() != 7
     {
         return Err(ProgramSettlementError::UnsupportedOperation);
     }
-    let wind_down = NativeProgramWindDown::decode(activity.payload())
-        .map_err(|_| ProgramSettlementError::UnsupportedOperation)?;
+    let Some(layerx_crypto::disclosure::DisclosedNativeOperation::ProgramWindDown(value)) =
+        &prepared.disclosure.native_operation
+    else {
+        return Err(ProgramSettlementError::UnsupportedOperation);
+    };
+    let wind_down = value.native();
     let (account, maximum) = match wind_down.operation {
         ProgramWindDownOperation::Exit { account } => (account, None),
         ProgramWindDownOperation::BoundedExit {
@@ -59,9 +95,11 @@ pub(super) fn verify_wind_down_debits(
         } => (account, Some(maximum_exit_amount)),
         _ => return Err(ProgramSettlementError::UnsupportedOperation),
     };
-    let decoded = layerx_wire::receipt::decode(receipt.canonical_receipt())
-        .map_err(|_| ProgramSettlementError::Receipt)?;
-    let protocol = decoded.protocol().ok_or(ProgramSettlementError::Receipt)?;
+    let protocol = receipt
+        .execution_receipt()
+        .receipt()
+        .protocol()
+        .ok_or(ProgramSettlementError::Receipt)?;
     prestate.validate_receipt(receipt)?;
     if receipt.level() < VerificationLevel::BATCH_INCLUDED
         || receipt.activity_id() != submission.activity_id()
@@ -133,7 +171,7 @@ pub(super) fn verify_wind_down_debits(
     } else if !protocol.effects().is_empty() {
         return Err(ProgramSettlementError::Terminal);
     }
-    if protocol.fee_charged() > activity.fee_limit() {
+    if protocol.fee_charged() > prepared.disclosure.fee_limit {
         return Err(ProgramSettlementError::FeeProvenance);
     }
     if protocol.fee_charged() != 0 {
@@ -176,36 +214,42 @@ pub(super) fn verify_remaining_lifecycle_debits(
     prepared: &Prepared,
     submission: &VerifiedSubmission,
     receipt: &VerifiedReceiptEvidence,
-    registry: &ModuleRegistry,
+    _registry: &ModuleRegistry,
     prestate: &CommittedExecutionState,
     reservation: &ProgramBudgetReservation,
 ) -> Result<Vec<ProgramExecutedDebit>, ProgramSettlementError> {
-    verify_disclosure_binding(prepared).map_err(|_| ProgramSettlementError::Preparation)?;
+    super::native_binding::verify_retained_submission(prepared, submission)
+        .map_err(|_| ProgramSettlementError::Preparation)?;
+    verify_native_lifecycle_binding(
+        submission.exact_bytes(),
+        prepared.disclosure.activity_type.ordinal(),
+        prepared.envelope.payload().as_bytes(),
+    )?;
     if !matches!(prepared.envelope.authority(), Authority::Owner(_)) {
         return Err(ProgramSettlementError::Preparation);
     }
-    let activity = layerx_wire::activity::decode_signed(submission.exact_bytes(), registry)
-        .map_err(|_| ProgramSettlementError::Preparation)?;
-    if layerx_wire::activity::encode_unsigned(&activity)
-        .map_err(|_| ProgramSettlementError::Preparation)?
-        != prepared.canonical_bytes
-        || layerx_wire::hash::activity_id(&activity)
-            .map_err(|_| ProgramSettlementError::Preparation)?
-            != submission.activity_id()
-    {
-        return Err(ProgramSettlementError::Preparation);
-    }
-    if activity.protocol_version() != 3
-        || activity.activity_type().module() != ModuleId::Programs
-        || !matches!(activity.activity_type().ordinal(), 1 | 2 | 7)
+    if prepared.disclosure.activity_type.module() != ModuleId::Programs
+        || !matches!(prepared.disclosure.activity_type.ordinal(), 1 | 2 | 7)
     {
         return Err(ProgramSettlementError::UnsupportedOperation);
     }
-    let lifecycle =
-        FeeOnlyLifecycle::decode(activity.activity_type().ordinal(), activity.payload())?;
-    let decoded = layerx_wire::receipt::decode(receipt.canonical_receipt())
-        .map_err(|_| ProgramSettlementError::Receipt)?;
-    let protocol = decoded.protocol().ok_or(ProgramSettlementError::Receipt)?;
+    let lifecycle = match &prepared.disclosure.native_operation {
+        Some(layerx_crypto::disclosure::DisclosedNativeOperation::ProgramDeploy(value)) => {
+            FeeOnlyLifecycle::Deploy(value.native())
+        }
+        Some(layerx_crypto::disclosure::DisclosedNativeOperation::ProgramUpgrade(value)) => {
+            FeeOnlyLifecycle::Upgrade(value.native())
+        }
+        Some(layerx_crypto::disclosure::DisclosedNativeOperation::ProgramWindDown(value)) => {
+            FeeOnlyLifecycle::WindDown(value.native())
+        }
+        _ => return Err(ProgramSettlementError::UnsupportedOperation),
+    };
+    let protocol = receipt
+        .execution_receipt()
+        .receipt()
+        .protocol()
+        .ok_or(ProgramSettlementError::Receipt)?;
     prestate.validate_receipt(receipt)?;
     if receipt.level() < VerificationLevel::BATCH_INCLUDED
         || receipt.activity_id() != submission.activity_id()
@@ -269,7 +313,7 @@ pub(super) fn verify_remaining_lifecycle_debits(
     } else if !protocol.effects().is_empty() {
         return Err(ProgramSettlementError::Terminal);
     }
-    if protocol.fee_charged() > activity.fee_limit() {
+    if protocol.fee_charged() > prepared.disclosure.fee_limit {
         return Err(ProgramSettlementError::FeeProvenance);
     }
     if protocol.fee_charged() != 0 {
@@ -812,7 +856,7 @@ fn exit_debit(
     })
 }
 
-fn committed_exit_debit(
+pub(super) fn committed_exit_debit(
     state: &CommittedExecutionState,
     actor: [u8; 32],
     program: [u8; 32],
@@ -892,7 +936,7 @@ fn committed_exit_debit(
     })
 }
 
-fn verify_exit_transfer_root(
+pub(super) fn verify_exit_transfer_root(
     debit: &ProgramExecutedDebit,
     root: [u8; 32],
 ) -> Result<(), ProgramSettlementError> {
@@ -1835,4 +1879,138 @@ mod tests {
             .verify_success(&records, [4; 32], 3, 11, &history)
             .is_err());
     }
+}
+
+pub(super) fn native_lifecycle_debits(
+    prepared: &Prepared,
+    state: &CommittedExecutionState,
+    sequence: u64,
+    logs: &[layerx_client::sequencer::SequencerLog],
+) -> Result<Vec<ProgramExecutedDebit>, ProgramSettlementError> {
+    use layerx_crypto::disclosure::DisclosedNativeOperation as Operation;
+    use layerx_crypto::evm_transaction::transaction_hash;
+    let actor = layerx_wire::hash::did_id_for_protocol(prepared.envelope.actor_did(), 3)
+        .map_err(|_| ProgramSettlementError::Preparation)?;
+    let [log] = logs else {
+        return Err(ProgramSettlementError::Terminal);
+    };
+    if log.address != crate::prepare::PrecompileTarget::Programs.address() || log.topics.len() != 2
+    {
+        return Err(ProgramSettlementError::Terminal);
+    }
+    let (program, signature, event_type, body) = match &prepared.disclosure.native_operation {
+        Some(Operation::ProgramDeploy(value)) => {
+            let value = value.native();
+            (
+                value.program_id.bytes(),
+                "ProgramDeployed(bytes32,bytes32)",
+                1,
+                log.data.clone(),
+            )
+        }
+        Some(Operation::ProgramUpgrade(value)) => {
+            let value = value.native();
+            (
+                value.program_id.bytes(),
+                "ProgramUpgraded(bytes32,bytes32,bytes32)",
+                2,
+                log.data.clone(),
+            )
+        }
+        Some(Operation::ProgramWindDown(value)) => {
+            let value = value.native();
+            match value.operation {
+                ProgramWindDownOperation::Exit { account }
+                | ProgramWindDownOperation::BoundedExit { account, .. } => {
+                    if log.topics[0]
+                        != transaction_hash(b"ProgramValueExited(bytes32,bytes32,bytes32)")
+                        || log.topics[1] != value.program_id.bytes()
+                        || log.data.len() != 64
+                        || log.data[..32] != account
+                    {
+                        return Err(ProgramSettlementError::Terminal);
+                    }
+                    let maximum = match value.operation {
+                        ProgramWindDownOperation::BoundedExit {
+                            maximum_exit_amount,
+                            ..
+                        } => Some(maximum_exit_amount),
+                        _ => None,
+                    };
+                    let debit = committed_exit_debit(
+                        state,
+                        actor,
+                        value.program_id.bytes(),
+                        account,
+                        maximum,
+                        sequence,
+                    )?;
+                    verify_exit_transfer_root(&debit, fixed(&log.data[32..])?)?;
+                    return Ok(vec![debit]);
+                }
+                ProgramWindDownOperation::Deprecate { .. }
+                | ProgramWindDownOperation::Tombstone => {
+                    if log.data.len() != 288 {
+                        return Err(ProgramSettlementError::Terminal);
+                    }
+                    let small =
+                        |index: usize, width: usize| -> Result<Vec<u8>, ProgramSettlementError> {
+                            let word = &log.data[index * 32..(index + 1) * 32];
+                            if word[..32 - width].iter().any(|b| *b != 0) {
+                                return Err(ProgramSettlementError::Terminal);
+                            }
+                            Ok(word[32 - width..].to_vec())
+                        };
+                    let mut body = vec![1];
+                    body.extend(small(0, 1)?);
+                    body.extend(small(1, 1)?);
+                    body.extend(&log.data[64..128]);
+                    body.extend(small(4, 8)?);
+                    body.extend(small(5, 8)?);
+                    body.extend(small(6, 2)?);
+                    body.extend(small(7, 2)?);
+                    body.extend(&log.data[256..288]);
+                    let tombstone = matches!(value.operation, ProgramWindDownOperation::Tombstone);
+                    (
+                        value.program_id.bytes(),
+                        if tombstone {
+                            "ProgramTombstoned(bytes32,uint8,uint8,bytes32,bytes32,uint64,uint64,uint16,uint16,bytes32)"
+                        } else {
+                            "ProgramDeprecated(bytes32,uint8,uint8,bytes32,bytes32,uint64,uint64,uint16,uint16,bytes32)"
+                        },
+                        if tombstone { 11 } else { 10 },
+                        body,
+                    )
+                }
+                ProgramWindDownOperation::Route { .. } => {
+                    let mut body = value.program_id.bytes().to_vec();
+                    body.extend(&log.data);
+                    (
+                        value.program_id.bytes(),
+                        "ProgramExitRouteSet(bytes32,bytes32,bytes32,bytes32)",
+                        9,
+                        body,
+                    )
+                }
+            }
+        }
+        _ => return Err(ProgramSettlementError::UnsupportedOperation),
+    };
+    if log.topics != [transaction_hash(signature.as_bytes()), program] {
+        return Err(ProgramSettlementError::Terminal);
+    }
+    let lifecycle = match &prepared.disclosure.native_operation {
+        Some(Operation::ProgramDeploy(value)) => FeeOnlyLifecycle::Deploy(value.native()),
+        Some(Operation::ProgramUpgrade(value)) => FeeOnlyLifecycle::Upgrade(value.native()),
+        Some(Operation::ProgramWindDown(value)) => FeeOnlyLifecycle::WindDown(value.native()),
+        _ => return Err(ProgramSettlementError::UnsupportedOperation),
+    };
+    lifecycle.verify_committed_success(
+        state.program_records(),
+        actor,
+        sequence,
+        event_type,
+        &body,
+    )?;
+    Ok(Vec::new())
 }

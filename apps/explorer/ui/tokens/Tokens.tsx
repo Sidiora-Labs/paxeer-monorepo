@@ -8,8 +8,9 @@ import type { AggregatedTokenInfo } from 'types/client/multichainAggregator';
 import getItemIndex from 'lib/getItemIndex';
 import DataFetchAlert from 'ui/shared/DataFetchAlert';
 import DataListDisplay from 'ui/shared/DataListDisplay';
+import ListPage from 'ui/shared/Page/ListPage';
 import type { QueryWithPagesResult } from 'ui/shared/pagination/useQueryWithPages';
-import { formatScanTableCount, ScanTableCard } from 'ui/shared/scan';
+import { formatScanTableCount } from 'ui/shared/scan';
 
 import TokensListItem from './TokensListItem';
 import TokensTable from './TokensTable';
@@ -98,7 +99,7 @@ const Tokens = ({
   ) : null;
 
   return (
-    <ScanTableCard
+    <ListPage
       title={ title }
       note={ note }
       actions={ actions }
@@ -118,7 +119,7 @@ const Tokens = ({
       >
         { content }
       </DataListDisplay>
-    </ScanTableCard>
+    </ListPage>
   );
 };
 

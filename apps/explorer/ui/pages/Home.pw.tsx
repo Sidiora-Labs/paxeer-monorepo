@@ -7,11 +7,16 @@ import * as blockMock from 'mocks/blocks/block';
 import * as dailyTxsMock from 'mocks/stats/daily_txs';
 import * as statsMock from 'mocks/stats/index';
 import * as statsMainMock from 'mocks/stats/main';
+import { tokenInfoERC20b, tokenInfoERC20c } from 'mocks/tokens/tokenInfo';
 import * as txMock from 'mocks/txs/tx';
 import { test, expect, devices } from 'playwright/lib';
 import * as pwConfig from 'playwright/utils/config';
 
 import Home from './Home';
+
+test.beforeEach(async({ mockApiResponse }) => {
+  await mockApiResponse('general:tokens', { items: [ tokenInfoERC20b, tokenInfoERC20c ], next_page_params: null });
+});
 
 test.describe('default view', () => {
   let component: Locator;
@@ -34,8 +39,7 @@ test.describe('default view', () => {
     component = await render(<Home/>);
   });
 
-  // FIXME: test is flaky, screenshot in docker container is different from local
-  test.skip('-@default +@dark-mode', async({ page }) => {
+  test('base view +@dark-mode', async({ page }) => {
     await expect(component).toHaveScreenshot({
       mask: [ page.locator(pwConfig.adsBannerSelector) ],
       maskColor: pwConfig.maskColor,
@@ -45,7 +49,7 @@ test.describe('default view', () => {
   test.describe('screen xl', () => {
     test.use({ viewport: pwConfig.viewport.xl });
 
-    test('base view', async({ page }) => {
+    test('base view +@dark-mode', async({ page }) => {
       await expect(component).toHaveScreenshot({
         mask: [ page.locator(pwConfig.adsBannerSelector) ],
         maskColor: pwConfig.maskColor,
@@ -58,7 +62,7 @@ test.describe('default view', () => {
 test.describe('mobile', () => {
   test.use({ viewport: devices['iPhone 13 Pro'].viewport });
 
-  test('base view', async({ render, page, mockAssetResponse, mockApiResponse }) => {
+  test('base view +@dark-mode', async({ render, page, mockAssetResponse, mockApiResponse }) => {
     await mockAssetResponse(statsMock.base.coin_image as string, './playwright/mocks/image_s.jpg');
     await mockApiResponse('stats:pages_main', statsMainMock.base);
     await mockApiResponse('general:stats', statsMock.base);
@@ -82,7 +86,7 @@ test.describe('mobile', () => {
   });
 });
 
-test('degradation view', async({ render, mockApiResponse, mockRpcResponse, page }) => {
+test('degradation view +@dark-mode', async({ render, mockApiResponse, mockRpcResponse, page }) => {
   test.slow();
 
   const txs: Array<RpcTransaction> = Array(10)
@@ -137,7 +141,7 @@ test('degradation view', async({ render, mockApiResponse, mockRpcResponse, page 
   });
 });
 
-test('error view', async({ render, mockApiResponse, mockRpcResponse, page }) => {
+test('error view +@dark-mode', async({ render, mockApiResponse, mockRpcResponse, page }) => {
   test.slow();
   await mockApiResponse('stats:pages_main', null as never, { status: 500 });
   await mockApiResponse('general:stats', null as never, { status: 500 });

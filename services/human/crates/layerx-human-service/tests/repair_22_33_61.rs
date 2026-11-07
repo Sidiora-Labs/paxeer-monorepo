@@ -514,6 +514,7 @@ impl AgentDecisionBoundary for AgentPeer<'_> {
                         approver: ApproverId::new("human:mara")
                             .map_err(|_| ApprovalBoundaryError::Corrupt)?,
                         current_sequence: sequence,
+                        current_time: TimestampSeconds(NOW),
                     },
                     self.prepared,
                     self.queue,
@@ -542,6 +543,7 @@ impl AgentDecisionBoundary for AgentPeer<'_> {
                     approver: ApproverId::new("human:mara")
                         .map_err(|_| ApprovalBoundaryError::Corrupt)?,
                     current_sequence: sequence,
+                    current_time: TimestampSeconds(NOW),
                 })
                 .map_err(|_| ApprovalBoundaryError::Unavailable)?,
         )

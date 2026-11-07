@@ -194,8 +194,8 @@ export class AttestorDaemonClient {
       timeoutMs: opts.timeoutMs, healthIntervalMs: 5_000 });
   }
   close(): void { this.client.stop(); }
-  async health(): Promise<Array<{ url: string; nodeId: string | null; ready: boolean }>> {
-    return (await this.client.refreshHealth()).map((node) => ({ url: node.endpoint, nodeId: node.nodeId, ready: node.healthy }));
+  async health(): Promise<Array<{ url: string; nodeId: string | null; ready: boolean; lastError: string | null }>> {
+    return (await this.client.refreshHealth()).map((node) => ({ url: node.endpoint, nodeId: node.nodeId, ready: node.healthy, lastError: node.lastError }));
   }
   async generate(keyId: string, curve: 'secp256k1' | 'ed25519', owner: string, account?: string): Promise<GeneratedKey> {
     const generated = await this.client.generateKey({ keyId, curve, owner, ...(account ? { account } : {}) });

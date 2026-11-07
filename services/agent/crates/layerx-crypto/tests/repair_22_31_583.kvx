@@ -1,0 +1,25 @@
+[repair]
+task = "22.31.583"
+branch = "task/22.31.583"
+decision = "2740"
+continuation_decisions = ["2750", "2751"]
+gotchas = ["3353", "3356", "3366", "3142", "2962"]
+acceptance = "22998.1"
+implementation = "Decode the canonical bindLayerX(bytes32,bytes) call to 0x1004 into BindLayerX; disclose Governance ordinal 1, sender authority, no monetary transfer and the bounded gas fee."
+lifecycle = "Refuse BindLayerX in the human service lifecycle transaction classifier with lifecycle transaction is a bind registration."
+main_alignment = "The sandbox origin/main and the task base both identify f99bcaf9e60d9e5e59b34354ac6eaf59e4307a22; no merge is needed."
+tests = "repair_22_31_583.rs exercises real BindAuthorization::to_call and local signing, exact public key and signature disclosure, field validation, signing digest, ABI word and size refusal, selector refusal and disclosure-bound transaction signing."
+
+[qualification]
+ledger = "/out/run/gates.jsonl"
+revision = "The revision field of this task's final verify entry in the gate ledger identifies the verified candidate."
+build = "hf-build: cargo build --locked --manifest-path services/agent/crates/layerx-crypto/Cargo.toml --tests"
+dependents = "hf-done runs the dependent-crate check before verification; its dependents entry in the gate ledger records the final candidate, crates checked, exit code and private evidence log."
+verify = "hf-done: cg spec done 22.31.583 -f layerx-merge --root /work/paxeer-monorepo"
+verify_cmd = "cargo test --locked --manifest-path services/agent/crates/layerx-crypto/Cargo.toml --test repair_22_31_583 && cargo test --locked --manifest-path services/agent/crates/layerx-crypto/Cargo.toml --lib -- disclosure::call::tests"
+evidence = "Use the gate ledger entries for exact revision, command, exit code and private log location; this record is finalized before qualification and does not claim a result in advance."
+
+[gotcha.payload_error]
+observed = "The prior attempt's PayloadError propagation failure is recorded in gotcha 3356."
+repair = "Explicitly map ActivityType construction failure to DisclosureError::MalformedPayload; retain the exact activity type equality assertion."
+evidence = "This run's qualification entries in /out/run/gates.jsonl identify the repaired candidate and its bounded gate results."

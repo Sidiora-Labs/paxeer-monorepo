@@ -19,6 +19,7 @@ use layerx_agentd::store::{Store, TenantId};
 use layerx_sdk::agent_envelope::{AgentEnvelopeTransport, EnvelopeCredential, EnvelopeError};
 use layerx_sdk::production::SecretBytes;
 use layerx_sdk::programs::LayerXKeyCredential;
+use layerx_types::clock::Clock;
 use serde_json::{json, Map, Value};
 use zeroize::Zeroizing;
 
@@ -28,8 +29,8 @@ use crate::listener::ListenerConfig;
 use crate::server::{DeploymentMode, ReadOnly, Server, ToolDefinition, WebBoundary, WebRoute};
 use crate::stdio::{Bound, DaemonClientSession, Session};
 use crate::tools::web::{
-    ExactPayment, ExactTerms, GrantTerms, SidecarEndpoint, WebConfig, WebPayer, WebPayerError,
-    WebToolError,
+    ExactPayment, ExactTerms, GrantTerms, SidecarEndpoint, WebApprovalResources, WebConfig,
+    WebPayer, WebPayerError, WebToolError,
 };
 
 const MAX_DOCUMENT_BYTES: usize = 65_536;
@@ -277,6 +278,7 @@ struct WebBinding {
 /// never carries key material.
 #[derive(Clone)]
 pub struct WebAuthority {
+    clock: Arc<dyn Clock>,
     approvals: Arc<ApprovalRegistry>,
     payer: Arc<Mutex<Box<dyn WebPayer + Send>>>,
 }
@@ -284,8 +286,13 @@ pub struct WebAuthority {
 impl WebAuthority {
     /// Pairs the registry approvers decide web holds in with the payer that signs web spends.
     #[must_use]
-    pub fn new(approvals: Arc<ApprovalRegistry>, payer: Box<dyn WebPayer + Send>) -> Self {
+    pub fn new(
+        clock: Arc<dyn Clock>,
+        approvals: Arc<ApprovalRegistry>,
+        payer: Box<dyn WebPayer + Send>,
+    ) -> Self {
         Self {
+            clock,
             approvals,
             payer: Arc::new(Mutex::new(payer)),
         }
@@ -300,15 +307,44 @@ impl fmt::Debug for WebAuthority {
 
 impl PartialEq for WebAuthority {
     fn eq(&self, other: &Self) -> bool {
-        Arc::ptr_eq(&self.approvals, &other.approvals) && Arc::ptr_eq(&self.payer, &other.payer)
+        Arc::ptr_eq(&self.approvals, &other.approvals)
+            && Arc::ptr_eq(&self.payer, &other.payer)
+            && Arc::ptr_eq(&self.clock, &other.clock)
     }
 }
 
 impl Eq for WebAuthority {}
 
-struct SharedPayer(Arc<Mutex<Box<dyn WebPayer + Send>>>);
+struct SharedPayer(
+    Arc<Mutex<Box<dyn WebPayer + Send>>>,
+    Option<WebApprovalResources>,
+);
 
 impl WebPayer for SharedPayer {
+    fn approval_resources(&self) -> Option<WebApprovalResources> {
+        self.1.clone()
+    }
+
+    fn prepare_transaction(
+        &mut self,
+        call: &PrecompileCall,
+    ) -> Result<layerx_agentd::prepare::evm::Prepared, WebPayerError> {
+        self.0
+            .lock()
+            .map_err(|_| WebPayerError::Unavailable)?
+            .prepare_transaction(call)
+    }
+
+    fn submit_transaction(
+        &mut self,
+        prepared: &layerx_agent_api::prepare::Prepared,
+    ) -> Result<ExactPayment, WebPayerError> {
+        self.0
+            .lock()
+            .map_err(|_| WebPayerError::Unavailable)?
+            .submit_transaction(prepared)
+    }
+
     fn standing_grant(&mut self, terms: &GrantTerms) -> Result<Option<[u8; 32]>, WebPayerError> {
         self.0
             .lock()
@@ -378,6 +414,14 @@ pub enum DaemonBoundary {
 }
 
 impl ToolBoundary for DaemonBoundary {
+    fn preflight(&mut self, tool: ToolDefinition) -> Result<(), BoundaryRefusal> {
+        match self {
+            Self::Readiness { inner, .. } => inner.preflight(tool),
+            Self::Reads(reads) => reads.preflight(tool),
+            Self::Web(web) => web.preflight(tool),
+        }
+    }
+
     fn execute(
         &mut self,
         tool: ToolDefinition,
@@ -454,6 +498,13 @@ where
         [u8; 32],
     ) -> Result<Value, layerx_agentd::agent_rpc::Rejection>,
 {
+    fn preflight(&mut self, tool: ToolDefinition) -> Result<(), BoundaryRefusal> {
+        match &mut self.inner {
+            Some(inner) => inner.preflight(tool),
+            None => Ok(()),
+        }
+    }
+
     fn execute(
         &mut self,
         tool: ToolDefinition,
@@ -983,7 +1034,8 @@ impl Binding {
                 DaemonBoundary::Web(Box::new(
                     server
                         .route_web(reads, route)
-                        .map_err(DaemonInvocationError::Authority)?,
+                        .map_err(DaemonInvocationError::Authority)?
+                        .with_observed_sequence(core_sequence),
                 ))
             } else {
                 DaemonBoundary::Reads(reads)
@@ -1086,13 +1138,19 @@ impl Binding {
             }
             other => malformed(format!("field web is invalid: {other:?}")),
         })?;
+        let resources = authority
+            .payer
+            .lock()
+            .map_err(|_| BindingError::Refused("the attached web payer is unavailable".to_owned()))?
+            .approval_resources();
         Ok(WebRoute::new(
             config,
             Arc::clone(&authority.approvals),
             ApprovalPolicy {
                 amount_threshold: web.approval_threshold,
             },
-            Box::new(SharedPayer(Arc::clone(&authority.payer))),
+            Box::new(SharedPayer(Arc::clone(&authority.payer), resources)),
+            Arc::clone(&authority.clock),
         ))
     }
 

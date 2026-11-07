@@ -1,0 +1,14 @@
+[repair.22.31.565]
+acceptance = "22998.1"
+gotchas = [2962, 3142, 3228, 3239]
+decisions = [2653, 2664]
+implementation = "Schema 4 migrates only PreparedActivity approval-hold-v1: values with LXAPHLD4, decoding the legacy record and using the existing timed encoder with unknown creation time 0 and the prepared expiry. All other records and core-produced bytes are preserved. Bare legacy replay remains LegacyTimeUnits."
+tests = "migration covers every prior schema including 3 and all three core kinds; repair_22_31_565 covers real produced mixed holds, exact timed encoding, tenant replay and budget restoration across reopen, timestamp and sequence expiry, schema-4 no-rewrite including inode and mtime, bare legacy refusal and atomic corruption refusal."
+
+[qualification]
+ledger = "/out/run/gates.jsonl"
+revision = "The exact verified revision is the final passing verify row, matching the successful build row and final candidate in the private gate ledger."
+build_command = "cargo build --locked --manifest-path services/agent/crates/layerx-agentd/Cargo.toml --tests"
+verify_command = "cg spec done 22.31.565 -f layerx-merge --root /work/paxeer-monorepo"
+verify_test_command = "cargo test --locked --manifest-path services/agent/crates/layerx-agentd/Cargo.toml --test repair_22_31_565 --test migration"
+results = "The matching build and verify ledger rows record revision, command, exit and private log path; no result is asserted before execution. The runner owns publication and this record is not amended after final gates."

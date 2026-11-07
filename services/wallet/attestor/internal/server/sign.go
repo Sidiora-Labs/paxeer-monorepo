@@ -373,7 +373,9 @@ func (s *Server) doSign(r *http.Request, body []byte) (SignResponse, *Error) {
 	if !ok {
 		return SignResponse{}, newError(CodeSessionKind, "kind %q is not supported", req.Kind)
 	}
-	unlock := s.lockKey(req.KeyID)
+	unlockSession := s.lockKey("sign\x00" + requestID(req.KeyID, req.SessionID))
+	defer unlockSession()
+	unlock := s.readKey(req.KeyID)
 	defer unlock()
 	rec, payload, e := s.loadShare(req.KeyID)
 	if e != nil {

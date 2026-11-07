@@ -1,8 +1,8 @@
 use base64::engine::general_purpose::{STANDARD, URL_SAFE_NO_PAD};
 use base64::Engine as _;
 use layerx_agent_api::identity::{
-    NativeLocalGrantConsentV1, NativePreparationPurposeV1, NativeSendPurposeV1,
-    SignedNativeSendPurposeV1,
+    NativeLocalGrantConsentV1, NativePreparationPurposeV1, NativeSendPurposeV2,
+    SignedNativeSendPurposeV2,
 };
 use layerx_client::runtime_clock::RuntimeClock;
 use layerx_human_kms::attestor::{
@@ -274,7 +274,7 @@ fn native_send_provider_and_sdk_real_cluster() -> Result<()> {
     wait(&directory.join("signing.json"), clock.as_ref())?;
     let material: Material =
         serde_json::from_slice(&read_private(&directory.join("signing.json"))?)?;
-    let purpose = NativeSendPurposeV1::from_canonical_bytes(&STANDARD.decode(&material.purpose)?)
+    let purpose = NativeSendPurposeV2::from_canonical_bytes(&STANDARD.decode(&material.purpose)?)
         .map_err(|error| format!("{error:?}"))?;
     let foreign_principal = PrincipalId::new("native-foreign")?;
     let tenancy = TenancyMap::new([
@@ -345,22 +345,21 @@ fn native_send_provider_and_sdk_real_cluster() -> Result<()> {
         .canonical_bytes()
         .map_err(|error| format!("{error:?}"))?;
     assert_eq!(
-        NativeSendPurposeV1::from_canonical_bytes(&canonical)
+        NativeSendPurposeV2::from_canonical_bytes(&canonical)
             .map_err(|error| format!("{error:?}"))?,
         purpose
     );
     assert!(NativePreparationPurposeV1::from_canonical_bytes(&canonical).is_err());
-    assert_eq!(purpose.owner_public_key, public);
-    let signed_purpose = SignedNativeSendPurposeV1 {
+    assert_eq!(purpose.consent_public_key, public);
+    let signed_purpose = SignedNativeSendPurposeV2 {
         purpose: purpose.clone(),
-        owner_public_key: public,
         signature: *result.signature(),
     }
     .validate()
     .map_err(|error| format!("{error:?}"))?;
     let verifier = ed25519_dalek::VerifyingKey::from_bytes(&public)?;
     let signature = ed25519_dalek::Signature::from_bytes(&signed_purpose.signature);
-    for field in 0..16 {
+    for field in 0..17 {
         let mut changed = purpose.clone();
         match field {
             0 => changed.generation += 1,
@@ -370,13 +369,13 @@ fn native_send_provider_and_sdk_real_cluster() -> Result<()> {
             4 => changed.economic_action[0] ^= 1,
             5 => changed.idempotency_key[0] ^= 1,
             6 => changed.commitment[0] ^= 1,
-            7 => changed.network_id += 1,
-            8 => changed.owner_public_key[0] ^= 1,
+            7 => changed.chain_id += 1,
+            8 => changed.consent_public_key[0] ^= 1,
             9 => {
                 changed.activity = layerx_agent_api::identity::NativeActivity::new(1, 6)
                     .map_err(|error| format!("{error:?}"))?
             }
-            10 => changed.protocol_version += 1,
+            10 => changed.transaction_type += 1,
             11 => {
                 changed.session_id = layerx_agent_api::identity::SessionId::new("33".repeat(32))
                     .map_err(|error| format!("{error:?}"))?
@@ -391,12 +390,19 @@ fn native_send_provider_and_sdk_real_cluster() -> Result<()> {
                     .map_err(|error| format!("{error:?}"))?
             }
             14 => {
-                changed.agent_did = layerx_agent_api::identity::AgentDid::new("did:layerx:bob")
-                    .map_err(|error| format!("{error:?}"))?
+                changed.agent_did = layerx_agent_api::identity::AgentDid::new(format!(
+                    "did:layerx:{}",
+                    "bb".repeat(32)
+                ))
+                .map_err(|error| format!("{error:?}"))?
             }
+            15 => changed.evm_sender[0] ^= 1,
             _ => {
-                changed.owner_did = layerx_agent_api::identity::AgentDid::new("did:layerx:bob")
-                    .map_err(|error| format!("{error:?}"))?
+                changed.owner_did = layerx_agent_api::identity::AgentDid::new(format!(
+                    "did:layerx:{}",
+                    "bb".repeat(32)
+                ))
+                .map_err(|error| format!("{error:?}"))?
             }
         }
         if let Ok(bytes) = changed.canonical_bytes() {
@@ -409,14 +415,28 @@ fn native_send_provider_and_sdk_real_cluster() -> Result<()> {
         }
     }
     for length in 0..canonical.len() {
-        assert!(NativeSendPurposeV1::from_canonical_bytes(&canonical[..length]).is_err());
+        assert!(NativeSendPurposeV2::from_canonical_bytes(&canonical[..length]).is_err());
     }
     let mut trailing = canonical.clone();
     trailing.push(0);
-    assert!(NativeSendPurposeV1::from_canonical_bytes(&trailing).is_err());
+    assert!(NativeSendPurposeV2::from_canonical_bytes(&trailing).is_err());
     let mut wrong_owner = signed_purpose.clone();
-    wrong_owner.owner_public_key[0] ^= 1;
-    assert!(wrong_owner.validate().is_err());
+    wrong_owner.purpose.consent_public_key[0] ^= 1;
+    assert!(NativeConsent::SendPurpose(&wrong_owner.purpose)
+        .validate_at(now.saturating_mul(1000), public)
+        .is_err());
+    assert!(layerx_crypto::ed25519::verify_digest(
+        &public,
+        &wrong_owner.signature,
+        &Sha256::digest(
+            wrong_owner
+                .purpose
+                .canonical_bytes()
+                .map_err(|error| format!("{error:?}"))?
+        )
+        .into(),
+    )
+    .is_err());
     let mut expired = purpose.clone();
     expired.expires_at_ms = now.saturating_mul(1000);
     assert!(NativeConsent::SendPurpose(&expired)
@@ -662,5 +682,340 @@ fn native_send_provider_and_sdk_real_cluster() -> Result<()> {
     let stranger =
         sdk.sign_native_send_purpose(&purpose, "rust-foreign-owner", &fixture.foreign_assertion);
     assert!(matches!(stranger,Err(AttestorError::Refused{code,..}) if code=="token_not_owner"));
+    Ok(())
+}
+
+#[test]
+fn native_send_v2_rotated_primary_key_signs_and_releases_under_stable_owner_did() -> Result<()> {
+    rotated_primary_key_release_proof(|signed, _, raw| {
+        let purpose = &signed.purpose;
+        layerx_human_kms::attestor::validate_native_send_release(
+            &signed
+                .canonical_bytes()
+                .map_err(|error| format!("{error:?}"))?,
+            &purpose.owner_did,
+            &purpose.consent_public_key,
+            &purpose.evm_sender,
+            raw,
+        )?;
+        Ok(())
+    })
+}
+
+#[test]
+fn native_send_v2_purpose_with_foreign_consent_key_or_sender_is_refused() -> Result<()> {
+    use ed25519_dalek::Signer as _;
+    use layerx_human_kms::attestor::validate_native_send_release;
+
+    rotated_primary_key_release_proof(|signed, current, raw| {
+        let owner = &signed.purpose.owner_did;
+        let public = signed.purpose.consent_public_key;
+        let sender = signed.purpose.evm_sender;
+        let foreign = ed25519_dalek::SigningKey::from_bytes(&[0x77; 32]);
+        assert_ne!(foreign.verifying_key().to_bytes(), public);
+        let mut wrong_key = signed.clone();
+        wrong_key.purpose.consent_public_key = foreign.verifying_key().to_bytes();
+        wrong_key.signature = foreign
+            .sign(&NativeConsent::SendPurpose(&wrong_key.purpose).digest()?)
+            .to_bytes();
+        assert!(matches!(
+            NativeConsent::SendPurpose(&wrong_key.purpose).validate_at(1_000_000, public),
+            Err(CustodyError::InvalidEvidence)
+        ));
+        assert!(wrong_key
+            .purpose
+            .check_current_owner(owner, &public, &sender)
+            .is_err());
+        assert!(validate_native_send_release(
+            &wrong_key
+                .canonical_bytes()
+                .map_err(|error| format!("{error:?}"))?,
+            owner,
+            &public,
+            &sender,
+            raw,
+        )
+        .is_err());
+        let mut wrong_sender = signed.clone();
+        wrong_sender.purpose.evm_sender[0] ^= 1;
+        wrong_sender.signature = current
+            .sign(&NativeConsent::SendPurpose(&wrong_sender.purpose).digest()?)
+            .to_bytes();
+        assert!(wrong_sender
+            .purpose
+            .check_current_owner(owner, &public, &sender)
+            .is_err());
+        let frame = wrong_sender
+            .canonical_bytes()
+            .map_err(|error| format!("{error:?}"))?;
+        assert!(validate_native_send_release(&frame, owner, &public, &sender, raw).is_err());
+        // Even if the supplied current wallet matches, the independently recovered sender must agree.
+        assert!(validate_native_send_release(
+            &frame,
+            owner,
+            &public,
+            &wrong_sender.purpose.evm_sender,
+            raw,
+        )
+        .is_err());
+        Ok(())
+    })
+}
+
+fn rotated_primary_key_release_proof(
+    check: impl FnOnce(&SignedNativeSendPurposeV2, &ed25519_dalek::SigningKey, &[u8]) -> Result<()>,
+) -> Result<()> {
+    use ed25519_dalek::Signer as _;
+    use layerx_agent_api::identity::{AgentDid, CapabilityId, NativeActivity, SessionId, TenantId};
+    use layerx_crypto::send::{ledger_payment_call, CallOptions, SendDebit};
+    use layerx_human_service::custody::{EnvelopeKms, KeyEntropy, KmsProvider, SignRequest};
+    use layerx_human_test_support::{directory, install_and_open, retention_uniform, tenancy};
+    use layerx_types::intent::SendAuthorizationKind;
+    use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration};
+
+    let root = directory("native-send-v2-rotation");
+    fs::create_dir(&root)?;
+    fs::set_permissions(&root, fs::Permissions::from_mode(0o700))?;
+    let secret_path = root.join("envelope-root");
+    fs::write(&secret_path, [0x42; 64])?;
+    fs::set_permissions(&secret_path, fs::Permissions::from_mode(0o600))?;
+    let provider = || EnvelopeKms::new("file-kms://native-send-v2", &secret_path);
+    let keys = Keystore::open_development(root.join("keys"), 125, provider()?)?;
+    let principal = PrincipalId::new("rotating-owner")?;
+    let key = KeyId::new("primary")?;
+    let original = keys.generate(
+        &principal,
+        &key,
+        KeyClass::HumanPrimary,
+        KeyEntropy::new([0x31; 32], [0x32; 16], [0x33; 24])?,
+    )?;
+    let owner = AgentDid::new(format!(
+        "did:layerx:{}",
+        original
+            .iter()
+            .map(|byte| format!("{byte:02x}"))
+            .collect::<String>()
+    ))
+    .map_err(|error| format!("{error:?}"))?;
+    let current = keys.rotate(&principal, &key)?;
+    assert_ne!(original, current.public_key);
+    assert_eq!(keys.describe(&principal, &key)?, current);
+    let sender = keys.evm_wallet(&principal, &key)?;
+    let seed = provider()?.export_primary_key(
+        &keys.evm_binding(&principal, &key)?,
+        &keys.evm_provider_reference(&principal, &key)?,
+    )?;
+    let consent_key = ed25519_dalek::SigningKey::from_bytes(&seed);
+    assert_eq!(consent_key.verifying_key().to_bytes(), current.public_key);
+    let debit = SendDebit {
+        from: [0x41; 32],
+        to: [0x42; 32],
+        asset: [0x43; 32],
+        amount: 5,
+        source_sequence: 7,
+        idempotency_key: [0x44; 32],
+        expires_at: 1_010,
+        context_hash: [0x45; 32],
+        conditions: Vec::new(),
+        authorization_kind: SendAuthorizationKind::Owner as u8,
+        network_id: 125,
+        protocol_version: 3,
+    };
+    let authorization_digest = layerx_intents::canonical::send_authorization_bytes(&debit)
+        .map_err(|error| format!("{error:?}"))?;
+    let local = layerx_crypto::local::LocalSigner::new(*seed);
+    let authorization = ready(layerx_crypto::signer::Signer::sign(
+        &local,
+        debit
+            .signing_request(&authorization_digest)
+            .map_err(|error| format!("{error:?}"))?,
+    ))??;
+    let payload = layerx_intents::canonical::signed_send_payload(
+        &debit,
+        current.public_key,
+        *authorization.as_bytes(),
+    )
+    .map_err(|error| format!("{error:?}"))?;
+    let prepared = ledger_payment_call(
+        &payload,
+        &CallOptions {
+            from: sender,
+            chain_id: 125,
+            nonce: 7,
+            max_priority_fee_per_gas: 1,
+            max_fee_per_gas: 7,
+            gas_limit: 100_000,
+        },
+    )
+    .map_err(|error| format!("{error:?}"))?;
+    let canonical = prepared.call.encode_unsigned();
+    let digest = Sha256::digest(&canonical).into();
+    let purpose = NativeSendPurposeV2 {
+        tenant: TenantId::new("tenant-a").map_err(|error| format!("{error:?}"))?,
+        agent_did: owner.clone(),
+        owner_did: owner.clone(),
+        consent_public_key: current.public_key,
+        evm_sender: sender,
+        session_id: SessionId::new("51".repeat(32)).map_err(|error| format!("{error:?}"))?,
+        generation: 2,
+        expires_at_ms: 1_010_000,
+        capability_id: CapabilityId::new("52".repeat(32)).map_err(|error| format!("{error:?}"))?,
+        transaction_type: 2,
+        chain_id: 125,
+        activity: NativeActivity::new(1, 5).map_err(|error| format!("{error:?}"))?,
+        preparation_id: digest,
+        canonical_digest: digest,
+        economic_action: [0x53; 32],
+        idempotency_key: debit.idempotency_key,
+        commitment: [0x54; 32],
+    };
+    NativeConsent::SendPurpose(&purpose).validate_at(1_000_000, current.public_key)?;
+    let signed = SignedNativeSendPurposeV2 {
+        purpose: purpose.clone(),
+        signature: consent_key
+            .sign(&NativeConsent::SendPurpose(&purpose).digest()?)
+            .to_bytes(),
+    };
+    let request = layerx_agent_api::prepare::PrepareRequest {
+        protocol_activity_type: layerx_human_service::server::native_send::NATIVE_SEND,
+        actor: owner.clone(),
+        authority: layerx_agent_api::identity::AuthorityRef::new(
+            current
+                .public_key
+                .iter()
+                .map(|byte| format!("{byte:02x}"))
+                .collect::<String>(),
+        )
+        .map_err(|error| format!("{error:?}"))?,
+        account_sequence: layerx_agent_api::Sequence(7),
+        timestamp_bound: layerx_agent_api::prepare::TimestampBound {
+            not_before: layerx_agent_api::TimestampSeconds(1_000),
+            not_after: layerx_agent_api::TimestampSeconds(1_010),
+        },
+        idempotency_key: layerx_agent_api::prepare::IdempotencyRef::new(
+            debit
+                .idempotency_key
+                .iter()
+                .map(|byte| format!("{byte:02x}"))
+                .collect::<String>(),
+        )
+        .map_err(|error| format!("{error:?}"))?,
+        fee_limit: layerx_agent_api::Amount(700_000),
+        payload_hash: Sha256::digest(&payload).into(),
+        payload: layerx_agent_api::prepare::PayloadBytes::new(payload)
+            .map_err(|error| format!("{error:?}"))?,
+    };
+    let wire = layerx_human_service::server::native_send::encode_native_send_prepare_v2(
+        &request, &signed, None,
+    )
+    .map_err(|error| format!("{error:?}"))?;
+    assert_eq!(wire["purpose"]["purpose"]["version"], "2");
+    assert_eq!(wire["purpose"]["purpose"]["owner_did"], owner.as_str());
+    assert_eq!(wire["purpose"]["purpose"]["transaction_type"], "2");
+    assert_eq!(wire["purpose"]["purpose"]["chain_id"], "125");
+    assert_eq!(
+        wire["purpose"]["purpose"]["consent_public_key"],
+        current
+            .public_key
+            .iter()
+            .map(|byte| format!("{byte:02x}"))
+            .collect::<String>()
+    );
+    assert_eq!(
+        wire["purpose"]["purpose"]["evm_sender"],
+        sender
+            .iter()
+            .map(|byte| format!("{byte:02x}"))
+            .collect::<String>()
+    );
+    assert!(wire["purpose"].get("owner_public_key").is_none());
+    let activity = ActivityType::new(ModuleId::Asset, 5).map_err(|error| format!("{error:?}"))?;
+    let registry = ModuleRegistry::new(&[ModuleRegistration::new(ModuleId::Asset, &[activity])
+        .map_err(|error| format!("{error:?}"))?])
+    .map_err(|error| format!("{error:?}"))?;
+    let (store, _) = install_and_open(
+        &root.join("store"),
+        &tenancy(&[(principal.as_str(), "tenant-a")]),
+        retention_uniform(10_000),
+    );
+    let store = Arc::new(std::sync::Mutex::new(store));
+    let custody = CustodySigner::new_shared(
+        keys,
+        Arc::clone(&store),
+        registry.clone(),
+        SigningLimits::new(32, 60)?,
+    );
+    let trace = TraceId::mint([0x61; 16]);
+    let mut retained = store
+        .lock()
+        .map_err(|_| "native rotation store lock poisoned")?;
+    let mut scope = retained.principal(&principal)?;
+    let transaction_signature = ready(custody.sign_in_scope(
+        &mut scope,
+        SignRequest::new(
+            &principal,
+            &key,
+            &trace,
+            SignAuthorization::new(Operation::ProtocolMutation, None),
+            &canonical,
+            &prepared.disclosure,
+            1_000,
+        ),
+    ))??;
+    let transaction_signature =
+        layerx_crypto::signer::AgentSignature::new(*transaction_signature.signature())
+            .map_err(|error| format!("{error:?}"))?;
+    let raw = layerx_crypto::evm_transaction::assemble(&prepared.call, &transaction_signature);
+    let frame = signed
+        .canonical_bytes()
+        .map_err(|error| format!("{error:?}"))?;
+    layerx_human_kms::attestor::validate_native_send_release(
+        &frame,
+        &owner,
+        &current.public_key,
+        &sender,
+        &raw,
+    )?;
+    assert_eq!(signed.purpose.owner_did, owner);
+    assert_ne!(signed.purpose.consent_public_key, original);
+    assert!(NativeConsent::SendPurpose(&purpose)
+        .validate_at(1_000_000, original)
+        .is_err());
+    assert!(layerx_human_kms::attestor::validate_native_send_release(
+        &frame, &owner, &original, &sender, &raw
+    )
+    .is_err());
+    let mut different_sender = sender;
+    different_sender[0] ^= 1;
+    assert!(layerx_human_kms::attestor::validate_native_send_release(
+        &frame,
+        &owner,
+        &current.public_key,
+        &different_sender,
+        &raw
+    )
+    .is_err());
+    let mut changed = signed.clone();
+    changed.purpose.evm_sender = different_sender;
+    changed.signature = consent_key
+        .sign(&NativeConsent::SendPurpose(&changed.purpose).digest()?)
+        .to_bytes();
+    assert!(layerx_human_kms::attestor::validate_native_send_release(
+        &changed
+            .canonical_bytes()
+            .map_err(|error| format!("{error:?}"))?,
+        &owner,
+        &current.public_key,
+        &different_sender,
+        &raw,
+    )
+    .is_err());
+    check(&signed, &consent_key, &raw)?;
+    drop(scope);
+    drop(retained);
+    drop(store);
+    drop(custody);
+    drop(seed);
+    fs::remove_dir_all(root)?;
     Ok(())
 }

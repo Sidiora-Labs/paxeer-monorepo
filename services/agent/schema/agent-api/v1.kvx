@@ -893,6 +893,7 @@ digest = "SHA-256 of bytes LXP/agent/native-registration-prepare/v1 followed by 
 
 
 [record.NativeSendPurposeV1]
+retired = "Retired: validation explicitly refuses with ContractError::Mismatch(native_send.legacy_version); use NativeSendPurposeV2 and SignedNativeSendPurposeV2."
 rust = "layerx_agent_api::identity::NativeSendPurposeV1"
 wire_type = "NativeSendPurposeV1Wire"
 fields = ["version:decimal_string", "tenant:utf8", "agent_did:utf8", "owner_did:utf8", "owner_public_key:hex32", "session_id:hex32", "generation:decimal_string", "expires_at_ms:decimal_string", "capability_id:hex32", "protocol_version:decimal_string", "network_id:decimal_string", "activity:NativeActivityV1", "preparation_id:hex32", "canonical_digest:hex32", "economic_action:hex32", "idempotency_key:hex32", "commitment:hex32"]
@@ -901,11 +902,33 @@ validation = "Configured nonzero chain id, EIP-1559 type 2, ordinary Asset Send 
 authority = "Owner signatures authenticate this distinct consent statement, never an embedded protocol purpose; validate actual principal/session/generation/capability/current authority, native active chain, exact canonical Send and economic action from retained production owners. Existing preparation-purpose and local-grant encodings and refusals remain unchanged."
 
 [record.SignedNativeSendPurposeV1]
+retired = "Retired: validation explicitly refuses with ContractError::Mismatch(native_send.legacy_version); use NativeSendPurposeV2 and SignedNativeSendPurposeV2."
 rust = "layerx_agent_api::identity::SignedNativeSendPurposeV1"
 wire_type = "SignedNativeSendPurposeV1Wire"
 fields = ["purpose:NativeSendPurposeV1", "owner_public_key:hex32", "signature:hex64"]
 signature_digest = "SHA256 exact NativeSendPurposeV1 canonical bytes; duplicate owner_public_key must equal nested owner key and actual current HumanPrimary owner."
 validation = "Data carrier only. Actual cryptographic signer/daemon validates genuine owner signature and fresh authority; local structural validation never establishes authority."
+
+[record.NativeSendPurposeV2]
+rust = "layerx_agent_api::identity::NativeSendPurposeV2"
+wire_type = "NativeSendPurposeV2Wire"
+fields = ["tenant:utf8", "agent_did:utf8", "owner_did:utf8", "consent_public_key:hex32", "evm_sender:hex20", "session_id:hex32", "generation:decimal_string", "expires_at_ms:decimal_string", "capability_id:hex32", "transaction_type:decimal_string", "chain_id:decimal_string", "activity:NativeActivityV1", "preparation_id:hex32", "canonical_digest:hex32", "economic_action:hex32", "idempotency_key:hex32", "commitment:hex32"]
+domain = "LayerX/native/send-purpose/v2"
+version = 2
+transaction_type = 2
+chain_id = 125
+canonical_bytes = "LayerX/native/send-purpose/v2 NUL, u8 version 2, u32BE-length UTF8 tenant/agent_did/owner_did, consent_public_key32, evm_sender20, session32, generation u64BE, expires_at_ms u64BE, capability32, transaction_type u8, chain_id u64BE, NativeActivity.encode five bytes, preparation_id32, canonical_digest32, economic_action32, idempotency_key32, commitment32."
+validation = "Nonempty bounded tenant without NUL; canonical did:layerx: identities, nonzero consent_public_key and evm_sender, canonical session and capability identifiers, nonzero generation/expiry and five digest fields. Exactly EIP-1559 type 2, chain 125 and ordinary Asset Send module 1 ordinal 5. Canonical bytes at most 2048; inverse decoder refuses truncation, trailing bytes and noncanonical reencoding."
+canonical_digest = "SHA256 of the exact prepared unsigned type-2 transaction bytes."
+authority = "Resolve the current stable owner DID, consent_public_key and 20-byte evm_sender independently and compare all three through check_current_owner. check_prepared_transaction binds transaction type, chain id, recovered sender and canonical digest to the retained preparation. Consumers additionally verify authenticated tenant/agent/session/generation, expiry, capability and immutable economic commitment against current authority before release. Neither the consent key nor the EVM sender is derived from the DID."
+
+[record.SignedNativeSendPurposeV2]
+rust = "layerx_agent_api::identity::SignedNativeSendPurposeV2"
+wire_type = "SignedNativeSendPurposeV2Wire"
+fields = ["purpose:NativeSendPurposeV2", "signature:hex64"]
+signature_digest = "SHA256 of the exact NativeSendPurposeV2 canonical bytes, signed with Ed25519 by the current consent key and verified against purpose.consent_public_key."
+canonical_bytes = "LayerX/native/signed-send-purpose/v2 NUL, u32BE purpose byte length, exact NativeSendPurposeV2 canonical bytes, signature64."
+validation = "Structural validation checks the V2 purpose and a nonzero signature; it never establishes authority. Consumers verify the consent signature with the independently resolved current consent key; the sender recovered from the type-2 transaction must equal purpose.evm_sender. The EVM transaction signature remains a separate proof."
 
 [record.NativeSendPrepareRequestV1]
 rust = "layerx_agent_api::identity::NativeSendPrepareRequestV1"

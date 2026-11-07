@@ -1,57 +1,46 @@
-import {
-  Text,
-  HStack,
-  Flex,
-  Box,
-} from '@chakra-ui/react';
+import { Box, chakra } from '@chakra-ui/react';
 import React from 'react';
 
 import type { NavGroupItem } from 'types/client/navigation';
 
+import { Button } from 'toolkit/chakra/button';
 import IconSvg from 'ui/shared/IconSvg';
 
-import LightningLabel from '../LightningLabel';
-import NavLinkIcon from '../NavLinkIcon';
-import useNavLinkStyleProps from '../useNavLinkStyleProps';
-import { checkRouteHighlight } from '../utils';
+import NavLink from '../horizontal/NavLink';
 
 type Props = {
   item: NavGroupItem;
-  onClick: () => void;
+  onClick: (text: string) => void;
   isExpanded?: boolean;
+  onNavLinkClick?: () => void;
 };
 
-const NavLinkGroup = ({ item, onClick, isExpanded }: Props) => {
-  const styleProps = useNavLinkStyleProps({ isActive: item.isActive, isExpanded });
-
-  const isHighlighted = checkRouteHighlight(item.subItems);
+const NavLinkGroup = ({ item, onClick, isExpanded, onNavLinkClick }: Props) => {
+  const panelId = React.useId();
+  const handleClick = React.useCallback(() => onClick(item.text), [ onClick, item.text ]);
 
   return (
-    <Box as="li" listStyleType="none" w="100%" onClick={ onClick }>
-      <Box
-        { ...styleProps.itemProps }
+    <chakra.li listStyleType="none" w="100%" borderBottomWidth="1px" borderColor="hairline">
+      <Button
+        variant="plain"
+        _hover={{ bg: 'accent.soft' }}
         w="100%"
-        px={ 2 }
-        aria-label={ `${ item.text } link group` }
-        color={ item.isActive ? 'link.navigation.fg.selected' : 'link.navigation.fg' }
-        bgColor={ item.isActive ? 'link.navigation.bg.selected' : 'transparent' }
+        justifyContent="space-between"
+        color={ item.isActive ? 'accent' : 'text.primary' }
+        onClick={ handleClick }
+        aria-expanded={ Boolean(isExpanded) }
+        aria-controls={ panelId }
       >
-        <Flex justifyContent="space-between" width="100%" alignItems="center" pr={ 1 }>
-          <HStack gap={ 0 } overflow="hidden">
-            <NavLinkIcon item={ item }/>
-            <Text
-              { ...styleProps.textProps }
-              ml={ 3 }
-            >
-              { item.text }
-            </Text>
-            { isHighlighted && (<LightningLabel iconColor={ item.isActive ? 'link.navigation.bg.selected' : 'link.navigation.bg' }/>) }
-          </HStack>
-          <IconSvg name="arrows/east-mini" transform="rotate(180deg)" boxSize={ 6 }/>
-        </Flex>
+        { item.text }
+        <IconSvg name="arrows/east-mini" boxSize={ 5 } transform={ isExpanded ? 'rotate(90deg)' : 'rotate(-90deg)' }/>
+      </Button>
+      <Box id={ panelId } hidden={ !isExpanded } py={ 2 }>
+        <chakra.ul>
+          { item.subItems.flat().map((link) => <NavLink key={ link.text } item={ link } onClick={ onNavLinkClick }/>) }
+        </chakra.ul>
       </Box>
-    </Box>
+    </chakra.li>
   );
 };
 
-export default NavLinkGroup;
+export default React.memo(NavLinkGroup);

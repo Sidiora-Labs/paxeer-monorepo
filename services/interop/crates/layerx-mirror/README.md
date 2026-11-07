@@ -10,7 +10,7 @@ external publication records archive availability under each destination's
 confirmation policy.
 
 See the [workspace index](../../README.md) and
-[portable receipt guide](../../PORTABILITY.md).
+[portable receipt guide](../../../../docs/interop/PORTABILITY.md).
 
 | Binary | Invocation from the monorepo root |
 | --- | --- |

@@ -162,6 +162,9 @@ func WalletDir(t *testing.T) string {
 
 func ApplyGatewayMigrations(t *testing.T, db *sql.DB) {
 	t.Helper()
+	if _, err := db.Exec(ledgerDDL); err != nil {
+		t.Fatal(err)
+	}
 	dir := filepath.Join(WalletDir(t), "gateway", "migrations")
 	entries, err := os.ReadDir(dir)
 	if err != nil {
@@ -185,6 +188,9 @@ func ApplyGatewayMigrations(t *testing.T, db *sql.DB) {
 		}
 		if _, err := db.Exec(string(sqlText)); err != nil {
 			t.Fatalf("apply %s: %v", f, err)
+		}
+		if _, err := db.Exec(`insert into _migrations(filename) values($1)`, f); err != nil {
+			t.Fatal(err)
 		}
 	}
 	if !hasAttestor {
@@ -210,8 +216,9 @@ type Vector struct {
 }
 
 var (
-	installOnce sync.Once
-	installErr  error
+	installOnce   sync.Once
+	installErr    error
+	workspaceLock *os.File
 )
 
 func installWorkspace(walletDir string) error {
@@ -221,16 +228,32 @@ func installWorkspace(walletDir string) error {
 			installErr = err
 			return
 		}
-		defer lock.Close()
+		defer func() {
+			if workspaceLock == nil {
+				lock.Close()
+			}
+		}()
 		if err := syscall.Flock(int(lock.Fd()), syscall.LOCK_EX); err != nil {
 			installErr = err
 			return
 		}
-		defer syscall.Flock(int(lock.Fd()), syscall.LOCK_UN)
-		cmd := exec.Command("sh", "-c", "cd '"+walletDir+"' && pnpm install --frozen-lockfile")
+		cmd := exec.Command("pnpm", "install", "--frozen-lockfile")
+		cmd.Dir = filepath.Join(walletDir, "gateway")
 		if out, err := cmd.CombinedOutput(); err != nil {
 			installErr = fmt.Errorf("pnpm install: %v\n%s", err, out)
+			return
 		}
+		// The gateway chain fixture imports the agent SDK's sequencer log codec.
+		cmd = exec.Command("npm", "ci", "--workspaces=false", "--no-audit", "--no-fund")
+		cmd.Dir = filepath.Join(walletDir, "..", "agent", "sdk", "typescript")
+		if out, err := cmd.CombinedOutput(); err != nil {
+			installErr = fmt.Errorf("agent SDK npm ci: %v\n%s", err, out)
+			return
+		}
+		// Another package's npm ci removes dependencies still used by this
+		// package's gateway scripts. Retain the lock for the test process;
+		// the OS releases it on exit, after all its consumers have stopped.
+		workspaceLock = lock
 	})
 	return installErr
 }
@@ -242,7 +265,8 @@ func GatewayVectors(t *testing.T, masterKeyB64 string, count int) []Vector {
 		t.Fatal(err)
 	}
 	script := filepath.Join(walletDir, "ceremony", "testdata", "gateway-envelope.mts")
-	cmd := exec.Command("sh", "-c", "cd '"+filepath.Join(walletDir, "gateway")+"' && pnpm exec tsx '"+script+"' "+strconv.Itoa(count))
+	cmd := exec.Command("pnpm", "exec", "tsx", script, strconv.Itoa(count))
+	cmd.Dir = filepath.Join(walletDir, "gateway")
 	cmd.Env = append(os.Environ(), "CEREMONY_MASTER_KEY="+masterKeyB64)
 	var stderr strings.Builder
 	cmd.Stderr = &stderr

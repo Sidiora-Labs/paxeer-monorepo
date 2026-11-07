@@ -27,19 +27,18 @@ In this repository the module is wired into the Paxeer X chain application in [`
 1. **[Concepts](01_concepts.md)**
    - [States](01_concepts.md#states)
    - [Tombstone Caps](01_concepts.md#tombstone-caps)
-   - [ASCII timelines](01_concepts.md#ascii-timelines)
+   - [Infraction Timelines](01_concepts.md#infraction-timelines)
 2. **[State](02_state.md)**
-   - [Signing Info](02_state.md#signing-info)
+   - [Signing Info](02_state.md#signing-info-liveness)
 3. **[Messages](03_messages.md)**
    - [Unjail](03_messages.md#unjail)
 4. **[Begin-Block](04_begin_block.md)**
-   - [Evidence handling](04_begin_block.md#evidence-handling)
-   - [Uptime tracking](04_begin_block.md#uptime-tracking)
+   - [Liveness Tracking](04_begin_block.md#liveness-tracking)
 5. **[05_hooks.md](05_hooks.md)**
    - [Hooks](05_hooks.md#hooks)
 6. **[Events](06_events.md)**
-   - [BeginBlocker](06_events.md#beginblocker)
-   - [Handlers](06_events.md#handlers)
+   - [BeginBlocker](06_events.md#beginblocker-handlevalidatorsignature)
+   - [MsgServer](06_events.md#msgserver)
 7. **[Staking Tombstone](07_tombstone.md)**
    - [Abstract](07_tombstone.md#abstract)
 8. **[Parameters](08_params.md)**

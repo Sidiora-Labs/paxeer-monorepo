@@ -25,11 +25,11 @@ The production image is built from [`docker/wallet-pwa/Dockerfile`](../../docker
 
 ## Documentation
 
-- [docs/architecture](docs/architecture/README.md): entry point, routes, providers, server edge
-- [docs/architecture/storage-forensics.md](docs/architecture/storage-forensics.md): browser storage registry
-- [docs/api](docs/api/README.md): server routes under `src/app/api`
-- [docs/development](docs/development/README.md) and [docs/deployment](docs/deployment/README.md)
-- [docs/operations/runbooks.md](docs/operations/runbooks.md): recovery runbooks
+- [architecture](../../docs/wallet/app/architecture/README.md): entry point, routes, providers, server edge
+- [storage forensics](../../docs/wallet/app/architecture/storage-forensics.md): browser storage registry
+- [API](../../docs/wallet/app/api/README.md): server routes under `src/app/api`
+- [development](../../docs/wallet/app/development/README.md) and [deployment](../../docs/wallet/app/deployment/README.md)
+- [operations runbooks](../../docs/wallet/app/operations/runbooks.md): recovery runbooks
 
 ## Configuration
 
@@ -83,6 +83,6 @@ Every value is supplied through the environment at build or run time; no environ
 
 Each configured `NEXT_PUBLIC_*` network base (`src/pwa/config.ts`) joins the content security policy connect list in `src/lib/security/csp.ts`.
 
-The name widget shows `name service not configured` with no actions until the .pax contracts of task 19.1.3 are deployed and all three contract addresses are set and valid. Website records store a 32-byte manifest digest prefixed with the Paxeer contenthash tag `0x70617831`. Set website accepts a `0x`-prefixed 64-hex digest; configure `NEXT_PUBLIC_PNS_SHELL_DOMAIN` to enable the Website link. By default, name reads use `/wallet/api/pns` and the five indexer proxy routes under `src/app/api/pns` forward to `PNS_API_ORIGIN`. Without a valid origin they return 503 `name_service_not_configured` without contacting an upstream, and the wallet helpers return empty results.
+The name widget shows `name service not configured` with no actions until the .pax name contracts are deployed and all three contract addresses are set and valid. Website records store a 32-byte manifest digest prefixed with the Paxeer contenthash tag `0x70617831`. Set website accepts a `0x`-prefixed 64-hex digest; configure `NEXT_PUBLIC_PNS_SHELL_DOMAIN` to enable the Website link. By default, name reads use `/wallet/api/pns` and the five indexer proxy routes under `src/app/api/pns` forward to `PNS_API_ORIGIN`. Without a valid origin they return 503 `name_service_not_configured` without contacting an upstream, and the wallet helpers return empty results.
 
 `.env` and `.env.*` are ignored by git, together with build output, native intermediates, signing files and editor and OS artefacts; see `.gitignore`.

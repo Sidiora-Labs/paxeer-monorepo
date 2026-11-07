@@ -38,7 +38,7 @@ check_refuses() {
 	local tmp out code
 	tmp=$(mktemp -d) || return 1
 	git clone -q --shared --no-checkout . "$tmp/repo" &&
-		git -C "$tmp/repo" checkout -q HEAD -- docs services/platform/docs README.md sdk/platform spec tools/bringup/docs-names.sh || {
+		git -C "$tmp/repo" checkout -q HEAD -- docs docs/platform README.md sdk/platform spec tools/bringup/docs-names.sh || {
 		rm -rf "$tmp"
 		return 1
 	}
@@ -74,9 +74,9 @@ for page in \
 	docs/site/docs/operators/beta-control.md \
 	docs/wiki/HostedFaucet.md \
 	docs/wiki/HostedBetaControl.md \
-	services/platform/docs/beta-environment.md \
-	services/platform/docs/content/beta.md \
-	services/platform/docs/beta-resets.ics; do
+	docs/platform/beta-environment.md \
+	docs/platform/content/beta.md \
+	docs/platform/beta-resets.ics; do
 	check "private-network-only:$page" private_network_only "$page"
 done
 

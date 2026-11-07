@@ -124,8 +124,8 @@ const TxsTableItem = ({
         </VStack>
       </TableCell>
       { showBlockInfo && (
-        <TableCell>
-          <Flex alignItems="center" gap={ 2 }>
+        <TableCell isNumeric>
+          <Flex alignItems="center" justifyContent="flex-end" gap={ 2 }>
             { tx.block_number && (
               <BlockEntity
                 isLoading={ isLoading }
@@ -171,7 +171,7 @@ const TxsTableItem = ({
               exchangeRate={ tx.exchange_rate }
               historicalExchangeRate={ tx.historic_exchange_rate }
               layout="vertical"
-              rowGap={ 3 }
+              rowGap={ 0 }
             />
           ) }
         </TableCell>
@@ -185,7 +185,7 @@ const TxsTableItem = ({
               loading={ isLoading }
               noSymbol={ !(tx.celo || tx.stability_fee) }
               layout="vertical"
-              rowGap={ 3 }
+              rowGap={ 0 }
             />
           ) }
         </TableCell>

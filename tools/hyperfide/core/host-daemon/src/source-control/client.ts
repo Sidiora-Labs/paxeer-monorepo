@@ -1,0 +1,2 @@
+export { SourceWorkspaceError, workspaceError, nativeObjectId, fileObjectId, rawDigest, repositoryPath, withinScope, assertObjectId, NativeWorkspaceClient } from "@hyperfide/source-control/host";
+export type { SourceScope, SourceMode, WorkspaceBudgets, WorkspaceDescriptor, SourceEntry, SourceObject, SourceTransport, WorkspaceChange, CheckpointRequest, CheckpointResult } from "@hyperfide/source-control/host";

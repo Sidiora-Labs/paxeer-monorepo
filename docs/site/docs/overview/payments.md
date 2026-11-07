@@ -32,10 +32,10 @@ Obtain these inputs independently of the response you intend to verify:
 - authorized receipt key ids, public keys and height ranges;
 - trusted consensus configuration when independently proving block commitment.
 
-Hosted `px_` methods belong to the gateway contract in
-`services/platform/hosted/gateway/openrpc.json`. Obtain the gateway's
-operator-provided connection and credential settings for those methods;
-do not assume all public nodes expose them. The legacy `lx_` activity
+The node serves the `px` namespace at the root. `px_register` and
+`px_requestFunds` are hosted operations declared in
+`services/platform/hosted/gateway/openrpc.json`; obtain the gateway's
+operator-provided connection and credential settings for them. The legacy `lx_` activity
 submission methods are retired and gateway dispatch returns `-32601`.
 
 ## 2. Create or import a signing key

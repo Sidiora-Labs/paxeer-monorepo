@@ -13,6 +13,7 @@ import (
 	"math"
 	"math/big"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -40,6 +41,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core"
+	"github.com/ethereum/go-ethereum/core/tracing"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -58,6 +60,11 @@ const (
 	seqVecUCPCommand      = "go test -count=1 ./rpc/ -run '^TestRepairM_466_UCPCheckoutReceiptVector$' -update"
 	seqVecUCPDomain       = "LayerX/interop/ucp/idempotency/v1\x00"
 	seqVecUCPIdempotency  = "123e4567-e89b-12d3-a456-426614174000"
+	seqVecFiatFixture     = "../sdk/platform/conformance/fixtures/fiat-receipts-v1.json"
+	seqVecFiatJourneys    = "../services/interop/specs/conformance/fiat/sequenced-journeys.json"
+	seqVecFiatSource      = "../daemon/committed-fixture/vectors/vector-v4-committed.json"
+	seqVecFiatSourceHash  = "5013cd232ee94ece8d25fca4c802ca60c892f3a5f637a70962d9909dc71c4e7b"
+	seqVecFiatCommand     = "go test -count=1 ./rpc/ -run '^TestRepairM_489_FiatJourneysDerived$' -update"
 	seqVecGenerator       = "rpc/sequencer_receipt_vectors_test.go"
 	seqVecCommand         = "go test -count=1 ./rpc/ -run TestSequencerReceiptVectors -update"
 	seqVecChainID         = 125
@@ -127,6 +134,8 @@ type seqVecCase struct {
 type seqVecProvenance struct {
 	Generator string `json:"generator"`
 	Command   string `json:"command"`
+	Source    string `json:"source,omitempty"`
+	SHA256    string `json:"sha256,omitempty"`
 }
 
 type seqVecFile struct {
@@ -474,14 +483,33 @@ func seqVecBridgeOut(t *testing.T, nonce uint64) seqVecTx {
 	}
 }
 
-func seqVecProgramsCall(t *testing.T, b *seqVecBuilder, nonce uint64) seqVecTx {
+func seqVecAiMarketChainDomain() [32]byte {
+	// Match layerx-programs-ai-market::merged_chain_domain for chain 125.
+	return sha256.Sum256(binary.BigEndian.AppendUint64([]byte("PAXAI/chain-domain/v1"), seqVecChainID))
+}
+
+func seqVecProgramsCall(t *testing.T, b *seqVecBuilder, nonce uint64, rewardGuest ...[]byte) seqVecTx {
 	t.Helper()
 	a := app.Setup(t, false, false, false)
 	ctx, _ := a.GetContextForDeliverTx(nil).CacheContext()
 	ctx = ctx.WithBlockHeight(seqVecFirstHeight + 2).WithBlockTime(time.UnixMilli(seqVecTimeBase + (seqVecFirstHeight+2)*seqVecBlockMs))
+	if len(rewardGuest) != 0 {
+		ctx = ctx.WithBlockHeight(1).WithBlockTime(time.UnixMilli(seqVecTimeBase + seqVecBlockMs))
+	}
 	ctx = ctx.WithGasMeter(sdk.NewInfiniteGasMeterWithMultiplier(ctx)).WithEventManager(sdk.NewEventManager())
 	key := a.GetKey(app.LayerXHostStoreKey)
-	host, err := lxphost.NewHost(lxphost.Config{StoreKey: key, NetworkID: seqVecChainID, ParameterVersion: 1, TimestampWindowMs: 60000, GasLimit: 1000000})
+	programsGuestABI := uint16(4)
+	kernelGasLimit := uint64(1000000)
+	if len(rewardGuest) != 0 {
+		// LX_PROGRAMS_GUEST_ABI_V5_VERSION selects programs_module_registration_v5
+		// in lxphost, matching the ABI of the source-built reward guest.
+		programsGuestABI = 5
+		// ai_market.prepareOperation forwards the caller's resource and gas
+		// terms without a fixed Fund allowance. Match the production native
+		// host allowance in node/app.go for the authority-bearing reward call.
+		kernelGasLimit = 10000000
+	}
+	host, err := lxphost.NewHost(lxphost.Config{StoreKey: key, NetworkID: seqVecChainID, ParameterVersion: 1, ProgramsGuestABI: programsGuestABI, TimestampWindowMs: 60000, GasLimit: kernelGasLimit})
 	require.NoError(t, err)
 	t.Cleanup(host.Close)
 	private := ed25519.NewKeyFromSeed(bytes.Repeat([]byte{0x41}, ed25519.SeedSize))
@@ -503,6 +531,11 @@ func seqVecProgramsCall(t *testing.T, b *seqVecBuilder, nonce uint64) seqVecTx {
 		initialFee = binary.BigEndian.AppendUint64(initialFee, 1)
 	}
 	occupancyAsset := [32]byte{0x91}
+	occupancySalt := bytes.Repeat([]byte{0x56}, 32)
+	if len(rewardGuest) != 0 {
+		material := append([]byte("LX:ASSET:v1"), authority.Actor[:]...)
+		occupancyAsset = sha256.Sum256(append(material, occupancySalt...))
+	}
 	initialFee = append(initialFee, occupancyAsset[:]...)
 	for _, value := range []uint64{1000, 8, 1, 8, 1, 100, 1, 0, 1} {
 		initialFee = binary.BigEndian.AppendUint64(initialFee, value)
@@ -530,6 +563,13 @@ func seqVecProgramsCall(t *testing.T, b *seqVecBuilder, nonce uint64) seqVecTx {
 		require.NoError(t, err)
 		require.Zero(t, receipt.ResultCode)
 	}
+	if len(rewardGuest) != 0 {
+		registration := append([]byte{0, 1}, occupancyAsset[:]...)
+		registration = append(registration, occupancySalt...)
+		registration = append(registration, 1, 'O', 1, 'O', 6)
+		registration = binary.BigEndian.AppendUint64(binary.BigEndian.AppendUint64(registration, 0), 1000000000)
+		execute(0x00010001, append(registration, 1, 0))
+	}
 	salt := bytes.Repeat([]byte{0x55}, 32)
 	assetMaterial := append([]byte("LX:ASSET:v1"), authority.Actor[:]...)
 	asset := sha256.Sum256(append(assetMaterial, salt...))
@@ -555,8 +595,13 @@ func seqVecProgramsCall(t *testing.T, b *seqVecBuilder, nonce uint64) seqVecTx {
 	main = field(main, []byte(mainName))
 	main = append(main, 1)
 	main = binary.BigEndian.AppendUint64(main, 0)
-	main = binary.BigEndian.AppendUint64(main, 100000000)
+	main = binary.BigEndian.AppendUint64(main, 1000000000)
 	mainAsset := [32]byte{0x91}
+	feeAsset := asset
+	if len(rewardGuest) != 0 {
+		mainAsset = occupancyAsset
+		feeAsset = occupancyAsset
+	}
 	main = field(main, mainAsset[:])
 	main = append(main, 1)
 	main = binary.BigEndian.AppendUint64(main, 0)
@@ -566,7 +611,7 @@ func seqVecProgramsCall(t *testing.T, b *seqVecBuilder, nonce uint64) seqVecTx {
 	store.Set(append([]byte{6}, mainID[:]...), append(main, 1))
 	mainAccount, err := host.ReadAccount(ctx, mainName, mainID)
 	require.NoError(t, err)
-	require.Equal(t, int64(100000000), mainAccount.Balance.Int64())
+	require.Equal(t, int64(1000000000), mainAccount.Balance.Int64())
 
 	treasuryID, err := codec.DeriveAccountID([]byte("system:fees"))
 	require.NoError(t, err)
@@ -574,7 +619,7 @@ func seqVecProgramsCall(t *testing.T, b *seqVecBuilder, nonce uint64) seqVecTx {
 	treasury = field(treasury, []byte("system:fees"))
 	treasury = append(treasury, 10)
 	treasury = append(treasury, make([]byte, 16)...)
-	treasury = field(treasury, asset[:])
+	treasury = field(treasury, feeAsset[:])
 	treasury = append(treasury, 1)
 	treasury = append(treasury, make([]byte, 16)...)
 	treasury = append(treasury, 0, 0)
@@ -584,13 +629,13 @@ func seqVecProgramsCall(t *testing.T, b *seqVecBuilder, nonce uint64) seqVecTx {
 	require.NoError(t, err)
 	require.False(t, treasuryAccount.Frozen)
 	require.True(t, treasuryAccount.Balance.IsZero())
-	require.Equal(t, asset, treasuryAccount.AssetID)
+	require.Equal(t, feeAsset, treasuryAccount.AssetID)
 
 	fee := binary.BigEndian.AppendUint32([]byte("LXFR1"), 1)
 	for i := 0; i < 7; i++ {
 		fee = binary.BigEndian.AppendUint64(fee, 1)
 	}
-	fee = append(fee, asset[:]...)
+	fee = append(fee, feeAsset[:]...)
 	for _, value := range []uint64{1000, 8, 1, 8, 1, 100, 1, 0, 1} {
 		fee = binary.BigEndian.AppendUint64(fee, value)
 	}
@@ -598,6 +643,20 @@ func seqVecProgramsCall(t *testing.T, b *seqVecBuilder, nonce uint64) seqVecTx {
 	fee = append(fee, make([]byte, 16)...)
 	store.Set(moduleKey([]byte("progfee/active/v1")), fee)
 	store.Set(moduleKey(binary.BigEndian.AppendUint32([]byte("progfee/history/v1/"), 1)), fee)
+	store.Set(moduleKey(binary.BigEndian.AppendUint32([]byte("progfee/history/v1/"), 1)), fee)
+	if len(rewardGuest) != 0 {
+		// Follow repair478Run's production occupancy lifecycle from genesis;
+		// CREATE commits in the preceding block before Fund reads its balance.
+		for ctx.BlockHeight() < seqVecFirstHeight+1 {
+			last, err := host.ReadLastSequence(ctx, did)
+			require.NoError(t, err)
+			finalized, err := host.FinalizeProgramsOccupancy(lxphost.WithSequence(ctx, last+1), codec.StateCommitmentProtocolVersion)
+			require.NoError(t, err)
+			require.NotEmpty(t, finalized)
+			ctx = ctx.WithBlockHeight(ctx.BlockHeight() + 1)
+			ctx = ctx.WithBlockTime(time.UnixMilli(seqVecTimeBase + ctx.BlockHeight()*seqVecBlockMs))
+		}
+	}
 
 	wasm := []byte{
 		0, 97, 115, 109, 1, 0, 0, 0, 1, 12, 2, 96, 2, 127, 127, 1, 127, 96, 1, 127, 1, 127,
@@ -613,6 +672,9 @@ func seqVecProgramsCall(t *testing.T, b *seqVecBuilder, nonce uint64) seqVecTx {
 	iface = append(iface, 0, 1, 0, 1, 0, 11)
 	iface = append(iface, "layerx_call"...)
 	iface = append(iface, 0, 0, 0, 0, 1, 0x20, 0, 0, 0, 64, 1, 0x20, 0, 0, 0, 64, 0, 0, 0, 0, 0, 0)
+	if len(rewardGuest) != 0 {
+		iface = nil
+	}
 	rawABI, err := os.ReadFile("../precompiles/layerxprograms/abi.json")
 	require.NoError(t, err)
 	programs, err := abi.JSON(bytes.NewReader(rawABI))
@@ -621,6 +683,7 @@ func seqVecProgramsCall(t *testing.T, b *seqVecBuilder, nonce uint64) seqVecTx {
 	input, err := programs.Pack("call", program, uint16(1), "layerx_call", []byte{}, []byte{0, 0}, []byte("LayerX/programs/access-declaration/v1\x00\x00"), uint32(64), budget, big.NewInt(100000000))
 	require.NoError(t, err)
 	tx := seqVecTx{nonce: nonce, to: lp.Address, value: new(big.Int), data: input, gasLimit: 20000000, status: uint32(ethtypes.ReceiptStatusSuccessful)}
+	callMethod := "call"
 	ctx = ctx.WithEVMTxHash(b.signTx(tx).Hash())
 	precompile, err := lp.NewPrecompile(host, &a.EvmKeeper, a.EvmKeeper.UpgradeKeeper(), app.MergeUpgrade)
 	require.NoError(t, err)
@@ -629,27 +692,176 @@ func seqVecProgramsCall(t *testing.T, b *seqVecBuilder, nonce uint64) seqVecTx {
 	block, err := a.EvmKeeper.GetVMBlockContext(ctx, core.GasPool(math.MaxUint64))
 	require.NoError(t, err)
 	evm := vm.NewEVM(*block, db, evmtypes.DefaultChainConfig().EthereumConfig(a.EvmKeeper.ChainID(ctx)), vm.Config{}, map[common.Address]vm.PrecompiledContract{lp.Address: precompile})
-	deploy, err := programs.Pack("deploy", program, uint16(1), uint8(1), authority.Principal, codeHash, iface, wasm)
+	guestABI := uint16(1)
+	if len(rewardGuest) != 0 {
+		// Account profile 2 opts in at ABI2 and remains bound across the
+		// subsequent upgrade to the source-built ABI5 AI guest.
+		guestABI = 2
+	}
+	deploy, err := programs.Pack("deploy", program, guestABI, uint8(1), authority.Principal, codeHash, iface, wasm)
 	require.NoError(t, err)
-	output, _, err := evm.Call(b.sender, lp.Address, deploy, 2000000, uint256.NewInt(0))
-	require.NoError(t, err, "deploy committed runtime fixture: %x; %v", output, db.GetPrecompileError())
+	output, _, err := evm.Call(b.sender, lp.Address, deploy, max(2000000, lp.RequiredGas(deploy)), uint256.NewInt(0))
+	if err != nil {
+		reason, decodeErr := abi.UnpackRevert(output)
+		require.NoError(t, err, "deploy committed runtime fixture: %s (decode: %v); %v", reason, decodeErr, db.GetPrecompileError())
+	}
 	record, err := host.ReadProgram(db.Ctx(), program)
 	require.NoError(t, err)
 	require.True(t, record.Active)
 	require.Equal(t, codeHash, record.CodeHash)
+	if len(rewardGuest) != 0 {
+		seed := []byte("paxai/rewards/v1")
+		rewardsPreimage := append([]byte("LayerX/programs/program-account/v1\x00"), program[:]...)
+		rewards := sha256.Sum256(append(binary.BigEndian.AppendUint32(rewardsPreimage, uint32(len(seed))), seed...))
+		register, err := programs.Pack("registerAccount", program, uint8(2), asset, seed)
+		require.NoError(t, err)
+		result, _, err := evm.Call(b.sender, lp.Address, register, 20000000, uint256.NewInt(0))
+		require.NoError(t, err, "register reward account: %x; %v", result, db.GetPrecompileError())
+		rewardHash := sha256.Sum256(rewardGuest[0])
+		// Match tests/programs/test_ai_host_boundary.c::deploy_artifact:
+		// register the account at ABI2, then upgrade before any ABI5 call.
+		upgrade, err := programs.Pack("upgrade", program, programsGuestABI, uint8(0), codeHash, rewardHash, []byte{}, []byte{}, rewardGuest[0], big.NewInt(100000000))
+		require.NoError(t, err)
+		result, _, err = evm.Call(b.sender, lp.Address, upgrade, max(20000000, lp.RequiredGas(upgrade)), uint256.NewInt(0))
+		require.NoError(t, err, "upgrade to source-built AI market: %x; %v", result, db.GetPrecompileError())
+		record, err = host.ReadProgram(db.Ctx(), program)
+		require.NoError(t, err)
+		require.Equal(t, programsGuestABI, record.ABIVersion)
+		require.Equal(t, rewardHash, record.CodeHash)
+		chain := seqVecAiMarketChainDomain()
+		market := sha256.Sum256(append(append([]byte("PAXAI/market/v1\x00"), chain[:]...), program[:]...))
+		envelope := func(selector uint16, sequence uint64, payload []byte) []byte {
+			out := binary.BigEndian.AppendUint16([]byte("PAXAI1\x00\x01"), selector)
+			out = append(out, chain[:]...)
+			out = append(out, program[:]...)
+			out = append(out, market[:]...)
+			out = append(out, actor[:]...)
+			out = binary.BigEndian.AppendUint64(out, 0)
+			out = binary.BigEndian.AppendUint64(out, 1)
+			out = append(out, make([]byte, 32)...)
+			out = binary.BigEndian.AppendUint64(out, sequence)
+			out = binary.BigEndian.AppendUint64(out, 1000000)
+			out = append(out, bytes.Repeat([]byte{byte(sequence)}, 32)...)
+			out = binary.BigEndian.AppendUint32(out, uint32(len(payload)))
+			out = append(out, payload...)
+			return append(out, 0)
+		}
+		// Match registry_ops::CreateRequest::parse and policy::TaskPolicyV1::encode,
+		// as exercised by tests/host_boundary.rs::Native::create_payload. Versions
+		// use the nonzero big-endian u64 representation of codec::Reader::version
+		// and types::Version (also used by state and reputation_codec).
+		const configVersion uint64 = 1
+		policy := binary.BigEndian.AppendUint64(nil, configVersion)
+		policy = append(policy, 1, 1)
+		for n := byte(1); n <= 7; n++ {
+			policy = append(policy, bytes.Repeat([]byte{n}, 32)...)
+		}
+		policy = append(policy, 32, 8)
+		policy = binary.BigEndian.AppendUint16(policy, 64)
+		policy = binary.BigEndian.AppendUint32(policy, 1048576)
+		policy = binary.BigEndian.AppendUint32(policy, 1048576)
+		policy = binary.BigEndian.AppendUint16(policy, 32)
+		policy = binary.BigEndian.AppendUint32(policy, 0)
+		policy = binary.BigEndian.AppendUint32(policy, 1000000)
+		policy = binary.BigEndian.AppendUint64(policy, 0)
+		policy = binary.BigEndian.AppendUint64(policy, 101) // epoch_budget_cap: u128
+		policy = binary.BigEndian.AppendUint64(policy, 0)
+		policy = binary.BigEndian.AppendUint64(policy, 1) // minimum_epoch_funding: u128
+		policy = append(policy, 1, 3, 1)                  // minimum workers, evaluators, affiliation
+		policy = append(policy, make([]byte, 16)...)
+		require.Len(t, policy, 307)
+		create := append(bytes.Clone(actor[:]), asset[:]...)
+		create = append(create, rewards[:]...)
+		create = append(create, payer[:]...)
+		create = append(create, 0)
+		create = append(create, policy...)
+		create = append(create, bytes.Repeat([]byte{16}, 32)...)
+		require.Len(t, create, 4*32+1+307+32)
+		budget = [7]uint64{1000000, 16777216, 1048576, 1048576, 64, 1048576, 4096}
+		caps := []byte{0, 3, 3, 7, 8}
+		access := []byte("LayerX/programs/access-declaration/v1\x00\x00")
+		createInput, err := programs.Pack("call", program, programsGuestABI, "layerx_call", envelope(0x0101, 1, create), caps, access, uint32(1048576), budget, big.NewInt(100000000))
+		require.NoError(t, err)
+		result, _, err = evm.Call(b.sender, lp.Address, createInput, 20000000, uint256.NewInt(0))
+		if err != nil {
+			reason, decodeErr := abi.UnpackRevert(result)
+			require.NoError(t, err, "create AI market: %s (decode: %v); %v", reason, decodeErr, db.GetPrecompileError())
+		}
+		created, err := programs.Methods["call"].Outputs.Unpack(result)
+		require.NoError(t, err)
+		require.Equal(t, int32(0), created[0], "AI market CREATE must execute")
+		require.Equal(t, uint8(1), created[1])
+		fund := make([]byte, 16)
+		fund[15] = 120
+		fund = append(fund, payer[:]...)
+		fund = binary.BigEndian.AppendUint64(fund, 1)
+		fund = append(fund, 1)
+		last, err := host.ReadLastSequence(db.Ctx(), did)
+		require.NoError(t, err)
+		finalized, err := host.FinalizeProgramsOccupancy(lxphost.WithSequence(db.Ctx(), last+1), codec.StateCommitmentProtocolVersion)
+		require.NoError(t, err)
+		require.NotEmpty(t, finalized)
+		// Profile 2 opted in at ABI2; ABI5 re-registers the existing binding
+		// with profile 1, preserving that opt-in rather than requesting it anew.
+		readPayload, err := lp.EncodeAccountPayload(program, 1, asset, seed)
+		require.NoError(t, err)
+		sequence, err := host.ReadIdentitySequence(db.Ctx(), did)
+		require.NoError(t, err)
+		last, err = host.ReadLastSequence(db.Ctx(), did)
+		require.NoError(t, err)
+		sightReceipt, err := lxphost.ExecuteActivity(lxphost.WithSequence(db.Ctx(), last+1), host, authority, 0x00090006, readPayload, sequence)
+		require.NoError(t, err)
+		require.Zero(t, sightReceipt.ResultCode)
+		decodedSight, err := codec.DecodeReceipt(sightReceipt.Encoded)
+		require.NoError(t, err)
+		sightDigest := decodedSight.Digest()
+		sightHeight := uint64(db.Ctx().BlockHeight())
+		next := db.Ctx().WithBlockHeight(seqVecFirstHeight + 2).WithBlockTime(time.UnixMilli(seqVecTimeBase + (seqVecFirstHeight+2)*seqVecBlockMs))
+		db.WithCtx(next)
+		block, err := a.EvmKeeper.GetVMBlockContext(next, core.GasPool(math.MaxUint64))
+		require.NoError(t, err)
+		evm = vm.NewEVM(*block, db, evmtypes.DefaultChainConfig().EthereumConfig(a.EvmKeeper.ChainID(next)), vm.Config{}, map[common.Address]vm.PrecompiledContract{lp.Address: precompile})
+		caps = []byte{0, 5, 3, 5}
+		caps = append(caps, asset[:]...)
+		caps = append(caps, rewards[:]...)
+		caps = append(caps, make([]byte, 15)...)
+		caps = append(caps, 120, 10)
+		caps = append(caps, rewards[:]...)
+		caps = append(caps, asset[:]...)
+		caps = append(caps, sightDigest[:]...)
+		caps = append(caps, 7, 8)
+		callMethod = "callWithReceipts"
+		input, err = programs.Pack(callMethod, program, programsGuestABI, "layerx_call", envelope(0x0601, 2, fund), caps, access, uint32(1048576), budget, big.NewInt(100000000), []lxphost.ReceiptAuthority{{CanonicalReceipt: sightReceipt.Encoded, BlockHeight: sightHeight}})
+		require.NoError(t, err)
+		tx.data = input
+	}
 	before := len(db.GetAllLogs())
 	output, remaining, err := evm.Call(b.sender, lp.Address, input, tx.gasLimit, uint256.NewInt(0))
-	require.NoError(t, err, "call committed runtime fixture: %x; %v", output, db.GetPrecompileError())
-	values, err := programs.Methods["call"].Outputs.Unpack(output)
+	if err != nil {
+		reason, decodeErr := abi.UnpackRevert(output)
+		require.NoError(t, err, "call committed runtime fixture: %s (decode: %v); kernel gas allowance %d; EVM gas used %d; %v", reason, decodeErr, kernelGasLimit, tx.gasLimit-remaining, db.GetPrecompileError())
+	}
+	values, err := programs.Methods[callMethod].Outputs.Unpack(output)
 	require.NoError(t, err)
 	require.Equal(t, int32(0), values[0])
 	require.Equal(t, uint8(1), values[1])
-	seqVecAssertProgramTerminal(t, values[2].([]byte))
+	if len(rewardGuest) == 0 {
+		seqVecAssertProgramTerminal(t, values[2].([]byte))
+	} else {
+		require.Contains(t, string(values[2].([]byte)), "LXP/program-execution-with-transfer-authority/v2\x00", "ABI5 Fund must carry real transfer authority")
+		require.Contains(t, string(values[2].([]byte)), "LXP/program-execution/v5\x00")
+	}
 	logs := db.GetAllLogs()[before:]
-	require.Len(t, logs, 1)
-	require.Equal(t, []common.Hash{programs.Events["ProgramCallOutcome"].ID, common.Hash(program)}, logs[0].Topics)
+	if len(rewardGuest) == 0 {
+		require.Len(t, logs, 1)
+	} else {
+		require.Len(t, logs, 2)
+	}
+	require.Equal(t, []common.Hash{programs.Events["ProgramCallOutcome"].ID, common.Hash(program)}, logs[len(logs)-1].Topics)
 	tx.returnData, tx.gasUsed = output, tx.gasLimit-remaining
-	tx.logs = []*evmtypes.Log{seqVecLog(logs[0].Address, logs[0].Data, logs[0].Topics...)}
+	for _, log := range logs {
+		tx.logs = append(tx.logs, seqVecLog(log.Address, log.Data, log.Topics...))
+	}
 	return tx
 }
 
@@ -702,6 +914,32 @@ func seqVecTransfer(nonce uint64, paxUnits int64) seqVecTx {
 		nonce: nonce, to: seqVecRecipient, value: new(big.Int).Mul(big.NewInt(paxUnits), seqVecOnePAX),
 		gasLimit: 21_000, gasUsed: 21_000, status: uint32(ethtypes.ReceiptStatusSuccessful),
 	}
+}
+
+func seqVecInsufficientTransfer(t *testing.T, b *seqVecBuilder) seqVecTx {
+	t.Helper()
+	tx := seqVecTransfer(6, 101)
+	require.Positive(t, b.balance.Sign())
+	require.Positive(t, tx.value.Cmp(b.balance))
+	a := app.Setup(t, false, false, false)
+	ctx, _ := a.GetContextForDeliverTx(nil).CacheContext()
+	ctx = ctx.WithBlockHeight(seqVecFirstHeight + 3).WithBlockTime(time.UnixMilli(seqVecTimeBase + (seqVecFirstHeight+3)*seqVecBlockMs))
+	ctx = ctx.WithGasMeter(sdk.NewInfiniteGasMeterWithMultiplier(ctx))
+	db := state.NewDBImpl(ctx, &a.EvmKeeper, false)
+	t.Cleanup(db.Cleanup)
+	db.AddBalance(b.sender, uint256.MustFromBig(b.balance), tracing.BalanceChangeUnspecified)
+	block, err := a.EvmKeeper.GetVMBlockContext(ctx, core.GasPool(math.MaxUint64))
+	require.NoError(t, err)
+	evm := vm.NewEVM(*block, db, evmtypes.DefaultChainConfig().EthereumConfig(a.EvmKeeper.ChainID(ctx)), vm.Config{}, nil)
+	output, remaining, err := evm.Call(b.sender, tx.to, tx.data, tx.gasLimit, uint256.MustFromBig(tx.value))
+	require.ErrorIs(t, err, vm.ErrInsufficientBalance)
+	require.Empty(t, output)
+	require.Empty(t, db.GetAllLogs())
+	require.Equal(t, b.balance, db.GetBalance(b.sender).ToBig())
+	require.True(t, db.GetBalance(tx.to).IsZero())
+	tx.status = uint32(ethtypes.ReceiptStatusFailed)
+	tx.gasUsed, tx.returnData, tx.vmError = tx.gasLimit-remaining, output, err.Error()
+	return tx
 }
 
 // seqVecServe serves signed through pax_sequencerReceipt and returns the JSON answer.
@@ -926,6 +1164,14 @@ func TestSequencerReceiptVectors(t *testing.T) {
 	refuse("V3-non-canonical-bytes", "signature presence flag 2, which no canonical receipt encodes",
 		mutated, seqVecRefusal{refusedAt: "R2", err: codec.ErrNonCanonical, verifier: "Decode"})
 
+	// Keep the existing recordings and refusal-chain identities intact.
+	tx := seqVecInsufficientTransfer(t, b)
+	signedTx := b.signTx(tx)
+	signed := b.receipt(primary, seqVecKeyID, signedTx, tx, next, false)
+	refusal := seqVecCaseOf("V2-pax-transfer-insufficient-funds", "V2", "PAX transfer refused before execution because its value exceeds the funded sender balance", signed, signed.raw, seqVecServe(t, port, source, signed), next.prev, pin)
+	refusal.Expected = seqVecExpected{Rung: string(evmrpc.RungReceipted), Verifier: "accepts"}
+	cases = append(cases[:6], append([]seqVecCase{refusal}, cases[6:]...)...)
+
 	seqVecAssertCases(t, cases, expected)
 
 	file := seqVecFile{
@@ -1062,6 +1308,218 @@ func TestRepairM_466_UCPCheckoutPinnedReceipt(t *testing.T) {
 	seqVecAssertUCPCheckout(t, seqVecReadUCPCheckout(t))
 }
 
+type seqVecFiatJourney struct {
+	Name              string          `json:"name"`
+	Token             string          `json:"token"`
+	ProviderFacts     json.RawMessage `json:"provider_facts"`
+	ProviderPublicKey hexutil.Bytes   `json:"provider_public_key"`
+	ProviderSignature hexutil.Bytes   `json:"provider_signature"`
+	Sequencer         struct {
+		Fixture        string        `json:"fixture"`
+		Case           string        `json:"case"`
+		Rung           string        `json:"rung"`
+		Transaction    common.Hash   `json:"transaction_hash"`
+		Digest         *common.Hash  `json:"receipt_digest"`
+		IdempotencyKey common.Hash   `json:"idempotency_key"`
+		Reference      common.Hash   `json:"payment_reference"`
+		Calldata       hexutil.Bytes `json:"payment_calldata"`
+		Counterparty   common.Hash   `json:"counterparty"`
+		ExpiresAt      uint64        `json:"expires_at"`
+	} `json:"sequencer"`
+	Expect struct {
+		State       string       `json:"state"`
+		Refusal     string       `json:"refusal"`
+		Digest      *common.Hash `json:"receipt_digest"`
+		Translation string       `json:"translation"`
+	} `json:"expect"`
+}
+
+func seqVecFiatPayment(t *testing.T, journey seqVecFiatJourney) seqVecPayExact {
+	t.Helper()
+	var canonical map[string]json.RawMessage
+	require.NoError(t, json.Unmarshal(journey.ProviderFacts, &canonical))
+	payload, err := json.Marshal(canonical)
+	require.NoError(t, err)
+	require.Len(t, journey.ProviderPublicKey, ed25519.PublicKeySize)
+	require.Len(t, journey.ProviderSignature, ed25519.SignatureSize)
+	require.True(t, ed25519.Verify(ed25519.PublicKey(journey.ProviderPublicKey),
+		append([]byte("LayerX/fiat/sequenced-provider/v1\x00"), payload...), journey.ProviderSignature))
+	var facts struct {
+		Provider    string      `json:"provider"`
+		Settlement  string      `json:"settlement"`
+		Rail        string      `json:"rail"`
+		Class       string      `json:"class"`
+		Amount      string      `json:"amount"`
+		Asset       common.Hash `json:"asset"`
+		Destination common.Hash `json:"destination"`
+		TokenDigest common.Hash `json:"token_reference_sha256"`
+	}
+	require.NoError(t, json.Unmarshal(journey.ProviderFacts, &facts))
+	require.NotEmpty(t, facts.Provider)
+	require.NotEmpty(t, facts.Settlement)
+	require.Equal(t, "settled", facts.Class)
+	require.Equal(t, common.Hash(sha256.Sum256([]byte(journey.Token))), facts.TokenDigest)
+	rail, ok := map[string]byte{"card": 1, "bank": 2, "rtp": 3}[facts.Rail]
+	require.True(t, ok, facts.Rail)
+	material := append([]byte("LayerX/interop/fiat/idempotency/v1\x00"), []byte(facts.Provider)...)
+	material = append(material, 0)
+	material = append(material, []byte(facts.Settlement)...)
+	material = append(material, rail, 3)
+	amount, ok := new(big.Int).SetString(facts.Amount, 10)
+	require.True(t, ok)
+	require.Positive(t, amount.Sign())
+	require.LessOrEqual(t, amount.BitLen(), 128)
+	pay := seqVecLedgerPay(t)
+	pay.to, pay.asset, pay.amount = facts.Destination, facts.Asset, amount
+	pay.reference = sha256.Sum256(material)
+	require.Equal(t, pay.from, journey.Sequencer.Counterparty)
+	require.Equal(t, pay.expiresAt, journey.Sequencer.ExpiresAt)
+	return pay
+}
+
+func TestRepairM_489_FiatJourneysDerived(t *testing.T) {
+	source, err := os.ReadFile(seqVecFiatSource)
+	require.NoError(t, err)
+	require.Equal(t, seqVecFiatSourceHash, fmt.Sprintf("%x", sha256.Sum256(source)))
+	var committed struct {
+		Settlement struct {
+			RawTransaction hexutil.Bytes   `json:"raw_transaction"`
+			Receipt        json.RawMessage `json:"receipt"`
+		} `json:"settlement"`
+	}
+	require.NoError(t, json.Unmarshal(source, &committed))
+	var committedReceipt evmrpc.SequencerReceiptResult
+	require.NoError(t, json.Unmarshal(committed.Settlement.Receipt, &committedReceipt))
+	require.Equal(t, evmrpc.RungCommitted, committedReceipt.Rung)
+	require.NoError(t, committedReceipt.Verify())
+	committedTx := new(ethtypes.Transaction)
+	require.NoError(t, committedTx.UnmarshalBinary(committed.Settlement.RawTransaction))
+	require.Equal(t, uint8(ethtypes.DynamicFeeTxType), committedTx.Type())
+	require.Equal(t, big.NewInt(seqVecChainID), committedTx.ChainId())
+	require.Equal(t, committedTx.Hash(), committedReceipt.TxHash)
+	decoded, err := codec.DecodeReceipt(committedReceipt.Receipt)
+	require.NoError(t, err)
+	require.Equal(t, uint16(2), decoded.ProtocolVersion)
+
+	stored, err := os.ReadFile(seqVecFiatJourneys)
+	require.NoError(t, err)
+	var journeys []seqVecFiatJourney
+	require.NoError(t, json.Unmarshal(stored, &journeys))
+	require.Len(t, journeys, 5)
+	public := [32]byte(ed25519.NewKeyFromSeed(seqVecReceiptSeed).Public().(ed25519.PublicKey))
+	pin := seqVecPin{KeyID: seqVecKeyID, PublicKey: public[:], FirstHeight: seqVecFirstHeight, LastHeight: seqVecLastHeight}
+	key := loadSeqVecKey(t, t.TempDir(), verify.SequencerAuthorization{
+		SequencerID: seqVecKeyID, PublicKey: public, FirstBatchNumber: seqVecFirstHeight, LastBatchNumber: seqVecLastHeight,
+	})
+	chain := newSeqReceiptChain9005(t)
+	installSeqVecReceiptKey(t, chain, pin)
+	sourceRPC := seqnode.NewReceiptSource(len(journeys))
+	port := startSeqReceiptServer9005(t, app.Setup(t, false, false, false), chain.ctxProvider,
+		evmrpc.SequencerReceiptOption{Source: sourceRPC, Keeper: &chain.keeper})
+	b := newSeqVecBuilder(t)
+	file := seqVecFile{
+		Name: "fiat-receipts-v1", ChainID: seqVecChainID, ModuleID: seqVecModuleID, FeeDenom: evmkeeper.BaseDenom,
+		Provenance: seqVecProvenance{Generator: seqVecGenerator, Command: seqVecFiatCommand,
+			Source: strings.TrimPrefix(seqVecFiatSource, "../"), SHA256: seqVecFiatSourceHash},
+	}
+	prev := [32]byte{}
+	coverage := map[string]int{}
+	seen := map[common.Hash]bool{}
+	for i, journey := range journeys {
+		t.Run(journey.Name, func(t *testing.T) {
+			pay := seqVecFiatPayment(t, journey)
+			require.False(t, seen[pay.reference], "provider settlement keys must be distinct")
+			seen[pay.reference] = true
+			require.Equal(t, pay.reference, journey.Sequencer.IdempotencyKey)
+			require.Equal(t, pay.reference, journey.Sequencer.Reference)
+			calldata := make([]byte, 196)
+			copy(calldata[:4], []byte{0x78, 0xea, 0x11, 0xdb})
+			copy(calldata[4:36], pay.from[:])
+			copy(calldata[36:68], pay.to[:])
+			copy(calldata[68:100], pay.asset[:])
+			pay.amount.FillBytes(calldata[116:132])
+			binary.BigEndian.PutUint64(calldata[156:164], pay.expiresAt)
+			copy(calldata[164:196], pay.reference[:])
+			require.Equal(t, calldata, []byte(journey.Sequencer.Calldata))
+			require.Equal(t, calldata, seqVecPayExactCall(t, pay))
+			tx := seqVecLedgerPaymentFor(t, uint64(i), pay)
+			vector := "V1"
+			if journey.Expect.Refusal != "" {
+				require.Equal(t, "ReceiptMismatch", journey.Expect.Refusal)
+				tx = seqVecLedgerRevert(t, uint64(i))
+				tx.data = calldata
+				vector = "V2"
+			}
+			signedTx := b.signTx(tx)
+			signed := b.receipt(key, seqVecKeyID, signedTx, tx,
+				seqVecSlot{seq: uint64(i + 1), prev: prev, height: seqVecFirstHeight + int64(i), index: 1}, true)
+			sourceRPC.Record(signed.activity, *signed.send)
+			answer, rpcErr := callSeqReceipt9005(t, port, evmrpc.SequencerReceiptMethod, signed.activity)
+			require.Nil(t, rpcErr)
+			c := seqVecCaseOf(journey.Name, vector, "Fiat adapter payment for "+journey.Name,
+				signed, signed.raw, answer, prev, pin)
+			c.Expected = seqVecExpected{Rung: "receipted", Verifier: "accepts"}
+			if vector == "V2" {
+				c.LXPCode = seqVecInsufficient
+			}
+			file.Cases = append(file.Cases, c)
+			check, err := seqVecClientCheck(c.RawTransaction, c.ReceiptJSON, c.PrevSeqHash, c.PinnedKey)
+			require.NoError(t, err, check)
+			require.Empty(t, check)
+			verified, err := verify.ReceiptSignature(c.SignedReceipt, public)
+			require.NoError(t, err)
+			require.Equal(t, uint16(2), verified.Receipt.ProtocolVersion)
+			require.Equal(t, uint8(ethtypes.DynamicFeeTxType), verified.Receipt.Operation)
+			require.Equal(t, c.ReceiptDigest, common.Hash(verified.Digest))
+			require.Equal(t, [32]byte(signedTx.Hash()), verified.Receipt.ActivityID)
+			require.Equal(t, calldata, signedTx.Data())
+			require.Equal(t, big.NewInt(seqVecChainID), signedTx.ChainId())
+			require.Equal(t, "sdk/platform/conformance/fixtures/fiat-receipts-v1.json", journey.Sequencer.Fixture)
+			require.Equal(t, c.ID, journey.Sequencer.Case)
+			require.Equal(t, signedTx.Hash(), journey.Sequencer.Transaction)
+			var result evmrpc.SequencerReceiptResult
+			require.NoError(t, json.Unmarshal(answer, &result))
+			if journey.Sequencer.Rung == "submitted" {
+				require.Equal(t, "credit-pending", journey.Expect.State)
+				require.Equal(t, "pending", journey.Expect.Translation)
+				require.Nil(t, journey.Sequencer.Digest)
+				require.Nil(t, journey.Expect.Digest)
+				coverage["submitted"]++
+			} else {
+				require.Equal(t, "receipted", journey.Sequencer.Rung)
+				require.NotNil(t, journey.Sequencer.Digest)
+				require.Equal(t, c.ReceiptDigest, *journey.Sequencer.Digest)
+				if vector == "V2" {
+					require.EqualValues(t, 0, result.Status)
+					require.EqualValues(t, 1, verified.Receipt.ResultCode)
+					require.Empty(t, result.Logs)
+					require.Equal(t, pcommon.LXPRevert(seqVecInsufficient, ""), []byte(result.ReturnData))
+					require.Equal(t, "pending", journey.Expect.Translation)
+					coverage["reverted"]++
+				} else {
+					require.Equal(t, "credited", journey.Expect.State)
+					require.Equal(t, "receipt-verified", journey.Expect.Translation)
+					require.NotNil(t, journey.Expect.Digest)
+					require.Equal(t, c.ReceiptDigest, *journey.Expect.Digest)
+					require.EqualValues(t, 1, result.Status)
+					require.Zero(t, verified.Receipt.ResultCode)
+					require.Len(t, result.Logs, 1)
+					require.Equal(t, []common.Hash{crypto.Keccak256Hash([]byte("PaymentExact(bytes32,bytes32,bytes32,bytes32,uint128)")),
+						pay.reference, pay.from, pay.to}, result.Logs[0].Topics)
+					require.Equal(t, seqVecLedger, result.Logs[0].Address)
+					data, err := seqVecArgs(t, "bytes32", "uint128").Pack([32]byte(pay.asset), pay.amount)
+					require.NoError(t, err)
+					require.Equal(t, data, []byte(result.Logs[0].Data))
+					coverage["credited"]++
+				}
+			}
+			prev = signed.seqHash
+		})
+	}
+	require.Equal(t, map[string]int{"credited": 3, "submitted": 1, "reverted": 1}, coverage)
+	seqVecWriteFixture(t, seqVecFiatFixture, seqVecFiatCommand, file)
+}
+
 func repairM1297FeeTokenVector(t *testing.T) seqVecFile {
 	t.Helper()
 	private := &secp256k1.PrivKey{Key: bytes.Clone(seqVecSenderSecret)}
@@ -1182,19 +1640,28 @@ func repairM1297FeeTokenVectorProof(t *testing.T) {
 }
 
 func TestVectorFilesV1ToV3MatchSequencerReceiptFixture(t *testing.T) {
+	for name, digest := range map[string]string{
+		"vector-v1-receipted-positive.json": "d74c1e130b5f9e3687655a4f8a1c048e0ee77a479931a87d790510f4419a22e2",
+		"vector-v2-receipted-revert.json":   "64fa4664780380bd6da0e36cd2444fa41e751e9fb0919514a4cb2a6f73feea0a",
+		"vector-v3-receipt-refusals.json":   "480ed0e242f16cd5064ba8a7a613ef24e96e9119d9327da3ffd67563ca12df5e",
+	} {
+		recorded, err := os.ReadFile(filepath.Join("../daemon/committed-fixture/vectors", name))
+		require.NoError(t, err)
+		require.Equal(t, digest, fmt.Sprintf("%x", sha256.Sum256(recorded)), "receipted vectors must retain their original recording")
+	}
 	var source struct {
 		Cases []json.RawMessage `json:"cases"`
 	}
 	stored, err := os.ReadFile(seqVecFixture)
 	require.NoError(t, err)
 	require.NoError(t, json.Unmarshal(stored, &source))
-	require.Len(t, source.Cases, 12)
+	require.Len(t, source.Cases, 13)
 	for _, group := range []struct {
 		name, vector string
 		count        int
 	}{
 		{"vector-v1-receipted-positive", "V1", 5},
-		{"vector-v2-receipted-revert", "V2", 1},
+		{"vector-v2-receipted-revert", "V2", 2},
 		{"vector-v3-receipt-refusals", "V3", 6},
 	} {
 		t.Run(group.vector, func(t *testing.T) {
@@ -1241,7 +1708,7 @@ func TestVectorFilesV1ToV3MatchSequencerReceiptFixture(t *testing.T) {
 // case refusing at exactly its named check.
 func seqVecAssertCases(t *testing.T, cases []seqVecCase, refusals map[string]seqVecRefusal) {
 	t.Helper()
-	require.Len(t, cases, 12)
+	require.Len(t, cases, 13)
 	counts := map[string]int{}
 	seen := map[string]bool{}
 	for _, c := range cases {
@@ -1249,8 +1716,9 @@ func seqVecAssertCases(t *testing.T, cases []seqVecCase, refusals map[string]seq
 		seen[c.ID] = true
 		counts[c.Vector]++
 	}
-	require.Equal(t, map[string]int{"V1": 5, "V2": 1, "V3": 6}, counts)
+	require.Equal(t, map[string]int{"V1": 5, "V2": 2, "V3": 6}, counts)
 	require.True(t, seen["V1-layerxprograms-call"])
+	require.True(t, seen["V2-pax-transfer-insufficient-funds"])
 	for _, c := range cases {
 		check, err := seqVecClientCheck(c.RawTransaction, c.ReceiptJSON, c.PrevSeqHash, c.PinnedKey)
 		if c.Vector == "V3" {
@@ -1357,6 +1825,19 @@ func seqVecAssertFields(t *testing.T, c seqVecCase) {
 	case "V2":
 		require.Equal(t, uint64(0), uint64(result.Status), c.ID)
 		require.Equal(t, int32(1), decoded.ResultCode)
+		if c.ID == "V2-pax-transfer-insufficient-funds" {
+			require.Equal(t, vm.ErrInsufficientBalance.Error(), result.VMError)
+			require.Empty(t, result.ReturnData)
+			require.Empty(t, result.Logs)
+			require.Empty(t, c.LXPCode)
+			require.Empty(t, tx.Data())
+			require.Equal(t, seqVecRecipient, *tx.To())
+			require.Positive(t, tx.Value().Cmp(seqVecStartBalance))
+			require.Zero(t, uint64(result.GasUsed))
+			require.Len(t, decoded.Effects, 1)
+			return
+		}
+		require.Equal(t, "V2-layerxledger-revert", c.ID)
 		require.Equal(t, "execution reverted", result.VMError)
 		require.Empty(t, result.Logs)
 		reason, err := abi.UnpackRevert(result.ReturnData)
@@ -1372,3 +1853,79 @@ func seqVecAssertFields(t *testing.T, c seqVecCase) {
 }
 
 func init() { evmrpc.RepairM1297Proofs["fee-token-vector-reversed"] = repairM1297FeeTokenVectorProof }
+
+func TestAiMarketTransferAuthorityReceipt(t *testing.T) {
+	root, err := filepath.Abs("..")
+	require.NoError(t, err)
+	dir := t.TempDir()
+	run := func(command string, args ...string) []byte {
+		t.Helper()
+		cmd := exec.Command(command, args...)
+		cmd.Dir = root
+		output, err := cmd.CombinedOutput()
+		require.NoError(t, err, "%s %v: %s", command, args, output)
+		return output
+	}
+	loader := filepath.Join(dir, "typescript-loader.mjs")
+	packagePath, err := json.Marshal(filepath.Join(root, "services/agent/sdk/typescript/package.json"))
+	require.NoError(t, err)
+	require.NoError(t, os.WriteFile(loader, []byte(`import {createRequire} from 'node:module';
+import {readFile} from 'node:fs/promises';
+const require = createRequire(`+string(packagePath)+`);
+const ts = require('typescript');
+export async function resolve(s,c,n) {
+ try { return await n(s,c); } catch(e) {
+  if ((s.startsWith('.') || s.startsWith('/')) && s.endsWith('.js')) return n(s.slice(0,-3)+'.ts',c);
+  throw e;
+ }
+}
+export async function load(u,c,n) {
+ if (!u.endsWith('.ts')) return n(u,c);
+ return {format:'module',shortCircuit:true,source:ts.transpileModule(await readFile(new URL(u),'utf8'),
+ {compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ESNext}}).outputText};
+}`), 0600))
+	public := [32]byte(ed25519.NewKeyFromSeed(seqVecReceiptSeed).Public().(ed25519.PublicKey))
+	pin := seqVecPin{KeyID: seqVecKeyID, PublicKey: public[:], FirstHeight: seqVecFirstHeight, LastHeight: seqVecLastHeight}
+	primary := loadSeqVecKey(t, dir, verify.SequencerAuthorization{SequencerID: seqVecKeyID, PublicKey: public, FirstBatchNumber: seqVecFirstHeight, LastBatchNumber: seqVecLastHeight})
+	chain := newSeqReceiptChain9005(t)
+	installSeqVecReceiptKey(t, chain, pin)
+	source := &seqVecSource{sends: map[common.Hash]*evmrpc.SequencerSend{}}
+	port := startSeqReceiptServer9005(t, app.Setup(t, false, false, false), chain.ctxProvider, evmrpc.SequencerReceiptOption{Source: source, Keeper: &chain.keeper})
+	builder := newSeqVecBuilder(t)
+	produce := func(tx seqVecTx, sequence uint64) map[string]interface{} {
+		signed := builder.receipt(primary, seqVecKeyID, builder.signTx(tx), tx, seqVecSlot{seq: sequence, height: seqVecFirstHeight + 2, index: 1}, false)
+		return map[string]interface{}{"rawTransaction": hexutil.Bytes(signed.raw), "receiptJson": seqVecServe(t, port, source, signed), "callInput": hexutil.Bytes(tx.data)}
+	}
+	ordinary := produce(seqVecProgramsCall(t, builder, 0), 1)
+	fixturePath := filepath.Join(dir, "authority.json")
+	ownerKey, err := crypto.ToECDSA(seqVecSenderSecret)
+	require.NoError(t, err)
+	fixture := map[string]interface{}{"ordinary": ordinary, "pin": pin, "publicKey": hexutil.Bytes(crypto.CompressPubkey(&ownerKey.PublicKey))}
+	write := func() {
+		encoded, err := json.Marshal(fixture)
+		require.NoError(t, err)
+		require.NoError(t, os.WriteFile(fixturePath, encoded, 0600))
+	}
+	write()
+	run("node", "--no-warnings", "--loader", loader, "services/agent/sdk/typescript/test/ai-market.test.ts", "--market-authority-decoder", fixturePath)
+	_, err = exec.LookPath("wasm-opt")
+	require.NoError(t, err, "wasm-opt is required")
+	target := filepath.Join(dir, "guest-target")
+	cmd := exec.Command("cargo", "build", "--locked", "--release", "--target", "wasm32-unknown-unknown", "-p", "layerx-programs-ai-market")
+	cmd.Dir = filepath.Join(root, "programs")
+	// Deployment travels through the native activity payload (512 KiB), so
+	// compile the complete source guest for size rather than speed.
+	cmd.Env = append(os.Environ(), fmt.Sprintf("PAXAI_CHAIN_DOMAIN=%x", seqVecAiMarketChainDomain()), "CARGO_TARGET_DIR="+target, "CARGO_PROFILE_RELEASE_OPT_LEVEL=z")
+	output, err := cmd.CombinedOutput()
+	require.NoError(t, err, "build AI market guest from repository source: %s", output)
+	// Match Makefile::paxai-host-boundary-build: deploy the complete
+	// source-built guest after the production size optimization pass.
+	optimized := filepath.Join(dir, "ai_market.wasm")
+	run("wasm-opt", "-Oz", "--strip-debug", "--strip-producers", filepath.Join(target, "wasm32-unknown-unknown/release/layerx_programs_ai_market.wasm"), "-o", optimized)
+	guest, err := os.ReadFile(optimized)
+	require.NoError(t, err)
+	require.LessOrEqual(t, len(guest)+104, 524288, "source-built AI guest must fit the native deployment payload")
+	fixture["reward"] = produce(seqVecProgramsCall(t, builder, 1, guest), 2)
+	write()
+	run("node", "--no-warnings", "--loader", loader, "services/agent/sdk/typescript/test/ai-market.test.ts", "--market-authority-receipt", fixturePath)
+}

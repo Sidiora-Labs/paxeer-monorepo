@@ -27,7 +27,7 @@ use crate::session::{
 use crate::store::{ObjectKind, Store, TenantId, TenantKey};
 use crate::tenant::{
     self, AuthorizationError, ObjectOwner, Operation, RequestContext, ResolvedPrincipal, Surface,
-    TenantObservability,
+    TenantObservability, TenantObservabilityStats,
 };
 
 /// The one shared owner of durable session state, its in-memory index, and exact-generation
@@ -72,12 +72,20 @@ impl SessionControl {
         lifecycle: Arc<PreparationLifecycle>,
         budgets: Arc<BudgetLimiter>,
     ) -> Self {
+        // Reading the immutable path does not clear poisoning: store operations still fail closed.
+        let observability = TenantObservability::with_durable_sinks(
+            store
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner)
+                .root()
+                .to_path_buf(),
+        );
         Self {
             store,
             registry: Arc::new(RwLock::new(registry)),
             lifecycle,
             budgets,
-            observability: Arc::new(Mutex::new(TenantObservability::default())),
+            observability: Arc::new(Mutex::new(observability)),
             pending_invalidations: Arc::new(Mutex::new(BTreeMap::new())),
         }
     }
@@ -278,6 +286,13 @@ impl SessionControl {
     #[must_use]
     pub fn store(&self) -> Arc<Mutex<Store>> {
         Arc::clone(&self.store)
+    }
+
+    pub fn observability_stats(&self) -> Result<TenantObservabilityStats, SessionControlError> {
+        self.observability
+            .lock()
+            .map(|observability| observability.stats())
+            .map_err(|_| SessionControlError::Unavailable)
     }
 
     /// Authenticates an exact external credential, resolves its generated operation, and arms an

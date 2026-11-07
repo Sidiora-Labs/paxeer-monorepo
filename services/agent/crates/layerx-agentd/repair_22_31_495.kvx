@@ -1,0 +1,47 @@
+[repair.22.31.495]
+gotcha = 3028
+acceptance = "22998.1"
+implementation = "ApprovalService list/get and DecisionRequest carry explicit TimestampSeconds beside the current sequence; scoped reads and claims use the timed policy APIs. decide_at and timed reads share the same window validation. Untimed policy APIs retain ClockRequired."
+baseline = "The initial working tree contained runner bookkeeping only and no gate ledger entries. No pre-change test execution is claimed."
+qualification = "The runner's private hf-build/hf-done ledger records the exact verified candidate revision, command, exit and evidence location; cg spec done retains the verified revision without force."
+
+[tests]
+path = "services/agent/crates/layerx-agentd/tests/repair_22_31_495.rs"
+proving = ["durable_awaiting_hold_lists_gets_and_approves_with_explicit_time", "durable_awaiting_hold_rejects_with_explicit_time", "reopened_awaiting_hold_decides_with_explicit_time", "time_before_reservation_is_refused_without_deciding"]
+proof = "Real durable Store, BudgetLimiter reserve_and_hold_at, ApprovalRegistry, ApprovalExpiry and ApprovalService paths prove visibility, exact preparation release, rejection and reservation release, full store reopen and recovered decision, and backwards-time refusal without changing the pending hold."
+
+[callers]
+path = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+changed = ["UnifiedAgentOwner::approval_decide (approve and reject plus the prerequisite scoped read)", "UnifiedAgentOwner::approval_list_facts", "UnifiedAgentOwner::approval_get_facts", "UnifiedAgentOwner::approval_budget_after", "UnifiedAgentOwner::approval_list", "UnifiedAgentOwner::approval_get"]
+clock = "Each entry samples the existing authenticated runtime clock and refuses unavailable or zero-generation readings; that explicit time accompanies the current sequence to the service."
+source_tests = "Six DecisionRequest constructors in src/approval/mod.rs receive explicit test time; focused approval and approval_ops tests use timed policy entries and preserve their assertions."
+
+[finding.scope]
+observed = "The declared --tests build includes tests/approval_ordering/mod.rs, tests/approval_semantics.rs, tests/human_projection_facts.rs and tests/human_approval_budget_actor.rs, whose ApprovalService or DecisionRequest callers also require migration but are outside the original allowed paths."
+
+[finding.build_1]
+revision = "48fc00972e966e3ac6a65072bd487524ef88674f"
+command = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --tests"
+exit = 101
+log = "/out/logs/build-1.log"
+observed = "Four source-level test reads missed the new time argument and are repaired; three DecisionRequest constructors in out-of-scope tests/approval_ordering/mod.rs also need the explicit clock."
+
+[continuation.2547]
+implementation = "The three DecisionRequest constructors in tests/approval_ordering/mod.rs now pass TimestampSeconds(11), the request clock alongside sequence 11. The original explicit-time implementation and four regression cases are retained."
+build = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --no-run --lib --test repair_22_31_495 --test approval --test approval_ops"
+verify = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test repair_22_31_495 --test approval --test approval_ops"
+scope = "The ordering test module is now in scope; the narrowed build excludes the two unrelated daemon targets in gotcha 3033, removing the dependency cycle recorded in gotcha 3048."
+
+[continuation.3057]
+gotcha = 3057
+implementation = "The MCP approval.get catalogue requires and parses current_time as decimal Unix seconds beside current_sequence and passes it to ApprovalService::get without a fallback. The Human repair_22_33_61 approve and reject DecisionRequest constructors use TimestampSeconds(NOW), the request clock used to reserve their hold."
+preserved = "All existing explicit-time service and daemon paths, the three ordering constructors, and all four durable regression cases remain in place."
+qualification = "Run hf-build and hf-done at the final candidate; their private ledger names the verified revision and exact command, exit code and log."
+
+[qualification.repair_1]
+revision = "36271af519841a76318687227c5a7ed2ee3b98c8"
+command = "cg spec done 22.31.495 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "All five approval policy cases passed; approval_ops stopped during fixture setup because its default-permission directory is refused by the production store's private-root check."
+repair = "Let ApprovalExpiry::open create its own private directory in approval_ops, as the durable regression fixture already does; retain all storage validation and behavioral assertions."

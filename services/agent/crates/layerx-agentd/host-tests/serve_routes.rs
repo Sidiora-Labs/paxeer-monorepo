@@ -302,16 +302,27 @@ impl NodePeer {
                     "0x7d"
                 }),
                 Some("px_getReceiptKeys") => {
-                    if matches!(state, NodeState::NoKeys) {
-                        json!([])
+                    let result = if matches!(state, NodeState::NoKeys) {
+                        json!({"keys": []})
                     } else {
-                        json!([{
+                        json!({"keys": [{
                             "keyId": format!("0x{}", hex::encode(&key.key_id)),
                             "publicKey": format!("0x{}", hex::encode(&key.public_key)),
-                            "firstHeight": format!("{:#x}", key.first_height),
-                            "lastHeight": format!("{:#x}", key.last_height),
-                        }])
-                    }
+                            "firstHeight": key.first_height,
+                            "lastHeight": key.last_height,
+                        }]})
+                    };
+                    let decoded = layerx_client::sequencer::decode_receipt_keys(&result)
+                        .expect("node receipt keys satisfy the production contract");
+                    assert_eq!(
+                        decoded,
+                        if matches!(state, NodeState::NoKeys) {
+                            vec![]
+                        } else {
+                            vec![*key]
+                        }
+                    );
+                    result
                 }
                 other => panic!("health or invalid route issued unexpected RPC: {other:?}"),
             };

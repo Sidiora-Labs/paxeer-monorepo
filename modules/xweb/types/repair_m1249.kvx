@@ -7,7 +7,9 @@ policy = "SDK xweb error 26 is LXP_XWEB_INVALID_PAYLOAD, invalid storage receipt
 [finding.storage-receipt-error-name]
 tests = ["TestRepairM_1249_StorageReceiptErrorName"]
 proof = "Real payload encoder, keeper and 0x1019 EVM call; ABI Error(string) decode agrees with the common registry, with terminal classification against committed Python and TypeScript consumer maps."
-wiring_contract = "spec/layerx-merge/contracts/address-table.md (chain-modules contract domain): add LXP_XWEB_INVALID_PAYLOAD, SDK xweb code 26, message invalid storage receipt payload, Retryable no; regenerate address-inventory.md and web.md as owned."
+wiring_contract = "Fulfilled by task 22.31.566: spec/layerx-merge/contracts/address-table.md registers LXP_XWEB_INVALID_PAYLOAD, SDK xweb code 26, invalid storage receipt payload, Retryable no; address-inventory.md records the row."
+wiring_contract_status = "fulfilled"
+wiring_python = "Fulfilled by task 22.31.566 through scripts/ci/result-codes-gen.py: the generated Python retry table carries LXP_XWEB_INVALID_PAYLOAD as False."
 wiring_sdk = "services/agent/sdk/python/layerx_sdk/revert.py and services/agent/sdk/typescript/src/revert.ts (agent SDK domain): publish the code as terminal via scripts/ci/result-codes-gen.py; retain the Rust services/agent/crates/layerx-types/build.rs registry-derived classification."
 
 [finding.pending-genesis-fee-denom]

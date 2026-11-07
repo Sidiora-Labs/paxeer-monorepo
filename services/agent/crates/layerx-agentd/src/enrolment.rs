@@ -250,6 +250,11 @@ impl ReadinessDeclaration {
     }
 
     fn transport(&self) -> Result<ReadinessTransport, EnrolmentError> {
+        let _credential = Zeroizing::new(
+            crate::config::read_protected_source(&self.gateway_key_file, 4_096).map_err(|_| {
+                EnrolmentError::InvalidSurface("the readiness gateway credential is not protected")
+            })?,
+        );
         Ok(ReadinessTransport {
             endpoint: self.endpoint.clone(),
             gateway_key_file: path_text(&self.gateway_key_file)?.to_owned(),
@@ -787,6 +792,15 @@ pub struct BindingPublisher {
     web: Option<WebDeclaration>,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum PublicationStage {
+    SessionRecorded,
+    TokenPublished,
+    BearerPublished,
+    BindingPublished,
+    DirectorySynced,
+}
+
 impl BindingPublisher {
     /// Validates the binding directory, the daemon records it names, and the limit it declares.
     ///
@@ -866,6 +880,14 @@ impl BindingPublisher {
     /// that is missing, non-canonical, or not owned by the declared owner and group, a binding directory that is not a canonical directory, a different published
     /// binding, a pre-existing secret file, and any I/O failure while writing.
     pub fn publish(&self, enrolment: &Enrolment) -> Result<PublishedBinding, EnrolmentError> {
+        self.publish_observed(enrolment, &mut |_| {})
+    }
+
+    fn publish_observed(
+        &self,
+        enrolment: &Enrolment,
+        observer: &mut impl FnMut(PublicationStage),
+    ) -> Result<PublishedBinding, EnrolmentError> {
         self.check_listener()?;
         let document = self.document(enrolment)?;
         prepare_root(&self.root)?;
@@ -898,11 +920,16 @@ impl BindingPublisher {
         let result = (|| {
             create_private(&session_token_file, token.as_bytes())?;
             written.push(&session_token_file);
+            observer(PublicationStage::TokenPublished);
             create_private(&daemon_bearer_file, self.surface.bearer.as_bytes())?;
             written.push(&daemon_bearer_file);
+            observer(PublicationStage::BearerPublished);
             create_private(&binding, &encoded)?;
             written.push(&binding);
-            sync_directory(&self.root)
+            observer(PublicationStage::BindingPublished);
+            sync_directory(&self.root)?;
+            observer(PublicationStage::DirectorySynced);
+            Ok(())
         })();
         if let Err(error) = result {
             for path in written.iter().rev() {
@@ -943,6 +970,7 @@ impl BindingPublisher {
         request: &EnrolmentRequest,
     ) -> Result<(), EnrolmentError> {
         self.check_listener()?;
+        prepare_root(&self.root)?;
         let metadata = fs::symlink_metadata(&self.root)?;
         if !metadata.is_dir()
             || metadata.uid() != fs::metadata("/proc/self")?.uid()
@@ -976,11 +1004,59 @@ impl BindingPublisher {
             core_height: request.core_sequence,
             token: Zeroizing::new(record.request.token_id),
         };
+        self.recover_publication(&enrolment)
+    }
+
+    fn recover_publication(&self, enrolment: &Enrolment) -> Result<(), EnrolmentError> {
+        // The durable session is the generation journal. Validate every surviving
+        // file against it before filling any missing member of the publication.
+        let document = self.document(enrolment)?;
         let binding = self.binding_path();
-        if read_document(&binding)?.as_ref() != Some(&self.document(&enrolment)?) {
+        let existing = read_document(&binding)?;
+        if existing.as_ref().is_some_and(|value| value != &document) {
             return Err(EnrolmentError::AlreadyPublished(binding));
         }
-        self.check_secrets(&enrolment)
+        let encoded = serde_json::to_vec_pretty(&document)
+            .map_err(|_| EnrolmentError::Encoding("the binding cannot be encoded"))?;
+        if encoded.len() > MAX_DOCUMENT_BYTES {
+            return Err(EnrolmentError::Encoding(
+                "the binding document exceeds its bound",
+            ));
+        }
+        let token = Zeroizing::new(hex::encode(enrolment.token.as_slice()));
+        let secrets = [
+            (SESSION_TOKEN_FILE, token.as_bytes()),
+            (DAEMON_BEARER_FILE, self.surface.bearer.as_bytes()),
+        ];
+        let mut missing = Vec::new();
+        for (name, expected) in secrets {
+            let path = self.root.join(name);
+            match fs::symlink_metadata(&path) {
+                Ok(_) => {
+                    let bytes =
+                        Zeroizing::new(crate::config::read_protected_source(&path, 4096).map_err(
+                            |_| EnrolmentError::InvalidPath("a binding secret is not protected"),
+                        )?);
+                    if bytes.strip_suffix(b"\n") != Some(expected) {
+                        return Err(EnrolmentError::InvalidPath(
+                            "a binding secret differs from current authority",
+                        ));
+                    }
+                }
+                Err(error) if error.kind() == io::ErrorKind::NotFound => {
+                    missing.push((path, expected))
+                }
+                Err(error) => return Err(error.into()),
+            }
+        }
+        for (path, contents) in missing {
+            create_private(&path, contents)?;
+        }
+        if existing.is_none() {
+            create_private(&binding, &encoded)?;
+        }
+        sync_directory(&self.root)?;
+        self.check_secrets(enrolment)
     }
 
     fn check_secrets(&self, enrolment: &Enrolment) -> Result<(), EnrolmentError> {
@@ -1165,6 +1241,45 @@ fn open_and_publish(
     publisher: &BindingPublisher,
     expiry_seconds: Option<u64>,
 ) -> Result<PublishedBinding, EnrolmentError> {
+    open_and_publish_observed(
+        store,
+        sessions,
+        identity,
+        request,
+        publisher,
+        expiry_seconds,
+        &mut |_| {},
+    )
+}
+
+pub fn enrol_observed(
+    store: &mut Store,
+    sessions: &mut SessionRegistry,
+    identity: &IdentityRecord,
+    request: EnrolmentRequest,
+    publisher: &BindingPublisher,
+    mut observer: impl FnMut(PublicationStage),
+) -> Result<PublishedBinding, EnrolmentError> {
+    open_and_publish_observed(
+        store,
+        sessions,
+        identity,
+        request,
+        publisher,
+        None,
+        &mut observer,
+    )
+}
+
+fn open_and_publish_observed(
+    store: &mut Store,
+    sessions: &mut SessionRegistry,
+    identity: &IdentityRecord,
+    request: EnrolmentRequest,
+    publisher: &BindingPublisher,
+    expiry_seconds: Option<u64>,
+    observer: &mut impl FnMut(PublicationStage),
+) -> Result<PublishedBinding, EnrolmentError> {
     publisher.check_listener()?;
     let tenant = identity.tenant().clone();
     Capability::restore(store, tenant.clone(), request.capability_id)
@@ -1195,7 +1310,8 @@ fn open_and_publish(
         token: Zeroizing::new(issued.token_id()),
     };
     drop(issued);
-    match publisher.publish(&enrolment) {
+    observer(PublicationStage::SessionRecorded);
+    match publisher.publish_observed(&enrolment, observer) {
         Ok(binding) => Ok(binding),
         Err(error) => match session::close(store, sessions, &tenant, request.session_id) {
             Ok(()) => Err(error),

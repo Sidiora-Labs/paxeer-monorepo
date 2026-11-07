@@ -1166,13 +1166,26 @@ fn competing_rotation(value: &StoredCompetition) -> CompetingRotation {
     }
 }
 
-fn rung_from_rank(rank: u8) -> Result<Rung, AgentRecoveryError> {
-    match rank {
-        0 => Ok(Rung::Submitted),
-        1 => Ok(Rung::Receipted),
-        2 => Ok(Rung::Committed),
-        _ => Err(AgentRecoveryError::Corrupt("invalid rung rank")),
-    }
+pub(crate) fn rung_from_rank(rank: u8) -> Result<Rung, AgentRecoveryError> {
+    layerx_agentd::human_runtime::budget_rung_from_rank(rank)
+        .map_err(|_| AgentRecoveryError::Corrupt("invalid rung rank"))
+}
+
+/// Decodes the daemon's durable budget observation at the Human boundary.
+pub fn decode_budget_snapshot(
+    bytes: &[u8],
+) -> Result<
+    (
+        [u8; 32],
+        layerx_agentd::human_runtime::CoreBudgetState,
+        Rung,
+    ),
+    AgentRecoveryError,
+> {
+    let (budget, state) = layerx_agentd::human_runtime::CoreBudgetState::decode_snapshot(bytes)
+        .map_err(|_| AgentRecoveryError::Corrupt("invalid budget snapshot"))?;
+    let rung = rung_from_rank(bytes[48])?;
+    Ok((budget, state, rung))
 }
 
 fn hash_bytes(digest: &mut Sha256, bytes: &[u8]) {

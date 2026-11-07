@@ -492,6 +492,19 @@ impl Gateway {
         answer
     }
 
+    fn assert_retired_paths(&self) {
+        for path in ["/rpc", "/rpc/schema", "/rpc/ws", "/rpc/evm/ws"] {
+            for method in ["GET", "POST"] {
+                let (status, body) = self
+                    .exchange(method, path, b"{}")
+                    .expect("retired route response");
+                assert_eq!(status, 404, "{method} {path}");
+                let body: Value = serde_json::from_slice(&body).expect("retired route refusal");
+                assert_eq!(body["error"]["code"], "not_found");
+            }
+        }
+    }
+
     fn websocket(&self) -> TcpStream {
         use layerx_platform_gateway::gateway_digest;
         use layerx_platform_gateway::store::{KeyRecord, RedisEndpoint, RedisStore};
@@ -532,7 +545,7 @@ impl Gateway {
         stream
             .set_read_timeout(Some(Duration::from_secs(5)))
             .expect("WebSocket timeout");
-        write!(stream, "GET /rpc/ws HTTP/1.1\r\nHost: localhost\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Version: 13\r\nSec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\nAuthorization: LayerX-Key {}:{secret}\r\n\r\n", record.key_id).expect("WebSocket upgrade");
+        write!(stream, "GET / HTTP/1.1\r\nHost: localhost\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Version: 13\r\nSec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\nAuthorization: LayerX-Key {}:{secret}\r\n\r\n", record.key_id).expect("WebSocket upgrade");
         let mut headers = Vec::new();
         while !headers.ends_with(b"\r\n\r\n") {
             let mut byte = [0];
@@ -603,6 +616,7 @@ const ACCOUNT: &str = "0x00000000000000000000000000000000000000ab";
 #[test]
 fn register_replaced() {
     let gateway = Gateway::start();
+    gateway.assert_retired_paths();
     let signer = "ab".repeat(32);
     let signature = "cd".repeat(64);
     for params in [
@@ -617,12 +631,9 @@ fn register_replaced() {
     let served = gateway.call("px_register", &json!([signer, signature]));
     assert!(served.get("result").is_none(), "{served}");
     assert_eq!(served["error"]["code"], -32002, "{served}");
-    let (status, schema) = gateway
-        .exchange("GET", "/rpc/schema", b"")
-        .unwrap_or_else(|error| panic!("schema must be answered: {error}"));
-    assert_eq!(status, 200);
+    let schema = include_bytes!("../openrpc.json");
     let schema: Value =
-        serde_json::from_slice(&schema).unwrap_or_else(|error| panic!("schema JSON: {error}"));
+        serde_json::from_slice(schema).unwrap_or_else(|error| panic!("schema JSON: {error}"));
     let names: Vec<&str> = schema["methods"]
         .as_array()
         .unwrap_or_else(|| panic!("schema methods"))
@@ -665,6 +676,7 @@ fn explorer_program_paths_are_not_proxied() {
 #[test]
 fn lx_reads_switched_off() {
     let gateway = Gateway::start();
+    gateway.assert_retired_paths();
     let mut websocket = gateway.websocket();
     let key = "ab".repeat(32);
     let did = format!("did:layerx:{key}");
@@ -714,11 +726,8 @@ fn lx_reads_switched_off() {
         assert_ne!(answer["error"]["code"], -32601, "{method} {answer}");
         assert_ne!(answer["error"]["code"], -32602, "{method} {answer}");
     }
-    let (status, schema) = gateway
-        .exchange("GET", "/rpc/schema", b"")
-        .expect("served schema");
-    assert_eq!(status, 200);
-    let schema: Value = serde_json::from_slice(&schema).expect("served OpenRPC JSON");
+    let schema = include_bytes!("../openrpc.json");
+    let schema: Value = serde_json::from_slice(schema).expect("served OpenRPC JSON");
     assert!(schema["methods"]
         .as_array()
         .expect("schema methods")

@@ -25,7 +25,7 @@ const SearchBarSuggestBlock = ({ data, isMobile, searchTerm, chainInfo }: ItemsP
         as="mark"
         display="block"
       >
-        <HashStringShortenDynamic hash={ data.block_hash } noTooltip/>
+        <HashStringShortenDynamic fontFamily="mono" fontVariantNumeric="tabular-nums" hash={ data.block_hash } noTooltip/>
       </Box>
     );
     return (
@@ -38,7 +38,7 @@ const SearchBarSuggestBlock = ({ data, isMobile, searchTerm, chainInfo }: ItemsP
 
   const blockNumber = (
     <Text
-      fontWeight={ 700 }
+      textStyle="number"
       overflow="hidden"
       whiteSpace="nowrap"
       textOverflow="ellipsis"
@@ -54,7 +54,7 @@ const SearchBarSuggestBlock = ({ data, isMobile, searchTerm, chainInfo }: ItemsP
       as={ shouldHighlightHash ? 'mark' : 'span' }
       display="block"
     >
-      <HashStringShortenDynamic hash={ data.block_hash } noTooltip/>
+      <HashStringShortenDynamic fontFamily="mono" fontVariantNumeric="tabular-nums" hash={ data.block_hash } noTooltip/>
     </Text>
   ) : null;
   const date = 'timestamp' in data && data.timestamp && !isFutureBlock ? <Time timestamp={ data.timestamp } color="text.secondary" format="lll_s"/> : undefined;

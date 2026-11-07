@@ -104,12 +104,13 @@ fn faucet_parameters_match_the_gateway_did_and_signer_bounds() -> Result<(), Str
 
 #[test]
 fn identity_sessions_and_gateway_credentials_are_distinct() -> Result<(), String> {
-    let url = "http://127.0.0.1:1/rpc";
+    // Identity sessions name the explicit hosted service, separately from the node root.
+    let url = "http://127.0.0.1:1/services/identity";
     let token = || Zeroizing::new("identity-session-transport-test".to_owned());
     let session = RpcClient::new_session(url, token())?;
     assert!(RpcClient::new_session(url, Zeroizing::new(String::new())).is_err());
-    assert!(RpcClient::new_session("https://example.com", token()).is_err());
-    assert!(RpcClient::new_session("http://example.com/rpc", token()).is_err());
+    assert!(RpcClient::new_session("https://example.com?query", token()).is_err());
+    assert!(RpcClient::new_session("http://example.com/services/identity", token()).is_err());
     assert!(session
         .subscribe(
             &json!(["logs", {"address":"0x000000000000000000000000000000000000101d"}]),
@@ -127,8 +128,8 @@ fn identity_sessions_and_gateway_credentials_are_distinct() -> Result<(), String
     assert!(session.call("eth_unsubscribe", &json!(["1"])).is_err());
     let credential = Zeroizing::new(format!("key:lxp_live_{}", "a".repeat(64)));
     for client in [
-        RpcClient::new(url, None)?,
-        RpcClient::new(url, Some(credential))?,
+        RpcClient::new_gateway(url, None)?,
+        RpcClient::new_gateway(url, Some(credential))?,
     ] {
         assert!(client
             .call(
@@ -184,3 +185,7 @@ fn identity_rpc_responses_remain_bound_and_preserve_all_refusal_fields() -> Resu
     }
     Ok(())
 }
+
+use layerx_platform_cli::{encoding, http};
+#[path = "repair_22_33_1496.rs"]
+mod audit_22_33_1496;
