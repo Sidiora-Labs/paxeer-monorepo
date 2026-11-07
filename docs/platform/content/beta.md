@@ -47,6 +47,11 @@ revision, command, environment, start time, outcome (`pass`, `fail` or
 `blocked`) and evidence location, and `[observation.<task>.<n>]`, an
 assumption, contradiction or external blocker with its severity.
 
+The `[meta]` header declares the ledger name, kind
+(`beta-qualification-ledger`), version and `record_kinds` (`gate` and
+`observation`). An empty ledger has only this header and no record sections;
+it reports `no-go` and leaves every surface at `source_present`.
+
 - Only a gate record raises a surface. A task status, an observation, a
   document or a plan never raises a rung.
 - A gate that cannot run because an owner input is missing is recorded
