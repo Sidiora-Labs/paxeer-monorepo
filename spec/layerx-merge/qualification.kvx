@@ -34088,3 +34088,58 @@ file = "services/platform/hosted/gateway/tests/repair_22_33_1439.rs:609"
 observed = "Revision e3909f381a34b1344c5b48e30dce92143ed4f4de, command cg spec done 22.31.620 -f layerx-merge --root /work/paxeer-monorepo, exit 1 (cargo test exit 101), private log /out/logs/verify-1.log: the unchanged node_root_and_explicit_chain_paths_reject_router_paths test received null instead of 0xb for eth_blockNumber, while the gateway target compiled and 39 tests passed."
 assumption = "The pre-existing node-path assertion is unrelated to module mirroring; retain it unchanged and do not chase or rerun the recorded failure."
 severity = "blocker"
+[finding.22.39.40.2]
+task = "22.39.40"
+file = "tests/ci/test_node_build_workflow_scope.py"
+symbol = "test_node_build_workflow_scope.py"
+observed = "Attempt 2 at d51cd029d92d: build exit 0; verification exit 1 in go test ./node/ with three failures (TestMergePlanReturnsGuarantorBonds, TestHostedKernelProgramsABIFollowsTheMergeUpgrade, TestHostedKernelProgramsABISurvivesRestart) after 176 seconds; the standby and Python checks were not reached."
+assumption = "The three tests belong to earlier merge tasks and fail on the base tree; the activation repair itself is complete."
+severity = "high"
+
+[finding.22.39.59.1]
+task = "22.39.59"
+file = "tests/ci/test_markdown_links_resolve.py"
+symbol = "test_markdown_links_resolve.py"
+observed = "Attempt 1 at 6155dcda174a: build exit 0; verification 1 stopped at the time limit (exit 143); verification 2: 3 passed, 2 failed, about 630 unresolved links and 401 noncanonical URLs, every unresolved link inside spec/, a vendor directory or a vendored tree."
+assumption = "The vendored trees and the engineering record are outside the documentation guards (decision 2811); the first-party URL repairs are small text edits."
+severity = "high"
+
+[finding.22.39.68.2]
+task = "22.39.68"
+file = "tests/ci/test_key_material_only_in_fixtures.py"
+symbol = "test_key_material_only_in_fixtures.py"
+observed = "Attempt 2 at 7a48311586e4: build exit 0; the compile of dependent crates exit 101 on three missing include_bytes files in the indexer test crate; verification not reached."
+assumption = "The indexer test is the only reference outside the touches; a tree-wide search confirms it."
+severity = "high"
+
+[finding.22.39.72.1]
+task = "22.39.72"
+file = "tests/ci/test_make_recipe_paths_exist.py"
+symbol = "test_make_recipe_paths_exist.py"
+observed = "Attempt 1 at e7f17888b9b5: build exit 0; verification 2 exit 2: tests/ci/test_make_recipe_paths_exist.py passed, make platform-test-tooling failed in layerx-platform-cli (21 passed, 3 failed)."
+assumption = "The three CLI failures predate the recipe change; the recipe task proves the recipes resolve and the repair task proves they pass."
+severity = "high"
+
+[finding.22.39.75.1]
+task = "22.39.75"
+file = "tests/ci/test_launchpad_go_tests_wired.py"
+symbol = "test_launchpad_go_tests_wired.py"
+observed = "Attempt 1 at ae29c05be4d5: build exit 0; verification 2 exit 2: wiring tests passed, make -C services/launchpad ci failed with 35 tests in shared/auth, shared/chain, shared/db/production, shared/delivery, shared/delivery/natsdriver and shared/storage."
+assumption = "The six packages fail on the base tree for environmental and untracked-file reasons; wiring the modules with a recorded baseline is the deliverable of this task."
+severity = "high"
+
+[finding.22.39.8.5]
+task = "22.39.8"
+file = "services/wallet/attestor/internal/server/native_purpose_test.go"
+symbol = "native_purpose_test.go"
+observed = "Attempt 5 at 5de94a0b37e0: build exit 0; verification: TestNativeCustodyRealProfiles failed (Rust consumer exit 101, Io WouldBlock on the principal store), TestNativeSendPurposeRealProfiles failed with Mismatch(native_send.domain), the Go send purpose signed under the v1 domain."
+assumption = "The store lock is per process and the second open in the fixture is the only cause of WouldBlock; the v2 domain is the published contract."
+severity = "high"
+
+[finding.22.37.4.2]
+task = "22.37.4"
+file = "tools/hyperfide/sdk/client/test/install-status.test.ts"
+symbol = "install-status.test.ts"
+observed = "Attempt 2 at 1fdf0eaffdd6: build exit 0; verification exit 1: the install-status test failed, Actual HTTPS service did not become ready, COMPONENT_LOAD_FAILED, Factory actions differ from declared operations."
+assumption = "The declaration is the only place the operation is missing; the registry comparison is exact set equality."
+severity = "high"
