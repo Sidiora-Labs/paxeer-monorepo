@@ -1,3 +1,6 @@
+#[allow(dead_code)]
+mod repair_22_33_1470;
+
 use std::collections::HashMap;
 use std::fs;
 use std::io::Write as _;
@@ -43,26 +46,18 @@ fn registry_head_reads_the_programs_state_head() {
         RegistryAuthority::new("registry-programs-chain-request-token".to_owned().into()).unwrap();
     let program = [0x72; 32];
     // The canonical empty-storage head emitted by the programs construct.
-    let mut state_record = vec![0, 1, 0, 0, 0, 0];
-    state_record.extend_from_slice(&Sha256::digest(&state_record));
+    let state_record = repair_22_33_1470::storage_head_abi()[64..102].to_vec();
     let expected_root = hash_bytes(HashAlgorithm::Keccak256, &state_record).unwrap();
     let state_abi = abi_bytes(&state_record);
     assert_ne!(
         expected_root,
         hash_bytes(HashAlgorithm::Keccak256, &state_abi).unwrap()
     );
-    let mut program_record = word(1);
-    program_record.extend_from_slice(&[0x33; 32]);
-    program_record.extend_from_slice(&[0x44; 32]);
-    program_record.extend_from_slice(&word(5));
-    program_record.extend_from_slice(&word(1));
-    program_record.extend_from_slice(&word(1));
+    let fixture = repair_22_33_1470::admission(1);
+    let program_record = repair_22_33_1470::program_abi(&fixture.proof.claimed_record().unwrap());
 
     let listener = TcpListener::bind("127.0.0.1:0").unwrap();
-    let endpoint = format!(
-        "http://{}/rpc?construct=programs",
-        listener.local_addr().unwrap()
-    );
+    let endpoint = format!("http://{}/", listener.local_addr().unwrap());
     listener.set_nonblocking(true).unwrap();
     let peer = thread::spawn(move || {
         let mut calls = Vec::new();
@@ -93,7 +88,7 @@ fn registry_head_reads_the_programs_state_head() {
             .unwrap();
             assert_eq!(
                 request.headers.get("").map(String::as_str),
-                Some("POST /rpc?construct=programs HTTP/1.1")
+                Some("POST / HTTP/1.1")
             );
             assert!(request.headers.contains_key("host"));
             let rpc: Value = serde_json::from_slice(&request.body).unwrap();
@@ -268,7 +263,7 @@ fn registry_deployment_reads_the_program_record() {
             receipt,
         ];
         let listener = TcpListener::bind("127.0.0.1:0").unwrap();
-        let endpoint = format!("http://{}/rpc", listener.local_addr().unwrap());
+        let endpoint = format!("http://{}/", listener.local_addr().unwrap());
         listener.set_nonblocking(true).unwrap();
         let peer = thread::spawn(move || {
             let mut receipts = receipts.into_iter();
@@ -448,101 +443,12 @@ fn registry_deployment_reads_the_program_record() {
     }
 }
 
-#[allow(dead_code)]
-#[path = "../../../../../programs/crates/layerx-programs-registry/tests/support/chain.rs"]
-mod chain;
-
 #[test]
 fn registry_starts_without_an_lni_socket() {
-    const CHILD: &str = "LAYERX_TEST_REGISTRY_WITHOUT_LNI";
-    if std::env::var_os(CHILD).is_none() {
-        let output = std::process::Command::new(std::env::current_exe().unwrap())
-            .args([
-                "--exact",
-                "registry_starts_without_an_lni_socket",
-                "--nocapture",
-            ])
-            .env_remove("LAYERX_REGISTRY_LNI_SOCKET")
-            .env(CHILD, "1")
-            .output()
-            .unwrap();
-        assert!(
-            output.status.success(),
-            "{}\n{}",
-            String::from_utf8_lossy(&output.stdout),
-            String::from_utf8_lossy(&output.stderr)
-        );
-        return;
-    }
-    assert!(std::env::var_os("LAYERX_REGISTRY_LNI_SOCKET").is_none());
-    use layerx_programs::{
-        chain_evidence::programs_state_key, chain_proof::trust_store::TrustRoot, ObservedHead,
-        ProgramId,
-    };
-    use std::os::unix::fs::PermissionsExt as _;
+    repair_22_33_1470::registry_http_without_socket_recovers_the_same_view();
+}
 
-    let root =
-        Root(std::env::temp_dir().join(format!("registry-without-lni-{}", std::process::id())));
-    fs::create_dir(&root.0).unwrap();
-    let program = ProgramId::new([0x73; 32]).unwrap();
-    let wasm = layerx_programs_runtime::test_support::add_module();
-    let code_hash: [u8; 32] = Sha256::digest(&wasm).into();
-    let mut key = b"program\0".to_vec();
-    key.extend_from_slice(&program.bytes());
-    let key = programs_state_key(&key);
-    let mut record = vec![0];
-    record.extend_from_slice(&[0; 32]);
-    record.extend_from_slice(&code_hash);
-    record.extend_from_slice(&1_u16.to_be_bytes());
-    record.extend_from_slice(&1_u32.to_be_bytes());
-    let fixture = chain::ChainFixture::new(
-        "registry-without-lni",
-        &[[1; 32], [2; 32], [3; 32], [4; 32]],
-        vec![(key.clone(), record)],
-    )
-    .unwrap();
-    let verified_head = fixture
-        .verifier
-        .verify_head(&fixture.header, &fixture.commit)
-        .unwrap();
-    let trust = TrustRoot::from_head(&verified_head, fixture.verifier.validators.clone()).unwrap();
-    let trust_path = root.0.join("chain-trust");
-    fs::write(&trust_path, trust.canonical_bytes().unwrap()).unwrap();
-    fs::set_permissions(&trust_path, fs::Permissions::from_mode(0o600)).unwrap();
-    let journal_path = root.0.join("journal");
-    let journal =
-        FileDeploymentJournal::open_from_chain_trust(journal_path.clone(), &trust_path, 1_000)
-            .unwrap();
-    let now = u64::try_from(verified_head.time_ms()).unwrap();
-    let head = ObservedHead {
-        sequence: u64::try_from(verified_head.height()).unwrap(),
-        observed_at: now,
-    };
-    journal.refresh_head(head).unwrap();
-    let package = serde_json::to_vec(&json!({
-        "commitment": fixture.encode_key(&key).unwrap(),
-        "code": wasm,
-        "interface": null,
-    }))
-    .unwrap();
-    let deployment = journal.append_chain_deployment(&package, now).unwrap();
-    assert_eq!(deployment.program(), program);
-    assert_eq!(deployment.code_hash(), code_hash);
-    assert_eq!(deployment.version(), 1);
-    assert_eq!(deployment.state_root(), verified_head.app_hash());
-    assert_eq!(journal.observed_head().unwrap(), head);
-    drop(journal);
-    let reopened =
-        FileDeploymentJournal::open_from_chain_trust(journal_path.clone(), &trust_path, 1_000)
-            .unwrap();
-    assert_eq!(reopened.observed_head().unwrap(), head);
-    assert_eq!(
-        reopened.append_chain_deployment(&package, now).unwrap(),
-        deployment
-    );
-    let saved = journal_path.join("chain-proofs").join(format!(
-        "{}.chain-deployment",
-        hex::encode(&Sha256::digest(&package))
-    ));
-    assert_eq!(fs::read(saved).unwrap(), package);
+#[test]
+fn registry_programs_root_authenticated_deployment_head_and_refusals() {
+    repair_22_33_1470::programs_root_transport_admits_and_refuses_transactions();
 }

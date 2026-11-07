@@ -70,10 +70,10 @@ func TestProgramsABIEventTopics(t *testing.T) {
 	}
 }
 
-func TestProgramsABIKeepsThirtyFiveMethods(t *testing.T) {
+func TestProgramsABIKeepsThirtySixMethods(t *testing.T) {
 	parsed := programsABI(t)
-	require.Len(t, parsed.Methods, 35)
-	require.Len(t, d2Table, 35)
+	require.Len(t, parsed.Methods, 36)
+	require.Len(t, d2Table, 36)
 	for name, want := range d2Table {
 		method, ok := parsed.Methods[name]
 		require.True(t, ok, name)
@@ -101,12 +101,21 @@ func TestProgramsABIKeepsThirtyFiveMethods(t *testing.T) {
 		require.Equal(t, "uint128", last.Type.String(), name)
 	}
 
+	call := parsed.Methods["call"]
+	withReceipts := parsed.Methods["callWithReceipts"]
+	require.Len(t, withReceipts.Inputs, 10)
+	require.Equal(t, call.Inputs, withReceipts.Inputs[:9])
+	require.Equal(t, call.Outputs, withReceipts.Outputs)
+	require.Equal(t, "receiptAuthorities", withReceipts.Inputs[9].Name)
+	require.Equal(t, "(bytes,uint64)[]", withReceipts.Inputs[9].Type.String())
+	require.Equal(t, []string{"canonicalReceipt", "blockHeight"}, withReceipts.Inputs[9].Type.Elem.TupleRawNames)
+
 	source, err := os.ReadFile("LayerXPrograms.sol")
 	require.NoError(t, err)
 	require.Contains(t, string(source), "interface ILayerXPrograms {")
 	require.Contains(t, string(source), "address constant LAYERX_PROGRAMS_ADDRESS = 0x000000000000000000000000000000000000101D;")
 	functions := regexp.MustCompile(`(?s)\bfunction\s+(\w+)\s*\(([^)]*)\)\s+external(?:\s+(view))?(?:\s+returns\s*\(([^)]*)\))?\s*;`).FindAllStringSubmatch(string(source), -1)
-	require.Len(t, functions, 35)
+	require.Len(t, functions, 36)
 	seen := make(map[string]bool)
 	for _, declaration := range functions {
 		name := declaration[1]
@@ -125,6 +134,9 @@ func TestProgramsABIKeepsThirtyFiveMethods(t *testing.T) {
 	structs := regexp.MustCompile(`(?s)\bstruct\s+TransferLeg\s*\{([^}]*)\}`).FindAllStringSubmatch(string(source), -1)
 	require.Len(t, structs, 1)
 	require.Equal(t, "bytes32 from; bytes32 asset; bytes32 to; uint128 amount;", strings.Join(strings.Fields(structs[0][1]), " "))
+	receiptStructs := regexp.MustCompile(`(?s)\bstruct\s+ReceiptAuthority\s*\{([^}]*)\}`).FindAllStringSubmatch(string(source), -1)
+	require.Len(t, receiptStructs, 1)
+	require.Equal(t, "bytes canonicalReceipt; uint64 blockHeight;", strings.Join(strings.Fields(receiptStructs[0][1]), " "))
 }
 
 func programsSolidityTypes(parameters string) []string {
@@ -136,6 +148,9 @@ func programsSolidityTypes(parameters string) []string {
 		typ := strings.Fields(parameter)[0]
 		if typ == "TransferLeg[]" {
 			typ = "(bytes32,bytes32,bytes32,uint128)[]"
+		}
+		if typ == "ReceiptAuthority[]" {
+			typ = "(bytes,uint64)[]"
 		}
 		types = append(types, typ)
 	}

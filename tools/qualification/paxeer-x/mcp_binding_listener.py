@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import hashlib
+import inspect
 import json
 import os
 from pathlib import Path
@@ -22,22 +23,26 @@ CASES = (
     'refuse_unadmitted_peer', 'admitted_initialize', 'admitted_tools_list',
     'admitted_verified_read', 'restart_reload_no_duplicate_session',
     'web_reference_emitted', 'paid_tool_requires_payer',
+    'paid_tool_initialize', 'paid_tool_restart', 'restart_refuses_changed_web_authority',
     'restart_refuses_changed_authority', 'refuse_listener_owner', 'secret_errors_redacted',
 )
 TOP_KEYS = {'mode', 'tenant', 'store', 'audit_root', 'session_id', 'session_token_file',
-            'session_generation', 'capability_id', 'core_sequence', 'deadline_ms', 'agent',
+            'session_generation', 'capability_id', 'core_height', 'deadline_ms', 'agent',
             'limit', 'listener'}
 AGENT_KEYS = {'endpoint', 'bearer_file', 'probe_program'}
 LIMIT_KEYS = {'id', 'name', 'scope', 'scope_id', 'ceiling', 'consumed'}
 LISTENER_KEYS = {'socket', 'owner_uid', 'owner_gid', 'mode', 'admitted_uids'}
-WEB_KEYS = {'endpoint', 'network', 'sequencer_public_key', 'timeout_ms', 'pending_attempts',
-            'approval_threshold'}
+WEB_KEYS = {'endpoint', 'network', 'payer_address', 'receiver_address', 'receipt_key_index',
+            'sequencer_id', 'first_batch_number', 'last_batch_number', 'timeout_ms',
+            'pending_attempts', 'approval_threshold'}
 LISTENER_ENV = ('LAYERX_AGENT_MCP_LISTENER_SOCKET', 'LAYERX_AGENT_MCP_LISTENER_OWNER_UID',
                 'LAYERX_AGENT_MCP_LISTENER_OWNER_GID', 'LAYERX_AGENT_MCP_LISTENER_MODE',
                 'LAYERX_AGENT_MCP_LISTENER_ADMITTED_UIDS')
 WEB_ENV = ('LAYERX_AGENT_MCP_WEB_ENDPOINT', 'LAYERX_AGENT_MCP_WEB_NETWORK',
            'LAYERX_AGENT_MCP_WEB_RECEIPT_KEY_INDEX', 'LAYERX_AGENT_MCP_WEB_TIMEOUT_MS',
-           'LAYERX_AGENT_MCP_WEB_PENDING_ATTEMPTS', 'LAYERX_AGENT_MCP_WEB_APPROVAL_THRESHOLD')
+           'LAYERX_AGENT_MCP_WEB_PENDING_ATTEMPTS', 'LAYERX_AGENT_MCP_WEB_APPROVAL_THRESHOLD',
+           'LAYERX_AGENT_MCP_WEB_PAYER_ADDRESS', 'LAYERX_AGENT_MCP_WEB_RECEIVER_ADDRESS',
+           'LAYERX_AGENT_MCP_WEB_FIRST_BATCH_NUMBER', 'LAYERX_AGENT_MCP_WEB_LAST_BATCH_NUMBER')
 RETIRED_ENV = ('LAYERX_AGENT_MCP_WEB_SEQUENCER_PUBLIC_KEY',
                'LAYERX_AGENT_MCP_CORE_SEQUENCE', 'LAYERX_AGENT_MCP_EXPIRY_SEQUENCE')
 AGENTD_ENV = ('LAYERX_AGENT_HUMAN_NETWORK_ID', 'LAYERX_AGENT_HUMAN_PROTOCOL_VERSION',
@@ -46,28 +51,67 @@ AGENTD_ENV = ('LAYERX_AGENT_HUMAN_NETWORK_ID', 'LAYERX_AGENT_HUMAN_PROTOCOL_VERS
 SECRET_ENV = ('LAYERX_AGENT_PROGRAM_BEARER_TOKEN', 'LAYERX_AGENT_NODE_BEARER_TOKEN',
               'LAYERX_AGENT_AUTHORITY_BEARER_TOKEN', 'LAYERX_AGENT_HUMAN_AUTHORITY_BEARER')
 SOCKET_MODE = '0660'
-CLIENT = r'''
-import json, socket, sys
-path, requests = sys.argv[1], json.loads(sys.argv[2])
-connection = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-connection.settimeout(float(sys.argv[3]))
-connection.connect(path)
-for request in requests:
-    connection.sendall((json.dumps(request) + "\n").encode())
-connection.shutdown(socket.SHUT_WR)
-buffer = b""
-try:
-    while True:
-        chunk = connection.recv(65536)
-        if not chunk:
-            break
-        buffer += chunk
-except (ConnectionResetError, socket.timeout) as error:
-    print(json.dumps({"transport": type(error).__name__, "responses": []}))
-    sys.exit(0)
-responses = [json.loads(line) for line in buffer.decode().splitlines() if line.strip()]
-print(json.dumps({"transport": "eof", "responses": responses}))
-'''
+
+
+def peer_exchange(path, requests, timeout=30):
+    with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as connection:
+        connection.settimeout(timeout)
+        connection.connect(str(path))
+        for request in requests:
+            connection.sendall((json.dumps(request) + '\n').encode())
+        connection.shutdown(socket.SHUT_WR)
+        buffer = b''
+        try:
+            while True:
+                chunk = connection.recv(65536)
+                if not chunk:
+                    break
+                buffer += chunk
+        except (ConnectionResetError, socket.timeout) as error:
+            return {'transport': type(error).__name__, 'responses': []}
+    responses = [json.loads(line) for line in buffer.decode().splitlines() if line.strip()]
+    return {'transport': 'eof', 'responses': responses}
+
+
+CLIENT = ('import json, socket, sys\n' + inspect.getsource(peer_exchange)
+          + '\nprint(json.dumps(peer_exchange(sys.argv[1], json.loads(sys.argv[2]), '
+            'float(sys.argv[3]))))\n')
+
+
+def initialization_requests():
+    return [
+        {'jsonrpc': '2.0', 'id': 1, 'method': 'initialize',
+         'params': {'protocolVersion': '2025-06-18', 'capabilities': {},
+                    'clientInfo': {'name': 'paxeer-x-qualification', 'version': '1'}}},
+        {'jsonrpc': '2.0', 'method': 'notifications/initialized'},
+        {'jsonrpc': '2.0', 'id': 2, 'method': 'tools/list'},
+    ]
+
+
+def initialized_web_tools(reply, web_scopes):
+    require(isinstance(reply, dict) and isinstance(reply.get('responses'), list),
+            'paid-tool initialization response is malformed')
+    for entry in reply['responses']:
+        require(isinstance(entry, dict) and entry.get('jsonrpc') == '2.0'
+                and type(entry.get('id')) is int,
+                'paid-tool initialization response is malformed')
+    responses = {entry.get('id'): entry for entry in reply['responses']}
+    require(reply['transport'] == 'eof' and set(responses) == {1, 2}
+            and len(reply['responses']) == 2,
+            'paid-tool initialization did not return two responses')
+    initialized = responses[1].get('result', {})
+    require(isinstance(initialized, dict) and isinstance(initialized.get('_meta'), dict)
+            and initialized['_meta'].get('layerx/binding') == 'agent-daemon'
+            and initialized['_meta'].get('layerx/deployment_mode') == 'full',
+            'paid-tool initialization differs')
+    tools = responses[2].get('result', {}).get('tools')
+    require(isinstance(tools, list) and all(isinstance(entry, dict) for entry in tools),
+            'paid tools/list is absent')
+    names = {entry.get('name') for entry in tools}
+    expected = {'web.' + name for name in ('search', 'fetch', 'content')
+                if 'write:web:' + name in web_scopes.split(',')}
+    require(expected and expected <= names, 'the enrolled paid web tools are not served')
+    return sorted(expected)
 
 
 class GateFailure(Exception):
@@ -164,7 +208,28 @@ def binding_environment(daemon, state, admitted, group, web_scopes,
     return dict(base, **{key: value for key, value in values.items() if value is not None})
 
 
-def web_receipt_public_key(daemon):
+def unsigned(value, field, maximum=(1 << 64) - 1):
+    require(type(value) is int and 0 <= value <= maximum, field + ' invalid unsigned integer')
+    return value
+
+
+def configured_unsigned(daemon, field, maximum=(1 << 64) - 1):
+    value = daemon[field]
+    require(isinstance(value, str) and re.fullmatch(r'[0-9]+', value),
+            field + ' must be a decimal unsigned integer')
+    return unsigned(int(value), field, maximum)
+
+
+def check_core_coordinate(document, expected):
+    require('core_sequence' not in document, 'core_sequence is retired')
+    require('core_height' in document, 'core_height is required')
+    height = unsigned(document['core_height'], 'core_height')
+    require(height == unsigned(expected, 'configured core height'),
+            'binding core height differs from the enrolled chain height')
+    return height
+
+
+def web_receipt_keys(daemon):
     context = ssl.create_default_context()
     if daemon['LAYERX_AGENT_NODE_ENDPOINT'].startswith('https://'):
         certificate = Path(daemon['LAYERX_AGENT_AUTHORITY_CA_DER']).read_bytes()
@@ -177,20 +242,80 @@ def web_receipt_public_key(daemon):
         headers={'Content-Type': 'application/json', 'Accept': 'application/json'})
     with urllib.request.urlopen(request, context=context, timeout=30) as response:
         payload = json.load(response)
-    require(set(payload) == {'jsonrpc', 'id', 'result'}
-            and payload['jsonrpc'] == '2.0' and payload['id'] == 1,
+    require(isinstance(payload, dict) and set(payload) == {'jsonrpc', 'id', 'result'}
+            and payload['jsonrpc'] == '2.0' and type(payload['id']) is int and payload['id'] == 1,
             'receipt key RPC response is malformed')
     result = payload['result']
     require(isinstance(result, dict) and set(result) == {'keys'},
             'receipt key RPC response is malformed')
     keys = result['keys']
-    index = int(daemon['LAYERX_AGENT_MCP_WEB_RECEIPT_KEY_INDEX'])
-    require(isinstance(keys, list) and 0 <= index < len(keys),
-            'receipt key index has no px_getReceiptKeys entry')
-    key = keys[index]['publicKey']
-    require(isinstance(key, str) and re.fullmatch(r'0x[0-9a-fA-F]{64}', key),
-            'receipt public key is malformed')
-    return key[2:].lower()
+    require(isinstance(keys, list) and 1 <= len(keys) <= 64,
+            'receipt key index must name 1 to 64 keys')
+    normalized, seen = [], set()
+    for key in keys:
+        require(isinstance(key, dict)
+                and set(key) == {'keyId', 'publicKey', 'firstHeight', 'lastHeight'},
+                'receipt key entry is not closed')
+        entry = {}
+        for name in ('keyId', 'publicKey'):
+            value = key[name]
+            require(isinstance(value, str) and re.fullmatch(r'0x[0-9a-fA-F]{64}', value)
+                    and int(value[2:], 16) != 0, 'receipt ' + name + ' is malformed')
+            entry[name] = value[2:].lower()
+        first = unsigned(key['firstHeight'], 'receipt firstHeight')
+        last = unsigned(key['lastHeight'], 'receipt lastHeight')
+        require(first <= last and entry['keyId'] not in seen,
+                'receipt key index has an invalid or repeated key')
+        seen.add(entry['keyId'])
+        entry.update(firstHeight=first, lastHeight=last)
+        normalized.append(entry)
+    return normalized
+
+
+def web_reference(daemon):
+    keys = web_receipt_keys(daemon)
+    index = configured_unsigned(daemon, 'LAYERX_AGENT_MCP_WEB_RECEIPT_KEY_INDEX')
+    require(index < len(keys), 'receipt key index has no px_getReceiptKeys entry')
+    selected = keys[index]
+    first = configured_unsigned(daemon, 'LAYERX_AGENT_MCP_WEB_FIRST_BATCH_NUMBER')
+    last = configured_unsigned(daemon, 'LAYERX_AGENT_MCP_WEB_LAST_BATCH_NUMBER')
+    require(selected['firstHeight'] <= first <= last <= selected['lastHeight'],
+            'receipt key index does not cover the selected receipt range')
+    network = daemon['LAYERX_AGENT_MCP_WEB_NETWORK']
+    require(re.fullmatch(r'eip155:[1-9][0-9]{0,63}', network), 'web network is invalid')
+    require(network == 'eip155:125', 'the web network must be eip155:125')
+    addresses = {}
+    for field in ('PAYER_ADDRESS', 'RECEIVER_ADDRESS'):
+        value = daemon['LAYERX_AGENT_MCP_WEB_' + field]
+        require(re.fullmatch(r'0x[0-9a-fA-F]{40}', value) and int(value[2:], 16) != 0,
+                'web ' + field.lower() + ' is invalid')
+        addresses[field.lower()] = value.lower()
+    timeout = configured_unsigned(daemon, 'LAYERX_AGENT_MCP_WEB_TIMEOUT_MS')
+    attempts = configured_unsigned(daemon, 'LAYERX_AGENT_MCP_WEB_PENDING_ATTEMPTS', 255)
+    require(1 <= timeout <= 60_000, 'web timeout_ms is outside 1 to 60000')
+    require(1 <= attempts <= 10, 'web pending_attempts is outside 1 to 10')
+    threshold = configured_unsigned(daemon, 'LAYERX_AGENT_MCP_WEB_APPROVAL_THRESHOLD',
+                                    (1 << 128) - 1)
+    return dict(addresses, endpoint=daemon['LAYERX_AGENT_MCP_WEB_ENDPOINT'], network=network,
+                receipt_key_index=keys, sequencer_id=selected['keyId'], first_batch_number=first,
+                last_batch_number=last, timeout_ms=timeout, pending_attempts=attempts,
+                approval_threshold=str(threshold))
+
+
+def check_web_reference(document, expected):
+    section = document.get('web')
+    require(isinstance(section, dict) and set(section) == WEB_KEYS,
+            'the web section is absent or not closed')
+    for field in ('first_batch_number', 'last_batch_number', 'timeout_ms', 'pending_attempts'):
+        unsigned(section[field], 'web.' + field)
+    require(isinstance(section['receipt_key_index'], list), 'receipt key index must be an array')
+    for key in section['receipt_key_index']:
+        require(isinstance(key, dict) and set(key) == {'keyId', 'publicKey', 'firstHeight',
+                                                     'lastHeight'}, 'receipt key entry is not closed')
+        unsigned(key['firstHeight'], 'receipt firstHeight')
+        unsigned(key['lastHeight'], 'receipt lastHeight')
+    require(section == expected, 'the web section differs from the configured references')
+    return section
 
 
 class Gate:
@@ -430,8 +555,10 @@ class Gate:
                     'agent endpoint differs from the daemon listener')
             require(isinstance(document['tenant'], str) and document['tenant'],
                     'tenant reference missing')
-            for key in ('session_generation', 'core_sequence', 'deadline_ms'):
-                require(isinstance(document[key], int) and document[key] >= 0, key + ' invalid')
+            for key in ('session_generation', 'deadline_ms'):
+                unsigned(document[key], key)
+            check_core_coordinate(document, configured_unsigned(
+                self.daemon, 'LAYERX_AGENT_MCP_CORE_HEIGHT'))
             return {'binding': str(binding), 'sha256': digest(binding), 'log': str(daemon_log)}
 
         def protected_modes():
@@ -526,13 +653,13 @@ class Gate:
         self.case('refuse_bad_mode', refuse_bad_mode)
         self.case('refuse_document_wrong_owner_or_mode', refuse_document_wrong_owner_or_mode)
 
-        def served_session(label, stale=None):
-            process, log = self.serve(binding, label)
-            self.wait_for(process, main['socket'], log)
+        def served_session(label, stale=None, state=main, path=binding):
+            process, log = self.serve(path, label)
+            self.wait_for(process, state['socket'], log)
             deadline = time.monotonic() + self.boot_seconds
             while True:
                 try:
-                    info = os.lstat(main['socket'])
+                    info = os.lstat(state['socket'])
                 except FileNotFoundError:
                     info = None
                 if (info is not None and info.st_ino != stale
@@ -543,12 +670,7 @@ class Gate:
                         f'the bound socket does not carry the declared owner and mode; log={log}')
                 time.sleep(0.1)
 
-        requests = [
-            {'jsonrpc': '2.0', 'id': 1, 'method': 'initialize',
-             'params': {'protocolVersion': '2025-06-18', 'capabilities': {},
-                        'clientInfo': {'name': 'paxeer-x-qualification', 'version': '1'}}},
-            {'jsonrpc': '2.0', 'method': 'notifications/initialized'},
-            {'jsonrpc': '2.0', 'id': 2, 'method': 'tools/list'},
+        requests = initialization_requests() + [
             {'jsonrpc': '2.0', 'id': 3, 'method': 'tools/call',
              'params': {'name': 'receipt.get', 'arguments': {'activity_id': self.activity}}},
         ]
@@ -642,6 +764,8 @@ class Gate:
             current = {name: (os.stat(main['root'] / name).st_ino, digest(main['root'] / name))
                        for name in published}
             require(current == published, 'restart rewrote the binding or minted a second session')
+            check_core_coordinate(json.loads(private_file(binding)), configured_unsigned(
+                self.daemon, 'LAYERX_AGENT_MCP_CORE_HEIGHT'))
             try:
                 served, served_log = served_session('mcp-restart', stale)
             finally:
@@ -701,34 +825,105 @@ class Gate:
         web_binding = web['root'] / 'binding.json'
         self.wait_for(web_daemon, web_binding, web_log)
         web_document = json.loads(private_file(web_binding))
+        web_expected = web_reference(self.daemon)
+        web_published = {name: (os.stat(web['root'] / name).st_ino, digest(web['root'] / name))
+                         for name in ('binding.json', 'session-token', 'daemon-bearer')}
         self.scan_secrets(web['root'])
 
         def web_reference_emitted():
-            section = web_document.get('web')
-            require(isinstance(section, dict) and set(section) == WEB_KEYS,
-                    'the web section is absent or not closed')
-            expected = {
-                'endpoint': self.daemon['LAYERX_AGENT_MCP_WEB_ENDPOINT'],
-                'network': self.daemon['LAYERX_AGENT_MCP_WEB_NETWORK'],
-                'sequencer_public_key':
-                    web_receipt_public_key(self.daemon),
-                'timeout_ms': int(self.daemon['LAYERX_AGENT_MCP_WEB_TIMEOUT_MS']),
-                'pending_attempts': int(self.daemon['LAYERX_AGENT_MCP_WEB_PENDING_ATTEMPTS']),
-                'approval_threshold': self.daemon['LAYERX_AGENT_MCP_WEB_APPROVAL_THRESHOLD'],
-            }
-            require(section == expected, 'the web section differs from the configured references')
+            check_web_reference(web_document, web_expected)
+            check_core_coordinate(web_document, configured_unsigned(
+                self.daemon, 'LAYERX_AGENT_MCP_CORE_HEIGHT'))
             require(set(web_document) == TOP_KEYS | {'web'}, 'web binding top-level keys differ')
             return {'binding': str(web_binding), 'sha256': digest(web_binding)}
 
         def paid_tool_requires_payer():
-            process, log = self.serve(web_binding, 'mcp-web-without-payer')
-            outcome = self.refused(process, log, 'payer')
+            without_payer = dict(web_document, web=dict(web_document['web']))
+            del without_payer['web']['payer_address']
+            copy = self.path('web-binding-without-payer.json')
+            fd = os.open(copy, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
+            with os.fdopen(fd, 'w') as stream:
+                json.dump(without_payer, stream)
+            process, log = self.serve(copy, 'mcp-web-without-payer')
+            outcome = self.refused(process, log, 'payer_address')
             require(not web['socket'].exists(), 'a refused web binding left a socket')
             return outcome
 
+        def web_exchange():
+            reply, log = self.peer(self.admitted, web['socket'], requests[:3])
+            return {'tools': initialized_web_tools(reply, self.web_scopes), 'peer_log': str(log)}
+
+        web_server = None
+
+        def paid_tool_initialize():
+            nonlocal web_server
+            web_server, log = served_session('mcp-web', state=web, path=web_binding)
+            return dict(web_exchange(), mcp_log=str(log))
+
+        def paid_tool_restart():
+            self.stop(web_server)
+            self.stop(web_daemon)
+            stale = os.lstat(web['socket']).st_ino if web['socket'].exists() else None
+            stale_fd = os.open(web['socket'], os.O_PATH) if stale is not None else None
+            try:
+                restarted, restart_log = self.boot(web, 'agentd-web-restart', web=True)
+                deadline = time.monotonic() + self.boot_seconds
+                listening = self.daemon['LAYERX_AGENT_PROGRAM_LISTEN'].rsplit(':', 1)
+                while True:
+                    require(restarted.poll() is None,
+                            f'the daemon refused its web binding; log={restart_log}')
+                    try:
+                        socket.create_connection((listening[0], int(listening[1])), 1).close()
+                        break
+                    except OSError:
+                        require(time.monotonic() < deadline,
+                                f'web restart timed out; log={restart_log}')
+                        time.sleep(0.2)
+                current = {name: (os.stat(web['root'] / name).st_ino,
+                                  digest(web['root'] / name)) for name in web_published}
+                require(current == web_published, 'web restart changed published authority')
+                reopened = json.loads(private_file(web_binding))
+                check_web_reference(reopened, web_expected)
+                check_core_coordinate(reopened, configured_unsigned(
+                    self.daemon, 'LAYERX_AGENT_MCP_CORE_HEIGHT'))
+                served, served_log = served_session('mcp-web-restart', stale,
+                                                    state=web, path=web_binding)
+            finally:
+                if stale_fd is not None:
+                    os.close(stale_fd)
+            evidence = dict(web_exchange(), daemon_log=str(restart_log),
+                            mcp_log=str(served_log), unchanged=sorted(web_published))
+            self.stop(served)
+            self.stop(restarted)
+            return evidence
+
+        def restart_refuses_changed_web_authority():
+            outcomes = {}
+            for field in ('PAYER_ADDRESS', 'RECEIVER_ADDRESS'):
+                original = self.daemon['LAYERX_AGENT_MCP_WEB_' + field]
+                changed = '0x' + format(int(original[2:], 16) ^ 1, '040x')
+                process, log = self.boot(web, 'agentd-web-changed-' + field.lower(), web=True,
+                    overrides={'LAYERX_AGENT_MCP_WEB_' + field: changed})
+                outcomes[field.lower()] = self.refused(process, log, 'binding')
+            first = web_expected['first_batch_number']
+            changed = first + 1 if first < (1 << 64) - 1 else first - 1
+            process, log = self.boot(web, 'agentd-web-changed-range', web=True, overrides={
+                'LAYERX_AGENT_MCP_WEB_FIRST_BATCH_NUMBER': str(changed)})
+            outcomes['receipt_range'] = self.refused(process, log, 'binding|web')
+            process, log = self.boot(web, 'agentd-web-changed-key', web=True, overrides={
+                'LAYERX_AGENT_MCP_WEB_RECEIPT_KEY_INDEX':
+                    str(len(web_expected['receipt_key_index']))})
+            outcomes['receipt_key'] = self.refused(process, log, 'RECEIPT_KEY_INDEX')
+            require({name: (os.stat(web['root'] / name).st_ino, digest(web['root'] / name))
+                     for name in web_published} == web_published,
+                    'refused web restart modified authority')
+            return outcomes
+
         self.case('web_reference_emitted', web_reference_emitted)
         self.case('paid_tool_requires_payer', paid_tool_requires_payer)
-        self.stop(web_daemon)
+        self.case('paid_tool_initialize', paid_tool_initialize)
+        self.case('paid_tool_restart', paid_tool_restart)
+        self.case('restart_refuses_changed_web_authority', restart_refuses_changed_web_authority)
         self.scan_secrets(web['root'])
 
     def close(self, error):

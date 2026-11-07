@@ -6,7 +6,7 @@ standalone Next.js image from the application directory, passes server-only
 configuration to `app`, and connects `app` and `nginx` on one private bridge.
 The supported procedure below uses this Compose file throughout.
 
-See the [data API guide](../data_api.md) for the application gateway protocol,
+See the [data API guide](../../../docs/perps/data-api.md) for the application gateway protocol,
 [settings guide](../src/app/modals/SettingsModal.md) for UI preferences, and
 [component guide](../src/components/paxeer/README.md) for live widget integration.
 
@@ -313,7 +313,7 @@ With an unset `MARKET_PROXY_ORIGIN`, the route returns HTTP 503 with
 origin can throw when the route module loads. Fix the origin format and
 replace the container with the corrected environment. HTTP 504 means the
 upstream timed out; HTTP 502 means it was unreachable. See the
-[API guide](../data_api.md) for the chart/data-gateway distinction.
+[API guide](../../../docs/perps/data-api.md) for the chart/data-gateway distinction.
 
 ### Embedded-wallet sign-in is missing
 

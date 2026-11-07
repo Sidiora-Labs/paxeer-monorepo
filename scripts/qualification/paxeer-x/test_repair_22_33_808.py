@@ -55,6 +55,9 @@ def committed_recording():
     assert result['receipt']['rung'] == 'committed'
     assert result['receipt']['receipt'] == converted['signedReceipt']
     assert result['raw_transaction'] == converted['rawTransaction']
+    transaction, _ = decode_signed(bytes.fromhex(result['raw_transaction'][2:]))
+    assert transaction.chain_id == 125
+    assert result['raw_transaction'].startswith('0x02')
     return {'rawTransaction': result['raw_transaction'], 'receiptJson': result['receipt'],
             'signedReceipt': converted['signedReceipt'], 'pinnedKey': converted['pinnedKey'],
             'network_id': int.from_bytes(bytes.fromhex(original['positive']['header'][2:])[9:13], 'big')}
@@ -354,7 +357,7 @@ def test_finding_53_committed_authenticated_source_producer_to_native_receipt_co
     record = bundle['records'][0]
     assert record['receipts']['paxd'] == case['receiptJson']
     verified = producer.consume_source(record, producer.decode_receipt_keys(pins(case)), SOURCE, case['network_id'])
-    assert verified.receipt.operation == 0
+    assert verified.receipt.operation == 2
     assert verified.canonical_bytes.hex() == case['signedReceipt'][2:]
     report, artifacts = native_consumption(producer, tmp_path, record)
     authenticated = custody.authenticate_source(bundle, pins(case), report, artifacts, SOURCE, case.get('network_id', 125))
@@ -530,3 +533,25 @@ def test_retired_inventory_and_source_revision_are_refused(tmp_path):
         for retired in ('/rpc', '/v1/programs/call'):
             with pytest.raises(ValueError, match='supported root JSON-RPC'):
                 producer.ProducerRpc(endpoints['gateway']['endpoint'].rstrip('/') + retired, {})
+
+
+def test_preexecution_refusal_retains_authenticated_kernel_outcome(tmp_path):
+    producer = component('program-http-producer')
+    case = recording('V2-pax-transfer-insufficient-funds')
+    with RecordedChain(case).serving(tmp_path) as endpoints:
+        record = producer.ProgramHttpProducer(endpoints, pins(case), SOURCE, REVISION).observe(
+            producer.rpc_bytes(case['rawTransaction']))
+    for receipt in record['receipts'].values():
+        assert receipt == case['receiptJson']
+        assert receipt['status'] == '0x0'
+        assert receipt['returnData'] == '0x'
+        assert receipt['logs'] == []
+        assert receipt['vmError'] == 'insufficient balance for transfer'
+        assert 'ledgerResultCode' not in receipt and 'lxpCode' not in receipt
+    verified = producer.verified_receipt(case['receiptJson'],
+        producer.rpc_bytes(case['rawTransaction']), producer.decode_receipt_keys(pins(case)))
+    assert verified.canonical_bytes.hex() == case['signedReceipt'][2:]
+    assert verified.receipt_digest.hex() == case['receiptDigest'][2:]
+    assert verified.receipt.result_code == 1
+    assert verified.receipt.amount > verified.receipt.from_balance_before > 0
+    assert verified.receipt.from_balance_before == verified.receipt.from_balance_after

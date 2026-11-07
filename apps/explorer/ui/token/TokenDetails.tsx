@@ -1,6 +1,5 @@
 import { Box, chakra, Flex, Grid } from '@chakra-ui/react';
 import type { UseQueryResult } from '@tanstack/react-query';
-import BigNumber from 'bignumber.js';
 import { useRouter } from 'next/router';
 import React, { useCallback } from 'react';
 
@@ -33,32 +32,11 @@ interface CardProps {
   children: React.ReactNode;
 }
 
-const DetailsCard = ({ title, children }: CardProps) => {
-  return (
-    <Box
-      data-token-card={ title }
-      bg="bg.surface"
-      borderWidth="1px"
-      borderStyle="solid"
-      borderColor="border.divider"
-      borderRadius="md"
-      boxShadow="card"
-      px={ 4 }
-      py={ 4 }
-      minW={ 0 }
-    >
-      <chakra.h2 textStyle="sm" fontWeight="600" color="text.primary" mb={ 3 } data-card-title>{ title }</chakra.h2>
-      <DetailedInfo.Container
-        templateColumns="minmax(0, 1fr)"
-        columnGap={ 0 }
-        rowGap={ 2 }
-        textStyle="sm"
-      >
-        { children }
-      </DetailedInfo.Container>
-    </Box>
-  );
-};
+const DetailsCard = ({ title, children }: CardProps) => (
+  <Box data-token-card={ title }>
+    <DetailedInfo.Group label={ title }>{ children }</DetailedInfo.Group>
+  </Box>
+);
 
 interface Props {
   tokenQuery: UseQueryResult<TokenInfo, ResourceError<unknown>>;
@@ -116,27 +94,15 @@ const TokenDetails = ({ tokenQuery }: Props) => {
 
   const {
     address_hash: addressHash,
-    exchange_rate: exchangeRate,
     total_supply: totalSupply,
-    circulating_market_cap: marketCap,
     decimals,
     symbol,
     type,
     zilliqa,
   } = tokenQuery.data || {};
 
-  const onchainMarketCap = (() => {
-    if (!totalSupply || !exchangeRate) {
-      return null;
-    }
-
-    return BigNumber(totalSupply).shiftedBy(-Number(decimals ?? '0')).multipliedBy(BigNumber(exchangeRate));
-  })();
-
-  const hasMarketData = Boolean(exchangeRate || marketCap);
-
   const overviewCard = (
-    <DetailsCard title="Overview">
+    <DetailsCard title="TOKEN INFO">
       { type && !isConfidentialTokenType(type) && (
         <ScanKeyValue
           label="Max total supply"
@@ -177,48 +143,8 @@ const TokenDetails = ({ tokenQuery }: Props) => {
     </DetailsCard>
   );
 
-  const marketCard = hasMarketData ? (
-    <DetailsCard title="Market">
-      { exchangeRate && (
-        <ScanKeyValue
-          label="Price"
-          hint="Price per token on the exchanges"
-          isLoading={ tokenQuery.isPlaceholderData }
-        >
-          <Skeleton loading={ tokenQuery.isPlaceholderData } display="inline-block">
-            <span>{ `$${ Number(exchangeRate).toLocaleString(undefined, { minimumSignificantDigits: 4 }) }` }</span>
-          </Skeleton>
-        </ScanKeyValue>
-      ) }
-
-      { onchainMarketCap && (
-        <ScanKeyValue
-          label="Onchain market cap"
-          hint="Total supply * Price"
-          isLoading={ tokenQuery.isPlaceholderData }
-        >
-          <Skeleton loading={ tokenQuery.isPlaceholderData } display="inline-block">
-            <span data-onchain-market-cap>{ `$${ onchainMarketCap.toFormat(2) }` }</span>
-          </Skeleton>
-        </ScanKeyValue>
-      ) }
-
-      { marketCap && (
-        <ScanKeyValue
-          label="Circulating supply market cap"
-          hint="Circulating supply * Price"
-          isLoading={ tokenQuery.isPlaceholderData }
-        >
-          <Skeleton loading={ tokenQuery.isPlaceholderData } display="inline-block">
-            <span>{ `$${ BigNumber(marketCap).toFormat() }` }</span>
-          </Skeleton>
-        </ScanKeyValue>
-      ) }
-    </DetailsCard>
-  ) : null;
-
   const otherInfoCard = (
-    <DetailsCard title="Other info">
+    <DetailsCard title="CONTRACT INFO">
       { addressHash && (
         <ScanKeyValue
           label={ decimals ? `Token contract (with ${ decimals } decimals)` : 'Token contract' }
@@ -266,13 +192,12 @@ const TokenDetails = ({ tokenQuery }: Props) => {
   return (
     <Grid
       data-token-details
-      templateColumns={{ base: 'minmax(0, 1fr)', lg: `repeat(${ marketCard ? 3 : 2 }, minmax(0, 1fr))` }}
-      gap={ 4 }
+      templateColumns="minmax(0, 1fr)"
+      gap={ 8 }
       mb={ 6 }
       alignItems="start"
     >
       { overviewCard }
-      { marketCard }
       { otherInfoCard }
     </Grid>
   );

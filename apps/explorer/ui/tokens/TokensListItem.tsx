@@ -1,4 +1,4 @@
-import { chakra, Flex, HStack } from '@chakra-ui/react';
+import { Flex, HStack } from '@chakra-ui/react';
 import BigNumber from 'bignumber.js';
 import React from 'react';
 
@@ -9,7 +9,6 @@ import config from 'configs/app';
 import multichainConfig from 'configs/multichain';
 import getItemIndex from 'lib/getItemIndex';
 import { getTokenTypeName } from 'lib/token/tokenTypes';
-import { currencyUnits } from 'lib/units';
 import { Skeleton } from 'toolkit/chakra/skeleton';
 import { Tag } from 'toolkit/chakra/tag';
 import AddressAddToWallet from 'ui/shared/address/AddressAddToWallet';
@@ -17,11 +16,10 @@ import TokenEntity from 'ui/shared/entities/token/TokenEntity';
 import ListItemMobile from 'ui/shared/ListItemMobile/ListItemMobile';
 
 import {
-  getNativePrice,
-  getOnchainMarketCap,
+  getTokenVolume,
   TokenChangePercent,
   TokenFiatValue,
-  TokenValuePlaceholder,
+  TOKEN_VALUE_PLACEHOLDER,
 } from './TokensTableItem';
 
 type Props = {
@@ -33,7 +31,6 @@ type Props = {
 };
 
 const PRICE_ACCURACY = 4;
-const NATIVE_PRICE_ACCURACY = 6;
 
 const bridgedTokensFeature = config.features.bridgedTokens;
 
@@ -42,7 +39,6 @@ const TokensListItem = ({
   page,
   index,
   isLoading,
-  coinPrice,
 }: Props) => {
 
   const {
@@ -69,11 +65,15 @@ const TokensListItem = ({
     return chain;
   }, [ chainInfos ]);
 
-  const nativePrice = getNativePrice(exchangeRate, coinPrice);
-  const onchainMarketCap = getOnchainMarketCap(token);
-
   const renderRow = (label: string, value: React.ReactNode) => (
-    <HStack gap={ 3 } justifyContent="space-between" w="100%" alignItems="flex-start" data-token-field={ label }>
+    <HStack
+      css={{ '& > :last-child': { textStyle: 'number', textAlign: 'right' } }}
+      gap={ 3 }
+      justifyContent="space-between"
+      w="100%"
+      alignItems="flex-start"
+      data-token-field={ label }
+    >
       <Skeleton loading={ isLoading } textStyle="sm" fontWeight={ 500 } flexShrink={ 0 }>{ label }</Skeleton>
       { value }
     </HStack>
@@ -86,17 +86,12 @@ const TokensListItem = ({
         accuracy={ PRICE_ACCURACY }
         isLoading={ isLoading }
       />
-      { nativePrice && (
-        <Skeleton loading={ isLoading } textStyle="xs" color="text.secondary" data-token-native-price>
-          <chakra.span>{ `${ nativePrice.dp(NATIVE_PRICE_ACCURACY).toFormat() } ${ currencyUnits.ether }` }</chakra.span>
-        </Skeleton>
-      ) }
     </Flex>
   );
 
   const holders = (
     <Skeleton loading={ isLoading } textStyle="sm" color="text.secondary" data-token-holders>
-      <span>{ Number(holdersCount ?? 0).toLocaleString() }</span>
+      <span>{ (holdersCount === null || holdersCount === undefined) ? TOKEN_VALUE_PLACEHOLDER : Number(holdersCount).toLocaleString() }</span>
     </Skeleton>
   );
 
@@ -111,7 +106,6 @@ const TokensListItem = ({
           chain={ chainInfo }
           isLoading={ isLoading }
           jointSymbol
-          noCopy
           w="auto"
           textStyle="sm"
           fontWeight="600"
@@ -124,10 +118,9 @@ const TokensListItem = ({
         </Flex>
       </Flex>
       { renderRow('Price', price) }
-      { renderRow('Change (%)', <TokenChangePercent isLoading={ isLoading }/>) }
-      { renderRow('Volume (24H)', <TokenValuePlaceholder isLoading={ isLoading }/>) }
-      { renderRow('Circulating market cap', <TokenFiatValue value={ marketCap ? BigNumber(marketCap) : undefined } isLoading={ isLoading }/>) }
-      { renderRow('Onchain market cap', <TokenFiatValue value={ onchainMarketCap } isLoading={ isLoading }/>) }
+      { renderRow('Change 24h', <TokenChangePercent isLoading={ isLoading }/>) }
+      { renderRow('Market cap', <TokenFiatValue value={ marketCap ? BigNumber(marketCap) : undefined } isLoading={ isLoading }/>) }
+      { renderRow('Volume 24h', <TokenFiatValue value={ getTokenVolume(token) } isLoading={ isLoading }/>) }
       { renderRow('Holders', holders) }
     </ListItemMobile>
   );

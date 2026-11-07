@@ -132,8 +132,9 @@ impl FinalizedAuthority {
         let record = WorkerTable::decode(workers)?
             .get(worker)
             .ok_or(ServiceError::NotFound)?;
-        let (_, admission) = split_joint(shared.section(Section::ReputationAdmission)?)?;
-        let admission = AdmissionTable::decode(admission)?;
+        let (_reputation, admission_bytes) =
+            split_joint(shared.section(Section::ReputationAdmission)?)?;
+        let admission = AdmissionTable::decode(admission_bytes)?;
         let current_epoch = admission.current_epoch();
         let (roster, frozen) = match (current_epoch, evidence.roster) {
             (None, None) => (Presence::Absent, None),
@@ -203,6 +204,10 @@ impl FinalizedAuthority {
     #[must_use]
     pub const fn current_epoch(&self) -> Option<u64> {
         self.current_epoch
+    }
+    #[must_use]
+    pub const fn membership(&self) -> Option<AdmissionMeta> {
+        self.membership
     }
     #[must_use]
     pub const fn record(&self) -> &WorkerCurrent {

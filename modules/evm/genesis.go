@@ -100,6 +100,10 @@ func ExportGenesis(ctx sdk.Context, k *keeper.Keeper) *types.GenesisState {
 	for _, prefix := range [][]byte{
 		types.ReceiptKeyPrefix,
 		types.BlockBloomPrefix,
+		types.EvmOnlyBlockBloomPrefix,
+		types.LegacyBlockBloomCutoffHeightKey,
+		types.BaseFeePerGasPrefix,
+		types.NextBaseFeePerGasPrefix,
 		types.TxHashesPrefix,
 		types.PointerRegistryPrefix,
 		types.PointerCWCodePrefix,
@@ -180,6 +184,10 @@ func ExportGenesisStream(ctx sdk.Context, k *keeper.Keeper) <-chan *types.Genesi
 		for _, prefix := range [][]byte{
 			types.ReceiptKeyPrefix,
 			types.BlockBloomPrefix,
+			types.EvmOnlyBlockBloomPrefix,
+			types.LegacyBlockBloomCutoffHeightKey,
+			types.BaseFeePerGasPrefix,
+			types.NextBaseFeePerGasPrefix,
 			types.TxHashesPrefix,
 			types.PointerRegistryPrefix,
 			types.PointerCWCodePrefix,

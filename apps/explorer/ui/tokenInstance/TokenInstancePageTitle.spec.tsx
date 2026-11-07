@@ -33,19 +33,20 @@ describe('TokenInstancePageTitle', () => {
   it('heads the page the way the token page does', () => {
     const { container } = renderTitle();
 
-    expect(container.querySelector('h1')?.textContent).toContain('Token instance');
+    expect(container.querySelector('h1')?.textContent).toBe(tokenInstanceMock.base.metadata?.name);
+    expect(container.querySelector('[data-entity-kind-label]')?.textContent).toBe('TOKEN');
   });
 
   it('carries the instance name beside the heading', () => {
     const { container } = renderTitle();
 
-    expect(container.querySelector('[data-token-instance-name]')?.textContent).toBe(tokenInstanceMock.base.metadata?.name);
+    expect(container.querySelector('h1')?.textContent).toBe(tokenInstanceMock.base.metadata?.name);
   });
 
   it('falls back to the token name and the id when the metadata carries no name', () => {
     const { container } = renderTitle({ ...tokenInstanceMock.base, metadata: null });
 
-    expect(container.querySelector('[data-token-instance-name]')?.textContent).toBe(`HyFi Athena #${ tokenInstanceMock.base.id }`);
+    expect(container.querySelector('h1')?.textContent).toBe(`HyFi Athena #${ tokenInstanceMock.base.id }`);
   });
 
   it('puts the standard chip and the collection link on the row beneath the title', () => {

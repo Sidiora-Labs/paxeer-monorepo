@@ -58,7 +58,7 @@ function kit_producers_reach_home_consumers_twice() {
   const cases = [
     ["unverified", "verification.unverified", "Not verified yet"],
     ["receipt-verified", "verification.receipt_verified", "Verified against its receipt"],
-    ["checkpoint-finalised", "verification.checkpoint_finalised", "Finalised on LayerX"],
+    ["checkpoint-finalised", "verification.checkpoint_finalised", "Finalised in a committed Paxeer block"],
   ] as const;
   assert.deepEqual(Object.keys(VERIFICATION_PRESENTATIONS), cases.map(([level]) => level));
 

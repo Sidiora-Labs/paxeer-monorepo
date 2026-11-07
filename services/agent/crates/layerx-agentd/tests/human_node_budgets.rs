@@ -201,11 +201,11 @@ fn signed_receipt(
             "topics": [rpc_hex(&transaction_hash(b"BudgetCreated(bytes32,bytes32,uint128)")), rpc_hex(&identity().budget_id)],
             "data": rpc_hex(&creation_log_data()), "logIndex": "0x0"}],
         "gasUsed": "0x5208", "cumulativeGasUsed": "0xa410", "effectiveGasPrice": "0x1",
-        "feeDenom": "upax", "feeAmount": "0x5208", "sponsor": rpc_hex(&[0; 20]),
+        "paymentDenom": "upax", "feeDenom": "upax", "feeAmount": "0x5208", "sponsor": rpc_hex(&[0; 20]),
         "from": rpc_hex(&sender), "to": rpc_hex(&layerx_agentd::prepare::evm::PrecompileTarget::Pay.address()), "contractAddress": rpc_hex(&[0; 20]),
         "vmError": if success { "" } else { "execution reverted" },
         "keyId": rpc_hex(&KEY_ID), "receipt": rpc_hex(&bytes),
-        "signingKey": rpc_hex(&signer.verifying_key().to_bytes())
+        "signingKey": rpc_hex(&key.public_key)
     });
     (view, bytes, key)
 }

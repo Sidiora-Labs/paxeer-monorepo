@@ -1759,7 +1759,7 @@ fn budget_record_wire(
                 "revoked": view.revoked,
                 "delegates": view.delegates.iter().map(|delegate| hexv(delegate)).collect::<Vec<_>>(),
                 "source_account": view.source_account.as_ref().map(|account| hexv(account)),
-                "achieved_rung": view.achieved_rung.name(),
+                "achieved_verification_level": view.achieved_rung.name(),
             }),
             Some(VerificationStatus::Achieved(legacy_level(
                 view.achieved_rung,
@@ -1889,15 +1889,83 @@ pub(crate) fn export_offline<A: HumanAuthorityBoundary>(
     request: &Map<String, Value>,
     ctx: &DispatchContext,
 ) -> Result<Dispatched, Rejection> {
+    export_offline_with_owner(ctx.request_id, request, |typed| {
+        owner
+            .lock()
+            .and_then(|mut guard| guard.export_offline(context.peer(), typed))
+    })
+}
+
+/// Shared RPC decoding and owner routing, also used by embedded daemon boundaries.
+pub fn export_offline_with_owner(
+    id: RequestId,
+    request: &Map<String, Value>,
+    produce: impl FnOnce(
+        layerx_agent_api::read::ReadRequest<Vec<layerx_agent_api::export::FactRef>>,
+    ) -> Result<
+        layerx_agent_api::read::VerifiedRead<layerx_agent_api::export::OfflineExport>,
+        HumanOperationError,
+    >,
+) -> Result<Dispatched, Rejection> {
     use crate::agent_rpc_wire::{decode_wire, ExportOfflineWire};
-    let id = ctx.request_id;
-    decode_wire::<ExportOfflineWire>(request, id)?.into_request(id)?;
-    let _ = (owner, context);
-    Err(unavailable_operation(
-        id,
-        "export.offline",
-        "unavailable_capability.export.offline",
-    ))
+    let typed = decode_wire::<ExportOfflineWire>(request, id)?.into_request(id)?;
+    let response = produce(typed.clone()).map_err(|error| owner_error(id, error))?;
+    offline_export_operation(id, &typed, &response)
+}
+
+/// Validates and encodes the offline owner's complete response at the RPC boundary.
+pub fn offline_export_operation(
+    id: RequestId,
+    request: &layerx_agent_api::read::ReadRequest<Vec<layerx_agent_api::export::FactRef>>,
+    response: &layerx_agent_api::read::VerifiedRead<layerx_agent_api::export::OfflineExport>,
+) -> Result<Dispatched, Rejection> {
+    let invalid = || rejection(ErrorClass::VerificationFailure, id, "export.invalid_proof");
+    layerx_agent_api::export::check_export_response(request, response).map_err(|_| invalid())?;
+    if response.value.bundles.len() != request.selector.len() {
+        return Err(invalid());
+    }
+    let mut common_hash = None;
+    for (fact, bundle) in request.selector.iter().zip(&response.value.bundles) {
+        let selector = fact.selector().map_err(|_| invalid())?;
+        let receipt = layerx_wire::receipt::decode(bundle.signed_receipt.as_bytes())
+            .map_err(|_| invalid())?;
+        let protocol = receipt.protocol().ok_or_else(invalid)?;
+        let header = crate::export::decode_header(
+            bundle.block_header.as_ref().ok_or_else(invalid)?.as_bytes(),
+        )
+        .map_err(|_| invalid())?;
+        if protocol.activity_id() != selector.activity_id()
+            || layerx_crypto::evm_transaction::transaction_hash(bundle.raw_transaction.as_bytes())
+                != selector.activity_id()
+            || header.height != response.value.height
+            || common_hash.is_some_and(|hash| hash != header.block_hash())
+        {
+            return Err(invalid());
+        }
+        common_hash = Some(header.block_hash());
+    }
+    match response.freshness.relative_to {
+        layerx_agent_api::read::RelativeTo::Block { height, hash }
+            if height == response.value.height && Some(hash) == common_hash => {}
+        _ => return Err(invalid()),
+    }
+    let artifact = response.value.encode_json().map_err(|_| invalid())?;
+    let encoded = format!(
+        r#"{{"value":{},"achieved_rung":"{}","freshness":{}}}"#,
+        artifact,
+        response.achieved_rung.name(),
+        response.freshness.encode_json()
+    );
+    if encoded.len() > crate::export::MAX_EXPORT_BYTES {
+        return Err(owner_error(
+            id,
+            HumanOperationError::Typed(HumanRefusal::ExportResponseTooLarge),
+        ));
+    }
+    Ok(Dispatched {
+        value: serde_json::from_str(&encoded).map_err(|_| invalid())?,
+        verification: Some(VerificationStatus::Achieved(response.achieved_rung)),
+    })
 }
 
 /// `project` is the fee projection. The legacy policy payload (`context` +

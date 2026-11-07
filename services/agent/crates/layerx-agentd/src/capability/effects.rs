@@ -352,91 +352,131 @@ pub fn derive_native_profile_effects(
     }
 }
 
-fn native_registration_terms(
-    disclosure: &Disclosure,
-) -> Result<([u8; 32], &layerx_crypto::payments::Registration), EffectsError> {
+/// Registration requires a ledger lookup tied to the verified EVM preparation.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct NativeRegistrationContext {
+    principal: Option<super::VerifiedLedgerPrincipal>,
+    fee_asset: [u8; 32],
+}
+
+impl NativeRegistrationContext {
+    pub const fn new(principal: super::VerifiedLedgerPrincipal, fee_asset: [u8; 32]) -> Self {
+        Self {
+            principal: Some(principal),
+            fee_asset,
+        }
+    }
+}
+
+// Existing callers carrying only a fee asset cannot establish economic ownership.
+impl From<[u8; 32]> for NativeRegistrationContext {
+    fn from(fee_asset: [u8; 32]) -> Self {
+        Self {
+            principal: None,
+            fee_asset,
+        }
+    }
+}
+
+fn native_registration_terms<'a>(
+    disclosure: &'a Disclosure,
+    context: &NativeRegistrationContext,
+) -> Result<
+    (
+        super::VerifiedLedgerPrincipal,
+        &'a layerx_crypto::payments::Registration,
+    ),
+    EffectsError,
+> {
+    use layerx_crypto::disclosure::call::ConstructMethod;
     use layerx_types::payload::ModuleId;
     disclosure
         .reencode()
         .map_err(|_| EffectsError::InvalidNativeDisclosure)?;
+    let principal = context
+        .principal
+        .ok_or(EffectsError::Unsupported("Register"))?;
     let Some(Payment::Register(registration)) = &disclosure.payment else {
         return Err(EffectsError::Unsupported("Register"));
     };
-    if (
-        disclosure.activity_type.module(),
-        disclosure.activity_type.ordinal(),
-    ) != (ModuleId::Asset, 1)
+    if !matches!(
+        disclosure.construct_method(),
+        Ok(Some(ConstructMethod::LedgerRegister { .. }))
+    ) || disclosure.actor != principal.sender
+        || disclosure
+            .signing_digest()
+            .map_err(|_| EffectsError::InvalidNativeDisclosure)?
+            != principal.signing_hash
+        || (
+            disclosure.activity_type.module(),
+            disclosure.activity_type.ordinal(),
+        ) != (ModuleId::Asset, 1)
         || disclosure.native_operation.is_some()
         || registration.issuer_kind != 1
         || !registration.custody_ref.is_empty()
         || registration.supply_cap == 0
         || registration.supply_cap == u128::MAX
         || disclosure.asset != registration.asset
+        || context.fee_asset == [0; 32]
     {
         return Err(EffectsError::Unsupported("Register"));
     }
-    let actor = layerx_types::ids::Did::new(&disclosure.actor)
-        .map_err(|_| EffectsError::InvalidNativeDisclosure)?;
-    let issuer = layerx_wire::hash::did_id_for_protocol(&actor, 3)
-        .map_err(|_| EffectsError::InvalidNativeDisclosure)?;
-    if registration.asset != layerx_crypto::payments::asset_id(&issuer, &registration.salt) {
+    if registration.asset
+        != layerx_crypto::payments::asset_id(&principal.issuer, &registration.salt)
+    {
         return Err(EffectsError::Unsupported("Register"));
     }
-    Ok((issuer, registration))
+    Ok((principal, registration))
 }
 
-/// Derives the supply-cap authorization of one ordinary-issuer registration admitted by the
-/// `native-registration-v1` profile. Registration issues no balance.
-///
-/// # Errors
-/// Returns `Unsupported("Register")` for any registration outside the profile.
+/// Derives supply authority from the EVM signer's live ledger owner and gas fee account.
 pub fn derive_native_registration(
     disclosure: &Disclosure,
-    fee_asset: [u8; 32],
+    context: impl Into<NativeRegistrationContext>,
 ) -> Result<SemanticPlan, EffectsError> {
-    let (_, registration) = native_registration_terms(disclosure)?;
-    if fee_asset == [0; 32] {
-        return Err(EffectsError::Unsupported("Register"));
-    }
-    let actor = core::str::from_utf8(&disclosure.actor)
-        .map_err(|_| EffectsError::InvalidNativeDisclosure)?;
-    let account = layerx_types::account::AccountId::for_asset(actor, fee_asset, fee_asset)
-        .map_err(|_| EffectsError::InvalidNativeDisclosure)?;
-    let principal = layerx_wire::hash::account_id_for_protocol(&account, 3)
-        .map_err(|_| EffectsError::InvalidNativeDisclosure)?;
+    let context = context.into();
+    let (principal, registration) = native_registration_terms(disclosure, &context)?;
     let mut plan = SemanticPlan::write();
     plan.authorize(
         AuthorizationKind::SupplyCap,
-        principal,
+        principal.fee_account,
         Some(registration.asset),
         registration.supply_cap,
     );
     Ok(plan)
 }
 
-/// # Errors
-/// Returns `Unsupported("Register")` for a registration outside the profile or a missing network,
-/// protocol or fee asset.
 pub fn native_registration_commitment(
     disclosure: &Disclosure,
     protocol_version: u16,
     network_id: u32,
     canonical_digest: [u8; 32],
-    fee_asset: [u8; 32],
+    context: impl Into<NativeRegistrationContext>,
 ) -> Result<[u8; 32], EffectsError> {
     use sha2::{Digest as _, Sha256};
-    let (issuer, registration) = native_registration_terms(disclosure)?;
-    if protocol_version != 3 || network_id == 0 || fee_asset == [0; 32] {
+    let context = context.into();
+    let (principal, registration) = native_registration_terms(disclosure, &context)?;
+    if protocol_version != 3
+        || network_id != 125
+        || canonical_digest
+            != <[u8; 32]>::from(Sha256::digest(
+                disclosure
+                    .reencode()
+                    .map_err(|_| EffectsError::InvalidNativeDisclosure)?,
+            ))
+    {
         return Err(EffectsError::Unsupported("Register"));
     }
     let mut hasher = Sha256::new();
-    hasher.update(b"LayerX/native/asset-registration/v1\0");
+    hasher.update(b"LayerX/native/asset-registration/evm/v1\0");
     hasher.update(protocol_version.to_be_bytes());
     hasher.update(network_id.to_be_bytes());
     hasher.update(canonical_digest);
-    hasher.update(issuer);
+    hasher.update(principal.sender);
+    hasher.update(principal.issuer);
+    hasher.update(principal.fee_account);
     hasher.update(registration.asset);
-    hasher.update(fee_asset);
+    hasher.update(context.fee_asset);
     Ok(hasher.finalize().into())
 }
 
@@ -1091,7 +1131,6 @@ mod tests {
 
         let fee_asset = [9; 32];
         let ordinary = registration(1_000);
-        let asset = ordinary.asset;
         let disclosure = registration_disclosure(ordinary);
         assert_eq!(
             derive_native_effects(&disclosure, &none()),
@@ -1101,27 +1140,17 @@ mod tests {
             derive_native_profile_effects(&disclosure, NativeAdmissionProfile::Effect),
             Err(EffectsError::Unsupported("Register"))
         );
-        let account = must(layerx_types::account::AccountId::for_asset(
-            "did:layerx:alice",
-            fee_asset,
-            fee_asset,
-        ));
-        let principal = must(layerx_wire::hash::account_id_for_protocol(&account, 3));
-        let admitted = must(derive_native_profile_effects(
-            &disclosure,
-            NativeAdmissionProfile::Registration { fee_asset },
-        ));
         assert_eq!(
-            admitted.effects(),
-            [Effect::Authorization {
-                kind: AuthorizationKind::SupplyCap,
-                account: principal,
-                asset: Some(asset),
-                amount: 1_000,
-            }]
+            derive_native_profile_effects(
+                &disclosure,
+                NativeAdmissionProfile::Registration { fee_asset },
+            ),
+            Err(EffectsError::Unsupported("Register"))
         );
-        assert!(admitted.gross_per_asset().is_empty());
-        assert_eq!(admitted.rate_actions(), 1);
+        assert_eq!(
+            derive_native_registration(&disclosure, fee_asset),
+            Err(EffectsError::Unsupported("Register"))
+        );
         assert_eq!(
             derive_native_registration(&disclosure, [0; 32]),
             Err(EffectsError::Unsupported("Register"))
@@ -1152,33 +1181,16 @@ mod tests {
             Err(EffectsError::InvalidNativeDisclosure)
         );
 
-        let commitment = must(native_registration_commitment(
-            &disclosure,
-            3,
-            17,
-            [5; 32],
-            fee_asset,
-        ));
-        assert_ne!(
-            commitment,
-            must(native_registration_commitment(
-                &disclosure,
-                3,
-                17,
-                [5; 32],
-                [8; 32]
-            ))
-        );
-        assert_ne!(
-            commitment,
-            must(native_registration_commitment(
-                &disclosure,
-                3,
-                17,
-                [6; 32],
-                fee_asset
-            ))
-        );
+        for (digest, fee) in [
+            ([5; 32], fee_asset),
+            ([5; 32], [8; 32]),
+            ([6; 32], fee_asset),
+        ] {
+            assert_eq!(
+                native_registration_commitment(&disclosure, 3, 17, digest, fee,),
+                Err(EffectsError::Unsupported("Register"))
+            );
+        }
         for (protocol, network, fee) in [(2, 17, fee_asset), (3, 0, fee_asset), (3, 17, [0; 32])] {
             assert_eq!(
                 native_registration_commitment(&disclosure, protocol, network, [5; 32], fee),

@@ -1,0 +1,12 @@
+[repair.22.33.288]
+audit = "22.30.133"
+finding = "backend-guide-api"
+implementation = "README.md distinguishes frozen archive GET reads, live native transaction status/signature evidence, all four feed GET paths and both V2 feed topics, including the hosted transport admission contract."
+proving_tests = ["native evidence serves live status and signature without populating frozen archives", "receipt signatures alone remain receipted", "recorded native feed reaches all four REST reads and both live topics"]
+test_file = "services/explorer/backend/apps/explorer/test/repair/repair_22_33_288_test.exs"
+baseline = "No earlier hf-build/hf-done ledger or scoped changes existed. No unchanged-tree tests ran or are claimed to have failed: the ordered instructions require complete implementation, formatting, hf-build and then hf-done, with no manual verify run."
+wiring_request = "services/platform/hosted/gateway/src/explorer_proxy.rs; owning domain platform hosted gateway: admit the documented status/signature/feed GET paths and /socket/v2/websocket upgrade with both feed topics, preserving queries, status codes, payloads and lifecycle semantics."
+verified_revision = "Recorded by hf-done in its private gates.jsonl entry with the exact command, exit and log; no gate result is claimed before it runs."
+verification = "services/explorer/deploy/tools/mix-in-builder.sh test apps/explorer/test/repair/repair_22_33_288_test.exs"
+qualification_note = "The builder mounts apps and configuration, so the regression suite proves the documented production behavior through the endpoint, native receipt verification, recorded feed import and real V2 channels; it does not claim external hosted transport admission."
+packaging_gotcha = "The runner candidate walk includes ignored dependency sources. Before any declared compile or verify ran, the initial candidate preparation was interrupted and the untracked backend/deps install was preserved outside the checkout; the builder uses its own dependency sources. No gate execution or evidence row was discarded."

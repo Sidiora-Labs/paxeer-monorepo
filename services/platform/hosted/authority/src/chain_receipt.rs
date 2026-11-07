@@ -1,7 +1,8 @@
-use layerx_platform_authority::hex;
+use crate::hex;
 use layerx_proof::inclusion::SequencerAuthorization;
 use layerx_proof::receipt::{verify_sequencer_signature, ReceiptCheck, ReceiptKeys};
 use serde::Deserialize;
+use sha2::Digest as _;
 use std::collections::BTreeMap;
 use std::io::{Read, Write};
 use std::net::{SocketAddr, TcpStream};
@@ -14,14 +15,14 @@ const MAX_HEADER_BYTES: usize = 32 * 1024;
 const TIMEOUT: Duration = Duration::from_secs(8);
 
 #[derive(Debug)]
-pub(super) enum ReceiptSource {
+pub enum ReceiptSource {
     Found(Vec<u8>),
     Unknown,
     Unavailable(String),
     KeyMismatch,
 }
 
-pub(super) struct ChainReceipts {
+pub struct ChainReceipts {
     host: String,
     address: SocketAddr,
     path: String,
@@ -42,11 +43,11 @@ struct ReceiptKeyEntry {
 }
 
 impl ChainReceipts {
-    pub(super) fn pinned_keys(&self) -> &[SequencerAuthorization] {
+    pub fn pinned_keys(&self) -> &[SequencerAuthorization] {
         &self.keys
     }
 
-    pub(super) fn load(url: &str, keys_file: &Path) -> Result<Self, String> {
+    pub fn load(url: &str, keys_file: &Path) -> Result<Self, String> {
         let source = url
             .strip_prefix("http://")
             .ok_or("chain RPC requires http://loopback:port")?;
@@ -93,7 +94,7 @@ impl ChainReceipts {
         })
     }
 
-    pub(super) fn lookup(&self, activity_id: [u8; 32]) -> ReceiptSource {
+    pub fn lookup(&self, activity_id: [u8; 32]) -> ReceiptSource {
         match self.read(activity_id) {
             Ok(None) => ReceiptSource::Unknown,
             Ok(Some((bytes, signing_key, height, _))) => {
@@ -108,11 +109,8 @@ impl ChainReceipts {
                     // the signed replica header independently checks the same key range.
                     let Some(key) = self.keys.iter().find(|key| {
                         key.public_key() == signing_key
-                            && decoded
-                                .as_ref()
-                                .ok()
-                                .and_then(|r| r.protocol())
-                                .is_some_and(|r| r.context_hash() == key.sequencer_id())
+                            && key.sequencer_id()
+                                == <[u8; 32]>::from(sha2::Sha256::digest(signing_key))
                             && (key.first_batch_number()..=key.last_batch_number())
                                 .contains(&height)
                     }) else {
@@ -134,7 +132,7 @@ impl ChainReceipts {
                             );
                         };
                         if self.keys.iter().any(|key| {
-                            key.sequencer_id() == protocol.context_hash()
+                            (native || key.sequencer_id() == protocol.context_hash())
                                 && key.public_key() == signing_key
                         }) {
                             ReceiptSource::Found(bytes)
@@ -158,7 +156,7 @@ impl ChainReceipts {
         }
     }
 
-    pub(super) fn committed(&self, id: [u8; 32]) -> Result<(Vec<u8>, u64, [u8; 32]), String> {
+    pub fn committed(&self, id: [u8; 32]) -> Result<(Vec<u8>, u64, [u8; 32]), String> {
         let (bytes, _, _, committed) = self.read(id)?.ok_or("committed receipt missing")?;
         let (height, hash) = committed.ok_or("receipt is not committed")?;
         Ok((bytes, height, hash))
@@ -184,7 +182,13 @@ impl ChainReceipts {
         stream
             .set_write_timeout(Some(remaining()?))
             .map_err(|error| error.to_string())?;
-        let request = format!("POST {} HTTP/1.0\r\nHost: {}\r\nContent-Type: application/json\r\nAccept: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}", self.path, self.host, body.len(), body);
+        let request = format!(
+            "POST {} HTTP/1.0\r\nHost: {}\r\nContent-Type: application/json\r\nAccept: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+            self.path,
+            self.host,
+            body.len(),
+            body
+        );
         stream
             .write_all(request.as_bytes())
             .map_err(|error| error.to_string())?;
@@ -253,19 +257,36 @@ impl ChainReceipts {
         let protocol = decoded
             .protocol()
             .ok_or("chain RPC receipt shape invalid")?;
-        if protocol.activity_id() != activity_id
-            || rpc_hex32(&result["keyId"]) != Some(protocol.context_hash())
-        {
-            return Err("chain RPC receipt identity mismatch".to_owned());
-        }
         let signing_key =
             rpc_hex32(&result["signingKey"]).ok_or("chain RPC signing key invalid")?;
+        let native = (1..=11).contains(&protocol.module_id());
+        let key_id = if native {
+            <[u8; 32]>::from(sha2::Sha256::digest(signing_key))
+        } else {
+            protocol.context_hash()
+        };
+        if protocol.activity_id() != activity_id || rpc_hex32(&result["keyId"]) != Some(key_id) {
+            return Err("chain RPC receipt identity mismatch".to_owned());
+        }
         let height = result["height"]
             .as_str()
             .and_then(|text| text.strip_prefix("0x"))
             .and_then(|text| u64::from_str_radix(text, 16).ok())
             .filter(|height| *height > 0)
             .ok_or("chain RPC receipt height invalid")?;
+        if native {
+            let key = self
+                .keys
+                .iter()
+                .find(|key| {
+                    key.sequencer_id() == key_id
+                        && key.public_key() == signing_key
+                        && (key.first_batch_number()..=key.last_batch_number()).contains(&height)
+                })
+                .ok_or("chain RPC native receipt key or height mismatch")?;
+            verify_sequencer_signature(&bytes, ReceiptKeys::HistoricalKernel(key.public_key()))
+                .map_err(|_| "chain RPC native receipt signature invalid")?;
+        }
         let committed = if result["rung"] == "committed" {
             let block = result["blockNumber"]
                 .as_str()

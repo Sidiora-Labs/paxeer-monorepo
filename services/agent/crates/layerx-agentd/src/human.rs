@@ -8,10 +8,15 @@ use self::frame::{HumanFrameTransport, TransportError};
 use crate::admin::{OperatorCommand, ProtectedMutation};
 use std::collections::BTreeMap;
 use std::fs;
+use std::io::{Read, Write};
 use std::os::unix::fs::{FileTypeExt, MetadataExt, PermissionsExt};
 use std::os::unix::net::{UnixListener, UnixStream};
 use std::path::{Path, PathBuf};
-use std::time::Duration;
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Arc, Mutex,
+};
+use std::time::{Duration, Instant};
 use zeroize::Zeroizing;
 
 const MAGIC: &[u8; 8] = b"LXHAGT01";
@@ -241,7 +246,7 @@ pub struct HumanNativeSendOwnerPreviewRequestV1 {
 pub struct HumanNativeSendOwnerPreviewV1 {
     pub canonical_bytes: Vec<u8>,
     pub signing_preimage: Vec<u8>,
-    pub purpose: layerx_agent_api::identity::NativeSendPurposeV1,
+    pub purpose: layerx_agent_api::identity::NativeSendPurposeV2,
     pub observed_head_sequence: u64,
     pub protocol_timestamp: u64,
     pub owner_public_key: [u8; 32],
@@ -1614,6 +1619,9 @@ pub struct HumanListenerConfig {
     pub mode: u32,
     pub maximum_frame_bytes: usize,
     pub deadline: Duration,
+    pub maximum_connections: usize,
+    pub maximum_streams: usize,
+    pub maximum_queued_bytes: usize,
     pub peers: BTreeMap<u32, (String, String)>,
 }
 
@@ -1621,9 +1629,20 @@ pub struct HumanUnixServer<O> {
     listener: UnixListener,
     config: HumanListenerConfig,
     operations: O,
+    socket_identity: (u64, u64),
 }
 
-impl<O: HumanOperations> HumanUnixServer<O> {
+impl<O> Drop for HumanUnixServer<O> {
+    fn drop(&mut self) {
+        if fs::symlink_metadata(&self.config.endpoint)
+            .is_ok_and(|m| m.file_type().is_socket() && (m.dev(), m.ino()) == self.socket_identity)
+        {
+            let _ = fs::remove_file(&self.config.endpoint);
+        }
+    }
+}
+
+impl<O> HumanUnixServer<O> {
     /// # Errors
     /// Returns an error if the peer, wire data, or transport fails validation.
     pub fn bind(config: HumanListenerConfig, operations: O) -> Result<Self, HumanProtocolError> {
@@ -1631,6 +1650,9 @@ impl<O: HumanOperations> HumanUnixServer<O> {
             || config.maximum_frame_bytes == 0
             || config.maximum_frame_bytes > MAX_BYTES
             || config.deadline.is_zero()
+            || config.maximum_connections == 0
+            || config.maximum_streams == 0
+            || config.maximum_queued_bytes == 0
             || config.peers.is_empty()
             || config.mode & !0o770 != 0
         {
@@ -1641,8 +1663,26 @@ impl<O: HumanOperations> HumanUnixServer<O> {
             .parent()
             .ok_or(HumanProtocolError::Unauthenticated)?;
         validate_path(parent, config.owner_uid, config.owner_gid, true)?;
-        if config.endpoint.exists() {
-            return Err(HumanProtocolError::Unauthenticated);
+        match fs::symlink_metadata(&config.endpoint) {
+            Ok(metadata) => {
+                validate_path(&config.endpoint, config.owner_uid, config.owner_gid, false)?;
+                if metadata.mode() & 0o777 != config.mode {
+                    return Err(HumanProtocolError::Unauthenticated);
+                }
+                match UnixStream::connect(&config.endpoint) {
+                    Err(error) if error.kind() == std::io::ErrorKind::ConnectionRefused => {}
+                    _ => return Err(HumanProtocolError::Unauthenticated),
+                }
+                let current = fs::symlink_metadata(&config.endpoint)
+                    .map_err(|_| HumanProtocolError::Unauthenticated)?;
+                if (current.dev(), current.ino()) != (metadata.dev(), metadata.ino()) {
+                    return Err(HumanProtocolError::Unauthenticated);
+                }
+                fs::remove_file(&config.endpoint)
+                    .map_err(|error| HumanProtocolError::Transport(io_error(&error)))?;
+            }
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+            Err(_) => return Err(HumanProtocolError::Unauthenticated),
         }
         let listener = UnixListener::bind(&config.endpoint)
             .map_err(|error| HumanProtocolError::Transport(io_error(&error)))?;
@@ -1657,39 +1697,157 @@ impl<O: HumanOperations> HumanUnixServer<O> {
         {
             return Err(HumanProtocolError::Unauthenticated);
         }
+        let metadata = fs::symlink_metadata(&config.endpoint)
+            .map_err(|_| HumanProtocolError::Unauthenticated)?;
         Ok(Self {
             listener,
             config,
             operations,
+            socket_identity: (metadata.dev(), metadata.ino()),
         })
     }
 
-    /// # Errors
-    /// Returns an error if the peer, wire data, or transport fails validation.
-    pub fn serve(mut self) -> Result<(), HumanProtocolError> {
-        loop {
-            let (stream, _) = self
-                .listener
-                .accept()
-                .map_err(|error| HumanProtocolError::Transport(io_error(&error)))?;
-            let credentials = rustix::net::sockopt::socket_peercred(&stream)
-                .map_err(|_| HumanProtocolError::Unauthenticated)?;
-            let uid = credentials.uid.as_raw();
-            let Some((principal, tenant)) = self.config.peers.get(&uid) else {
-                continue;
-            };
-            let peer = HumanPeer {
-                uid,
-                principal: principal.clone(),
-                tenant: tenant.clone(),
-                subject: None,
-            };
-            let mut transport = AcceptedTransport::new(
-                stream,
-                self.config.maximum_frame_bytes,
-                self.config.deadline,
-            )?;
-            let _ = serve_one(&mut transport, &peer, &mut self.operations);
+    /// Runs the authenticated production boundary until shutdown is requested.
+    pub fn serve_with(
+        mut self,
+        stop: &AtomicBool,
+        handler: impl Fn(&mut O, &HumanPeer, HumanRequest) -> Result<HumanResponse, HumanOperationError>
+            + Sync,
+    ) -> Result<(), HumanProtocolError>
+    where
+        O: Send,
+    {
+        self.listener
+            .set_nonblocking(true)
+            .map_err(|error| HumanProtocolError::Transport(io_error(&error)))?;
+        let occupancy = Arc::new(Mutex::new(ListenerOccupancy::default()));
+        let operations = Mutex::new(&mut self.operations);
+        std::thread::scope(|scope| {
+            let mut workers: Vec<std::thread::ScopedJoinHandle<'_, ()>> = Vec::new();
+            while !stop.load(Ordering::Acquire) {
+                let mut index = 0;
+                while index < workers.len() {
+                    if workers[index].is_finished() {
+                        let _ = workers.swap_remove(index).join();
+                    } else {
+                        index += 1;
+                    }
+                }
+                let stream = match self.listener.accept() {
+                    Ok((stream, _)) => stream,
+                    Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                        std::thread::sleep(Duration::from_millis(2));
+                        continue;
+                    }
+                    Err(error) => return Err(HumanProtocolError::Transport(io_error(&error))),
+                };
+                let Ok(credentials) = rustix::net::sockopt::socket_peercred(&stream) else {
+                    continue;
+                };
+                let uid = credentials.uid.as_raw();
+                let Some((principal, tenant)) = self.config.peers.get(&uid) else {
+                    continue;
+                };
+                let Ok(mut active) = occupancy.lock() else {
+                    return Err(HumanProtocolError::Unauthenticated);
+                };
+                let streams = active.tenants.get(tenant).map_or(0, |v| v.0);
+                if active.connections >= self.config.maximum_connections
+                    || streams >= self.config.maximum_streams
+                {
+                    continue;
+                }
+                active.connections += 1;
+                active.tenants.entry(tenant.clone()).or_default().0 += 1;
+                drop(active);
+                let permit = ListenerPermit {
+                    occupancy: Arc::clone(&occupancy),
+                    tenant: tenant.clone(),
+                    bytes: 0,
+                };
+                let peer = HumanPeer {
+                    uid,
+                    principal: principal.clone(),
+                    tenant: tenant.clone(),
+                    subject: None,
+                };
+                let maximum = self.config.maximum_frame_bytes;
+                let queued = self.config.maximum_queued_bytes;
+                let deadline = self.config.deadline;
+                let handler = &handler;
+                let operations = &operations;
+                workers.push(scope.spawn(move || {
+                    let Ok(mut transport) = AcceptedTransport::new(stream, maximum, deadline)
+                    else {
+                        return;
+                    };
+                    transport.permit = Some(permit);
+                    transport.maximum_queued_bytes = queued;
+                    let _ = serve_one_with(&mut transport, &peer, |request| {
+                        let mut owner = operations
+                            .lock()
+                            .map_err(|_| HumanOperationError::Unavailable)?;
+                        handler(&mut owner, &peer, request)
+                    });
+                }));
+            }
+            Ok(())
+        })
+    }
+}
+
+impl<O: HumanOperations + Send> HumanUnixServer<O> {
+    pub fn serve(self) -> Result<(), HumanProtocolError> {
+        self.serve_until(&AtomicBool::new(false))
+    }
+    pub fn serve_until(self, stop: &AtomicBool) -> Result<(), HumanProtocolError> {
+        self.serve_with(stop, |owner, peer, request| {
+            dispatch_request(request, peer, owner)
+        })
+    }
+}
+
+#[derive(Default)]
+struct ListenerOccupancy {
+    connections: usize,
+    tenants: BTreeMap<String, (usize, usize)>,
+}
+struct ListenerPermit {
+    occupancy: Arc<Mutex<ListenerOccupancy>>,
+    tenant: String,
+    bytes: usize,
+}
+impl ListenerPermit {
+    fn reserve(&mut self, bytes: usize, maximum: usize) -> Result<(), TransportError> {
+        let mut active = self
+            .occupancy
+            .lock()
+            .map_err(|_| TransportError::ConnectionLimit)?;
+        let tenant = active
+            .tenants
+            .get_mut(&self.tenant)
+            .ok_or(TransportError::ConnectionLimit)?;
+        let total = tenant
+            .1
+            .checked_add(bytes)
+            .filter(|total| *total <= maximum)
+            .ok_or(TransportError::ConnectionLimit)?;
+        tenant.1 = total;
+        self.bytes += bytes;
+        Ok(())
+    }
+}
+impl Drop for ListenerPermit {
+    fn drop(&mut self) {
+        if let Ok(mut active) = self.occupancy.lock() {
+            active.connections -= 1;
+            if let Some(tenant) = active.tenants.get_mut(&self.tenant) {
+                tenant.0 -= 1;
+                tenant.1 -= self.bytes;
+                if tenant.0 == 0 {
+                    active.tenants.remove(&self.tenant);
+                }
+            }
         }
     }
 }
@@ -1697,6 +1855,9 @@ impl<O: HumanOperations> HumanUnixServer<O> {
 pub struct AcceptedTransport {
     stream: UnixStream,
     maximum: usize,
+    expires: Instant,
+    permit: Option<ListenerPermit>,
+    maximum_queued_bytes: usize,
 }
 impl AcceptedTransport {
     pub fn new(
@@ -1704,21 +1865,63 @@ impl AcceptedTransport {
         maximum: usize,
         deadline: Duration,
     ) -> Result<Self, HumanProtocolError> {
-        stream
-            .set_read_timeout(Some(deadline))
-            .map_err(|error| HumanProtocolError::Transport(io_error(&error)))?;
-        stream
-            .set_write_timeout(Some(deadline))
-            .map_err(|error| HumanProtocolError::Transport(io_error(&error)))?;
-        Ok(Self { stream, maximum })
+        let expires = Instant::now()
+            .checked_add(deadline)
+            .ok_or(HumanProtocolError::Malformed)?;
+        Ok(Self {
+            stream,
+            maximum,
+            expires,
+            permit: None,
+            maximum_queued_bytes: maximum,
+        })
+    }
+    fn remaining(&self) -> std::io::Result<Duration> {
+        self.expires
+            .checked_duration_since(Instant::now())
+            .filter(|v| !v.is_zero())
+            .ok_or_else(|| std::io::Error::from(std::io::ErrorKind::TimedOut))
+    }
+}
+impl Read for AcceptedTransport {
+    fn read(&mut self, bytes: &mut [u8]) -> std::io::Result<usize> {
+        self.stream.set_read_timeout(Some(self.remaining()?))?;
+        self.stream.read(bytes)
+    }
+}
+impl Write for AcceptedTransport {
+    fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+        self.stream.set_write_timeout(Some(self.remaining()?))?;
+        self.stream.write(bytes)
+    }
+    fn flush(&mut self) -> std::io::Result<()> {
+        self.remaining()?;
+        self.stream.flush()
     }
 }
 impl HumanFrameTransport for AcceptedTransport {
     fn send(&mut self, bytes: &[u8]) -> Result<(), TransportError> {
-        frame::write_frame(&mut self.stream, bytes, self.maximum)
+        let maximum = self.maximum;
+        frame::write_frame(self, bytes, maximum)
     }
     fn receive(&mut self) -> Result<Vec<u8>, TransportError> {
-        frame::read_frame(&mut self.stream, self.maximum)
+        let mut prefix = [0; 4];
+        self.read_exact(&mut prefix)
+            .map_err(|error| io_error(&error))?;
+        let length = u32::from_be_bytes(prefix) as usize;
+        if length > self.maximum {
+            return Err(TransportError::Frame(frame::FrameViolation::Oversized {
+                declared: u32::from_be_bytes(prefix),
+                maximum: self.maximum,
+            }));
+        }
+        if let Some(permit) = &mut self.permit {
+            permit.reserve(length, self.maximum_queued_bytes)?;
+        }
+        let mut bytes = vec![0; length];
+        self.read_exact(&mut bytes)
+            .map_err(|error| io_error(&error))?;
+        Ok(bytes)
     }
 }
 
@@ -1735,6 +1938,7 @@ fn validate_path(
         || metadata.uid() != uid
         || metadata.gid() != gid
         || metadata.mode() & 0o007 != 0
+        || (directory && metadata.mode() & 0o022 != 0)
     {
         return Err(HumanProtocolError::Unauthenticated);
     }
@@ -3617,4 +3821,49 @@ pub fn encode_lifecycle_request(request: &HumanRequest) -> Result<Vec<u8>, Human
     out.push(evidence.rung);
     out.extend_from_slice(&evidence.finalized_at.to_be_bytes());
     Ok(out)
+}
+
+/// Explicitly refuses removed Human startup controls instead of accepting inert settings.
+pub fn refuse_retired_human_inputs(
+    names: impl IntoIterator<Item = impl AsRef<str>>,
+) -> Result<(), String> {
+    for name in names {
+        let name = name.as_ref();
+        if matches!(
+            name,
+            "LAYERX_AGENT_MCP_CORE_SEQUENCE"
+                | "LAYERX_AGENT_MCP_EXPIRY_SEQUENCE"
+                | "LAYERX_AGENT_HUMAN_RECONNECT_ATTEMPTS"
+                | "LAYERX_AGENT_HUMAN_RECONNECT_BASE_MS"
+                | "LAYERX_AGENT_HUMAN_RECONNECT_MAX_MS"
+                | "LAYERX_AGENT_HUMAN_RECONNECT_JITTER_PERCENT"
+                | "LAYERX_AGENT_HUMAN_EXPORT_SET_VERSION"
+        ) {
+            return Err(format!("{name} is retired"));
+        }
+    }
+    Ok(())
+}
+
+pub fn human_frame_limits(
+    deadline: Duration,
+    mut required: impl FnMut(&str) -> Result<String, String>,
+) -> Result<layerx_client::frame::transport::Limits, String> {
+    layerx_client::frame::transport::Limits {
+        maximum_frame_bytes: required("LAYERX_AGENT_HUMAN_MAX_FRAME_BYTES")?
+            .parse()
+            .map_err(|_| "human max frame is invalid")?,
+        maximum_connections: required("LAYERX_AGENT_HUMAN_MAX_CONNECTIONS")?
+            .parse()
+            .map_err(|_| "human max connections is invalid")?,
+        maximum_streams: required("LAYERX_AGENT_HUMAN_MAX_STREAMS")?
+            .parse()
+            .map_err(|_| "human max streams is invalid")?,
+        maximum_queued_bytes: required("LAYERX_AGENT_HUMAN_MAX_QUEUED_BYTES")?
+            .parse()
+            .map_err(|_| "human max queue is invalid")?,
+        deadline,
+    }
+    .validate()
+    .map_err(|_| "human frame limits are invalid".to_owned())
 }

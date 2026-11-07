@@ -8,7 +8,7 @@ consensus or determine finality. Paxeer's kernel proposes blocks within the
 single network, and a committed block makes its receipts final.
 
 See the [workspace README](../../README.md) for the node boundary and test
-prerequisites, the [compatibility matrix](../../COMPATIBILITY.md) for Agent API
+prerequisites, the [compatibility matrix](../../../../docs/agent/COMPATIBILITY.md) for Agent API
 major 2, and the [MCP README](../layerx-mcp/README.md) for session bindings.
 
 ## Modes
@@ -36,7 +36,9 @@ key, Unix socket, limit and frame-bound inputs consumed by `start_shared_owner`.
 The runtime clock supervisor binding uses `LAYERX_RUNTIME_CLOCK_SOCKET`,
 `LAYERX_RUNTIME_CLOCK_PID` and `LAYERX_RUNTIME_CLOCK_UID`.
 
-The Human node connection in both modes requires:
+Both modes require a chain-checked Human node JSON-RPC connection and an
+independently authenticated Human authority registry. No LNI connection is
+required. Configure the Human node connection with:
 
 | Setting | Meaning |
 | --- | --- |
@@ -50,6 +52,20 @@ mismatch. HTTPS uses the system trust store on this environment-based
 connection. Node RPC is served at the root path; tenant domains do not need
 separate node processes.
 
+Configure the independent authority registry with:
+
+| Setting | Meaning |
+| --- | --- |
+| `LAYERX_AGENT_HUMAN_AUTHORITY_ENDPOINT` | HTTPS authority endpoint, independent of the node JSON-RPC URL |
+| `LAYERX_AGENT_HUMAN_AUTHORITY_BEARER` | Authority credential of at least 32 bytes, distinct from the health credential |
+| `LAYERX_AGENT_HUMAN_AUTHORITY_CA_DER` | Non-empty, readable DER-encoded CA file authenticating the authority server |
+| `LAYERX_AGENT_HUMAN_AUTHORITY_MAX_BYTES` | Positive response size bound, at most the Human response limit |
+| `LAYERX_AGENT_HUMAN_DEADLINE_MS` | Positive Human transport and authority deadline in milliseconds |
+| `LAYERX_AGENT_HUMAN_PEERS` | Peer UID, principal and tenant bindings; startup reads the registry for every peer |
+
+Startup refuses a node chain-ID mismatch or an unavailable or unverified
+authority registry. A reachable node alone is insufficient for readiness.
+
 ### Human-owner health
 
 `LAYERX_AGENT_PROGRAM_LISTEN` must start with `127.0.0.1:`.
@@ -57,6 +73,10 @@ separate node processes.
 `LAYERX_AGENT_HUMAN_AUTHORITY_BEARER`. An authenticated `GET /healthz` returns
 200 with `{"ready":true}` only while the owner is running and a fresh node
 chain-ID check and authority registry read for every configured peer succeed.
+Each admitted probe reconnects to the node and queries the registry again;
+successful startup does not cache readiness. The probe short-circuits on
+node failure before contacting the authority. See `dependencies_ready` and
+`serve_health` in [`human_owner_mode.rs`](src/human_owner_mode.rs).
 Dependency failure returns 503 with `{"ready":false}`; owner termination stops
 the process. Other admitted paths return 404. The HTTP reader enforces a
 16 KiB header bound and a five-second request deadline.

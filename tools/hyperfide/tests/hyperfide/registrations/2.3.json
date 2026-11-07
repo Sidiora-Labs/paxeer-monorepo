@@ -1,0 +1,130 @@
+{
+  "actions": [
+    "postgresql.fixture.create",
+    "postgresql.fixture.drop"
+  ],
+  "argv": [
+    "python3",
+    "tests/hyperfide/cases/tasks/2_3.py"
+  ],
+  "assertion_ids": [
+    "amendment.analysis.actual-signed-service",
+    "amendment.analysis.readonly",
+    "amendment.impact.active-attempts",
+    "amendment.propose.immutable-record",
+    "amendment.propose.manager-provenance",
+    "amendment.propose.exact-replay",
+    "amendment.propose.storage-immutable",
+    "amendment.pin.stale-base",
+    "amendment.pin.strict-fields",
+    "amendment.pin.source-digest",
+    "amendment.replan.cannot-weaken-global-intent",
+    "amendment.replan.cannot-weaken-accepted-command",
+    "amendment.replan.cannot-narrow-acceptance",
+    "amendment.replan.cannot-drop-coverage",
+    "amendment.replan.command-absence-is-intent",
+    "amendment.replan.invalid-graph-explicit",
+    "amendment.replan.cyclic-graph-explicit",
+    "amendment.replan.relocation-needs-new-identity",
+    "amendment.intent.explicit-operator-proposal",
+    "amendment.criteria.change-needs-new-identity",
+    "amendment.intent.manager-cannot-change-intent",
+    "amendment.analysis.comments-are-not-task-change",
+    "amendment.admit.invalid-cannot-dispatch",
+    "amendment.admit.manager-cannot-admit",
+    "amendment.admit.revalidation-explicit",
+    "amendment.admit.during-execution",
+    "amendment.admit.versioned-history",
+    "amendment.evidence.irrelevant-change-retained",
+    "amendment.admit.exact-replay",
+    "amendment.admit.stale-proposal",
+    "amendment.admit.active-compute-refused",
+    "amendment.admit.revalidates-affected-only",
+    "amendment.evidence.stale-history-retained",
+    "amendment.requalification.new-generation-only",
+    "amendment.decomposition.versioned-admission"
+  ],
+  "cases": [
+    "V-001",
+    "V-014"
+  ],
+  "cleanup_argv": [
+    "python3",
+    "tests/hyperfide/cases/tasks/2_3.py",
+    "--cleanup"
+  ],
+  "cleanup_timeout_seconds": 60,
+  "fixtures": [
+    "core/control-plane/dist/control.js",
+    "core/control-plane/dist/spec/revisions.js",
+    "core/control-plane/dist/spec/dependencies.js",
+    "core/control-plane/dist/spec/import.js",
+    "core/control-plane/dist/spec/obligations.js",
+    "core/control-plane/dist/assurance/validity.js"
+  ],
+  "required_artifacts": [
+    "proofs/observations.json",
+    "storage/database-absence.json"
+  ],
+  "required_env": [
+    "DATABASE_URL",
+    "PGHOST",
+    "PGPORT",
+    "PGUSER"
+  ],
+  "resources": [
+    {
+      "id": "hf-task-2.3-database",
+      "kind": "postgresql-database",
+      "scope": "task2.3-disposable"
+    }
+  ],
+  "schema_version": 1,
+  "scope": "task-component",
+  "source_files": [
+    "core/control-plane/components/14.1.json",
+    "core/control-plane/components/16.4.json",
+    "core/control-plane/components/2.1.json",
+    "core/control-plane/components/2.2.json",
+    "core/control-plane/components/2.3.json",
+    "core/control-plane/components/2.4.json",
+    "core/control-plane/components/4.2.json",
+    "core/control-plane/migrations/0001-authority.sql",
+    "core/control-plane/migrations/0002-spec.sql",
+    "core/control-plane/migrations/0004-durability.sql",
+    "core/control-plane/migrations/0016-qualification.sql",
+    "core/control-plane/migrations/0032-execution-packets.sql",
+    "core/control-plane/migrations/0202-spec-dependencies.sql",
+    "core/control-plane/package-lock.json",
+    "core/control-plane/package.json",
+    "core/control-plane/src/assurance/validity.ts",
+    "core/control-plane/src/components/registry.ts",
+    "core/control-plane/src/components/service.ts",
+    "core/control-plane/src/identity/enrollment.ts",
+    "core/control-plane/src/policy/programme.ts",
+    "core/control-plane/src/spec/dependencies.ts",
+    "core/control-plane/src/spec/import.ts",
+    "core/control-plane/src/spec/obligations.ts",
+    "core/control-plane/src/spec/revisions.ts",
+    "core/control-plane/src/storage/dispositions.ts",
+    "core/control-plane/src/storage/durability.ts",
+    "core/control-plane/src/storage/schema.ts",
+    "core/control-plane/src/storage/transactions.ts",
+    "core/control-plane/src/transport/protocol.ts",
+    "core/control-plane/tsconfig.json",
+    "tests/hyperfide/cases/tasks/2_3.py",
+    "tests/hyperfide/check-evidence.py",
+    "tests/hyperfide/manifest.schema.json",
+    "tests/hyperfide/qualify.py",
+    "tests/hyperfide/support/identity_fixture.py"
+  ],
+  "source_roots": [
+    "core/control-plane/src",
+    "core/control-plane/dist",
+    "core/control-plane/components",
+    "core/control-plane/migrations"
+  ],
+  "task": "2.3",
+  "timeout_seconds": 900,
+  "variant": "task:2.3"
+}

@@ -1,0 +1,65 @@
+[task]
+id = "22.33.1443"
+mode = "BUILD"
+base_revision = "876fbe3211af9ef09a8e5589f822c0e986d0a140"
+audit = "spec/layerx-merge/programme/audit/records/22.30.81.kvx"
+baseline = "Verification was not run on the unchanged tree: the explicit implementation-first Order and hf-done-only gate supersede step 5's baseline request. No pre-change failing tests are claimed. Initial git status/diff contained only runner-prepared .cgignore and spec status edits; the scoped repair/test files were absent. gate.json recorded zero builds and verifies; no gates.jsonl existed."
+build_cmd = "python3 --version"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_1443.py"
+evidence_ledger = "/out/run/gates.jsonl"
+qualification = "The final hf-done JSON and private evidence ledger name the exact verified candidate revision, command, exit code and log. Build and verification must pass on that same candidate. This record is finalized before qualification; embedding its own content-derived revision would change the candidate. The runner retains the evidence and commits; this task does not commit or push."
+
+[finding.doc-openrpc]
+file = "services/platform/hosted/gateway/openrpc.json"
+class = "doc-drift"
+severity = "medium"
+repair = "Preserve inherited removal of retired activity/core claims and both required closed tx_hash schemas. Describe oldest-first position order and the single selected EVM account; close the unified resolution document using the existing account contract, require exactly one EVM account and narrow both side tags to paxeer. Express tenant-dependent digest and subject construction while explicitly documenting the real handler's beta pin. Add matching Cargo package description metadata without changing dependencies or runtime behavior."
+tests = ["test_publication_and_manifest_describe_the_production_method_inventory", "test_registration_documents_tenant_binding_and_the_current_pin", "test_history_selection_transport_and_consumers_match_the_documentation", "test_real_recorded_unified_answer_validates_every_closed_history_object", "test_plain_history_contract_matches_recorded_fields_and_producer", "test_closed_history_contracts_reject_extra_missing_and_malformed_fields", "test_repair_record_maps_the_finding_and_discloses_unexecuted_owner_work"]
+closure = "The scoped publication drift is repaired with offline source and recorded-answer evidence; parameterized tenant execution, SDK/web DTO changes and additional runtime capture coverage remain explicit owner requests below, not claims of completed execution."
+
+[proof]
+executed_by_verify = "Parse the production Cargo TOML and OpenRPC JSON and validate all declared result/parameter schemas with Draft7Validator; compare the 17-method router inventory; trace production selection, hash enrichment, indexer HTTP decoding, JSON-RPC dispatch/serialization and the existing SDK/web readers by source assertions. Validate the unchanged committed real unified gateway answer, including every closed object schema in that history result, with positive and extra/missing/malformed-field rejection checks. Check every plain history field schema against the corresponding recorded value and require identical row contracts except side."
+recording = "apps/web/e2e/fixtures/px-get-unified-history.json; sha256 0d069680c781ebacc146c8e41debaa52dfa9dba137907283794a394b5ff75aef. Produced by gateway/src/history.rs unified_history_answer_matches_the_web_fixture over the real loopback indexer store, consumed by apps/web/e2e/gateway-history.test.ts; no fabricated or re-recorded answer is added."
+review_only = "Rust and TypeScript runtimes are not executed by this Python-only gate. Existing history tests compare actual plain and unified rows and drive both real gateway methods through the indexer into a deny_unknown_fields Rust consumer; this task checks their source and does not claim their earlier gate as its own. No restart/recovery behavior is changed by this documentation finding."
+capture_limits = "The committed capture is the complete unified answer. The plain method has source/recorded-field compatibility proof, not a separate complete wire capture. Other closed result schemas (account, balances, assets, network and holder records) are schema-checked but lack complete real gateway answer captures in this task. Universal positive runtime coverage and SDK/web execution require the owning-domain capture work below."
+
+[wiring.tenancy]
+path = "services/platform/hosted/gateway/src/rpc_register.rs"
+owner_domain = "8 gateway/identity"
+request = "Parameterize TENANT consistently through proof binding, subject derivation, principal/signup requests and response validation, coordinate SDK registration signing and update the publication only when that implementation is qualified; current production code still pins beta and cannot truthfully be advertised as caller-selectable."
+
+[wiring.sdk]
+path = "sdk/wallet/src/types.ts; sdk/wallet/src/endpoint.ts"
+owner_domain = "SDK/wallet"
+request = "Carry tx_hash and gateway position/finality fields in history DTOs and preserve tx_hash == tx_id; run the recorded gateway answer through the real TypeScript decoder and align any registration tenant selection with the gateway owner's future interface."
+
+[wiring.web]
+path = "apps/web/src/api/gateway.ts; apps/web/e2e/gateway-history.test.ts"
+owner_domain = "web"
+request = "Expose the tx_hash alias while preserving tx_id equality and the single-EVM-account selection; validate the unchanged gateway capture through the real web reader under its own TypeScript gate."
+
+[wiring.captures]
+path = "services/platform/hosted/gateway/tests/repair_22_31_202.rs; services/platform/hosted/gateway/tests/fixtures"
+owner_domain = "8 gateway qualification"
+request = "Commit actual full answers for px_getHistory and all other closed result schemas (px_getAccount, px_getBalances, px_listAssets, px_getNetwork, px_listHolderRecords), emitted by the production gateway through the existing loopback peers; validate each complete answer and its real SDK/web consumer without hand-built response fixtures or additional toolchains in this Python gate."
+
+[wiring.snapshot]
+path = "services/platform/hosted/gateway/tests/fixtures/repair_22_33_1417_openrpc.json; services/platform/hosted/gateway/tests/fixtures/repair_22_33_64_openrpc.json"
+owner_domain = "8 gateway documentation qualification"
+request = "Review and refresh whole-document preservation pins for intentional subsequent OpenRPC changes under the owning tasks; the 1417 byte digest already differs from this task's input publication (798247a2b366e32b3e4932919f8a8285473cd01177faa5bb40960e4087bf1d5e), so this task does not rerun or repair those unrelated gates."
+
+[gotcha.scope]
+observed = "Repository workflow requests spec/GOTCHA edits and publication, while this task explicitly restricts four paths and assigns commits to the runner."
+resolution = "Preserve existing runner bookkeeping and record findings in this scoped file; do not modify spec/GOTCHA, commit or push."
+
+[gotcha.tenancy]
+observed = "The audit expects parameterized tenancy, but the actual rpc_register.rs still declares TENANT beta and uses it for proof verification, subject derivation and upstream response checks."
+resolution = "Publish the tenant-dependent formula with the actual beta pin and request parameterization from the gateway/identity owner without fabricating a configuration interface."
+
+[gotcha.baseline]
+observed = "Step 5 requests an unchanged-tree verify, while the explicit Order forbids any test until complete implementation and permits verify only through hf-done after hf-build."
+resolution = "Follow the explicit gate order and claim no baseline execution or pre-change failures."
+
+[gotcha.inspection]
+observed = "Initial tool-path inspection assumed /usr/local/bin, and cg grep returned no candidates for known gateway symbols; oversized combined reads were truncated."
+resolution = "Resolve wrappers with command -v, use targeted repository source reads and fall back to rg for missed indexed symbols; these were read-only inspection errors, not gate failures."

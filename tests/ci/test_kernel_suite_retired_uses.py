@@ -74,4 +74,10 @@ def test_no_handover_genesis_case():
 
 
 def test_no_bridge_credit_apply_caller():
-    assert_no_kernel_references(r"\blxp_ledger_apply_bridge_credit\b")
+    assert_no_kernel_references(
+        r"\blxp_ledger_apply_bridge_credit\b",
+        exclude=(
+            "tests/codec/lxp_test_ledger_bridge_credit_absent.c",
+            "tests/codec/lxp_test_bridge_credit_absent.c",
+        ),
+    )

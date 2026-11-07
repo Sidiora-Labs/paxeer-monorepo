@@ -1,0 +1,6 @@
+[repair.rust-test-agent.10]
+target = "layerx-agentd-host"
+command = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd-host --no-fail-fast"
+revision = "c0645885ccc5f7237c151eb6b8939e01202a896c"
+result = "repaired"
+change = "services/agent/crates/layerx-agentd/host-tests/serve_routes.rs serves the production receipt-key schema, services/agent/crates/layerx-agentd/host-tests/node_integration.rs starts a disposable loopback node and removes reconnect controls retired by decision 2193, and services/agent/crates/layerx-agentd-host/tests/support/payer_audit.rs converts the published receipt_key_index to RPC hex encoding for production decoder validation."

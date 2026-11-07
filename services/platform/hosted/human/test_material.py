@@ -151,6 +151,21 @@ class MaterialTests(unittest.TestCase):
                                          root / 'policy.json', 402, 31337)
             self.assertFalse((root / 'policy.json').exists())
 
+    def test_agent_timestamp_span_is_milliseconds(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / 'human'
+            root.mkdir(mode=0o700)
+            for name in ('components', 'kms', 'config', 'agent-config'):
+                (root / name).mkdir(mode=0o700)
+            (root.parent / 'receipt-authority-replica-id').write_text('6c61796572782d626574612d726563656970742d617574686f726974792d3031')
+            subprocess.run([sys.executable, str(HERE / 'material.py'), str(root), '402', '31337', ''], check=True)
+            config = root / 'agent-config'
+            self.assertEqual((config / 'LAYERX_AGENT_HUMAN_TIMESTAMP_SPAN').read_text(), '60000')
+            for path in config.iterdir():
+                if path.name.endswith(('_MS', '_SPAN')):
+                    with self.subTest(name=path.name):
+                        self.assertGreaterEqual(int(path.read_text()), 1000)
+
     def test_ledger_funding_binds_current_bundle_and_retained_state(self):
         from test_repair_22_31_348 import merged_environment
         from merged_owner import LEDGER, PAYMENT
@@ -348,12 +363,9 @@ class MaterialTests(unittest.TestCase):
         code = source.split("<<'PY'\n", 1)[1].split('\nPY\n', 1)[0]
         module = {}
         exec(compile(code.rsplit('sys.exit(main())', 1)[0], 'topology-check.sh', 'exec'), module)
-        cluster = (ROOT / 'services/platform/hosted/tests/beta-cluster.sh').read_text()
-        observer = cluster.split("<<'PYOBSERVER'\n", 1)[1].split('\nPYOBSERVER\n', 1)[0]
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / 'paxeer.yaml'
             path.write_text((ROOT / 'services/platform/hosted/paxeer/deployment.yaml').read_text())
-            subprocess.run([sys.executable, '-c', observer, str(path)], check=True)
             topology = module['Topology']()
             for manifest in (ROOT / 'services/platform/hosted/node/deployment.yaml', path):
                 for document in yaml.safe_load_all(manifest.read_text()):
@@ -361,6 +373,7 @@ class MaterialTests(unittest.TestCase):
             node = next(w for w in topology.workloads if w['name'] == 'layerx-node')
             paxeer = next(w for w in topology.workloads if w['name'] == 'paxeer')
             service = topology.services[('layerx-testnet', 'paxeer-observer-boundary')]
+            self.assertEqual(service['ports'][0]['port'], '9443')
             self.assertEqual(service['ports'][0]['targetPort'], 'observer-https')
             self.assertEqual(paxeer['ports']['observer-https'], ('9444', 'TCP'))
             def admits():

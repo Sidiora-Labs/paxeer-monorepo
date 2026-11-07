@@ -1,6 +1,7 @@
 //! Determinism, replay and bounded fuzz qualification entry points.
 
 use core::fmt::{self, Display};
+use sha2::{Digest, Sha256};
 
 use crate::{
     ExecutionError, ExecutionFault, ExecutionRecord, Executor, FeeSchedule, FeeScheduleHistory,
@@ -109,6 +110,27 @@ impl ExecutorRevision {
         }
     }
 
+    const fn v3() -> Self {
+        Self {
+            abi_version: crate::ABI_V3_VERSION,
+            ..Self::v2()
+        }
+    }
+
+    const fn v4() -> Self {
+        Self {
+            abi_version: crate::ABI_V4_VERSION,
+            ..Self::v2()
+        }
+    }
+
+    const fn v5() -> Self {
+        Self {
+            abi_version: crate::ABI_V5_VERSION,
+            ..Self::v2()
+        }
+    }
+
     fn replay(self, record: &RecordedExecution<'_>) -> Result<Vec<u8>, ReplayRefusal> {
         let engine =
             WasmEngine::declared().map_err(|error| ReplayRefusal::Engine(error.to_string()))?;
@@ -140,7 +162,13 @@ impl ExecutorRevision {
     }
 }
 
-const DECLARED_REVISIONS: [ExecutorRevision; 2] = [ExecutorRevision::v1(), ExecutorRevision::v2()];
+const DECLARED_REVISIONS: [ExecutorRevision; 5] = [
+    ExecutorRevision::v1(),
+    ExecutorRevision::v2(),
+    ExecutorRevision::v3(),
+    ExecutorRevision::v4(),
+    ExecutorRevision::v5(),
+];
 
 fn replay_with_revisions(
     record: &RecordedExecution<'_>,
@@ -262,6 +290,27 @@ pub fn programs_fuzz_targets(target: FuzzTarget, input: &[u8]) {
     let _ = programs_fuzz_observation(target, input);
 }
 
+/// Host runner binaries and build manifests have a separate 128 MiB ceiling.
+pub const MAX_TRACE_RUNNER_PROVENANCE_BYTES: usize = 128 * 1_024 * 1_024;
+/// Maximum canonical observation retained in a runner artifact.
+pub const MAX_TRACE_RUNNER_EVIDENCE_BYTES: usize = 128 * 1_024 * 1_024;
+const TRACE_RUNNER_DOMAIN: &[u8] = b"LXP/trace-runner-artifact/v1\0";
+/// Maximum complete artifact, including the largest platform name and signature.
+pub const MAX_TRACE_RUNNER_ARTIFACT_BYTES: usize = TRACE_RUNNER_DOMAIN.len()
+    + 3 * 32
+    + 2
+    + u16::MAX as usize
+    + 8
+    + MAX_TRACE_RUNNER_EVIDENCE_BYTES
+    + 64;
+
+fn host_provenance_hash(input: &[u8], limit: usize) -> Result<[u8; 32], String> {
+    if input.len() > limit {
+        return Err("trace runner host hash input exceeds bound".to_string());
+    }
+    Ok(Sha256::digest(input).into())
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TraceRunnerArtifact {
     platform_identity: Vec<u8>,
@@ -314,9 +363,12 @@ impl TraceRunnerArtifact {
         }
         let platform_len = u16::try_from(self.platform_identity.len())
             .map_err(|_| "trace artifact platform identity exceeds u16".to_string())?;
+        if self.canonical_evidence.len() > MAX_TRACE_RUNNER_EVIDENCE_BYTES {
+            return Err("trace artifact evidence exceeds bound".to_string());
+        }
         let evidence_len = u64::try_from(self.canonical_evidence.len())
             .map_err(|_| "trace artifact evidence length exceeds u64".to_string())?;
-        let mut bytes = b"LXP/trace-runner-artifact/v1\0".to_vec();
+        let mut bytes = TRACE_RUNNER_DOMAIN.to_vec();
         bytes.extend_from_slice(&self.executable_identity);
         bytes.extend_from_slice(&self.build_manifest_identity);
         bytes.extend_from_slice(&self.workload_identity);
@@ -333,9 +385,11 @@ impl TraceRunnerArtifact {
     ///
     /// Returns an error for malformed or noncanonical artifact bytes.
     pub fn from_canonical_bytes(bytes: &[u8]) -> Result<Self, String> {
-        const DOMAIN: &[u8] = b"LXP/trace-runner-artifact/v1\0";
-        let mut cursor = DOMAIN.len();
-        if !bytes.starts_with(DOMAIN) {
+        if bytes.len() > MAX_TRACE_RUNNER_ARTIFACT_BYTES {
+            return Err("trace artifact exceeds bound".to_string());
+        }
+        let mut cursor = TRACE_RUNNER_DOMAIN.len();
+        if !bytes.starts_with(TRACE_RUNNER_DOMAIN) {
             return Err("trace artifact domain mismatch".to_string());
         }
         let executable_identity = bytes
@@ -373,7 +427,7 @@ impl TraceRunnerArtifact {
             .map(u64::from_be_bytes)
             .and_then(|value| usize::try_from(value).ok())
             .ok_or_else(|| "trace artifact evidence length invalid".to_string())?;
-        if evidence_len > 128 * 1_024 * 1_024 {
+        if evidence_len > MAX_TRACE_RUNNER_EVIDENCE_BYTES {
             return Err("trace artifact evidence exceeds bound".to_string());
         }
         cursor += 8;
@@ -411,11 +465,11 @@ impl TraceRunnerArtifact {
     ///
     /// Returns an error if the attested fields cannot be encoded.
     pub fn attestation_digest(&self) -> Result<[u8; 32], String> {
-        let mut unsigned = self.clone();
-        unsigned.attestation_signature = vec![0; 64];
-        let bytes = unsigned.canonical_bytes()?;
-        crate::hash_bytes(crate::HashAlgorithm::Sha256, &bytes[..bytes.len() - 64])
-            .map_err(|error| error.to_string())
+        let bytes = self.canonical_bytes()?;
+        host_provenance_hash(
+            &bytes[..bytes.len() - 64],
+            MAX_TRACE_RUNNER_ARTIFACT_BYTES - 64,
+        )
     }
 }
 
@@ -438,11 +492,26 @@ pub fn programs_trace_runner_artifact(
     {
         return Err("trace runner provenance is empty".to_string());
     }
-    let executable_identity = crate::hash_bytes(crate::HashAlgorithm::Sha256, executable_bytes)
-        .map_err(|error| error.to_string())?;
+    if platform_identity.len() > usize::from(u16::MAX) {
+        return Err("trace artifact platform identity exceeds u16".to_string());
+    }
+    let executable_identity =
+        host_provenance_hash(executable_bytes, MAX_TRACE_RUNNER_PROVENANCE_BYTES)?;
     let build_manifest_identity =
-        crate::hash_bytes(crate::HashAlgorithm::Sha256, build_manifest_bytes)
-            .map_err(|error| error.to_string())?;
+        host_provenance_hash(build_manifest_bytes, MAX_TRACE_RUNNER_PROVENANCE_BYTES)?;
+    let workload_len = wasm
+        .len()
+        .checked_add(export.len())
+        .and_then(|length| {
+            args.len()
+                .checked_mul(9)
+                .and_then(|args| length.checked_add(args))
+        })
+        .and_then(|length| length.checked_add(128))
+        .ok_or_else(|| "trace workload length overflow".to_string())?;
+    if workload_len > MAX_TRACE_RUNNER_PROVENANCE_BYTES {
+        return Err("trace workload exceeds bound".to_string());
+    }
     let mut workload = b"LXP/program-trace-runner-workload/v1\0".to_vec();
     workload.extend_from_slice(
         &u64::try_from(wasm.len())
@@ -475,8 +544,7 @@ pub fn programs_trace_runner_artifact(
     }
     workload.extend_from_slice(&policy.canonical_bytes());
     workload.extend_from_slice(&crate::RUNTIME_VERSION.to_be_bytes());
-    let workload_identity = crate::hash_bytes(crate::HashAlgorithm::Sha256, &workload)
-        .map_err(|error| error.to_string())?;
+    let workload_identity = host_provenance_hash(&workload, MAX_TRACE_RUNNER_PROVENANCE_BYTES)?;
     let result = WasmEngine::declared()
         .map_err(|error| error.to_string())
         .and_then(|engine| engine.validate(wasm).map_err(|error| error.to_string()))
@@ -501,6 +569,9 @@ pub fn programs_trace_runner_artifact(
             observed
         }
     };
+    if canonical_evidence.len() > MAX_TRACE_RUNNER_EVIDENCE_BYTES {
+        return Err("trace artifact evidence exceeds bound".to_string());
+    }
     Ok(TraceRunnerArtifact {
         platform_identity: platform_identity.to_vec(),
         workload_identity,
@@ -526,11 +597,14 @@ pub fn programs_trace_differential_gate(
     let verify = |artifact: &TraceRunnerArtifact,
                   submission: &TraceRunnerSubmission,
                   trust: &TraceRunnerTrust| {
-        let executable =
-            crate::hash_bytes(crate::HashAlgorithm::Sha256, &submission.executable_bytes).ok();
-        let manifest = crate::hash_bytes(
-            crate::HashAlgorithm::Sha256,
+        let executable = host_provenance_hash(
+            &submission.executable_bytes,
+            MAX_TRACE_RUNNER_PROVENANCE_BYTES,
+        )
+        .ok();
+        let manifest = host_provenance_hash(
             &submission.build_manifest_bytes,
+            MAX_TRACE_RUNNER_PROVENANCE_BYTES,
         )
         .ok();
         executable == Some(artifact.executable_identity)

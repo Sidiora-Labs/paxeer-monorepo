@@ -1,0 +1,870 @@
+#!/usr/bin/env python3
+"""Strict subprocess qualification; candidate observations require independent checking."""
+import argparse
+import ctypes
+import datetime as dt
+import fcntl
+import hashlib
+import json
+import os
+import re
+from pathlib import Path
+import signal
+import shutil
+import subprocess
+import sys
+import time
+import uuid
+
+# Run as a script, possibly under -I: the evidence store client is a sibling module.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import evidence_store  # noqa: E402
+
+class GateError(Exception):
+    pass
+
+def canonical(value):
+    return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False).encode()
+
+def digest(data):
+    return hashlib.sha256(data).hexdigest()
+
+STATUS_CONTRACT_PATH = 'spec/hyperfide-source-control/spec.kvx'
+STATUS_CONTRACT_SNAPSHOT = 'tests/hyperfide/source-control/full_case/contracts/source-control-spec.kvx'
+STATUS_CONTRACT_MODE = 'kvx-existing-status-values-v1'
+STATUS_VALUES = {'pending','in_progress','blocked','implemented','done','superseded','draft','UNRUN','RUNNING','PASS','FAIL','BLOCKED'}
+
+def status_projection(data):
+    """Preserve every byte except existing status values in known sections."""
+    data.decode('utf-8')
+    result=[];section=None;seen=set()
+    for line in data.splitlines(keepends=True):
+        heading=re.fullmatch(rb'\[([^\]\r\n]+)\](?:\r?\n)?',line)
+        if heading:section=heading[1].decode('utf-8')
+        allowed=section=='meta' or bool(section and re.fullmatch(r'(?:task\.[0-9]+\.[0-9]+|case\.SCM-[0-9]{3})',section))
+        match=re.fullmatch(rb'([ \t]*status[ \t]*=[ \t]*")([^"\r\n]*)("[^\r\n]*(?:\r?\n)?)',line)
+        if allowed and match:
+            if section in seen or match[2].decode('utf-8') not in STATUS_VALUES:
+                raise GateError('Duplicate or unsupported status-only contract field')
+            seen.add(section);line=match[1]+b'<status>'+match[3]
+        result.append(line)
+    if not seen:raise GateError('Status-only contract has no existing known status fields')
+    return b''.join(result)
+
+def validate_status_descriptors(registration):
+    values=registration.get('status_contracts',[])
+    if not isinstance(values,list) or len(values)>1:raise GateError('Invalid status-only contract inventory')
+    for item in values:
+        if item != {'path':STATUS_CONTRACT_PATH,'snapshot':STATUS_CONTRACT_SNAPSHOT,'mode':STATUS_CONTRACT_MODE}:
+            raise GateError('Status-only contract is outside the narrowly supported source specification')
+        if item['snapshot'] not in registration.get('source_files',[]) or item['path'] in registration.get('source_files',[]):
+            raise GateError('Status-only contract must pin its full immutable snapshot')
+        if any(Path(item['path']).is_relative_to(Path(root)) for root in registration.get('source_roots',[])):
+            raise GateError('Status-only contract cannot also be a raw source-root input')
+    return values
+
+def verify_status_contracts(root,registration):
+    for item in validate_status_descriptors(registration):
+        files=[]
+        for name in [item['path'],item['snapshot']]:
+            path=root/name
+            if path.resolve()!=path or not path.is_file() or path.stat().st_size>4*1024*1024:
+                raise GateError('Unsafe or missing status-only contract file')
+            files.append(path.read_bytes())
+        if status_projection(files[0])!=status_projection(files[1]):
+            raise GateError('Source specification changed beyond existing status values')
+
+def pairs(items):
+    result = {}
+    for key, value in items:
+        if key in result:
+            raise GateError("duplicate JSON key: " + key)
+        result[key] = value
+    return result
+
+def read_json(path):
+    try:
+        return json.loads(Path(path).read_text(), object_pairs_hook=pairs,
+                          parse_constant=lambda value: (_ for _ in ()).throw(GateError("non-finite JSON")))
+    except (ValueError, OSError) as exc:
+        raise GateError("cannot read JSON " + str(path) + ": " + str(exc)) from exc
+
+def strings(value, name, nonempty=True):
+    if not isinstance(value, list) or (nonempty and not value):
+        raise GateError(name + " must be a nonempty list" if nonempty else name + " must be a list")
+    if any(not isinstance(item, str) or not item.strip() for item in value):
+        raise GateError(name + " contains an empty/non-string identity")
+    if len(value) != len(set(value)):
+        raise GateError(name + " contains duplicates")
+    return value
+
+def utc():
+    return dt.datetime.now(dt.timezone.utc).isoformat().replace("+00:00", "Z")
+
+def immutable(path, data):
+    if path.exists():
+        if path.is_symlink() or path.read_bytes() != data:
+            raise GateError("immutable campaign snapshot changed: " + path.name)
+        return
+    with path.open("xb") as stream:
+        stream.write(data)
+        stream.flush()
+        os.fsync(stream.fileno())
+    path.chmod(0o444)
+
+def snapshot(campaign, original, category, original_label=None, workspace=None):
+    """Copy a workspace file into the campaign; outside the workspace record a reference only.
+
+    Pinned interpreters (node, python) live outside the workspace and would otherwise be copied
+    into every campaign twice (task 7.12): a reference carries original_path, sha256 and size,
+    and check-evidence.py re-digests it from original_path on the checking host.
+    """
+    original = Path(original)
+    if not original.is_file() or original.is_symlink():
+        raise GateError("missing or symlink input: " + str(original))
+    data = original.read_bytes()
+    if workspace is not None and not original.resolve().is_relative_to(workspace):
+        return {"kind": "reference", "original_path": original_label or str(original.resolve()),
+                "sha256": digest(data), "size": len(data)}
+    relative = Path(category) / digest(data) / original.name
+    target = campaign / relative
+    target.parent.mkdir(parents=True, exist_ok=True)
+    immutable(target, data)
+    return {"path": relative.as_posix(), "original_path": original_label or str(original.resolve()),
+            "sha256": digest(data), "size": len(data)}
+
+def children():
+    return {int(value) for value in Path('/proc/self/task/' + str(os.getpid()) + '/children').read_text().split()}
+
+def source_inventory(root, registration, output_dir):
+    found = {}
+    for relative in registration['source_roots']:
+        base = (root / relative).resolve()
+        if not base.is_relative_to(root) or not base.is_dir():
+            raise GateError('source root is absent or escapes workspace: ' + relative)
+        for path in base.rglob('*'):
+            if path.is_relative_to(output_dir) or any(part in ('.git', '__pycache__') for part in path.relative_to(root).parts) or path.suffix in ('.pyc', '.pyo'):
+                continue
+            if path.is_symlink():
+                raise GateError('source inventory contains symlink: ' + str(path))
+            if path.is_file():
+                data = path.read_bytes()
+                found[str(path.resolve())] = {'original_path': str(path.resolve()), 'sha256': digest(data), 'size': len(data)}
+    return [found[key] for key in sorted(found)]
+
+def worktree_inventory(root, inventory, output_dir, commit):
+    excluded = [str(output_dir.relative_to(root))] if output_dir.is_relative_to(root) else []
+    entries = []
+    diff_sha256 = None
+    if commit:
+        changed = subprocess.run(['git', '-C', str(root), 'diff', '--name-only', 'HEAD', '-z'], capture_output=True, check=True).stdout.split(b'\0')
+        untracked = subprocess.run(['git', '-C', str(root), 'ls-files', '--others', '--exclude-standard', '-z'], capture_output=True, check=True).stdout.split(b'\0')
+        diff = subprocess.run(['git','-C',str(root),'diff','--binary','--no-ext-diff','--no-textconv','--no-color','HEAD','--'], capture_output=True, check=True).stdout
+        diff_sha256 = digest(diff)
+        status = {value.decode(): 'modified' for value in changed if value}
+        status.update({value.decode(): 'untracked' for value in untracked if value})
+        for relative, kind in sorted(status.items()):
+            path = root / relative
+            if path.is_relative_to(output_dir) or '__pycache__' in path.parts or path.suffix in ('.pyc', '.pyo'):
+                continue
+            if path.is_symlink():
+                raise GateError('worktree contains changed symlink')
+            if path.is_file():
+                data = path.read_bytes()
+                entries.append({'path': relative, 'status': kind, 'sha256': digest(data), 'size': len(data)})
+            elif not path.exists():
+                entries.append({'path': relative, 'status': 'deleted', 'sha256': None, 'size': None})
+    else:
+        entries = [{'path': str(Path(item['original_path']).relative_to(root)), 'status': 'file', 'sha256': item['sha256'], 'size': item['size']} for item in inventory]
+        entries.sort(key=lambda item: item['path'])
+    return {'kind': 'git' if commit else 'directory', 'entries': entries, 'excluded': excluded, 'digest': digest(canonical(entries)), 'diff_sha256': diff_sha256}
+
+def run_child(argv, root, timeout, env):
+    if not sys.platform.startswith('linux') or ctypes.CDLL(None, use_errno=True).prctl(36, 1, 0, 0, 0) != 0:
+        raise GateError('Linux child-subreaper capability is required for owned-process cleanup')
+    executable = str((root / argv[0]).resolve()) if '/' in argv[0] and not Path(argv[0]).is_absolute() else shutil.which(argv[0], path=env.get('PATH'))
+    if executable is None and Path(argv[0]).is_file():
+        executable = str(Path(argv[0]).resolve())
+    executable_identity = None
+    if executable:
+        executable_path = Path(executable).resolve()
+        executable_data = executable_path.read_bytes()
+        executable_identity = {'path': str(executable_path), 'sha256': digest(executable_data), 'size': len(executable_data)}
+    original_children = children()
+    start, stamp = time.monotonic_ns(), utc()
+    result = {"argv": argv, "cwd": str(root), "exit_code": None, "timed_out": False,
+              "started_at": stamp, "ended_at": stamp, "duration_ns": 0}
+    output, error = b"", b""
+    try:
+        child = subprocess.Popen(argv, cwd=root, env=env, stdin=subprocess.DEVNULL,
+                                 stdout=subprocess.PIPE, stderr=subprocess.PIPE, start_new_session=True)
+        try:
+            output, error = child.communicate(timeout=timeout)
+        except subprocess.TimeoutExpired:
+            result["timed_out"] = True
+            try:
+                os.killpg(child.pid, signal.SIGTERM)
+            except ProcessLookupError:
+                pass
+            time.sleep(0.15)
+            # Kill the group even if its leader already exited: descendants may ignore TERM.
+            try:
+                os.killpg(child.pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+            output, error = child.communicate(timeout=5)
+        result["exit_code"] = child.returncode
+    except subprocess.TimeoutExpired as exc:
+        # A detached orphan may retain the pipe after group termination. Always reach subreaper cleanup.
+        result['timed_out'] = True
+        result['exit_code'] = child.poll()
+        output, error = exc.output or b'', exc.stderr or b''
+    except OSError as exc:
+        result["exit_code"] = 127
+        error = str(exc).encode()
+    finally:
+        result["ended_at"] = utc()
+        result["duration_ns"] = time.monotonic_ns() - start
+    leaked = set()
+    deadline = time.monotonic() + 2
+    while time.monotonic() < deadline:
+        owned = children() - original_children
+        if not owned:
+            break
+        leaked.update(owned)
+        for pid in owned:
+            try:
+                os.kill(pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+        for pid in owned:
+            try:
+                os.waitpid(pid, os.WNOHANG)
+            except ChildProcessError:
+                pass
+        time.sleep(0.02)
+    if result['timed_out']:
+        try:
+            output, error = child.communicate(timeout=2)
+            result['exit_code'] = child.returncode
+        except subprocess.TimeoutExpired as exc:
+            output, error = exc.output or output, exc.stderr or error
+            result['output_incomplete'] = True
+    result['executable'] = executable_identity
+    result['leaked_descendants'] = sorted(leaked)
+    result['remaining_descendants'] = sorted(children() - original_children)
+    result['duration_ns'] = time.monotonic_ns() - start
+    result['ended_at'] = utc()
+    return result, output, error
+
+def native_capture(root, value, assertion_ids):
+    if not isinstance(value, dict) or set(value) != {'schema_version', 'scope', 'revision_id', 'root_tree_id', 'authority_epoch', 'policy_version', 'manifest', 'readiness_receipt', 'toolchain', 'environment', 'test_inventory_sha256'}:
+        raise GateError('native source provenance fields differ from version 1')
+    if type(value['schema_version']) is not int or value['schema_version'] != 1:
+        raise GateError('unsupported native source provenance')
+    scope = value['scope']
+    if not isinstance(scope, dict) or set(scope) != {'organisation_id', 'repository_id', 'security_domain_id'}:
+        raise GateError('native source scope is incomplete')
+    for identity in scope.values():
+        if not isinstance(identity, str) or str(uuid.UUID(identity)) != identity:
+            raise GateError('native authority identity is invalid')
+    epoch = value['authority_epoch']
+    if not isinstance(epoch, str) or re.fullmatch(r'[1-9][0-9]{0,18}', epoch) is None or int(epoch) > 9223372036854775807:
+        raise GateError('native authority epoch must be a canonical positive PostgreSQL bigint')
+    for name in ('revision_id', 'root_tree_id'):
+        if not isinstance(value[name], str) or not re.fullmatch(r'sha256:[0-9a-f]{64}', value[name]):
+            raise GateError('native source identity is invalid')
+    if not isinstance(value['policy_version'], str) or not value['policy_version'].strip():
+        raise GateError('native source policy is absent')
+    if value['test_inventory_sha256'] != digest(canonical(assertion_ids)):
+        raise GateError('native source test inventory differs')
+    if not isinstance(value['environment'], dict) or set(value['environment']) != {'platform', 'identity'} or not all(isinstance(v, str) and v for v in value['environment'].values()):
+        raise GateError('native source environment is incomplete')
+    if value['environment']['platform'] != sys.platform:
+        raise GateError('native source environment differs from execution platform')
+    def pinned(record):
+        if not isinstance(record, dict) or set(record) != {'path', 'sha256'} or not re.fullmatch(r'[0-9a-f]{64}', str(record['sha256'])):
+            raise GateError('native source content pin is invalid')
+        if not isinstance(record['path'], str) or not record['path']:
+            raise GateError('native source content path is invalid')
+        relative = Path(record['path'])
+        if relative.is_absolute() or '..' in relative.parts:
+            raise GateError('native source content path escapes workspace')
+        path = root / relative
+        if path.is_symlink() or not path.is_file() or not path.resolve().is_relative_to(root) or digest(path.read_bytes()) != record['sha256']:
+            raise GateError('native source content pin differs: ' + str(relative))
+        return path
+    manifest = read_json(pinned(value['manifest']))
+    readiness = read_json(pinned(value['readiness_receipt']))
+    identity = {name: value[name] for name in ('scope', 'revision_id', 'root_tree_id', 'authority_epoch', 'policy_version')}
+    if any(manifest.get(k) != v or readiness.get(k) != v for k, v in identity.items()):
+        raise GateError('native source manifest or readiness identity differs')
+    if type(manifest.get('schema_version')) is not int or manifest.get('schema_version') != 1 or type(readiness.get('schema_version')) is not int or readiness.get('schema_version') != 1 or readiness.get('status') != 'VERIFIED' or readiness.get('manifest_sha256') != value['manifest']['sha256']:
+        raise GateError('native source readiness receipt is missing or invalid')
+    files = manifest.get('files')
+    if not isinstance(files, list) or not files:
+        raise GateError('native source manifest has no files')
+    seen = set()
+    for record in files:
+        path = pinned(record)
+        if record['path'] in seen:
+            raise GateError('native source manifest repeats a path')
+        seen.add(record['path'])
+    objects = readiness.get('objects')
+    if not isinstance(objects, list) or not objects:
+        raise GateError('native source readiness omits object references')
+    object_ids = set()
+    for record in objects:
+        if not isinstance(record, dict) or set(record) != {'object_id', 'path', 'sha256', 'state'} or record['state'] != 'READY' or not re.fullmatch(r'sha256:[0-9a-f]{64}', str(record['object_id'])) or record['object_id'] in object_ids:
+            raise GateError('native source object readiness is invalid')
+        object_ids.add(record['object_id'])
+        object_path = pinned({key: record[key] for key in ('path', 'sha256')})
+        if record['object_id'] != 'sha256:' + digest(object_path.read_bytes()):
+            raise GateError('native source object bytes differ from their identity')
+    if value['root_tree_id'] not in object_ids or value['revision_id'] not in object_ids:
+        raise GateError('native source closure omits revision or root object')
+    if not isinstance(value['toolchain'], list) or not value['toolchain']:
+        raise GateError('native source toolchain pins are absent')
+    for record in value['toolchain']:
+        pinned(record)
+    return value
+
+def load_registry(path):
+    registry = read_json(path)
+    if type(registry.get("schema_version")) is not int or registry.get("schema_version") not in (1, 2) or not isinstance(registry.get("cases"), dict):
+        raise GateError("unsupported registry")
+    if not registry["cases"] or not isinstance(registry.get("suites"), dict):
+        raise GateError("empty cases or missing suites")
+    for case_id, case in registry["cases"].items():
+        if not isinstance(case_id, str) or re.fullmatch(r"V-[0-9]{3}" if registry["schema_version"] == 1 else r"(?:V|SCM)-[0-9]{3}", case_id) is None or not isinstance(case, dict):
+            raise GateError("malformed case registration")
+        strings(case.get("full_assertion_ids", []), "full assertion inventory", False)
+    for suite, ids in registry["suites"].items():
+        strings(ids, "suite " + suite, False)
+        if any(case_id not in registry["cases"] for case_id in ids):
+            raise GateError("suite contains unknown case")
+    pattern = registry.get("registration_glob", "registrations/*.json")
+    if not isinstance(pattern, str) or Path(pattern).is_absolute() or ".." in Path(pattern).parts:
+        raise GateError("unsafe registration glob")
+    variants = {}
+    for registration_path in sorted(path.parent.glob(pattern)):
+        registration = read_json(registration_path)
+        if type(registration.get("schema_version")) is not int or registration.get("schema_version") not in (1, 2):
+            raise GateError("unsupported registration schema")
+        variant = registration.get("variant")
+        if not isinstance(variant, str) or not variant or variant in variants:
+            raise GateError("missing or duplicate variant")
+        task = registration.get('task')
+        if not isinstance(task, str) or re.fullmatch(r'[0-9]+\.[0-9]+', task) is None:
+            raise GateError('invalid registered task identity')
+        if registration['schema_version'] == 2:
+            expected = 'task:hyperfide-source-control/' + task
+            campaign = registration.get('campaign')
+            if campaign is not None:
+                if task != '6.2' or campaign not in ('growth', 'mixed', 'admission', 'endurance'):
+                    raise GateError('unsupported native campaign registration')
+                expected = 'campaign:hyperfide-source-control/' + task + '/' + campaign
+            case_variant = registration.get('case_variant')
+            if case_variant is not None:
+                case_ids = registration.get('cases')
+                if campaign is not None or registration.get('scope') != 'full-case' or not isinstance(case_ids, list) or len(case_ids) != 1 or not isinstance(case_ids[0], str) or re.fullmatch(r'SCM-[0-9]{3}', case_ids[0]) is None or not isinstance(case_variant, str) or re.fullmatch(r'[a-z0-9]+(?:-[a-z0-9]+)*', case_variant) is None:
+                    raise GateError('invalid native full-case registration')
+                expected = 'case:hyperfide-source-control/' + case_ids[0] + '/' + case_variant
+            if registration.get('feature') != 'hyperfide-source-control' or variant != expected:
+                raise GateError('native registration requires a namespaced feature/task variant')
+        cases = strings(registration.get("cases"), "registration cases")
+        if any(case not in registry["cases"] for case in cases):
+            raise GateError("unknown registered case")
+        strings(registration.get("assertion_ids"), "registered assertions")
+        if not isinstance(registration.get('argv'), list) or not registration['argv'] or any(not isinstance(arg, str) or not arg for arg in registration['argv']):
+            raise GateError('invalid probe argv')
+        strings(registration.get('source_files'), 'reviewed source files')
+        validate_status_descriptors(registration)
+        strings(registration.get('source_roots'), 'reviewed source roots')
+        for key in ("fixtures", "required_env", "actions", "required_artifacts"):
+            strings(registration.get(key, []), key, False)
+        if "cleanup_argv" in registration:
+            if not isinstance(registration['cleanup_argv'], list) or not registration['cleanup_argv'] or any(not isinstance(arg, str) or not arg for arg in registration['cleanup_argv']):
+                raise GateError('invalid cleanup argv')
+        timeout = registration.get("timeout_seconds", 60)
+        if isinstance(timeout, bool) or not isinstance(timeout, (int, float)) or not 0 < timeout <= 604800:
+            raise GateError("invalid child timeout")
+        cleanup_timeout = registration.get('cleanup_timeout_seconds', 60)
+        if isinstance(cleanup_timeout, bool) or not isinstance(cleanup_timeout, (int, float)) or not 0 < cleanup_timeout <= 604800:
+            raise GateError('invalid cleanup timeout')
+        resources = registration.get('resources', [])
+        if not isinstance(resources, list) or any(not isinstance(item, dict) or not isinstance(item.get('id'), str) or not item['id'].strip() for item in resources):
+            raise GateError('malformed resource inventory')
+        if len({item['id'] for item in resources}) != len(resources):
+            raise GateError('duplicate resource identity')
+        variants[variant] = (registration, registration_path)
+    # task_suites name registered task variants, not V-cases: each member runs through --task against its tracked manifest.
+    task_suites = registry.get("task_suites", {})
+    if not isinstance(task_suites, dict):
+        raise GateError("malformed task suites")
+    for suite, tasks in task_suites.items():
+        strings(tasks, "task suite " + suite)
+        if len(tasks) != len(set(tasks)) or any("task:" + task not in variants for task in tasks):
+            raise GateError("task suite names a duplicate or unregistered task: " + suite)
+    return registry, variants
+
+def probe_skip(summary):
+    """The probe's own SKIP line when its receipt records exit 77, else None."""
+    try:
+        campaign = Path(summary["campaign_dir"])
+        receipt = read_json(campaign / "receipts" / (summary["receipt_id"] + ".json"))
+        if receipt["command"].get("exit_code") != 77:
+            return None
+        output = (campaign / "artifacts" / summary["receipt_id"] / "stdout.log").read_text(errors="replace")
+    except (KeyError, TypeError, OSError, ValueError, GateError):
+        return None
+    lines = [line.strip() for line in output.splitlines() if line.strip().startswith("SKIP")]
+    return lines[0] if lines else "probe exited 77 without naming its prerequisite"
+
+def run_task_suite(args, root, registry_path, registry, variants):
+    """Runs every member of a task suite; a member that cannot run is SKIP and fails the suite."""
+    manifests = {}
+    for path in sorted((registry_path.parent / "manifests").glob("**/*.json")):
+        manifests.setdefault(read_json(path).get("registered_variant"), path)
+    results = []
+    for task in registry["task_suites"][args.suite]:
+        variant = "task:" + task
+        registration, _ = variants[variant]
+        missing = [name + " unset" for name in registration.get("required_env", []) if not os.environ.get(name)]
+        missing += ["fixture " + fixture + " absent" for fixture in registration.get("fixtures", []) if not (root / fixture).is_file()]
+        if variant not in manifests:
+            missing.append("no tracked manifest pins " + variant)
+        if missing:
+            results.append({"variant": variant, "status": "SKIP", "prerequisites": missing})
+            continue
+        argv = [sys.executable, str(Path(__file__).resolve()), "--task", task, "--manifest", str(manifests[variant].resolve()),
+                "--registry", str(registry_path), "--root", str(root)] + (["--require-evidence"] if args.require_evidence else [])
+        timeout = registration.get("timeout_seconds", 60) + registration.get("cleanup_timeout_seconds", 60) + 600
+        try:
+            proc = subprocess.run(argv, cwd=root, capture_output=True, text=True, timeout=timeout)
+        except subprocess.TimeoutExpired:
+            results.append({"variant": variant, "status": "FAIL", "diagnostics": ["member timed out"]})
+            continue
+        summary = {}
+        for line in reversed(proc.stdout.splitlines()):
+            try:
+                summary = json.loads(line)
+                break
+            except ValueError:
+                continue
+        status = "PASS" if proc.returncode == 0 and summary.get("status") == "PASS" else "FAIL"
+        skipped = probe_skip(summary) if status == "FAIL" else None
+        if skipped is not None:
+            # The probe ran and exited 77: it could not run here, and its own SKIP line names the prerequisite.
+            results.append({"variant": variant, "status": "SKIP", "prerequisites": [skipped], "receipt_id": summary.get("receipt_id"),
+                            "campaign_dir": summary.get("campaign_dir")})
+            continue
+        results.append({"variant": variant, "status": status, "child_status": summary.get("status"), "exit_code": proc.returncode,
+                        "receipt_id": summary.get("receipt_id"), "campaign_dir": summary.get("campaign_dir"),
+                        "diagnostics": summary.get("diagnostics", []) or ([proc.stderr.strip()[-400:]] if status != "PASS" else [])})
+    counts = {key: sum(1 for item in results if item["status"] == key) for key in ("PASS", "FAIL", "SKIP")}
+    status = "PASS" if counts["PASS"] == len(results) else "FAIL"
+    if args.format == "text":
+        for item in results:
+            if item["status"] == "SKIP":
+                print("SKIP %s: cannot run: %s" % (item["variant"], "; ".join(item["prerequisites"])))
+            elif item["status"] == "PASS":
+                print("PASS %s receipt %s evidence %s" % (item["variant"], item["receipt_id"], item["campaign_dir"]))
+            else:
+                print("FAIL %s (%s, exit %s) %s" % (item["variant"], item.get("child_status"), item.get("exit_code"), "; ".join(map(str, item["diagnostics"]))[:600]))
+        print("suite %s: %s, %d passed, %d failed, %d skipped" % (args.suite, status, counts["PASS"], counts["FAIL"], counts["SKIP"]))
+    else:
+        print(json.dumps({"status": status, "suite": args.suite, "counts": counts, "members": results}))
+    return 0 if status == "PASS" else 1
+
+def validate_manifest(manifest, registration, registry):
+    required = ("campaign_id", "registered_variant", "scope", "case_ids", "expected_assertion_ids",
+                "approval", "inputs", "resources", "seed", "policy")
+    if type(manifest.get("schema_version")) is not int or manifest.get("schema_version") not in (1, 2) or set(manifest) != set(required) | {"schema_version"} | ({"native_source", "feature"} if manifest.get("schema_version") == 2 else set()):
+        raise GateError("incomplete or unsupported manifest")
+    if manifest['schema_version'] == 2:
+        if manifest.get('feature') != 'hyperfide-source-control' or registration.get('feature') != manifest['feature'] or registration.get('schema_version') != 2:
+            raise GateError('native manifest feature differs from registration')
+        if any(not case.startswith('SCM-') for case in manifest['case_ids']):
+            raise GateError('native manifest mixes case namespaces')
+    if not isinstance(manifest["campaign_id"], str) or not manifest["campaign_id"].strip():
+        raise GateError("empty campaign identity")
+    if manifest["scope"] not in ("task-component", "full-case", "campaign"):
+        raise GateError("invalid qualification scope")
+    if manifest["scope"] != registration.get("scope"):
+        raise GateError("scope differs from registration")
+    for field, registered in (("case_ids", "cases"), ("expected_assertion_ids", "assertion_ids")):
+        strings(manifest[field], field)
+        if manifest[field] != registration[registered]:
+            raise GateError(field + " differs from exact registered inventory")
+    if registration.get('case_variant') is not None and (not isinstance(manifest.get('policy'), dict) or manifest['policy'].get('source_variant') != registration['case_variant']):
+        raise GateError('native full-case backend variant differs from registration')
+    approval = manifest["approval"]
+    if not isinstance(approval, dict) or set(approval) - {"approved", "allowed_actions", "allow_retained_resources"} or approval.get("approved") is not True or ("allow_retained_resources" in approval and not isinstance(approval["allow_retained_resources"], bool)):
+        raise GateError("campaign is not explicitly approved")
+    actions = strings(approval.get("allowed_actions"), "approved actions", False)
+    if not set(registration.get("actions", [])).issubset(actions):
+        raise GateError("probe action not approved")
+    if not isinstance(manifest["inputs"], list) or not isinstance(manifest["resources"], list):
+        raise GateError("inputs and resources must be lists")
+    if any(not isinstance(item, dict) or not isinstance(item.get('id'), str) or not item['id'].strip() for item in manifest['resources']):
+        raise GateError('malformed manifest resource inventory')
+    if len({item['id'] for item in manifest['resources']}) != len(manifest['resources']):
+        raise GateError('duplicate manifest resource identity')
+    if canonical(manifest["resources"]) != canonical(registration.get("resources", [])):
+        raise GateError("resource inventory differs from registration")
+    if manifest["resources"] and not registration.get("cleanup_argv"):
+        raise GateError("resource-bearing variant requires independent cleanup command")
+    if isinstance(manifest["seed"], bool) or not isinstance(manifest["seed"], int) or not isinstance(manifest["policy"], dict):
+        raise GateError("invalid seed or policy")
+    if manifest["scope"] != "task-component":
+        full = []
+        for case in manifest["case_ids"]:
+            inventory = registry["cases"][case].get("full_assertion_ids", [])
+            if not inventory:
+                raise GateError("full-case assertion inventory is not registered: " + case)
+            full.extend(inventory)
+        if len(full) != len(set(full)) or set(full) != set(manifest["expected_assertion_ids"]):
+            raise GateError("full-case inventory is incomplete")
+
+def parse_events(output):
+    diagnostics, events, assertions, cleanup = [], [], [], []
+    try:
+        lines = output.decode("utf-8").splitlines()
+    except UnicodeDecodeError:
+        return [], [], [], ["stdout is not valid UTF-8"]
+    for line in lines:
+        if not line.strip().startswith("{"):
+            continue
+        try:
+            event = json.loads(line, object_pairs_hook=pairs,
+                               parse_constant=lambda value: (_ for _ in ()).throw(GateError("non-finite event")))
+        except (ValueError, GateError):
+            diagnostics.append("malformed JSON event")
+            continue
+        if not isinstance(event, dict):
+            diagnostics.append("malformed event object")
+            continue
+        if event.get("type") == "assertion":
+            events.append(event)
+            if not isinstance(event.get("id"), str) or not event["id"] or "expected" not in event or "actual" not in event:
+                diagnostics.append("malformed assertion event")
+                continue
+            status = "PASS" if canonical(event["expected"]) == canonical(event["actual"]) else "FAIL"
+            assertions.append({"id": event["id"], "expected": event["expected"], "actual": event["actual"], "status": status})
+        elif event.get("type") == "cleanup":
+            events.append(event)
+            cleanup.append(event)
+    return assertions, cleanup, events, diagnostics
+
+def execute(args, root, registry_path, registry, registration, registration_path, manifest_path, manifest):
+    verify_status_contracts(root,registration)
+    trusted_checker = Path(__file__).resolve().with_name('check-evidence.py')
+    if args.checker and Path(args.checker).resolve() != trusted_checker:
+        raise GateError('alternate checker is not trusted; canonical sibling checker required')
+    native = native_capture(root, manifest['native_source'], manifest['expected_assertion_ids']) if manifest['schema_version'] == 2 else None
+    preliminary_git = subprocess.run(['git', '-C', str(root), 'rev-parse', 'HEAD'], capture_output=True, timeout=10) if native is None else None
+    preliminary_commit = preliminary_git.stdout.decode().strip() if preliminary_git is not None and preliminary_git.returncode == 0 else None
+    base_dir = root / 'artifacts/hyperfide/tasks' / ((registration['feature'] + '/' + registration['task']) if registration.get('feature') else registration.get('task', manifest['campaign_id']))
+    evidence_source = None
+    if not args.output_dir:
+        # The task directory is a cache of the artifact store (D1): restore prior receipts before chaining onto them.
+        try:
+            evidence_source = evidence_store.resolve(root, ((registration['feature'] + '/' + registration['task']) if registration.get('feature') else base_dir.name), args.require_evidence)
+        except (evidence_store.EvidenceIntegrityError, evidence_store.EvidenceUnavailable) as exc:
+            raise GateError('evidence resolution refused: ' + str(exc)) from exc
+        if evidence_source.get('warning'):
+            print('warning: ' + evidence_source['warning'], file=sys.stderr)
+    exclude_dir = Path(args.output_dir).resolve() if args.output_dir else base_dir
+    if root == exclude_dir or root.is_relative_to(exclude_dir):
+        raise GateError('evidence output cannot contain the workspace')
+    for relative in registration['source_files'] + registration['source_roots']:
+        if (root / relative).resolve().is_relative_to(exclude_dir):
+            raise GateError('evidence exclusion overlaps declared implementation source')
+    if args.output_dir and exclude_dir.exists() and any(exclude_dir.iterdir()):
+        allowed = {'.lock', 'manifest.json', 'registry.json', 'registration.json', 'receipts', 'artifacts', 'sources', 'inputs', 'checks', 'evidence-index.json'}
+        if any(path.name not in allowed for path in exclude_dir.iterdir()) or not all((exclude_dir / name).is_file() for name in ['manifest.json', 'registry.json', 'registration.json']):
+            raise GateError('existing output directory is not dedicated campaign evidence')
+    initial_inventory = source_inventory(root, registration, exclude_dir)
+    initial_worktree = worktree_inventory(root, initial_inventory, exclude_dir, preliminary_commit)
+    identity = {'head': preliminary_commit, 'manifest': digest(manifest_path.read_bytes()), 'registry': digest(registry_path.read_bytes()), 'registration': digest(registration_path.read_bytes()), 'inventory': initial_inventory, 'worktree': initial_worktree}
+    campaign_key = digest(canonical(identity))
+    output_dir = Path(args.output_dir).resolve() if args.output_dir else base_dir / 'campaigns' / campaign_key
+    inventory_exclusion = exclude_dir
+    output_dir.mkdir(parents=True, exist_ok=True)
+    if output_dir.is_symlink():
+        raise GateError("symlink campaign directory")
+    with (output_dir / ".lock").open("a+b") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        for name, original in (("manifest.json", manifest_path), ("registry.json", registry_path), ("registration.json", registration_path)):
+            immutable(output_dir / name, original.read_bytes())
+        receipt_id = str(uuid.uuid4())
+        receipts_dir, artifacts_dir = output_dir / "receipts", output_dir / "artifacts" / receipt_id
+        receipts_dir.mkdir(exist_ok=True)
+        artifacts_dir.mkdir(parents=True)
+        previous = []
+        for path in receipts_dir.glob("*.json"):
+            previous.append(read_json(path))
+        previous.sort(key=lambda item: item.get("sequence", 0))
+        if [item.get("sequence") for item in previous] != list(range(1, len(previous) + 1)):
+            raise GateError("invalid existing receipt sequence")
+        source_files, inputs, diagnostics = [], [], []
+        checker = trusted_checker
+        source_paths = {Path(__file__).resolve(), Path(evidence_store.__file__).resolve(), checker, registration_path.resolve(), registry_path.resolve()}
+        if native is not None:
+            native_records = [native['manifest'], native['readiness_receipt'], *native['toolchain']]
+            native_records += read_json(root / native['manifest']['path'])['files']
+            native_records += read_json(root / native['readiness_receipt']['path'])['objects']
+            source_paths.update((root / record['path']).resolve() for record in native_records)
+
+        for argv in (registration["argv"], registration.get("cleanup_argv", [])):
+            for arg in argv:
+                path = Path(arg) if Path(arg).is_absolute() else root / arg
+                if path.is_file() and path.suffix in (".py", ".js", ".mjs", ".json", ".sh"):
+                    source_paths.add(path.resolve())
+        before = {}
+        try:
+            if not checker.is_file():
+                raise GateError("required independent checker is missing")
+            for name in registration.get("required_env", []):
+                if not os.environ.get(name):
+                    raise GateError("required credential/environment variable absent: " + name)
+            pins = {}
+            for item in manifest["inputs"]:
+                if not isinstance(item, dict) or set(item) != {"path", "sha256", "size"}:
+                    raise GateError("malformed input pin")
+                label = item["path"]
+                if not isinstance(label, str) or not label.strip() or label in pins:
+                    raise GateError("duplicate or empty input pin")
+                if not isinstance(item['sha256'], str) or len(item['sha256']) != 64 or any(char not in '0123456789abcdef' for char in item['sha256']) or isinstance(item['size'], bool) or not isinstance(item['size'], int) or item['size'] < 0:
+                    raise GateError('invalid input hash/size pin')
+                pins[label] = item
+            for required_source in registration['source_files']:
+                if required_source not in pins:
+                    raise GateError('reviewed implementation source lacks content pin: ' + required_source)
+            for fixture in registration.get("fixtures", []):
+                fixture_path = root / fixture
+                if not fixture_path.is_file():
+                    raise GateError("required fixture absent: " + fixture)
+                if fixture not in pins:
+                    raise GateError("required fixture lacks content pin: " + fixture)
+            for label, pin in pins.items():
+                path = Path(label) if Path(label).is_absolute() else root / label
+                record = snapshot(output_dir, path, "inputs", label, root)
+                if record["sha256"] != pin["sha256"] or record["size"] != pin["size"]:
+                    raise GateError("input digest/size mismatch: " + label)
+                inputs.append(record)
+                # One record per pinned input: only reviewed sources are also source records (task 7.12).
+                before[str(path.resolve())] = record["sha256"]
+            source_paths.update((root / relative).resolve() for relative in registration['source_files'])
+            inventory = source_inventory(root, registration, inventory_exclusion)
+            source_paths.update(Path(item['original_path']) for item in inventory)
+            for path in sorted(source_paths):
+                record = snapshot(output_dir, path, "sources", workspace=root)
+                source_files.append(record)
+                before[str(path)] = record["sha256"]
+        except GateError as exc:
+            diagnostics.append(str(exc))
+        git = subprocess.run(["git", "-C", str(root), "rev-parse", "HEAD"], capture_output=True, timeout=10) if native is None else None
+        commit = git.stdout.decode().strip() if git is not None and git.returncode == 0 else None
+        dirty = None
+        if commit:
+            state = subprocess.run(["git", "-C", str(root), "status", "--porcelain"], capture_output=True, timeout=10)
+            dirty = bool(state.stdout) if state.returncode == 0 else None
+        inventory = source_inventory(root, registration, inventory_exclusion)
+        worktree = worktree_inventory(root, inventory, inventory_exclusion, commit)
+        source = {'backend': 'native' if native else 'git', 'native': native, 'commit': commit, 'dirty': dirty, 'workspace': str(root), 'unversioned': commit is None and native is None, 'files': source_files,
+                  'inventory': inventory, 'inventory_sha256': digest(canonical(inventory)), 'inventory_excluded': str(inventory_exclusion), 'worktree': worktree, 'environment': {'platform': sys.platform, 'python_version': sys.version, 'provenance_scope': 'declared-source-and-executables; complete preparation qualification requires task11.1'}}
+        if inventory != initial_inventory or worktree != initial_worktree or commit != preliminary_commit:
+            diagnostics.append('workspace identity changed during campaign preparation')
+        if commit is None and native is None and manifest["scope"] != "task-component":
+            diagnostics.append("full qualification requires a versioned source commit")
+        blocked = bool(diagnostics)
+        env = os.environ.copy()
+        env.update({"HYPERFIDE_CAMPAIGN_DIR": str(output_dir), "HYPERFIDE_RECEIPT_ID": receipt_id,
+                    "HYPERFIDE_RANDOM_SEED": str(manifest["seed"]), "HYPERFIDE_CASE_IDS": json.dumps(manifest["case_ids"])})
+        command = {"argv": registration["argv"], "cwd": str(root), "exit_code": None, "timed_out": False,
+                   "started_at": utc(), "ended_at": utc(), "duration_ns": 0}
+        stdout, stderr, cleanup_command = b"", b"", None
+        if not blocked:
+            command, stdout, stderr = run_child(registration["argv"], root, registration.get("timeout_seconds", 60), env)
+            if registration.get("cleanup_argv"):
+                cleanup_command, extra_out, extra_err = run_child(registration["cleanup_argv"], root, registration.get("cleanup_timeout_seconds", 60), env)
+                stdout += b"\n" + extra_out
+                stderr += b"\n" + extra_err
+        if native is not None and (command.get('executable') or {}).get('sha256') not in {item['sha256'] for item in native['toolchain']}:
+            diagnostics.append('executed native toolchain differs from manifest pins')
+        assertions, cleanup_events, events, event_diagnostics = parse_events(stdout)
+        diagnostics.extend(event_diagnostics)
+        ids = [item["id"] for item in assertions]
+        if len(ids) != len(set(ids)) or set(ids) != set(registration["assertion_ids"]):
+            diagnostics.append("executed assertion inventory differs from exact registration")
+        if any(item["status"] != "PASS" for item in assertions):
+            diagnostics.append("one or more behavioural assertions failed")
+        if command["exit_code"] != 0 or command["timed_out"] or command.get("leaked_descendants") or command.get("remaining_descendants"):
+            diagnostics.append("probe failed, was unavailable, or timed out")
+        cleanup = {"resources": [], "complete": False, "command": cleanup_command}
+        if len(cleanup_events) != 1:
+            diagnostics.append("exactly one observed cleanup event is required")
+        else:
+            event = cleanup_events[0]
+            cleanup.update({"resources": event.get("resources", []), "complete": event.get("complete") is True})
+            if not isinstance(cleanup["resources"], list) or not cleanup["complete"]:
+                diagnostics.append("cleanup is incomplete")
+            expected_ids = [item.get("id") for item in manifest["resources"]]
+            actual_ids = [item.get("id") for item in cleanup["resources"] if isinstance(item, dict)] if isinstance(cleanup["resources"], list) else []
+            if sorted(expected_ids) != sorted(actual_ids) or len(actual_ids) != len(set(actual_ids)):
+                diagnostics.append("cleanup resource inventory mismatch")
+            for resource in cleanup["resources"] if isinstance(cleanup["resources"], list) else []:
+                if resource.get("status") == "deleted":
+                    if resource.get("observed_absent") is not True or not resource.get("evidence_artifact"):
+                        diagnostics.append("deleted resource lacks observed absence evidence")
+                elif resource.get("status") == "retained":
+                    if not resource.get("owner") or not resource.get("expiry") or manifest["approval"].get("allow_retained_resources") is not True:
+                        diagnostics.append("retention lacks explicit policy/owner/expiry")
+                else:
+                    diagnostics.append("unresolved resource cleanup")
+        if cleanup_command and (cleanup_command["exit_code"] != 0 or cleanup_command["timed_out"] or cleanup_command.get("leaked_descendants") or cleanup_command.get("remaining_descendants")):
+            diagnostics.append("cleanup command failed")
+        if native is not None:
+            native_capture(root, manifest['native_source'], manifest['expected_assertion_ids'])
+        verify_status_contracts(root,registration)
+        if source_inventory(root, registration, inventory_exclusion) != inventory or worktree_inventory(root, inventory, inventory_exclusion, commit) != worktree:
+            diagnostics.append('source inventory/worktree changed during execution')
+        for path, expected_hash in before.items():
+            if not Path(path).is_file() or digest(Path(path).read_bytes()) != expected_hash:
+                diagnostics.append("source/input changed during execution: " + path)
+        artifacts = []
+        for name, content, kind in (("stdout.log", stdout, "stdout"), ("stderr.log", stderr, "stderr"),
+                                    ("events.jsonl", b"".join(canonical(event) + b"\n" for event in events), "events")):
+            path = artifacts_dir / name
+            immutable(path, content)
+            artifacts.append({"path": str(path.relative_to(output_dir)), "sha256": digest(content), "size": len(content), "kind": kind, "complete": True})
+        for relative in registration.get("required_artifacts", []):
+            name = Path(relative)
+            path = output_dir / name
+            unsafe = name.is_absolute() or ".." in name.parts
+            unsafe = unsafe or any((output_dir / Path(*name.parts[:index])).is_symlink()
+                                   for index in range(1, len(name.parts) + 1))
+            if unsafe or not path.is_file() or not path.resolve().is_relative_to(output_dir.resolve()):
+                diagnostics.append("required artifact missing or unsafe: " + relative)
+            else:
+                # Probes use campaign-relative scratch paths. Every receipt owns
+                # immutable copies so a later execution cannot rewrite history.
+                data = path.read_bytes()
+                frozen = artifacts_dir / "required" / name
+                frozen.parent.mkdir(parents=True, exist_ok=True)
+                immutable(frozen, data)
+                artifacts.append({"path": frozen.relative_to(output_dir).as_posix(),
+                                  "logical_path": relative, "sha256": digest(data),
+                                  "size": len(data), "kind": "required", "complete": True})
+        outcome = "BLOCKED" if blocked else "FAIL" if diagnostics else "PASS"
+        receipt = {"schema_version": 1, "receipt_id": receipt_id, "sequence": len(previous) + 1,
+                   "previous_seal": previous[-1]["seal"] if previous else None, "sealed_at": utc(),
+                   "qualification_status": "CANDIDATE", "scope": manifest["scope"],
+                   "registered_variant": manifest["registered_variant"], "task": registration.get("task"), "feature": registration.get("feature"),
+                   "case_ids": manifest["case_ids"], "selected_case_ids": args.case or manifest["case_ids"],
+                   "expected_assertion_ids": manifest["expected_assertion_ids"], "assertions": assertions,
+                   "outcome": outcome, "full_case_status": "INCOMPLETE" if manifest["scope"] == "task-component" else outcome,
+                   "manifest_sha256": digest(manifest_path.read_bytes()), "registry_sha256": digest(registry_path.read_bytes()),
+                   "registration_sha256": digest(registration_path.read_bytes()), "command": command, "source": source,
+                   "inputs": inputs, "artifacts": artifacts, "cleanup": cleanup, "diagnostics": diagnostics}
+        receipt["seal"] = digest(canonical(receipt))
+        receipt_path = receipts_dir / (receipt_id + ".json")
+        immutable(receipt_path, canonical(receipt) + b"\n")
+        checks = output_dir / "checks"
+        checks.mkdir(exist_ok=True)
+        checked = None
+        if checker.is_file():
+            checked, check_out, check_err = run_child([sys.executable, str(checker), "--campaign", str(output_dir), "--receipt", receipt_id], root, 60, os.environ.copy())
+            immutable(checks / (receipt_id + ".stdout.log"), check_out)
+            immutable(checks / (receipt_id + ".stderr.log"), check_err)
+            check_result = {"schema_version": 1, "receipt_id": receipt_id, "receipt_sha256": digest(receipt_path.read_bytes()),
+                            "checker_sha256": digest(checker.read_bytes()), "command": checked,
+                            "stdout_sha256": digest(check_out), "stderr_sha256": digest(check_err),
+                            "status": "PASS" if checked["exit_code"] == 0 and not checked["timed_out"] and not checked.get("leaked_descendants") and not checked.get("remaining_descendants") else "FAIL"}
+            check_result["seal"] = digest(canonical(check_result))
+            immutable(checks / (receipt_id + ".json"), canonical(check_result) + b"\n")
+        status = outcome if outcome != "PASS" else "PASS" if checked and checked["exit_code"] == 0 and not checked["timed_out"] and not checked.get("leaked_descendants") and not checked.get("remaining_descendants") else "FAIL"
+        if status == "FAIL" and outcome == "PASS":
+            diagnostics = ["independent checker rejected candidate; inspect checks artifacts"]
+        index = {"schema_version": 1, "projection": True, "receipts": [{"receipt_id": item["receipt_id"], "sequence": item["sequence"], "seal": item["seal"]} for item in previous + [receipt]]}
+        temporary = output_dir / (".index-" + receipt_id)
+        temporary.write_bytes(canonical(index) + b"\n")
+        os.replace(temporary, output_dir / "evidence-index.json")
+        print(json.dumps({"status": status, "receipt_id": receipt_id, "campaign_dir": str(output_dir), "scope": manifest["scope"],
+                          "full_case_status": receipt["full_case_status"], "diagnostics": diagnostics, "evidence_source": evidence_source}))
+        return 0 if status == "PASS" else 1
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    selector = parser.add_mutually_exclusive_group(required=True)
+    selector.add_argument("--case", action="append")
+    selector.add_argument("--task")
+    selector.add_argument("--suite")
+    selector.add_argument("--list-cases", action="store_true")
+    selector.add_argument("--bundle-evidence", metavar="TASK", help="write the deterministic evidence bundle of artifacts/hyperfide/tasks/TASK for publishEvidenceBundle")
+    selector.add_argument("--publish", metavar="TASK", help="publish the task's evidence bundle to the artifact store and write its tracked receipt (publish-evidence.py)")
+    parser.add_argument("--bundle-output")
+    parser.add_argument("--require-evidence", action="store_true", help="block when prior evidence cannot be resolved from the artifact store (default: warn)")
+    parser.add_argument("--format", choices=("json", "text"), default="json")
+    parser.add_argument("--manifest")
+    parser.add_argument("--registry", default="tests/hyperfide/registry.json")
+    parser.add_argument("--root", default=os.getcwd())
+    parser.add_argument("--output-dir")
+    parser.add_argument("--checker")
+    args = parser.parse_args()
+    try:
+        root = Path(args.root).resolve()
+        if args.publish:
+            import importlib.util
+            spec = importlib.util.spec_from_file_location("publish_evidence", Path(__file__).resolve().parent / "publish-evidence.py")
+            publisher = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(publisher)
+            return publisher.main(["--root", str(root), "--task", args.publish])
+        if args.bundle_evidence:
+            task_dir = root / evidence_store.TASKS_DIR / args.bundle_evidence
+            if not evidence_store.TASK.fullmatch(args.bundle_evidence) or not task_dir.is_dir() or not args.bundle_output:
+                raise GateError("bundling requires a task evidence directory and --bundle-output")
+            data = evidence_store.bundle(task_dir)
+            Path(args.bundle_output).write_bytes(data)
+            print(json.dumps({"status": "BUNDLED", "task": args.bundle_evidence, "content_digest": "sha256:" + digest(data), "size_bytes": len(data)}))
+            return 0
+        registry_path = Path(args.registry) if Path(args.registry).is_absolute() else root / args.registry
+        registry, variants = load_registry(registry_path)
+        if args.list_cases:
+            cases = [{"id": key, **value, "registered_variants": [name for name, (reg, _) in variants.items() if key in reg["cases"]]} for key, value in registry["cases"].items()]
+            print(json.dumps({"schema_version": 1, "cases": cases}) if args.format == "json" else "\n".join(item["id"] for item in cases))
+            return 0
+        if args.suite is not None and not args.manifest:
+            if args.suite not in registry.get("task_suites", {}):
+                raise GateError("unknown task suite: " + args.suite)
+            return run_task_suite(args, root, registry_path, registry, variants)
+        if not args.manifest:
+            raise GateError("execution requires an immutable manifest")
+        manifest_path = Path(args.manifest).resolve()
+        manifest = read_json(manifest_path)
+        variant = manifest.get("registered_variant")
+        if variant not in variants:
+            raise GateError("unknown registered variant")
+        registration, registration_path = variants[variant]
+        validate_manifest(manifest, registration, registry)
+        if args.case:
+            strings(args.case, "selected cases")
+            if any(case not in registry["cases"] or case not in registration["cases"] for case in args.case):
+                raise GateError("unknown or unrelated selected case")
+        elif args.task is not None:
+            if not args.task.strip() or args.task != ((registration["feature"] + "/" + registration["task"]) if registration.get("feature") else registration.get("task")):
+                raise GateError("unknown or unrelated selected task")
+        elif args.suite is not None:
+            if not args.suite.strip() or args.suite not in registry["suites"] or not registry["suites"][args.suite]:
+                raise GateError("unknown or empty selected suite")
+            if registry["suites"][args.suite] != registration["cases"]:
+                raise GateError("suite must match exact registered variant case inventory")
+        return execute(args, root, registry_path, registry, registration, registration_path, manifest_path, manifest)
+    except (GateError, OSError, ValueError, subprocess.SubprocessError) as exc:
+        print(json.dumps({"status": "BLOCKED", "diagnostics": [str(exc)]}))
+        return 2
+
+if __name__ == "__main__":
+    sys.exit(main())

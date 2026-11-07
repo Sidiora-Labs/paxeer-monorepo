@@ -61,7 +61,7 @@ describe('Footer', () => {
     scrollTo.mockRestore();
   });
 
-  it('names the network and describes it in the first column', () => {
+  it('names the network and describes it above the condensed columns', () => {
     const { container } = render(<Footer/>);
 
     const brand = container.querySelector('[data-label="footer-brand"]') as HTMLElement;

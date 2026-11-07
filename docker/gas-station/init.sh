@@ -29,6 +29,8 @@ need() {
 }
 uint='[0-9]+'
 addr='0x[0-9a-fA-F]{40}'
+# Node-root default; api2 through api14.mainnet-beta.paxeer.network are alternatives.
+GAS_STATION_ENDPOINTS="${GAS_STATION_ENDPOINTS-https://api1.mainnet-beta.paxeer.network/}"
 need GAS_STATION_LISTEN '\[::\]:[0-9]+'
 need GAS_STATION_CHAIN_ID "$uint"
 need GAS_STATION_ENDPOINTS 'https://[^ /"\\?#@]+/?( https://[^ /"\\?#@]+/?)*'
@@ -69,7 +71,24 @@ done
 # GAS_STATION_ENDPOINTS contains only root node RPC URLs. Rate publication
 # finality must come from committed chain receipts, not a hosted receipt-key list.
 # No hosted gateway configuration is rendered into either node RPC client.
-# The check below refuses publishers that still require the retired key field.
+# Readiness only: this answer never supplies receipt trust or signing keys.
+# Fail startup so the container supervisor retries if a node read is unavailable.
+for url in $GAS_STATION_ENDPOINTS; do
+	answer="$(curl -fsS --connect-timeout 5 --max-time 30 \
+		-H 'content-type: application/json' \
+		--data '{"jsonrpc":"2.0","id":1,"method":"px_getNetwork","params":[]}' \
+		"$url")" || {
+		echo "gas-station-init: node-root px_getNetwork did not answer" >&2
+		exit 1
+	}
+	if printf '%s' "$answer" | grep -Eq '"error"[[:space:]]*:' ||
+	   ! printf '%s' "$answer" | grep -Eq '"jsonrpc"[[:space:]]*:[[:space:]]*"2\.0"' ||
+	   ! printf '%s' "$answer" | grep -Eq '"result"[[:space:]]*:[[:space:]]*\{' ||
+	   ! printf '%s' "$answer" | grep -Eq '"chain_id"[[:space:]]*:[[:space:]]*"0x7d"'; then
+		echo "gas-station-init: node-root px_getNetwork is unavailable or is not chain 125" >&2
+		exit 1
+	fi
+done
 mkdir -p "$dir"
 printf '{"listen":"%s","gas_limit":%s,"max_priority_fee_per_gas":%s,"chain_id":%s,"endpoints":[%s],"paymaster":"%s","token":"%s","decimals":%s,"max_rate_age":%s,"spread_bps":%s,"margin_bps":%s,"per_account_limit":%s,"per_interval_limit":%s,"per_quote_limit":%s,"interval_seconds":%s,"balance_floor":%s,"relayer_key_env":"%s"}\n' \
 	"$GAS_STATION_LISTEN" "$GAS_STATION_GAS_LIMIT" "$GAS_STATION_MAX_PRIORITY_FEE_PER_GAS" \

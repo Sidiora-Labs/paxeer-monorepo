@@ -9,8 +9,8 @@ use layerx_agent_api::prepare::{
 use layerx_agent_api::{Amount, TimestampSeconds};
 use layerx_agentd::capability::CapabilityId;
 use layerx_agentd::policy::approval::{
-    decide, expire, hold, ApprovalChoice, ApprovalContext, ApprovalError, ApprovalRegistry,
-    ApprovalState, ApproverId,
+    decide_at, expire_at, hold_at, hold_reserved_timed, ApprovalChoice, ApprovalContext,
+    ApprovalError, ApprovalRegistry, ApprovalSequence, ApprovalState, ApproverId,
 };
 use layerx_agentd::session::SessionId;
 use layerx_agentd::store::TenantId;
@@ -92,22 +92,35 @@ fn approver(value: &str) -> ApproverId {
 #[test]
 fn expiry_is_deterministic_and_never_approves() {
     let registry = ApprovalRegistry::default();
-    let ticket = hold(&registry, context(1), prepared(b"canonical-1"), 10, 20)
-        .unwrap_or_else(|error| panic!("hold: {error:?}"));
+    let ticket = hold_at(
+        &registry,
+        context(1),
+        prepared(b"canonical-1"),
+        ApprovalSequence(10),
+        ApprovalSequence(20),
+        TimestampSeconds(10),
+    )
+    .unwrap_or_else(|error| panic!("hold: {error:?}"));
     assert_eq!(ticket.state, ApprovalState::AwaitingApproval);
-    assert_eq!(expire(&registry, 19).map(|entries| entries.len()), Ok(0));
-    let expired = expire(&registry, 20).unwrap_or_else(|error| panic!("expire: {error:?}"));
+    assert_eq!(
+        expire_at(&registry, ApprovalSequence(19), TimestampSeconds(11))
+            .map(|entries| entries.len()),
+        Ok(0)
+    );
+    let expired = expire_at(&registry, ApprovalSequence(20), TimestampSeconds(11))
+        .unwrap_or_else(|error| panic!("expire: {error:?}"));
     assert_eq!(expired.len(), 1);
     assert_eq!(expired[0].decision, ApprovalState::Expired);
     assert_eq!(expired[0].verification_level.wire_rank(), 0);
     assert_eq!(
-        decide(
+        decide_at(
             &registry,
             ticket.hold_id,
             approver("operator-a"),
             ApprovalChoice::Approve,
             ticket.disclosure_digest,
-            20,
+            ApprovalSequence(20),
+            TimestampSeconds(11)
         ),
         Err(ApprovalError::AlreadyDecided(ApprovalState::Expired))
     );
@@ -116,28 +129,37 @@ fn expiry_is_deterministic_and_never_approves() {
 #[test]
 fn approval_is_bound_to_the_disclosure_from_prepared_bytes() {
     let registry = ApprovalRegistry::default();
-    let ticket = hold(&registry, context(2), prepared(b"canonical-2"), 10, 20)
-        .unwrap_or_else(|error| panic!("hold: {error:?}"));
+    let ticket = hold_at(
+        &registry,
+        context(2),
+        prepared(b"canonical-2"),
+        ApprovalSequence(10),
+        ApprovalSequence(20),
+        TimestampSeconds(10),
+    )
+    .unwrap_or_else(|error| panic!("hold: {error:?}"));
     assert_eq!(ticket.disclosure.activity_type, ActivityType(7));
     assert_eq!(ticket.disclosure.amounts.values()[0].amount, Amount(50));
     assert_eq!(
-        decide(
+        decide_at(
             &registry,
             ticket.hold_id,
             approver("operator-a"),
             ApprovalChoice::Approve,
             digest(b"altered-request"),
-            11,
+            ApprovalSequence(11),
+            TimestampSeconds(11)
         ),
         Err(ApprovalError::DisclosureChanged)
     );
-    let audit = decide(
+    let audit = decide_at(
         &registry,
         ticket.hold_id,
         approver("operator-a"),
         ApprovalChoice::Approve,
         ticket.disclosure_digest,
-        11,
+        ApprovalSequence(11),
+        TimestampSeconds(11),
     )
     .unwrap_or_else(|error| panic!("approve: {error:?}"));
     assert_eq!(audit.decision, ApprovalState::Approved);
@@ -155,20 +177,28 @@ fn approval_is_bound_to_the_disclosure_from_prepared_bytes() {
 #[test]
 fn concurrent_approvals_have_exactly_one_winner() {
     let registry = Arc::new(ApprovalRegistry::default());
-    let ticket = hold(&registry, context(3), prepared(b"canonical-3"), 10, 30)
-        .unwrap_or_else(|error| panic!("hold: {error:?}"));
+    let ticket = hold_at(
+        &registry,
+        context(3),
+        prepared(b"canonical-3"),
+        ApprovalSequence(10),
+        ApprovalSequence(30),
+        TimestampSeconds(10),
+    )
+    .unwrap_or_else(|error| panic!("hold: {error:?}"));
     let disclosure_digest = ticket.disclosure_digest;
     let mut workers = Vec::new();
     for index in 0..24 {
         let registry = Arc::clone(&registry);
         workers.push(thread::spawn(move || {
-            decide(
+            decide_at(
                 &registry,
                 [3; 32],
                 approver(&format!("operator-{index}")),
                 ApprovalChoice::Approve,
                 disclosure_digest,
-                11,
+                ApprovalSequence(11),
+                TimestampSeconds(11),
             )
         }));
     }
@@ -191,7 +221,14 @@ fn unbound_disclosure_digest_is_refused_before_hold() {
     let mut altered = prepared(b"canonical-4");
     altered.disclosure.canonical_digest = [0; 32];
     assert_eq!(
-        hold(&registry, context(4), altered, 10, 20),
+        hold_at(
+            &registry,
+            context(4),
+            altered,
+            ApprovalSequence(10),
+            ApprovalSequence(20),
+            TimestampSeconds(10)
+        ),
         Err(ApprovalError::InvalidDisclosureDigest)
     );
 }
@@ -203,7 +240,6 @@ fn replay_refuses_a_hold_whose_call_bytes_or_sender_changed() {
     use layerx_agentd::budget::{
         reserve, BudgetLimiter, LimitConfig, LimitId, LimitScope, ReservationRequest,
     };
-    use layerx_agentd::policy::approval::hold_reserved;
     use layerx_agentd::store::{ObjectKind, Store, TenantKey};
     use layerx_crypto::evm_transaction::decode_unsigned;
     use layerx_types::payload::ModuleRegistry;
@@ -255,8 +291,16 @@ fn replay_refuses_a_hold_whose_call_bytes_or_sender_changed() {
                 },
             )
             .unwrap_or_else(|error| panic!("reserve: {error:?}"));
-            hold_reserved(&registry, ctx, original.clone(), 10, 100, &reservation)
-                .unwrap_or_else(|error| panic!("hold: {error:?}"));
+            hold_reserved_timed(
+                &registry,
+                ctx,
+                original.clone(),
+                ApprovalSequence(10),
+                ApprovalSequence(100),
+                &reservation,
+                TimestampSeconds(10),
+            )
+            .unwrap_or_else(|error| panic!("hold: {error:?}"));
             let mut store = store.lock().unwrap_or_else(|_| panic!("store lock"));
             let mut record = store
                 .get(&key)

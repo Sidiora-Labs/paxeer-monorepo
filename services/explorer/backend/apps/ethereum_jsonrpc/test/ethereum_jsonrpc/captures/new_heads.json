@@ -1,0 +1,305 @@
+{
+  "source": {
+    "kind": "recorded",
+    "endpoint": "wss://api1.mainnet-beta.paxeer.network",
+    "captured_at": "2026-11-04T07:28:50.890Z",
+    "node_revision_before": "2da69275051f6feb074a8b552977d37197735d86",
+    "node_revision_after": "2da69275051f6feb074a8b552977d37197735d86",
+    "application_version": {
+      "name": "paxeer",
+      "app_name": "paxd",
+      "version": "v6.12.0",
+      "git_commit": "2da69275051f6feb074a8b552977d37197735d86",
+      "build_tags": "netgo,ledger",
+      "go_version": "go version go1.25.6 linux/amd64",
+      "cosmos_sdk_version": ""
+    },
+    "environment": "public node; disposable-node provenance not available",
+    "revision_endpoint": "http://api1.mainnet-beta.paxeer.network:1317/cosmos/base/tendermint/v1beta1/node_info"
+  },
+  "chain_id": {
+    "request": {
+      "jsonrpc": "2.0",
+      "id": 0,
+      "method": "eth_chainId",
+      "params": []
+    },
+    "response": {
+      "jsonrpc": "2.0",
+      "id": 0,
+      "result": "0x7d"
+    }
+  },
+  "subscribe_request": {
+    "jsonrpc": "2.0",
+    "id": 0,
+    "method": "eth_subscribe",
+    "params": [
+      "newHeads"
+    ]
+  },
+  "subscribe_response": {
+    "jsonrpc": "2.0",
+    "id": 0,
+    "result": "0xb1b893e55570aa518b47927102ded278"
+  },
+  "notification": {
+    "jsonrpc": "2.0",
+    "method": "eth_subscription",
+    "params": {
+      "subscription": "0xb1b893e55570aa518b47927102ded278",
+      "result": {
+        "baseFeePerGas": "0x3b9aca00",
+        "blobGasUsed": "0x0",
+        "difficulty": "0x0",
+        "excessBlobGas": "0x0",
+        "extraData": "0x",
+        "gasLimit": "0x5f5e100",
+        "gasUsed": "0x0",
+        "hash": "0x5a2784f1811660de6165cb5a995b23a54d3e79b5c7e4c52cea48621e668a612c",
+        "logsBloom": "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+        "miner": "0x2d398a6abed9a74c56fdd8a521ff726cbbdecfa5",
+        "mixHash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+        "nonce": "0x0000000000000000",
+        "number": "0x2898b22",
+        "parentBeaconBlockRoot": "0x0000000000000000000000000000000000000000000000000000000000000000",
+        "parentHash": "0xf55078202a7a3ee8be176e9d56800591032f821ed83c969eb470ac8b3a245df1",
+        "receiptsRoot": "0xc44f83eb0ff535425acd48e3b6ad36e4d2ed21e3190170886bf0963f910c6319",
+        "sha3Uncles": "0x0000000000000000000000000000000000000000000000000000000000000000",
+        "stateRoot": "0x4a15a1b0a19337b4dcb848d6a6d9f58dd11e2b35bfc5af0934cbf298bbdc9299",
+        "timestamp": "0x6aeadeb0",
+        "transactionsRoot": "0xf340f955cbacca0cd10f65b4b62ebc426932c74f93fd9f93048a67287dcf3492",
+        "withdrawalsRoot": "0x0000000000000000000000000000000000000000000000000000000000000000"
+      }
+    }
+  },
+  "block_by_hash": {
+    "request": {
+      "jsonrpc": "2.0",
+      "id": 0,
+      "method": "eth_getBlockByHash",
+      "params": [
+        "0x5a2784f1811660de6165cb5a995b23a54d3e79b5c7e4c52cea48621e668a612c",
+        true
+      ]
+    },
+    "response": {
+      "jsonrpc": "2.0",
+      "id": 0,
+      "result": {
+        "baseFeePerGas": "0x3b9aca00",
+        "difficulty": "0x0",
+        "extraData": "0x",
+        "gasLimit": "0x5f5e100",
+        "gasUsed": "0x0",
+        "hash": "0x5a2784f1811660de6165cb5a995b23a54d3e79b5c7e4c52cea48621e668a612c",
+        "logsBloom": "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+        "miner": "0x2d398a6abed9a74c56fdd8a521ff726cbbdecfa5",
+        "mixHash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+        "nonce": "0x0000000000000000",
+        "number": "0x2898b22",
+        "parentHash": "0xf55078202a7a3ee8be176e9d56800591032f821ed83c969eb470ac8b3a245df1",
+        "receiptsRoot": "0xc44f83eb0ff535425acd48e3b6ad36e4d2ed21e3190170886bf0963f910c6319",
+        "sha3Uncles": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+        "size": "0xe17",
+        "stateRoot": "0x4a15a1b0a19337b4dcb848d6a6d9f58dd11e2b35bfc5af0934cbf298bbdc9299",
+        "timestamp": "0x6aeadeb0",
+        "totalDifficulty": "0x0",
+        "transactions": [],
+        "transactionsRoot": "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421",
+        "uncles": []
+      }
+    }
+  },
+  "block_by_number": {
+    "request": {
+      "jsonrpc": "2.0",
+      "id": 0,
+      "method": "eth_getBlockByNumber",
+      "params": [
+        "0x2898B22",
+        true
+      ]
+    },
+    "response": {
+      "jsonrpc": "2.0",
+      "id": 0,
+      "result": {
+        "baseFeePerGas": "0x3b9aca00",
+        "difficulty": "0x0",
+        "extraData": "0x",
+        "gasLimit": "0x5f5e100",
+        "gasUsed": "0x0",
+        "hash": "0x5a2784f1811660de6165cb5a995b23a54d3e79b5c7e4c52cea48621e668a612c",
+        "logsBloom": "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+        "miner": "0x2d398a6abed9a74c56fdd8a521ff726cbbdecfa5",
+        "mixHash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+        "nonce": "0x0000000000000000",
+        "number": "0x2898b22",
+        "parentHash": "0xf55078202a7a3ee8be176e9d56800591032f821ed83c969eb470ac8b3a245df1",
+        "receiptsRoot": "0xc44f83eb0ff535425acd48e3b6ad36e4d2ed21e3190170886bf0963f910c6319",
+        "sha3Uncles": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+        "size": "0xe17",
+        "stateRoot": "0x4a15a1b0a19337b4dcb848d6a6d9f58dd11e2b35bfc5af0934cbf298bbdc9299",
+        "timestamp": "0x6aeadeb0",
+        "totalDifficulty": "0x0",
+        "transactions": [],
+        "transactionsRoot": "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421",
+        "uncles": []
+      }
+    }
+  },
+  "formatter_capture": {
+    "block_by_hash": {
+      "request": {
+        "id": 0,
+        "jsonrpc": "2.0",
+        "method": "eth_getBlockByHash",
+        "params": [
+          "0x0000000000000000000000000000000000000000000000000000000000000066",
+          true
+        ]
+      },
+      "response": {
+        "id": 0,
+        "jsonrpc": "2.0",
+        "result": {
+          "baseFeePerGas": "0x3fe56c0",
+          "blobGasUsed": "0x0",
+          "difficulty": "0x0",
+          "excessBlobGas": "0x0",
+          "extraData": "0x",
+          "gasLimit": "0x5f5e100",
+          "gasUsed": "0x0",
+          "hash": "0x0000000000000000000000000000000000000000000000000000000000000066",
+          "logsBloom": "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+          "miner": "0x0000000000000000000000000000000000000405",
+          "mixHash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+          "nonce": "0x0000000000000000",
+          "number": "0x2",
+          "parentBeaconBlockRoot": "0x0000000000000000000000000000000000000000000000000000000000000000",
+          "parentHash": "0x0000000000000000000000000000000000000000000000000000000000000001",
+          "receiptsRoot": "0x97799e0704bcc22a29cc7d5240dad7e989da54e0b64724d2fe332239d5008314",
+          "sha3Uncles": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+          "size": "0x221",
+          "stateRoot": "0x0000000000000000000000000000000000000000000000000000000000000002",
+          "timestamp": "0x6aea7580",
+          "totalDifficulty": "0x0",
+          "transactions": [],
+          "transactionsRoot": "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421",
+          "uncles": [],
+          "withdrawalsRoot": "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421"
+        }
+      }
+    },
+    "block_by_number": {
+      "request": {
+        "id": 0,
+        "jsonrpc": "2.0",
+        "method": "eth_getBlockByNumber",
+        "params": [
+          "0x2",
+          true
+        ]
+      },
+      "response": {
+        "id": 0,
+        "jsonrpc": "2.0",
+        "result": {
+          "baseFeePerGas": "0x3fe56c0",
+          "blobGasUsed": "0x0",
+          "difficulty": "0x0",
+          "excessBlobGas": "0x0",
+          "extraData": "0x",
+          "gasLimit": "0x5f5e100",
+          "gasUsed": "0x0",
+          "hash": "0x0000000000000000000000000000000000000000000000000000000000000066",
+          "logsBloom": "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+          "miner": "0x0000000000000000000000000000000000000405",
+          "mixHash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+          "nonce": "0x0000000000000000",
+          "number": "0x2",
+          "parentBeaconBlockRoot": "0x0000000000000000000000000000000000000000000000000000000000000000",
+          "parentHash": "0x0000000000000000000000000000000000000000000000000000000000000001",
+          "receiptsRoot": "0x97799e0704bcc22a29cc7d5240dad7e989da54e0b64724d2fe332239d5008314",
+          "sha3Uncles": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+          "size": "0x221",
+          "stateRoot": "0x0000000000000000000000000000000000000000000000000000000000000002",
+          "timestamp": "0x6aea7580",
+          "totalDifficulty": "0x0",
+          "transactions": [],
+          "transactionsRoot": "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421",
+          "uncles": [],
+          "withdrawalsRoot": "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421"
+        }
+      }
+    },
+    "chain_id": {
+      "request": {
+        "id": 0,
+        "jsonrpc": "2.0",
+        "method": "eth_chainId",
+        "params": []
+      },
+      "response": {
+        "id": 0,
+        "jsonrpc": "2.0",
+        "result": "0x7d"
+      }
+    },
+    "notification": {
+      "jsonrpc": "2.0",
+      "method": "eth_subscription",
+      "params": {
+        "result": {
+          "baseFeePerGas": "0x3fe56c0",
+          "blobGasUsed": "0x0",
+          "difficulty": "0x0",
+          "excessBlobGas": "0x0",
+          "extraData": "0x",
+          "gasLimit": "0x5f5e100",
+          "gasUsed": "0x0",
+          "hash": "0x0000000000000000000000000000000000000000000000000000000000000066",
+          "logsBloom": "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+          "miner": "0x0000000000000000000000000000000000000405",
+          "mixHash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+          "nonce": "0x0000000000000000",
+          "number": "0x2",
+          "parentBeaconBlockRoot": "0x0000000000000000000000000000000000000000000000000000000000000000",
+          "parentHash": "0x0000000000000000000000000000000000000000000000000000000000000001",
+          "receiptsRoot": "0x97799e0704bcc22a29cc7d5240dad7e989da54e0b64724d2fe332239d5008314",
+          "sha3Uncles": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+          "size": "0x221",
+          "stateRoot": "0x0000000000000000000000000000000000000000000000000000000000000002",
+          "timestamp": "0x6aea7580",
+          "transactionsRoot": "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421",
+          "withdrawalsRoot": "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421"
+        },
+        "subscription": "0x627e840118b16849b2c7ff30032a3c92"
+      }
+    },
+    "source": {
+      "block_hash": "0x0000000000000000000000000000000000000000000000000000000000000066",
+      "block_number": "0x2",
+      "consensus_data_hash": "0x282390de1c1ede650755281c849d7fa63ba6f0a467bb7342bb39d859117bc4dc",
+      "consensus_transactions": 1,
+      "environment": "in-process committed node fixture; production HTTP and WebSocket servers",
+      "formatter_revision": "4af5959eb28ba0c7269a509c5dfb2ea13b022b1c",
+      "kind": "recorded",
+      "node_revision": "aa5e0820b3652890f3812a220f4b91f4f8a45387"
+    },
+    "subscribe_request": {
+      "id": 0,
+      "jsonrpc": "2.0",
+      "method": "eth_subscribe",
+      "params": [
+        "newHeads"
+      ]
+    },
+    "subscribe_response": {
+      "id": 0,
+      "jsonrpc": "2.0",
+      "result": "0x627e840118b16849b2c7ff30032a3c92"
+    }
+  }
+}

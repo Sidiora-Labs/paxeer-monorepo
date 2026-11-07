@@ -54,6 +54,179 @@ def start(argv, environment, name, identity=None):
     return process
 
 
+NATIVE_FLOW_PATHS = (
+    'apps/wallet/src/account/AccountView.tsx',
+    'apps/wallet/src/account/KernelPlan.tsx',
+    'apps/wallet/src/account/AccountProvider.tsx',
+    'apps/wallet/src/account/hooks.ts',
+    'apps/wallet/src/widgets/send/SendWidget.tsx',
+    'apps/wallet/src/widgets/send/useSendForm.ts',
+)
+
+DRIVER = r'''
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import {resolve, relative, isAbsolute, join} from 'node:path';
+import {pathToFileURL} from 'node:url';
+const runtime = JSON.parse(fs.readFileSync(process.env.WALLET_SIGNING_ADAPTERS_RUNTIME, 'utf8'));
+const sdk = await import(pathToFileURL(runtime.sdk_entry).href);
+function secret(name) {
+  const path = resolve(runtime.fixture_dir, name);
+  const inside = relative(runtime.fixture_dir, path);
+  assert(inside && !inside.startsWith('..') && !isAbsolute(inside));
+  const info = fs.lstatSync(path);
+  assert(info.isFile() && !info.isSymbolicLink() && info.nlink === 1
+    && info.uid === process.getuid() && (info.mode & 0o077) === 0);
+  return fs.readFileSync(path, 'utf8').trim();
+}
+const token = secret(runtime.owner_token_file);
+const foreign = secret(runtime.foreign_owner_token_file);
+const cases = [];
+let lastSend;
+const observedFetch = async (input, init) => {
+  const response = await fetch(input, init);
+  if (String(input).endsWith('/v1/wallet/send')) {
+    lastSend = {status: response.status, request: JSON.parse(init.body), body: await response.clone().json()};
+  }
+  return response;
+};
+function provider() {
+  return new sdk.PaxeerProvider({gatewayUrl: runtime.gateway_url, rpcUrl: runtime.rpc_url,
+    chainId: runtime.chain_id, token: () => token, fetch: observedFetch,
+    confirm: async request => {
+      assert(request.method && Array.isArray(request.params));
+      return true;
+    }});
+}
+async function control(action) {
+  const response = await fetch(runtime.control_url + '/control/' + action,
+    {method: 'POST', headers: {'Content-Type': 'application/json'}, body: '{}'});
+  assert.equal(response.status, 200);
+  return response.json();
+}
+async function rpc(method, params) {
+  const response = await fetch(runtime.real_rpc_url, {method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({jsonrpc: '2.0', id: 1, method, params})});
+  assert.equal(response.status, 200);
+  const answer = await response.json();
+  assert.equal(answer.jsonrpc, '2.0'); assert.equal(answer.id, 1); assert(!answer.error);
+  return answer.result;
+}
+const original = provider();
+const wallet = new sdk.WalletInterface(original);
+try {
+  assert.equal(runtime.chain_id, 125);
+  assert.equal(runtime.attestors.length, 5);
+  const [account] = await wallet.accounts();
+  assert.equal(account.toLowerCase(), runtime.account.toLowerCase());
+  const tx = {...runtime.native_transaction, value: BigInt(runtime.native_transaction.value), chainId: 125, data: '0x'};
+  assert(/^0x[0-9a-fA-F]{40}$/.test(tx.to) && tx.value > 0n);
+  await assert.rejects(wallet.sendTransaction({...tx, chainId: 126}), error => error.code === 4901);
+  const typed = runtime.typed_data;
+  assert.equal(Number(typed.domain.chainId), 125);
+  const wrong = structuredClone(typed); wrong.domain.chainId = 126;
+  await assert.rejects(wallet.signTypedData(wrong), error => error.code === 4901);
+  const signature = await wallet.signTypedData(typed);
+  assert(/^0x[0-9a-fA-F]{130}$/.test(signature));
+  const unauthorized = await fetch(runtime.gateway_url + '/v1/wallet/send', {method: 'POST',
+    headers: {'Content-Type': 'application/json', Authorization: 'Bearer ' + foreign},
+    body: JSON.stringify({tx: {chainId: 125, from: account, to: tx.to, value: String(tx.value), data: '0x'}})});
+  assert([401,403,404].includes(unauthorized.status));
+  const bare = await fetch(runtime.gateway_url + '/v1/wallet/sign-digest', {method: 'POST',
+    headers: {'Content-Type': 'application/json', Authorization: 'Bearer ' + token},
+    body: JSON.stringify({digest: '0x' + '01'.repeat(32)})});
+  assert.equal(bare.status, 400);
+  cases.push('native-owner-and-chain-refusal', 'typed-signing', 'bare-digest-refusal');
+
+  assert.equal((await control('stop-two')).stopped, 2);
+  const hash = await wallet.sendTransaction(tx);
+  assert(/^0x[0-9a-fA-F]{64}$/.test(hash));
+  const transaction = await rpc('eth_getTransactionByHash', [hash]);
+  assert.equal(transaction.from.toLowerCase(), account.toLowerCase());
+  assert.equal(transaction.to.toLowerCase(), tx.to.toLowerCase());
+  assert.equal(BigInt(transaction.value), tx.value);
+  assert.equal(BigInt(transaction.chainId), 125n);
+  cases.push('three-of-five-native-signing');
+
+  await control('arm-custody');
+  await assert.rejects(wallet.sendTransaction(tx), error => error.code === -32602);
+  assert.equal(lastSend.status, 202);
+  const pending = lastSend.body;
+  assert.equal(pending.error, 'outcome_unknown');
+  assert.equal(pending.retry, 'poll_receipt');
+  assert.equal(pending.poll, 'eth_getTransactionReceipt');
+  assert.equal(pending.must_not_resubmit, true);
+  assert(/^0x[0-9a-fA-F]{64}$/.test(pending.tx_hash));
+  assert.equal((await control('state')).dropped_reply, true);
+  const retained = join(runtime.evidence_dir, 'native-pending.json');
+  fs.writeFileSync(retained, JSON.stringify(lastSend), {mode: 0o600, flag: 'wx'});
+  original.disconnect();
+  await control('restart');
+  await control('receipts');
+  const reopened = provider();
+  try {
+    assert.equal((await new sdk.WalletInterface(reopened).accounts())[0].toLowerCase(), account.toLowerCase());
+    const saved = JSON.parse(fs.readFileSync(retained, 'utf8'));
+    assert.deepEqual(saved, lastSend);
+    const answer = await sdk.waitForSequencerReceipt(
+      (method, params) => reopened.request({method, params}), saved.body.tx_hash, {rung: 'committed'});
+    assert.equal(answer.txHash, saved.body.tx_hash);
+    assert.equal(answer.rung, 'committed'); assert.equal(answer.status, '0x1');
+    const recovered = await rpc('eth_getTransactionByHash', [saved.body.tx_hash]);
+    assert.equal(BigInt(recovered.nonce), BigInt(saved.body.nonce));
+    assert.equal(recovered.from.toLowerCase(), account.toLowerCase());
+    assert.equal(recovered.to.toLowerCase(), tx.to.toLowerCase());
+    assert.equal(BigInt(recovered.value), tx.value);
+    assert((await control('state')).send_counts.every(count => count === 1));
+    cases.push('ambiguous-native-broadcast-reopen-without-resubmit');
+    await control('lose-quorum');
+    await assert.rejects(new sdk.WalletInterface(reopened).sendTransaction(tx), error => error.code === -32603 && error.status === 503);
+    assert.equal(lastSend.status, 503); assert(!lastSend.body.signature && !lastSend.body.tx_hash);
+    cases.push('two-signers-refused-without-local-fallback');
+  } finally {reopened.disconnect();}
+  fs.writeFileSync(join(runtime.evidence_dir, 'cases-result.json'),
+    JSON.stringify({complete: true, cases}), {mode: 0o600});
+} finally {wallet.dispose(); original.disconnect();}
+'''
+
+
+def manifest_paths(root=ROOT):
+    expected = set()
+    for relative in ('services/wallet/gateway/src', 'services/wallet/gateway/dist', 'services/wallet/gateway/migrations',
+                     'sdk/wallet/src', 'sdk/wallet/dist',
+                     'services/agent/sdk/typescript/src', 'services/agent/sdk/typescript/dist',
+                     'services/interop/crates/layerx-gas-station/src'):
+        expected.update(str(path.relative_to(root)) for path in (root / relative).rglob('*') if path.is_file())
+    expected.update(str(path.relative_to(root)) for path in (root / 'services/wallet/attestor').rglob('*.go'))
+    expected.update(('services/wallet/attestor/go.mod', 'services/wallet/attestor/go.sum',
+                     *NATIVE_FLOW_PATHS,
+                     'tools/qualification/paxeer-x/wallet-signing-adapters.py',
+                     'services/wallet/gateway/package.json', 'sdk/wallet/package.json',
+                     'services/agent/sdk/typescript/package.json', 'services/interop/crates/layerx-gas-station/Cargo.toml'))
+    return expected
+
+
+def validate_manifest(manifest, root=ROOT):
+    require(set(manifest) == manifest_paths(root),
+            'complete current source and prebuilt artifact manifest required')
+    for relative, digest in manifest.items():
+        require(not any(part == '.env' or part.startswith('.env.') for part in Path(relative).parts),
+                'credential files are not source artifacts')
+        path = root / relative
+        require(path.is_file() and not path.is_symlink(), 'ordinary source/artifact required')
+        require(hashlib.sha256(path.read_bytes()).hexdigest() == digest,
+                'source/prebuilt artifact mismatch: ' + relative)
+
+
+def emit_driver(directory):
+    path = Path(directory) / 'native-signing-adapters.mjs'
+    descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    with os.fdopen(descriptor, 'w') as output:
+        output.write(DRIVER)
+    return path
+
+
 def main():
     global STATE
     supplied = os.environ.get('WALLET_SIGNING_ADAPTERS_FIXTURE_BUNDLE')
@@ -68,34 +241,17 @@ def main():
     manifest_path = (bundle / config['source_artifact_manifest']).resolve()
     require(manifest_path.is_relative_to(bundle), 'source manifest must remain inside protected bundle')
     manifest = json.loads(protected(manifest_path).read_text())
-    expected = set()
-    for relative in ('services/wallet/gateway/src', 'services/wallet/gateway/dist', 'services/wallet/gateway/migrations',
-                     'sdk/wallet/src', 'sdk/wallet/dist',
-                     'services/agent/sdk/typescript/src', 'services/agent/sdk/typescript/dist',
-                     'services/interop/crates/layerx-gas-station/src'):
-        expected.update(str(path.relative_to(ROOT)) for path in (ROOT / relative).rglob('*') if path.is_file())
-    expected.update(str(path.relative_to(ROOT)) for path in (ROOT / 'services/wallet/attestor').rglob('*.go'))
-    expected.update(('services/wallet/attestor/go.mod', 'services/wallet/attestor/go.sum',
-                     'apps/wallet/src/account/DepositFlow.tsx',
-                     'services/wallet/gateway/test/e2e/wallet-signing-adapters.production.ts',
-                     'services/wallet/gateway/package.json', 'sdk/wallet/package.json',
-                     'services/agent/sdk/typescript/package.json', 'services/interop/crates/layerx-gas-station/Cargo.toml'))
-    require(expected and set(manifest) == expected, 'complete current source and prebuilt artifact manifest required')
-    for relative, digest in manifest.items():
-        require(not any(part == '.env' or part.startswith('.env.') for part in Path(relative).parts), 'credential files are not source artifacts')
-        require(hashlib.sha256((ROOT / relative).read_bytes()).hexdigest() == digest,
-                'source/prebuilt artifact mismatch: ' + relative)
+    validate_manifest(manifest)
+    require('driver' not in config['artifacts'], 'native driver is emitted from sealed qualifier source')
     for name, artifact in config['artifacts'].items():
         path = Path(artifact['path'])
-        require(path.is_file() and (name == 'driver' or os.access(path, os.X_OK)), 'prebuilt artifact missing: ' + name)
+        require(path.is_file() and os.access(path, os.X_OK), 'prebuilt artifact missing: ' + name)
         require(hashlib.sha256(path.read_bytes()).hexdigest() == artifact['sha256'], 'executable digest mismatch: ' + name)
         require(isinstance(artifact['source_revision'], str) and len(artifact['source_revision']) == 40,
                 'executable source provenance missing: ' + name)
-    driver_artifact = Path(config['artifacts']['driver']['path']).resolve()
-    require(driver_artifact.is_relative_to(ROOT / 'services/wallet/gateway/dist') and driver_artifact.suffix in ('.js', '.mjs'),
-            'source-bound prebuilt JavaScript driver under gateway/dist required; no runtime transpiler/build')
     STATE = Path(tempfile.mkdtemp(prefix='wallet-signing-adapters-', dir=os.environ.get('WALLET_SIGNING_ADAPTERS_EVIDENCE_ROOT')))
     STATE.chmod(0o700)
+    driver_artifact = emit_driver(STATE)
     copied = STATE / 'fixture'
     shutil.copytree(bundle, copied)
     def expand(value):
@@ -198,6 +354,10 @@ def main():
                 gateway = launch_gateway('gateway-restarted')
                 ready()
                 return self.answer({'restarted': True})
+            if self.path == '/control/stop-two':
+                for index in [index for index, item in enumerate(services) if item['kind'] == 'attestor'][:2]:
+                    stop(running[index])
+                return self.answer({'stopped': 2})
             if self.path == '/control/lose-quorum':
                 for index in [index for index, item in enumerate(services) if item['kind'] == 'attestor'][:3]:
                     stop(running[index])
@@ -207,7 +367,7 @@ def main():
                     counts = list(send_counts.values())
                 return self.answer({'dropped_reply': dropped_reply.is_set(), 'send_counts': counts})
             request = json.loads(data)
-            if request.get('method') == 'eth_getTransactionReceipt' and block_receipts.is_set():
+            if request.get('method') in ('eth_getTransactionReceipt', 'pax_sequencerReceipt') and block_receipts.is_set():
                 self.close_connection = True
                 return
             if request.get('method') == 'eth_sendRawTransaction':

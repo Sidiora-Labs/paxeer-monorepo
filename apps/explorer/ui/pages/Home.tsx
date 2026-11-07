@@ -9,6 +9,7 @@ import LatestArbitrumL2Batches from 'ui/home/latestBatches/LatestArbitrumL2Batch
 import LatestZkEvmL2Batches from 'ui/home/latestBatches/LatestZkEvmL2Batches';
 import LatestBlocks from 'ui/home/LatestBlocks';
 import Stats from 'ui/home/Stats';
+import TickerStrip from 'ui/home/TickerStrip';
 import Transactions from 'ui/home/Transactions';
 import AdBanner from 'ui/shared/ad/AdBanner';
 
@@ -33,15 +34,16 @@ const Home = () => {
   return (
     <HomeRpcDataContextProvider>
       <Box as="main">
+        <TickerStrip/>
         <HeroBanner/>
         <Stats/>
         { isMobile && <AdBanner mt={ 4 } mx="auto" justifyContent="center" format="mobile"/> }
         <Grid
           data-label="home-lists"
-          mt={{ base: 4, lg: 6 }}
+          mt={ 8 }
           templateColumns={{ base: '1fr', lg: 'repeat(2, minmax(0, 1fr))' }}
           columnGap={{ base: 0, lg: 6 }}
-          rowGap={{ base: 4, lg: 0 }}
+          rowGap={ 8 }
           alignItems="start"
         >
           <GridItem minW={ 0 }>

@@ -16,18 +16,21 @@ interface Props {
 
 const EpochsTable = ({ items, isLoading, top }: Props) => {
   return (
-    <TableRoot minW="1100px">
-      <TableHeaderSticky top={ top }>
+    <TableRoot minW="1200px" variant="scan" css={{ '& th:first-of-type, & td:first-of-type': { position: 'sticky', left: 0, bg: 'canvas' } }}>
+      <TableHeaderSticky top={ top } bg="canvas">
         <TableRow>
           <TableColumnHeader w="280px">
             Epoch
             <TimeFormatToggle/>
           </TableColumnHeader>
           <TableColumnHeader w="120px">Status</TableColumnHeader>
-          <TableColumnHeader w="25%">Block range</TableColumnHeader>
-          <TableColumnHeader w="25%" isNumeric>Community { config.chain.currency.symbol }</TableColumnHeader>
-          <TableColumnHeader w="25%" isNumeric>Carbon offset { config.chain.currency.symbol }</TableColumnHeader>
-          <TableColumnHeader w="25%" isNumeric>Total { config.chain.currency.symbol }</TableColumnHeader>
+          <TableColumnHeader w="120px">Started</TableColumnHeader>
+          <TableColumnHeader w="140px" isNumeric>First block</TableColumnHeader>
+          <TableColumnHeader w="140px" isNumeric>Last block</TableColumnHeader>
+          <TableColumnHeader w="100px" isNumeric>Duration</TableColumnHeader>
+          <TableColumnHeader w="160px" isNumeric>Community { config.chain.currency.symbol }</TableColumnHeader>
+          <TableColumnHeader w="160px" isNumeric>Carbon offset { config.chain.currency.symbol }</TableColumnHeader>
+          <TableColumnHeader w="160px" isNumeric>Total { config.chain.currency.symbol }</TableColumnHeader>
         </TableRow>
       </TableHeaderSticky>
       <TableBody>

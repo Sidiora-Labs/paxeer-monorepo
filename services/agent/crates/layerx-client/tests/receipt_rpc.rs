@@ -7,8 +7,8 @@ use std::time::Duration;
 use ed25519_dalek::{Signer as _, SigningKey};
 use layerx_client::rpc::receipt::ReconnectPolicy;
 use layerx_client::rpc::receipt::{
-    lookup, lookup_authenticated, resolve_unknown, AuthenticatedReceipt, Lookup, LookupContext,
-    ReceiptError, Resolution, Rung,
+    lookup, lookup_authenticated, lookup_authenticated_with_commit, resolve_unknown,
+    AuthenticatedReceipt, Lookup, LookupContext, ReceiptError, Resolution, Rung,
 };
 use layerx_client::rpc::submit::{submit_signed, Submission};
 use layerx_client::sequencer::{ReceiptKeyEntry, SequencerEndpoint, SequencerError};
@@ -19,6 +19,13 @@ use layerx_wire::hash::receipt_digest;
 use layerx_wire::limits::{MAX_MESSAGE_BYTES, PROTOCOL_VERSION};
 use serde_json::{json, Value};
 use sha2::{Digest as _, Sha256};
+
+#[path = "support/market_22_33_1546.rs"]
+mod commit_producer;
+
+use layerx_client::rpc::commit::CommitError;
+use layerx_client::rpc::receipt_commit::{CoverageError, ReceiptCommitEvidence, SequenceBatch};
+use layerx_programs_registry::chain_proof::merkle::{hash_from_byte_slices, SimpleProof};
 
 const HEIGHT: u64 = 150;
 const KEY_ID: [u8; 32] = [1; 32];
@@ -345,11 +352,41 @@ fn lookup_authenticated_reaches_committed_from_the_transaction_receipt() {
         for height in [HEIGHT, HEIGHT + 1] {
             let landing = json!({"status": if success { "0x1" } else { "0x0" },
                 "blockNumber": format!("{height:#x}"), "transactionIndex": "0x1", "gasUsed": "0x5208", "logs": view["logs"]});
-            let (endpoint, server) = serve(vec![
-                receipt_exchange(TX_HASH, view.clone()),
+            let batch = covering_batch(height, 7);
+            let bytes_batch = must(batch.encode());
+            let root = hash_from_byte_slices(&[&sha256(&bytes_batch)]);
+            let node = commit_producer::node_commit(height, [0x33; 32], root);
+            let proof = SimpleProof {
+                total: 1,
+                index: 0,
+                leaf_hash: root,
+                aunts: vec![],
+            };
+            let evidence = ReceiptCommitEvidence {
+                verifier: &node.verifier,
+                covering_height: height,
+                batch_transaction: &bytes_batch,
+                transaction_proof: &proof,
+                activity_ids: &[TX_HASH],
+            };
+            let mut committed = view.clone();
+            committed["rung"] = json!("committed");
+            committed["blockNumber"] = json!(format!("{height:#x}"));
+            committed["blockHash"] = json!(hex(&node.head.header_hash()));
+            let mut exchanges = vec![
+                receipt_exchange(TX_HASH, committed),
                 landing_exchange(TX_HASH, landing),
-            ]);
-            let receipt = verified(must(lookup_authenticated(&endpoint, TX_HASH, context)));
+            ];
+            exchanges.extend(commit_exchanges(&node));
+            let (endpoint, server) = serve(exchanges);
+            let receipt = verified(must(lookup_authenticated_with_commit(
+                &endpoint, TX_HASH, context, &evidence,
+            )));
+            assert_eq!(receipt.committed_header(), Some(&node.head));
+            assert_eq!(
+                receipt.covering_block(),
+                Some((height, node.head.header_hash()))
+            );
             assert_eq!(receipt.rung(), Rung::Committed);
             assert_eq!(receipt.canonical_bytes(), bytes);
             assert_eq!(receipt.result_code().raw(), i32::from(!success));
@@ -393,10 +430,10 @@ fn lookup_authenticated_reaches_committed_from_the_transaction_receipt() {
             receipt_exchange(TX_HASH, view),
             ("eth_getTransactionReceipt", json!([hex(&TX_HASH)]), None),
         ]);
-        assert_eq!(
-            lookup_authenticated(&endpoint, TX_HASH, context),
-            Err(ReceiptError::Sequencer(SequencerError::Unavailable))
-        );
+        let unavailable_landing = verified(must(lookup_authenticated(&endpoint, TX_HASH, context)));
+        assert_eq!(unavailable_landing.rung(), Rung::Receipted);
+        assert_eq!(unavailable_landing.landing(), None);
+        assert_eq!(unavailable_landing.committed_header(), None);
         must(server.join());
     }
 
@@ -456,7 +493,15 @@ fn lookup_authenticated_reaches_committed_from_the_transaction_receipt() {
         panic!("receipt must resolve the unknown send");
     };
     assert_eq!(receipt.activity_id(), tx_hash);
-    assert_eq!(receipt.rung(), Rung::Committed);
+    assert_eq!(receipt.rung(), Rung::Receipted);
+    assert_eq!(receipt.committed_header(), None);
+    assert_eq!(
+        receipt
+            .landing()
+            .unwrap_or_else(|| panic!("landing"))
+            .block_number,
+        HEIGHT
+    );
     assert_eq!(unknown.retry_bytes(), raw);
     must(server.join());
 }
@@ -557,6 +602,181 @@ fn lookup_authenticated_checks_the_payment_asset_when_fees_use_a_token() {
         assert_eq!(
             lookup_authenticated(&endpoint, TX_HASH, context),
             Err(ReceiptError::Sequencer(SequencerError::Malformed))
+        );
+        must(server.join());
+    }
+}
+
+fn covering_batch(height: u64, sequence: u64) -> SequenceBatch {
+    let mut chain = b"PAXEER/v1/sequence\0".to_vec();
+    chain.extend_from_slice(&[4; 32]);
+    chain.extend_from_slice(&sequence.to_be_bytes());
+    chain.extend_from_slice(&TX_HASH);
+    let mut batch = SequenceBatch {
+        height,
+        from_sequence: sequence,
+        to_sequence: sequence,
+        previous_root: [4; 32],
+        resulting_root: sha256(&chain),
+        activity_root: sha256(&TX_HASH),
+        key_id: KEY_ID,
+        signature: [0; 64],
+    };
+    batch.signature = SigningKey::from_bytes(&[8; 32])
+        .sign(&must(batch.signing_digest("paxeer-repair-125")))
+        .to_bytes();
+    batch
+}
+
+fn commit_exchanges(node: &commit_producer::NodeCommit) -> Vec<Exchange> {
+    let height = node.head.height();
+    vec![
+        (
+            "px_getCommit",
+            json!([height.to_string()]),
+            Some(node.material.clone()),
+        ),
+        (
+            "px_getValidators",
+            json!([height.to_string()]),
+            Some(node.validators.clone()),
+        ),
+        (
+            "eth_getBlockByNumber",
+            json!([format!("{height:#x}"), true]),
+            Some(json!({
+                "number": format!("{height:#x}"), "hash": hex(&node.head.header_hash()),
+                "parentHash": hex(&[1;32]), "timestamp": "0x6553f100",
+                "transactionsRoot": hex(&node.head.data_hash()), "receiptsRoot": hex(&[2;32]), "transactions": []
+            })),
+        ),
+    ]
+}
+
+#[test]
+fn committed_receipt_refuses_wrong_hash_missing_commit_foreign_authority_and_uncovered_sequence() {
+    use base64::Engine as _;
+    use layerx_programs_registry::chain_proof::validators::TrustedValidator;
+    let height = HEIGHT + 1;
+    let (view, canonical, key) = signed_receipt(TX_HASH, true);
+    let keys = [key];
+    let context = LookupContext {
+        receipt_keys: &keys,
+    };
+    for refusal in [
+        "claimed hash",
+        "block hash",
+        "missing commit",
+        "foreign authority",
+        "uncovered sequence",
+        "state root",
+        "no commit service",
+    ] {
+        let mut batch = covering_batch(
+            height,
+            if refusal == "uncovered sequence" {
+                8
+            } else {
+                7
+            },
+        );
+        if refusal == "state root" {
+            batch.resulting_root = [99; 32];
+            batch.signature = SigningKey::from_bytes(&[8; 32])
+                .sign(&must(batch.signing_digest("paxeer-repair-125")))
+                .to_bytes();
+        }
+        let batch_bytes = must(batch.encode());
+        let root = hash_from_byte_slices(&[&sha256(&batch_bytes)]);
+        let node = commit_producer::node_commit(height, [0x33; 32], root);
+        let proof = SimpleProof {
+            total: 1,
+            index: 0,
+            leaf_hash: root,
+            aunts: vec![],
+        };
+        let evidence = ReceiptCommitEvidence {
+            verifier: &node.verifier,
+            covering_height: height,
+            batch_transaction: &batch_bytes,
+            transaction_proof: &proof,
+            activity_ids: &[TX_HASH],
+        };
+        let mut claimed = view.clone();
+        claimed["rung"] = json!("committed");
+        claimed["blockNumber"] = json!(format!("{height:#x}"));
+        claimed["blockHash"] = json!(hex(&node.head.header_hash()));
+        let landing = json!({"status":"0x1","blockNumber":"0x96","transactionIndex":"0x1","gasUsed":"0x5208","logs":view["logs"]});
+        let mut commits = commit_exchanges(&node);
+        let expected = match refusal {
+            "claimed hash" => {
+                claimed["blockHash"] = json!(hex(&[0xab; 32]));
+                commits.pop();
+                ReceiptError::FieldMismatch("blockHash")
+            }
+            "block hash" => {
+                commits[2].2.as_mut().unwrap_or_else(|| panic!("block"))["hash"] =
+                    json!(hex(&[0xab; 32]));
+                ReceiptError::FieldMismatch("blockHash")
+            }
+            "missing commit" => {
+                assert!(
+                    commits[0].2.as_mut().unwrap_or_else(|| panic!("commit"))["signedHeader"]
+                        .as_object_mut()
+                        .unwrap_or_else(|| panic!("signed header"))
+                        .remove("commit")
+                        .is_some()
+                );
+                commits.truncate(1);
+                ReceiptError::Commit(CommitError::Rpc(SequencerError::Malformed))
+            }
+            "foreign authority" => {
+                let signer = SigningKey::from_bytes(&[0x75; 32]);
+                let foreign = TrustedValidator::new(signer.verifying_key().to_bytes(), 100);
+                let validators = commits[1]
+                    .2
+                    .as_mut()
+                    .unwrap_or_else(|| panic!("validators"));
+                validators["validators"][0]["address"] = json!(&hex(&foreign.address)[2..]);
+                validators["validators"][0]["pubKey"]["value"] =
+                    json!(base64::engine::general_purpose::STANDARD
+                        .encode(signer.verifying_key().to_bytes()));
+                commits.truncate(2);
+                ReceiptError::Commit(CommitError::Invalid)
+            }
+            "uncovered sequence" => ReceiptError::Coverage(CoverageError::Sequence),
+            "state root" => ReceiptError::Coverage(CoverageError::StateRoot),
+            "no commit service" => {
+                commits[0].2 = None;
+                commits.truncate(1);
+                // Unavailable evidence must never promote the authenticated receipt.
+                let mut exchanges = vec![
+                    receipt_exchange(TX_HASH, claimed),
+                    landing_exchange(TX_HASH, landing),
+                ];
+                exchanges.extend(commits);
+                let (endpoint, server) = serve(exchanges);
+                let receipt = verified(must(lookup_authenticated_with_commit(
+                    &endpoint, TX_HASH, context, &evidence,
+                )));
+                assert_eq!(receipt.rung(), Rung::Receipted);
+                assert_eq!(receipt.committed_header(), None);
+                assert_eq!(receipt.canonical_bytes(), canonical);
+                must(server.join());
+                continue;
+            }
+            _ => panic!("unknown refusal"),
+        };
+        let mut exchanges = vec![
+            receipt_exchange(TX_HASH, claimed),
+            landing_exchange(TX_HASH, landing),
+        ];
+        exchanges.extend(commits);
+        let (endpoint, server) = serve(exchanges);
+        assert_eq!(
+            lookup_authenticated_with_commit(&endpoint, TX_HASH, context, &evidence),
+            Err(expected),
+            "{refusal}"
         );
         must(server.join());
     }

@@ -1,0 +1,63 @@
+[repair]
+task = "22.36.2"
+requirement = "22998.1"
+input_revision = "e57b549345dba23b1b2c1d43d767624f11aaa97f"
+seed_revision = "a73aa52ce91a17e0aaffd10cd3022103ec7de284"
+implementation = "Move all 47 documentation files into docs/platform and all 40 files of the 13 runnable sample projects into services/platform/examples/samples. Update the root workspace entries and npm importer/link paths; preserve every other npm lock byte. Derive the previously absent root pnpm lock from npm's exact registry versions. Update in-scope consumers, generator roots, sample manifest paths, workspace allowlisted roots, output ignores and documentation commands. Source Markdown links resolve in the repository and are translated to generated HTML destinations when rendering the standalone site."
+baseline = "Attempt 1 was already applied as 195 seeded paths, alongside runner-owned .cgignore and task-status changes; preserve that implementation. On continuation inspection, /out/run/gates.jsonl was absent and gate.json recorded zero used gates and two repair cycles available. The prior result was three failures and four passes; no gate was rerun during implementation."
+build_cmd = "python3 --version"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_36_2.py"
+evidence_ledger = "/out/run/gates.jsonl"
+evidence = "Qualification is conditional on the final hf-done row and matching successful hf-build row in evidence_ledger; these rows name the exact content-derived revision, command, exit code and private evidence log. This record is finalized before the gates and is not amended afterward. The runner commits the candidate; no manual commit or push is performed."
+proofs = ["test_documentation_tree_and_all_thirteen_samples_moved", "test_node_workspace_entries_and_npm_lock_preserve_resolutions", "test_no_tracked_file_retains_the_old_documentation_path", "test_every_relative_markdown_link_resolves", "test_site_generator_reads_moved_samples_and_renders_source_links", "test_workspace_and_gate_consumers_resolve_the_relocated_paths", "test_pnpm_importers_and_registry_resolutions_match_the_npm_lock"]
+limitations = "The gate checks repository artifacts and the actual Python generator in process; it does not compile or execute sample applications, contact live endpoints, or require credentials or environment variables."
+
+[wiring.scope]
+paths = ["tools/bringup/docs-names.sh", "tools/bringup/repair-m794.kvx", "tools/deps/floors/platform-node.json", "tools/paxeer-x/gates/104.16.5.sh", "tools/paxeer-x/gates/104.33.5.sh", "tools/paxeer-x/gates/108.0.7.sh", "tools/platform/cli/tests/clean-bootstrap.sh", "tools/qualification/audit_repairs/repair_22_33_1500.kvx", "tools/qualification/audit_repairs/test_repair_22_33_1500.py", "tools/qualification/audit_repairs/test_repair_22_33_849.py", "tools/qualification/tests/test_repair_22_33_809.py", "tools/workspace/platform-dependency-roots.txt"]
+observed = "These twelve tracked files already contain references to the platform documentation tree at input_revision and are outside the authorized scope. The required repository-wide stale-path test includes them without exemptions and cannot pass until their owners update them or scope is explicitly expanded."
+request = "Update documentation references to docs/platform and sample references to services/platform/examples/samples in these shared tooling, dependency-floor and qualification files. Preserve every test and assertion. Scope clarification was requested before qualification; no outside-scope edit is authorized by the current task."
+
+[gotcha.source_links]
+observed = "Source pages used flattened generated HTML destinations, which do not exist alongside their Markdown sources."
+resolution = "Use relative Markdown source destinations and translate them through the site's declared page map during rendering, retaining queries and fragments and leaving fenced code untouched."
+
+[gotcha.workspace_roots]
+observed = "Changing the declared docs directory alone would put it outside the platform workspace gate's allowlisted roots."
+resolution = "Add docs/platform to both workspace manifests' roots while retaining canonical containment checks in the gate."
+
+[gotcha.lock_import]
+observed = "The input revision has no root pnpm lock. The installed pnpm refuses the root npm package-manager pin, and a direct import without deep workspace linking tries to fetch unpublished internal packages."
+resolution = "Import with the pinned pnpm 10.20.0 CLI and package-manager-strict=false plus link-workspace-packages=deep. The declared test compares every pnpm registry version and integrity with the unchanged npm registry lock and resolves the three moved workspace importers. Failed preliminary imports produced no published lock."
+
+[gotcha.inspection]
+observed = "Broad repository and graph output exceeded tool output limits; a guessed build filename was absent; KVX page section names containing slashes are not TOML."
+resolution = "Read relevant files in bounded chunks and use the documentation generator's existing KVX parser. Inspection commands and lock conversion are not reported as build or verification evidence. Record gotchas here because GOTCHA.kvx and spec files are outside task scope."
+
+[format]
+policy = "After implementation, apply the existing rustfmt configuration only to the touched Rust file. No Python, Markdown, JSON or KVX formatter is configured for this task; preserve existing style, UTF-8, LF, final newline and JSON/YAML indentation."
+
+[qualification.preexisting_generated_page]
+evidence = "revision=c0cff7c526033fe107b0057a8ae35fdc4e33ffe1; command=cg spec done 22.36.2 -f layerx-merge --root /work/paxeer-monorepo; exit=1; log=/out/logs/verify-1.log"
+observed = "The relocated Human API reference still declares schema minor 5 while the real current generator emits minor 10; this predates the relocation and the exact generated-document assertion fails."
+assumption = "Leave the pre-existing generated reference unchanged except its relocated generator citation; the owning documentation/schema task must regenerate it. Do not weaken the assertion or chase further differences."
+
+[gotcha.local_file_dependencies]
+observed = "The new pnpm registry comparison incorrectly required archive integrity for legitimate local file dependencies."
+resolution = "Validate each local dependency's exact directory resolution, manifest name/version and npm workspace link; retain archive integrity assertions and exact complete registry equality for all registry entries. Artifact inspection found no registry version or integrity differences."
+
+[wiring.runner_moved_lock]
+observed = "After hf-done constructed its candidate, git status showed the moved Rust sample Cargo.lock as untracked: the snapshot helper retains generated locks only at their input paths or explicitly enumerated manifest paths, so it omits this relocated tracked lock."
+request = "The runner must carry the moved Rust sample Cargo.lock alongside its in-scope manifest. The inventory assertion now checks every moved file is tracked in the candidate, preserving the relocation requirement without editing the runner or weakening any check."
+
+[continuation.2665]
+implementation = "Rewrite all ten newly scoped live readers to docs/platform or services/platform/examples/samples; retain the moved sample ignore. Exclude historical KVX repair records and changelogs from the stale-path inventory, retaining all seven cases and every assertion. Restore the original tracked Rust sample lock bytes, git mv to the new path, and assert its git ls-files entry before the final build. Regenerate the Human API reference from the current schema (minor 10), the Agent API and error references from their current schemas, and correct the sample-index generator citation to docs/platform/samples.kvx."
+resolved_findings = ["wiring.scope: ten live readers now authorized and updated; two historical repair records preserved", "qualification.preexisting_generated_page: regenerated from the schema under decision 2665", "wiring.runner_moved_lock: git mv and pre-build git ls-files assertion completed; final candidate remains subject to the unmodified runner"]
+evidence = "Use the final build and verify rows in evidence_ledger. A successful matching candidate is required; a pre-build index assertion is not a substitute for the final tracked-artifact assertion. No source or record changes follow a passing gate."
+
+[gotcha.continuation_runner_lock]
+observed = "The unmodified gate helper rebuilds directory candidates from the base and excludes generated locks absent at their destination in that base, independently of git mv or index tracking; the new Rust sample lock may therefore still be omitted when hf-done resets the index to its candidate."
+assumption = "Keep the real Cargo.lock and its tracking assertion intact; do not edit the out-of-scope runner, manipulate its configuration or weaken the test. Report its exact bounded result if the runner omits the tracked relocation."
+
+[gotcha.continuation_generator_citation]
+observed = "The previous path replacement made the generated sample-index citation name services/platform/examples/samples.kvx, while the manifest moved to docs/platform/samples.kvx."
+resolution = "Correct the generator citation and regenerate its page using the existing generator along with the Human API reference."

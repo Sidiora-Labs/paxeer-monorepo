@@ -16,7 +16,7 @@ diag.setLogger(new DiagConsoleLogger(), DiagLogLevel.INFO);
 
 const traceExporter = new OTLPTraceExporter();
 
-const sdk = new NodeSDK({
+export const sdk = new NodeSDK({
   resource: resourceFromAttributes({
     [ATTR_SERVICE_NAME]: 'blockscout_frontend',
     [ATTR_SERVICE_VERSION]: process.env.NEXT_PUBLIC_GIT_TAG || process.env.NEXT_PUBLIC_GIT_COMMIT_SHA || 'unknown_version',
@@ -57,7 +57,7 @@ const sdk = new NodeSDK({
   ],
 });
 
-if (process.env.OTEL_SDK_ENABLED) {
+if (process.env.OTEL_SDK_ENABLED === 'true') {
   sdk.start();
 
   process.on('SIGTERM', () => {

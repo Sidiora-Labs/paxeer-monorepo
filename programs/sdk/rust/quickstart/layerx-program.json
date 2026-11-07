@@ -21,7 +21,7 @@
     "main": "layerx_main",
     "call": "layerx_call",
     "reserve": "layerx_reserve",
-    "call_input_capacity": 8192,
+    "call_input_capacity": 1048576,
     "selectors": { "count": 0, "reset": 1 }
   },
   "exports": [

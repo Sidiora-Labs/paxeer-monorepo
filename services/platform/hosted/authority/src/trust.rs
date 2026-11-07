@@ -71,15 +71,27 @@ pub(super) fn replica(
     let decoded =
         layerx_wire::receipt::decode(receipt).map_err(|_| EvidenceRefusal::ReceiptDecode)?;
     let receipt = decoded.protocol().ok_or(EvidenceRefusal::ReceiptShape)?;
+    // Native receipt context is state-projection material, not a key identifier.
+    // Select a pinned candidate from the replica envelope, then authenticate its
+    // identity and range with the signed batch header before using it.
+    let envelope: serde_json::Value =
+        serde_json::from_slice(document).map_err(|_| EvidenceRefusal::ReplicaDocument)?;
+    let public_key = envelope["sequencer_public_key"]
+        .as_str()
+        .and_then(|text| layerx_platform_authority::hex::decode32(text).ok())
+        .ok_or(EvidenceRefusal::SequencerKey)?;
     let authorization = keys
         .iter()
-        .find(|key| key.sequencer_id() == receipt.context_hash())
+        .find(|key| key.public_key() == public_key)
         .copied()
         .ok_or(EvidenceRefusal::SequencerKey)?;
     let evidence = parse_replica_evidence(document, config.replica_id, authorization.public_key())?;
     let header = layerx_wire::receipt::decode_batch_header(&evidence.header)
         .map_err(|_| EvidenceRefusal::SequencerKey)?;
-    if header.network_id() != config.protocol_network_id {
+    if header.network_id() != config.protocol_network_id
+        || (!(1..=11).contains(&receipt.module_id())
+            && receipt.context_hash() != authorization.sequencer_id())
+    {
         return Err(EvidenceRefusal::SequencerKey);
     }
     layerx_proof::inclusion::verify_header(
@@ -114,4 +126,4 @@ pub(super) fn authorization(
     Ok(key)
 }
 
-pub(crate) const EXPECTED_CHAIN_ID: u64 = 125;
+pub(crate) use layerx_platform_authority::committed::EXPECTED_CHAIN_ID;

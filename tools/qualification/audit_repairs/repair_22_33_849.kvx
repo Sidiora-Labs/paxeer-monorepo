@@ -1,0 +1,111 @@
+[repair]
+task = "22.33.849"
+audit = "22.30.181"
+base_revision = "57000844c90cca6b33229318d195f087a30c1998"
+continuation_base_revision = "24ad444517739fd50d4cf816446559d52d7bdd77"
+continuation = "Attempt 1 is retained. Current main was already applied by the runner, leaving one current/seed conflict in 104.33.7.sh. Resolve it around main's exact service roster, inline Python boundary, private artifact check, protected revision-bound profile and exit-78 refusal structure; integrate the retained native build and transaction acceptance implementation behind that structure. Extend hosted_profile with a separate native schema while preserving its existing legacy API. Native profiles retain main's mandatory disposable loopback HTTPS, CA and private external input checks; no ambient connected input replaces the profile. No commit, push, spec or .cgignore edit is performed by the agent."
+prior_evidence = "Attempt 1 hf-done at a2e420eff54aa3efc98ce76c5b14e3f2d481a58b reported 46 passed in 8.96s and inherited .cgignore graph drift. This continuation starts with zero gate runs in /out/run/gate.json and no gates.jsonl; inherited bookkeeping changes remain untouched. Only the current continuation's bounded hf-build/hf-done evidence qualifies this result."
+implementation = "Repair the eight specified gate findings in place. Bind Programs acceptance to retained CLI EVM producers, layerxprograms, current gateway retirement tests, native explorer commitment decoding and the web consumer. Add source-bound compiler producers for those artifacts and for both market binaries plus their runtime guest. Correct two service rosters, preserve receipt fixture drift and all seven SDK suites, replace custody funding assertions with native bank-send/root-RPC checks, and explicitly retire custody governance qualification while retaining its refusal producer."
+baseline = "Not run: the pre-change verify request conflicts with the explicit implementation-first, hf-build then hf-done order and manual verify prohibition. The declared test module did not exist at session start; no baseline failures are claimed. Initial git status/diff showed only runner-prepared .cgignore and spec task-start changes, preserved intact. The private gate configuration reported zero build/verify runs and no gates.jsonl existed."
+build_cmd = "bash -n tools/paxeer-x/gates/104.33.7.sh tools/paxeer-x/gates/104.35.4.sh tools/paxeer-x/gates/104.37.2.sh tools/paxeer-x/gates/104.38.3.sh tools/paxeer-x/gates/104.38.6.sh tools/paxeer-x/gates/108.0.7.sh"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_849.py"
+evidence_ledger = "/out/run/gates.jsonl"
+verified_revision = "The final hf-done JSON and private evidence_ledger name the exact content-derived candidate revision, cg spec done command, exit and private log, alongside hf-build at the same candidate. This record is finalized before qualification: inserting its own candidate hash changes that hash. The runner commits; no agent commit or push is performed and no edit follows passing hf-done."
+proof_boundary = "The declared pytest executes production Python validation, private file save/load and source hashing, real catalogue parsing and dispatcher binding, root-RPC and funding document validation, and V3 fixture transport from committed producer output to the SDK fixture. A loopback HTTP peer serves the recorded daemon committed receipt through the production JSON-RPC client; it is no native node, EVM, compiler or cryptographic verifier. Tests parse shell guarded commands and embedded Python AST, Cargo manifests, bank ABI, registry KVX and the repair record. No environment variable, credential, live endpoint, external executable, subprocess toolchain, compiled test artifact or device is needed."
+shell_parsing = "hf-build runs the declared bash -n command once on its six scripts. Pytest parses guarded exec arguments with shlex, embedded Python with ast and preserved shell bodies by exact digest; it does not invoke another shell parser or duplicate the build. The retirement script retains its simple fail-fast shell structure and its production refusal exec argv is checked."
+review_only = "Native Rust/Go/WASM/Elixir compilation, actual guest execution, service/browser/native explorer corpora, seven SDK toolchains, independent receipt signature validation, disposable-chain submission and finality are implemented and source-proven, not executed or credited as runtime passes by this Python gate. Compiler evidence is caller-owned and private; its trusted producer runs exact commands, requires zero exit, hashes the complete current revision/tree/source closure before and after compilation, and records transcripts/artifacts. An operator able to rewrite private compiler evidence remains inside that trust boundary. No finding here is classified restart-recovery or interface-mismatch; the catalogue binder and JSON-RPC transport nevertheless execute both sides of their local interface."
+formatting = "No Python, Bash or KVX formatter is configured for these paths. Follow existing style and .editorconfig UTF-8, LF, final newline and no trailing whitespace; format only touched files."
+
+[finding.f064]
+file = "tools/paxeer-x/gates/104.33.7.sh"
+tests = ["test_f064_retained_source_closure_and_actual_artifact_commands", "test_f064_retains_nonempty_native_and_explorer_acceptance_corpora", "test_f064_main_service_structure_survives_with_native_profile_and_retained_closure"]
+facts = "Every named source exists. program_operations.py compiles current gateway test binaries, genuine CLI call/registry integration binaries and CLI executable, the actual layerxprograms Go test executable, and native explorer BEAM artifacts. The private consumer checks revision/tree/full source hashes, exact commands, successful exits, transcript digests, compiler target records, executable digests and explorer artifacts before and after all existing and replacement corpora. Empty, omitted or ignored cases refuse. The current web corpus has four declared tests, all required."
+review_only = "Actual native builds and acceptance execution require their declared toolchains and private artifacts; these are not run by this qualification. Rebuilding release acceptance artifacts is handed off below. Gateway retirement coverage and genuine seven-language binding result provenance remain mandatory; the native explorer does not pretend to expose its retired program projection."
+producer = "python3 tools/paxeer-x/gates/program_operations.py --build PRIVATE_DIRECTORY"
+consumer = "PAXEER_X_HOSTED_PROGRAM_ARTIFACTS=PRIVATE_DIRECTORY/program-operations-build.json tools/paxeer-x/gates/104.33.7.sh"
+
+[finding.f065]
+file = "tools/paxeer-x/gates/104.33.7.sh"
+tests = ["test_f065_connected_path_uses_real_evm_producer_reads_commitment_and_refusals", "test_f065_refuses_non_disposable_or_non_root_rpc", "test_f065_real_rpc_transport_preserves_committed_recorder_evidence", "test_f065_rpc_transport_refuses_malformed_envelopes", "test_f065_missing_program_transaction_cannot_claim_commitment", "test_f065_unavailable_rpc_or_success_cannot_satisfy_transaction_refusal", "test_f065_native_profile_producer_transport_consumer_preserve_private_current_inputs", "test_f065_native_profile_preserves_main_https_disposable_root_refusals"]
+facts = "The connected flow invokes the real CLI program registry/interface views and eth_call simulation, then its signed EIP-1559 program call producer at 0x101d. It requires a matching successful EVM receipt, nonzero committed height, canonical block hash/membership and node head. The retained SDK verifier independently authenticates the signed receipt against an operator-pinned key roster; its receipted verification level is kept separate from canonical BFT node commitment. Genuine raw bytes are retrieved from the retained RPC and used for duplicate submission and truncated-envelope refusal; the committed receipt must remain unchanged. A real loopback HTTP transport test preserves an unmodified recorded committed receipt and rejects mismatched/malformed envelopes."
+review_only = "The offline peer proves the gate's transport contract, not EVM execution, a Programs receipt or Comet cryptography. Disposable native execution, independently configured trust, code-bound interface semantics, duplicate refusal and stability after refusal remain runtime/review obligations. The retained RPC also supports successful identical resubmission; this policy must be reconciled with the audit's post-commit duplicate-refusal requirement by its owner rather than accepting a successful duplicate in this gate."
+fixture = "PAXEER_X_HOSTED_PROGRAM_PROFILE is a private external paxeer-x.native-program-profile.v1 document published with hosted_profile.publish_native and loaded with load_native at the current revision. Its exact inputs are LAYERX_PROGRAM_RPC_URL, LAYERX_PROGRAM_CALL_ARGUMENTS and LAYERX_GATEWAY_CA_FILE. LAYERX_PROGRAM_RPC_URL is a disposable loopback HTTPS root endpoint with an explicit port; LAYERX_PROGRAM_CALL_ARGUMENTS is a private JSON file with canonical program, private evm_key_file, allowlisted option/value pairs and independently pinned receipt_keys. No hosted REST ingress, activity idempotency header or unknown/pending outcome is accepted as committed evidence."
+
+[finding.f034]
+file = "tools/paxeer-x/gates/104.35.4.sh"
+tests = ["test_f034_manifest_is_checked_before_both_original_lifecycle_corpora", "test_f034_compiler_produces_exact_binaries_and_runtime_guest", "test_f034_private_manifest_transport_reopens_and_rejects_unsafe_files", "test_f034_source_closure_hashes_real_build_inputs_and_detects_changes"]
+facts = "market_build.py owns exact cargo compilation commands for both real market/runtime library test targets and the release wasm32 market guest. Its current revision/tree/full source identity, successful compiler transcripts, actual target records and binary/guest digests are mandatory before inventories and after execution. Overrides must exactly match the verified manifest; LAYERX_MARKET_WASM is set to its compiler-produced guest so the real runtime loader cannot fall back to an unbound build. The complete original nine-case lifecycle roster, four exact runtime cases and no-skip/count assertions are preserved byte-for-byte. Private transport refuses public mode, links, duplicate JSON fields and overwrite; complete source hashing includes lock/build/guest-loader inputs."
+review_only = "No compiler transcript or successful native artifact is fabricated by the tests. Compiler authenticity, actual WASM execution and lifecycle correctness are not runtime-proven by this offline gate; exact compiler commands and consumer checks are source-proven. Reopening private JSON transport does not claim a native component restart proof."
+producer = "python3 tools/paxeer-x/gates/market_build.py PRIVATE_DIRECTORY"
+consumer = "LAYERX_MARKET_BUILD_MANIFEST=PRIVATE_DIRECTORY/market-build.json tools/paxeer-x/gates/104.35.4.sh"
+
+[finding.f045]
+file = "tools/paxeer-x/gates/104.37.2.sh"
+tests = ["test_f045_f046_real_catalogue_to_dispatcher_binding_and_unknown_refusal", "test_f045_hpx_remains_build_dependency_and_full_runtime_checks_survive"]
+facts = "The service roster is exactly merge-tools and sequencer from the real candidate catalogue. HPX and its native libraries are named as build dependencies. The real dispatcher binds both declared services from a catalogue-shaped in-memory store and still refuses the old hpx pseudo-service with mismatch exit 6. The complete existing gate body is unchanged, including library refusal, publication, local persistence/restart, checksum, HTTPS, clean-host and explicit production-install approval checks."
+review_only = "HPX compilation, persistent process restart, clean-host installs and public deployment remain native/runtime checks of the unchanged gate, not executions of this Python suite."
+
+[finding.f046]
+file = "tools/paxeer-x/gates/104.38.3.sh"
+tests = ["test_f045_f046_real_catalogue_to_dispatcher_binding_and_unknown_refusal", "test_f046_full_service_browser_and_component_checks_survive"]
+facts = "Only human becomes human-service in the service header; human-kms remains. The real catalogue parser and dispatcher bind the current ids and refuse the old id. The entire component/service/browser gate body is byte-identical, including artifact identity, private manifest, exact corpus and zero-ignore checks."
+review_only = "Human service, browser and component artifacts are not compiled or executed by this offline qualification."
+
+[finding.f066]
+file = "tools/paxeer-x/gates/104.38.6.sh"
+tests = ["test_f066_retained_refusal_producer_drives_drift_check_and_all_seven_suites", "test_f066_real_fixture_drift_is_refused_without_rewriting"]
+facts = "receipt_refusals.py --check derives the exact six V3 cases from the retained sequencer-receipt-v1.json output whose generator is rpc/sequencer_receipt_vectors_test.go, matching that producer's TestVectorFilesV1ToV3MatchSequencerReceiptFixture copy contract. It compares every field of each consumer case plus chain/name/provenance, rejects removed or changed signed bytes or producer identity and never rewrites fixtures. All downstream generator drift and seven genuine Rust/Go/TypeScript/Python/JVM/Swift/.NET decoder invocations and count/no-skip assertions are byte-identical."
+review_only = "The tests prove derivation and drift against committed real producer bytes, not cryptographic decoding or rerunning the native Go recorder; the seven toolchains are retained runtime gates."
+
+[finding.f021]
+file = "tools/paxeer-x/gates/108.0.7.sh"
+tests = ["test_f021_native_funding_uses_retained_bank_send_and_public_root_roster", "test_f021_public_roster_refuses_prefixed_or_non_public_roots", "test_f021_funding_refuses_unserved_faucet_and_retired_producers", "test_f021_keeps_unserved_host_refusal_and_private_page_corpus"]
+facts = "Funding assertions use the retained two bank send ABI signatures at 0x1001, native transfer/chain/balance documentation and the public root roster: canonical alias plus api1 through api14, with HTTPS and WSS. Prefixed or unserved RPCs, FAUCET_URL and executable custody-credit recipes refuse. The actual current getting-started document passes the production validator. All seven onboarding pages remain checked; the exact unserved-host/FAUCET_URL refusal function, private-network page roster and JVM docs-location check remain."
+review_only = "No funds move and no documentation scan binary runs here. Native bank execution and every page's current content are outside this Python source-contract claim. Legacy Getting-Started-Beta still contains custody commands and is deliberately not accepted; its owning documentation domain must update it."
+
+[finding.f035]
+file = "tools/paxeer-x/gates/108.1.10.sh"
+tests = ["test_f035_actual_custody_producer_and_consumer_always_refuse", "test_f035_registry_and_selector_are_explicitly_retired_with_current_qualification_pointer"]
+facts = "The registry explicitly marks the selector retired and names tools/paxeer-x/gov/test.sh as replacement. The old selector no longer requires an artifact directory or asks for --manifest execution; it points operators to governance-window qualification and executes only the real custody retirement refusal, producing no successful gate summary. The real retired parser refuses no-argument, --produce and --manifest use with exit 2. The native custody retirement coverage remains source-checked."
+review_only = "The generic dispatcher does not yet interpret retirement metadata but the registered selector itself always refuses; consumer reconciliation is requested below. The governance kit, offline paxd proposal generation and native custody precompile refusal tests are not run by this qualification."
+
+[wiring.program_artifacts]
+path = "services/platform/hosted/gateway; tools/platform/cli; precompiles/layerxprograms; services/explorer/backend"
+owner_domain = "16 tools-ops, 8 programs, 15 native explorer"
+request = "Use the in-scope program_operations.py --build producer to rebuild private current-revision acceptance artifacts, hand off its manifest, a hosted_profile.publish_native current-revision protected profile and a genuine disposable node/call fixture, and run the retained native gate; do not reuse deleted Rust explorer artifacts."
+
+[wiring.market_artifacts]
+path = "programs/crates/layerx-programs-market; programs/crates/layerx-programs-runtime"
+owner_domain = "8 programs; 16 tools-ops artifact pipeline"
+request = "Build both library test binaries and the exact runtime WASM guest with the in-scope market_build.py producer and hand off its private manifest through LAYERX_MARKET_BUILD_MANIFEST; existing bare executable overrides no longer qualify."
+
+[wiring.onboarding]
+path = "docs/wiki/Getting-Started-Beta.md; docs/site/docs/overview; docs/site/docs/platform/index.md; docs/wiki/Quickstart.md; docs/wiki/PaymentsQuickstart.md"
+owner_domain = "17 documentation"
+request = "Replace surviving executable custody-credit funding recipes with native bank/ledger sends and current root-RPC instructions on every retained onboarding page; preserve private-network warnings and unserved-host refusals."
+
+[wiring.custody_build]
+path = "tools/paxeer-x/build/108.1.10.mk; tools/paxeer-x/verify-task.sh; tools/paxeer-x/tests/test_gate_registry.py; tools/qualification/paxeer-x/tests/test_proof_qual_cli.py"
+owner_domain = "16 tools-ops"
+request = "Reconcile retirement metadata and the retired custody build selector with the current governance-window qualification; retain refusal expectations for both old artifact production and execution, never convert custody retirement into successful legacy release credit."
+
+[wiring.duplicate_policy]
+path = "rpc/send.go; rpc/send_sequencer_test.go"
+owner_domain = "5 sequencer and node RPC"
+request = "Resolve the audit requirement for post-commit duplicate refusal against the retained successful identical-resubmission path; the Programs gate keeps the requested refusal assertion and must not silently credit a successful duplicate as a refusal."
+
+[gotcha.1]
+observed = "The unchanged-tree verification instruction conflicts with the explicit wrapper-only implementation-first gate order."
+resolution = "Record no baseline result, finish implementation first and run only hf-build then hf-done; GOTCHA.kvx and spec files are outside scope."
+
+[gotcha.2]
+observed = "The retained example receipt verifier authenticates signatures at receipted level even when the node reports committed."
+resolution = "Require its actual signature-verification level and separately bind the matching successful EVM receipt to canonical block membership and head; do not claim independent Comet commitment verification."
+
+[gotcha.3]
+observed = "Initial combined source reads exceeded output limits and several guessed paths were absent."
+resolution = "Use bounded reads of actual retained source locations and parse declarations without importing the candidate module's Go-backed initialization."
+
+[gotcha.4]
+observed = "The continuation seed conflicted with main's protected hosted Programs wrapper; replacing the wrapper wholesale would drop its current service roster and private profile input boundary."
+resolution = "Keep main's service roster, inline error boundary and private profile transport; add a closed native profile schema and route the repaired native acceptance through the existing wrapper structure. New tests bind the roster through the real dispatcher and reopen the profile through its real producer/consumer APIs."

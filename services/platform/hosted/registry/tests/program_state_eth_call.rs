@@ -1,3 +1,6 @@
+#[allow(dead_code)]
+mod repair_22_33_1470;
+
 use std::fs;
 use std::net::TcpListener;
 use std::path::PathBuf;
@@ -5,7 +8,7 @@ use std::thread;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use layerx_platform_registry::{FileProgramStateJournal, ProgramStateCursor};
-use layerx_programs::{hex, ProgramId};
+use layerx_programs::hex;
 use layerx_programs_runtime::crypto::hash::{hash_bytes, HashAlgorithm};
 use serde_json::{json, Value};
 use sha2::{Digest as _, Sha256};
@@ -36,10 +39,10 @@ fn registry_reads_program_state_through_eth_call() {
         SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos(),
     )));
     let journal = FileProgramStateJournal::open(root.0.clone()).unwrap();
-    let program = ProgramId::new([0x72; 32]).unwrap();
+    let program = repair_22_33_1470::program();
     let listener = TcpListener::bind("127.0.0.1:0").unwrap();
     listener.set_nonblocking(true).unwrap();
-    let endpoint = format!("http://{}/rpc", listener.local_addr().unwrap());
+    let endpoint = format!("http://{}/", listener.local_addr().unwrap());
     // Observe the actual client request; closing without an answer also proves
     // that a transport failure cannot publish cached program state.
     let observer = thread::spawn(move || {
@@ -64,7 +67,7 @@ fn registry_reads_program_state_through_eth_call() {
             layerx_platform_internal::http::MAX_REQUEST_BYTES,
         )
         .unwrap();
-        assert_eq!(message.headers.get("").unwrap(), "POST /rpc HTTP/1.1");
+        assert_eq!(message.headers.get("").unwrap(), "POST / HTTP/1.1");
         serde_json::from_slice::<Value>(&message.body).unwrap()
     });
     assert!(journal
@@ -93,13 +96,21 @@ fn registry_reads_program_state_through_eth_call() {
     assert_eq!(fs::read_dir(&root.0).unwrap().count(), 0);
     assert_eq!(journal.cursor().unwrap(), ProgramStateCursor::default());
 
-    // The native empty-storage manifest head, as emitted by getStateHead.
-    let mut state = vec![0, 1, 0, 0, 0, 0];
-    state.extend_from_slice(&Sha256::digest(&state));
-    let mut encoded = vec![0; 128];
-    encoded[31] = 32;
-    encoded[63] = 38;
-    encoded[64..102].copy_from_slice(&state);
+    let encoded = repair_22_33_1470::storage_head_abi();
+    let state = encoded[64..102].to_vec();
+    let peer = repair_22_33_1470::state_rpc(32);
+    assert_eq!(
+        journal
+            .store(
+                &format!("{}/", peer.endpoint),
+                program,
+                32,
+                Instant::now() + Duration::from_secs(5),
+            )
+            .unwrap(),
+        state
+    );
+    drop(peer);
     let response = rpc_response(&encoded);
     assert_eq!(journal.store_response(program, &response).unwrap(), state);
     let digest = Sha256::digest(&state);
@@ -108,6 +119,9 @@ fn registry_reads_program_state_through_eth_call() {
         hex::encode(&program.bytes()),
         hex::encode(&digest),
     ));
+    assert_eq!(fs::read(&record).unwrap(), state);
+    drop(journal);
+    let journal = FileProgramStateJournal::open(root.0.clone()).unwrap();
     assert_eq!(fs::read(&record).unwrap(), state);
     journal.audit().unwrap();
     assert_eq!(journal.cursor().unwrap(), ProgramStateCursor::default());
@@ -161,4 +175,9 @@ fn registry_reads_program_state_through_eth_call() {
     assert_eq!(journal.cursor().unwrap(), ProgramStateCursor::default());
     fs::write(&record, b"corrupt").unwrap();
     assert!(journal.audit().is_err());
+}
+
+#[test]
+fn registry_program_state_root_committed_height_hash_and_reopen() {
+    repair_22_33_1470::program_state_root_transport_persists_committed_head();
 }

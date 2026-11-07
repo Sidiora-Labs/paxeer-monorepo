@@ -104,7 +104,10 @@ Owner setup also reads `LAYERX_AGENT_HUMAN_STORE`,
 `LAYERX_AGENT_HUMAN_DEADLINE_MS`, `LAYERX_AGENT_HUMAN_MAX_PAYLOAD_BYTES`,
 `LAYERX_AGENT_HUMAN_TIMESTAMP_SPAN`, `LAYERX_AGENT_HUMAN_MAX_FRAME_BYTES`,
 `LAYERX_AGENT_HUMAN_MAX_CONNECTIONS`, `LAYERX_AGENT_HUMAN_MAX_STREAMS` and
-`LAYERX_AGENT_HUMAN_MAX_QUEUED_BYTES`. The Human authority connection uses
+`LAYERX_AGENT_HUMAN_MAX_QUEUED_BYTES`. `LAYERX_AGENT_HUMAN_TIMESTAMP_SPAN`
+is the maximum width of an activity timestamp bound, in milliseconds of
+protocol time; the hosted material writes `60000`. The Human authority
+connection uses
 `LAYERX_AGENT_HUMAN_AUTHORITY_ENDPOINT`, `LAYERX_AGENT_HUMAN_AUTHORITY_BEARER`,
 `LAYERX_AGENT_HUMAN_AUTHORITY_CA_DER` and `LAYERX_AGENT_HUMAN_AUTHORITY_MAX_BYTES`.
 The UID mapping establishes transport identity before any frame is decoded;
@@ -173,3 +176,69 @@ Test and qualification harness settings belong to the binaries under
 startup requirements or turn an unavailable proof source into trusted evidence.
 Use the harness's own entry point for its exact inputs; never substitute test
 signing keys, clock data or fixtures for production authority.
+
+## Protected receipt policy and readiness API
+
+`Gate::new(&StartupConfig) -> Result<Gate, GateError>` loads the protected
+`receipt_key_source` before any write can run. `ReceiptKeySource::PinnedFile`
+requires a regular source owned by the process user, without group/other access
+or symlink traversal. The first line is `layerx-sequencer-authority-v1`, followed
+by comma-separated `sequencer_id,public_key,epoch,first_batch,last_batch,revoked_at`
+rows; identifiers are 32-byte hex, ranges are inclusive and the last field is
+`active` or the inclusive revocation coordinate. Empty/malformed policies,
+ambiguous active ranges and unusable authority are refused. Configuring NodeRpc
+as the sole trust source is currently refused by the verifier, rather than
+trusting an unprotected remote key list.
+
+`Gate::readiness_gate(&NodeRpc) -> Result<&ReadinessStatus, GateError>` is the
+current refresh interface. `ReadinessStatus` carries `generation`, `chain_id`
+and fresh `receipt_keys`. The free `boot::readiness_gate(&NodeRpc)` only checks
+the connection and nonempty receipt keys and returns generation zero; callers
+requiring protected policy and guarded writes must use `Gate`.
+
+Each Gate refresh first closes writes, then fetches `px_getReceiptKeys`. Both
+ends of every advertised key interval must be admitted by the loaded protected
+policy. An empty set, unavailable/malformed RPC or untrusted key/interval leaves
+`Status::NotReady`. Successful refresh increments the process-local generation
+and installs the new Ready status. A failed refresh does not increment it.
+`guard_write` and `evidence_authority` refuse before startup, after a disconnect
+and after failed refresh. `disconnected()` closes writes immediately.
+
+On restart construct a new Gate, reload policy and refresh the connection. A new
+process begins NotReady at generation zero; durable receipts are not proof of
+current connection readiness. Reconnection in the same Gate preserves its
+monotonically increasing generation.
+
+## Human-owner health credential boundary
+
+`GET /healthz HTTP/1.1` requires exactly one `Authorization: Bearer` header with
+`LAYERX_AGENT_PROGRAM_BEARER_TOKEN`. The authority bearer is refused with 401.
+Reusing the authority bearer as the health bearer refuses startup. Health
+responses never echo either credential. Missing/duplicate credentials, non-GET
+requests, bodies and oversized heads are refused; request heads are limited to
+16 KiB under a five-second request deadline. Authenticated unknown paths return
+404. Responses use `Cache-Control: no-store`.
+
+A valid health request returns 200 with `{"ready":true}` only while the owner is
+alive and both chain-checked node RPC and every configured authority registry
+peer are available. The owner is checked again after dependency refresh. A dead
+owner or failed dependency returns 503 with `{"ready":false}`; an unauthorized
+request never probes dependencies. A restart reopens the durable Store, restores
+sessions/outbox/receipt metadata and rechecks dependencies before reporting ready.
+Health does not grant protocol write authority.
+
+## Authority-cache retention
+
+`AuthorityCache::new(capacity)` bounds retained authority entries. The default
+capacity is 1,024; zero disables retention. Every resolve removes observations
+older than `maximum_cache_age`, expired or revoked observations, and observations
+from a future sequence. A requested cached future observation is explicitly
+refused with SequenceRegression. At capacity, the oldest observed sequence is
+evicted, breaking ties by authority kind and identifier bytes. There is no
+access-order-dependent retention and no return to stale data after a failed
+refresh.
+
+A cache hit alone does not authorize a write: `require_valid` still requires the
+exact current observation sequence, opened generation and authority, unrevoked
+and unexpired scope, and the permitted activity type. Local retention and limits
+never manufacture protocol authority.

@@ -72,6 +72,9 @@ pub enum ReceiptKeySource {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct StartupConfig {
     pub network_id: u32,
+    /// Set `node_endpoint` / `LAYERX_NODE_ENDPOINT` to the node root. The documented
+    /// mainnet default is https://api1.mainnet-beta.paxeer.network/ (api2 through
+    /// api14 are alternatives). Explicit configuration remains required.
     pub node_endpoint: String,
     pub expected_chain_id: u64,
     pub tenants: BTreeSet<TenantId>,
@@ -79,6 +82,29 @@ pub struct StartupConfig {
     pub signer_configurations: BTreeMap<TenantId, PathBuf>,
     pub verification_defaults: BTreeMap<TenantId, VerificationLevel>,
     pub receipt_key_source: ReceiptKeySource,
+}
+
+impl StartupConfig {
+    /// Connects the existing node setting and checks the configured EVM identity.
+    pub fn connect_node(
+        &self,
+        trust_anchors: &[&[u8]],
+    ) -> Result<layerx_client::sequencer::SequencerEndpoint, layerx_client::sequencer::SequencerError>
+    {
+        use layerx_client::sequencer::{SequencerEndpoint, SequencerError};
+        let node = SequencerEndpoint::new_node(&self.node_endpoint, trust_anchors)?;
+        if node.chain_id()? != self.expected_chain_id {
+            return Err(SequencerError::Endpoint);
+        }
+        Ok(node)
+    }
+
+    pub fn connect_px(
+        &self,
+        trust_anchors: &[&[u8]],
+    ) -> Result<layerx_client::px::PxEndpoint, layerx_client::sequencer::SequencerError> {
+        self.connect_node(trust_anchors).map(Into::into)
+    }
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]

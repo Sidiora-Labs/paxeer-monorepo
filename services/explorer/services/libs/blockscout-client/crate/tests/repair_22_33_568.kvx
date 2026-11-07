@@ -1,0 +1,40 @@
+[meta]
+task = "22.33.568"
+audit = "22.30.159"
+base_revision = "a6e13301f7b88430085bf3b76edaa7b5bf140f4e"
+status = "implemented; only hf-build and hf-done can qualify this candidate"
+baseline = "No earlier task gate ledger or scoped implementation was present. No baseline gate was run: the explicit gate order forbids testing before implementation and forbids running verify_cmd by hand. No pre-change failures are claimed."
+qualification = "The runner records the exact candidate revision, command, exit and private log in /out/run/gates.jsonl and prints the final evidence line. This static task record does not declare a gate passed."
+boundary = "The production Rust ApiClient, reqwest transport, model serializers and typed response consumers execute in process against owned loopback peers. These tests require no credentials, external endpoint, environment configuration, Elixir runtime or subprocess. Backend execution is an explicit out-of-path wiring request."
+
+[finding.shared-server-lifetime]
+tests = ["shared_server_lifetime_is_owned_by_each_test_runtime", "startup_failure_propagates_directory_diagnostic", "server_shutdown_produces_bounded_connection_diagnostic", "request_deadline_bounds_stalled_headers_and_body"]
+repair = "Replace the detached Once/global Mutex fixture with a per-test OwnedApiClient that retains its Stubr server. Await fallible bounded startup and a real HTTP health readiness result; configure both HTTP client and production per-request deadlines. Existing positive assertions remain intact."
+
+[finding.real-producer-coverage]
+tests = ["production_codecs_and_http_preserve_identity_amounts_nullability_and_pages", "upstream_recordings_have_explicit_provenance_and_schema_version"]
+repair = "Exercise production Address, TokenInfo and holder-page serializers through real HTTP into production client decoders; preserve exact checksum identities, base units, full-width token IDs, null fields and complete disjoint pagination after client recreation. Retain all 28 upstream recordings and label their origin, recorder, OpenAPI schema and consumer versions without inventing an upstream server version."
+boundary = "The two controlled pages split the committed holder capture into 25-item codec fixtures and generate their cursor from the final first-page holder. They prove codec and continuation transport behavior, not a newly captured local backend pagination run. Actual Elixir producer/store coverage remains with domain 14 below."
+
+[finding.refusal-coverage]
+tests = ["invalid_hash_unknown_resource_and_restricted_address_preserve_refusals", "unhealthy_indexing_retains_http_status_and_typed_health_error", "malformed_success_is_a_diagnostic_decode_failure", "request_deadline_bounds_stalled_headers_and_body", "server_shutdown_produces_bounded_connection_diagnostic"]
+repair = "Committed source-labelled branch fixtures drive the production client over HTTP: invalid address 422, unknown token 404, restricted address 403, unhealthy indexer 500. Assert exact HTTP status, raw payload and consumer Error::ResponseError entity; health also preserves its Status500 model and indexing error. Malformed success preserves Error::Decode diagnostics. Stalled headers/body and stopped listeners must return specific timeout/connect errors before an independent test watchdog."
+boundary = "Address/token error models currently retain these payloads in their declared UnknownValue variant; the test requires the complete payload and ResponseError classification rather than treating the refusal as successful data. No local controller execution is claimed."
+
+[wiring.backend]
+request = "Domain 14 owns services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/{address_controller_test,token_controller_test}.exs and services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v1/health_controller_test.exs: start the actual router/store with controlled chain data and restricted/indexing states, call it using blockscout-client, and capture these positive/refusal branches with producer revision; the allowed offline Rust gate cannot start that external Elixir/Postgres toolchain."
+
+[wiring.error-models]
+request = "Domain 14 owns services/explorer/services/libs/blockscout-client/swaggers and crate/src/apis/{addresses_api,tokens_api}.rs: declare the producer's structured validation 422 and message 403/404 response variants and regenerate typed errors; this tests-only repair preserves the existing complete UnknownValue payload instead of changing out-of-path API models."
+
+[constraints]
+scope = "Only the allowed tests subtree was edited. Inherited .cgignore and spec status edits belong to runner bookkeeping; no spec edit, commit or push is performed by this worker."
+gotcha = "ApiClient::Configuration.request_timeout overrides reqwest client defaults at each generated request, so transport deadline tests and the shared fixture set both explicitly."
+producer = "fixtures/repair_22_33_568.json is labelled as a transcription of committed backend schema/controller branches, not a fresh response recording; retained upstream fixture metadata does not establish the deployed backend version or Paxeer chain identity."
+
+[qualification.build_repair_1]
+revision = "48dc1f23efd7677cf443356a933fd8852d804ae9"
+command = "cargo build --locked --manifest-path services/explorer/services/libs/blockscout-client/crate/Cargo.toml --tests"
+exit = 101
+log = "/out/logs/build-1.log"
+repair = "Pass an owned PathBuf into Stubr::try_start; Stubr 0.6.2 does not implement Into<AnyStubs> for &Path. Assertions and deadlines are unchanged."

@@ -232,36 +232,5 @@ fn malformed_state_module_version_and_signature_are_refused() {
     );
 }
 
-#[test]
-fn budget_finality_uses_the_nodes_checkpoint_view_layout() {
-    let abi: serde_json::Value = must(serde_json::from_str(include_str!(
-        "../../../../../../precompiles/layerxanchor/abi.json"
-    )));
-    let methods = abi.as_array().unwrap_or_else(|| panic!("anchor ABI"));
-    let latest = methods
-        .iter()
-        .find(|row| row["name"] == "latestFinalized")
-        .unwrap_or_else(|| panic!("latestFinalized"));
-    assert_eq!(latest["outputs"][0]["type"], "uint64");
-    assert_eq!(latest["outputs"][1]["type"], "bool");
-    let checkpoint = methods
-        .iter()
-        .find(|row| row["name"] == "checkpoint")
-        .unwrap_or_else(|| panic!("checkpoint"));
-    assert_eq!(checkpoint["inputs"][0]["type"], "uint64");
-    let fields = checkpoint["outputs"][0]["components"]
-        .as_array()
-        .unwrap_or_else(|| panic!("checkpoint tuple"));
-    assert_eq!(fields.len(), 18);
-    for (index, name, kind) in [
-        (0, "batchNumber", "uint64"),
-        (1, "checkpointId", "bytes32"),
-        (7, "stateRoot", "bytes32"),
-        (11, "timestampMs", "uint64"),
-        (12, "status", "uint8"),
-        (17, "finalizedHeight", "uint64"),
-    ] {
-        assert_eq!(fields[index]["name"], name);
-        assert_eq!(fields[index]["type"], kind);
-    }
-}
+#[path = "lifecycle_finality.rs"]
+mod lifecycle_finality;

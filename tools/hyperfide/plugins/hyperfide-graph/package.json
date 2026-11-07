@@ -1,0 +1,42 @@
+{
+  "name": "@hyperfide/hyperfide-graph",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "hyperfide": {
+    "name": "Graph",
+    "description": "Repository graph and index status",
+    "branding": {
+      "icon": "GitBranch"
+    },
+    "server": "./server.ts",
+    "host": "./host.ts",
+    "app": "./app.tsx"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsrs --noEmit",
+    "prepare:bundled": "node --conditions=source --import tsx build-runtime.ts"
+  },
+  "dependencies": {
+    "@hyperfide/source-control": "workspace:*",
+    "@hyperfide/shared-ui": "workspace:*",
+    "zod": "^4.3.6",
+    "react": "^19.0.0"
+  },
+  "devDependencies": {
+    "@hyperfide/plugin-sdk": "workspace:*",
+    "@hyperfide/plugin-build": "workspace:*",
+    "@hyperfide/domain": "workspace:*",
+    "@testing-library/dom": "^10.4.1",
+    "@testing-library/react": "^16.3.2",
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "jsdom": "^29.0.1",
+    "react-dom": "^19.0.0",
+    "tsx": "^4.21.0",
+    "tsrs": "0.18.0-ts7.1.0-dev.20260929",
+    "vitest": "^4.1.1"
+  }
+}

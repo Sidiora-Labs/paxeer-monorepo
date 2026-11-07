@@ -1,9 +1,23 @@
+Code.require_file("paxeer_x_capture.exs", __DIR__)
+
 defmodule EthereumJSONRPC.PaxeerXSyncingParityTest do
   use ExUnit.Case, async: true
 
   @behaviour :cowboy_handler
 
   alias EthereumJSONRPC.{HTTP, PaxeerX}
+
+  test "recorded consensus progress crosses HTTP into the adapter syncing state" do
+    EthereumJSONRPC.PaxeerXCapture.assert_recorded_syncing("syncing")
+  end
+
+  test "recorded consensus false crosses HTTP into the adapter synced state" do
+    EthereumJSONRPC.PaxeerXCapture.assert_recorded_syncing("synced")
+  end
+
+  test "HTTP transport failure is preserved instead of reporting synced" do
+    EthereumJSONRPC.PaxeerXCapture.assert_syncing_transport_error()
+  end
 
   setup_all do
     {:ok, _} = Application.ensure_all_started(:cowboy)

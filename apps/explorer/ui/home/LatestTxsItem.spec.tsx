@@ -6,6 +6,7 @@ import type { PriceUpdateItem } from 'types/api/paxeerXFeed';
 
 import { watchlistName } from 'mocks/address/tag';
 import * as txMock from 'mocks/txs/tx';
+import { TableBody, TableRoot } from 'toolkit/chakra/table';
 import { render } from 'ui/shared/layout/testWrapper';
 import { describe, it, expect, vi, test } from 'vitest';
 
@@ -23,9 +24,13 @@ import LatestTxsItem from './LatestTxsItem';
 
 vi.setConfig({ testTimeout: 60_000 });
 
+const renderRow = (tx: React.ComponentProps<typeof LatestTxsItem>['tx']) => render(
+  <TableRoot><TableBody><LatestTxsItem tx={ tx }/></TableBody></TableRoot>,
+);
+
 describe('LatestTxsItem', () => {
   it('carries the hash of the transaction and links it', () => {
-    const { container } = render(<LatestTxsItem tx={ txMock.base }/>);
+    const { container } = renderRow(txMock.base);
 
     const row = container.querySelector(`[data-latest-tx="${ txMock.base.hash }"]`) as HTMLElement;
 
@@ -34,7 +39,7 @@ describe('LatestTxsItem', () => {
   });
 
   it('names the sender and the recipient of the transaction', () => {
-    const { container } = render(<LatestTxsItem tx={ txMock.base }/>);
+    const { container } = renderRow(txMock.base);
 
     const parties = container.querySelector('[data-label="tx-parties"]') as HTMLElement;
 
@@ -45,7 +50,7 @@ describe('LatestTxsItem', () => {
   });
 
   it('carries the value and the fee of the transaction', () => {
-    const { container } = render(<LatestTxsItem tx={ txMock.base }/>);
+    const { container } = renderRow(txMock.base);
 
     const value = container.querySelector('[data-label="tx-value"]') as HTMLElement;
 
@@ -54,7 +59,7 @@ describe('LatestTxsItem', () => {
   });
 
   it('stacks the time and the tags under the hash instead of giving the tags a column', () => {
-    const { container } = render(<LatestTxsItem tx={ txMock.base }/>);
+    const { container } = renderRow(txMock.base);
 
     const row = container.querySelector(`[data-latest-tx="${ txMock.base.hash }"]`) as HTMLElement;
     const columns = Array.from(row.children);
@@ -67,7 +72,7 @@ describe('LatestTxsItem', () => {
   });
 
   it('follows the hash with the parties and then the value as their own columns', () => {
-    const { container } = render(<LatestTxsItem tx={ txMock.base }/>);
+    const { container } = renderRow(txMock.base);
 
     const row = container.querySelector(`[data-latest-tx="${ txMock.base.hash }"]`) as HTMLElement;
     const columns = Array.from(row.children);
@@ -79,7 +84,7 @@ describe('LatestTxsItem', () => {
   });
 
   it('shows a price update with its feed link, market count, feeder, the price feed and dashes for value and fee', () => {
-    const { container } = render(<LatestTxsItem tx={ txMock.priceUpdateItem }/>);
+    const { container } = renderRow(txMock.priceUpdateItem);
 
     const row = container.querySelector(`[data-latest-tx="${ txMock.priceUpdateItem.hash }"]`) as HTMLElement;
     const tags = row.querySelector('[data-label="tx-tags"]') as HTMLElement;
@@ -92,13 +97,13 @@ describe('LatestTxsItem', () => {
     expect(Array.from(parties.querySelectorAll('a[href^="/address/"]')).map((link) => link.getAttribute('href')))
       .toEqual([ `/address/${ txMock.priceUpdateItem.from.hash }` ]);
     expect(parties.querySelector('a[href="/feed"]')?.textContent).toBe('Price feed');
-    expect(value.textContent).toBe('-Fee -');
+    expect(value.textContent).toBe('—Fee —');
     expect(row.querySelector('button[aria-label="Transaction info"]')).toBeNull();
   });
 
   function shows_a_failed_price_update_with_its_status() {
     const tx: PriceUpdateItem = { ...txMock.priceUpdateItem, status: 'error', result: 'failed' };
-    const { container } = render(<LatestTxsItem tx={ tx }/>);
+    const { container } = renderRow(tx);
 
     const row = container.querySelector(`[data-latest-tx="${ tx.hash }"]`) as HTMLElement;
     const tags = row.querySelector('[data-label="tx-tags"]') as HTMLElement;
@@ -124,7 +129,7 @@ describe('LatestTxsItem', () => {
       ...txMock.priceUpdateItem,
       from: { ...txMock.priceUpdateItem.from, watchlist_names: [ watchlistName ] },
     };
-    const { container } = render(<LatestTxsItem tx={ tx }/>);
+    const { container } = renderRow(tx);
 
     const row = container.querySelector(`[data-latest-tx="${ tx.hash }"]`) as HTMLElement;
     const tags = row.querySelector('[data-label="tx-tags"]') as HTMLElement;
@@ -138,7 +143,7 @@ describe('LatestTxsItem', () => {
   test(shows_watchlist_tags_on_a_price_update);
 
   function shows_the_info_popover_on_an_evm_row() {
-    const { container } = render(<LatestTxsItem tx={ txMock.base }/>);
+    const { container } = renderRow(txMock.base);
 
     const row = container.querySelector(`[data-latest-tx="${ txMock.base.hash }"]`) as HTMLElement;
 

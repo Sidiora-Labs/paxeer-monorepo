@@ -1,0 +1,24 @@
+[task.22.33.449]
+finding = "nft-media-outbound-trust"
+proof = "repair-22-33-449.spec.ts: nft-media-outbound-trust rejects internal NFT metadata through the real API route"
+path = "Loopback metadata server -> fetchApi -> tokenInstanceMediaTypeHandler via Next apiResolver -> outbound DNS/IP policy -> HTTP response; both metadata fields reject localhost and encoded internal IPs without contacting the private server."
+additional_proof = "Real loopback HEAD redirect responses feed the production redirect policy; private destinations, unsafe schemes, credentials and excess redirects are refused; public literal destinations remain valid."
+baseline = "Not executed: the ordered gate instructions require full implementation before testing and prohibit running verify_cmd manually; the original handler contacts the private loopback server for localhost metadata, violating the zero-contact and empty-result assertions."
+wiring_request = "Domain 14 explorer frontend: extract the outbound policy helpers from media-type.ts into apps/explorer/nextjs/utils/outboundMedia.ts and import it from this handler; that shared path is outside this task's scope."
+evidence = "Exact candidate revision, command, exit and private log location are recorded by hf-build/hf-done in /out/run/gates.jsonl; the final verify row must match the passing build revision."
+formatter_note = "ESLint rejects import() type annotations; use a type-only namespace import for the lazily loaded route module."
+
+[qualification.build_1]
+revision = "7c484889c5574309738176fb6d6d4cdb80532bf8"
+command = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json"
+exit = 2
+log = "/out/logs/build-1.log"
+observed = "The real Next apiResolver ApiContext requires dev; the loopback route harness now supplies dev: false."
+
+[qualification.verify_1]
+revision = "c15a0d4f8fbe3d6c839350eb4f3167439d748b39"
+command = "cg spec done 22.33.449 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Build and all four real-path tests passed at this revision, but the touched-directory graph check reported no matching change despite the candidate's tagged commit containing all three scoped files."
+assumption = "The Codify/task-runner owner must repair recognition of the literal bracketed directory in generated .cgignore or touches handling; neither the scoped implementation nor its assertions can repair this tooling failure."
