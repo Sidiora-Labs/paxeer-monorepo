@@ -3,9 +3,12 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -199,5 +202,109 @@ func TestFlyClientCreateFailureIsAnError(t *testing.T) {
 	_, err := client.createMachine(context.Background(), createMachineRequest{Name: "fly-3", Region: "iad"})
 	if err == nil || !strings.Contains(err.Error(), "status 422") {
 		t.Fatalf("err = %v, want a 422 error", err)
+	}
+}
+
+// Exercise the real transport, including non-success responses: do leaves
+// status interpretation to its callers and always returns the response bytes.
+func TestFlyClientDoReturnsStatusAndBody(t *testing.T) {
+	for _, status := range []int{http.StatusOK, http.StatusCreated, http.StatusUnprocessableEntity} {
+		t.Run(strconv.Itoa(status), func(t *testing.T) {
+			const payload = `{"name":"runner"}`
+			const response = `{"result":"from-fly"}`
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.Method != http.MethodPost || r.URL.Path != "/v1/apps/test/machines" || r.URL.Query().Get("test") != "true" {
+					t.Errorf("request = %s %s", r.Method, r.URL)
+				}
+				for name, want := range map[string]string{
+					"Authorization": "Bearer " + testFlyToken,
+					"Accept":        "application/json",
+					"Content-Type":  "application/json",
+					"User-Agent":    userAgent,
+				} {
+					if got := r.Header.Get(name); got != want {
+						t.Errorf("%s = %q, want %q", name, got, want)
+					}
+				}
+				body, err := io.ReadAll(r.Body)
+				if err != nil || string(body) != payload {
+					t.Errorf("request body = %q, err = %v", body, err)
+				}
+				w.WriteHeader(status)
+				if _, err := io.WriteString(w, response); err != nil {
+					t.Errorf("write response: %v", err)
+				}
+			}))
+			defer server.Close()
+			client := newTestFlyClient(t, server.URL)
+			got, body, err := client.do(context.Background(), http.MethodPost, server.URL+"/v1/apps/test/machines?test=true", []byte(payload))
+			if err != nil || got != status || string(body) != response {
+				t.Fatalf("do = (%d, %q, %v), want (%d, %q, nil)", got, body, err, status, response)
+			}
+		})
+	}
+
+	t.Run("caller error details", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			if _, err := io.WriteString(w, "capacity unavailable"); err != nil {
+				t.Errorf("write response: %v", err)
+			}
+		}))
+		defer server.Close()
+		client := newTestFlyClient(t, server.URL)
+		for _, call := range []struct {
+			method string
+			path   string
+			run    func() error
+		}{
+			{http.MethodGet, "/v1/apps/" + client.app + "/machines", func() error { _, err := client.listMachines(context.Background()); return err }},
+			{http.MethodPost, "/v1/apps/" + client.app + "/machines", func() error {
+				_, err := client.createMachine(context.Background(), createMachineRequest{Name: "runner"})
+				return err
+			}},
+			{http.MethodDelete, "/v1/apps/" + client.app + "/machines/runner", func() error { return client.destroyMachine(context.Background(), "runner") }},
+		} {
+			var failure *apiError
+			err := call.run()
+			if !errors.As(err, &failure) {
+				t.Fatalf("%s error = %v, want apiError", call.method, err)
+			}
+			if failure.Method != call.method || failure.Path != call.path || failure.Status != http.StatusServiceUnavailable || failure.Body != "capacity unavailable" {
+				t.Errorf("%s error = %+v", call.method, failure)
+			}
+		}
+	})
+}
+
+func TestFlyClientDoClosesResponseBody(t *testing.T) {
+	// Leave bytes unread past the existing limit. The HTTP/1 transport must
+	// close the response body to cancel the still-running server request;
+	// merely reaching EOF on a small body would not prove Close was called.
+	cancelled := make(chan struct{})
+	release := make(chan struct{})
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Length", strconv.Itoa(maxResponseBytes+1))
+		w.WriteHeader(http.StatusAccepted)
+		if _, err := io.CopyN(w, strings.NewReader(strings.Repeat("x", maxResponseBytes+1)), maxResponseBytes+1); err != nil {
+			t.Logf("stream interrupted by client: %v", err)
+		}
+		select {
+		case <-r.Context().Done():
+			close(cancelled)
+		case <-release:
+		}
+	}))
+	defer server.Close()
+	defer close(release)
+	client := newTestFlyClient(t, server.URL)
+	status, body, err := client.do(context.Background(), http.MethodGet, server.URL, nil)
+	if err != nil || status != http.StatusAccepted || len(body) != maxResponseBytes || strings.Count(string(body), "x") != maxResponseBytes {
+		t.Fatalf("do = (status %d, %d body bytes, %v)", status, len(body), err)
+	}
+	select {
+	case <-cancelled:
+	case <-time.After(5 * time.Second):
+		t.Fatal("response body was not closed: server request is still active")
 	}
 }
