@@ -76,7 +76,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: xweb-test-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event_name == 'push' && github.sha || github.ref }}
   cancel-in-progress: true
 
 env:
