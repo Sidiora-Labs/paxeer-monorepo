@@ -35193,3 +35193,35 @@ symbol = "test_workflow_live_inputs_guarded.py"
 observed = "Attempt 1 at 94f1769f81b7be0ae0070751721ff5075a9ad9d8: build exit 0; verification exit 1 at the routing check with thirteen refusals in four workflows outside the touches; the pytest step never ran."
 assumption = "The seven restored lines are right; the check sees the whole repository and every refusal belongs to this repair."
 severity = "high"
+
+[finding.22.33.50.8]
+task = "22.33.50"
+file = "services/human/crates/layerx-human-service/tests/repair_22_33_50.rs"
+symbol = "repair_22_33_50.rs"
+observed = "Attempt 9 at 25a24db46b439d58676e672db44e5f371bfcffa8: build exit 0; verification exit 101 twice: 1 passed, 2 failed, the helper asserting CHECKPOINT_FINALISED against Committed and the control case receiving the typed AgentLookup refusal where the generic Refused was asserted."
+assumption = "Both failures are test-side: one stale level in a helper the attempt-8 ruling did not name, and a control case that never installed the agent it finalizes."
+severity = "high"
+
+[finding.22.39.118.11]
+task = "22.39.118"
+file = "tools/platform/cli::rpc::tests::positional_requests_match_published_contract"
+symbol = "cli::rpc::tests::positional_requests_match_published_contract"
+observed = "Attempt 11 at 281da58eedc4: build exit 0; verification exit 1: 24 library tests, the lifecycle suite and 55 of 56 command-boundary cases passed; the cursor step of the emulator boundary test expected hex and received InvalidRequest from the decimal cursor parser."
+assumption = "The parser is correct and the test expectation is older than the parser; the consumer follows it."
+severity = "high"
+
+[finding.22.39.136.6]
+task = "22.39.136"
+file = "services/platform/middleware/conformance/pay6/test_http.py"
+symbol = "test_http.py"
+observed = "Attempt 7 at 61093e3df534: build exit 0; verification exit 1: 20 passed, 1 failed, test_budget_receipt_commit_and_replay at test_agent.py line 42 comparing the SHA-256 verifier digest of the produced proof with the Keccak-256 digest of the Python FIXTURE; the local suites did not run."
+assumption = "The Python mirror of the fixture was left behind by the digest repair of 22.39.146; the consumer task takes it into scope and follows the verifier."
+severity = "high"
+
+[finding.22.39.149.1]
+task = "22.39.149"
+file = "services/platform/ramps/toolkit/tests/evm_submit.rs"
+symbol = "evm_submit.rs"
+observed = "Attempt 1 at 2206b5ecde00: build exit 0; verification exit 1 twice: every binary passed except source_settlement, whose genuine source finality case panicked at line 78 for the absent protected contract file; both repair cycles corrected real assertion differences in the proof test."
+assumption = "The remaining red case is gated on protected material, not on the repaired tree; the gate names the exclusion."
+severity = "high"
