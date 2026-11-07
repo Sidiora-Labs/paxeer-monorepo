@@ -1,0 +1,37 @@
+[repair.22.39.71]
+mode = "BUILD"
+decision = "2803"
+gotcha = "3437"
+acceptance = "22998.1"
+base_revision = "06ef5537fbce0ca58ab15a27dd16da45a924944e"
+verified_revision = "The final kind=verify row in /out/run/gates.jsonl names the exact candidate revision, command, exit and private log; the final handoff copies that row. This record belongs to that candidate; qualification requires exit zero and a passing build at the same revision."
+build_cmd = "python3 -m py_compile tests/ci/test_root_layout_documented.py"
+verify_cmd = "python3 -m pytest -q tests/ci/test_root_layout_documented.py"
+build_evidence = "/out/run/gates.jsonl: kind=build row; private command output is in /out/logs/build-1.log, or the repair run named by the ledger."
+verify_evidence = "/out/run/gates.jsonl: kind=verify row records the cg spec done command and private output log."
+publication = "The external runner commits and publishes the qualified candidate; no worker commit or push."
+
+[implementation.inventory]
+source = "git ls-files -z, collapsed to the first path component without excluding hidden entries."
+result = "docs/MONOREPO.md has one purpose-and-kind row for each of the 43 tracked top-level directories and 41 files; README.md links to its root-layout section."
+configuration = "The root already declares npm@11.19.1 and tracks package-lock.json. Document pnpm workspaces at sub-project roots, both separate Foundry configurations, and the identical generated AGENTS.md and CLAUDE.md pointers."
+config_changes = "Add a descriptive npm manifest field and explanatory Foundry comments; preserve package-manager and compiler settings."
+test_coverage = "Require exact tracked-entry coverage, one row per entry, directory/file kinds, nonempty purposes and a README link; require a pinned npm declaration with its lockfile tracked and present."
+
+[open.directory_moves]
+status = "open"
+action = "Directory moves remain deferred to the monorepo layout work; no root entry is moved or removed here."
+
+[open.package_manager_consolidation]
+status = "open"
+action = "Repository-wide reduction to one JavaScript package manager remains open. The current root uses npm; pnpm sub-projects retain their own workspace and lock files."
+
+[observed.historical_inventory]
+finding = "The historical task text names 41 directories, 39 files, four SQL files and root pnpm files; this checkout has 43 directories, 41 files, three SQL files plus migrations/README.md, and no root pnpm files."
+ownership = "migrations/README.md assigns these schemas to retained C-kernel projection tooling and historical bookkeeping, not an off-chain service. Record the current producer and consumers without inventing a fourth SQL file or restoring removed root pnpm files."
+
+[implementation.gotchas]
+scope = "Runner-provided .cgignore and spec status edits predate this implementation and remain untouched. Scope forbids writing GOTCHA.kvx or spec qualification records; task observations are retained here."
+graph_context = "cg brief and survey use a stale graph with unrelated task and change counts; use git for the tracked inventory and let hf-done synchronize the task paths."
+read_limits = "Large combined reads truncate the workflow and survey output; use bounded task-specific reads."
+formatter = "The repository pre-commit hooks declare whitespace and final-newline normalization, but no Python, JSON, TOML or KVX language formatter; preserve local style."
