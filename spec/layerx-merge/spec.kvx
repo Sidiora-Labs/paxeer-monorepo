@@ -10059,6 +10059,12 @@ value = "A task whose verification includes a library test run of a crate it doe
 basis = "Gotcha 3478"
 affects = ["22.31.542", "22.39.122"]
 
+[decision.2825]
+title = "A workspace type check builds the linked SDK packages its members import before it runs"
+value = "A type check or test of a workspace whose members link another package of this repository through a path dependency builds that package first with its own install and build steps (for the agent SDK: npm ci --workspaces=false and npm run build --workspaces=false in services/agent/sdk/typescript), in the task verification and in the public check alike; a dist output that the exports of a linked package point at is a producer input, never assumed present."
+basis = "Gotcha 3480"
+affects = ["22.39.61"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -151851,7 +151857,7 @@ touches = ["apps/launchpad/web/public", "apps/launchpad/web/src", "apps/perps/sr
 tests = ["tests/ci/test_frontend_asset_names.py"]
 planned_paths = ["tests/ci/test_frontend_asset_names.py", "apps/launchpad/web/asset-renames.kvx", "apps/perps/asset-renames.kvx"]
 build_cmd = "python3 -m py_compile tests/ci/test_frontend_asset_names.py && pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter '@kindle/sdk...' run build && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
-verify_cmd = "python3 -m pytest -q tests/ci/test_frontend_asset_names.py && cd apps/perps && corepack enable && pnpm install --frozen-lockfile && pnpm exec tsc --noEmit -p tsconfig.json"
+verify_cmd = "python3 -m pytest -q tests/ci/test_frontend_asset_names.py && npm --prefix services/agent/sdk/typescript ci --workspaces=false --no-audit --no-fund && npm --prefix services/agent/sdk/typescript run build --workspaces=false && cd apps/perps && corepack enable && pnpm install --frozen-lockfile && pnpm exec tsc --noEmit -p tsconfig.json"
 gate_kind = "planned"
 sandbox_profile = "node"
 owner_role = "fm-web"
@@ -151866,6 +151872,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 do_4 = "Attempt 2 (continue, gotcha 3451): the attempt-1 tree 7fd627359bac stands (the 78 renames, the two rename records, the consolidated assets, stylesheets and chart declaration, the three tests). The build command now installs at apps/launchpad, builds the two launchpad SDK packages and then type-checks the web app. Make test_no_duplicate_assets_within_an_app exempt apps/perps/public/windows, whose tile names and sizes are prescribed by the platform, and state the exemption in a comment. Merge current main, run the build and the verification at the final revision and record both by reference."
 do_5 = "Attempt 3 (continue, gotcha 3458, gotcha 3451): start from the current main, whose build command installs the launchpad workspace, builds the @kindle/sdk packages and then type-checks the web application. The attempt-1 renames stand (78 asset files); apps/perps/public/windows stays exempt from the duplicate test as the platform-prescribed tile set. Run the build and the verification at the final revision and record both by reference."
 do_6 = "Attempt 4 (continue, gotcha 3473): the attempt-3 tree 83b3d4a201b6 stands (asset changes, Windows tile exemption, seven asset tests). The task now requires 22.39.105, whose published attempt adds the wallet gateway PGlite packages to apps/perps/pnpm-lock.yaml; once it is on main, rebase, run the build and the verification (frozen install and type check of apps/perps) and record both by reference."
+do_7 = "Attempt 5 (continue, gotcha 3480, decision 2825): the attempt-4 tree 4b2b61b87edf stands (asset renames, Windows tile exemption, seven asset tests). The verification now installs and builds the agent SDK in services/agent/sdk/typescript (npm ci --workspaces=false, npm run build --workspaces=false) before the frozen install and the type check of apps/perps. Change no source unless the type check fails on something else once the SDK is built, then repair within the touches; record both gates by reference."
 
 [task.22.39.55]
 title = "Settle the twenty-seven wallet surface assertions against the live receipt model"

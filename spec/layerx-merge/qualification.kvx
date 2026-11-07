@@ -34215,3 +34215,11 @@ symbol = "cli::rpc::tests::positional_requests_match_published_contract"
 observed = "Attempt 1 at 8aaa799401bd: build exit 0; verification exit 2: 24 library tests passed, binary tests 79 passed and 1 failed (wallet::tests::policy_scope_and_sdk_wait_fail_closed, MissingFinalityTrust expected); no repair cycle used."
 assumption = "The SDK producer changed the zero-timeout path to return Pending before any finality check and the CLI consumer test did not follow; the crate directory is already the touches."
 severity = "high"
+
+[finding.22.39.61.4]
+task = "22.39.61"
+file = "tests/ci/test_frontend_asset_names.py"
+symbol = "test_frontend_asset_names.py"
+observed = "Attempt 4 at 4b2b61b87edf: build exit 0; verification exit 2: seven asset tests passed, frozen install of apps/perps passed, tsc failed with TS2307 on @sidiora/layerx-sdk/browser from sdk/wallet/src/receipt.ts and four implicit-any errors; no repair cycle used."
+assumption = "The errors come from an unbuilt linked package, not from the asset changes; the wallet test workflow shows the producer steps."
+severity = "high"
