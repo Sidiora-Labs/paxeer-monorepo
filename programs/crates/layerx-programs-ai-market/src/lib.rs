@@ -30,6 +30,7 @@ pub mod reputation_codec;
 pub mod reputation_transition;
 pub mod reward_math;
 pub mod rewards;
+pub mod rooms;
 pub mod roster;
 pub mod state;
 pub mod tasks;
