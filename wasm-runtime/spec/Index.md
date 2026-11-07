@@ -6,10 +6,10 @@ This is a proposal for how to integrate the wasmer engine into the cosmos-sdk. N
 
 This is based on work with the wasmer.io engine, including the following other repositories:
 
-[cosmwasm](https://github.com/confio/cosmwasm):
+[cosmwasm](https://github.com/CosmWasm/cosmwasm):
 
 * Configuration to build rust to WebAssembly
-* Helper library to remove boilerplate (also see [cosmwasm-template](https://github.com/confio/cosmwasm-template))
+* Helper library to remove boilerplate (also see [cosmwasm-template](https://github.com/CosmWasm/cosmwasm-template))
 * Testing support for smart contracts
 
 [cosmwasm-vm](https://github.com/CosmWasm/cosmwasm/tree/main/packages/vm):
@@ -17,7 +17,7 @@ This is based on work with the wasmer.io engine, including the following other r
 * Repeatable gas metering (fixed backend compiler options)
 * Feature flags for backends
 
-[cosmwasm-opt](https://github.com/confio/cosmwasm-opt):
+[cosmwasm-opt](https://github.com/CosmWasm/cosmwasm-opt):
 
 * Deterministic builds (so we can map rust to on-chain wasm)
 * Small wasm binaries (~100KB typical)
