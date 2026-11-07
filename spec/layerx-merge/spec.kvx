@@ -152214,7 +152214,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.146]
 title = "Derive the pay6 fixture receipt digest through the verifier and make the scheme assertion follow the seller"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
