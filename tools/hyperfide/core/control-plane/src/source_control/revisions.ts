@@ -46,9 +46,12 @@ export async function createRevisionInTransaction(
     );
   if (operation.state !== "PENDING")
     sourceFailure("CONFLICT", "Source operation is already terminal");
+  const indexed = await store.ancestryIndexAvailable(tx);
+  let generation = 1n,
+    parentsComplete = true;
   if (input.parent_revision_ids.length) {
     const parents = await tx.query(
-      "SELECT revision_id FROM hyperfide.source_revisions WHERE organisation_id=$1 AND repository_id=$2 AND security_domain_id=$3 AND revision_id=ANY($4::text[])",
+      "SELECT revision_id,COALESCE(to_jsonb(source_revisions)->>'generation','0') AS generation,COALESCE((to_jsonb(source_revisions)->>'index_complete')::boolean,false) AS index_complete FROM hyperfide.source_revisions WHERE organisation_id=$1 AND repository_id=$2 AND security_domain_id=$3 AND revision_id=ANY($4::text[])",
       [...sourceScopeValues(context.scope), input.parent_revision_ids],
     );
     if (parents.rows.length !== input.parent_revision_ids.length)
@@ -56,6 +59,14 @@ export async function createRevisionInTransaction(
         "NOT_FOUND",
         "A pinned parent revision is unavailable in the authorized scope",
       );
+    for (const parent of parents.rows) {
+      const value = BigInt(parent.generation);
+      parentsComplete &&= parent.index_complete === true;
+      if (value === 0n) parentsComplete = false;
+      if (value >= generation) generation = value + 1n;
+    }
+    if (parents.rows.some((parent) => parent.generation === "0"))
+      generation = 0n;
   }
   if (input.predecessor_revision_ids.length) {
     const predecessors = await tx.query(
@@ -85,8 +96,24 @@ export async function createRevisionInTransaction(
       "OBJECT_NOT_AVAILABLE",
       "Verified root protection receipt required",
     );
+  let ancestors: { ancestor_revision_id: string; generation: string }[] = [];
+  if (indexed)
+    ancestors = (
+      await tx.query<{ ancestor_revision_id: string; generation: string }>(
+        `SELECT ancestor_revision_id,MAX(generation)::text AS generation FROM (
+      SELECT $4::text AS ancestor_revision_id,$5::bigint AS generation
+      UNION ALL SELECT revision_id,generation FROM hyperfide.source_revisions WHERE organisation_id=$1 AND repository_id=$2 AND security_domain_id=$3 AND revision_id=ANY($6::text[])
+      UNION ALL SELECT ancestor_revision_id,generation FROM hyperfide.source_revision_ancestry WHERE organisation_id=$1 AND repository_id=$2 AND security_domain_id=$3 AND revision_id=ANY($6::text[])
+    ) candidates GROUP BY ancestor_revision_id ORDER BY MAX(generation) DESC,ancestor_revision_id LIMIT 257`,
+        [...scope, revisionId, String(generation), input.parent_revision_ids],
+      )
+    ).rows;
+  const indexComplete =
+    indexed && parentsComplete && generation > 0n && ancestors.length <= 256;
   await tx.query(
-    "INSERT INTO hyperfide.source_revisions(organisation_id,repository_id,security_domain_id,revision_id,root_tree_id,descriptor,authority_epoch,root_protection) VALUES($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT DO NOTHING",
+    indexed
+      ? "INSERT INTO hyperfide.source_revisions(organisation_id,repository_id,security_domain_id,revision_id,root_tree_id,descriptor,authority_epoch,root_protection,generation,index_complete) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) ON CONFLICT DO NOTHING"
+      : "INSERT INTO hyperfide.source_revisions(organisation_id,repository_id,security_domain_id,revision_id,root_tree_id,descriptor,authority_epoch,root_protection) VALUES($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT DO NOTHING",
     [
       ...scope,
       revisionId,
@@ -94,8 +121,15 @@ export async function createRevisionInTransaction(
       descriptor,
       context.authority_epoch,
       protection,
+      ...(indexed ? [String(generation), indexComplete] : []),
     ],
   );
+  if (indexed)
+    await tx.query(
+      `INSERT INTO hyperfide.source_revision_ancestry(organisation_id,repository_id,security_domain_id,revision_id,position,ancestor_revision_id,generation)
+    SELECT $1,$2,$3,$4,(ordinality-1)::integer,item->>'ancestor_revision_id',(item->>'generation')::bigint FROM jsonb_array_elements($5::jsonb) WITH ORDINALITY AS entries(item,ordinality) ON CONFLICT DO NOTHING`,
+      [...scope, revisionId, JSON.stringify(ancestors.slice(0, 256))],
+    );
   const retained = (
     await tx.query(
       "SELECT descriptor FROM hyperfide.source_revisions WHERE organisation_id=$1 AND repository_id=$2 AND security_domain_id=$3 AND revision_id=$4",
@@ -196,7 +230,7 @@ export async function readRevisionInTransaction(
   await store.guard(tx, context, "source.revisions.read");
   const row = (
     await tx.query(
-      "SELECT revision_id,root_tree_id,descriptor,authority_epoch::text,created_at FROM hyperfide.source_revisions WHERE organisation_id=$1 AND repository_id=$2 AND security_domain_id=$3 AND revision_id=$4",
+      "SELECT revision_id,root_tree_id,descriptor,authority_epoch::text,created_at,COALESCE(to_jsonb(source_revisions)->>'generation','0') AS generation,COALESCE((to_jsonb(source_revisions)->>'index_complete')::boolean,false) AS index_complete FROM hyperfide.source_revisions WHERE organisation_id=$1 AND repository_id=$2 AND security_domain_id=$3 AND revision_id=$4",
       [...sourceScopeValues(context.scope), revisionId],
     )
   ).rows[0];
@@ -232,7 +266,7 @@ export async function changeRevisions(
     await store.guard(tx, context, "source.changes.revisions");
     const rows = (
       await tx.query(
-        "SELECT r.revision_id,r.root_tree_id,r.descriptor,r.authority_epoch::text,r.created_at,m.predecessor_revision_ids FROM hyperfide.source_change_revisions m JOIN hyperfide.source_revisions r USING(organisation_id,repository_id,security_domain_id,revision_id) WHERE m.organisation_id=$1 AND m.repository_id=$2 AND m.security_domain_id=$3 AND m.change_id=$4 AND ($5::text IS NULL OR m.revision_id>$5) ORDER BY m.revision_id LIMIT $6",
+        "SELECT r.revision_id,r.root_tree_id,r.descriptor,r.authority_epoch::text,r.created_at,COALESCE(to_jsonb(r)->>'generation','0') AS generation,COALESCE((to_jsonb(r)->>'index_complete')::boolean,false) AS index_complete,m.predecessor_revision_ids FROM hyperfide.source_change_revisions m JOIN hyperfide.source_revisions r USING(organisation_id,repository_id,security_domain_id,revision_id) WHERE m.organisation_id=$1 AND m.repository_id=$2 AND m.security_domain_id=$3 AND m.change_id=$4 AND ($5::text IS NULL OR m.revision_id>$5) ORDER BY m.revision_id LIMIT $6",
         [
           ...sourceScopeValues(context.scope),
           changeId,
@@ -241,16 +275,14 @@ export async function changeRevisions(
         ],
       )
     ).rows;
-    const revisions = rows
-      .slice(0, limit)
-      .map(
-        (row) =>
-          ({
-            ...row,
-            parent_revision_ids: row.descriptor.parent_revision_ids,
-            created_at: new Date(row.created_at).toISOString(),
-          }) as SourceRevisionRecord & { predecessor_revision_ids: string[] },
-      );
+    const revisions = rows.slice(0, limit).map(
+      (row) =>
+        ({
+          ...row,
+          parent_revision_ids: row.descriptor.parent_revision_ids,
+          created_at: new Date(row.created_at).toISOString(),
+        }) as SourceRevisionRecord & { predecessor_revision_ids: string[] },
+    );
     return {
       revisions,
       next_cursor: rows.length > limit ? revisions.at(-1)!.revision_id : null,

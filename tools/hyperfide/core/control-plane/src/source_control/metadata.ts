@@ -72,6 +72,8 @@ export interface SourceRevisionRecord {
   descriptor: RevisionDescriptor;
   authority_epoch: string;
   created_at: string;
+  generation: string;
+  index_complete: boolean;
 }
 export interface RevisionInput {
   operation_id: string;
@@ -95,6 +97,9 @@ export interface RevisionReceipt {
   causal_token: string;
 }
 export interface SourceMetadataOptions {
+  replica?: Pick<Pool, "connect">;
+  replica_wait_ms?: number;
+  read_authority?: SourceMetadata;
   authorize?: (
     tx: SourceSQL,
     context: SourceContext,
@@ -276,12 +281,72 @@ export class SourceMetadata {
       tx.release();
     }
   }
+  async ancestryIndexAvailable(tx: SourceSQL): Promise<boolean> {
+    return (
+      (
+        await tx.query(
+          "SELECT to_regclass('hyperfide.source_revision_ancestry') IS NOT NULL AS present",
+        )
+      ).rows[0]?.present === true
+    );
+  }
+  async ancestryIndex(
+    context: SourceContext,
+    revisionId: string,
+  ): Promise<SourceRevisionRecord[]> {
+    return this.transaction(async (tx) => {
+      await this.guard(tx, context, "source.revisions.read");
+      if (!(await this.ancestryIndexAvailable(tx))) return [];
+      const rows = (
+        await tx.query(
+          `SELECT r.revision_id,r.root_tree_id,r.descriptor,r.authority_epoch::text,r.created_at,r.generation::text,r.index_complete
+        FROM hyperfide.source_revision_ancestry a JOIN hyperfide.source_revisions r
+        ON r.organisation_id=a.organisation_id AND r.repository_id=a.repository_id AND r.security_domain_id=a.security_domain_id AND r.revision_id=a.ancestor_revision_id
+        WHERE a.organisation_id=$1 AND a.repository_id=$2 AND a.security_domain_id=$3 AND a.revision_id=$4 ORDER BY a.position`,
+          [...sourceScopeValues(context.scope), revisionId],
+        )
+      ).rows;
+      return rows.map(
+        (row) =>
+          ({
+            ...row,
+            parent_revision_ids: row.descriptor.parent_revision_ids,
+            created_at: new Date(row.created_at).toISOString(),
+          }) as SourceRevisionRecord,
+      );
+    });
+  }
   async guard(
     tx: SourceSQL,
     context: SourceContext,
     action: string,
     exclusive = false,
   ): Promise<SourceRepository> {
+    if (this.options.read_authority) {
+      if (exclusive)
+        sourceFailure(
+          "PRIMARY_REQUIRED",
+          "Replica snapshots cannot admit exclusive actions",
+        );
+      const profile = await this.options.read_authority.transaction((primary) =>
+        this.options.read_authority!.guard(primary, context, action),
+      );
+      const row = (
+        await tx.query(
+          "SELECT authority_epoch::text,policy_version FROM hyperfide.source_repositories WHERE organisation_id=$1 AND repository_id=$2 AND security_domain_id=$3",
+          sourceScopeValues(context.scope),
+        )
+      ).rows[0];
+      if (
+        row?.authority_epoch !== profile.authority_epoch ||
+        row.policy_version !== profile.policy_version
+      )
+        sourceFailure(
+          "STALE_CAUSAL_TOKEN",
+          "Replica snapshot authority differs from the current primary",
+        );
+      return profile;
+    }
     validateScope(context.scope);
     parseUUID(context.principal_id, "principal_id");
     metadataGeneration(context.authority_epoch);

@@ -791,12 +791,36 @@ export interface SourceRequest<T = unknown> {
 export type SourceResponse<T = unknown> =
   | { protocol_version: 1; operation_id: string; result: T }
   | { protocol_version: 1; operation_id: string; error: SourceError };
+export interface SourceIndexFreshness {
+  index_generation: string;
+  index_complete: boolean;
+}
+export interface SourceQueryPathCoverage {
+  path: string;
+  state: "REDACTED";
+}
+export interface SourceQueryCoverage {
+  state: "COMPLETE" | "PARTIAL" | "REDACTED";
+  visited_nodes: number;
+  bytes_read: number;
+  reason?: "NODE_BUDGET" | "TIME_BUDGET" | "PAGE_LIMIT";
+  paths?: SourceQueryPathCoverage[];
+}
+export interface SourcePathFilter {
+  paths?: string[];
+}
+export interface SourceMergeBasesResult extends SourceIndexFreshness {
+  revision_ids: ObjectId[] | null;
+  coverage: SourceQueryCoverage;
+  next_cursor: string | null;
+}
 export interface SourcePage<T> {
   items: T[];
   next_cursor: string | null;
   coverage: "COMPLETE" | "PARTIAL" | "REDACTED" | "INDEX_PENDING";
   snapshot: ObjectId;
   index_generation?: string;
+  index_complete?: boolean;
 }
 export function parseSourceAuthority(value: unknown): SourceAuthority {
   const x = record(value, "authority");
