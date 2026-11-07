@@ -4,8 +4,8 @@ Module ID `2` (`LXP_MODULE_ESCROW`). Activity types are `0x0002xxxx`
 (`include/layerx/lx_escrow.h`). Terms live in module state; money moves only
 as `402LXP` legs into and out of `agent:<did>:escrow:<id>`.
 
-Sources: `include/layerx/lx_escrow.h`, `src/modules/escrow/`,
-`spec/layerx-protocol/spec.kvx` requirement 4.
+Sources: `include/layerx/lx_escrow.h`, `src/modules/escrow/lx_escrow_module.c`,
+`src/modules/escrow/lx_escrow_timeout.c`.
 
 ---
 
@@ -63,8 +63,7 @@ escrow_id32 || idempotency_key32
 
 TIMEOUT is the expiry sweep. It is `LXP_ERR_NOT_YET_VALID` before `expiry`
 against the batch timestamp. Protocol-3 batch maintenance runs due escrow
-deadlines using that timestamp (`spec/layerx-protocol/spec.kvx` requirement
-21 acceptance 11).
+deadlines using that timestamp (`src/modules/escrow/lx_escrow_timeout.c`).
 
 ---
 

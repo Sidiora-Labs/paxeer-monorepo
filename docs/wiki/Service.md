@@ -12,7 +12,8 @@ Payload version is `LX_SERVICE_RECORD_VERSION = 1` (`bytes[0]=0`,
 Event types mirror activity ordinals 1–13; event 14 is default acceptance
 applied by batch maintenance.
 
-Sources: `include/layerx/lx_service.h`, `src/modules/service/`.
+Sources: `include/layerx/lx_service.h`, `src/modules/service/lx_service_module.c`,
+`src/modules/service/lx_service_payload.c`, `src/modules/service/lx_service_acceptance.c`.
 
 ---
 

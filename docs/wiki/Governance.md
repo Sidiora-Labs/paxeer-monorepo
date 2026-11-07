@@ -10,7 +10,8 @@ ordering, fee, and receipt rules. Parameter tables and emergency pauses live in
 `include/layerx/lxp_governance.h`.
 
 Sources: `src/modules/governance/lxp_governance.c`,
-`include/layerx/lxp_governance.h`.
+`include/layerx/lxp_governance.h`, `src/modules/governance/lxp_gov_param.c`,
+`src/modules/governance/lxp_emergency.c`.
 
 ---
 

@@ -11,7 +11,8 @@ bytes are an error.
 Account names, issuance, and the named fee schedule are on
 [Assets and tokens](Assets.md). Fees are on [Fees](Fees.md).
 
-Sources: `include/layerx/lx_asset.h`, `src/modules/asset/`,
+Sources: `include/layerx/lx_asset.h`, `src/modules/asset/lx_asset_registry.c`,
+`src/modules/asset/lx_asset_decode.c`, `src/modules/asset/lx_asset_transfer.c`,
 `docs/site/docs/concepts/assets.md`.
 
 ---
