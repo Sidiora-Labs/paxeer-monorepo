@@ -151333,7 +151333,7 @@ do_9 = "Gotcha 3308, decision 2707. In the 2_2.py driver of the source-control c
 
 [task.22.37.12]
 title = "Add ancestry indexing, admission classes and replica aware causal reads to the source query API"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.36.1", "22.37.11"]
