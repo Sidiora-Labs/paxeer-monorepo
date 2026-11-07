@@ -34833,3 +34833,11 @@ symbol = "native_binding.rs"
 observed = "Attempt 2 at 29b48212d94c: build exit 101: two calls in tests/repair_22_33_1520.rs supply six arguments to a reader that now takes seven; the verification did not run."
 assumption = "The reported two calls and the other callers found by the search are the only remaining arity mismatches."
 severity = "high"
+
+[finding.22.39.76.1]
+task = "22.39.76"
+file = "tests/ci/test_core_test_all_wired.py"
+symbol = "test_core_test_all_wired.py"
+observed = "Attempt 1 at f78c369241b0: verification exit 1 after two repair cycles: the equality case fails at sample 0 with status -1001 (LXP_FATAL_INVARIANT) from the serial preparation call; the property source submits LXP_PROTOCOL_VERSION_LEGACY activities that the kernel no longer settles."
+assumption = "The fixture drift is the only cause; the three other ported sources and the Makefile wiring pass at the same tree."
+severity = "high"

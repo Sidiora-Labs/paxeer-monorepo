@@ -10191,6 +10191,12 @@ value = "The attempt records the break and stops; the ruling lists every file th
 basis = "Attempt 2 of 22.39.128 stopped at two calls in one test file; a search finds the same readers called from 3 file(s) outside touches, and a relaunch that repaired only the reported lines would stop again at the next caller."
 affects = ["22.39.128"]
 
+[decision.2847]
+title = "A property source that returns to compilation after drift is ported to the current kernel contract using the live caller of the same API as the reference, never by weakening the kernel"
+value = "When a ported test source compiles again and the kernel refuses its fixture with LXP_FATAL_INVARIANT, the task ports the fixture (protocol version, authority binding, execution record, batch identity) to the contract the live test caller of the same kernel function exercises today; the kernel sources stay outside touches, and the case keeps its original assertion. A fixture that targets a surface the records retire is rewritten as an absence probe per the task."
+basis = "The fourth ported source of 22.39.76 was written for the pre-commitment protocol version and its only live sibling caller of lxp_kernel_prepare_activity_batch is tests/programs/test_metered_call.c, which documents the current fixture shape line by line."
+affects = ["22.39.76"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -173188,6 +173194,7 @@ time_limit_minutes = 240
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Attempt 2 (continue, gotcha 3519, decisions 2771, 2762 and 2847): the attempt-1 tree f78c369241b0 stands (the main workflow step, the Makefile targets core-test-all and test-core-ports, the prerequisite test that follows include directives, the three ported codec and payer-grant sources, the record). Port the fixture of the fourth source, the parallel-preparation property of tests/fuzz, to the current preparation contract with tests/programs/test_metered_call.c lines 195 to 252 as the reference: protocol version LXP_PROTOCOL_VERSION_STATE_COMMITMENT on every sampled activity, the account sequence and fee limit the identity state expects, the authority resolved through lxp_authority_resolve_activity and bound with lxp_authority_allowance_bind, the execution record filled as the reference fills it (network id, batch number, timestamp window, global sequence, recorded versions, signature_valid, identities, authority, allowance, fee parameters, fee balance, gas limit, arena) and the batch identity derived through lxp_batch_identity_activity instead of the hand-built preimage. Keep the assertion that a single-lane preparation and a four-lane preparation produce equal prepared batches over every sample; if the invariant persists, name the exact line of src/protocol/lxp_kernel.c that returns it in the record and port the fixture to satisfy that check. Never edit the kernel, never remove the case, never mark it skipped (decision 2821). Run the build once and the verification once at the final tree and record both by reference."
 
 [task.22.31.623]
 title = "Settle the two hundred and sixty-seven qualification suite failures against the live rules"
