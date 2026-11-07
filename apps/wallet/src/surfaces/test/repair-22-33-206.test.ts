@@ -100,7 +100,8 @@ async function repair_22_33_206_unsigned_surface_fixture_replays_node_send_and_r
       expect(receipt.receipt).toBe(entry.signedReceipt);
       expect(receipt.authentication.receiptDigest).toBe(entry.receiptDigest);
       const sent = surfaceReceipt(receipt, bridge(provider));
-      expect(sent.events[0]?.precompile).toBe(
+      expect(sent.events[0]).toHaveProperty(
+        'precompile',
         BRIDGE_EVENTS.find((event) => event.name === 'BridgeOut')!.precompile
       );
       expect(sent).toEqual({
@@ -110,7 +111,7 @@ async function repair_22_33_206_unsigned_surface_fixture_replays_node_send_and_r
         events: [
           {
             event: 'BridgeOut',
-            precompile: entry.receiptJson.to,
+            precompile: BRIDGE_EVENTS.find((event) => event.name === 'BridgeOut')!.precompile,
             topic0: entry.receiptJson.logs[0]!.topics[0],
             fields: {
               chain: 1n,

@@ -1807,6 +1807,9 @@ impl HumanAuthorityBoundary for RemoteHumanAuthority {
         .and_then(|value| Self::registry_from(&value))
         .map_err(|error| match error {
             HumanOperationError::Unavailable => CoreStateError::Unavailable,
+            HumanOperationError::Typed(crate::human::HumanRefusal::ManagedAgent(_)) => {
+                CoreStateError::Unverified
+            }
             HumanOperationError::Refused
             | HumanOperationError::CapabilityRefused(_)
             | HumanOperationError::Typed(_) => CoreStateError::Unverified,
@@ -11748,14 +11751,10 @@ fn rank(value: u8) -> Result<VerificationLevel, HumanOperationError> {
 }
 
 pub(crate) fn receipt_rung_code(level: VerificationLevel) -> Result<u8, HumanOperationError> {
-    if level == VerificationLevel::COMMITTED {
-        Ok(6)
-    } else {
-        level
-            .rung()
-            .map(layerx_types::rung::Rung::wire_rank)
-            .ok_or(HumanOperationError::Refused)
-    }
+    level
+        .rung()
+        .map(layerx_types::rung::Rung::wire_rank)
+        .ok_or(HumanOperationError::Refused)
 }
 
 impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
@@ -18082,15 +18081,19 @@ fn decode_hex(value: &str) -> Option<Vec<u8>> {
         .collect()
 }
 fn verification_level(value: &Value) -> Result<VerificationLevel, IdentityError> {
-    match value.get("verification_level").and_then(Value::as_str) {
-        Some("sequencer_signed") => Ok(VerificationLevel::SEQUENCER_SIGNED),
-        Some("batch_included") => Ok(VerificationLevel::BATCH_INCLUDED),
-        Some("state_proven") => Ok(VerificationLevel::STATE_PROVEN),
-        Some("committed" | "checkpoint_finalised" | "settlement_anchored") => {
-            Ok(VerificationLevel::COMMITTED)
-        }
-        _ => Err(IdentityError::Unverified),
+    let label = value
+        .get("verification_level")
+        .and_then(Value::as_str)
+        .ok_or(IdentityError::Unverified)?;
+    let label = match label {
+        "checkpoint_finalised" | "settlement_anchored" => VerificationLevel::COMMITTED.wire_label(),
+        label => label,
+    };
+    let level = VerificationLevel::from_wire_label(label).map_err(|_| IdentityError::Unverified)?;
+    if level == VerificationLevel::UNVERIFIED {
+        return Err(IdentityError::Unverified);
     }
+    Ok(level)
 }
 
 fn recover_native_effect_queue(

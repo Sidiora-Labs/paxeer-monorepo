@@ -18,7 +18,7 @@ state, and logs. This pass does not cover app UI, Electron, or browser behavior.
   change. Its verdict is scoped to the changed behavior.
 - **Real-provider CLI/API E2E** is this non-app provider gate. The automated
   companion is `pnpm exec turbo run test:integration`, including real-provider
-  coverage under `tests/integration/real/**` and `@hyperfide/agent-runtime`; this
+  coverage under `tests/runtime-integration/real/**` and `@hyperfide/agent-runtime`; this
   manual runbook adds operator-driven CLI/API, standalone server + daemon,
   restart, lifecycle, API, DB, and log checks.
 - **Smoke QA** is a shallow liveness check on a running app or surface. It is
@@ -121,7 +121,7 @@ Resolve current provider models before spawning real-provider threads:
 CODEX_MODEL=$(Hyperfide provider models codex --json | jq -er '([.[] | select(.isDefault)][0].model // .[0].model)')
 CLAUDE_MODEL=$(Hyperfide provider models claude-code --json | jq -er '([.[] | select(.model == "claude-haiku-4-5")][0].model // [.[] | select(.isDefault)][0].model // .[0].model)')
 PI_MODELS_JSON=$(Hyperfide provider models pi --json)
-# Keep Pi preference order in sync with packages/test-helpers/src/provider-models.ts.
+# Keep Pi preference order in sync with tools/test-helpers/src/provider-models.ts.
 PI_MODEL=$(printf '%s\n' "$PI_MODELS_JSON" | jq -er '
   [.[] | select(.model == "openai-codex/gpt-5.5")][0].model
   // [.[] | select(.model == "openai-codex/gpt-5.4")][0].model

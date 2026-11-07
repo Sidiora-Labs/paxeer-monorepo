@@ -1,10 +1,13 @@
 {
+  "author": "Sidiora Labs",
+  "license": "Apache-2.0",
   "name": "@sidiora/layerx-example-express",
   "version": "0.1.0",
   "private": true,
   "type": "module",
   "scripts": {
-    "start": "node index.mjs"
+    "start": "node index.mjs",
+    "test": "node --test test/*.test.mjs"
   },
   "dependencies": {
     "@sidiora/layerx-express": "file:..",

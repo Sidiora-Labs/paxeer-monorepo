@@ -3,6 +3,8 @@ package evmrpc
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/binary"
 	"encoding/hex"
 	"errors"
 	"math/big"
@@ -12,7 +14,11 @@ import (
 	"time"
 
 	evmtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/types"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/lxphost"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/bank"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxprograms"
+	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
+	storekeys "github.com/Sidiora-Labs/Paxeer-X-Network/storage/common/keys"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -46,6 +52,7 @@ type pxAccount struct {
 }
 
 type pxAccountAPI struct {
+	inference      *pxInferenceOption
 	state          *StateAPI
 	tx             *TransactionAPI
 	simulation     *SimulationAPI
@@ -83,13 +90,16 @@ func pxDecode(method abi.Method, answer []byte) ([]interface{}, error) {
 	return values, nil
 }
 func (a *pxAccountAPI) call(ctx context.Context, height int64, address common.Address, contract abi.ABI, method string, args ...interface{}) ([]interface{}, error) {
+	return a.callFrom(ctx, height, common.Address{}, address, contract, method, args...)
+}
+func (a *pxAccountAPI) callFrom(ctx context.Context, height int64, from, address common.Address, contract abi.ABI, method string, args ...interface{}) ([]interface{}, error) {
 	data, err := contract.Pack(method, args...)
 	if err != nil {
 		return nil, err
 	}
 	input := hexutil.Bytes(data)
 	tag := rpc.BlockNumberOrHashWithNumber(rpc.BlockNumber(height))
-	answer, err := a.simulation.Call(ctx, export.TransactionArgs{To: &address, Data: &input}, &tag, nil, nil)
+	answer, err := a.simulation.Call(ctx, export.TransactionArgs{From: &from, To: &address, Data: &input}, &tag, nil, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -315,4 +325,163 @@ func (a *pxAccountAPI) RequestFunds(ctx context.Context, did, signer string) (re
 		return nil, pxInvalidParams()
 	}
 	return nil, pxHosted("px_requestFunds")
+}
+
+// programRead executes the F11 selector as a native, read-only program envelope.
+// Every nested call is pinned to the height resolved once by the public method.
+var pxProgramABI = mustPxABI(`[
+ {"type":"function","name":"getStateHead","inputs":[{"type":"bytes32"}],"outputs":[{"type":"bytes"}]},
+ {"type":"function","name":"simulateCall","inputs":[{"type":"bytes32"},{"type":"uint16"},{"type":"string"},{"type":"bytes"},{"type":"bytes"},{"type":"bytes"},{"type":"uint32"},{"type":"uint64[7]"},{"type":"uint128"}],"outputs":[{"type":"int32"},{"type":"uint8"},{"type":"bytes"}]}
+]`)
+
+func (a *pxAccountAPI) programRead(ctx context.Context, height int64, selector uint16, payload []byte) ([]byte, error) {
+	if a.inference == nil {
+		return nil, pxUnavailable("inference_program_not_configured")
+	}
+	cfg := a.inference
+	sdkCtx := a.state.ctxProvider(height)
+	did, bound := a.state.keeper.GetLayerXDid(sdkCtx, cfg.reader)
+	if !bound {
+		return nil, pxUnavailable("inference_reader_unbound")
+	}
+	actor, err := lxphost.DIDID([]byte(evmtypes.LayerXDid(did)))
+	if err != nil {
+		return nil, pxUnavailable("inference_reader_unbound")
+	}
+	chainID := a.state.keeper.ChainID(sdkCtx)
+	if !chainID.IsUint64() {
+		return nil, pxUnavailable("invalid_inference_response")
+	}
+	chainBytes := binary.BigEndian.AppendUint64([]byte("PAXAI/chain-domain/v1"), chainID.Uint64())
+	chain := sha256.Sum256(chainBytes)
+	market := sha256.Sum256(append(append([]byte("PAXAI/market/v1\x00"), chain[:]...), cfg.program[:]...))
+	envelope := append([]byte("PAXAI1\x00\x01"), byte(selector>>8), byte(selector))
+	envelope = append(envelope, chain[:]...)
+	envelope = append(envelope, cfg.program[:]...)
+	envelope = append(envelope, market[:]...)
+	envelope = append(envelope, actor[:]...)
+	envelope = append(envelope, make([]byte, 56)...)
+	envelope = binary.BigEndian.AppendUint64(envelope, ^uint64(0))
+	request := sha256.Sum256(append(binary.BigEndian.AppendUint64(nil, uint64(height)), envelope...))
+	envelope = append(envelope, request[:]...)
+	envelope = binary.BigEndian.AppendUint32(envelope, uint32(len(payload)))
+	envelope = append(envelope, payload...)
+	requestDigest := sha256.Sum256(append([]byte("PAXAI/request/v1\x00"), envelope...))
+	envelope = append(envelope, 0)
+	budget := [7]uint64{1000000, 16777216, 1048576, 1048576, 64, 1048576, 4096}
+	values, err := a.callFrom(ctx, height, cfg.reader, common.HexToAddress("0x101d"), pxProgramABI, "simulateCall", cfg.program, uint16(5), "layerx_call", envelope, []byte{0, 1, 7}, []byte("LayerX/programs/access-declaration/v1\x00\x00"), uint32(16384), budget, new(big.Int).SetUint64(^uint64(0)))
+	if err != nil {
+		return nil, pxUnavailable("inference_program_unavailable")
+	}
+	encoded, err := pxProgramABI.Methods["simulateCall"].Outputs.Pack(values...)
+	if err != nil {
+		return nil, pxUnavailable("invalid_inference_response")
+	}
+	execution, err := layerxprograms.DecodeProgramExecutionResult(encoded, 16384, [32]byte{})
+	if err != nil || execution.TerminalResult != 0 || execution.TerminalKind != 1 || len(execution.AppliedLegs) != 0 {
+		return nil, pxUnavailable("inference_program_unavailable")
+	}
+	answer := execution.GuestResponse
+	if len(answer) < 82 || binary.BigEndian.Uint16(answer[:2]) != 1 || binary.BigEndian.Uint16(answer[2:4]) != 0 || binary.BigEndian.Uint16(answer[4:6]) != 0 || !bytes.Equal(answer[6:38], requestDigest[:]) || int(binary.BigEndian.Uint32(answer[78:82])) != len(answer)-82 {
+		return nil, pxUnavailable("invalid_inference_response")
+	}
+	digest := sha256.Sum256(append([]byte("PAXAI/result/v1\x00"), answer[82:]...))
+	if !bytes.Equal(digest[:], answer[46:78]) {
+		return nil, pxUnavailable("invalid_inference_response")
+	}
+	return bytes.Clone(answer[82:]), nil
+}
+
+// programSections resolves the content-addressed program manifest and shared state
+// at the same committed height used by programRead. It is used only for index discovery.
+func (a *pxAccountAPI) programSections(ctx context.Context, height int64) ([6][]byte, error) {
+	var sections [6][]byte
+	invalid := pxUnavailable("invalid_inference_response")
+	if a.inference == nil {
+		return sections, pxUnavailable("inference_program_not_configured")
+	}
+	values, err := a.call(ctx, height, common.HexToAddress("0x101d"), pxProgramABI, "getStateHead", a.inference.program)
+	if err != nil {
+		return sections, pxUnavailable("inference_program_unavailable")
+	}
+	head := values[0].([]byte)
+	if len(head) != 38 || binary.BigEndian.Uint16(head[:2]) != 1 {
+		return sections, invalid
+	}
+	sdkCtx := a.state.ctxProvider(height)
+	var key sdk.StoreKey
+	for _, candidate := range sdkCtx.MultiStore().StoreKeys() {
+		if candidate.Name() == storekeys.LayerXHostStoreKey {
+			key = candidate
+			break
+		}
+	}
+	if key == nil {
+		return sections, pxUnavailable("inference_program_unavailable")
+	}
+	store := sdkCtx.KVStore(key)
+	blob := func(hash []byte) ([]byte, error) {
+		b := store.Get(append([]byte{5, 0, 9}, hash...))
+		digest := sha256.Sum256(b)
+		if !bytes.Equal(digest[:], hash) {
+			return nil, invalid
+		}
+		return b, nil
+	}
+	manifest, err := blob(head[6:])
+	if err != nil {
+		return sections, err
+	}
+	r := pxFixed{data: manifest}
+	if r.number(2) != 1 {
+		return sections, invalid
+	}
+	count := r.number(4)
+	if count > 65536 || count != uint64(binary.BigEndian.Uint32(head[2:6])) {
+		return sections, invalid
+	}
+	var state []byte
+	var previous []byte
+	for i := uint64(0); i < count; i++ {
+		n := r.number(2)
+		if n == 0 || n > 128 {
+			return sections, invalid
+		}
+		name := r.take(int(n))
+		hash := r.take(32)
+		size := r.number(4)
+		if r.bad || i > 0 && bytes.Compare(previous, name) >= 0 {
+			return sections, invalid
+		}
+		previous = name
+		if string(name) == "paxai/state/v1" {
+			if size > 196608 {
+				return sections, invalid
+			}
+			state, err = blob(hash)
+			if err != nil || uint64(len(state)) != size {
+				return sections, invalid
+			}
+		}
+	}
+	if r.end() != nil || len(state) < 16 || string(state[:6]) != "PAXAS1" || binary.BigEndian.Uint16(state[6:8]) != 1 {
+		return sections, invalid
+	}
+	r = pxFixed{data: state[16:]}
+	caps := [6]int{16384, 24576, 24576, 81920, 24576, 24576}
+	for i := range sections {
+		if r.number(2) != uint64(i+1) || r.number(2) != 0 {
+			return sections, invalid
+		}
+		n := r.number(4)
+		cap := caps[i] - 8
+		if i == 5 {
+			cap -= 16
+		}
+		if n > uint64(cap) || n > uint64(len(r.data)) {
+			return sections, invalid
+		}
+		sections[i] = bytes.Clone(r.take(int(n)))
+	}
+	return sections, r.end()
 }

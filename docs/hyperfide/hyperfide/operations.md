@@ -179,7 +179,7 @@ $ node core/control-plane/dist/control.js --policy /nonexistent --spec-revision 
 
 Authenticated startup, refusal of a request that claims its own approval, refusal of a request for another run and service restart are exercised against PostgreSQL by tests/hyperfide/cases/tasks/28_1.py; the recorded outcome is artifacts/hyperfide/tasks/28.1/evidence-index.json (local, force-added evidence; not a full-case receipt).
 
-An installed release launches its own runtimes directly: runtime/node, bin/hyperfide, bin/hyperfide-native and runtime/python/bin/python3 (a wrapper over python3.bin) run under the host dynamic loader /lib64/ld-linux-x86-64.so.2 with the host glibc, and take every other native library from the release (bin/hyperfide and bin/hyperfide-native through RUNPATH $ORIGIN/../lib/hyperfide, the service units and the migration job through LD_LIBRARY_PATH=<release>/lib/hyperfide, Python through runtime/python/lib). glibc itself is never bundled, so a host needs a glibc no older than the one on the release build host; scripts/release.sh refuses to construct a release that stages a glibc member or whose node does not run both plainly and under the bundled library path.
+An installed release launches its own runtimes directly: runtime/node, bin/hyperfide, bin/hyperfide-native and runtime/python/bin/python3 (a wrapper over python3.bin) run under the host dynamic loader /lib64/ld-linux-x86-64.so.2 with the host glibc, and take every other native library from the release (bin/hyperfide and bin/hyperfide-native through RUNPATH $ORIGIN/../lib/hyperfide, the service units and the migration job through LD_LIBRARY_PATH=<release>/lib/hyperfide, Python through runtime/python/lib). glibc itself is never bundled, so a host needs a glibc no older than the one on the release build host; tools/repository/release.sh refuses to construct a release that stages a glibc member or whose node does not run both plainly and under the bundled library path.
 
 ## Host bootstrap
 
@@ -250,7 +250,7 @@ The local-first CLI is the hyperfide executable. cg is a deprecated compatibilit
 | hyperfide fleet up\|down [--drain] [--wait SECONDS]\|pause\|resume\|runs\|status | Local run supervision; fleet down releases claims and keeps branches.                                             |
 | hyperfide journal list\|apply\|drop                                              | Writes queued while the local database was busy.                                                                  |
 
-The configuration file is hyperfide.kvx (src/config.c); a tree that has only the legacy codify.kvx keeps reading it, and a tree with both is refused unless .hyperfide/names.json records a completed names migration. The 26.3 component migrates codify.kvx to hyperfide.kvx with a backup (docs/config.md). The installer (scripts/install.sh) is not advertised as a Hyperfide release until tasks 25.4 and 26.2 close.
+The configuration file is hyperfide.kvx (core/native/src/config.c); a tree that has only the legacy codify.kvx keeps reading it, and a tree with both is refused unless .hyperfide/names.json records a completed names migration. The 26.3 component migrates codify.kvx to hyperfide.kvx with a backup (docs/config.md). The installer (tools/repository/install.sh) is not advertised as a Hyperfide release until tasks 25.4 and 26.2 close.
 
 ## PostgreSQL and migrations
 
@@ -442,7 +442,7 @@ Reading needs only s3:GetObject on the evidence prefix. Publishing runs in the c
 
 Publishing from the host. One command publishes every local task directory: `python3 tests/hyperfide/publish-evidence.py --all`. For a single task run `qualify.py --publish <id>`, or give publish-evidence.py `--task <id>` (repeatable); publish-evidence.py `--dry-run` prints the plan without publishing. For each task the command bundles the directory and calls the compiled publishEvidenceBundle (core/control-plane/dist/artifacts/objects.js, so build first). The store calls (artifact.object.put, artifact.manifest.commit, artifact.manifest.read) go to component 15.2 of the control service through `hyperfide authority invoke`. The command then reads the receipted bundle back from the store with signed GETs. Only after that does it write tests/hyperfide/evidence-receipts/<id>.json, which you commit. The record also carries the bundle's evidence-index commits (`evidence_commits`), and resolution refuses a record whose commits differ from the bundle. A task whose tracked receipt already names the current bundle is reported CURRENT and skipped unless you pass `--force`. Required variables: the five HF_ARTIFACT_S3_* read variables above, HF_ARTIFACT_ORGANISATION_ID, and HYPERFIDE_TRANSPORT_CONFIG. The transport configuration must be an operator credential whose run is in the control service's HF_ARTIFACT_ALLOWED_RUN_IDS. If the configuration has no run_id, set HF_EVIDENCE_RUN_ID. When any of these is missing, the command refuses with exit 2, lists every missing name and states what it would publish. It never skips silently.
 
-Release marker. scripts/release.sh takes the 26.4 unit receipt from the first of these that exists:
+Release marker. tools/repository/release.sh takes the 26.4 unit receipt from the first of these that exists:
 
 1. HYPERFIDE_RELEASE_UNIT_RECEIPT.
 2. The local artifacts/hyperfide/tasks/26.4 cache, verified against its receipt when one is tracked.
@@ -558,14 +558,14 @@ reports extracted symbols and therefore has a lower symbol count.
 
 The post-0.7 rerun used the real merged modules and passed
 `tests/hyperfide/cases/v22/1_6.sh` on 2026-10-23. It indexed 767 files and
-9,993 symbols under `platform/apps/server/`. An audit of task 1.6's changes
+9,993 symbols under `core/server/`. An audit of task 1.6's changes
 found no stand-ins, projection modules, copied identity gates or SDK accessor
 call sites requiring replacement.
 
 The fixed snapshot preserves the initial r2 source inventory and ignore rules
 for comparison; the qualification copy additionally excludes its pnpm lockfile.
 The three earlier completed runs include 765 files and 9,988 symbols under
-`platform/apps/server/` and finish below the 2,700-second limit. The paired
+`core/server/` and finish below the 2,700-second limit. The paired
 nested measurement includes SQL profiling overhead. Init with `--nested` uses
 the same indexing pipeline as plain init; it changes project-root selection.
 

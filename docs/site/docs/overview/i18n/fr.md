@@ -2,12 +2,12 @@
 
 Paxeer X Network est un réseau BFT pour les agents autonomes, les paiements et l’exécution programmable. LayerX est intégré au nœud Paxeer, `paxd`.
 
-[English](https://github.com/Sidiora-Labs/Paxeer-X-Network/blob/main/README.md) · [Español](es.md) · [日本語](ja.md) · [Русский](ru.md) · [简体中文](zh-cn.md) · [Português](pt-br.md) · [Deutsch](de.md) · Français
+[English](https://github.com/Sidiora-Labs/paxeer-monorepo/blob/main/README.md) · [Español](es.md) · [日本語](ja.md) · [Русский](ru.md) · [简体中文](zh-cn.md) · [Português](pt-br.md) · [Deutsch](de.md) · Français
 
 *En cas de divergence, le README anglais est la version de référence.*
 
-[![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://github.com/Sidiora-Labs/Paxeer-X-Network/blob/main/LICENSE)
-[![CI](https://github.com/Sidiora-Labs/Paxeer-X-Network/actions/workflows/ci.yml/badge.svg)](https://github.com/Sidiora-Labs/Paxeer-X-Network/blob/main/.github/workflows/ci.yml)
+[![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://github.com/Sidiora-Labs/paxeer-monorepo/blob/main/LICENSE)
+[![CI](https://github.com/Sidiora-Labs/paxeer-monorepo/actions/workflows/ci.yml/badge.svg)](https://github.com/Sidiora-Labs/paxeer-monorepo/blob/main/.github/workflows/ci.yml)
 
 ## Ce qu’est Paxeer X Network
 
@@ -15,7 +15,7 @@ Paxeer mainnet-beta utilise l’identifiant de chaîne EVM **125** (`0x7d`). Le 
 
 Le noyau natif est intégré à `paxd` par `modules/lxphost/`. Les mouvements monétaires passent par les chemins du registre comptable, de la banque et de l’état EVM de la chaîne. L’exécution native critique pour le consensus utilise un encodage canonique et une arithmétique entière vérifiée ; les suites de rejeu vérifient la reproductibilité.
 
-Les sous-chaînes sont des domaines locataires : des espaces de noms dans la base de données. Elles ne nécessitent ni réseau de validateurs ni infrastructure de nœuds supplémentaires. Ce monorepo contient les composants d’un seul réseau. Les spécifications en vigueur se trouvent dans [`spec/layerx-merge/`](https://github.com/Sidiora-Labs/Paxeer-X-Network/tree/main/spec/layerx-merge).
+Les sous-chaînes sont des domaines locataires : des espaces de noms dans la base de données. Elles ne nécessitent ni réseau de validateurs ni infrastructure de nœuds supplémentaires. Ce monorepo contient les composants d’un seul réseau. Les spécifications en vigueur se trouvent dans [`spec/layerx-merge/`](https://github.com/Sidiora-Labs/paxeer-monorepo/tree/main/spec/layerx-merge).
 
 ## Essayer la connexion
 
@@ -70,7 +70,7 @@ Les tests natifs, l’intégration du nœud et les matrices de publication étab
 - [Présentation du réseau](../../index.md)
 - [Organisation du monorepo](../monorepo.md)
 - [Qualification](../../operators/qualification.md)
-- [Spécifications](https://github.com/Sidiora-Labs/Paxeer-X-Network/tree/main/spec/layerx-merge)
+- [Spécifications](https://github.com/Sidiora-Labs/paxeer-monorepo/tree/main/spec/layerx-merge)
 
 ## SDK et intégrations
 
@@ -88,14 +88,14 @@ Les tests natifs, l’intégration du nœud et les matrices de publication étab
 
 ## Contribuer
 
-Lire [`CONTRIBUTING.md`](https://github.com/Sidiora-Labs/Paxeer-X-Network/blob/main/CONTRIBUTING.md) avant d'ouvrir une pull request. Les changements de protocole commencent dans `spec/`. Ne pas divulguer une vulnérabilité suspectée dans une issue publique ; suivre [`SECURITY.md`](https://github.com/Sidiora-Labs/Paxeer-X-Network/blob/main/SECURITY.md).
+Lire [`CONTRIBUTING.md`](https://github.com/Sidiora-Labs/paxeer-monorepo/blob/main/CONTRIBUTING.md) avant d'ouvrir une pull request. Les changements de protocole commencent dans `spec/`. Ne pas divulguer une vulnérabilité suspectée dans une issue publique ; suivre [`SECURITY.md`](https://github.com/Sidiora-Labs/paxeer-monorepo/blob/main/SECURITY.md).
 
 ## Sécurité
 
-Signaler les vulnérabilités via le reporting privé GitHub, comme décrit dans [`SECURITY.md`](https://github.com/Sidiora-Labs/Paxeer-X-Network/blob/main/SECURITY.md).
+Signaler les vulnérabilités via le reporting privé GitHub, comme décrit dans [`SECURITY.md`](https://github.com/Sidiora-Labs/paxeer-monorepo/blob/main/SECURITY.md).
 
 ## Licence
 
-Distribué sous la licence Apache, version 2.0. Voir [`LICENSE`](https://github.com/Sidiora-Labs/Paxeer-X-Network/blob/main/LICENSE) et [`NOTICE`](https://github.com/Sidiora-Labs/Paxeer-X-Network/blob/main/NOTICE).
+Distribué sous la licence Apache, version 2.0. Voir [`LICENSE`](https://github.com/Sidiora-Labs/paxeer-monorepo/blob/main/LICENSE) et [`NOTICE`](https://github.com/Sidiora-Labs/paxeer-monorepo/blob/main/NOTICE).
 
 Paxeer X Network est développé par Sidiora Labs.

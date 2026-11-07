@@ -4,7 +4,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::io::{Read as _, Write as _};
 use std::net::TcpListener;
-use std::os::unix::fs::PermissionsExt as _;
+use std::os::unix::fs::{DirBuilderExt as _, PermissionsExt as _};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output, Stdio};
 use std::sync::atomic::{AtomicU32, Ordering};
@@ -146,8 +146,17 @@ fn enrol_published(
         policy_version: "policy-v1".to_owned(),
         core_sequence: 50,
     };
-    enrolment::enrol(&mut store, &mut sessions, &identity, request, &publisher)
-        .unwrap_or_else(|error| panic!("enrol: {error}"))
+    let published = enrolment::enrol(&mut store, &mut sessions, &identity, request, &publisher)
+        .unwrap_or_else(|error| panic!("enrol: {error}"));
+    assert_eq!(
+        fs::metadata(&published.binding)
+            .expect("published binding metadata")
+            .permissions()
+            .mode()
+            & 0o777,
+        0o600
+    );
+    published
 }
 
 fn enrol(root: &Path, endpoint: &str, bearer: &str, readiness: &str) -> PublishedBinding {
@@ -587,9 +596,20 @@ fn an_explicit_binding_path_narrows_the_installed_surface_to_read_only() {
     let original_binding = fs::read(&published.binding).expect("unchanged publisher bytes");
     gateway.serve(&root, &published.binding);
     let relocated = root.join("elsewhere");
-    fs::create_dir_all(&relocated).unwrap_or_else(|error| panic!("relocated: {error}"));
+    fs::DirBuilder::new()
+        .mode(0o700)
+        .create(&relocated)
+        .unwrap_or_else(|error| panic!("relocated: {error}"));
     let binding_path = relocated.join("binding.json");
     fs::copy(&published.binding, &binding_path).unwrap_or_else(|error| panic!("copy: {error}"));
+    assert_eq!(
+        fs::metadata(&binding_path)
+            .expect("relocated binding metadata")
+            .permissions()
+            .mode()
+            & 0o777,
+        0o600
+    );
     let installed = success(&install(
         &root,
         &[

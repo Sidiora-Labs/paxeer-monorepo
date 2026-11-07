@@ -357,13 +357,21 @@ fn tool_submit_recovery() {
         let runtime = toolset::Runtime::loopback(&url, 125).unwrap();
         let arguments = json!({"raw_transaction":format!("0x{}", encoding::hex_encode(&raw))});
         let result = if task_path {
-            toolset::invoke_task(&runtime, tool("activity.submit"), &arguments)
+            let result =
+                toolset::invoke_task(&runtime, tool("activity.submit"), &arguments).unwrap();
+            assert_eq!(result["txHash"], hash(&raw));
+            assert_eq!(result["rung"], "unknown");
+            assert!(!result["detail"].as_str().unwrap().is_empty());
+            result
         } else {
-            toolset::invoke(&runtime, tool("activity.submit"), &arguments)
-        }
-        .unwrap();
-        assert_eq!(result["txHash"], hash(&raw));
-        assert_eq!(result["rung"], "unknown");
+            let error = toolset::invoke(&runtime, tool("activity.submit"), &arguments).unwrap_err();
+            let prefix = format!("submission_indeterminate: {}: ", hash(&raw));
+            let detail = error
+                .strip_prefix(&prefix)
+                .expect("local hash in tool error");
+            assert!(!detail.is_empty());
+            json!(error)
+        };
         std::fs::write(
             directory.path().join("recovery.json"),
             serde_json::to_vec(&result).unwrap(),
@@ -375,15 +383,28 @@ fn tool_submit_recovery() {
         let saved: Value =
             serde_json::from_slice(&std::fs::read(directory.path().join("recovery.json")).unwrap())
                 .unwrap();
+        let recovery_hash = if task_path {
+            saved["txHash"].as_str().unwrap()
+        } else {
+            saved
+                .as_str()
+                .unwrap()
+                .strip_prefix("submission_indeterminate: ")
+                .unwrap()
+                .split_once(": ")
+                .unwrap()
+                .0
+        };
+        assert_eq!(recovery_hash, hash(&raw));
         let (url, worker) = reopen_receipt_peer(&store);
         let reopened = toolset::Runtime::loopback(&url, 125).unwrap();
         let receipt = toolset::invoke(
             &reopened,
             tool("receipt.get"),
-            &json!({"activity_id":saved["txHash"]}),
+            &json!({"activity_id":recovery_hash}),
         )
         .unwrap();
-        assert_eq!(receipt["txHash"], result["txHash"]);
+        assert_eq!(receipt["txHash"], recovery_hash);
         assert_eq!(receipt["rung"], "submitted");
         worker.join().unwrap();
     }

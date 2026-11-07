@@ -28,6 +28,7 @@ pub struct ParticipantRosterEntry {
 }
 
 impl ParticipantRosterEntry {
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn from_manifest(worker: WorkerRosterEntry, manifest: &[u8]) -> CodecResult<Self> {
         let summary = decode_manifest(manifest)?;
         if summary.worker != worker.worker
@@ -52,6 +53,7 @@ const ROSTER_MEMBER_BYTES: usize = 33 + 32 + 8 + 8;
 ///
 /// # Errors
 /// `F08_NO_PRUNABLE_MEMBER` when no active member of `role` has two complete misses.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn prune_candidate(
     table: &AdmissionTable,
     role: Role,
@@ -85,6 +87,7 @@ pub struct Health {
 ///
 /// # Errors
 /// `ARITHMETIC` only if a decoded table could exceed `u8` members, which capacity forbids.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn health(table: &AdmissionTable) -> CodecResult<Health> {
     let frozen = || {
         table
@@ -280,6 +283,7 @@ fn reward_state<'a>(
 }
 
 /// Unclaimed TERMINAL entitlements still owed to `worker` through its frozen recipient.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn outstanding(rewards: &RewardState<'_>, worker: WorkerId) -> CodecResult<(u16, Amount)> {
     let dictionary = rewards.dictionary();
     let (mut count, mut amount) = (0u16, 0);
@@ -302,6 +306,7 @@ fn outstanding(rewards: &RewardState<'_>, worker: WorkerId) -> CodecResult<(u16,
 }
 
 /// Clock epoch of `height` for a live market, inside its Work window.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn opening_epoch(market: &MarketHeader, height: u64) -> CodecResult<u64> {
     match market.lifecycle {
         REGISTERED | ACTIVE => {}
@@ -320,6 +325,7 @@ fn opening_epoch(market: &MarketHeader, height: u64) -> CodecResult<u64> {
 
 /// Delegate generation the member's current F02 record authorizes for `epoch`; an
 /// evaluator keeps its F08 generation.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn authorized(
     workers: &WorkerTable,
     m: &AdmissionMeta,
@@ -485,6 +491,7 @@ pub(crate) fn rollover_roster_with<'c>(
 ///
 /// # Errors
 /// Propagates codec and host hash failures.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn roster_digest(table: &AdmissionTable, epoch: u64) -> CodecResult<Digest32> {
     let mut buf = [0u8; 8 + MAX_MEMBERS * ROSTER_MEMBER_BYTES];
     let mut w = Writer::new(&mut buf);

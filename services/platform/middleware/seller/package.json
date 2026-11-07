@@ -4,9 +4,10 @@
   "description": "Receipt-gated LayerX x402 seller middleware",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Sidiora-Labs/Paxeer-X-Network.git",
+    "url": "git+https://github.com/Sidiora-Labs/paxeer-monorepo.git",
     "directory": "services/platform/middleware/seller"
   },
+  "homepage": "https://github.com/Sidiora-Labs/paxeer-monorepo/tree/main/services/platform/middleware/seller",
   "type": "module",
   "private": false,
   "license": "Apache-2.0",

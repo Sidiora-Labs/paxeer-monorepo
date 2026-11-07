@@ -17,6 +17,16 @@ export function validateWalletChainId(chainId: number): number {
   return chainId;
 }
 
+export function parseWalletReadChainId(url: URL): number {
+  if (
+    url.searchParams.getAll('chain_id').length !== 1 ||
+    !/^[1-9]\d{0,9}$/.test(url.searchParams.get('chain_id') ?? '')
+  ) {
+    throw new TypeError('Wallet read requires one canonical chain identity');
+  }
+  return validateWalletChainId(Number(url.searchParams.get('chain_id')));
+}
+
 export function selectedWalletChainId(): number {
   if (typeof window === 'undefined') return validateWalletChainId(PAXEER_CONFIG.chainId);
   const preferences = preferencesRepository.read();
@@ -68,13 +78,7 @@ export interface WalletReadRequest {
 /** The wallet BFF must consume this contract before consulting its response or in-flight caches. */
 export function parseWalletReadRequest(url: URL, method = 'GET'): WalletReadRequest {
   if (!['GET', 'HEAD'].includes(method)) throw new TypeError('Wallet reads are read-only');
-  if (
-    url.searchParams.getAll('chain_id').length !== 1 ||
-    !/^[1-9]\d{0,9}$/.test(url.searchParams.get('chain_id') ?? '')
-  ) {
-    throw new TypeError('Wallet read requires one canonical chain identity');
-  }
-  const chainId = validateWalletChainId(Number(url.searchParams.get('chain_id')));
+  const chainId = parseWalletReadChainId(url);
   const freshValues = url.searchParams.getAll('fresh');
   if (freshValues.length > 1 || (freshValues.length === 1 && freshValues[0] !== 'true')) {
     throw new TypeError('Wallet cache bypass is invalid');

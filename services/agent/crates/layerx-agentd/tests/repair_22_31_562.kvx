@@ -47,3 +47,8 @@ evidence = "Exact candidate revision, command, exit and private log for both gat
 build_log = "/out/logs/build-1.log"
 verify_log = "/out/logs/verify-1.log"
 record_policy = "This record is finalized before qualification; do not amend any file after the gates to transcribe results, because that would change the candidate (gotcha 3142)."
+
+[regression.managed_agent_checks_613]
+boundary = "The SEQUENCER_SIGNED negative case is refused by human_runtime::approval_budget_after before a managed-agent snapshot is recorded; its exact operation.refused frame remains unchanged."
+execution = "The existing regression target runs alone under task 22.31.613; tests/repair_22_31_613.kvx references its private command, revision, exit and log. All behavioral cases and recording-only ignore attributes are preserved."
+evidence = "The final passing verify row in /out/run/gates.jsonl supplies the verified revision, command, exit and private log and must match the final passing build row; no result is claimed before execution."

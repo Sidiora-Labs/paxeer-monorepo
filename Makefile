@@ -267,6 +267,12 @@ test-tests-python:
 		tests/ci/test_runner_routing_container_runtime.py \
 		tests/test_lxgb_producers.py tests/test_beta_withdrawal_genesis.py tests/ci
 
+.PHONY: test-python-suites
+test-python-suites: layerx-genesis-build layerx-module-registry $(BUILD_DIR)/tests/explorer_fixture
+	PYTHONPATH=$(CURDIR)/services/agent/sdk/python \
+		LAYERX_TEST_BUILD_DIR="$(abspath $(BUILD_DIR))" \
+		python3 tests/ci/run_python_suites.py
+
 list-tests: $(BUILD_DIR)/tests/lxp_test_harness
 	$(BUILD_DIR)/tests/lxp_test_harness --list
 
@@ -1129,7 +1135,8 @@ test-contract-state-surface:
 	scripts/ci/solidity-state-surface.sh
 
 test-contracts: test-contract-state-surface
-	FOUNDRY_TEST=tests/solidity forge test --offline --root . --no-dynamic-test-linking
+	FOUNDRY_PROFILE=names forge test --offline --root . --no-dynamic-test-linking -vvv
+	FOUNDRY_PROFILE=governance forge test --offline --root . --no-dynamic-test-linking -vvv
 
 qualify-replay:
 	tools/lxp_qual_replay_matrix.sh
@@ -2499,7 +2506,7 @@ paxd-native-libs: $(LIBRARY) programs-release-build
 
 paxd-build: paxd-native-libs
 	version=$$(jq -er .version tools/release/version.json) && \
-		GOPROXY=off $(PAXEER_MAKE) build LDFLAGS="-X github.com/Sidiora-Labs/Paxeer-X-Network/sdk/version.Version=$$version"
+		GOPROXY=off $(PAXEER_MAKE) build VERSION="$$version"
 
 test-lxphost: paxd-native-libs
 	CGO_ENABLED=1 go test ./modules/lxphost/...
@@ -2734,10 +2741,8 @@ interop-test:
 interop-test-mirrors:
 	$(INTEROP_CARGO) test --manifest-path $(INTEROP_MANIFEST) --locked -p layerx-mirror
 	cargo test --manifest-path services/interop/contracts/solana-mirror/Cargo.toml --locked
-	forge test --root . --contracts services/interop/contracts/ethereum-mirror \
-		--match-path services/interop/contracts/ethereum-mirror/test/LayerXMirrorArchive.t.sol \
-		--use 0.8.30 --evm-version paris --optimize --optimizer-runs 100000 \
-		--via-ir --no-metadata
+	forge test --root services/interop/contracts/ethereum-mirror \
+		--evm-version paris --no-dynamic-test-linking -vvv
 
 interop-test-x402:
 	$(INTEROP_CARGO) test --manifest-path $(INTEROP_MANIFEST) --locked -p layerx-x402
@@ -2921,13 +2926,6 @@ programs-executed-v4-fixture: programs-build
 programs-check-executed-v4-fixture: programs-build
 	$(MAKE) $(BUILD_DIR)/tests/programs_call_activity
 	python3 sdk/platform/conformance/fixtures/generate_executed_program_v4_fixture.py --encoder $(BUILD_DIR)/tests/programs_call_activity --check
-
-.PHONY: programs-executed-fixture programs-check-executed-fixture
-programs-executed-fixture: $(BUILD_DIR)/tests/programs_call_activity
-	python3 sdk/platform/conformance/fixtures/generate_executed_program_fixture.py --encoder $<
-
-programs-check-executed-fixture: $(BUILD_DIR)/tests/programs_call_activity
-	python3 sdk/platform/conformance/fixtures/generate_executed_program_fixture.py --encoder $< --check
 
 $(BUILD_DIR)/tests/programs_metering_schedule: tests/programs/test_metering_schedule.c \
 		$(LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build

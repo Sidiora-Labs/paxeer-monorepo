@@ -1,12 +1,12 @@
 # Receipts
 
-A receipt is the only artefact in LayerX Network that constitutes proof. Everything else - a `200`, a webhook, a journey in state `done`, a dashboard row - is a report about a payment. The receipt is the payment.
+A receipt records execution on Paxeer X Network, while a `200`, webhook or dashboard row reports an application outcome. A receipt is final once its block is committed. The separate execution, checkpoint and settlement architecture is retired.
 
-The verifier is implemented in source (`layerx-proof` and the offline `layerx receipt verify` path). That the code exists is not a claim that it has passed its executed gates: the beta contract records the receipt surfaces at rung `source_present`, so run the local verification commands yourself and treat a verified receipt, never this page, as the proof.
+`layerx receipt verify` and the `layerx-proof` sample are a local compatibility verifier for receipt bytes and caller-supplied batch facts. They do not establish block commitment. For finality, authenticate the block header and CometBFT commit and verify transaction or state inclusion against the authenticated root at the relevant height. See [Committed block evidence](https://github.com/Sidiora-Labs/paxeer-monorepo/blob/abc81fd2cead6b2b9d5612c6e09a6ab56f13c1ed/docs/site/docs/concepts/checkpoints.md#committed-block-evidence).
 
 ## What verification needs
 
-Verifying a receipt takes exactly two things: the canonical receipt bytes, and the batch facts they should be checked against.
+The local compatibility check takes the canonical receipt bytes and the batch facts they should be checked against.
 
 | Batch fact | What it is |
 |---|---|
@@ -14,13 +14,13 @@ Verifying a receipt takes exactly two things: the canonical receipt bytes, and t
 | `asset` | The asset the batch settles |
 | `previous_state_root` | The state the batch started from |
 | `resulting_state_root` | The state it produced |
-| `sequencer_public_key` | The key that authorised it |
+| `sequencer_public_key` | The independently trusted key for the compatibility signature check |
 
 Verification is a pure function of those inputs. No node, no daemon, no database, no clock and no network connection is involved. This is what makes a receipt portable: you can hand it, and the batch facts, to a counterparty who has never spoken to us, and they can check it for themselves.
 
 ## Where the batch facts must come from
 
-Not from the same place as the receipt. A receipt verified against batch facts supplied by the party who gave you the receipt proves only that they are internally consistent. Take the batch header from a source you trust independently - a checkpoint you follow, a mirror publication on another chain, a counterparty's own view.
+Use an independently trusted source for compatibility batch facts. If the party supplying the receipt also supplies all its trust inputs, a successful check proves only internal consistency. An archived batch header or mirror publication does not establish current network finality; use committed block evidence for that claim.
 
 ## Verifying in code
 
@@ -49,24 +49,21 @@ layerx receipt verify \
   --sequencer-public-key <hex>
 ```
 
-`receipt get` reads exact receipt material from the active environment. `receipt verify` never touches the network: every fact it checks against is an argument you supplied. The `--receipt` file may hold the canonical bytes raw, or the same bytes as ASCII hex - the CLI accepts either, so piping a hex field out of a JSON response into a file works without a conversion step.
+`receipt get` fetches receipt material; on the merged network its argument is a transaction hash for `pax_sequencerReceipt`. Fetching is not verification. `receipt verify` never touches the network: every fact it checks against is an argument you supplied. The `--receipt` file may hold the canonical bytes raw, or the same bytes as ASCII hex - the CLI accepts either, so piping a hex field out of a JSON response into a file works without a conversion step. The retained command example above uses compatibility inputs.
 
 On success it prints the verification level as its wire rank, the receipt digest, the activity id, the batch id, the protocol result code and the canonical byte length. On failure it names the exact check that failed - not a generic error.
 
 ## Verification levels
 
-A verified receipt carries a level, and the levels are ordered:
+The current network reports achieved evidence rungs:
 
-| Level | Means |
+| Rung | Means |
 |---|---|
-| `unverified` | Nothing has been established |
-| `sequencer-signed` | The sequencer signed it |
-| `batch-included` | It is in a batch |
-| `state-proven` | The batch's state transition is proven |
-| `checkpoint-finalised` | The batch is under a finalised checkpoint |
-| `settlement-anchored` | The checkpoint is anchored externally |
+| `submitted` | A known transaction without a signed execution receipt |
+| `receipted` | A signed execution receipt awaiting block commitment |
+| `committed` | The committed block covers the receipt; block commit is finality |
 
-A lower level is never reported as a higher one, and no code path returns a level it did not establish. Decide which level your business needs and check for it explicitly - shipping physical goods and unlocking an API response are not the same risk.
+`checkpoint-finalised` and `done-finalised` are retained API names for the `committed` rung. `settlement-anchored` and `paxeer-finalised` are never reached on the merged network. Check the achieved rung explicitly: a signed execution receipt and a local compatibility wire rank do not establish block commitment.
 
 ## `still-checking` is an answer
 
@@ -76,7 +73,7 @@ If a receipt cannot presently be verified, that is reported as itself. It is not
 
 | Capability | Layer | What that means here |
 |---|---|---|
-| Offline receipt verification | `protocol` | Verification is a pure function of receipt bytes and batch facts. |
+| Offline receipt verification | `protocol` | Compatibility verification is a pure function of receipt bytes and batch facts; finality requires committed block evidence. |
 | Atomic settlement | `protocol` | A verified receipt describes a payment that applied whole. |
 | Conserved supply | `protocol` | The amounts in a verified receipt are the amounts that moved. |
 | Replay refusal | `protocol` | A receipt cannot be presented twice to settle twice. |

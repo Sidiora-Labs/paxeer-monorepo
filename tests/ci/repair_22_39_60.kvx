@@ -1,0 +1,40 @@
+[repair.22.39.60]
+mode = "BUILD"
+decision = "2803, 2839"
+gotcha = "3437, 3509"
+acceptance = "22998.1"
+base_revision = "a2c62c5e5d29e1818fed9ad6ba68d7ae6beb85a2"
+verified_revision = "The exact candidate revision, command, exit and private log are recorded by hf-done in /out/run/gates.jsonl and copied into the final handoff. This record belongs to that candidate; completion requires a passing verification row."
+build_evidence = "/out/run/gates.jsonl: final kind=build row records revision, command, exit and private log; it must pass at the same revision as verification."
+verify_evidence = "/out/run/gates.jsonl: final kind=verify row records revision, cg spec done command, exit and private log; completion requires exit zero."
+build_cmd = "python3 -m py_compile tests/ci/test_repo_hygiene_strays.py"
+verify_cmd = "python3 -m pytest -q tests/ci/test_repo_hygiene_strays.py"
+publication = "The external runner publishes the qualified candidate; no worker commit or push."
+
+[cleanup.strays]
+reason = "The two empty files, the dated Git bundle and patch files, and the unreferenced perps model have no live source consumers. The adjacent sort implementation remains in getNextSortValue.ts."
+deleted_paths = ["contracts/launchpad/llms.txtslither.config.json", "apps/explorer/ui/shared/sort/getNextSortOrder.tsx", "apps/perps/public/model.gltf", "patches/10292026_01/commits/0001-Preserve-receipted-lifecycle-refusal-coverage-1179.patch", "patches/10292026_01/commits/0002-Keep-refused-price-observations-off-live-market-topi.patch", "patches/10292026_01/overnight-fixes.bundle"]
+
+[cleanup.keep_markers]
+reason = "Remove all 22 keep markers whose directories already contain tracked real files, including nested content. Preserve the sole markers in contracts/launchpad/contracts/meta-ag/router/adapters and tests/integration/rpc_tests/runtime."
+deleted_paths = ["docs/platform/.gitkeep", "services/platform/examples/.gitkeep", "services/platform/hosted/gateway/.gitkeep", "tools/platform/cli/.gitkeep", "tools/platform/emulator/.gitkeep", "contracts/launchpad/contracts/meta-ag/analytics/.gitkeep", "contracts/launchpad/contracts/meta-ag/engine/.gitkeep", "contracts/launchpad/contracts/meta-ag/oracle/.gitkeep", "contracts/launchpad/contracts/meta-ag/oracle/adapters/.gitkeep", "contracts/launchpad/contracts/meta-ag/quoter/.gitkeep", "contracts/launchpad/contracts/meta-ag/router/.gitkeep", "contracts/launchpad/contracts/meta-ag/vault/.gitkeep", "contracts/launchpad/scripts/meta-ag/.gitkeep", "contracts/launchpad/storage-layout/meta-ag/.gitkeep", "contracts/launchpad/test/meta-ag/analytics/.gitkeep", "contracts/launchpad/test/meta-ag/engine/.gitkeep", "contracts/launchpad/test/meta-ag/integration/.gitkeep", "contracts/launchpad/test/meta-ag/oracle/.gitkeep", "contracts/launchpad/test/meta-ag/quoter/.gitkeep", "contracts/launchpad/test/meta-ag/router/.gitkeep", "contracts/launchpad/test/meta-ag/vault/.gitkeep", "services/platform/middleware/.gitkeep"]
+
+[cleanup.encoding]
+path = "scripts/codify.sh"
+repair = "Recover UTF-8 text that was decoded as Windows-1252, including the banner and user messages; use a plain ASCII dash in the header. Keep executable mode and installer behavior."
+
+[tests.inventory]
+source = "Tracked and nonignored new regular files from git ls-files, reflecting working-tree deletions."
+exclusions = "Pinned imported implementation trees, imported inference engine, TradingView chart distribution, Swagger UI distributions, vendored components, engineering spec records, dependency lock/checksum files and generated build directories. First-party application code, docs, fixtures and generated code remain covered."
+empty_source_allowlist = "Four exact empty Python package markers with per-path reasons; stale or nonempty exceptions fail."
+coverage = "Reject empty source outside the allowlist, v2 Git bundles identified by the exact first-line signature in .bundle candidates and dated patch paths, keep markers beside tracked content including nested content, and common Windows-1252/Latin-1 mojibake signatures in owned text. Require the unused model to stay absent and the installer header to use the requested plain dash."
+
+[continuation.2]
+previous_candidate = "ac30b2418bbc"
+resolution = "Decision 2839 expands scope to the four launchpad meta-ag directories and platform middleware; delete the sixteen launchpad markers and middleware marker listed above. Retain the prior cleanup and all four regression tests."
+bundle_detection = "The .bundle suffix also names the human service LXHEXPV3 export fixture. Read each candidate first line and reject only the v2 Git bundle signature; retain services/human/schema/human-api/golden/current/activity.evidence.bundle."
+
+[implementation.gotchas]
+read_limits = "The spec and gotcha ledgers are too large for a combined shell read; inspect the exact task and referenced sections with bounded extraction."
+encoding = "Encoding damage covers installer messages and the box-drawing banner as well as its header; recover the complete in-scope file."
+formatter = "The repository pre-commit configuration declares trailing-whitespace and final-newline hooks, with no Python, shell or KVX language formatter. Preserve existing style and normalize touched text only."

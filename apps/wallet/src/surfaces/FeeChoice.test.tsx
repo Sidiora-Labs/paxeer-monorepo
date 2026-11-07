@@ -9,6 +9,7 @@ import {
   abiSelector,
   exchangeCancelOrderCall,
   gasQuoteDigest,
+  gasStationQuoteUrl,
 } from '@sidiora/layerx-sdk/browser';
 import {
   FEE_TOKEN_PRECOMPILE,
@@ -30,11 +31,13 @@ import { SendButton, SentResult, SurfaceFrame } from './Surface';
 import { useFeeSelection, useModuleSend, useSurfaceWallet } from './useSurface';
 import { SurfaceChain, click, mountSurface, text, until, type Mounted } from './test/chain';
 
+import { RecordedSurfaceChain } from './test/recordedReceipts';
+
 let chain: SurfaceChain;
 let mounted: Mounted | null = null;
 
 beforeEach(() => {
-  chain = new SurfaceChain();
+  chain = new RecordedSurfaceChain();
 });
 
 afterEach(async () => {
@@ -147,6 +150,7 @@ describe('FeeChoice', () => {
     const submissions: SponsoredAdapterRequest[] = [];
     const failures: unknown[] = [];
     const hashes: string[] = [];
+    const quotePath = new URL(gasStationQuoteUrl(undefined, 'http://127.0.0.1')).pathname;
     const previous = {
       api: process.env.NEXT_PUBLIC_PAXEER_WALLET_API,
       sponsor: process.env.NEXT_PUBLIC_PAXEER_GAS_SPONSOR,
@@ -181,7 +185,7 @@ describe('FeeChoice', () => {
           send({ wallet: { address: chain.address, chain_id: 125 }, chain: { id: 125 } });
           return;
         }
-        if (request.url === '/v1/wallet/sponsored/quote') {
+        if (request.url === quotePath) {
           quotes.push(body);
           const quote = {
             sponsor: sponsor.address.toLowerCase(),
@@ -324,9 +328,12 @@ describe('FeeChoice', () => {
         expect(sendButton()?.disabled).toBe(true);
         await click(container.querySelector('[data-action="quote"]'), 'fresh quote');
         await until(
-          () => text(container, '[data-role="sponsored-phase"]') === 'quoted',
+          () => ['quoted', 'refused'].includes(text(container, '[data-role="sponsored-phase"]')),
           'SID quote'
         );
+        expect(failures).toEqual([]);
+        expect(text(container, '[data-role="sponsored-reason"]')).toBe('');
+        expect(text(container, '[data-role="sponsored-phase"]')).toBe('quoted');
         expect(quotes).toHaveLength(attempt + 1);
         expect(sendButton()?.disabled).toBe(true);
         await click(
@@ -379,7 +386,10 @@ describe('FeeChoice', () => {
     }
   }
 
-  test(fee_choice_requotes_an_identical_sponsored_send_after_the_first_settles);
+  test(
+    fee_choice_requotes_an_identical_sponsored_send_after_the_first_settles.name,
+    fee_choice_requotes_an_identical_sponsored_send_after_the_first_settles
+  );
 
   it('fee_choice_labels_every_fee_path_with_its_denomination_and_chain_gas', async () => {
     mounted = await mountSurface(chain, <Harness legs={LEGS} />);
@@ -485,7 +495,10 @@ describe('FeeChoice', () => {
     expect(chain.methods).not.toContain('eth_getTransactionReceipt');
   }
 
-  test(fee_choice_applies_the_preference_once_the_change_is_receipted);
+  test(
+    fee_choice_applies_the_preference_once_the_change_is_receipted.name,
+    fee_choice_applies_the_preference_once_the_change_is_receipted
+  );
 
   it('fee_choice_switches_the_fee_token_preference_through_the_precompile', async () => {
     mounted = await mountSurface(chain, <Harness legs={[]} />);
@@ -519,6 +532,9 @@ describe('FeeChoice', () => {
       },
     ]);
     expect(chain.sent[0]?.data.startsWith(abiSelector('setFeeDenom(string)'))).toBe(true);
+    expect(chain.methods).toContain('px_getReceiptKeys');
+    expect(chain.methods).toContain('eth_getRawTransactionByHash');
+    expect(chain.methods).not.toContain('eth_getTransactionReceipt');
     expect(container.querySelector('[data-role="fee-blocked"]')).toBeNull();
 
     await click(choice(container, 'pax_gas'), 'pax gas');
@@ -556,4 +572,7 @@ function fee_choice_refuses_noncanonical_rpc_gas_quantities() {
   for (const value of ['0x00', '21000', '-1', '0x', null])
     expect(() => quantity(value, 'eth_estimateGas')).toThrow('malformed quantity');
 }
-test(fee_choice_refuses_noncanonical_rpc_gas_quantities);
+test(
+  fee_choice_refuses_noncanonical_rpc_gas_quantities.name,
+  fee_choice_refuses_noncanonical_rpc_gas_quantities
+);
