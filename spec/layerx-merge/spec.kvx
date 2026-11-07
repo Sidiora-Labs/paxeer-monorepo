@@ -151139,7 +151139,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.42]
 title = "Make the wallet test suites load by fixing the sdk/wallet package manager and the apps/wallet environment failures"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -172030,7 +172030,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.621]
 title = "Make every Python suite under tools/qualification collect and pass at the current tree"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -331007,7 +331007,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.58]
 title = "Repair the dead relative links of the vendored READMEs and the explorer backend changelog"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -331131,7 +331131,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.53]
 title = "Collect the websearch context module under pytest or move it beside its gate script"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.39.25"]
@@ -331277,7 +331277,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.48]
 title = "Publish the pax image under the registry namespace of the repository owner and remove the unused registry login"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -331487,7 +331487,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.37]
 title = "Remove task, decision and documentation revision notes from the inference market guides and the docs pages that cite programme records"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
