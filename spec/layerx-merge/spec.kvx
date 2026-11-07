@@ -9849,6 +9849,12 @@ value = "A case that binds its report to a clean candidate revision reads the tr
 basis = "Gotchas 3407 and 3409, decisions 2762, 2781 and 2782"
 affects = ["2", "2", ".", "3", "7", ".", "2", ",", " ", "2", "2", ".", "3", "7", ".", "1", "8", ",", " ", "2", "2", ".", "3", "7", ".", "2", "9", " ", "a", "n", "d", " ", "e", "v", "e", "r", "y", " ", "c", "a", "s", "e", " ", "t", "h", "a", "t", " ", "r", "e", "a", "d", "s", " ", "g", "i", "t", " ", "s", "t", "a", "t", "u", "s", " ", "i", "n", " ", "t", "h", "e", " ", "q", "u", "a", "l", "i", "f", "i", "c", "a", "t", "i", "o", "n", " ", "e", "n", "v", "i", "r", "o", "n", "m", "e", "n", "t"]
 
+[decision.2790]
+title = "A dependency change of a crate that another lockfile resolves by path refreshes that lockfile in the same commit, and a stale lockfile found by a verification helper is repaired by one task every helper user requires"
+value = "When a task changes the dependencies of a crate that a second cargo lockfile resolves through a path dependency (the platform lock resolves the agent, program and interop crates), the task refreshes the second lockfile with one resolution without the locked flag and commits it with the manifest; a stale lockfile exposed by a verification helper (decision 2762) is repaired by one task that refreshes the lock and records the cause, and every pending task whose verification runs that helper requires the repair task."
+basis = "Gotcha 3410, decisions 2762 and 2781"
+affects = ["2", "2", ".", "3", "1", ".", "6", "1", "4", ",", " ", "9", ".", "9", "8", ".", "4", ",", " ", "2", "2", ".", "3", "1", ".", "5", "5", "4", ",", " ", "2", "2", ".", "3", "1", ".", "5", "5", "5", ",", " ", "9", ".", "3", "5", ".", "1", "9", " ", "t", "o", " ", "9", ".", "3", "5", ".", "2", "4", " ", "a", "n", "d", " ", "e", "v", "e", "r", "y", " ", "t", "a", "s", "k", " ", "t", "h", "a", "t", " ", "c", "h", "a", "n", "g", "e", "s", " ", "a", "n", " ", "a", "g", "e", "n", "t", ",", " ", "p", "r", "o", "g", "r", "a", "m", " ", "o", "r", " ", "i", "n", "t", "e", "r", "o", "p", " ", "m", "a", "n", "i", "f", "e", "s", "t"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -38739,6 +38745,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.31.614]
+title = "Refresh the platform lockfile so the runtime clock builds with the locked flag"
+reqs = ["22998.1"]
+touches = ["services/platform/Cargo.lock"]
+tests = ["tests/ci/test_platform_lockfile_current.py"]
+verification_contract = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-runtime-clock --bin layerx-runtime-clock && python3 -m pytest -q tests/ci/test_platform_lockfile_current.py"
+do_1 = "do_1 Decision 2790, gotcha 3410. services/platform/Cargo.lock is stale on the main tree: cargo metadata --locked --manifest-path services/platform/Cargo.toml refuses with needs to be updated, and tools/runtime/run-with-clock.sh builds layerx-runtime-clock from that manifest with the locked flag before every daemon verification that uses the clock. Refresh the lock with exactly one resolution without the locked flag (cargo metadata --format-version 1 --manifest-path services/platform/Cargo.toml) and commit the lock; do not run cargo update and do not change any manifest. In tests/ci/repair_22_31_614.kvx record every lock entry that was added, removed or changed its version and, for each, the manifest commit that required it (git log of the dependency manifest since ef11ec4bc2; the agent manifests changed in 6c7e27fb0d, 8e43ba58e4 and c59eebe59b)."
+symbols = []
 
 [capability.22.37.29]
 title = "Align the two legacy plugin suites with the landed manager-decision behaviour"
@@ -179585,6 +179600,35 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.31.614]
+title = "Refresh the platform lockfile so the runtime clock builds with the locked flag"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.31.614"]
+interfaces = []
+do_1 = "do_1 Decision 2790, gotcha 3410. services/platform/Cargo.lock is stale on the main tree: cargo metadata --locked --manifest-path services/platform/Cargo.toml refuses with needs to be updated, and tools/runtime/run-with-clock.sh builds layerx-runtime-clock from that manifest with the locked flag before every daemon verification that uses the clock. Refresh the lock with exactly one resolution without the locked flag (cargo metadata --format-version 1 --manifest-path services/platform/Cargo.toml) and commit the lock; do not run cargo update and do not change any manifest. In tests/ci/repair_22_31_614.kvx record every lock entry that was added, removed or changed its version and, for each, the manifest commit that required it (git log of the dependency manifest since ef11ec4bc2; the agent manifests changed in 6c7e27fb0d, 8e43ba58e4 and c59eebe59b)."
+do_2 = "do_2 Write tests/ci/test_platform_lockfile_current.py with test_platform_lockfile_resolves_locked (cargo metadata --locked --offline --format-version 1 --manifest-path services/platform/Cargo.toml exits 0 from the repository root) and test_runtime_clock_is_a_platform_member (the lock carries one package entry named layerx-runtime-clock)."
+symbols = []
+touches = ["services/platform/Cargo.lock"]
+tests = ["tests/ci/test_platform_lockfile_current.py"]
+planned_paths = ["tests/ci/test_platform_lockfile_current.py", "tests/ci/repair_22_31_614.kvx"]
+build_cmd = "cargo tree --locked --manifest-path services/platform/Cargo.toml -p layerx-runtime-clock --depth 1"
+verify_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-runtime-clock --bin layerx-runtime-clock && python3 -m pytest -q tests/ci/test_platform_lockfile_current.py"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.17]
 title = "Delete the commented-out impl block in the zksolc standard JSON output module"
 status = "pending"
@@ -181058,7 +181102,7 @@ title = "Prove the whole layerx-agentd library target green under the runtime cl
 status = "pending"
 mode = "BUILD"
 wave = 3
-requires = ["22.31.551", "22.31.552", "22.31.553", "22.31.555", "9.98.4", "22.31.545", "22.31.572"]
+requires = ["22.31.551", "22.31.552", "22.31.553", "22.31.555", "9.98.4", "22.31.545", "22.31.572", "22.31.614"]
 reqs = ["22998.1"]
 capabilities = ["22.31.554"]
 interfaces = []
@@ -181087,7 +181131,7 @@ title = "Repair the store fixtures of the read committed, session control and bu
 status = "pending"
 mode = "BUILD"
 wave = 2
-requires = ["22.31.539", "22.31.534", "22.31.550", "22.31.572"]
+requires = ["22.31.539", "22.31.534", "22.31.550", "22.31.572", "22.31.614"]
 reqs = ["22998.1"]
 capabilities = ["22.31.555"]
 interfaces = []
@@ -196447,7 +196491,7 @@ title = "Carry paymentDenom in every daemon receipt fixture so the exact receipt
 status = "pending"
 mode = "BUILD"
 wave = 2
-requires = ["22.23.11", "22.31.443", "22.31.485", "22.31.497", "22.31.558", "22.31.572", "22.31.560", "22.31.585", "22.31.217"]
+requires = ["22.23.11", "22.31.443", "22.31.485", "22.31.497", "22.31.558", "22.31.572", "22.31.560", "22.31.585", "22.31.217", "22.31.614"]
 reqs = ["9998.1"]
 capabilities = ["9.98.4"]
 interfaces = []
@@ -196482,6 +196526,7 @@ do_11 = "Attempt 7 (continue, gotcha 3361, decision 2747; the task time limit is
 do_12 = "Attempt 8 (continue after 22.31.585, gotcha 3363, decision 2749): the attempt-7 tree stands (paymentDenom in every receipt fixture, the linked-block history fixture, the environment guard, the repaired checkpoint builder). This task now requires 22.31.585 and runs after it lands. In human_runtime.rs transaction_submission (match at lines 20548 to 20584) add the arm for module 9 ordinal 1 that builds the programs precompile deploy call with the deploy encoder 22.31.585 adds to the call disclosure codec, from the disclosed deploy of the prepared activity, with the fee limit the retained cases reserve; keep the governance and bridge arms. In policy_usage_sums_only_proven_receipts_in_the_window replace the px_getHistory count 4 at line 23567 and the eth_blockNumber count at line 23573 with the counts the reader on main makes (read_newest in read/history.rs lines 420 onward issues the history requests of one page; the policy reader in policy_history.rs calls it at lines 73 and 190 and block_number once per read); the verify of attempt 7 observed 6 px_getHistory requests. Take the history environment lock (line 23268) and the retained settlement environment lock (lines 24347, 24380, 24405 and 24420) with unwrap_or_else(PoisonError::into_inner) instead of expect. Change nothing in read_policy_history, read_policy_history_from_sources or budget_proof.rs. Then run the build, the dependent-crate check and the verify at the final revision and record them by reference in the task record."
 do_13 = "Attempt 9 (continue, gotcha 3369, the task time limit is 150 minutes): the attempt-8 tree stands (paymentDenom in every quote, the module-9 ordinal-1 arm of the transaction submission at lines 20545 to 20635, the test doubles at lines 23108 to 23540, the fixture and the eight passing tests). First make the refusal visible: in services/human/crates/layerx-human-service/src/human_runtime.rs give settle_retained_native_program_call a site-naming refusal under cfg(test) (a refused_at helper taking a static site name that records the name in a thread-local the fixture reads, with the production value still HumanOperationError::Refused) and apply it at every refusal site of the function from line 3799 onward: the durable decode and state checks (lines 3815 to 3838), the carrier and restore steps (3840 to 3849), verify_before_submit, decode_unsigned, the committed-state path (the NativeProgramDeploy decode for ordinal 1, committed_prepared_caps, read_rpc_endpoint over read_rpc_config, committed_execution_state) and read_retained_lifecycle_debit_settlement_at_execution; make the must helper at line 23748 print the recorded site in its panic message. Run the three failing retained_settlement tests once and record the site each one names in the task record. Then fix only that site; the expected site is the committed-state path, whose px_getCommit answer the fixture builds through rpc_commit under the field set 22.31.585 changed: align the fixture answer with the fields the decoder reads from main, not the decoder with the fixture. For policy_usage_sums_only_proven_receipts_in_the_window make the HistoryRpc double answer eth_blockNumber from one arm so one read_policy_history call issues one eth_blockNumber request and the assertion at line 23605 counts four; if the reader on main issues two per call by design, change the assertion to the count the reader issues and record why. Run the build and the verify at the final revision and record them by reference in the task record."
 do_14 = "Attempt 10 (requalify, gotcha 3377, decision 2762, after 22.31.217 lands): the attempt-9 tree stands (the paymentDenom fixtures, the module-9 arm built with encode_program_deploy, the site recorder, the decoder diagnostics and the single eth_blockNumber arm). Carry it onto main once 22.31.217 has landed, run the build and the verify once and record them by reference in the task record. A refusal that remains inside budget/program_lifecycle_settlement.rs or budget/program_settlement.rs is recorded as a finding against 22.31.217 in the task record and the attempt stops; a refusal at a site inside the task touches is repaired once and the verify rerun once."
+do_15 = "Attempt 11 (requalify, gotcha 3410, decision 2790, after 22.31.614 lands): the attempt-10 tree stands (the paymentDenom fixtures, the module-9 arm, the site recorder, the decoder diagnostics and the single eth_blockNumber arm). Carry it onto main once 22.31.614 has landed so that the clock helper builds the runtime clock with the locked flag, run the build and the verify once and record them by reference in the task record. A refusal at a site inside the task touches is repaired once and the verify rerun once; a refusal elsewhere is recorded as a finding in the task record and the attempt stops."
 
 [task.22.99.159]
 title = "Restore the provider-subject consent fixture the agent daemon tests include"
@@ -200142,7 +200187,7 @@ title = "Delete the agent daemon's legacy activity preparation module and the ke
 status = "pending"
 mode = "BUILD"
 wave = 8
-requires = ["9.35.22", "9.35.23", "22.99.159", "22.99.160", "22.31.572"]
+requires = ["9.35.22", "9.35.23", "22.99.159", "22.99.160", "22.31.572", "22.31.614"]
 reqs = ["22063.1"]
 capabilities = ["9.35.24"]
 interfaces = []
@@ -200172,7 +200217,7 @@ title = "Bind the served call in the sdk and mcp native-disclosure checks"
 status = "pending"
 mode = "BUILD"
 wave = 6
-requires = ["9.35.20", "22.99.160", "22.31.572"]
+requires = ["9.35.20", "22.99.160", "22.31.572", "22.31.614"]
 reqs = ["22062.1"]
 capabilities = ["9.35.23"]
 interfaces = []
@@ -200202,7 +200247,7 @@ title = "Build the agent daemon test authorizations from the ledger payment call
 status = "pending"
 mode = "BUILD"
 wave = 7
-requires = ["9.35.21", "22.99.159", "22.99.160", "22.31.572"]
+requires = ["9.35.21", "22.99.159", "22.99.160", "22.31.572", "22.31.614"]
 reqs = ["22061.1"]
 capabilities = ["9.35.22"]
 interfaces = []
@@ -200233,7 +200278,7 @@ title = "Attach external secp256k1 signatures to the prepared call in every Huma
 status = "pending"
 mode = "BUILD"
 wave = 6
-requires = ["9.35.20", "22.99.159", "22.99.160", "22.31.572"]
+requires = ["9.35.20", "22.99.159", "22.99.160", "22.31.572", "22.31.614"]
 reqs = ["22060.1"]
 capabilities = ["9.35.21"]
 interfaces = []
@@ -200263,7 +200308,7 @@ title = "Serve the Human API prepare, native, native-effect, native-send and nat
 status = "pending"
 mode = "BUILD"
 wave = 5
-requires = ["9.35.18", "9.35.19", "22.99.159", "22.99.160", "22.31.572"]
+requires = ["9.35.18", "9.35.19", "22.99.159", "22.99.160", "22.31.572", "22.31.614"]
 reqs = ["22059.1"]
 capabilities = ["9.35.20"]
 interfaces = []
@@ -200294,7 +200339,7 @@ title = "Read the call-bound preparation in the native-effect carrier and the pr
 status = "pending"
 mode = "BUILD"
 wave = 4
-requires = ["9.35.17", "22.99.158", "22.99.159", "22.99.160", "9.98.4", "22.31.572"]
+requires = ["9.35.17", "22.99.158", "22.99.159", "22.99.160", "9.98.4", "22.31.572", "22.31.614"]
 reqs = ["22058.1"]
 capabilities = ["9.35.19"]
 interfaces = []
