@@ -1,0 +1,33 @@
+[repair.22.39.143]
+mode = "BUILD"
+acceptance = "22998.1"
+source_revision = "eb925e27f69e5e4b924c4a7464e3bfae8e2e4e59"
+codespace = "evm"
+registry = "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types/errors.Register"
+test = "TestFeeTokenRateErrorsCarryTheirCodeAndMessage"
+evidence = "The hf-done entry in /out/run/gates.jsonl names the verified candidate revision, exact command, exit code and private log; qualification requires passing hf-build and hf-done on that same revision."
+repair = "Register four fee-token rate refusals with distinct codes 100 through 103, retaining keeper aliases, existing messages, errors.Is behavior and all keeper logic; no existing EVM module registrations use this range."
+
+[registration.stale]
+symbol = "ErrFeeTokenRateStale"
+code = 100
+message = "fee-token rate is stale"
+
+[registration.unavailable]
+symbol = "ErrFeeTokenRateUnavailable"
+code = 101
+message = "fee-token rate is unavailable"
+
+[registration.invalid]
+symbol = "ErrFeeTokenRateInvalid"
+code = 102
+message = "fee-token rate is invalid"
+
+[registration.spread]
+symbol = "ErrFeeTokenRateSpread"
+code = 103
+message = "fee-token rate update exceeds max_fee_token_spread"
+
+[qualification_note.wrapper_interface]
+observed = "The pre-existing SDK ABCIInfo encoder traverses Cause rather than standard-library Unwrap; existing fmt.Errorf wrappers in keeper rate readers therefore still require a separate SDK interface repair to expose their registered root."
+assumption = "Keep all keeper logic and other errors unchanged as instructed; the declared test proves registered roots, SDK-wrapped ABCI encoding and standard-library errors.Is compatibility, without claiming the node regression was run."
