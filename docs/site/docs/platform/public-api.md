@@ -24,7 +24,7 @@ the hosted gateway answer `lx_*` with `-32601`.
 
 The [Payments](../overview/payments.md) gives the exact ABI
 methods, signing steps, request bodies and refusal codes. The ledger ABI is
-[`precompiles/layerxledger/abi.json`](https://github.com/Sidiora-Labs/Paxeer-X-Network/blob/main/precompiles/layerxledger/abi.json).
+[`precompiles/layerxledger/abi.json`](https://github.com/Sidiora-Labs/paxeer-monorepo/blob/main/precompiles/layerxledger/abi.json).
 
 ## Hosted operations
 

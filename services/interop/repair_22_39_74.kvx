@@ -1,0 +1,235 @@
+[repair.22.39.74]
+decision = "2804"
+gotcha = "3438"
+requirement = "22998.1"
+base_revision = "f90a43293b4a301188919ac9ff10dc4471e31d0f"
+verified_revision = "The exact candidate revision, command, exit code and private log are recorded by hf-done in /out/run/gates.jsonl and copied into the final handoff; this record is part of that candidate."
+build_cmd = "python3 -m py_compile tests/ci/test_interop_workspace_tests_wired.py && cargo test --locked --manifest-path services/interop/Cargo.toml --workspace --no-run"
+verify_cmd = "python3 -m pytest -q tests/ci/test_interop_workspace_tests_wired.py && make interop-test"
+publication = "The runner publishes the qualified candidate; the worker does not commit or push."
+
+[continuation.attempt_2]
+decisions = ["2820", "2826"]
+gotcha = "3483"
+base_revision = "1da6dc32e8527af77419c29cac10ef42af8f67b5"
+carried_revision = "dd1e10e4b474fcaeb34a93179e94eed2e0dde441"
+inventory_command = "make interop-test (the carried recipe: cargo test --locked --manifest-path services/interop/Cargo.toml --workspace --no-fail-fast)"
+inventory_log = "/out/logs/interop-inventory.log"
+baseline = "tests/ci/data/interop_test_baseline.json records each failing member, Cargo target, qualified test name, first error line and retiring task observed by this continuation's inventory. Passing tests from the earlier attempt are not baselined."
+runner = "tests/ci/interop_workspace_test.py validates the baseline, reports each entry, invokes the locked whole workspace with --no-fail-fast and one --skip per recorded qualified name, uses --exact to prevent prefix exclusions, and propagates Cargo's exit status."
+qualification = "hf-build and hf-done qualify the final candidate. The last successful build and verify rows of /out/run/gates.jsonl name their exact revision, command, exit and private log. Both rows must name the same revision; the final handoff copies the verify row. No source file is edited after those gates."
+disposition = "The authorized baseline is not a claim that its tests passed or that member defects are repaired. Member source assertions remain intact and the retiring tasks remove their own entries after repair."
+
+[baseline.22_39_124]
+members = ["layerx-bridge-relayer"]
+entries = "tests/ci/data/interop_test_baseline.json"
+
+[baseline.22_39_125]
+members = ["layerx-committed-proof", "layerx-fiat", "layerx-portable", "layerx-mirror"]
+entries = "tests/ci/data/interop_test_baseline.json"
+
+[baseline.22_39_126]
+members = ["layerx-gas-station", "layerx-interop-gateway", "layerx-interop-service", "layerx-migrate"]
+entries = "tests/ci/data/interop_test_baseline.json"
+
+[baseline.22_39_127]
+members = ["layerx-ucp", "layerx-x402", "x-websearch"]
+entries = "tests/ci/data/interop_test_baseline.json"
+
+[case.workspace_ci]
+observed = "The original workflow tests layerx-x402 only and filters out changes to most interop members; make interop-test already selects the workspace but no workflow invokes it."
+repair = "Add an unconditional workspace-tests job on push to main and pull requests, filter on all services/interop paths, install pinned Rust and native TLS dependencies, and invoke the locked workspace target. Retain the x402 transport job."
+coverage = "The regression gate checks both triggers, the required job and real Make recipe, then reconciles every crates/*/Cargo.toml with Cargo metadata workspace members and executable test targets."
+
+[case.workspace_execution]
+repair = "Use --no-fail-fast so Cargo runs the other member suites even if one fails, while preserving its failing exit status. Set test debug information to zero to bound the full workspace's build footprint without changing assertions or test selection."
+member_failures = "No member failure is claimed repaired without the declared build and verification evidence; any failure encountered during qualification is recorded here before a scoped repair."
+
+[qualification.make_variable_definitions]
+revision = "e8eb2b422afb133545048f5f80982a2fd95967f7"
+command = "cg spec done 22.39.74 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The new recipe parser found two identical INTEROP_MANIFEST assignments; Python verification stopped before any member tests ran."
+repair = "Remove the redundant INTEROP_CARGO and INTEROP_MANIFEST declarations beside the interop recipes and retain their original top-level declarations. Keep the single-definition check and every test assertion intact."
+
+[qualification.workspace]
+revision = "03886b7bd0158966d2a58bad78a8da93e259dea5"
+command = "cg spec done 22.39.74 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-2.log"
+observed = "All three wiring tests passed; Cargo completed the workspace run with 52 failed targets across 12 members (Cargo exit 101, make exit 2); hf-done did not mark the task done."
+assumption = "Failures are in untouched member tests, fixtures, producer components or external interfaces; their repair requires files outside the task scope. No starting-revision rerun was performed and no member repair is claimed."
+stop = "The two permitted gate reruns are consumed by the Makefile repair and its matching build and verify; implementation remains unqualified. This post-gate record update has not been built or verified."
+
+[member.layerx-bridge-relayer]
+revision = "03886b7bd0158966d2a58bad78a8da93e259dea5"
+command = "python3 -m pytest -q tests/ci/test_interop_workspace_tests_wired.py && make interop-test"
+exit = 2
+log = "/out/logs/verify-2.log"
+failed_targets = ["--test loops", "--test operator_config", "--test operator_cosign_contract", "--test paxeer_rpc", "--test proof_bridge_relayer", "--test repair_22_31_160", "--test repair_22_33_68", "--test sequencer_receipt"]
+disposition = "Observed failure; member sources and tests are outside scope and remain unchanged. No passing verified revision exists for this member in this task."
+
+[member.layerx-committed-proof]
+revision = "03886b7bd0158966d2a58bad78a8da93e259dea5"
+command = "python3 -m pytest -q tests/ci/test_interop_workspace_tests_wired.py && make interop-test"
+exit = 2
+log = "/out/logs/verify-2.log"
+failed_targets = ["--test committed_vectors", "--test proof_rs_committed_proof_crate", "--test receipted", "--test repair_22_33_90"]
+disposition = "Observed failure; member sources and tests are outside scope and remain unchanged. No passing verified revision exists for this member in this task."
+
+[member.layerx-fiat]
+revision = "03886b7bd0158966d2a58bad78a8da93e259dea5"
+command = "python3 -m pytest -q tests/ci/test_interop_workspace_tests_wired.py && make interop-test"
+exit = 2
+log = "/out/logs/verify-2.log"
+failed_targets = ["--test sequenced_vectors"]
+disposition = "Observed failure; member sources and tests are outside scope and remain unchanged. No passing verified revision exists for this member in this task."
+
+[member.layerx-gas-station]
+revision = "03886b7bd0158966d2a58bad78a8da93e259dea5"
+command = "python3 -m pytest -q tests/ci/test_interop_workspace_tests_wired.py && make interop-test"
+exit = 2
+log = "/out/logs/verify-2.log"
+failed_targets = ["--lib", "--test did_budget", "--test rate", "--test resolution_policy", "--test service", "--test station"]
+disposition = "Observed failure; member sources and tests are outside scope and remain unchanged. No passing verified revision exists for this member in this task."
+
+[member.layerx-interop-gateway]
+revision = "03886b7bd0158966d2a58bad78a8da93e259dea5"
+command = "python3 -m pytest -q tests/ci/test_interop_workspace_tests_wired.py && make interop-test"
+exit = 2
+log = "/out/logs/verify-2.log"
+failed_targets = ["--lib"]
+disposition = "Observed failure; member sources and tests are outside scope and remain unchanged. No passing verified revision exists for this member in this task."
+
+[member.layerx-interop-service]
+revision = "03886b7bd0158966d2a58bad78a8da93e259dea5"
+command = "python3 -m pytest -q tests/ci/test_interop_workspace_tests_wired.py && make interop-test"
+exit = 2
+log = "/out/logs/verify-2.log"
+failed_targets = ["--lib", "--test private_network", "--test repair_22_31_164", "--test repair_22_33_87", "--test repair_22_33_91"]
+disposition = "Observed failure; member sources and tests are outside scope and remain unchanged. No passing verified revision exists for this member in this task."
+
+[member.layerx-migrate]
+revision = "03886b7bd0158966d2a58bad78a8da93e259dea5"
+command = "python3 -m pytest -q tests/ci/test_interop_workspace_tests_wired.py && make interop-test"
+exit = 2
+log = "/out/logs/verify-2.log"
+failed_targets = ["--test funded_operator", "--test migration_v2_connected"]
+disposition = "Observed failure; member sources and tests are outside scope and remain unchanged. No passing verified revision exists for this member in this task."
+
+[member.layerx-mirror]
+revision = "03886b7bd0158966d2a58bad78a8da93e259dea5"
+command = "python3 -m pytest -q tests/ci/test_interop_workspace_tests_wired.py && make interop-test"
+exit = 2
+log = "/out/logs/verify-2.log"
+failed_targets = ["--test repair_22_33_103", "--test sequencer_vectors"]
+disposition = "Observed failure; member sources and tests are outside scope and remain unchanged. No passing verified revision exists for this member in this task."
+
+[member.layerx-portable]
+revision = "03886b7bd0158966d2a58bad78a8da93e259dea5"
+command = "python3 -m pytest -q tests/ci/test_interop_workspace_tests_wired.py && make interop-test"
+exit = 2
+log = "/out/logs/verify-2.log"
+failed_targets = ["--test independent_verifier", "--test proof_portable_receipt", "--test repair_22_31_167", "--test repair_22_33_95", "--test sequencer_vectors"]
+disposition = "Observed failure; member sources and tests are outside scope and remain unchanged. No passing verified revision exists for this member in this task."
+
+[member.layerx-ucp]
+revision = "03886b7bd0158966d2a58bad78a8da93e259dea5"
+command = "python3 -m pytest -q tests/ci/test_interop_workspace_tests_wired.py && make interop-test"
+exit = 2
+log = "/out/logs/verify-2.log"
+failed_targets = ["--test conformance_vectors", "--test e2e_client_seller", "--test merchant_profile", "--test sequencer_checkout"]
+disposition = "Observed failure; member sources and tests are outside scope and remain unchanged. No passing verified revision exists for this member in this task."
+
+[member.layerx-x402]
+revision = "03886b7bd0158966d2a58bad78a8da93e259dea5"
+command = "python3 -m pytest -q tests/ci/test_interop_workspace_tests_wired.py && make interop-test"
+exit = 2
+log = "/out/logs/verify-2.log"
+failed_targets = ["--test buyer", "--test e2e", "--test facilitator_evidence", "--test repair_22_33_102", "--test repair_22_33_107", "--test seller", "--test transports"]
+disposition = "Observed failure; member sources and tests are outside scope and remain unchanged. No passing verified revision exists for this member in this task."
+
+[member.x-websearch]
+revision = "03886b7bd0158966d2a58bad78a8da93e259dea5"
+command = "python3 -m pytest -q tests/ci/test_interop_workspace_tests_wired.py && make interop-test"
+exit = 2
+log = "/out/logs/verify-2.log"
+failed_targets = ["--lib", "--test binary", "--test content", "--test program", "--test search", "--test sequencer_vectors", "--test submit"]
+disposition = "Observed failure; member sources and tests are outside scope and remain unchanged. No passing verified revision exists for this member in this task."
+
+[continuation.inventory_result]
+command = "make interop-test"
+exit = 2
+log = "/out/logs/interop-inventory.log"
+failed_tests = 142
+failed_targets = 49
+observed = "The authorized unfiltered inventory ran to completion; each observed failure is recorded individually in the baseline and assigned to its retiring task. No member defect is claimed repaired."
+
+[continuation.qualification_target_sources]
+revision = "1a5738fa843f6c9fd21165d0d655d250825ceb29"
+command = "cg spec done 22.39.74 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Three wiring tests passed; the baseline check omitted the portable regression function because its Cargo-declared target source lives at services/interop/tests/repair_22_33_95.rs, outside the member directory. The workspace verification did not execute."
+repair = "Resolve the real source path declared by the target manifest and include it in the function-declaration check, retaining the assertion that every entry names an existing test function. Rebuild and verify the repaired candidate with hf-build and hf-done."
+
+[continuation.member.layerx-bridge-relayer]
+failed_tests = 20
+retiring_task = "22.39.124"
+entries = "tests/ci/data/interop_test_baseline.json"
+
+[continuation.member.layerx-committed-proof]
+failed_tests = 1
+retiring_task = "22.39.125"
+entries = "tests/ci/data/interop_test_baseline.json"
+
+[continuation.member.layerx-fiat]
+failed_tests = 2
+retiring_task = "22.39.125"
+entries = "tests/ci/data/interop_test_baseline.json"
+
+[continuation.member.layerx-gas-station]
+failed_tests = 34
+retiring_task = "22.39.126"
+entries = "tests/ci/data/interop_test_baseline.json"
+
+[continuation.member.layerx-interop-gateway]
+failed_tests = 1
+retiring_task = "22.39.126"
+entries = "tests/ci/data/interop_test_baseline.json"
+
+[continuation.member.layerx-interop-service]
+failed_tests = 12
+retiring_task = "22.39.126"
+entries = "tests/ci/data/interop_test_baseline.json"
+
+[continuation.member.layerx-migrate]
+failed_tests = 2
+retiring_task = "22.39.126"
+entries = "tests/ci/data/interop_test_baseline.json"
+
+[continuation.member.layerx-mirror]
+failed_tests = 6
+retiring_task = "22.39.125"
+entries = "tests/ci/data/interop_test_baseline.json"
+
+[continuation.member.layerx-portable]
+failed_tests = 8
+retiring_task = "22.39.125"
+entries = "tests/ci/data/interop_test_baseline.json"
+
+[continuation.member.layerx-ucp]
+failed_tests = 20
+retiring_task = "22.39.127"
+entries = "tests/ci/data/interop_test_baseline.json"
+
+[continuation.member.layerx-x402]
+failed_tests = 27
+retiring_task = "22.39.127"
+entries = "tests/ci/data/interop_test_baseline.json"
+
+[continuation.member.x-websearch]
+failed_tests = 9
+retiring_task = "22.39.127"
+entries = "tests/ci/data/interop_test_baseline.json"

@@ -58,7 +58,8 @@ pub(crate) fn decode_wire<W: DeserializeOwned>(
     decode(request, id)
 }
 
-pub(crate) fn version_exchange(body: &[u8]) -> Result<[u8; 23], Rejection> {
+#[doc(hidden)]
+pub fn version_exchange(body: &[u8]) -> Result<[u8; 23], Rejection> {
     use layerx_agent_api::{agent_api_schema_v1, ContractVersion, Sequence, VersionResponse};
 
     let id = body

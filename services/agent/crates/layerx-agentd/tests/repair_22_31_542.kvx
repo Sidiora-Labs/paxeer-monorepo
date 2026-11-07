@@ -1,0 +1,89 @@
+[repair.22.31.542]
+acceptance = "22998.1"
+gotchas = [3144]
+decisions = [2602]
+change = "Remove all seven library source includes from the five declared integration targets; preserve each behavioral case in the linked library or its integration target."
+
+[include.rpc_library]
+former_integration = "tests/rpc_surface_major_two.rs"
+former_source = "src/lib.rs"
+target = "--lib"
+module_filter = ""
+cases = []
+criterion = "All existing library unit cases run once in their owning library modules; the five RPC surface cases remain in the integration target using layerx_agentd imports."
+
+[include.rpc_wire]
+former_integration = "tests/rpc_surface_major_two.rs"
+former_source = "src/agent_rpc_wire.rs"
+target = "--lib"
+module_filter = "agent_rpc_wire"
+cases = ["purpose_label_is_optional_and_outside_the_canonical_body", "unknown_budget_create_field_is_refused", "absent_purpose_label_keeps_the_unlabelled_digests", "present_purpose_label_is_bound_with_tag_length_and_text", "different_purpose_labels_give_different_digests", "same_purpose_label_gives_equal_digests", "replay_with_a_different_purpose_label_misses_the_cached_success", "native_activity_wire_preserves_modules_and_refuses_noncanonical_values", "native_purpose_wire_binds_every_coordinate_and_explicit_commitment", "signed_native_purpose_wire_preserves_structural_signature_bytes", "signed_native_purpose_wire_refuses_key_and_signature_encoding_errors", "signed_native_purpose_wire_refuses_unknown_missing_and_nonstring_fields", "native_prepare_wire_preserves_native_module_in_real_human_request", "native_prepare_wire_refuses_bounds_mismatches_and_noncanonical_values", "native_approval_requests_preserve_all_fields_and_refuse_bad_discriminants", "native_results_round_trip_typed_values_and_exact_owner_states", "native_prepare_result_refuses_version_hex_bounds_and_approval_inconsistency", "native_approval_result_refuses_unknown_state_bad_refs_and_oversized_list", "native_local_grant_wire_refuses_expiry_encoding_and_record_bounds", "native_purpose_wire_refuses_unknown_missing_and_malformed_fields", "proof_bundle_wire_keeps_native_selector_bytes_and_refuses_aliases", "native_send_wire_preserves_exact_signed_request_and_distinct_digest", "native_send_wire_refuses_unknown_fields_noncanonical_values_and_profile_aliases"]
+criterion = "All wire cases remain under their existing cfg(test) modules or test functions. The public RPC exchange is also compared to the doc-hidden library wire export in the integration version exchange case."
+
+[include.rpc_tls]
+former_integration = "tests/rpc_surface_major_two.rs"
+former_source = "src/outbound_tls.rs"
+target = "--lib"
+module_filter = "outbound_tls"
+cases = ["private_ca_refuses_empty_trust_roots", "private_ca_checks_the_actual_server_identity"]
+criterion = "Private CA empty-root and real server-identity qualification remain library unit cases. The nested TLS test module is covered by the separate mapping below."
+
+[include.rotation]
+former_integration = "tests/rotation_refused.rs"
+former_source = "src/managed_agent_rotation.rs"
+target = "--test rotation_refused"
+module_filter = ""
+cases = ["owner_rotation_is_refused_as_unsupported"]
+criterion = "The unchanged refusal, session generation and durable restart assertions now use the library test_support rotation exports. This production source has no test functions of its own."
+
+[include.registration]
+former_integration = "tests/repair_22_33_1514.rs"
+former_source = "src/human_runtime/subject/registration_tests.rs"
+target = "--lib"
+module_filter = "human_runtime::subject::tests::registration_tests"
+cases = ["subject_registration_test_gap_resolves_reads_and_writes_across_commitment_and_restart"]
+criterion = "The original registration integration proof now runs here unchanged through the same prove_registration_resolution helper. The existing managed_registration_resolves_restored_subject_reads_and_writes library case still calls the same helper with durable peer restoration. The integration target additionally proves a real producer registration remains refused while queued before and after restart."
+
+[include.tls_exchange]
+former_integration = "tests/repair_22_33_1531.rs"
+former_source = "src/outbound_tls/tests.rs"
+target = "--lib"
+module_filter = "outbound_tls::tests"
+cases = ["private_ca_is_required_and_hostname_verification_remains_enabled", "human_authority_refuses_empty_ca_and_preserves_input_bounds"]
+criterion = "The original positive TLS exchange, wrong CA, wrong hostname and all configuration-bound assertions execute in the library. The integration target additionally asserts empty-root refusal through the library private_ca export and RemoteHumanAuthority."
+
+[include.restore_support]
+former_integration = "tests/repair_22_33_1543.rs"
+former_source = "src/prepare/restore_tests.rs"
+target = "--test repair_22_33_1543"
+module_filter = ""
+cases = ["f14_call_disclosure_refuses_calldata_actor_nonce_fees_and_digest_mutations", "f13_eip1559_validation_and_explicit_durable_version_handling", "f15_call_expiry_releases_reservations_and_reopens_unresolved_signed_bytes", "f16_terminal_history_is_evicted_with_durable_duplicate_protection_after_restarts", "f16_shared_sweep_evicts_only_durably_recorded_terminal_history", "f17_stored_call_recovery_refuses_modified_bytes_digest_tenant_and_generation", "f16_retention_refuses_eviction_without_durable_idempotency"]
+criterion = "The included file contained only helpers, no test functions. It is now compiled once as test_support::preparation in the library and used by all seven unchanged integration cases; it calls the production preparer, signer, store and budget limiter."
+
+[integration.rpc_surface_major_two]
+target = "--test rpc_surface_major_two"
+cases = ["every_schema_operation_is_dispatched_retired_or_bootstrap_gated", "retired_faucet_claim_wire_name_is_refused", "version_exchange_reports_contract_major_two", "envelope_version_other_than_one_is_refused", "agent_http_envelope_goldens_round_trip"]
+
+[integration.rotation_refused]
+target = "--test rotation_refused"
+cases = ["owner_rotation_is_refused_as_unsupported"]
+
+[integration.repair_22_33_1514]
+target = "--test repair_22_33_1514"
+cases = ["subject_registration_test_gap_requires_retained_execution_evidence_after_restart"]
+
+[integration.repair_22_33_1531]
+target = "--test repair_22_33_1531"
+cases = ["private_ca_configuration_and_authority_refuse_empty_trust_roots"]
+
+[integration.repair_22_33_1543]
+target = "--test repair_22_33_1543"
+cases = ["f14_call_disclosure_refuses_calldata_actor_nonce_fees_and_digest_mutations", "f13_eip1559_validation_and_explicit_durable_version_handling", "f15_call_expiry_releases_reservations_and_reopens_unresolved_signed_bytes", "f16_terminal_history_is_evicted_with_durable_duplicate_protection_after_restarts", "f16_shared_sweep_evicts_only_durably_recorded_terminal_history", "f17_stored_call_recovery_refuses_modified_bytes_digest_tenant_and_generation", "f16_retention_refuses_eviction_without_durable_idempotency"]
+
+[qualification]
+ledger = "/out/run/gates.jsonl"
+build = "The final build row records hf-build compiling every layerx-agentd test target and the layerx-platform-paxeer-boundary binary with the declared locked workspace commands."
+verify = "The final verify row records hf-done running cg spec done 22.31.542 -f layerx-merge --root /work/paxeer-monorepo, including graph checks and the declared verify_cmd."
+verify_cmd = "LAYERX_PAXEER_BOUNDARY_BIN=${CARGO_TARGET_DIR:-$PWD/services/platform/target}/debug/layerx-paxeer-boundary sh tools/runtime/run-with-clock.sh cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib -- agent_rpc_wire outbound_tls managed_agent_rotation test_support && cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test rpc_surface_major_two --test rotation_refused --test repair_22_33_1514 --test repair_22_33_1531 --test repair_22_33_1543 --test repair_22_31_535"
+evidence = "Exact revision, command, exit code and private log location come from the final gate ledger rows; build and verify must refer to the same candidate revision. The verify log records execution of the four declared library filters and six integration targets. Per decision 2824, the registration library case remains registered outside this bounded library selection; the queued registration integration case runs in the bounded gate."
+candidate = "This record is part of the candidate before qualification. No source or record is amended after the final gates. The runner owns commit and publication."

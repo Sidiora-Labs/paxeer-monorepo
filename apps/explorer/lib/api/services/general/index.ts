@@ -31,6 +31,8 @@ import type { GeneralApiPaxeerXResourceName, GeneralApiPaxeerXResourcePayload } 
 import { GENERAL_API_PAXEER_X_RESOURCES } from './paxeerX';
 import type { GeneralApiPaxeerXFeedResourceName, GeneralApiPaxeerXFeedResourcePayload } from './paxeerXFeed';
 import { GENERAL_API_PAXEER_X_FEED_RESOURCES } from './paxeerXFeed';
+import type { GeneralApiPaxeerXInferenceResourceName, GeneralApiPaxeerXInferenceResourcePayload } from './paxeerXInference';
+import { GENERAL_API_PAXEER_X_INFERENCE_RESOURCES } from './paxeerXInference';
 import type { GeneralApiPaxeerXListsResourceName, GeneralApiPaxeerXListsResourcePayload } from './paxeerXLists';
 import { GENERAL_API_PAXEER_X_LISTS_RESOURCES } from './paxeerXLists';
 import type {
@@ -60,6 +62,7 @@ export const GENERAL_API_RESOURCES = {
   ...GENERAL_API_MISC_RESOURCES,
   ...GENERAL_API_PAXEER_X_RESOURCES,
   ...GENERAL_API_PAXEER_X_FEED_RESOURCES,
+  ...GENERAL_API_PAXEER_X_INFERENCE_RESOURCES,
   ...GENERAL_API_PAXEER_X_LISTS_RESOURCES,
   ...GENERAL_API_ROLLUP_RESOURCES,
   ...GENERAL_API_TOKEN_RESOURCES,
@@ -78,6 +81,7 @@ R extends GeneralApiContractResourceName ? GeneralApiContractResourcePayload<R> 
 R extends GeneralApiMiscResourceName ? GeneralApiMiscResourcePayload<R> :
 R extends GeneralApiPaxeerXResourceName ? GeneralApiPaxeerXResourcePayload<R> :
 R extends GeneralApiPaxeerXFeedResourceName ? GeneralApiPaxeerXFeedResourcePayload<R> :
+R extends GeneralApiPaxeerXInferenceResourceName ? GeneralApiPaxeerXInferenceResourcePayload<R> :
 R extends GeneralApiPaxeerXListsResourceName ? GeneralApiPaxeerXListsResourcePayload<R> :
 R extends GeneralApiRollupResourceName ? GeneralApiRollupResourcePayload<R> :
 R extends GeneralApiTokenResourceName ? GeneralApiTokenResourcePayload<R> :

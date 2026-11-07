@@ -1,12 +1,6 @@
 use std::collections::BTreeSet;
 
-#[path = "../src/lib.rs"]
-mod daemon;
-pub use daemon::*;
-#[path = "../src/agent_rpc_wire.rs"]
-mod agent_rpc_wire;
-#[path = "../src/outbound_tls.rs"]
-mod outbound_tls;
+use layerx_agentd::{agent_rpc, agent_rpc_dispatch, session, store};
 
 use agent_rpc::{
     decode, dispatch_target, error_body, http_status, mcp_result_response, success_body,
@@ -24,18 +18,17 @@ use session::{SessionCredential, SessionId};
 use store::TenantId;
 
 fn envelope(operation: Operation) -> Value {
-    let bootstrap = matches!(operation, Operation::AgentRegister | Operation::SessionOpen);
     let mut body = json!({
         "version": 1,
         "request_id": "7",
         "operation": operation.name(),
         "request": {},
-        "credential": if bootstrap { Value::Null } else { json!({
+        "credential": {
             "tenant": "rpc-surface",
             "session_id": "11".repeat(32),
             "token_id": "22".repeat(32),
             "generation": "1",
-        }) },
+        },
     });
     if operation.mutating() {
         body["idempotency_key"] = json!("33".repeat(32));
@@ -68,44 +61,74 @@ fn every_schema_operation_is_dispatched_retired_or_bootstrap_gated() {
         })
         .collect();
     let generated_operations: BTreeSet<_> = Operation::ALL.iter().map(|op| op.name()).collect();
+    let retired_operations: BTreeSet<_> = AGENT_API_V1_SOURCE
+        .split("\n[")
+        .filter_map(|section| {
+            let (header, body) = section.split_once(']')?;
+            let name = header.strip_prefix("transport.agent_http.operation.")?;
+            body.lines()
+                .any(|line| line.trim() == r#"disposition = "retired""#)
+                .then_some(name)
+        })
+        .collect();
     assert_eq!(generated_operations.len(), Operation::ALL.len());
-    assert_eq!(generated_operations, schema_operations);
+    assert!(generated_operations.is_disjoint(&retired_operations));
+    assert_eq!(
+        generated_operations
+            .union(&retired_operations)
+            .copied()
+            .collect::<BTreeSet<_>>(),
+        schema_operations
+    );
+
+    for operation in retired_operations {
+        let mut body = envelope(Operation::TenantReadiness);
+        body["operation"] = json!(operation);
+        let error = decode(body.to_string().as_bytes())
+            .err()
+            .unwrap_or_else(|| panic!("retired operation {operation} accepted"));
+        assert_refusal(
+            &error,
+            ErrorClass::UnavailableCapability,
+            &format!("unavailable_capability.{operation}"),
+        );
+    }
 
     for &operation in Operation::ALL {
-        let body = envelope(operation).to_string();
-        let decoded = decode(body.as_bytes());
+        let mut body = envelope(operation);
+        let decoded = decode(body.to_string().as_bytes())
+            .unwrap_or_else(|error| panic!("{}: {error:?}", operation.name()));
         let target = dispatch_target(operation, RequestId(7));
-        match operation {
-            Operation::AgentRegister | Operation::SessionOpen => {
-                let decoded = decoded.unwrap_or_else(|error| panic!("bootstrap decode: {error:?}"));
-                assert_eq!(decoded.operation, operation);
-                assert!(decoded.credential.is_none());
-                let error = target
-                    .err()
-                    .unwrap_or_else(|| panic!("bootstrap reached adapter"));
-                assert_refusal(
-                    &error,
-                    ErrorClass::PolicyRefusal,
-                    "refused_pending_bootstrap_artifact",
-                );
-            }
-            _ => {
-                let decoded =
-                    decoded.unwrap_or_else(|error| panic!("{}: {error:?}", operation.name()));
-                assert_eq!(decoded.operation, operation);
-                assert!(decoded.credential.is_some());
-                assert_eq!(
-                    target,
-                    Ok(operation),
-                    "{} must reach the owner dispatcher",
-                    operation.name()
-                );
-                assert_eq!(
-                    dispatch_target(decoded.operation, decoded.request_id),
-                    target
-                );
-            }
-        }
+        assert_eq!(decoded.operation, operation);
+        assert_eq!(
+            decoded.credential,
+            Some(SessionCredential::new(
+                TenantId::new("rpc-surface").expect("surface tenant"),
+                SessionId([0x11; 32]),
+                [0x22; 32],
+                1,
+            ))
+        );
+        assert_eq!(
+            target,
+            Ok(operation),
+            "{} must reach the owner dispatcher",
+            operation.name()
+        );
+        assert_eq!(
+            dispatch_target(decoded.operation, decoded.request_id),
+            target
+        );
+
+        body["credential"] = Value::Null;
+        let error = decode(body.to_string().as_bytes())
+            .err()
+            .unwrap_or_else(|| panic!("{} accepted without credentials", operation.name()));
+        assert_refusal(
+            &error,
+            ErrorClass::ProtocolIncompatibility,
+            "envelope.credential",
+        );
     }
 
     let mut unknown = envelope(Operation::TenantReadiness);
@@ -188,6 +211,10 @@ fn version_exchange_reports_contract_major_two() {
     );
     let answer =
         version_exchange(&request).unwrap_or_else(|error| panic!("version exchange: {error:?}"));
+    assert_eq!(
+        answer,
+        layerx_agentd::test_support::version_exchange(&request).unwrap()
+    );
     assert_eq!(
         hex::encode(answer),
         "0002000000000000000000070000000000000200000001"
