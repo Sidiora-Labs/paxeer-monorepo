@@ -153207,7 +153207,7 @@ do_10 = "Attempt 4 (requalify, gotcha 3318, decision 2714): the attempt-3 tree s
 
 [task.22.37.15]
 title = "Bind virtual workspace writes to attempt expiry and qualify the real FUSE case"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["22.36.1", "22.37.13"]
@@ -181806,7 +181806,7 @@ do_4 = "Attempt 3 (continue, gotcha 3466, decision 2819): the attempt-2 tree 7a4
 
 [task.22.31.622]
 title = "Refresh the conformance copy of the committed receipt vector from its re-recorded source and pin the copy to the source"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.620"]
