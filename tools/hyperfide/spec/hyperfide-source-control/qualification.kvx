@@ -950,3 +950,31 @@ command = "BY_REFERENCE: final build.command and verify.command in private /out/
 exit_code = "BY_REFERENCE: final build.exit and verify.exit in private /out/run/gates.jsonl; both must be zero at one revision."
 log = "BY_REFERENCE: final build.log and verify.log in private /out/run/gates.jsonl."
 observed = "Decision 2831, gotcha 3489 supersedes the missing-interface finding: the typed fixture planning parameter explicitly selects legacy-nonadaptive for pause/cap, cancellation, HTTP 429 backoff, membership claims, reservations, availability, single retry, backoff ceiling, interrupted ledgers and preparation cleanup; all assertions, the default WAITING_FOR_MANAGER case, five server cases and production sources remain as carried from attempt 1 at 85ff403ccf24."
+
+[qualification.task_22_37_15_source_3_2]
+revision = "BY_REFERENCE: matching final build.revision and verify.revision in private /out/run/gates.jsonl; tools/hyperfide carried source-control task 3.2."
+command = "BY_REFERENCE: build.command and verify.command in /out/run/gates.jsonl; hf-done runs cg spec done 22.37.15 -f layerx-merge --root /work/paxeer-monorepo and cd tools/hyperfide && corepack enable && python3 tests/hyperfide/cases/source_control/3_2.py --component."
+exit_code = "BY_REFERENCE: final build.exit and verify.exit must both be zero at the same candidate revision."
+log = "Private /out/run/gates.jsonl references /out/logs/build-*.log and /out/logs/verify-*.log; tools/hyperfide/build/source-control/3.2/receipt.json retains the runtime revision, helper profile, fetched bytes, expiry checks and acknowledged revisions."
+status = "BY_REFERENCE: component qualification requires receipt.status=COMPONENT_PASS and receipt.revision equal to the matching gate revision; live FUSE qualification remains UNRUN until an owner run produces PASS with full_case_qualified=true and storage_backend=REAL_S3."
+
+[finding.task_22_37_15_missing_real_s3]
+revision = "e6d74f12e58de77697af04a43f3938e2b0e22337"
+command = "cg spec done 22.37.15 -f layerx-merge --root /work/paxeer-monorepo"
+exit_code = 1
+log = "/out/logs/verify-2.log; passing build at the same revision: /out/logs/build-2.log; private ledger: /out/run/gates.jsonl"
+observed = "After repairing Node source-export resolution, the real fixture refused startup with SOURCE_STORAGE_CONFIG because no real S3 configuration was supplied; mounted assertions did not execute, no PASS receipt exists, and task 22.37.15 remains unqualified."
+
+[qualification.task_22_37_15_live_3_2]
+revision = "BY_REFERENCE: final matching build.revision and verify.revision in private /out/run/gates.jsonl; live receipt must name the owner's executed revision."
+command = "cd tools/hyperfide && corepack enable && python3 tests/hyperfide/cases/source_control/3_2.py"
+exit_code = "UNRUN"
+log = "BY_REFERENCE: component receipt tools/hyperfide/build/source-control/3.2/receipt.json and private /out/run/gates.jsonl; no live PASS receipt."
+observed = "Decision 2700: live qualification requires /dev/fuse, pinned mount helpers and object store credentials; the owner must run the command and supply the revision-bound PASS receipt."
+
+[finding.task_22_37_15_component_install]
+revision = "1b3b2f31f2d5a02b4a34110388727092d3d9d556"
+command = "cd tools/hyperfide && corepack enable && pnpm install --frozen-lockfile && pnpm --filter @hyperfide/process-utils run generate:profile-worker && npm --prefix core/control-plane ci --ignore-scripts && npm --prefix core/control-plane run build && pnpm --filter @hyperfide/source-control run build && pnpm --filter @hyperfide/source-control typecheck && pnpm --filter @hyperfide/host-daemon run typecheck"
+exit_code = 1
+log = "/out/logs/build-1.log"
+observed = "Frozen install refused the pre-existing hyperfide-dispatch source-control dependency missing from pnpm-lock.yaml; regenerate the permitted generated lockfile through pnpm without changing the dispatcher manifest or source."

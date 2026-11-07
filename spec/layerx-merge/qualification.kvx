@@ -3838,6 +3838,198 @@ severity = "blocker"
 #   1.1.3 -> 1.39.3: kernel account rows checked against the Go codec account kinds
 #   10.0.2 -> 6.7.3: activation addresses without a custom precompile reported
 
+# Qualification findings for layerx-merge v2: one [finding.<N>.<k>.<m>] per finding, keyed by the v2 task id that met it; a second finding for the same task is [finding.<N>.<k>.<m>.<n>].
+# Keys, in this order (spec/workflow.kvx [qualification_log] entry_keys): task, file, symbol, observed, assumption, severity.
+# Format source: spec/workflow.kvx [qualification_log] and [loop] step_6. Path of this ledger: spec/layerx-merge/qualification.kvx.
+#   task       = "<N>.<k>.<m>"  the v2 task whose qualification exposed the finding
+#   file       = "<repo-relative path>:<line>"  where the failure or contradiction is observed
+#   symbol     = "<exact identifier: test, function, error code, selector or key>"
+#   observed   = "<one sentence naming revision, exact command, exit code and log path, then what failed>"
+#   assumption = "<one sentence: the assumption the task proceeds on>"
+#   severity   = "blocker" | "suspect" | "assumption" | "note"
+# Append when: You hit an unrelated or pre-existing failure, a contradiction between requirements or tasks, a missing external interface, or a repair that would require weakening a check. Append once; never append the same finding twice.
+# Never: Do not log a task-scoped failure as an excuse to skip repair. Do not write narrative: observed is one sentence, assumption is one sentence, and every entry names revision, exact command, exit code and log path. An entry over six lines is a defect.
+# An entry is exactly the six keys above (six lines); append once and never re-run or re-investigate a recorded finding.
+#
+# The v2 specification starts clean: this ledger holds no findings at revision 2a1033aa2.
+# The 330 findings of the previous ledger were recorded against v1 task ids of the stale specification and are not carried forward.
+# Superseded findings: previous-ledger finding ids whose recorded gap is now a v2 task (previous id -> v2 task, reason).
+#   5.0.8 -> 11.15.1: interop lock check; decision.1101 records the finding as not reproduced at HEAD
+#   5.0.9 -> 16.7.4: build_cmd is bash -n tools/bringup/xweb-config.sh
+#   7.0.7 -> 17.6.1: solidity sandbox profile runs contracts/bridge/evm/bootstrap-libs.sh before forge
+#   12.0.2 -> 16.38.1: OCC harness loads cw20_base.wasm instead of mars.wasm (decision.1628)
+#   10.0.4 -> 6.91.1: arbiter codes -737..-739 registered in the LXP error registry
+#   0.111 -> 7.10.1: newHeads key set aligned with eth_getBlockByNumber
+#   5.1.2 -> 6.65.1: IXWeb.sol names the three origin-2 methods
+#   gateway.lx-reads-wait-on-ingress-off -> 8.3.1: every lx_ name answers -32601
+#   4.3.4 -> 13.22.1: 0x101D executor, merge constructor and dispatch table
+#   8.5.24 -> 8.47.3: streaming conformance resumes logs by (blockHeight, txIndex, logIndex)
+#   13.3.3 -> 1.20.2: linked escrow arbiter rule with LXP_ERR_UNAUTHORIZED_ARBITER
+#   1.2.2 -> 6.3.2: paused-denom bank send reverts with LXP_ASSET_PAUSED
+#   0.1 -> 6.6.9: unread PrecompileLastUpgrade retired
+#   1.1.3 -> 1.39.3: kernel account rows checked against the Go codec account kinds
+#   10.0.2 -> 6.7.3: activation addresses without a custom precompile reported
+
+# Qualification findings for layerx-merge v2: one [finding.<N>.<k>.<m>] per finding, keyed by the v2 task id that met it; a second finding for the same task is [finding.<N>.<k>.<m>.<n>].
+# Keys, in this order (spec/workflow.kvx [qualification_log] entry_keys): task, file, symbol, observed, assumption, severity.
+# Format source: spec/workflow.kvx [qualification_log] and [loop] step_6. Path of this ledger: spec/layerx-merge/qualification.kvx.
+#   task       = "<N>.<k>.<m>"  the v2 task whose qualification exposed the finding
+#   file       = "<repo-relative path>:<line>"  where the failure or contradiction is observed
+#   symbol     = "<exact identifier: test, function, error code, selector or key>"
+#   observed   = "<one sentence naming revision, exact command, exit code and log path, then what failed>"
+#   assumption = "<one sentence: the assumption the task proceeds on>"
+#   severity   = "blocker" | "suspect" | "assumption" | "note"
+# Append when: You hit an unrelated or pre-existing failure, a contradiction between requirements or tasks, a missing external interface, or a repair that would require weakening a check. Append once; never append the same finding twice.
+# Never: Do not log a task-scoped failure as an excuse to skip repair. Do not write narrative: observed is one sentence, assumption is one sentence, and every entry names revision, exact command, exit code and log path. An entry over six lines is a defect.
+# An entry is exactly the six keys above (six lines); append once and never re-run or re-investigate a recorded finding.
+#
+# The v2 specification starts clean: this ledger holds no findings at revision 2a1033aa2.
+# The 330 findings of the previous ledger were recorded against v1 task ids of the stale specification and are not carried forward.
+# Superseded findings: previous-ledger finding ids whose recorded gap is now a v2 task (previous id -> v2 task, reason).
+#   5.0.8 -> 11.15.1: interop lock check; decision.1101 records the finding as not reproduced at HEAD
+#   5.0.9 -> 16.7.4: build_cmd is bash -n tools/bringup/xweb-config.sh
+#   7.0.7 -> 17.6.1: solidity sandbox profile runs contracts/bridge/evm/bootstrap-libs.sh before forge
+#   12.0.2 -> 16.38.1: OCC harness loads cw20_base.wasm instead of mars.wasm (decision.1628)
+#   10.0.4 -> 6.91.1: arbiter codes -737..-739 registered in the LXP error registry
+#   0.111 -> 7.10.1: newHeads key set aligned with eth_getBlockByNumber
+#   5.1.2 -> 6.65.1: IXWeb.sol names the three origin-2 methods
+#   gateway.lx-reads-wait-on-ingress-off -> 8.3.1: every lx_ name answers -32601
+#   4.3.4 -> 13.22.1: 0x101D executor, merge constructor and dispatch table
+#   8.5.24 -> 8.47.3: streaming conformance resumes logs by (blockHeight, txIndex, logIndex)
+#   13.3.3 -> 1.20.2: linked escrow arbiter rule with LXP_ERR_UNAUTHORIZED_ARBITER
+#   1.2.2 -> 6.3.2: paused-denom bank send reverts with LXP_ASSET_PAUSED
+#   0.1 -> 6.6.9: unread PrecompileLastUpgrade retired
+#   1.1.3 -> 1.39.3: kernel account rows checked against the Go codec account kinds
+#   10.0.2 -> 6.7.3: activation addresses without a custom precompile reported
+
+# Qualification findings for layerx-merge v2: one [finding.<N>.<k>.<m>] per finding, keyed by the v2 task id that met it; a second finding for the same task is [finding.<N>.<k>.<m>.<n>].
+# Keys, in this order (spec/workflow.kvx [qualification_log] entry_keys): task, file, symbol, observed, assumption, severity.
+# Format source: spec/workflow.kvx [qualification_log] and [loop] step_6. Path of this ledger: spec/layerx-merge/qualification.kvx.
+#   task       = "<N>.<k>.<m>"  the v2 task whose qualification exposed the finding
+#   file       = "<repo-relative path>:<line>"  where the failure or contradiction is observed
+#   symbol     = "<exact identifier: test, function, error code, selector or key>"
+#   observed   = "<one sentence naming revision, exact command, exit code and log path, then what failed>"
+#   assumption = "<one sentence: the assumption the task proceeds on>"
+#   severity   = "blocker" | "suspect" | "assumption" | "note"
+# Append when: You hit an unrelated or pre-existing failure, a contradiction between requirements or tasks, a missing external interface, or a repair that would require weakening a check. Append once; never append the same finding twice.
+# Never: Do not log a task-scoped failure as an excuse to skip repair. Do not write narrative: observed is one sentence, assumption is one sentence, and every entry names revision, exact command, exit code and log path. An entry over six lines is a defect.
+# An entry is exactly the six keys above (six lines); append once and never re-run or re-investigate a recorded finding.
+#
+# The v2 specification starts clean: this ledger holds no findings at revision 2a1033aa2.
+# The 330 findings of the previous ledger were recorded against v1 task ids of the stale specification and are not carried forward.
+# Superseded findings: previous-ledger finding ids whose recorded gap is now a v2 task (previous id -> v2 task, reason).
+#   5.0.8 -> 11.15.1: interop lock check; decision.1101 records the finding as not reproduced at HEAD
+#   5.0.9 -> 16.7.4: build_cmd is bash -n tools/bringup/xweb-config.sh
+#   7.0.7 -> 17.6.1: solidity sandbox profile runs contracts/bridge/evm/bootstrap-libs.sh before forge
+#   12.0.2 -> 16.38.1: OCC harness loads cw20_base.wasm instead of mars.wasm (decision.1628)
+#   10.0.4 -> 6.91.1: arbiter codes -737..-739 registered in the LXP error registry
+#   0.111 -> 7.10.1: newHeads key set aligned with eth_getBlockByNumber
+#   5.1.2 -> 6.65.1: IXWeb.sol names the three origin-2 methods
+#   gateway.lx-reads-wait-on-ingress-off -> 8.3.1: every lx_ name answers -32601
+#   4.3.4 -> 13.22.1: 0x101D executor, merge constructor and dispatch table
+#   8.5.24 -> 8.47.3: streaming conformance resumes logs by (blockHeight, txIndex, logIndex)
+#   13.3.3 -> 1.20.2: linked escrow arbiter rule with LXP_ERR_UNAUTHORIZED_ARBITER
+#   1.2.2 -> 6.3.2: paused-denom bank send reverts with LXP_ASSET_PAUSED
+#   0.1 -> 6.6.9: unread PrecompileLastUpgrade retired
+#   1.1.3 -> 1.39.3: kernel account rows checked against the Go codec account kinds
+#   10.0.2 -> 6.7.3: activation addresses without a custom precompile reported
+
+# Qualification findings for layerx-merge v2: one [finding.<N>.<k>.<m>] per finding, keyed by the v2 task id that met it; a second finding for the same task is [finding.<N>.<k>.<m>.<n>].
+# Keys, in this order (spec/workflow.kvx [qualification_log] entry_keys): task, file, symbol, observed, assumption, severity.
+# Format source: spec/workflow.kvx [qualification_log] and [loop] step_6. Path of this ledger: spec/layerx-merge/qualification.kvx.
+#   task       = "<N>.<k>.<m>"  the v2 task whose qualification exposed the finding
+#   file       = "<repo-relative path>:<line>"  where the failure or contradiction is observed
+#   symbol     = "<exact identifier: test, function, error code, selector or key>"
+#   observed   = "<one sentence naming revision, exact command, exit code and log path, then what failed>"
+#   assumption = "<one sentence: the assumption the task proceeds on>"
+#   severity   = "blocker" | "suspect" | "assumption" | "note"
+# Append when: You hit an unrelated or pre-existing failure, a contradiction between requirements or tasks, a missing external interface, or a repair that would require weakening a check. Append once; never append the same finding twice.
+# Never: Do not log a task-scoped failure as an excuse to skip repair. Do not write narrative: observed is one sentence, assumption is one sentence, and every entry names revision, exact command, exit code and log path. An entry over six lines is a defect.
+# An entry is exactly the six keys above (six lines); append once and never re-run or re-investigate a recorded finding.
+#
+# The v2 specification starts clean: this ledger holds no findings at revision 2a1033aa2.
+# The 330 findings of the previous ledger were recorded against v1 task ids of the stale specification and are not carried forward.
+# Superseded findings: previous-ledger finding ids whose recorded gap is now a v2 task (previous id -> v2 task, reason).
+#   5.0.8 -> 11.15.1: interop lock check; decision.1101 records the finding as not reproduced at HEAD
+#   5.0.9 -> 16.7.4: build_cmd is bash -n tools/bringup/xweb-config.sh
+#   7.0.7 -> 17.6.1: solidity sandbox profile runs contracts/bridge/evm/bootstrap-libs.sh before forge
+#   12.0.2 -> 16.38.1: OCC harness loads cw20_base.wasm instead of mars.wasm (decision.1628)
+#   10.0.4 -> 6.91.1: arbiter codes -737..-739 registered in the LXP error registry
+#   0.111 -> 7.10.1: newHeads key set aligned with eth_getBlockByNumber
+#   5.1.2 -> 6.65.1: IXWeb.sol names the three origin-2 methods
+#   gateway.lx-reads-wait-on-ingress-off -> 8.3.1: every lx_ name answers -32601
+#   4.3.4 -> 13.22.1: 0x101D executor, merge constructor and dispatch table
+#   8.5.24 -> 8.47.3: streaming conformance resumes logs by (blockHeight, txIndex, logIndex)
+#   13.3.3 -> 1.20.2: linked escrow arbiter rule with LXP_ERR_UNAUTHORIZED_ARBITER
+#   1.2.2 -> 6.3.2: paused-denom bank send reverts with LXP_ASSET_PAUSED
+#   0.1 -> 6.6.9: unread PrecompileLastUpgrade retired
+#   1.1.3 -> 1.39.3: kernel account rows checked against the Go codec account kinds
+#   10.0.2 -> 6.7.3: activation addresses without a custom precompile reported
+
+# Qualification findings for layerx-merge v2: one [finding.<N>.<k>.<m>] per finding, keyed by the v2 task id that met it; a second finding for the same task is [finding.<N>.<k>.<m>.<n>].
+# Keys, in this order (spec/workflow.kvx [qualification_log] entry_keys): task, file, symbol, observed, assumption, severity.
+# Format source: spec/workflow.kvx [qualification_log] and [loop] step_6. Path of this ledger: spec/layerx-merge/qualification.kvx.
+#   task       = "<N>.<k>.<m>"  the v2 task whose qualification exposed the finding
+#   file       = "<repo-relative path>:<line>"  where the failure or contradiction is observed
+#   symbol     = "<exact identifier: test, function, error code, selector or key>"
+#   observed   = "<one sentence naming revision, exact command, exit code and log path, then what failed>"
+#   assumption = "<one sentence: the assumption the task proceeds on>"
+#   severity   = "blocker" | "suspect" | "assumption" | "note"
+# Append when: You hit an unrelated or pre-existing failure, a contradiction between requirements or tasks, a missing external interface, or a repair that would require weakening a check. Append once; never append the same finding twice.
+# Never: Do not log a task-scoped failure as an excuse to skip repair. Do not write narrative: observed is one sentence, assumption is one sentence, and every entry names revision, exact command, exit code and log path. An entry over six lines is a defect.
+# An entry is exactly the six keys above (six lines); append once and never re-run or re-investigate a recorded finding.
+#
+# The v2 specification starts clean: this ledger holds no findings at revision 2a1033aa2.
+# The 330 findings of the previous ledger were recorded against v1 task ids of the stale specification and are not carried forward.
+# Superseded findings: previous-ledger finding ids whose recorded gap is now a v2 task (previous id -> v2 task, reason).
+#   5.0.8 -> 11.15.1: interop lock check; decision.1101 records the finding as not reproduced at HEAD
+#   5.0.9 -> 16.7.4: build_cmd is bash -n tools/bringup/xweb-config.sh
+#   7.0.7 -> 17.6.1: solidity sandbox profile runs contracts/bridge/evm/bootstrap-libs.sh before forge
+#   12.0.2 -> 16.38.1: OCC harness loads cw20_base.wasm instead of mars.wasm (decision.1628)
+#   10.0.4 -> 6.91.1: arbiter codes -737..-739 registered in the LXP error registry
+#   0.111 -> 7.10.1: newHeads key set aligned with eth_getBlockByNumber
+#   5.1.2 -> 6.65.1: IXWeb.sol names the three origin-2 methods
+#   gateway.lx-reads-wait-on-ingress-off -> 8.3.1: every lx_ name answers -32601
+#   4.3.4 -> 13.22.1: 0x101D executor, merge constructor and dispatch table
+#   8.5.24 -> 8.47.3: streaming conformance resumes logs by (blockHeight, txIndex, logIndex)
+#   13.3.3 -> 1.20.2: linked escrow arbiter rule with LXP_ERR_UNAUTHORIZED_ARBITER
+#   1.2.2 -> 6.3.2: paused-denom bank send reverts with LXP_ASSET_PAUSED
+#   0.1 -> 6.6.9: unread PrecompileLastUpgrade retired
+#   1.1.3 -> 1.39.3: kernel account rows checked against the Go codec account kinds
+#   10.0.2 -> 6.7.3: activation addresses without a custom precompile reported
+
+# Qualification findings for layerx-merge v2: one [finding.<N>.<k>.<m>] per finding, keyed by the v2 task id that met it; a second finding for the same task is [finding.<N>.<k>.<m>.<n>].
+# Keys, in this order (spec/workflow.kvx [qualification_log] entry_keys): task, file, symbol, observed, assumption, severity.
+# Format source: spec/workflow.kvx [qualification_log] and [loop] step_6. Path of this ledger: spec/layerx-merge/qualification.kvx.
+#   task       = "<N>.<k>.<m>"  the v2 task whose qualification exposed the finding
+#   file       = "<repo-relative path>:<line>"  where the failure or contradiction is observed
+#   symbol     = "<exact identifier: test, function, error code, selector or key>"
+#   observed   = "<one sentence naming revision, exact command, exit code and log path, then what failed>"
+#   assumption = "<one sentence: the assumption the task proceeds on>"
+#   severity   = "blocker" | "suspect" | "assumption" | "note"
+# Append when: You hit an unrelated or pre-existing failure, a contradiction between requirements or tasks, a missing external interface, or a repair that would require weakening a check. Append once; never append the same finding twice.
+# Never: Do not log a task-scoped failure as an excuse to skip repair. Do not write narrative: observed is one sentence, assumption is one sentence, and every entry names revision, exact command, exit code and log path. An entry over six lines is a defect.
+# An entry is exactly the six keys above (six lines); append once and never re-run or re-investigate a recorded finding.
+#
+# The v2 specification starts clean: this ledger holds no findings at revision 2a1033aa2.
+# The 330 findings of the previous ledger were recorded against v1 task ids of the stale specification and are not carried forward.
+# Superseded findings: previous-ledger finding ids whose recorded gap is now a v2 task (previous id -> v2 task, reason).
+#   5.0.8 -> 11.15.1: interop lock check; decision.1101 records the finding as not reproduced at HEAD
+#   5.0.9 -> 16.7.4: build_cmd is bash -n tools/bringup/xweb-config.sh
+#   7.0.7 -> 17.6.1: solidity sandbox profile runs contracts/bridge/evm/bootstrap-libs.sh before forge
+#   12.0.2 -> 16.38.1: OCC harness loads cw20_base.wasm instead of mars.wasm (decision.1628)
+#   10.0.4 -> 6.91.1: arbiter codes -737..-739 registered in the LXP error registry
+#   0.111 -> 7.10.1: newHeads key set aligned with eth_getBlockByNumber
+#   5.1.2 -> 6.65.1: IXWeb.sol names the three origin-2 methods
+#   gateway.lx-reads-wait-on-ingress-off -> 8.3.1: every lx_ name answers -32601
+#   4.3.4 -> 13.22.1: 0x101D executor, merge constructor and dispatch table
+#   8.5.24 -> 8.47.3: streaming conformance resumes logs by (blockHeight, txIndex, logIndex)
+#   13.3.3 -> 1.20.2: linked escrow arbiter rule with LXP_ERR_UNAUTHORIZED_ARBITER
+#   1.2.2 -> 6.3.2: paused-denom bank send reverts with LXP_ASSET_PAUSED
+#   0.1 -> 6.6.9: unread PrecompileLastUpgrade retired
+#   1.1.3 -> 1.39.3: kernel account rows checked against the Go codec account kinds
+#   10.0.2 -> 6.7.3: activation addresses without a custom precompile reported
+
 [finding.11.15.1]
 task = "11.15.1"
 file = "spec/layerx-merge/spec.kvx:146838"
@@ -34508,4 +34700,112 @@ file = "tests/ci/test_wallet_repair_suites_listed.py"
 symbol = "test_wallet_repair_suites_listed.py"
 observed = "Attempt 4 at fadf6bebf6d1: two repair cycles; the inventory check passed, 89 wallet tests passed, execute_swap_refuses_a_reverted_swap timed out at 5000 ms."
 assumption = "The test completes under the bound; the in-process EVM startup is the only cost."
+severity = "high"
+
+[finding.22.39.54.2]
+task = "22.39.54"
+file = "tests/ci/test_tools_ci_suite_passes.py"
+symbol = "test_tools_ci_suite_passes.py"
+observed = "Attempt 2 at f188e5ea648f: no gate ran; the attempt stopped because the deselect list file do_7 directed was outside touches and planned_paths."
+assumption = "The file is the only missing scope item; the gates pass once it exists."
+severity = "high"
+
+[finding.22.39.63.2]
+task = "22.39.63"
+file = "tests/ci/test_manifest_license_fields.py"
+symbol = "test_manifest_license_fields.py"
+observed = "Attempt 2 at 7e9bfc50b82d: build exit 0; verification exit 1: two licence tests passed, test_first_party_authors_are_organisation failed on the five manifests do_4 named outside touches."
+assumption = "No other first-party manifest carries a foreign author."
+severity = "high"
+
+[finding.22.31.613.1]
+task = "22.31.613"
+file = "services/agent/crates/layerx-agentd/tests/repair_22_31_613.rs"
+symbol = "repair_22_31_613.rs"
+observed = "Attempt 1 at 50812234f9c1: build exit 0; verification exit 1: 33 passed, 8 failed, 2 ignored in tests/repair_22_31_613.rs, where eight landed regression files run as path modules of one binary; three preview cases could not spawn anvil, two cases met poisoned locks, and three assertions differed."
+assumption = "The three assertion differences are either process sharing or a refusal the typed change now raises on an accepted path; the separated targets decide which."
+severity = "high"
+
+[finding.22.39.40.3]
+task = "22.39.40"
+file = "tests/ci/test_node_build_workflow_scope.py"
+symbol = "test_node_build_workflow_scope.py"
+observed = "Attempt 3 at 9f57ad7d6553: build exit 0; verification exit 1: the node package with the three-name skip failed sixteen tests and hit the fifteen-minute limit, while attempt 2 passed the same tests at identical node Go sources in 177 seconds."
+assumption = "The sixteen failures come from the qualification environment or from test-order coupling, not from the task sources."
+severity = "high"
+
+[finding.22.39.60.1]
+task = "22.39.60"
+file = "tests/ci/test_repo_hygiene_strays.py"
+symbol = "test_repo_hygiene_strays.py"
+observed = "Attempt 1 at ac30b2418bbc: build exit 0; verification exit 1: two tests passed, test_no_gitkeep_beside_content failed on seventeen markers outside touches and test_no_tracked_git_bundles_or_patch_dirs on the human service export fixture."
+assumption = "No other directory holds a marker beside content and no other .bundle file is tracked."
+severity = "high"
+
+[observation.22.31.622.snapshot]
+revision = "f152d39452ecf083ab5a3e16dd58f095fa2a69e9"
+observed = "Read-only inspection: services/interop/specs/conformance/x402/sequenced-settlement.json still pins transaction 0xf2cc445b433833da2cdc895138ec30725dba72171ae8267f010ed517ca7b2544, while the current source pins 0x0825b6d3abe886f04d91e13108cb78adfbe18f8a28204de0bae9901f910c64e2."
+assumption = "The snapshot is outside task scope; retain its consumer assertions and record the bounded gate result without rewriting that fixture."
+
+[finding.22.31.622.dependency_gate]
+evidence = "{\"revision\": \"518e976ff9c228f89bc771daa0f5bc51997047da\", \"command\": \"cargo check --locked --manifest-path /work/paxeer-monorepo/services/platform/Cargo.toml --all-targets -p layerx-indexer -p layerx-platform-dashboard -p layerx-platform-gateway -p layerx-platform-registry -p layerx-platform-webhooks\", \"exit\": 101, \"log\": \"/out/logs/dependents-1.log\"}"
+observed = "hf-done exited 7 before running cg spec done or verify_cmd because the pre-existing gateway test repair_22_33_1439 has 13 unresolved canary/rooms errors (gotcha 3417); the task build passed."
+assumption = "The missing module mirror belongs to 22.31.620 and is outside this task scope; retain the failure and do not rerun or repair it here."
+
+[finding.22.31.622.attempt_2_facilitator]
+evidence = "{\"revision\": \"6818b77d7a9f74d6406c6006755de17f8142f9b6\", \"command\": \"cg spec done 22.31.622 -f layerx-merge --root /work/paxeer-monorepo\", \"exit\": 1, \"log\": \"/out/logs/verify-1.log\"}"
+observed = "The verify_cmd exited 101 at facilitator_evidence.rs:712: facilitator_reports_committed_only_with_a_proof expects success for committed evidence in the None-proof iteration, while Seller::settled requires a committed proof and returns EvidenceMismatch."
+assumption = "This pre-existing test/verifier disagreement is independent of recording values and remains unchanged under do_3; sequenced_vectors and the human target were not reached, and no unchanged gate is rerun."
+
+[finding.22.31.622.attempt_3_snapshot_gate]
+evidence = "{\"revision\": \"e074b9a73aeb29ef355db1cd205396cee51b9344\", \"command\": \"cg spec done 22.31.622 -f layerx-merge --root /work/paxeer-monorepo\", \"exit\": 1, \"log\": \"/out/logs/verify-1.log\"}"
+observed = "The declared verify_cmd exited 101 in sequenced_vectors.rs:557: both sequenced_settlement_vectors_carry_the_recorded_receipt and x402_committed_vector_settles_as_committed compare the historical x402 snapshot transaction 0xf2cc445b433833da2cdc895138ec30725dba72171ae8267f010ed517ca7b2544 with the current recording transaction 0x0825b6d3abe886f04d91e13108cb78adfbe18f8a28204de0bae9901f910c64e2; the human-service target was not reached."
+assumption = "This gate confirms observation.22.31.622.snapshot: refreshing services/interop/specs/conformance/x402/sequenced-settlement.json requires a path outside the explicit scope, while changing either assertion or fabricating replacement snapshot values is forbidden; retain both assertions and do not rerun the unchanged failure."
+
+[finding.22.39.121.1]
+task = "22.39.121"
+file = "tests/ci/test_vendored_checksums.py"
+symbol = "test_vendored_checksums.py"
+observed = "Attempt 1 at efca69139cec: build exit 0; verification exit 1: the manifest test failed on two wasm-instrument digests since refreshed and on three wasmi-0.31.2 files outside touches; the patch-record test failed on 221 crates whose normalised manifests differ from Cargo.toml.orig."
+assumption = "wasm-instrument and wasmi-0.31.2 are the only vendored crates with local source changes; the manifest test proves it once it passes."
+severity = "high"
+
+[finding.22.39.122.1]
+task = "22.39.122"
+file = "services/agent/crates/layerx-agentd/src/approval/mod.rs"
+symbol = "mod.rs"
+observed = "Attempt 1 at a6a4e6f9ff57: build exit 0; verification exit 1 twice: 326 passed, six failed: four retained_settlement_tests cases (the budget verifier panics on a retained preparation, decision 2834) and two session_control durable-write cases whose fixture 22.31.555 rewrote after the attempt base."
+assumption = "Both groups pass at a tree that carries 22.31.555 and 22.39.128."
+severity = "high"
+
+[finding.22.37.4.5]
+task = "22.37.4"
+file = "tools/hyperfide/sdk/client/test/install-status.test.ts"
+symbol = "install-status.test.ts"
+observed = "Attempt 5 at d997a969d711: the first build failed with an outdated frozen lockfile against the plugin router manifest main holds (one repair cycle); verification exit 1: the install-status test failed because the interrupted-install case module exited 1 with the dependency stage not reached, job state UNKNOWN, last_error RUNNER_EXECUTION_PROVIDER:REMOTE_OUTPUT_INCOMPLETE."
+assumption = "The fixture provider returns an incomplete archive for the polled process; the retained subreaper repair is unverified until the stage is reached."
+severity = "high"
+
+[finding.22.39.118.5]
+task = "22.39.118"
+file = "tools/platform/cli::rpc::tests::positional_requests_match_published_contract"
+symbol = "cli::rpc::tests::positional_requests_match_published_contract"
+observed = "Attempt 5 at f6555c81fb83: build exit 0; verification exit 1: the rpc and faucet tests passed and make platform-test-tooling failed two mcp_daemon_bound tests, the retired core_sequence binding refused by the shape check before the retired-key code and the explicit binding path refused as not owner-only."
+assumption = "The two failures are defects of the binding loader and its publisher, not of the RPC work."
+severity = "high"
+
+[finding.22.39.83.1]
+task = "22.39.83"
+file = "tests/ci/test_python_suites_have_runner.py"
+symbol = "test_python_suites_have_runner.py"
+observed = "Attempt 1 at 284c0a10932c: build exit 0; verification exit 2: 366 passed and 88 failed in fourteen modules owned by done tasks, exposed for the first time by the aggregate target."
+assumption = "With the fourteen modules ignored by the baseline the target passes in the qualification environment; the retiring tasks remove the entries."
+severity = "high"
+
+[finding.22.39.123.1]
+task = "22.39.123"
+file = "apps/wallet/src/wallet/signer.test.ts"
+symbol = "signer.test.ts"
+observed = "Attempt 1 at 38aa1e8e41b6: build exit 0; verification exit 1 twice: 656 passed, two failed (storage forensics names src/widgets/swap/useSwapExecution.ts; token detail precision renders Unknown) and the surfaces receipt suite failed to load on a missing pnpm-workspace.yaml root marker."
+assumption = "The three remaining failures are the only ones outside the fourteen the task names, and each has a single producer."
 severity = "high"

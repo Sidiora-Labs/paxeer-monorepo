@@ -1,9 +1,11 @@
 {
+  "author": "Sidiora Labs",
+  "license": "Apache-2.0",
   "name": "@paxeer/demo",
   "version": "0.1.0",
   "private": true,
   "packageManager": "pnpm@10.34.9",
-  "description": "Paxeer Embedded Wallet \u2014 reference Next.js demo + drop-in components for partner apps.",
+  "description": "Paxeer Embedded Wallet — reference Next.js demo + drop-in components for partner apps.",
   "type": "module",
   "scripts": {
     "dev": "next dev -p 3000",

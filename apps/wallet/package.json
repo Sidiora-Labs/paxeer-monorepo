@@ -1,4 +1,6 @@
 {
+  "author": "Sidiora Labs",
+  "license": "MIT",
   "name": "@paxeer/wallet-app",
   "version": "0.1.0",
   "private": true,
