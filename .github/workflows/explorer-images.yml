@@ -39,6 +39,8 @@ jobs:
         with:
           persist-credentials: false
       - name: Run mix test in the explorer builder
+        env:
+          MIX_ENV: test
         run: services/explorer/deploy/tools/mix-in-builder.sh test
 
   publish:
