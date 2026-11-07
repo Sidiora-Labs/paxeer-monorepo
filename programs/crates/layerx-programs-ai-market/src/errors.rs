@@ -203,7 +203,67 @@ pub const F08_RESOURCE_EXHAUSTED: ApplicationError = ApplicationError(0x0815);
 pub const F09_EVIDENCE_TASK_SET_UNSEALED: ApplicationError = ApplicationError(0x0901);
 pub const F09_EVIDENCE_SEAL_CONFLICT: ApplicationError = ApplicationError(0x0902);
 pub const F07_IDEMPOTENCY_CONFLICT: ApplicationError = ApplicationError(0x0709);
+pub const F11_ROOM_UNKNOWN: ApplicationError = ApplicationError(0x0B01);
+pub const F11_ROOM_CLOSED: ApplicationError = ApplicationError(0x0B02);
+pub const F11_ASK_UNFUNDED: ApplicationError = ApplicationError(0x0B03);
+pub const F11_BID_BELOW_FLOOR: ApplicationError = ApplicationError(0x0B04);
+pub const F11_ROSTER_DIGEST_MISMATCH: ApplicationError = ApplicationError(0x0B05);
+pub const F11_BATCH_UNSEALED: ApplicationError = ApplicationError(0x0B06);
+pub const F11_CHALLENGE_WINDOW_CLOSED: ApplicationError = ApplicationError(0x0B07);
+pub const F11_BOND_LOCKED: ApplicationError = ApplicationError(0x0B08);
+pub const F11_BOND_INSUFFICIENT: ApplicationError = ApplicationError(0x0B09);
+pub const F11_SPLIT_EXCEEDS_SETTLED: ApplicationError = ApplicationError(0x0B0A);
 pub const APPLICATION_ERRORS: &[ErrorEntry] = &[
+    ErrorEntry {
+        feature: "F11",
+        name: "RoomUnknown",
+        code: F11_ROOM_UNKNOWN.code(),
+    },
+    ErrorEntry {
+        feature: "F11",
+        name: "RoomClosed",
+        code: F11_ROOM_CLOSED.code(),
+    },
+    ErrorEntry {
+        feature: "F11",
+        name: "AskUnfunded",
+        code: F11_ASK_UNFUNDED.code(),
+    },
+    ErrorEntry {
+        feature: "F11",
+        name: "BidBelowFloor",
+        code: F11_BID_BELOW_FLOOR.code(),
+    },
+    ErrorEntry {
+        feature: "F11",
+        name: "RosterDigestMismatch",
+        code: F11_ROSTER_DIGEST_MISMATCH.code(),
+    },
+    ErrorEntry {
+        feature: "F11",
+        name: "BatchUnsealed",
+        code: F11_BATCH_UNSEALED.code(),
+    },
+    ErrorEntry {
+        feature: "F11",
+        name: "ChallengeWindowClosed",
+        code: F11_CHALLENGE_WINDOW_CLOSED.code(),
+    },
+    ErrorEntry {
+        feature: "F11",
+        name: "BondLocked",
+        code: F11_BOND_LOCKED.code(),
+    },
+    ErrorEntry {
+        feature: "F11",
+        name: "BondInsufficient",
+        code: F11_BOND_INSUFFICIENT.code(),
+    },
+    ErrorEntry {
+        feature: "F11",
+        name: "SplitExceedsSettled",
+        code: F11_SPLIT_EXCEEDS_SETTLED.code(),
+    },
     ErrorEntry {
         feature: "F07",
         name: "IdempotencyConflict",

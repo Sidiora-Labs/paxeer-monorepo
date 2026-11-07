@@ -176,11 +176,11 @@ fn row(r: &ParticipantRow) -> Value {
     })
 }
 
-const FEATURE_NAMES: [&str; 10] = [
-    "F01", "F02", "F03", "F04", "F05", "F06", "F07", "F08", "F09", "F10",
+const FEATURE_NAMES: [&str; 11] = [
+    "F01", "F02", "F03", "F04", "F05", "F06", "F07", "F08", "F09", "F10", "F11",
 ];
 
-fn components(statuses: &[Availability; 10]) -> Value {
+fn components(statuses: &[Availability; 11]) -> Value {
     Value::Object(
         FEATURE_NAMES
             .iter()
