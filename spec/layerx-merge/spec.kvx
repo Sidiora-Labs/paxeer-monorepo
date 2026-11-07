@@ -10245,6 +10245,12 @@ value = "When a repair adds a read to a verifier of the agent daemon (a capabili
 basis = "Task 22.39.128 attempt 4 at 75cdab1dfc4c (gotcha 3532): the owner address authentication of 22.33.1520 reads three capabilities the recorded corpus of 22.31.217 never answers, so a case that passed at 75df69e084 is refused at main. Extends decisions 2762, 2800 and 2848 and gotcha 3046."
 affects = ["22.39.128", "22.33.1520", "22.31.217"]
 
+[decision.2856]
+title = "A gate that needs Node dependencies of workspace packages runs the root workspace install as the public workflow does"
+value = "When a build or verification step needs the dependencies of a package the repository root package.json lists as a workspace (the TypeScript SDK, the middleware packages, the integrations, the examples), the step runs npm ci --ignore-scripts --no-audit --no-fund at the repository root, the same install the js-workspace-tests job of the public workflow runs, before anything else; a per-directory npm install of a workspace package is never written into a gate, because workspace manifests name sibling packages by version and only the root install resolves them. A manifest that names a sibling by version is correct inside the workspace and is not a defect."
+basis = "Task 22.39.136 attempt 3 at 6a49f8b1242e (gotcha 3533): the per-directory install of the seller package asked the registry for the unpublished SDK version; task 22.39.78 attempt 1 reached the pay6 assertions through the root install. Extends decisions 2829, 2849 and 2853."
+affects = ["22.39.136", "22.39.137", "22.39.78"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -333035,7 +333041,7 @@ symbols = []
 touches = ["services/agent/sdk/python/layerx_sdk/x402_rpc.py"]
 tests = ["services/platform/middleware/conformance/pay6/test_rpc.py", "services/agent/sdk/python/tests/test_x402_rpc_surface.py"]
 planned_paths = ["services/agent/sdk/python/tests/test_x402_rpc_surface.py", "services/agent/sdk/python/repair_22_39_137.kvx"]
-build_cmd = "npm ci --ignore-scripts --no-audit --no-fund --prefix services/agent/sdk/typescript && npm install --no-package-lock --ignore-scripts --no-audit --no-fund --prefix services/platform/middleware/seller && npm install --no-package-lock --ignore-scripts --no-audit --no-fund --prefix services/platform/middleware/conformance && python3 -m py_compile services/agent/sdk/python/layerx_sdk/x402_rpc.py"
+build_cmd = "npm ci --ignore-scripts --no-audit --no-fund && python3 -m py_compile services/agent/sdk/python/layerx_sdk/x402_rpc.py"
 verify_cmd = "python3 -m pytest -q services/platform/middleware/conformance/pay6/test_rpc.py && cd services/agent/sdk/python && python3 -m pytest -q tests/test_x402_rpc_surface.py"
 gate_kind = "planned"
 sandbox_profile = "python"
@@ -333065,7 +333071,7 @@ symbols = []
 touches = ["services/agent/sdk/python/layerx_sdk/x402.py", "services/agent/sdk/python/layerx_sdk/x402_http.py", "services/agent/sdk/python/layerx_sdk/x402_agent.py", "services/agent/sdk/python/tests/test_x402_http_sequencer.py", "services/agent/sdk/python/tests/test_x402_draw_sequencer.py"]
 tests = ["services/platform/middleware/conformance/pay6/test_http.py", "services/platform/middleware/conformance/pay6/test_commitment.py", "services/platform/middleware/conformance/pay6/test_agent.py"]
 planned_paths = ["services/agent/sdk/python/repair_22_39_136.kvx"]
-build_cmd = "npm ci --ignore-scripts --no-audit --no-fund --prefix services/agent/sdk/typescript && npm install --no-package-lock --ignore-scripts --no-audit --no-fund --prefix services/platform/middleware/seller && npm install --no-package-lock --ignore-scripts --no-audit --no-fund --prefix services/platform/middleware/conformance && python3 -m py_compile services/agent/sdk/python/layerx_sdk/x402.py services/agent/sdk/python/layerx_sdk/x402_http.py services/agent/sdk/python/layerx_sdk/x402_agent.py"
+build_cmd = "npm ci --ignore-scripts --no-audit --no-fund && python3 -m py_compile services/agent/sdk/python/layerx_sdk/x402.py services/agent/sdk/python/layerx_sdk/x402_http.py services/agent/sdk/python/layerx_sdk/x402_agent.py"
 verify_cmd = "python3 -m pytest -q services/platform/middleware/conformance/pay6/test_http.py services/platform/middleware/conformance/pay6/test_commitment.py services/platform/middleware/conformance/pay6/test_agent.py && cd services/agent/sdk/python && python3 -m pytest -q tests/test_x402_http_sequencer.py tests/test_x402_draw_sequencer.py"
 gate_kind = "planned"
 sandbox_profile = "python"
@@ -333079,6 +333085,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Attempt 3 (continue, gotcha 3526, decisions 2771 and 2849): the attempt-2 tree 2b9ed9cc02fa stands (the ported verifier, HTTP client and agent budget modules, the two local suites, the record). The build step of the task now installs the three Node dependency sets the pay6 peers need before the py_compile step; run the build once, then the verification once at the final revision, and record both by reference. If a pay6 case still fails after the peers start, it is a Python wire difference this task owns under decision 2849: repair it in the module the case names and rerun once."
+do_5 = "Attempt 4 (continue, gotcha 3533, decisions 2771, 2849 and 2856): the attempt-3 tree 6a49f8b1242e stands (the ported verifier, HTTP client and agent budget modules, the two local suites). The build step of the task now runs the root workspace install, npm ci --ignore-scripts --no-audit --no-fund at the repository root, before the py_compile step; the seller manifest is correct and nothing under services/platform/middleware changes. Replace the attempt-3 entry of services/agent/sdk/python/repair_22_39_136.kvx that calls the seller dependency a wiring failure with the root install fact. Run the build once, then the verification once at the final revision, and record both by reference. If a pay6 case fails after the peers start, it is a Python wire difference this task owns under decision 2849: repair it in the module the case names and rerun once."
 
 [task.22.39.134]
 title = "Bring the ramp dependency policy and ramp journey Python suites to green and retire their baseline entries"

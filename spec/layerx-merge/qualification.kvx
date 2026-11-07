@@ -34945,3 +34945,11 @@ symbol = "native_binding.rs"
 observed = "Attempt 4 at 75cdab1dfc4c: build exit 0; verification exit 1: 18 passed, 1 failed, the recorded case proof_revocation_counter refused at the owner address authentication of 22.33.1520, which the attempt diagnosed and left unrepaired as instructed."
 assumption = "The recorded case lacks the three capability answers a producer repair began requiring after the case last passed; the test support records them, nothing else changes."
 severity = "high"
+
+[finding.22.39.136.2]
+task = "22.39.136"
+file = "services/platform/middleware/conformance/pay6/test_http.py"
+symbol = "test_http.py"
+observed = "Attempt 3 at 6a49f8b1242e: build exit 1 at the seller install (E404 for @sidiora/layerx-sdk@0.1.0 from the registry); the verification never ran; attempts 1 and 2 failed earlier at the peers for the missing @noble/hashes package."
+assumption = "The build step form was wrong, not the task tree or the seller manifest; the root workspace install is the only supported form."
+severity = "high"
