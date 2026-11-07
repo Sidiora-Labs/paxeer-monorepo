@@ -152109,7 +152109,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.139]
 title = "Make every public workflow install the pnpm release its working directory manifest declares and extend the pins test to workflow lines"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
