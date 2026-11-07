@@ -2,6 +2,7 @@
 from pathlib import Path
 import json
 import hashlib
+import importlib.util
 import os
 import subprocess
 import sys
@@ -229,7 +230,33 @@ console.log(JSON.stringify({status:failed.length?'FAIL':'PASS',scope:'fleet-cont
 process.exitCode = failed.length ? 1 : 0;
 '''
 
+def require_layout_receipt(root=ROOT):
+    spec = importlib.util.spec_from_file_location('layout_receipt_producer', Path(__file__).with_name('0_9.py'))
+    producer = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(producer)
+    try:
+        path = root / 'build/layout/0.9/receipt.json'
+        if path.is_symlink() or not path.resolve().is_relative_to(root.resolve()):
+            raise ValueError('Layout receipt must be an ordinary project file')
+        receipt = producer.document(path)
+        producer.validate_layout_receipt(receipt, root / 'tests/hyperfide/source-control/layout-receipt.schema.json')
+        mapping_path = root / 'spec/hyperfide-source-control/repository-layout.json'
+        mapping = producer.document(mapping_path)
+        if receipt['status'] != 'PASS' or receipt['case_qualification'] != 'PASS':
+            raise ValueError('Passing layout and case qualification required')
+        if receipt['bindings']['mapping_sha256'] != producer.digest(mapping_path) or receipt['bindings']['layout_generation'] != mapping['layout_generation']:
+            raise ValueError('Layout mapping digest or generation differs')
+    except (OSError, ValueError, KeyError, TypeError) as error:
+        raise ValueError('LAYOUT_RECEIPT_REQUIRED: ' + str(error)) from error
+    return receipt
+
+
 def main():
+    try:
+        require_layout_receipt()
+    except ValueError as error:
+        print(str(error), file=sys.stderr)
+        return 2
     node = os.environ.get('HYPERFIDE_NODE_BINARY', 'node')
     result = subprocess.run([node, '--input-type=module', '-e', PROGRAM, str(ROOT)], cwd=ROOT,
                             text=True, capture_output=True, timeout=90)
