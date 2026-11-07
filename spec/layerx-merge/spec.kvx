@@ -151258,7 +151258,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.37.28]
 title = "Produce the five layout driver receipts as tracked evidence and let the layout aggregation case pass"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 3
 requires = ["22.37.2"]
