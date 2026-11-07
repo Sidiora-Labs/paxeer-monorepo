@@ -153739,7 +153739,7 @@ do_9 = "Gotcha 3308, decision 2707. In 0_14_live.py (line 23) and 0_14_setup.py 
 
 [task.22.37.6]
 title = "Qualify manager led provisioning and agent assignment with live evidence"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["22.36.1", "22.37.5"]
@@ -182374,7 +182374,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.38.32]
 title = "Expose the market operations and reads in the Rust SDK"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["22.38.12", "22.31.620"]
