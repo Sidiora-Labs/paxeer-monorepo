@@ -7,10 +7,10 @@ committed. The EVM chain ID is `125` (`0x7d`); public node JSON-RPC uses the roo
 [Public RPC endpoints](docs/site/docs/reference/public-rpc.md).
 
 Applying a release to a running network requires the matching governance upgrade plan and node
-handler. The release tooling lives in [`tools/release`](tools/release). Its checked-in identity and
-fleet scripts still target `v6.12.0`; they are version-specific tooling, not a general merged-network
-activation procedure. The merge handler is registered separately as `MergeUpgrade` in
-[`node/upgrades.go`](node/upgrades.go).
+handler. The release tooling lives in [`tools/release`](tools/release). Release **v7.0.0** carries
+plan **v7.0**, registered as `MergeUpgrade` in [`node/upgrades.go`](node/upgrades.go).
+Use the [merged-network activation runbook](docs/runbooks/paxeer-x-fork.md) for that plan.
+The `v6.12.0` fleet scripts remain specific to their historical plan.
 
 The v6.12.0 migration includes the SID holder migration and SID mint-authority move
 as steps of the upgrade handler in [`node/upgrades_v6120.go`](node/upgrades_v6120.go).
@@ -19,21 +19,23 @@ bridge module account; they ship together in the v6.12.0 release.
 
 ## Release identity
 
-- `tools/release/version.json` currently holds `version` and `upgrade` both set to `v6.12.0`.
+- For release 7.0.0, `tools/release/version.json` must hold `version = v7.0.0` and `upgrade = v7.0`.
   `version` identifies the package (`vX.Y.Z`); `upgrade` identifies the on-chain upgrade plan
   name the release carries. The plan name must equal the constant the node registers for it (for
-  `v6.12.0`, `V6120Upgrade` in [`node/upgrades_v6120.go`](node/upgrades_v6120.go), registered in
-  [`node/upgrades.go`](node/upgrades.go)).
+  `v7.0`, `MergeUpgrade` in [`node/upgrades.go`](node/upgrades.go), whose value comes from
+  [`precompiles/common/precompiles.go`](precompiles/common/precompiles.go)). The later
+  `v7.0-anchor-store-delete` plan is a separate coordinated operation.
 - The release tag is `paxeer-network/` + `version`. `tools/release/build-paxd.sh --print-tag` prints
   it.
 - The `Paxeer / Release Check` workflow ([`.github/workflows/paxeer-release-check.yml`](.github/workflows/paxeer-release-check.yml))
-  runs on pull requests that touch the node, the release tooling or the price sidecar. It refuses a
-  version that is not semantic, an `upgrade` name that does not equal the declared `V6120Upgrade`,
+  runs on pull requests that touch the node, the release tooling or the price sidecar. For 7.0.0,
+  it must refuse a version that is not semantic, an `upgrade` name that is not a registered node plan,
   a tag that already exists, or a version that is not newer than the latest `paxeer-network/v*` tag,
   and then runs the
   reproducibility check. On pull requests it also checks consensus-changing commits against
-  [the consensus commit policy](docs/release/consensus-commits.md). The identity check is currently
-  tied to `node/upgrades_v6120.go`; changing `version.json` alone does not retarget it to another plan.
+  [the consensus commit policy](docs/release/consensus-commits.md). The identity check must
+  accept `MergeUpgrade` (`v7.0`) for this release; changing `version.json` alone
+  does not establish that the workflows and plan-info generation match the merge handler.
 
 ## Building a release
 
@@ -43,8 +45,7 @@ metadata and commit-date source) and `SOURCE_DATE_EPOCH` from the environment. `
 not check out that revision: build from the intended tag's checkout.
 
 The kernel and program runtime are linked into `paxd`; no separate kernel-daemon artifact is
-built or published. A nonzero legacy `PAXD_RELEASE_LAYERXD` setting is refused before toolchain
-checks or output replacement. Remove that setting from callers and build the merged package:
+built or published. Build the merged package:
 
 ```sh
 tools/release/build-paxd.sh
@@ -84,10 +85,8 @@ linux/amd64 build host for the complete release package.
 
 ## Publishing
 
-1. Before publishing a merged-network release, align the release workflows with the package above.
-   The checked-in check and publish workflows still enable the retired daemon option and will be
-   refused by the builder until their environment is updated. The release build test also expects
-   that retired artifact. These callers must use the merged package recipe before publication.
+1. Before publishing v7.0.0, require the release workflows and build tests to use the merged
+   package above, with plan `v7.0` and the genesis info required by `mergeUpgradePlan`.
 2. Open a pull request that sets `version` and `upgrade` in `tools/release/version.json`, with the
    upgrade handler registered under that name. `Paxeer / Release Check` validates the identity and
    runs the reproducibility check.

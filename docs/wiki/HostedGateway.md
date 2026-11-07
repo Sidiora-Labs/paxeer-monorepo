@@ -13,8 +13,10 @@ domains in the database, launchable without new infrastructure.
 The public node JSON-RPC endpoints are the root paths of
 `https://api-mainnet-beta.paxeer.network` and `https://api1.mainnet-beta.paxeer.network`
 through `https://api14.mainnet-beta.paxeer.network`. EVM chain ID is `125`
-(`0x7d`). Node namespaces are `debug`, `echo`, `eth`, `net`, `pax`, `test` and
-`txpool`. Hosted `px_*` methods belong to the gateway, not the node API.
+(`0x7d`). Node namespaces are `debug`, `echo`, `eth`, `net`, `pax`, `px`, `test` and
+`txpool`. The `px` namespace answers from node state; `px_register` and
+`px_requestFunds` are operations of the hosted identity and faucet
+services declared in `services/platform/hosted/gateway/openrpc.json`.
 Obtain the gateway origin and enabled product routes from its operator.
 The checked-in Ingress names the public node hostname; that manifest alone
 does not establish a deployed public gateway there.
@@ -251,15 +253,10 @@ Without that group, outbound service mTLS may use the paired
 `LAYERX_GATEWAY_SERVICE_CLIENT_IDENTITY_PKCS12` and
 `LAYERX_GATEWAY_SERVICE_CLIENT_IDENTITY_PASSWORD_FILE` variables.
 
-There is a remaining configuration limitation in `capabilities::chain_rpc`:
-it rewrites a bare node origin to the retired `/rpc` path, although public
-nodes serve JSON-RPC at the root.
-`Endpoint::parse` also normalizes a single trailing slash to an empty base
-path, so adding that slash does not bypass the rewrite. Check the deployed
-upstream routing rather than assuming a bare public node URL works in this
-build. The checked-in testnet manifest also supplies only one node-pool
-entry, while the current parser requires at least two. These are existing
-source/manifest limitations, not instructions to use the retired topology.
+`capabilities::chain_rpc` sends upstream node calls to the root path: a
+bare node origin gets the base path `/`. The checked-in testnet manifest
+supplies only one node-pool entry, while the current parser requires at least
+two.
 
 ## Redis state and ACL
 

@@ -74,14 +74,14 @@ the corresponding committed evidence.
 
 ## Method contracts
 
-The public node namespaces are `debug`, `echo`, `eth`, `net`, `pax`, `test`
+The public node namespaces are `debug`, `echo`, `eth`, `net`, `pax`, `px`, `test`
 and `txpool`. Availability depends on the node configuration; this list does
 not promise that every upstream Geth method is supported. See
 [EVM JSON-RPC differences](https://github.com/Sidiora-Labs/Paxeer-X-Network/blob/main/docs/evm_jsonrpc_unsupported.md).
 
-Hosted gateway `px_` methods have a separate service contract at
-`services/platform/hosted/gateway/openrpc.json`; consult
-[Hosted gateway JSON-RPC](../platform/gateway-rpc.md) for that API. A hosted
+The `px` namespace answers from node state; `px_register` and
+`px_requestFunds` are operations of the hosted identity and faucet
+services declared in [Hosted gateway JSON-RPC](../platform/gateway-rpc.md). A hosted
 method is not automatically available on every public node.
 
 The former unified router and its prefixed RPC routes are retired.

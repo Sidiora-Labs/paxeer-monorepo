@@ -284,3 +284,25 @@ The declarations below pin current source references. Evidence references, when 
   "recovery_profiles": []
 }
 ```
+
+## Running release closure
+
+The [7.2 release manifest template](../../../tools/hyperfide/tests/hyperfide/source-control/manifests/release.json) uses schema version 2. It pins the 7.1 archive and package manifest, complete source identity, closure packet, private runtime profile, running-system receipt and explicit operator acceptance. Its sentinel pins require replacement with actual evidence. The [operations procedure](operations.md#running-source-release-and-restore-drill) describes the exact private profile, restore boundary and acceptance sequence.
+
+The deployment phase starts the extracted `bin/source-control` and uses the packaged SDK/host modules through `native_source_full_journey.mjs`. It revalidates actual SCM-023 assignment, replacement, retained checkpoint, qualification, custody and accepted-source records, then exercises a new sparse checkpoint and an ambiguous publication. The original operation ID survives the deliberately dropped publication response. Receiver Git readback and the reflog require exactly one ref update after resume and replay. The restore drill restarts the packaged service against restored PostgreSQL/object metadata and compares accepted roots, canonical object bytes and remote state with observations taken before the drill. This running-system receipt supplements the canonical SCM-023 API/CLI/UI campaign.
+
+Closure requires nonempty, separately listed evidence classes:
+
+| Class         | Required evidence                                                      |
+| ------------- | ---------------------------------------------------------------------- |
+| Component     | Passing 7.1 packaged runtime receipts for the pinned archive           |
+| Live backend  | SCM-002 `real-s3`, SCM-022 `real-s3-72h`                               |
+| Live fleet    | SCM-014 `hyperfide-fleet`, SCM-022 `real-worker`, SCM-023 `api-cli-ui` |
+| GitHub        | SCM-015 `github`                                                       |
+| Consolidation | SCM-017 `cutover`                                                      |
+| Growth        | SCM-020 `growth`, SCM-021 `mixed-load` and `open-admission`            |
+| Recovery      | SCM-018 `metadata-failover`, SCM-019 `restore`                         |
+
+Full evidence class entries name the exact case, variant, receipt ID and receipt hash independently verified from the closure packet. A component receipt cannot replace any of these entries. The packet must still cover every canonical case and required variant, including those outside this table. Operator acceptance binds the runtime receipt and profile as well as the source revision and packet. Closure rechecks current retained custody; a previously passing receipt cannot hide a revoked, superseded or differently qualified source.
+
+The bounded task command is `python3 tests/hyperfide/cases/source_control/7_2.py --self-test`. It checks input pins and rejection paths, including every missing/empty evidence class and stale custody source, generation, policy and qualification. It writes a private `build/source-control/7.2/closure-report.json` with product variants UNRUN. Full closure writes each required variant's checked outcome and the separate evidence classes to that report. Neither the bounded gate nor a package component result promotes the UNQUALIFIED profiles above.

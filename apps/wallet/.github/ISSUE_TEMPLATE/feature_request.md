@@ -13,7 +13,7 @@ discover templates in a package's nested `.github` directory. Open a
 [monorepo issue](https://github.com/Sidiora-Labs/paxeer-monorepo/issues/new), use
 `[FEATURE] wallet: <summary>` as the title, and copy the sections below into its body.
 
-Check the [wallet README](../../README.md) and [changelog](../../CHANGELOG.md)
+Check the [wallet README](../../README.md) and [changelog](../../../../docs/wallet/app/CHANGELOG.md)
 for existing behavior. Use the [bug report prompts](bug_report.md) for broken behavior
 or the [question prompts](question.md) for usage help.
 
@@ -27,7 +27,7 @@ Give a concrete example of what is difficult today.
 Describe the behavior you want and how a user would interact with it.
 If the request involves the network, identify whether it concerns Paxeer mainnet-beta
 (EVM chain id `125`) or a tenant domain. See the
-[network context](../../CHANGELOG.md#network-context).
+[network context](../../../../docs/wallet/app/CHANGELOG.md#network-context).
 
 ## Alternatives considered
 

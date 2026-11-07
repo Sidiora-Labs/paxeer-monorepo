@@ -5,7 +5,7 @@ This product includes software developed at Sidiora Labs.
 
 Vendored source trees
 
-The directories below are plain snapshots of upstream repositories on GitHub.
+The pinned directories below are snapshots of upstream repositories on GitHub.
 Each carries a VENDOR.kvx pin record naming the repository, ref and full
 commit, and keeps the license files shipped with that snapshot.
 
@@ -38,6 +38,26 @@ tools/wasm-tools: Paxeer-Network/pax-wasm-tools at 22a56f143c1193bb27ce0a2ebd705
   a fork of bytecodealliance/wasm-tools, a Bytecode Alliance project.
   Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT
   (LICENSE-Apache-2.0_WITH_LLVM-exception, LICENSE-APACHE, LICENSE-MIT).
+
+Additional vendored and forked trees
+
+apps/explorer: Blockscout frontend (blockscout/frontend) fork.
+  GPL-3.0-only (LICENSE), including apps/explorer/toolkit.
+  Tools under apps/explorer/deploy/tools retain their ISC and MIT licences,
+  as declared in their package.json manifests.
+services/explorer/backend: Blockscout backend (blockscout/blockscout).
+  GPL-3.0 (LICENSE), including the Blockscout backend applications.
+services/explorer/services/libs: Blockscout Rust libraries (blockscout/blockscout-rs).
+  MIT License, as declared in the library manifests.
+tools/benchmark/loadtest/contracts/evm/lib/openzeppelin-contracts: OpenZeppelin Contracts
+  (OpenZeppelin/openzeppelin-contracts). MIT License (LICENSE).
+apps/inference-peer/engine: Pooled WebGPU inference engine (Nehanth/pooled),
+  pinned at 45b5ee275a8754a37fce4a6ce174f31e4a216ef4. MIT License
+  (apps/inference-peer/LICENSE-ENGINE; pin and file hashes in apps/inference-peer/NOTICE).
+  The apps/inference-peer manifest retains (Apache-2.0 AND MIT).
+tools/hyperfide: Hyperfide (Sidiora-Labs/hyperfide, formerly Codify).
+  Apache-2.0 (LICENSE); MIT as declared in its package.json manifests,
+  including the extensions and plugins.
 
 Third-party components
 

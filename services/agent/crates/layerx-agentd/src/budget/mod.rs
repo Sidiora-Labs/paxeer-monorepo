@@ -27,16 +27,23 @@ mod daemon;
 #[path = "divergence.rs"]
 mod divergence_reporting;
 pub(crate) mod execution_state;
+pub use execution_state::{
+    committed_execution_state_with_account_proofs, decode_program_value_observation,
+    CommittedExecutionState, ProgramValueObservation,
+};
 pub mod fee_policy;
 pub use fee_policy::{native_fee_policy, FeeReadError, NativeFeePolicy};
 mod mutate;
+pub mod native_binding;
+pub mod native_settlement;
 mod program_lifecycle_settlement;
+pub use program_lifecycle_settlement::verify_native_lifecycle_binding;
 pub mod program_settlement;
 mod program_sources;
 pub use program_sources::{
-    read_native_effect_budget_sources, read_program_budget_sources, ProgramSourceError,
-    ResolvedProgramCharge, ResolvedProgramSource, VerifiedProgramBudgetAllocations,
-    VerifiedResolvedProgramCharges,
+    read_native_effect_budget_sources, read_native_lifecycle_budget_sources,
+    read_program_budget_sources, ProgramSourceError, ResolvedProgramCharge, ResolvedProgramSource,
+    VerifiedProgramBudgetAllocations, VerifiedResolvedProgramCharges,
 };
 #[path = "hold.rs"]
 mod recovery;
@@ -48,9 +55,9 @@ pub use accounting::{
     ReconciliationState, SpendReceiptEvidence, BUDGET_MODULE_ID,
 };
 pub use create::{
-    budget_create_identity, core_expiry_ms, create_protocol_budget, BudgetCreateIdentity,
-    BudgetCreationError, BudgetKind, BudgetPipeline, BudgetRequest, CoreBudgetReceipt, LocalLimit,
-    ProtocolBudget,
+    budget_create_identity, core_expiry_ms, create_protocol_budget, validate_native_budget_source,
+    BudgetCreateIdentity, BudgetCreationError, BudgetKind, BudgetPipeline, BudgetRequest,
+    CoreBudgetReceipt, LocalLimit, ProtocolBudget,
 };
 pub use daemon::{
     applicable_daemon_limits, create_daemon_limit, daemon_limit_id, daemon_limits,
@@ -58,8 +65,9 @@ pub use daemon::{
 };
 pub use divergence_reporting::{BudgetDivergenceAlert, BudgetHealth, DivergenceAuditRecord};
 pub use mutate::{
-    budget_mutation_identity, budget_state_context, confirm_budget_mutation, BudgetMutation,
-    BudgetMutationPipeline, ConfirmedBudgetMutation,
+    budget_mutation_identity, budget_state_context, confirm_budget_mutation,
+    verify_committed_budget_mutation, BudgetMutation, BudgetMutationPipeline,
+    ConfirmedBudgetMutation,
 };
 pub use recovery::{
     BudgetReceiptEvidence, PersistedReceipt, RestartAccounting, RestartError, UnknownOutcome,
@@ -335,11 +343,7 @@ fn reinstall_enrolment(
         successor: None,
     };
     let bytes = record.encode()?;
-    store.put_local(index.clone(), stable_id.to_vec())?;
-    if let Err(error) = store.put_local(key, bytes) {
-        store.remove_local(&index)?;
-        return Err(error.into());
-    }
+    store.commit_local_records(vec![(index, stable_id.to_vec()), (key, bytes)])?;
     Ok(record)
 }
 

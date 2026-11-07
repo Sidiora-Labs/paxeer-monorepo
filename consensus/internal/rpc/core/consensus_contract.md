@@ -17,9 +17,10 @@ The OpenAPI server entry is this local diagnostic listener.
 The public network has EVM chain ID 125 (`0x7d`). Its HTTPS and WebSocket
 JSON-RPC endpoint is at the root of `https://api-mainnet-beta.paxeer.network`.
 The [public endpoint and namespace contract](../../../../docs/site/docs/reference/public-rpc.md#method-contracts)
-maintains the node inventory and the `debug`, `echo`, `eth`, `net`, `pax`, `test`
-and `txpool` boundary, subject to node configuration. Hosted `px_` methods are
-owned by the separate [gateway OpenRPC contract](../../../../services/platform/hosted/gateway/openrpc.json).
+maintains the node inventory and the `debug`, `echo`, `eth`, `net`, `pax`, `px`, `test`
+and `txpool` boundary, subject to node configuration. The `px` namespace answers from node state; `px_register` and
+`px_requestFunds` are operations of the hosted identity and faucet
+services declared in [the gateway OpenRPC contract](../../../../services/platform/hosted/gateway/openrpc.json).
 The diagnostic OpenAPI schema does not describe `eth_` or `px_` methods.
 
 ## Names and encodings

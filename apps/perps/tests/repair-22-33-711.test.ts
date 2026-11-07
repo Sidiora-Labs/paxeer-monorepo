@@ -703,7 +703,21 @@ async function registryMarketCatalog() {
   assert.ok(doc.includes("usePerpsMarkets()"));
   for (const field of ["catalog", "tradeable", "isLoading", "error", "refetch"])
     assert.ok(doc.includes(field));
-  assert.ok(doc.includes("3.ts-perps-hooks-useperpsmarkets-j27"));
+  assert.match(
+    doc,
+    /no arguments and returns `\{ catalog, tradeable, isLoading, error, refetch \}`/,
+  );
+  assert.match(
+    doc,
+    /`tradeable` contains only enabled\s+entries, each with non-null numeric `maxLeverage`/,
+  );
+  assert.match(
+    doc,
+    /Network, GraphQL and decoder errors expose `error` and empty arrays/,
+  );
+  const options = modules.markets.perpsMarketsQueryOptions();
+  assert.deepEqual(options.queryKey, ["perps", "markets"]);
+  assert.equal(options.retry, false);
   const hook = await mount(
     () => modules.markets.usePerpsMarkets(),
     undefined,
@@ -713,6 +727,7 @@ async function registryMarketCatalog() {
   assert.deepEqual(hook.read().tradeable, []);
   assert.equal(hook.read().isLoading, true);
   assert.equal(hook.read().error, null);
+  assert.equal(typeof hook.read().refetch, "function");
   await release(await take("GetMarkets"));
   await until(() => !hook.read().isLoading);
   assert.deepEqual(

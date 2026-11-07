@@ -164,7 +164,7 @@ impl CommittedCaps {
         self.checkpoint.height
     }
     pub const fn level(&self) -> VerificationLevel {
-        VerificationLevel::CHECKPOINT_FINALISED
+        VerificationLevel::COMMITTED
     }
     pub const fn freshness(&self) -> Freshness {
         checkpoint_freshness(&self.checkpoint)
@@ -418,7 +418,7 @@ impl CommittedCall {
         self.checkpoint.app_hash
     }
     pub const fn level(&self) -> VerificationLevel {
-        VerificationLevel::CHECKPOINT_FINALISED
+        VerificationLevel::COMMITTED
     }
     pub const fn achieved(&self) -> VerificationLevel {
         self.level()

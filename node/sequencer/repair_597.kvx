@@ -1,0 +1,10 @@
+[repair.22.31.597]
+mode = "BUILD"
+acceptance = "22998.1"
+baseline = "No earlier gate ledger or sequencer edits existed. The explicit implementation-first order and gate-only budget prohibit the embedded unchanged-tree short-timeout run; no baseline execution is claimed."
+verification = "hf-build then hf-done; /out/run/gates.jsonl records each exact candidate revision, command, exit and private log, including the final build and verification references."
+
+[finding.sealed-receipt-input]
+tests = ["TestAccepterReceiptsASendSealedBeforeItsReceipt", "TestAccepterReceiptsASendAcrossASeal"]
+observed = "Static trace: Receipter.Accept discards its pre-execution input, then finish reads BeforeContext after the fixture seals and flattens its parent cache branches; the original balance view is no longer stable and standby receipt equality can fail."
+repair = "Retain the validated pre-execution receipt input through sequential acceptance and signing; retain per-entry input capture for grouped execution. Both receipt tests also assert exact sender and recipient balances before and after the seal, including the next block's starting balances."

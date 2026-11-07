@@ -526,9 +526,9 @@ pub enum Availability {
     UnsupportedVersion = 5,
 }
 
-/// Availability of content actually decoded from the exact capture, in F01..F10 order.
+/// Availability of content actually decoded from the exact capture, in F01..F11 order.
 /// Unknown codec versions and malformed content remain explicit to consumers.
-pub fn feature_availability(state_bytes: &[u8]) -> CodecResult<[Availability; 10]> {
+pub fn feature_availability(state_bytes: &[u8]) -> CodecResult<[Availability; 11]> {
     fn decoded<T>(bytes: &[u8], decode: impl FnOnce() -> CodecResult<T>) -> Availability {
         if bytes.is_empty() {
             return Availability::NotYetProduced;
@@ -540,9 +540,13 @@ pub fn feature_availability(state_bytes: &[u8]) -> CodecResult<[Availability; 10
         }
     }
     let shared = state::decode_shared_state(state_bytes)?;
-    let mut out = [Availability::NotYetProduced; 10];
+    let mut out = [Availability::NotYetProduced; 11];
     let policy = shared.section(Section::PolicyLifecycle)?;
     out[0] = decoded(policy, || policy_of(&shared));
+    out[10] = match out[0] {
+        Availability::Available => Availability::NotEnabled,
+        availability => availability,
+    };
     out[1] = decoded(shared.section(Section::IdentityRoster)?, || {
         worker_table(&shared)
     });
@@ -941,7 +945,7 @@ pub fn project_capture(
     state_bytes: &[u8],
     binding: &SnapshotBinding,
     out: &mut [ParticipantRow],
-) -> QueryResult<([Availability; 10], usize)> {
+) -> QueryResult<([Availability; 11], usize)> {
     let header = read_header(state_bytes, binding.chain, binding.program)?;
     if header.market != binding.market
         || header.revision != binding.revision

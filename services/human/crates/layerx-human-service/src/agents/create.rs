@@ -742,7 +742,12 @@ impl ProtocolEvidence {
                 grant.registration_payload,
                 layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION,
             ),
-            Some(layerx_crypto::disclosure::call::ConstructMethod::ProgramCall { .. }) => {
+            Some(
+                layerx_crypto::disclosure::call::ConstructMethod::ProgramCall { .. }
+                | layerx_crypto::disclosure::call::ConstructMethod::ProgramDeploy { .. }
+                | layerx_crypto::disclosure::call::ConstructMethod::ProgramUpgrade { .. }
+                | layerx_crypto::disclosure::call::ConstructMethod::ProgramWindDown { .. },
+            ) => {
                 return Err(AgentFailure::Refused(
                     "invalid lifecycle transaction method",
                 ))
@@ -761,6 +766,11 @@ impl ProtocolEvidence {
             Some(layerx_crypto::disclosure::call::ConstructMethod::PointerTransfer { .. }) => {
                 return Err(AgentFailure::Refused(
                     "lifecycle transaction is a pointer transfer",
+                ))
+            }
+            Some(layerx_crypto::disclosure::call::ConstructMethod::BindLayerX { .. }) => {
+                return Err(AgentFailure::Refused(
+                    "lifecycle transaction is a bind registration",
                 ))
             }
             None => {

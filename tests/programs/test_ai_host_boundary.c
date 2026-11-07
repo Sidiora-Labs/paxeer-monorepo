@@ -13,6 +13,12 @@
 #include <string.h>
 #include <unistd.h>
 
+extern const char *layerx_programs_call_replay_refusal_field(bool reset);
+extern lxp_result layerx_programs_call_replay_execution_status(void);
+extern const char *layerx_programs_call_replay_execution_fault(void);
+extern const char *layerx_programs_call_replay_refusal_site(void);
+extern const char *layerx_programs_call_replay_refusal_stage(void);
+
 static void write_u16(uint8_t *out, uint16_t value)
 {
     out[0] = (uint8_t)(value >> 8U);
@@ -289,7 +295,17 @@ static lxp_result execute(fixture *f, unsigned actor, uint32_t type,
     (void)memcpy(execution.activity_root, roots.activity_merkle_root, 32U);
     if (lxp_arena_reset(&f->arena, 0U) != LXP_OK) return LXP_FATAL_INVARIANT;
     (void)memset(&f->receipt, 0, sizeof(f->receipt));
+    (void)layerx_programs_call_replay_refusal_field(true);
     result = lxp_kernel_execute_activity(&f->kernel, &activity, &execution, &f->receipt);
+    (void)fprintf(stderr,
+        "CALL execute type=0x%x kernel_status=%d receipt_status=%d "
+        "replay_field=%s replay_site=%s replay_stage=%s runtime_status=%d fault=%s\n",
+        (unsigned)type, (int)result, (int)f->receipt.result_code,
+        layerx_programs_call_replay_refusal_field(false),
+        layerx_programs_call_replay_refusal_site(),
+        layerx_programs_call_replay_refusal_stage(),
+        (int)layerx_programs_call_replay_execution_status(),
+        layerx_programs_call_replay_execution_fault());
     if (result == LXP_OK) {
         uint8_t root[32];
         if (lxp_receipt_verify(&f->receipt, f->sequencer_key, &f->arena) != LXP_OK)
@@ -311,7 +327,8 @@ static size_t call_payload(const fixture *f, uint8_t *out, const uint8_t *data, 
     (void)memset(out, 0, 34U);
     bytes(out, &n, domain, sizeof(domain));
     write_u16(out+n, 1U); n += 2U;
-    write_u32(out+n, 128U); n += 4U;
+    /* The deployed guest's short CALL records 227 boundaries; round up to 256. */
+    write_u32(out+n, 256U); n += 4U;
     write_u32(out+n, 1048576U); n += 4U;
     original = n + 4U;
     n = original;
@@ -455,6 +472,64 @@ static int call(fixture *f, unsigned actor, const uint8_t *envelope, size_t leng
         outcome->present ? outcome->event_envelope_payload.length : 0U);
     (void)fputc('\n', stdout);
     return fflush(stdout) == 0 ? 0 : 1;
+}
+
+static int test_replay_record_v2(fixture *f, uint8_t *payload)
+{
+    static const uint8_t native_domain[] = "LXP/program-replay-native-blob/v1";
+    static const uint8_t record_domain[] = "LXP/program-replay-record/v1";
+    static const uint8_t short_input[] = {0U};
+    static const uint8_t access_set_domain[] = "LayerX/programs/access-set/v1";
+    const uint64_t declaration_fuel = sizeof(access_set_domain) + 6U +
+        2U * (32U + 1U + 1U + 1U + 2U) +
+        2U * (LX_PROGRAMS_STORAGE_MAX_KEY_BYTES + 1U);
+    const uint64_t guest_fuel = 256U;
+    uint64_t fuel = f->call_fuel;
+    size_t length, offset = sizeof(native_domain) + 4U;
+    uint32_t record_length, header_length, boundary_count, declared_boundaries;
+    uint32_t required_boundaries = 1U;
+    const uint8_t *record;
+    size_t cursor;
+    lxp_result status;
+    f->call_fuel = declaration_fuel + guest_fuel;
+    length = call_payload(f, payload, short_input, sizeof(short_input));
+    status = execute(f, 0U, LX_PROGRAMS_CALL, payload, length);
+    f->call_fuel = fuel;
+    if (status != LXP_OK || !f->receipt.program_outcome.present ||
+        f->receipt.program_outcome.cpu_fuel <= declaration_fuel ||
+        f->receipt.program_outcome.cpu_fuel > declaration_fuel + guest_fuel ||
+        f->witness.bytes == NULL || f->witness.length < offset ||
+        memcmp(f->witness.bytes, native_domain, sizeof(native_domain)) != 0)
+        return 1;
+    record_length = read_be32(f->witness.bytes + sizeof(native_domain));
+    if (record_length > f->witness.length - offset ||
+        record_length < sizeof(record_domain) + 2U + 4U ||
+        memcmp(f->witness.bytes + offset, record_domain, sizeof(record_domain)) != 0 ||
+        f->witness.bytes[offset + sizeof(record_domain)] != 0U ||
+        f->witness.bytes[offset + sizeof(record_domain) + 1U] != 2U ||
+        strcmp(layerx_programs_call_replay_refusal_field(false), "none") != 0 ||
+        strcmp(layerx_programs_call_replay_refusal_site(), "none") != 0 ||
+        strcmp(layerx_programs_call_replay_refusal_stage(), "none") != 0 ||
+        strcmp(layerx_programs_call_replay_execution_fault(), "none") != 0)
+        return 1;
+    record = f->witness.bytes + offset;
+    cursor = sizeof(record_domain) + 2U;
+    header_length = read_be32(record + cursor);
+    cursor += 4U;
+    if (header_length > record_length - cursor) return 1;
+    cursor += header_length;
+    if (record_length - cursor < 4U + 4U + 1U + 4U) return 1;
+    declared_boundaries = read_be32(record + cursor);
+    cursor += 4U + 4U + 1U;
+    boundary_count = read_be32(record + cursor);
+    (void)fprintf(stderr, "CALL replay boundary_count=%u maximum_boundaries=%u cpu_fuel=%llu\n",
+        (unsigned)boundary_count, (unsigned)declared_boundaries,
+        (unsigned long long)f->receipt.program_outcome.cpu_fuel);
+    if (boundary_count == 0U || boundary_count > LXP_PROGRAMS_REPLAY_MAX_BOUNDARIES)
+        return 1;
+    while (required_boundaries < boundary_count) required_boundaries *= 2U;
+    if (declared_boundaries != required_boundaries) return 1;
+    return 0;
 }
 
 static int register_account(fixture *f, const uint8_t *seed, size_t length, uint8_t id[32])
@@ -644,7 +719,7 @@ int main(int argc, char **argv)
     envelope = malloc(LXP_MAX_ACTIVITY_BYTES);
     payload = malloc(LXP_MAX_ACTIVITY_BYTES);
     if (f == NULL || envelope == NULL || payload == NULL || initialize(f) != 0 ||
-        deploy(f, argv[1]) != 0) {
+        deploy(f, argv[1]) != 0 || test_replay_record_v2(f, payload) != 0) {
         (void)fprintf(stderr, "native bring-up failed\n");
         return 2;
     }

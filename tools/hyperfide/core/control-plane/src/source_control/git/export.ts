@@ -6,6 +6,7 @@ import {
   sourceScopeValues,
 } from "../metadata.js";
 import type { SourceContext, SourceSQL } from "../metadata.js";
+import { SourceRetentionService } from "../retention.js";
 import { reserveSourceOperation } from "../operations.js";
 import type { SourceObjectService } from "../objects.js";
 import type { PersistentTree } from "../trees.js";
@@ -287,11 +288,20 @@ export class SourceGitPublicationService {
           ],
         )
       ).rows[0];
-      const protection = await this.metadata.protectRoot(
+      const protection = await SourceRetentionService.acquire(
         tx,
         context.scope,
-        accepted.root_tree_id,
-        "publication:" + operation.operation_id,
+        {
+          root_id: SourceRetentionService.producerRootId(
+            context.scope,
+            "EXPORT",
+            context.principal_id + "/" + operation.operation_id,
+            accepted.root_tree_id,
+          ),
+          owner_kind: "EXPORT",
+          owner_id: context.principal_id + "/" + operation.operation_id,
+          object_id: accepted.root_tree_id,
+        },
       );
       const result: SourcePublicationResult = {
         schema_version: 1,
@@ -421,6 +431,17 @@ export class SourceGitPublicationService {
         storage.checkpoint_generation ?? null,
       ],
     );
+    if (terminal.has(status))
+      await SourceRetentionService.release(tx, context.scope, {
+        root_id: SourceRetentionService.producerRootId(
+          context.scope,
+          "EXPORT",
+          context.principal_id + "/" + row.operation_id,
+          row.root_tree_id,
+        ),
+        owner_kind: "EXPORT",
+        owner_id: context.principal_id + "/" + row.operation_id,
+      });
     return result;
   }
   private async settle(

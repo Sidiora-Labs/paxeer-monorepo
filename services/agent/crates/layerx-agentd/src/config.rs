@@ -19,6 +19,101 @@ use crate::store::TenantId;
 const MAX_CONFIG_BYTES: usize = 65_536;
 const MAX_LINE_BYTES: usize = 4_096;
 
+#[path = "human_owner_mode.rs"]
+pub mod agent_mode;
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct InferenceConfig {
+    pub signal_listen: std::net::SocketAddr,
+    pub serve_listen: std::net::SocketAddr,
+    pub model_digest: [u8; 32],
+    pub runtime_digest: [u8; 32],
+    pub room_profile: PathBuf,
+}
+
+impl InferenceConfig {
+    pub fn from_environment() -> Result<Self, String> {
+        let mut values = BTreeMap::new();
+        for name in [
+            "LAYERX_AGENT_INFERENCE_SIGNAL_LISTEN",
+            "LAYERX_AGENT_INFERENCE_SERVE_LISTEN",
+            "LAYERX_AGENT_INFERENCE_MODEL_DIGEST",
+            "LAYERX_AGENT_INFERENCE_RUNTIME_DIGEST",
+            "LAYERX_AGENT_INFERENCE_ROOM_PROFILE",
+        ] {
+            match std::env::var(name) {
+                Ok(value) => {
+                    values.insert(name.to_owned(), value);
+                }
+                Err(std::env::VarError::NotPresent) => {}
+                Err(std::env::VarError::NotUnicode(_)) => {
+                    return Err(format!("{name} is not UTF-8"))
+                }
+            }
+        }
+        Self::from_values(&values)
+    }
+
+    pub fn from_values(values: &BTreeMap<String, String>) -> Result<Self, String> {
+        let required = |name: &str| {
+            values
+                .get(name)
+                .filter(|value| !value.is_empty() && value.trim() == value.as_str())
+                .ok_or_else(|| format!("{name} is required and must be nonblank"))
+        };
+        let digest = |name: &str| {
+            let bytes = layerx_programs::hex::decode_digest(required(name)?)
+                .map_err(|_| format!("{name} must be a 32-byte hexadecimal digest"))?;
+            if bytes == [0; 32] {
+                return Err(format!("{name} must be nonzero"));
+            }
+            Ok(bytes)
+        };
+        let listen = |name: &str, default: &str| {
+            values
+                .get(name)
+                .map_or(default, String::as_str)
+                .parse::<std::net::SocketAddr>()
+                .map_err(|_| format!("{name} must be a socket address"))
+        };
+        let model_digest = digest("LAYERX_AGENT_INFERENCE_MODEL_DIGEST")?;
+        let runtime_digest = digest("LAYERX_AGENT_INFERENCE_RUNTIME_DIGEST")?;
+        let room_profile = PathBuf::from(required("LAYERX_AGENT_INFERENCE_ROOM_PROFILE")?);
+        let signal_listen = listen("LAYERX_AGENT_INFERENCE_SIGNAL_LISTEN", "127.0.0.1:8790")?;
+        let serve_listen = listen("LAYERX_AGENT_INFERENCE_SERVE_LISTEN", "127.0.0.1:8791")?;
+        if signal_listen == serve_listen && signal_listen.port() != 0 {
+            return Err("inference listeners must use different addresses".to_owned());
+        }
+        Ok(Self {
+            signal_listen,
+            serve_listen,
+            model_digest,
+            runtime_digest,
+            room_profile,
+        })
+    }
+
+    pub fn load_room_profile(&self) -> Result<Vec<u8>, String> {
+        let file = File::open(&self.room_profile)
+            .map_err(|_| "inference room profile is unreadable".to_owned())?;
+        if !file
+            .metadata()
+            .map_err(|error| error.to_string())?
+            .is_file()
+        {
+            return Err("inference room profile must be a regular file".to_owned());
+        }
+        let mut bytes = Vec::new();
+        file.take(MAX_CONFIG_BYTES as u64 + 1)
+            .read_to_end(&mut bytes)
+            .map_err(|_| "inference room profile is unreadable".to_owned())?;
+        if bytes.is_empty() || bytes.len() > MAX_CONFIG_BYTES {
+            return Err("inference room profile is empty or too large".to_owned());
+        }
+        Ok(bytes)
+    }
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct RequiredSetting {
     pub file_key: &'static str,
