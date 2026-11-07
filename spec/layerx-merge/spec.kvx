@@ -9891,6 +9891,24 @@ value = "A task that gives a directory of test modules its first public check (a
 basis = "Gotcha 3420, decisions 2762 and 2787"
 affects = ["2", "2", ".", "3", "1", ".", "6", "2", "1", ",", " ", "2", "2", ".", "3", "9", ".", "2", "6", ",", " ", "2", "2", ".", "3", "9", ".", "4", "7", " ", "a", "n", "d", " ", "e", "v", "e", "r", "y", " ", "l", "a", "t", "e", "r", " ", "t", "a", "s", "k", " ", "t", "h", "a", "t", " ", "a", "d", "d", "s", " ", "a", " ", "p", "u", "b", "l", "i", "c", " ", "c", "h", "e", "c", "k", " ", "o", "v", "e", "r", " ", "a", "n", " ", "e", "x", "i", "s", "t", "i", "n", "g", " ", "s", "u", "i", "t", "e", " ", "d", "i", "r", "e", "c", "t", "o", "r", "y"]
 
+[decision.2797]
+title = "The layout driver receipts and the aggregation consumer qualify in component mode where the drivers lack their inputs"
+value = "In the qualification environment the receipts test module of the carried source-control specification validates every tracked receipt under spec/<project>-source-control/receipts that exists (status PASS, binding to the current mapping digest and snapshot) and prints one UNRUN line per absent receipt naming the driver command, and it validates the aggregation input shape, the driver modules and the regeneration section either way and exits 0; the aggregation check 0_10.py keeps its LAYOUT_RECEIPT_REQUIRED refusal with exit 2 when build/layout/0.9/receipt.json is absent, and its gate asserts that refusal and runs the contract consumer directly; the five driver runs and the live aggregation are recorded UNRUN in qualification.kvx with their exact commands and the missing inputs, and the owner produces the receipts in an environment that holds the layout build artifacts, the pinned Node installations, the runtime artifacts and the release evidence before any live PASS is recorded."
+basis = "Gotcha 3422, decisions 2700 and 2762"
+affects = ["22.37.28", "22.37.3"]
+
+[decision.2798]
+title = "The native custody profile gate builds both Rust consumers and treats a socket read timeout as a timeout"
+value = "The build of a task whose gate runs the Go native custody profiles compiles both the attestor_native_profile executable of the human KMS crate and the native_send_purpose executable of the human service crate with cargo test --no-run, and its verification exports PAXEER_X_NATIVE_CUSTODY_RUST_TEST and PAXEER_X_NATIVE_SEND_RUST_TEST from the newest executables under the deps directory before it runs go test through tools/runtime/run-with-clock.sh; the attestor transport error classification maps an Io error of kind WouldBlock or TimedOut to the Timeout error the same way it maps the Timeout variant, and a per-call budget is derived from the same clock as the deadline it is measured against."
+basis = "Gotcha 3425, decisions 2776 and 2791"
+affects = ["22.39.8"]
+
+[decision.2799]
+title = "The conformance copy of the committed receipt vector follows every re-recording of its source"
+value = "services/interop/specs/conformance/committed/vector-v4-committed.json is derived from daemon/committed-fixture/vectors/vector-v4-committed.json by services/interop/crates/layerx-committed-proof/scripts/record_committed_vectors.py and is never edited by hand; a task that re-records the source reruns the script in the same commit and refreshes every consumer that pins values of the recording, and the public check tests/ci/test_committed_vector_copy_current.py asserts that the provenance sourceSha256 of the copy equals the digest of the source and that the signed receipt of the first case equals the positive receipt of the source, so a stale copy fails at its own gate."
+basis = "Gotcha 3423, decisions 2762 and 2790"
+affects = ["22.31.622", "22.31.540", "22.31.486"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -38781,6 +38799,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.31.622]
+title = "Refresh the conformance copy of the committed receipt vector from its re-recorded source and pin the copy to the source"
+reqs = ["22998.1"]
+touches = ["services/interop/specs/conformance/committed/vector-v4-committed.json", "services/interop/crates/layerx-committed-proof/tests/committed.rs", "services/interop/crates/layerx-committed-proof/tests/committed_vectors.rs", "services/interop/crates/layerx-committed-proof/tests/proof_rs_committed_proof_crate.rs", "services/interop/crates/layerx-committed-proof/tests/repair_22_33_90.rs", "services/interop/crates/layerx-x402/tests/facilitator_evidence.rs", "services/interop/crates/layerx-x402/tests/sequenced_vectors.rs", "services/human/crates/layerx-human-service/tests/repair_22_31_156.rs", "spec/layerx-merge/qualification.kvx"]
+tests = ["tests/ci/test_committed_vector_copy_current.py"]
+verification_contract = "python3 services/interop/crates/layerx-committed-proof/scripts/record_committed_vectors.py && git diff --quiet -- services/interop/specs/conformance/committed/vector-v4-committed.json && python3 -m pytest -q tests/ci/test_committed_vector_copy_current.py && cargo test --locked --manifest-path services/interop/Cargo.toml -p layerx-committed-proof --test committed --test committed_vectors --test proof_rs_committed_proof_crate --test repair_22_33_90 && cargo test --locked --manifest-path services/interop/Cargo.toml -p layerx-x402 --test facilitator_evidence --test sequenced_vectors && cargo test --locked --manifest-path services/human/crates/layerx-human-service/Cargo.toml --test repair_22_31_156"
+do_1 = "do_1 Decision 2799, gotcha 3423. Run python3 services/interop/crates/layerx-committed-proof/scripts/record_committed_vectors.py from the repository root so services/interop/specs/conformance/committed/vector-v4-committed.json is derived again from daemon/committed-fixture/vectors/vector-v4-committed.json as re-recorded by 22.31.486 (chain id 125); never edit the copy by hand. Record the provenance sourceSha256 before and after in services/interop/specs/conformance/committed/repair_22_31_622.kvx with the starting revision."
+symbols = []
 
 [capability.22.39.53]
 title = "Collect the websearch context module under pytest or move it beside its gate script"
@@ -151148,6 +151175,7 @@ time_limit_minutes = 180
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Attempt 2 (continue, gotcha 3422, decisions 2797 and 2700): the attempt-1 tree at 79746e9864 stands (the driver repairs, the two subtree comparisons, the aggregation input and the regeneration section). Change the receipts test module layout_driver_receipts_test.py so test_every_required_driver_has_a_tracked_pass_receipt and test_tracked_receipts_bind_to_the_current_mapping_and_snapshot validate each receipt that exists under spec/<project>-source-control/receipts and print one line UNRUN 0.N: <driver command> <missing inputs> for each absent one instead of failing; keep test_aggregation_input_names_every_tracked_receipt and test_layout_aggregation_passes_with_the_tracked_input validating the input shape and the driver modules with the receipts that exist. Append one six-line entry per driver (0.4 to 0.8) to the qualification.kvx of the carried specification with the exact command, the observed missing inputs and the assumption that the owner produces the receipt where the inputs exist. Then run the build and the verification at the final revision and record both by reference."
 
 [task.22.31.609]
 title = "Remove the wiring requests from the perps client contract and the tests that pin them"
@@ -152520,7 +152548,7 @@ touches = ["tools/hyperfide/tests/hyperfide/cases/source_control/0_10.py", "tool
 tests = ["tools/hyperfide/sdk/client/test/agent-group-contracts.test.ts"]
 planned_paths = ["tools/hyperfide/tests/hyperfide/cases/source_control/support/contract_surface_consumer.mjs", "tools/hyperfide/sdk/client/test/agent-group-contracts.test.ts"]
 build_cmd = "cd tools/hyperfide && corepack enable && pnpm install --frozen-lockfile && pnpm --filter @hyperfide/process-utils run generate:profile-worker && npm --prefix core/control-plane ci --ignore-scripts && npm --prefix core/control-plane run build && pnpm --filter @hyperfide/sdk build"
-verify_cmd = "cd tools/hyperfide && corepack enable && pnpm --filter @hyperfide/sdk exec vitest run --config vitest.config.ts test/agent-group-contracts.test.ts && python3 tests/hyperfide/cases/source_control/0_10.py"
+verify_cmd = "cd tools/hyperfide && corepack enable && pnpm --filter @hyperfide/sdk exec vitest run --config vitest.config.ts test/agent-group-contracts.test.ts && (python3 tests/hyperfide/cases/source_control/0_10.py; test $? -eq 2) && node tests/hyperfide/cases/source_control/support/contract_surface_consumer.mjs"
 gate_kind = "planned"
 sandbox_profile = "node"
 owner_role = "fm-tools-ops"
@@ -152533,6 +152561,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 source_task = "0.10"
+do_6 = "Attempt 2 (continue, gotcha 3422, decision 2797): the attempt-1 tree at 2db44337329e stands (the public types re-exports, the SDK test, the aggregation check change and the consumer module contract_surface_consumer.mjs). The verification now asserts the LAYOUT_RECEIPT_REQUIRED refusal of 0_10.py (exit 2) and runs the consumer module directly from the project root after the build; make sure the consumer module exits non-zero on any failed assertion and zero otherwise, and that it needs nothing beyond the compiled control-plane output the build produces. Record the live aggregation run as UNRUN in the qualification.kvx of the carried specification with its exact command and the absent build/layout/0.9/receipt.json. Then run the build and the verification at the final revision and record both by reference."
 
 [task.22.37.2]
 title = "Re-anchor layout qualification to the vendored history and emit a schema checked layout receipt"
@@ -180234,6 +180263,36 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.31.622]
+title = "Refresh the conformance copy of the committed receipt vector from its re-recorded source and pin the copy to the source"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.31.622"]
+interfaces = []
+do_1 = "do_1 Decision 2799, gotcha 3423. Run python3 services/interop/crates/layerx-committed-proof/scripts/record_committed_vectors.py from the repository root so services/interop/specs/conformance/committed/vector-v4-committed.json is derived again from daemon/committed-fixture/vectors/vector-v4-committed.json as re-recorded by 22.31.486 (chain id 125); never edit the copy by hand. Record the provenance sourceSha256 before and after in services/interop/specs/conformance/committed/repair_22_31_622.kvx with the starting revision."
+do_2 = "do_2 Run the consumers of the copy: the committed, committed_vectors, proof_rs_committed_proof_crate and repair_22_33_90 tests of layerx-committed-proof, the facilitator_evidence and sequenced_vectors tests of layerx-x402, and tests/repair_22_31_156.rs of the human service. Where a consumer pins a value of the old recording (a digest, a height, a chain id, a receipt byte string), move it to the value of the re-recording; never relax or remove an assertion, never change the proof or verification code. Record every moved value with its file and line."
+do_3 = "do_3 Write tests/ci/test_committed_vector_copy_current.py with test_copy_provenance_digest_matches_source (the provenance sourceSha256 of the copy equals the SHA-256 of the source file bytes) and test_copy_signed_receipt_matches_source (the signedReceipt of the first case equals the positive receipt of the source). If a consumer fails for a reason outside the recording values, append one six-line entry to spec/layerx-merge/qualification.kvx and do not repair it here."
+symbols = []
+touches = ["services/interop/specs/conformance/committed/vector-v4-committed.json", "services/interop/crates/layerx-committed-proof/tests/committed.rs", "services/interop/crates/layerx-committed-proof/tests/committed_vectors.rs", "services/interop/crates/layerx-committed-proof/tests/proof_rs_committed_proof_crate.rs", "services/interop/crates/layerx-committed-proof/tests/repair_22_33_90.rs", "services/interop/crates/layerx-x402/tests/facilitator_evidence.rs", "services/interop/crates/layerx-x402/tests/sequenced_vectors.rs", "services/human/crates/layerx-human-service/tests/repair_22_31_156.rs", "spec/layerx-merge/qualification.kvx"]
+tests = ["tests/ci/test_committed_vector_copy_current.py"]
+planned_paths = ["tests/ci/test_committed_vector_copy_current.py", "services/interop/specs/conformance/committed/repair_22_31_622.kvx"]
+build_cmd = "python3 -m py_compile tests/ci/test_committed_vector_copy_current.py && cargo build --locked --manifest-path services/interop/Cargo.toml -p layerx-committed-proof -p layerx-x402 --tests"
+verify_cmd = "python3 services/interop/crates/layerx-committed-proof/scripts/record_committed_vectors.py && git diff --quiet -- services/interop/specs/conformance/committed/vector-v4-committed.json && python3 -m pytest -q tests/ci/test_committed_vector_copy_current.py && cargo test --locked --manifest-path services/interop/Cargo.toml -p layerx-committed-proof --test committed --test committed_vectors --test proof_rs_committed_proof_crate --test repair_22_33_90 && cargo test --locked --manifest-path services/interop/Cargo.toml -p layerx-x402 --test facilitator_evidence --test sequenced_vectors && cargo test --locked --manifest-path services/human/crates/layerx-human-service/Cargo.toml --test repair_22_31_156"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-interop"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.31.620]
 title = "Bring the gateway mirror of the ai-market modules current and add its currency check"
 status = "pending"
@@ -180247,7 +180306,7 @@ do_1 = "do_1 Decision 2794, gotcha 3417. In services/platform/hosted/gateway/tes
 do_2 = "do_2 Write tests/ci/test_ai_market_module_mirror.py with test_gateway_mirror_matches_crate_modules: it parses the module declarations of programs/crates/layerx-programs-ai-market/src/lib.rs (every pub mod and mod line that names a file, and the submodules of the evaluators block) and the path includes of services/platform/hosted/gateway/tests/repair_22_33_1439.rs, and asserts the two sets are equal in both directions with a message naming every module missing from either side."
 do_3 = "do_3 Record the thirteen unresolved references, the two added includes and the check in services/platform/hosted/gateway/repair_22_31_620.kvx with the starting and final revisions. If the gateway test target needs a fixture the qualification environment cannot provide, append one six-line entry to spec/layerx-merge/qualification.kvx and keep the compile step and the currency check as the verification."
 symbols = []
-touches = ["services/platform/hosted/gateway/tests/repair_22_33_1439.rs", "programs/crates/layerx-programs-ai-market/src/lib.rs", "spec/layerx-merge/qualification.kvx"]
+touches = ["services/platform/hosted/gateway/tests/repair_22_33_1439.rs", "programs/crates/layerx-programs-ai-market/src/lib.rs", "programs/crates/layerx-programs-ai-market/src/rooms.rs", "spec/layerx-merge/qualification.kvx"]
 tests = ["tests/ci/test_ai_market_module_mirror.py"]
 planned_paths = ["tests/ci/test_ai_market_module_mirror.py", "services/platform/hosted/gateway/repair_22_31_620.kvx"]
 build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway --test repair_22_33_1439"
@@ -180263,6 +180322,7 @@ time_limit_minutes = 120
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Attempt 2 (continue, gotcha 3424, decision 2794): the attempt-1 tree at 34d49ec60d93 stands (the two includes, the mirror check, the record and the qualification.kvx entry). rooms.rs of the ai-market crate is now in the touches: at programs/crates/layerx-programs-ai-market/src/rooms.rs line 572 compare slice against slice by indexing the id bytes with a full range (or as_slice), leaving the table layout, the widths and every other line of the crate unchanged; record in the task record why the crate build accepts the original line while the mirrored compilation does not (the type that as_bytes resolves to in each module tree) with the two type names. Remove the qualification.kvx entry finding.22.31.620.1 since the repair is inside the task now. Then run the build and the verification at the final revision and record both by reference."
 
 [task.22.31.619]
 title = "Refresh the platform sample, probe and tooling lockfiles that no longer resolve with the locked flag"
@@ -182359,7 +182419,7 @@ title = "Retire the checkpoint-finalised label in the Human service spend, expor
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.31.539", "22.31.572", "22.31.616"]
+requires = ["22.31.539", "22.31.572", "22.31.616", "22.31.622"]
 reqs = ["22998.1"]
 capabilities = ["22.31.540"]
 interfaces = []
@@ -182385,6 +182445,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_5 = "Attempt 2 (continue, gotcha 3419, decisions 2790 and 3046, after 22.31.616 lands): the attempt-1 tree at 95890bc63c80 stands except the lockfile. Merge current main and take services/human/Cargo.lock from main, dropping the refresh of attempt 1. In tests/repair_22_31_540.rs import BudgetProofError from the budget_proof submodule of the budget module of the agent daemon, the module that defines it, and keep the other imports on the budget module as they are; match the Refused variant it defines. Then run the build and the verification back to back at the final revision and record both by reference."
+do_6 = "Attempt 3 (continue, gotcha 3423, decisions 2799 and 2762, after 22.31.622 lands): the attempt-2 tree at 3810cd465592 stands (the COMMITTED comparisons, the label moves, the import from the budget_proof submodule, the support modules and the record). Merge current main so the conformance copy of the committed receipt vector carries the re-recording of 22.31.486; change nothing in tests/repair_22_31_156.rs or the committed receipt support beyond what the merge brings. Then run the build and the verification at the final revision and record both by reference."
 
 [task.22.31.539]
 title = "Retire the checkpoint-finalised label in the agent daemon: COMMITTED everywhere, legacy codes decoded as COMMITTED"
@@ -287634,8 +287695,8 @@ symbols = ["TestNativeCustodyRealProfiles", "TestNativeSendPurposeRealProfiles"]
 touches = ["services/wallet/attestor/internal/server/native_purpose_test.go", "services/wallet/attestor/internal/server/native_purpose.go", ".github/workflows/wallet-go-test.yml"]
 tests = ["services/wallet/attestor/internal/server/native_purpose_test.go"]
 planned_paths = ["services/wallet/attestor/repair_22_39_8.kvx"]
-build_cmd = "make build/liblayerx.a && (cd services/wallet/attestor && CGO_ENABLED=1 CGO_LDFLAGS=-L$PWD/../../../build go vet ./internal/server/) && cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-kms --test attestor_native_profile --no-run"
-verify_cmd = "exe=$(realpath $(ls -t ${CARGO_TARGET_DIR:-services/human/target}/debug/deps/attestor_native_profile-* | grep -v -e [.]d$ | head -1)) && cd services/wallet/attestor && PAXEER_X_NATIVE_CUSTODY_RUST_TEST=$exe CGO_ENABLED=1 CGO_LDFLAGS=-L$PWD/../../../build sh ../../../tools/runtime/run-with-clock.sh go test -count=1 ./internal/server/ -run 'RealProfiles$'"
+build_cmd = "make build/liblayerx.a && (cd services/wallet/attestor && CGO_ENABLED=1 CGO_LDFLAGS=-L$PWD/../../../build go vet ./internal/server/) && cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-kms --test attestor_native_profile --no-run && cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --test native_send_purpose --no-run"
+verify_cmd = "exe=$(realpath $(ls -t ${CARGO_TARGET_DIR:-services/human/target}/debug/deps/attestor_native_profile-* | grep -v -e [.]d$ | head -1)) && send=$(realpath $(ls -t ${CARGO_TARGET_DIR:-services/human/target}/debug/deps/native_send_purpose-* | grep -v -e [.]d$ | head -1)) && cd services/wallet/attestor && PAXEER_X_NATIVE_CUSTODY_RUST_TEST=$exe PAXEER_X_NATIVE_SEND_RUST_TEST=$send CGO_ENABLED=1 CGO_LDFLAGS=-L$PWD/../../../build sh ../../../tools/runtime/run-with-clock.sh go test -count=1 ./internal/server/ -run 'RealProfiles$'"
 gate_kind = "planned"
 sandbox_profile = "mixed"
 owner_role = "fm-wallet"
@@ -287649,6 +287710,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_3 = "Attempt 2 (continue, gotcha 3411, decisions 2790 and 2762, after 22.31.614 lands): the attempt-1 tree stands (the inventory wiring of the two real-profile tests, the native_purpose.go change, the record and the one-line change to the wallet test file of the public checks). Carry it onto main once 22.31.614 has landed; the build now also compiles the attestor_native_profile test executable of layerx-human-kms with cargo test --no-run, and the verification exports its path as PAXEER_X_NATIVE_CUSTODY_RUST_TEST and runs the two real-profile tests through tools/runtime/run-with-clock.sh under the mixed image, as task 18.1110.1 did. Record in services/wallet/attestor/repair_22_39_8.kvx the outcome of both tests with the refusal code of any remaining failure; a refusal at a site inside the task touches is repaired once and the verification rerun once; a refusal inside the Rust consumer or the clock helper is recorded as a finding and the attempt stops."
 do_4 = "Attempt 3 (continue, gotchas 3414 and 3411, decisions 2790 and 2791, after 22.31.616 lands): the attempt-2 tree stands (the inventory wiring of the two real-profile tests, the native_purpose.go change, the record). Carry it onto main once 22.31.616 has landed so the human services lockfile resolves with the locked flag; the gate is unchanged: the build compiles the attestor_native_profile test executable of layerx-human-kms with cargo test --no-run, and the verification exports its path and runs the two real-profile tests through tools/runtime/run-with-clock.sh under the mixed image. Record in services/wallet/attestor/repair_22_39_8.kvx the outcome of both tests with the refusal code of any remaining failure; a refusal at a site inside the task touches is repaired once and the verification rerun once; a refusal inside the Rust consumer or the clock helper is recorded as a finding and the attempt stops."
+do_5 = "Attempt 4 (continue, gotcha 3425, decisions 2798, 2791 and 2776): the attempt-3 tree at 36cbc27b99 stands (the inventory refusal assertion, the clock wrapper launch, the message change and the record). The build now also compiles the native_send_purpose executable and the verification exports PAXEER_X_NATIVE_SEND_RUST_TEST. Trace the WouldBlock inside the attempt: under the Rust consumer test only, print the node, the budget passed at the post call of services/human/crates/layerx-human-kms/src/attestor.rs line 485 and the Debug of the transport error with its source chain for the failing call, record the three values in the task record, then repair the budget derivation so the budget and the deadline come from the same clock (the runtime clock the wrapper provides, decision 2791) and never collapse to zero while the configured deadline is open; in transport_error map an Io error whose kind is WouldBlock or TimedOut to AttestorError::Timeout. Keep the Go side unchanged beyond what attempt 3 added. Then run the build and the verification at the final revision and record both by reference."
 
 [task.22.31.611]
 title = "Port the pay precompile tests to the three-value escrow views of the keeper"
@@ -331074,7 +331136,7 @@ interfaces = []
 do_1 = "do_1 Decision 2787. docs/site/docs/interop/x402.md line 319 links ../../../interop/PORTABILITY.md, which resolves to docs/interop/PORTABILITY.md outside docs/site/docs; docs/site/mkdocs.yml line 9 sets strict true and line 148 sets unrecognized_links to warn, so the link fails the strict build. It is the only such link among the 82 site pages. Link the page by its URL on the main branch of the paxeer-monorepo repository the way docs/site/docs/index.md does for repository files, or move the content into a site page."
 do_2 = "do_2 Write tests/ci/test_site_links_inside_docs_dir.py with test_site_relative_links_stay_inside_docs_dir (every relative link of every page under docs/site/docs resolves inside docs/site/docs) and test_site_relative_links_resolve (each resolves to a tracked file)."
 symbols = []
-touches = ["docs/site/docs/interop/x402.md", "docs/site/mkdocs.yml"]
+touches = ["docs/site/docs/interop/x402.md", "docs/site/mkdocs.yml", "docs/site/docs/protocol/finality.md"]
 tests = ["tests/ci/test_site_links_inside_docs_dir.py"]
 planned_paths = ["tests/ci/test_site_links_inside_docs_dir.py"]
 build_cmd = "python3 -m py_compile tests/ci/test_site_links_inside_docs_dir.py"
@@ -331090,6 +331152,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_3 = "Attempt 2 (continue, gotcha 3426, decision 2787): the attempt-1 tree at 76f5c401454d stands (the x402 link, the mkdocs configuration and the two tests). docs/site/docs/protocol/finality.md is now in the touches: replace the link at line 9 to ../../../paxeer-network.md with a link to the site page docs/site/docs/overview/unified-network.md when that page covers the execution and finality model the sentence promises, otherwise with the URL of docs/paxeer-network.md on the main branch of the paxeer-monorepo repository the way docs/site/docs/index.md links repository files; keep the sentence and both tests unchanged and never exempt a page from the test. Then run the build and the verification at the final revision and record both by reference."
 
 [task.22.39.38]
 title = "Remove internal decision, gotcha and private tooling references from the SDK and interop READMEs and the wiki adapter pages"
