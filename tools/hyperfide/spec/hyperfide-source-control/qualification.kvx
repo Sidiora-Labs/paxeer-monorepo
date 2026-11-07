@@ -686,3 +686,85 @@ command = "cg spec done 22.37.1 -f layerx-merge --root /work/paxeer-monorepo"
 exit_code = 1
 log = "/out/logs/verify-1.log"
 observed = "Build and six fixture tests passed at this revision, but the full driver exited 2 with no regressions and missing release/startup and prepared-image evidence; task remains implemented-not-qualified."
+
+[qualification.task_22_37_9_component]
+task = "22.37.9; carried source-control task 1.1"
+build_command = "cd tools/hyperfide && corepack enable && pnpm install --frozen-lockfile && pnpm --filter @hyperfide/process-utils run generate:profile-worker && npm --prefix core/control-plane ci --ignore-scripts && npm --prefix core/control-plane run build"
+command = "cd tools/hyperfide && corepack enable && python3 tests/hyperfide/cases/source_control/1_1.py --component && python3 tests/hyperfide/cases/source_control/0_1.py"
+evidence = "/out/run/gates.jsonl; private /out/logs/build-*.log and /out/logs/verify-*.log record the exact candidate revision, command and exit; component detail: build/source-control/1.1/receipt.json"
+status = "BY_REFERENCE; attempt 2 resolves Node via HYPERFIDE_NODE or PATH; only a passing hf-done record at the same revision as hf-build qualifies this task; revision, command, exit and private log are recorded in /out/run/gates.jsonl"
+
+[qualification.task_22_37_9_live]
+task = "22.37.9; carried source-control task 1.1; decision 2700"
+status = "UNRUN"
+command = "cd tools/hyperfide && corepack enable && python3 tests/hyperfide/cases/source_control/1_1.py --live-s3"
+observed = "This qualification runs component mode only; no live object-store PASS is claimed."
+assumption = "The owner supplies HF_SOURCE_S3_ENDPOINT, HF_SOURCE_S3_REGION, HF_SOURCE_S3_BUCKET, HF_SOURCE_S3_ACCESS_KEY_ID and HF_SOURCE_S3_SECRET_ACCESS_KEY in the protected environment or tools/hyperfide/.env before running the exact live command."
+
+[qualification.task_22_37_9_build_result]
+revision = "1fd984efc0a6fd4fa97ea2f3dce6993f518f3141"
+command = "cd tools/hyperfide && corepack enable && npm --prefix core/control-plane run build"
+exit_code = 0
+log = "/out/logs/build-2.log"
+observed = "The declared control-plane build passed at this candidate revision."
+
+[qualification.task_22_37_9_component_result]
+revision = "1fd984efc0a6fd4fa97ea2f3dce6993f518f3141"
+command = "cd tools/hyperfide && corepack enable && python3 tests/hyperfide/cases/source_control/1_1.py --component"
+exit_code = 0
+log = "/out/logs/verify-2.log; tools/hyperfide/build/source-control/1.1/receipt.json"
+observed = "COMPONENT_PASS: eighteen assertion groups passed with 2191 signed backend requests, zero spawned child processes and zero pack writes; live S3 remains UNRUN."
+
+[finding.task_22_37_9_contract_node_path]
+revision = "1fd984efc0a6fd4fa97ea2f3dce6993f518f3141"
+command = "cg spec done 22.37.9 -f layerx-merge --root /work/paxeer-monorepo"
+exit_code = 1
+log = "/out/logs/verify-2.log"
+observed = "After the component passed, the unchanged 0_1.py driver failed before its SDK build because /root/.nvm/versions/node/v24.22.0/bin/node does not exist in this sandbox."
+assumption = "The full declared verification remains unqualified; repair budget is exhausted, and the owner must supply the expected Node path or set HYPERFIDE_NODE for a later qualification."
+[qualification.source_capabilities_1_3_registered_service]
+task = "1.3 (layerx-merge/22.37.11)"
+command = "python3 tests/hyperfide/cases/source_control/1_3.py"
+exit_code_ref = "build/source-control/1.3/receipt.json#/exit_code"
+receipt_sha256_ref = "build/source-control/1.3/receipt.sha256"
+evidence = "build/source-control/1.3/receipt.json (revision, source_digest, dist_digest); /out/run/gates.jsonl (last build and verify records: revision, command, exit, log)"
+
+[finding.source_capabilities_22_37_11_generated_contract_scope]
+evidence = "revision=9646904d54b5cbd9de692493a55f5a6cd3d8f514; command=cd tools/hyperfide && corepack enable && pnpm install --frozen-lockfile && pnpm --filter @hyperfide/process-utils run generate:profile-worker && npm --prefix core/control-plane ci --ignore-scripts && npm --prefix core/control-plane run build && pnpm --filter @hyperfide/source-control run typecheck; exit=2; log=/out/logs/build-1.log"
+observed = "The declared build copies sdk/source-control/src/contracts.ts over core/control-plane/src/source_control/contracts.ts, removing the task schema and causing TS2305 and TS7006 in audit.ts."
+assumption = "Durable schema qualification requires authorizing the SDK contract source or the sync script, both outside this task scope; the overwritten attempt implementation is restored and verification remains unrun."
+
+[qualification.task_22_37_10_component]
+task = "22.37.10; carried source-control task 1.2"
+build_command = "cd tools/hyperfide && corepack enable && pnpm install --frozen-lockfile && pnpm --filter @hyperfide/process-utils run generate:profile-worker && npm --prefix core/control-plane ci --ignore-scripts && npm --prefix core/control-plane run build"
+command = "cd tools/hyperfide && corepack enable && python3 tests/hyperfide/cases/source_control/1_2.py && python3 tests/hyperfide/cases/source_control/events.py"
+evidence = "/out/run/gates.jsonl records exact candidate revision, command, exit and private build/verify logs; component assertions: build/source-control/1.2/receipt.json"
+status = "BY_REFERENCE; only matching passing hf-build and hf-done records qualify the repair; isolated PostgreSQL, production identity and SigV4 component backend, no live-provider claim"
+
+[qualification.task_22_37_17_source_4_1]
+revision = "BY_REFERENCE: private /out/run/gates.jsonl, final build.revision and verify.revision; both must match the final candidate for tools/hyperfide, carried source-control task 4.1."
+command = "cd tools/hyperfide && corepack enable && python3 tests/hyperfide/cases/source_control/4_1.py"
+exit_code = "BY_REFERENCE: final build.exit and verify.exit in /out/run/gates.jsonl; only zero for both qualifies."
+log = "Private /out/run/gates.jsonl records the exact build and cg spec done commands, revisions, exits and /out/logs/build-*.log and /out/logs/verify-*.log locations."
+observed = "Qualification requires the native acceptance, speculative batch and assurance registration actors; component receipts are build/source-control/4.1/receipt.json and build/source-control/4.1-batches/receipt.json."
+
+[qualification.task_22_37_17_wire_assertion_repair]
+revision = "8bb32eecbbf9b5efab547f27a961805abfd07025"
+command = "cg spec done 22.37.17 -f layerx-merge --root /work/paxeer-monorepo"
+exit_code = 1
+log = "/out/logs/verify-1.log"
+observed = "Lifecycle fields matched but strict equality found different object prototypes; expected wire objects now use the real strict decoder, preserving exact keys, values and prototypes."
+
+[qualification.task_22_37_17_restart_read_repair]
+revision = "BY_REFERENCE: final matching build.revision and verify.revision in private /out/run/gates.jsonl; task 22.37.17, tools/hyperfide carried source-control task 4.1."
+command = "BY_REFERENCE: final build.command and verify.command in /out/run/gates.jsonl; verify runs cg spec done 22.37.17 -f layerx-merge --root /work/paxeer-monorepo and cd tools/hyperfide && corepack enable && python3 tests/hyperfide/cases/source_control/4_1.py."
+exit_code = "BY_REFERENCE: final build.exit and verify.exit in /out/run/gates.jsonl; both must be zero to qualify."
+log = "BY_REFERENCE: final build.log and verify.log in /out/run/gates.jsonl point to private /out/logs/build-*.log and /out/logs/verify-*.log."
+observed = "Post-restart lifecycle reads retry only typed OUTCOME_UNKNOWN with RETRY_SAME_OPERATION, preserving the exact input and operation id for at most five retries; assertions, SDK, listener and fixture restart are preserved."
+
+[qualification.task_22_37_13_source_2_2]
+revision = "BY_REFERENCE: private /out/run/gates.jsonl final build.revision and verify.revision must match; carried source-control task 2.2 in tools/hyperfide."
+command = "cd tools/hyperfide && corepack enable && python3 tests/hyperfide/cases/source_control/2_2.py"
+exit_code = "BY_REFERENCE: private /out/run/gates.jsonl final verify.exit; receipt build/source-control/2.2/receipt.json#/exit_code; only zero qualifies."
+receipt_digest = "BY_REFERENCE: build/source-control/2.2/receipt.sha256, SHA-256 of receipt.json including installed-entry and incomplete dependency-closure receipts."
+log = "BY_REFERENCE: private /out/run/gates.jsonl final build.log and verify.log; owned PostgreSQL and HTTP API with the existing SigV4 component backend, with no live-provider claim."

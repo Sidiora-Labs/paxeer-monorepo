@@ -2,7 +2,7 @@
 
 This is the backend of the Paxeer X Network block explorer: a fork of the
 Blockscout Elixir umbrella application, imported from `blockscout/blockscout`
-at tag `v10.2.6` (see [upstream provenance](../UPSTREAM.md)). It indexes
+at tag `v10.2.6` (see [upstream provenance](../../../docs/explorer/UPSTREAM.md)). It indexes
 Paxeer mainnet-beta over node EVM JSON-RPC, stores indexed data in PostgreSQL,
 and serves the explorer frontend in [`apps/explorer`](../../../apps/explorer).
 

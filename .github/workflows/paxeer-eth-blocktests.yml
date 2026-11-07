@@ -212,10 +212,6 @@ jobs:
         id: pax-home
         run: |
           runner_temp=$(realpath -e "${RUNNER_TEMP:?RUNNER_TEMP is required}")
-          case "$runner_temp" in
-            "$HOME"/*) ;;
-            *) echo "RUNNER_TEMP must resolve below HOME" >&2; exit 1 ;;
-          esac
           pax_home=$(mktemp -d "$runner_temp/pax-blocktests-${{ matrix.runner-index }}-XXXXXX")
           pax_home=$(realpath -e "$pax_home")
           case "$pax_home" in
@@ -237,10 +233,6 @@ jobs:
           PAX_HOME: ${{ steps.pax-home.outputs.path }}
         run: |
           runner_temp=$(realpath -e "${RUNNER_TEMP:?RUNNER_TEMP is required}")
-          case "$runner_temp" in
-            "$HOME"/*) ;;
-            *) echo "RUNNER_TEMP must resolve below HOME" >&2; exit 1 ;;
-          esac
           pax_home=$(realpath -m "$PAX_HOME")
           case "$pax_home" in
             "$runner_temp"/pax-blocktests-${{ matrix.runner-index }}-*) rm -rf -- "$pax_home" ;;

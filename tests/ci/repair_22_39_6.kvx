@@ -1,0 +1,16 @@
+[repair.22.39.6]
+gotcha = "3405"
+base_revision = "c1c16a3682cc8a2685b1ee7e9c2901866bd40732"
+requirement = "22998.1"
+implementation = "Mount the tree muslc builder script read-only at /opt/build_muslc.sh and invoke it through sh because the tree file is not executable; emit the architecture-suffixed x86_64 archive and copy it to internal/api/libwasmvm_muslc.a only when the unsuffixed artifact is absent. Preserve the aarch64 copy and all checksum pins."
+build_cmd = "python3 -m py_compile tests/ci/test_libwasmvm_alpine_artifacts.py && make -C wasm-runtime -n release-build-alpine"
+verify_cmd = "python3 -m pytest -q tests/ci/test_libwasmvm_alpine_artifacts.py"
+evidence = "The private hf-build/hf-done ledger at /out/run/gates.jsonl names the verified candidate revision, exact command, exit code and private log; the final response copies the last gate result."
+
+[case.tree_script_and_suffixed_fallback]
+test = "test_alpine_target_uses_tree_build_script_or_suffixed_name"
+criterion = "Read the Makefile target and its real make dry-run output; assert the code and read-only tree script mounts, explicit shell invocation and conditional unsuffixed-first, suffixed-second copy to the stable x86 API name. Assert the tree script emits the suffixed x86 archive."
+
+[case.internal_api_archive_names]
+test = "test_alpine_target_keeps_internal_api_archive_names"
+criterion = "Read the Makefile target and its real make dry-run output; assert both x86 sources copy to libwasmvm_muslc.a and the aarch64 copy stays unchanged. Assert the tree aarch64 output and all three static archive checksum pins remain unchanged."

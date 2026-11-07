@@ -1,5 +1,7 @@
 import { test } from "node:test";
 import * as aiMarket from "../src/ai_market.js";
+import { decodeNativeProgramCallV1 } from "../src/native-program-call.js";
+import { verifySequencerReceipt } from "../src/verifier.js";
 import { execFileSync } from "node:child_process";
 import { once } from "node:events";
 import { mkdtemp, readFile, writeFile } from "node:fs/promises";
@@ -78,6 +80,11 @@ test(decodeProgramsReceipt);
 function assert(condition: boolean, message: string): asserts condition {
   if (!condition) throw new Error(message);
 }
+
+const repositoryRoot = new URL(
+  import.meta.url.endsWith(".ts") ? "../../../../../" : "../../../../../../",
+  import.meta.url,
+);
 
 // The Go application proof provides producer outputs after real EVM execution.
 async function TestProofLayerxprograms0x101dConsumer(): Promise<void> {
@@ -168,6 +175,279 @@ async function TestProofLayerxprograms0x101dConsumer(): Promise<void> {
     "typescript observed real terminal outputs, state heads and transfer events",
   );
 }
+
+
+async function market_receipt_transfer_authority_resolves(): Promise<void> {
+  const fixture = JSON.parse(await readFile(process.argv[3]!, "utf8"));
+  const bytes = (text: string): Buffer => Buffer.from(text.replace(/^0x/u, ""), "hex");
+  const text = (value: Uint8Array): string => `0x${Buffer.from(value).toString("hex")}`;
+  const sized = (value: Uint8Array): Buffer => {
+    const length = Buffer.alloc(4); length.writeUInt32BE(value.length);
+    return Buffer.concat([length, value]);
+  };
+  const rootOf = (legs: Buffer): Buffer => {
+    let level: Uint8Array[] = [];
+    for (let i = 0; i < legs.length; i += 115)
+      level.push(sha256(Buffer.concat([Buffer.from("LXP/v1/merkle-leaf\0"), legs.subarray(i, i + 115)])));
+    while (level.length > 1) {
+      const next: Uint8Array[] = [];
+      for (let i = 0; i < level.length; i += 2)
+        next.push(sha256(Buffer.concat([Buffer.from("LXP/v1/merkle-internal\0"), level[i]!, level[i + 1] ?? level[i]!])));
+      level = next;
+    }
+    return Buffer.from(level[0] ?? new Uint8Array(32));
+  };
+  const abi = (payload: Buffer, kind = 1): Buffer => {
+    const out = Buffer.alloc(128 + Math.ceil(payload.length / 32) * 32);
+    out.writeUInt32BE(kind === 1 ? 0 : 1, 28);
+    out.writeUInt32BE(kind, 60); out.writeUInt32BE(96, 92); out.writeUInt32BE(payload.length, 124);
+    payload.copy(out, 128); return out;
+  };
+  const refuseReceipt = async (action: () => unknown): Promise<void> => {
+    let refused = false;
+    try { await action(); } catch (error) {
+      refused = error instanceof AiMarketError && error.code === "ReceiptMismatch";
+    }
+    assert(refused, "expected ReceiptMismatch");
+  };
+  const pin = [{ sequencerId: bytes(fixture.pin.keyId), publicKey: bytes(fixture.pin.publicKey),
+    firstBatchNumber: BigInt(fixture.pin.firstHeight), lastBatchNumber: BigInt(fixture.pin.lastHeight) }];
+  const verifyProducedReceipt = async (value: typeof fixture.ordinary, signed = bytes(value.rawTransaction)) => {
+    try {
+      await verifySequencerReceipt(bytes(value.receiptJson.receipt), signed, pin.map((key) => ({
+        keyId: key.sequencerId, publicKey: key.publicKey,
+        first_height: key.firstBatchNumber, last_height: key.lastBatchNumber,
+      })));
+    } catch { throw new AiMarketError("ReceiptMismatch"); }
+    const outcome = value.receiptJson.logs[value.receiptJson.logs.length - 1];
+    const root = bytes(outcome.data).subarray(9 * 32, 10 * 32);
+    const call = decodeNativeProgramCallV1(decodeProgramCallActivity(bytes(value.callInput)).payload);
+    return decodeProgramsCallResult(bytes(value.receiptJson.returnData), call.responseCapacity, root);
+  };
+  const ordinary = fixture.ordinary;
+  const ordinaryReceipt = await verifyProducedReceipt(ordinary);
+  assert(ordinaryReceipt.terminalResult === 0, "real ordinary receipt refused");
+  const conformance = JSON.parse(await readFile(new URL("sdk/platform/conformance/fixtures/sequencer-receipt-v1.json", repositoryRoot), "utf8"));
+  const ordinaryVector = conformance.cases.find((entry: { id: string }) => entry.id === "V1-layerxprograms-call");
+  assert(ordinaryVector !== undefined, "missing ordinary conformance vector");
+  assert((await verifyProducedReceipt({ ...ordinaryVector, callInput: ordinary.callInput })).terminalResult === 0, "ordinary conformance receipt refused");
+  const document = JSON.parse(await readFile(new URL("tests/fixtures/programs/account-bound-call/execution.json", repositoryRoot), "utf8"));
+  const payload = bytes(document.terminal_payload);
+  const appliedDomain = Buffer.from("LXP/programs/terminal-applied-legs/v1\0");
+  const authorityDomain = Buffer.from("LXP/program-execution-with-transfer-authority/v2\0");
+  const occupancyDomain = Buffer.from("LXP/program-execution-with-occupancy/v1\0");
+  const detailLength = payload.readUInt32BE(appliedDomain.length);
+  const detail = payload.subarray(appliedDomain.length + 4, appliedDomain.length + 4 + detailLength);
+  const legsLengthOffset = appliedDomain.length + 4 + detailLength;
+  const legs = payload.subarray(legsLengthOffset + 4);
+  assert(legs.length === payload.readUInt32BE(legsLengthOffset), "bad fixture applied legs");
+  assert(detail.subarray(0, authorityDomain.length).equals(authorityDomain), "missing account-bound authority");
+  const executionLength = detail.readUInt32BE(authorityDomain.length);
+  const execution = detail.subarray(authorityDomain.length + 4, authorityDomain.length + 4 + executionLength);
+  const authOffset = authorityDomain.length + 4 + executionLength;
+  const authLength = detail.readUInt32BE(authOffset);
+  const authorization = detail.subarray(authOffset + 4, authOffset + 4 + authLength);
+  const authorityRoot = detail.subarray(authOffset + 4 + authLength);
+  const boundDomain = Buffer.from("LayerX/programs/402LXP/account-bound-set/v1\0");
+  assert(authorization.subarray(0, boundDomain.length).equals(boundDomain), "fixture lost account names");
+  const originalLength = authorization.readUInt32BE(boundDomain.length);
+  const nameOffset = boundDomain.length + 4 + originalLength;
+  assert(authorization.subarray(nameOffset + 2).toString("ascii").endsWith(":main"), "fixture account name is not main");
+  const wrapAuthority = (inner: Buffer, auth: Buffer, root: Buffer): Buffer => Buffer.concat([authorityDomain, sized(inner), sized(auth), root]);
+  const wrapApplied = (inner: Buffer, applied = legs): Buffer => Buffer.concat([appliedDomain, sized(inner), sized(applied)]);
+  const decode = (inner: Buffer, applied = legs, capacity = 1_048_576, kind = 1) => decodeProgramsCallResult(abi(wrapApplied(inner, applied), kind), capacity, rootOf(applied));
+  assert(decode(detail).terminalResult === 0, "real account-bound funding refused");
+  const changed = (value: Uint8Array, offset: number): Buffer => { const out = Buffer.from(value); out[offset] = out[offset]! ^ 1; return out; };
+  const occupancyExecutionLength = execution.readUInt32BE(occupancyDomain.length);
+  const guestExecution = execution.subarray(occupancyDomain.length + 4, occupancyDomain.length + 4 + occupancyExecutionLength);
+  const occupancy = execution.subarray(occupancyDomain.length + 4 + occupancyExecutionLength + 4);
+  const invalidDetails = [
+    detail.subarray(0, detail.length - 1), Buffer.concat([detail, Buffer.from([0])]),
+    wrapAuthority(execution, Buffer.alloc(0), authorityRoot),
+    wrapAuthority(execution, changed(authorization, 0), authorityRoot),
+    wrapAuthority(execution, changed(authorization, boundDomain.length + 4 + 40), authorityRoot),
+    wrapAuthority(execution, changed(authorization, nameOffset + 2), authorityRoot),
+    wrapAuthority(execution, authorization, changed(authorityRoot, 0)),
+    wrapAuthority(detail, authorization, authorityRoot),
+    Buffer.concat([occupancyDomain, sized(wrapAuthority(guestExecution, authorization, authorityRoot)), sized(occupancy)]),
+    wrapAuthority(Buffer.concat([occupancyDomain, sized(execution), sized(occupancy)]), authorization, authorityRoot),
+    wrapAuthority(execution, Buffer.concat([authorization, Buffer.from([0])]), authorityRoot),
+  ];
+  const oversized = Buffer.from(detail); oversized.writeUInt32BE(1_048_577, authOffset); invalidDetails.push(oversized);
+  const oversizedExecution = Buffer.from(detail);
+  oversizedExecution.writeUInt32BE(1_048_577, authorityDomain.length);
+  invalidDetails.push(oversizedExecution);
+  const oversizedOriginal = Buffer.from(authorization);
+  oversizedOriginal.writeUInt32BE(1_048_577, boundDomain.length);
+  invalidDetails.push(wrapAuthority(execution, oversizedOriginal, authorityRoot));
+  const oversizedName = Buffer.from(authorization);
+  oversizedName.writeUInt16BE(513, nameOffset);
+  invalidDetails.push(wrapAuthority(execution, oversizedName, authorityRoot));
+  const emptyExecution = wrapAuthority(Buffer.alloc(0), authorization, authorityRoot); invalidDetails.push(emptyExecution);
+  const rejectedResults = invalidDetails.map((malformed) => abi(wrapApplied(malformed)));
+  for (const malformed of invalidDetails) await refuseReceipt(() => decode(malformed));
+  for (const offset of [1, 33, 65, 112]) {
+    const alteredLegs = changed(legs, offset);
+    await refuseReceipt(() => decode(detail, alteredLegs));
+    rejectedResults.push(abi(wrapApplied(detail, alteredLegs)));
+  }
+  await refuseReceipt(() => decodeProgramsCallResult(abi(payload), 1_048_576, changed(rootOf(legs), 0)));
+  await refuseReceipt(() => decode(detail, legs, 1_048_576, 2));
+  rejectedResults.push(abi(wrapApplied(detail), 2));
+  // This producer has an empty guest response; changing the terminal's published length must fail the guest bound.
+  const tooLarge = Buffer.from(guestExecution);
+  // Locate the real empty response immediately before the sized call graph.
+  const graph = Buffer.from("LayerX/programs/call-graph/v1\0");
+  const graphOffset = guestExecution.indexOf(graph);
+  assert(graphOffset > 16, "missing producer graph");
+  tooLarge.writeBigUInt64BE(1_048_577n, graphOffset - 16);
+  const excessiveResponse = wrapAuthority(Buffer.concat([occupancyDomain, sized(tooLarge), sized(occupancy)]), authorization, authorityRoot);
+  await refuseReceipt(() => decode(excessiveResponse));
+  rejectedResults.push(abi(wrapApplied(excessiveResponse)));
+  if (process.argv[2] === "--market-authority-decoder") {
+    console.log("ordinary and real account-bound authority decoder checks passed"); return;
+  }
+  const reward = fixture.reward;
+  assert(reward !== undefined, "missing producer-generated ABI5 reward receipt");
+  const activity = decodeProgramCallActivity(bytes(reward.callInput));
+  assert(activity.receiptAuthorities?.length === 1 &&
+    activity.receiptAuthorities[0]!.canonicalReceipt.length > 0 &&
+    activity.receiptAuthorities[0]!.blockHeight === BigInt(reward.receiptJson.height) - 1n,
+    "real Fund must carry its preceding-block sight receipt");
+  assert(Buffer.from(aiMarket.encodeProgramCallActivity(activity)).equals(bytes(reward.callInput)),
+    "receipt-bearing call must round trip canonically");
+  const receiptCall = bytes(reward.callInput);
+  const arrayStart = 4 + Number(receiptCall.readBigUInt64BE(4 + 15 * 32 + 24));
+  const tupleStart = arrayStart + 32 + Number(receiptCall.readBigUInt64BE(arrayStart + 32 + 24));
+  const malformedCalls = [Buffer.concat([receiptCall, Buffer.alloc(32)]),
+    receiptCall.subarray(0, receiptCall.length - 1), changed(receiptCall, tupleStart + 31)];
+  const tooManyAuthorities = Buffer.from(receiptCall);
+  tooManyAuthorities.writeBigUInt64BE(4097n, arrayStart + 24);
+  malformedCalls.push(tooManyAuthorities);
+  for (const malformed of malformedCalls) {
+    let refused = false;
+    try { decodeProgramCallActivity(malformed); } catch (error) { refused = error instanceof AiMarketError; }
+    assert(refused, "malformed receipt authority transport accepted");
+  }
+  const call = decodeNativeProgramCallV1(activity.payload);
+  const envelope = decodeRequestEnvelope(call.calldata);
+  assert(call.guestAbi === 5 && envelope.envelope.selector === FUND, "integration fixture is not an ABI5 AI Fund");
+  assert(bytes(reward.receiptJson.returnData).includes(authorityDomain), "AI Fund has no transfer authority");
+  const record = OperationRecord.signed(bytes(reward.rawTransaction), bytes(fixture.publicKey), requestIntent(envelope.unsigned));
+  const interrupted = record.encode(); interrupted[8] = 4;
+  new DataView(interrupted.buffer, interrupted.byteOffset, interrupted.byteLength).setUint32(152, 1);
+  const reopenPending = async () => {
+    const directory = await mkdtemp(join(tmpdir(), "market-authority-"));
+    const journal = await OperationJournal.open(directory, pin);
+    await writeFile(journal.recordPath(record.activityId), interrupted);
+    return { directory, journal, pending: await journal.load(record.activityId) };
+  };
+  const { directory, journal, pending } = await reopenPending();
+  const decoded = await verifyProducedReceipt(reward, Buffer.from(record.signedBytes));
+  assert(decoded.terminalResult === 0, "real Fund receipt refused");
+  const resolved = await journal.resolve(pending, reward.receiptJson);
+  const reopened = await OperationJournal.open(directory, pin);
+  const retained = await reopened.load(record.activityId);
+  assert(resolved.state === "executed" && retained.state === "executed" && retained.resultCode === 0 && retained.globalSequence === BigInt(reward.receiptJson.seq) && retained.txHash === reward.receiptJson.txHash, "reward execution did not survive journal reopen");
+  const mutations: Array<(view: typeof reward.receiptJson) => void> = [
+    (view) => { view.receipt = text(changed(bytes(view.receipt), bytes(view.receipt).length - 1)); },
+    (view) => { view.txHash = text(changed(bytes(view.txHash), 0)); },
+    (view) => { view.nonce = "0xffff"; },
+    (view) => { view.logs[view.logs.length - 1].data = text(changed(bytes(view.logs[view.logs.length - 1].data), 0)); },
+    (view) => { view.logs[view.logs.length - 1].topics[1] = text(new Uint8Array(32)); },
+    (view) => { view.returnData = text(changed(bytes(view.returnData), 60)); },
+  ];
+  const actual = bytes(reward.receiptJson.returnData);
+  const rewardPayloadLength = actual.readUInt32BE(124);
+  const rewardPayload = actual.subarray(128, 128 + rewardPayloadLength);
+  const rewardDetailLength = rewardPayload.readUInt32BE(appliedDomain.length);
+  const rewardDetail = rewardPayload.subarray(appliedDomain.length + 4, appliedDomain.length + 4 + rewardDetailLength);
+  const rewardLegOffset = appliedDomain.length + 4 + rewardDetailLength;
+  const rewardLegs = rewardPayload.subarray(rewardLegOffset + 4);
+  assert(rewardLegs.length === rewardPayload.readUInt32BE(rewardLegOffset), "invalid reward applied legs");
+  assert(decodeProgramsCallResult(actual, call.responseCapacity, rootOf(rewardLegs)).terminalResult === 0,
+    "real ABI5 Fund call result refused");
+  await refuseReceipt(() => decodeProgramsCallResult(actual, call.responseCapacity, changed(rootOf(rewardLegs), 0)));
+  const changedRewardLegs = changed(rewardLegs, 112);
+  const wrongAppliedResult = abi(wrapApplied(rewardDetail, changedRewardLegs));
+  await refuseReceipt(() => decodeProgramsCallResult(wrongAppliedResult, call.responseCapacity, rootOf(changedRewardLegs)));
+  rejectedResults.push(wrongAppliedResult);
+  const extendedRewardLegs = Buffer.concat([rewardLegs, rewardLegs.subarray(0, 115)]);
+  const extraAppliedResult = abi(wrapApplied(rewardDetail, extendedRewardLegs));
+  await refuseReceipt(() => decodeProgramsCallResult(extraAppliedResult, call.responseCapacity, rootOf(extendedRewardLegs)));
+  rejectedResults.push(extraAppliedResult);
+  const rewardExecutionLength = rewardDetail.readUInt32BE(authorityDomain.length);
+  const rewardAuthOffset = authorityDomain.length + 4 + rewardExecutionLength;
+  const rewardAuthLength = rewardDetail.readUInt32BE(rewardAuthOffset);
+  const rewardAuthorization = rewardDetail.subarray(rewardAuthOffset + 4, rewardAuthOffset + 4 + rewardAuthLength);
+  const rewardAuthorityRoot = rewardDetail.subarray(rewardAuthOffset + 4 + rewardAuthLength);
+  const rewardExecution = rewardDetail.subarray(authorityDomain.length + 4, rewardAuthOffset);
+  const fundingDomain = Buffer.from("LayerX/programs/402LXP/program-funding/v1\0");
+  const fundingOffset = rewardAuthorization.indexOf(fundingDomain);
+  assert(fundingOffset >= 0, "real Fund must bind its Program account destination");
+  const ownerOffset = fundingOffset + fundingDomain.length;
+  const seedLength = rewardAuthorization.readUInt16BE(ownerOffset + 32);
+  const accountOffset = ownerOffset + 34 + seedLength;
+  // Independently exercise the parser before signed receipt bindings refuse the mutation.
+  for (const offset of [ownerOffset, ownerOffset + 34, accountOffset, accountOffset + 32,
+    accountOffset + 64, accountOffset + 96, accountOffset + 128, accountOffset + 144]) {
+    const malformed = wrapAuthority(rewardExecution, changed(rewardAuthorization, offset), rewardAuthorityRoot);
+    const result = abi(wrapApplied(malformed, rewardLegs));
+    await refuseReceipt(() => decodeProgramsCallResult(result, call.responseCapacity, rootOf(rewardLegs)));
+    rejectedResults.push(result);
+  }
+  const wrongAuthorityRoot = abi(wrapApplied(wrapAuthority(rewardExecution, rewardAuthorization,
+    changed(rewardAuthorityRoot, 0)), rewardLegs));
+  await refuseReceipt(() => decodeProgramsCallResult(wrongAuthorityRoot, call.responseCapacity, rootOf(rewardLegs)));
+  rejectedResults.push(wrongAuthorityRoot);
+  await refuseReceipt(() => decodeProgramsCallResult(actual, 0, rootOf(rewardLegs)));
+  const executionDomain = Buffer.from("LXP/program-execution/v5\0");
+  const executionOffset = rewardExecution.indexOf(executionDomain);
+  assert(executionOffset >= 0, "real Fund must use execution/v5");
+  const rewardGuestExecution = rewardExecution.subarray(executionOffset);
+  const rewardGraphOffset = rewardGuestExecution.indexOf(graph);
+  assert(rewardGraphOffset > 0, "real Fund must carry its call graph");
+  // The success response precedes its sized call graph; bind the execution program as well.
+  assert(rewardGuestExecution.readBigUInt64BE(executionDomain.length + 10) === 1n &&
+    rewardGuestExecution[executionDomain.length + 18] === 1 &&
+    rewardGuestExecution.readInt32BE(executionDomain.length + 19) === 0,
+    "real native Fund must return its successful i32 result");
+  const traceOffset = executionDomain.length + 2 + 4 + 4 + 8 + 5 + 8 * 4 + 4 + 8 + 16;
+  const traceTag = rewardGuestExecution[traceOffset];
+  assert(traceTag === 0 || traceTag === 1, "real Fund must carry a canonical trace tag");
+  const programOffset = traceOffset + 1 + (traceTag === 1 ?
+    8 + Number(rewardGuestExecution.readBigUInt64BE(traceOffset + 1)) : 0);
+  const wrongProgramExecution = changed(rewardExecution, executionOffset + programOffset);
+  const wrongProgramResult = abi(wrapApplied(wrapAuthority(wrongProgramExecution,
+    rewardAuthorization, rewardAuthorityRoot), rewardLegs));
+  await refuseReceipt(() => decodeProgramsCallResult(wrongProgramResult, call.responseCapacity, rootOf(rewardLegs)));
+  rejectedResults.push(wrongProgramResult);
+  for (const result of rejectedResults) mutations.push((view) => { view.returnData = text(result); });
+  mutations.push((view) => {
+    const log = view.logs[view.logs.length - 1];
+    log.data = text(changed(bytes(log.data), 9 * 32));
+  });
+  for (const needle of [authorityDomain, boundDomain, Buffer.from("LayerX/programs/402LXP/program-funding/v1\0"), Buffer.from("agent:")]) {
+    const offset = actual.indexOf(needle); assert(offset >= 0, "missing real Fund binding");
+    mutations.push((view) => { view.returnData = text(changed(actual, offset)); });
+  }
+  for (const mutate of mutations) {
+    const invalid = structuredClone(reward.receiptJson); mutate(invalid);
+    const attempt = await reopenPending();
+    await refuseReceipt(() => attempt.journal.resolve(attempt.pending, invalid));
+    const recovered = await (await OperationJournal.open(attempt.directory, pin)).load(record.activityId);
+    assert(recovered.state === "unknown" && recovered.resultCode === null && recovered.globalSequence === null && recovered.txHash === record.txHash, "refused receipt resolved reopened journal");
+  }
+  await refuseReceipt(() => verifyProducedReceipt(reward, changed(record.signedBytes, record.signedBytes.length - 1)));
+  assert(rewardAuthorityRoot.equals(rootOf(rewardLegs)),
+    `reward authority root must equal its applied-legs root: authority=${text(rewardAuthorityRoot)}, applied=${text(rootOf(rewardLegs))}, appliedLegs=${rewardLegs.length / 115}`);
+  console.log("real ABI5 AI reward receipt resolves and survives reopen; invalid receipts stay unresolved");
+}
+
+if (process.argv[2] === "--market-authority-receipt" || process.argv[2] === "--market-authority-decoder") {
+  await test(market_receipt_transfer_authority_resolves);
+  // Let node:test finish reporting and preserve its exit status.
+} else {
 
 if (process.argv[2] === "--programs-proof") {
   await TestProofLayerxprograms0x101dConsumer();
@@ -2477,8 +2757,8 @@ try {
       } = JSON.parse(
         await readFile(
           new URL(
-            "../../../../../../sdk/platform/conformance/fixtures/sequencer-receipt-v1.json",
-            import.meta.url,
+            "sdk/platform/conformance/fixtures/sequencer-receipt-v1.json",
+            repositoryRoot,
           ),
           "utf8",
         ),
@@ -2693,3 +2973,5 @@ print(json.dumps({'canonical': unsigned.hex(), 'raw': record.signed_bytes.hex(),
 
 console.log(`${passed} passed, ${failed} failed`);
 if (failed !== 0) process.exitCode = 1;
+
+}

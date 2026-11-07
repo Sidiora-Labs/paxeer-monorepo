@@ -34,7 +34,7 @@ const CongratsStepContent = ({ isReferral, customReferralReward }: Props) => {
     <>
       <Flex
         alignItems="center"
-        background={{ _light: 'linear-gradient(254.96deg, #9CD8FF 9.09%, #D0EFFF 88.45%)', _dark: 'linear-gradient(255deg, #1B253B 9.09%, #222C3F 88.45%)' }}
+        background="linear-gradient(255deg, var(--chakra-colors-rewards-banner-start) 9.09%, var(--chakra-colors-rewards-banner-stop) 88.45%)"
         borderRadius="md"
         p={ 2 }
         pl={{ base: isReferral ? 4 : 8, md: 8 }}

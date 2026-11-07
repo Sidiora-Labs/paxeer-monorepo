@@ -1,6 +1,14 @@
 import { useState, useEffect } from "react";
 import { useRpc } from "@hyperfide/plugin-sdk/app";
-import { sourceContract } from "../contract.js";
+import {
+  sourceContract,
+  sourceCheckpointReceiptMatches,
+  type SourceProductRequest,
+  type SourceProductResponse,
+  type SourceWorkspaceEvidence,
+  type SourceClosureReadiness,
+} from "../contract.js";
+import { SourceMetricsView } from "./metrics.js";
 import {
   Field,
   Receipt,
@@ -27,24 +35,41 @@ export function WorkspaceDetail({
   projectId,
   revisions,
   assignments,
+  journal,
+  completion,
+  evidence,
 }: {
   run: RunSource;
   pending: boolean;
   projectId: string;
   revisions: { id: string; label: string }[];
   assignments: { id: string; label: string }[];
+  journal: SourceProductRequest | null;
+  completion: {
+    request: SourceProductRequest;
+    response: SourceProductResponse;
+  } | null;
+  evidence: SourceWorkspaceEvidence[];
 }) {
   const [revision, setRevision] = useState(revisions[0]?.id ?? ""),
     [paths, setPaths] = useState(""),
+    [dependencyPaths, setDependencyPaths] = useState(""),
+    [readiness, setReadiness] = useState<SourceClosureReadiness | null>(null),
     [mode, setMode] = useState<
       "API_ONLY" | "SPARSE" | "MATERIALIZED" | "VIRTUAL"
     >("API_ONLY");
-  const [workspaceId, setWorkspaceId] = useState(""),
+  const retainedCheckpoint =
+    journal?.action.kind === "checkpoint" ? journal.action : null;
+  const [workspaceId, setWorkspaceId] = useState(
+      retainedCheckpoint?.workspaceId ?? "",
+    ),
     [workspace, setWorkspace] = useState<Workspace | null>(null),
-    [path, setPath] = useState(""),
-    [content, setContent] = useState(""),
-    [dirty, setDirty] = useState(false),
-    [executable, setExecutable] = useState(false),
+    [path, setPath] = useState(retainedCheckpoint?.path ?? ""),
+    [content, setContent] = useState(retainedCheckpoint?.content ?? ""),
+    [dirty, setDirty] = useState(Boolean(retainedCheckpoint)),
+    [executable, setExecutable] = useState(
+      retainedCheckpoint?.executable ?? false,
+    ),
     [receipt, setReceipt] = useState<unknown>();
   const rpc = useRpc<typeof sourceContract>();
   const [hostInfo, setHostInfo] = useState<{
@@ -60,6 +85,70 @@ export function WorkspaceDetail({
     } | null>(null),
     [hostMetrics, setHostMetrics] = useState<unknown>();
   const pending = sourcePending || hostBusy;
+  const checkpointPending = retainedCheckpoint?.workspaceId === workspaceId;
+  const durableEvidence = evidence.find(
+    (value) =>
+      value.workspaceId === workspaceId &&
+      (!workspace || value.revisionId === workspace.base_revision_id),
+  );
+  const stage = checkpointPending
+    ? "UPLOADING"
+    : dirty
+      ? "DIRTY"
+      : (durableEvidence?.stage ?? "OPEN");
+  const splitPaths = (value: string) =>
+    value
+      .split("\n")
+      .map((path) => path.trim())
+      .filter(Boolean);
+  useEffect(() => {
+    setReadiness(null);
+  }, [revision, paths, dependencyPaths]);
+  useEffect(() => {
+    if (!completion?.response.ok) return;
+    const action = completion.request.action;
+    const value = completion.response.result as {
+      workspace?: Workspace;
+      readiness?: SourceClosureReadiness;
+    } | null;
+    if (
+      (action.kind === "checkpoint" ||
+        action.kind === "open" ||
+        action.kind === "workspace") &&
+      value?.workspace &&
+      (!workspaceId ||
+        value.workspace.workspace_id === workspaceId ||
+        action.kind === "open")
+    ) {
+      setWorkspace(value.workspace);
+      setWorkspaceId(value.workspace.workspace_id);
+      if (value.readiness) setReadiness(value.readiness);
+      if (
+        action.kind === "checkpoint" &&
+        sourceCheckpointReceiptMatches(
+          completion.request.operationId,
+          action,
+          value,
+        ) &&
+        action.path === path &&
+        action.content === content &&
+        action.executable === executable
+      )
+        setDirty(false);
+      setReceipt(value);
+    }
+  }, [completion]);
+  useEffect(() => {
+    if (!workspaceId || workspace) return;
+    let current = true;
+    void run({ kind: "workspace", workspaceId }).then((response) => {
+      if (current && response.ok)
+        setWorkspace((response.result as { workspace: Workspace }).workspace);
+    });
+    return () => {
+      current = false;
+    };
+  }, [workspaceId, run]);
   useEffect(() => {
     let active = true;
     void rpc
@@ -125,7 +214,10 @@ export function WorkspaceDetail({
         setWorkspace(value.workspace);
         setWorkspaceId(value.workspace.workspace_id);
       }
+      if (value?.readiness) setReadiness(value.readiness);
       setReceipt(value);
+    } else if (response.error.code === "DEPENDENCY_CLOSURE_INCOMPLETE") {
+      setReadiness(response.error.details?.readiness as SourceClosureReadiness);
     }
     return response;
   };
@@ -152,6 +244,15 @@ export function WorkspaceDetail({
               placeholder="core/example.ts"
             />
           </Field>
+          <Field label="Required dependency paths (one per line)">
+            <textarea
+              className={inputClass}
+              rows={3}
+              value={dependencyPaths}
+              onChange={(event) => setDependencyPaths(event.target.value)}
+              placeholder="shared/dependency.ts"
+            />
+          </Field>
           <Field label="Workspace mode">
             <select
               className={inputClass}
@@ -170,6 +271,41 @@ export function WorkspaceDetail({
             </select>
           </Field>
         </div>
+        <p
+          role="status"
+          data-source-closure={readiness?.state ?? "UNCHECKED"}
+          className="text-sm"
+        >
+          Dependency closure:{" "}
+          {readiness?.state === "READY"
+            ? `Ready · ${readiness.checkedPaths} paths verified at the selected revision`
+            : readiness?.state === "INCOMPLETE"
+              ? "Incomplete · include missing dependencies in the read scope and revision"
+              : "Not checked"}
+        </p>
+        {readiness?.state === "INCOMPLETE" && (
+          <p className="break-all text-sm">
+            Missing: {readiness.missingPaths.join(", ") || "none"}. Outside
+            scope: {readiness.outsideScope.join(", ") || "none"}.
+          </p>
+        )}
+        <button
+          className={buttonClass}
+          disabled={pending || !revision || !paths.trim()}
+          onClick={() =>
+            void run({
+              kind: "readiness",
+              revisionId: revision,
+              readPaths: splitPaths(paths),
+              dependencyPaths: splitPaths(dependencyPaths),
+            }).then((result) => {
+              if (result.ok)
+                setReadiness(result.result as SourceClosureReadiness);
+            })
+          }
+        >
+          Check dependency closure
+        </button>
         <button
           className={buttonClass}
           disabled={pending || !revision || !paths.trim()}
@@ -187,6 +323,7 @@ export function WorkspaceDetail({
                 .map((item) => item.trim())
                 .filter(Boolean),
               mode,
+              dependencyPaths: splitPaths(dependencyPaths),
             })
           }
         >
@@ -195,11 +332,72 @@ export function WorkspaceDetail({
       </section>
       <section className="space-y-3 rounded-lg border border-border p-4">
         <h2 className="font-semibold">Workspace and checkpoint</h2>
+        <Field label="Assigned workspace">
+          <select
+            className={inputClass}
+            value={assignmentId}
+            disabled={pending || dirty}
+            onChange={(event) => {
+              const id = event.target.value;
+              setAssignmentId(id);
+              setWorkspace(null);
+              setWorkspaceId("");
+              setDirty(false);
+              setContent("");
+              setPath("");
+              if (id)
+                void run({ kind: "assignment", assignmentId: id }).then(
+                  async (result) => {
+                    if (!result.ok) return;
+                    const selected = result.result as { workspace_id: string };
+                    setAssignment(selected);
+                    await apply({
+                      kind: "workspace",
+                      workspaceId: selected.workspace_id,
+                    });
+                  },
+                );
+            }}
+          >
+            <option value="">Select an assigned workspace</option>
+            {assignments.map((item) => (
+              <option key={item.id} value={item.id}>
+                {item.label}
+              </option>
+            ))}
+          </select>
+        </Field>
+        <p
+          role="status"
+          data-source-workspace-state={stage}
+          className="text-sm"
+        >
+          State:{" "}
+          {stage === "DIRTY"
+            ? "Dirty · local edits await a checkpoint receipt"
+            : stage === "UPLOADING"
+              ? "Uploading · checkpoint outcome unresolved; no acknowledgment received"
+              : stage === "ACKNOWLEDGED"
+                ? "Acknowledged · checkpoint receipt received"
+                : stage === "SUBMITTED"
+                  ? "Submitted · server submission receipt received"
+                  : stage === "ACCEPTED"
+                    ? "Accepted · acceptance receipt received"
+                    : stage === "EXPORTED"
+                      ? "Exported · remote publication confirmed"
+                      : "Open · no checkpoint receipt received"}
+        </p>
         <Field label="Workspace">
           <input
             className={inputClass}
             value={workspaceId}
-            onChange={(event) => setWorkspaceId(event.target.value)}
+            disabled={pending || dirty}
+            onChange={(event) => {
+              setWorkspaceId(event.target.value);
+              setWorkspace(null);
+              setContent("");
+              setDirty(false);
+            }}
             placeholder="Workspace ID"
           />
         </Field>
@@ -216,16 +414,14 @@ export function WorkspaceDetail({
               <p>Generation: {workspace.workspace_generation}</p>
               <p>Mode: {workspace.mode}</p>
               <p className="break-all sm:col-span-2">
-                Durable revision: {workspace.base_revision_id}
+                Observed revision: {workspace.base_revision_id}
               </p>
-              <p>
-                State:{" "}
-                {dirty
-                  ? "Local edits"
-                  : workspace.checkpoint_revision_id
-                    ? "Checkpointed"
-                    : "Open"}
-              </p>
+              {durableEvidence && !checkpointPending && (
+                <p className="break-all sm:col-span-2">
+                  Receipt-backed revision: {durableEvidence.revisionId} ·{" "}
+                  {durableEvidence.stage.toLowerCase()}
+                </p>
+              )}
               <p>
                 Maximum file:{" "}
                 {workspace.budgets.max_file_bytes.toLocaleString()} bytes
@@ -301,8 +497,6 @@ export function WorkspaceDetail({
                   path,
                   content,
                   executable,
-                }).then((result) => {
-                  if (result.ok) setDirty(false);
                 })
               }
             >
@@ -358,7 +552,7 @@ export function WorkspaceDetail({
                 >
                   Inspect host metrics
                 </button>
-                <Receipt value={hostMetrics} />
+                <SourceMetricsView value={{ host: hostMetrics }} />
               </>
             )}
           </>
@@ -411,6 +605,8 @@ export function WorkspaceDetail({
             disabled={
               pending ||
               dirty ||
+              checkpointPending ||
+              !durableEvidence ||
               assignment.workspace_id !== workspace.workspace_id
             }
             onClick={() =>

@@ -5,7 +5,7 @@ import type { NetworkExplorer } from 'types/networks';
 import type { ColorThemeId } from 'types/settings';
 import type { FontFamily } from 'types/ui';
 
-import { COLOR_THEMES, type ColorTheme } from 'lib/settings/colorTheme';
+import { COLOR_THEMES, COLOR_THEME_OVERRIDES, type ColorTheme } from 'lib/settings/colorTheme';
 
 import * as features from './features';
 import * as views from './ui/views';
@@ -105,8 +105,9 @@ const UI = Object.freeze({
   },
   hasContractAuditReports: getEnvValue('NEXT_PUBLIC_HAS_CONTRACT_AUDIT_REPORTS') === 'true' ? true : false,
   colorTheme: {
+    storageKey: 'chakra-ui-color-mode',
     'default': defaultColorTheme,
-    overrides: parseEnvJson<Record<string, unknown>>(getEnvValue('NEXT_PUBLIC_COLOR_THEME_OVERRIDES')) || {},
+    overrides: COLOR_THEME_OVERRIDES,
   },
   fonts: {
     heading: parseEnvJson<FontFamily>(getEnvValue('NEXT_PUBLIC_FONT_FAMILY_HEADING')),

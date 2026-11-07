@@ -34,7 +34,16 @@ export const sourceBindingSchema = z
   .strict();
 export type SourceBinding = z.infer<typeof sourceBindingSchema>;
 export const sourceActionSchema = z.discriminatedUnion("kind", [
-  z.object({kind:z.literal("service-metrics"),maxRows:z.number().int().min(1).max(4096).optional()}),
+  z.object({
+    kind: z.literal("readiness"),
+    revisionId: revision,
+    readPaths: z.array(relative).min(1).max(128),
+    dependencyPaths: z.array(relative).max(128),
+  }),
+  z.object({
+    kind: z.literal("service-metrics"),
+    maxRows: z.number().int().min(1).max(4096).optional(),
+  }),
   z.object({ kind: z.literal("revision"), revisionId: revision }),
   z.object({ kind: z.literal("history"), revisionId: revision, cursor }),
   z.object({
@@ -50,6 +59,7 @@ export const sourceActionSchema = z.discriminatedUnion("kind", [
     readPaths: z.array(relative).min(1).max(128),
     writePaths: z.array(relative).max(128),
     mode: z.enum(["API_ONLY", "SPARSE", "MATERIALIZED", "VIRTUAL"]),
+    dependencyPaths: z.array(relative).max(128).optional(),
   }),
   z.object({ kind: z.literal("workspace"), workspaceId: id }),
   z.object({ kind: z.literal("file"), revisionId: revision, path: relative }),
@@ -139,10 +149,62 @@ export const responseSchema = z.discriminatedUnion("ok", [
       message: z.string(),
       retry: z.string(),
       outcome: z.string(),
+      details: z.record(z.string(), z.unknown()).optional(),
     }),
   }),
 ]);
 export type SourceProductResponse = z.infer<typeof responseSchema>;
+export type SourceWorkspaceStage =
+  | "DIRTY"
+  | "UPLOADING"
+  | "ACKNOWLEDGED"
+  | "SUBMITTED"
+  | "ACCEPTED"
+  | "EXPORTED";
+export type SourceWorkspaceEvidence = {
+  workspaceId: string;
+  revisionId: string;
+  stage: Exclude<SourceWorkspaceStage, "DIRTY" | "UPLOADING">;
+  operationId: string;
+};
+export type SourceClosureReadiness = {
+  state: "READY" | "INCOMPLETE";
+  revisionId: string;
+  checkedPaths: number;
+  missingPaths: string[];
+  outsideScope: string[];
+};
+export function sourceCheckpointReceiptMatches(
+  operationId: string,
+  action: Extract<SourceActionInput, { kind: "checkpoint" }>,
+  result: unknown,
+): boolean {
+  if (!result || typeof result !== "object") return false;
+  const value = result as Record<string, unknown>;
+  if (
+    !value.workspace ||
+    typeof value.workspace !== "object" ||
+    !value.receipt ||
+    typeof value.receipt !== "object"
+  )
+    return false;
+  const workspace = value.workspace as Record<string, unknown>,
+    receipt = value.receipt as Record<string, unknown>;
+  return (
+    receipt.schema_version === 1 &&
+    receipt.operation_id === operationId &&
+    receipt.overlay_generation === action.overlayGeneration &&
+    workspace.workspace_id === action.workspaceId &&
+    workspace.workspace_generation ===
+      String(BigInt(action.workspaceGeneration) + 1n) &&
+    workspace.scope_generation === action.scopeGeneration &&
+    receipt.workspace_generation === workspace.workspace_generation &&
+    typeof value.revision_id === "string" &&
+    revision.safeParse(value.revision_id).success &&
+    value.revision_id === workspace.checkpoint_revision_id &&
+    value.revision_id === workspace.base_revision_id
+  );
+}
 export const hostCapabilitiesSchema = z.object({
   profile: z.string(),
   available: z.boolean(),
@@ -225,5 +287,8 @@ export const sourceContract = defineRpcContract({
     ),
   },
   execute: { input: requestSchema, output: responseSchema },
-  metrics: { input: z.object({projectId:z.string()}).strict(), output: z.unknown() },
+  metrics: {
+    input: z.object({ projectId: z.string() }).strict(),
+    output: z.unknown(),
+  },
 });

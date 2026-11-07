@@ -616,11 +616,12 @@ fn blank_row() -> CodecResult<ParticipantRow> {
 fn queries_read_the_worker_prefix_beside_the_region() -> TestResult {
     let (walk, worker) = Walk::enrolled(&key(0x41))?;
     let s = &walk.state;
-    let mut expected = [Availability::NotYetProduced; 10];
+    let mut expected = [Availability::NotYetProduced; 11];
     expected[0] = Availability::Available;
     expected[1] = Availability::Available;
     expected[5] = Availability::NotEnabled;
     expected[9] = Availability::Available;
+    expected[10] = Availability::NotEnabled;
     assert_eq!(feature_availability(s)?, expected);
 
     let blank = blank_row()?;

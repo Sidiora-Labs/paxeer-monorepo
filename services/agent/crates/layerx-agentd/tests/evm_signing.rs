@@ -10,10 +10,8 @@ use k256::ecdsa::SigningKey;
 use layerx_agentd::sign::SigningPreparation;
 use layerx_agentd::sign::{self_sign, ProvisionedSessionKey, SigningError, SigningMode};
 use layerx_crypto::evm_transaction::{decode_signed, recover_sender};
-use layerx_crypto::local::LocalSigner;
 use layerx_crypto::secp256k1::evm_address;
 use layerx_crypto::session::{issue_session_key, IssuedSessionKey, SessionKeyRequest};
-use layerx_crypto::signer::Signer;
 use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration, ModuleRegistry};
 use layerx_wire::encode::Encoder;
 
@@ -100,7 +98,7 @@ fn send_payload() -> Vec<u8> {
 }
 
 fn issued(seed: [u8; 32], permitted: ActivityType, expires_at: u64) -> IssuedSessionKey {
-    let public_key = LocalSigner::new(seed).public_key();
+    let public_key = session_public_key(seed);
     issue_session_key(&SessionKeyRequest {
         fee_budget: None,
         purpose: layerx_crypto::session::SessionPurpose::Activity,
@@ -115,13 +113,68 @@ fn issued(seed: [u8; 32], permitted: ActivityType, expires_at: u64) -> IssuedSes
 }
 
 fn session_public_key(seed: [u8; 32]) -> [u8; 32] {
-    LocalSigner::new(seed).public_key()
+    let mut public_key = [0; 32];
+    public_key[12..].copy_from_slice(&session_address(seed));
+    public_key
 }
 
 fn session_address(seed: [u8; 32]) -> [u8; 20] {
     let key = SigningKey::from_slice(&seed).unwrap_or_else(|error| panic!("key: {error:?}"));
     evm_address(key.verifying_key().to_encoded_point(false).as_bytes())
         .unwrap_or_else(|error| panic!("address: {error:?}"))
+}
+
+struct SessionFixture {
+    root: std::path::PathBuf,
+    keys: layerx_agentd::session_keys::SessionKeyRegistry,
+}
+impl SessionFixture {
+    fn new() -> Self {
+        use std::os::unix::fs::{DirBuilderExt, MetadataExt};
+        static NEXT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
+        let root = std::env::temp_dir().join(format!(
+            "evm-signing-{}-{}",
+            std::process::id(),
+            NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+        ));
+        std::fs::DirBuilder::new()
+            .mode(0o700)
+            .create(&root)
+            .unwrap();
+        let uid = std::fs::metadata(&root).unwrap().uid();
+        let keys = layerx_agentd::session_keys::SessionKeyRegistry::open(
+            root.clone(),
+            vec![0x81; 32],
+            17,
+            uid,
+        )
+        .unwrap();
+        Self { root, keys }
+    }
+    fn provision(&self, seed: [u8; 32], grant: &IssuedSessionKey) -> ProvisionedSessionKey {
+        // Decode the actual authorization registration before persisting its EVM key.
+        assert_eq!(
+            layerx_crypto::session::decode_session_key(&grant.registration_payload).unwrap(),
+            *grant
+        );
+        self.keys.provision(grant.grant_id, &seed, grant).unwrap();
+        self.keys.load(grant.grant_id, grant.clone()).unwrap()
+    }
+    fn reopen(&mut self) {
+        use std::os::unix::fs::MetadataExt;
+        self.keys = layerx_agentd::session_keys::SessionKeyRegistry::open(
+            self.root.clone(),
+            vec![0x81; 32],
+            17,
+            std::fs::metadata(&self.root).unwrap().uid(),
+        )
+        .unwrap();
+    }
+}
+impl Drop for SessionFixture {
+    fn drop(&mut self) {
+        std::fs::remove_dir_all(&self.root).unwrap();
+    }
 }
 
 fn prepared() -> SigningPreparation {
@@ -160,7 +213,15 @@ fn self_signed_transaction_recovers_to_the_session_address() {
     let seed = [0xa5; 32];
     let session_issued = issued(seed, send_type(), 1_100);
     let prepared = prepared();
-    let session = ProvisionedSessionKey::new(seed, session_issued).unwrap();
+    let mut fixture = SessionFixture::new();
+    let session = fixture.provision(seed, &session_issued);
+    assert_eq!(session.evm_address(), session_address(seed));
+    drop(session);
+    fixture.reopen();
+    let session = fixture
+        .keys
+        .load(session_issued.grant_id, session_issued.clone())
+        .unwrap();
     let signed = ready(self_sign(Some(&session), &prepared, &registry(), 1_000, 5)).unwrap();
     assert_eq!(signed.signature.len(), 65);
     let (call, signature) = decode_signed(&signed.signed_canonical_bytes).unwrap();
@@ -198,8 +259,9 @@ fn self_signed_transaction_recovers_to_the_session_address() {
         )),
         Err(SigningError::PreparedBytesChanged),
     );
+    let other_fixture = SessionFixture::new();
     let mismatched_authority =
-        ProvisionedSessionKey::new([0xa6; 32], issued([0xa6; 32], send_type(), 1_100)).unwrap();
+        other_fixture.provision([0xa6; 32], &issued([0xa6; 32], send_type(), 1_100));
     assert_eq!(
         ready(self_sign(
             Some(&mismatched_authority),
@@ -210,6 +272,31 @@ fn self_signed_transaction_recovers_to_the_session_address() {
         )),
         Err(SigningError::AuthorityMismatch),
     );
+    let denied_fixture = SessionFixture::new();
+    let mint = ActivityType::new(ModuleId::Asset, 10).unwrap();
+    let denied = denied_fixture.provision(seed, &issued(seed, mint, 1_100));
+    assert_eq!(
+        ready(self_sign(Some(&denied), &prepared, &registry(), 1_000, 5)),
+        Err(SigningError::ScopeDenied)
+    );
+    assert_eq!(session_issued.permitted_activity_types, vec![send_type()]);
+    let mut changed_grant = session_issued.clone();
+    changed_grant.permitted_activity_types = vec![mint];
+    assert!(fixture
+        .keys
+        .load(changed_grant.grant_id, changed_grant)
+        .is_err());
+    fixture.keys.revoke(session_issued.grant_id).unwrap();
+    assert_eq!(
+        ready(self_sign(Some(&session), &prepared, &registry(), 1_000, 5)),
+        Err(SigningError::Revoked)
+    );
+    drop(session);
+    fixture.reopen();
+    assert!(fixture
+        .keys
+        .load(session_issued.grant_id, session_issued)
+        .is_err());
 }
 
 #[test]

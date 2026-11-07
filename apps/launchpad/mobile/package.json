@@ -1,6 +1,7 @@
 {
   "name": "@sidiora/mobile",
   "private": true,
+  "packageManager": "pnpm@9.15.0",
   "version": "0.1.0",
   "scripts": {
     "test": "node --test test/*.test.ts",

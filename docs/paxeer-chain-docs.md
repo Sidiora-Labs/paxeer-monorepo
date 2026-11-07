@@ -32,9 +32,10 @@ Public EVM JSON-RPC uses HTTPS at the root of
 `https://api-mainnet-beta.paxeer.network` or the numbered nodes
 `https://api1.mainnet-beta.paxeer.network` through
 `https://api14.mainnet-beta.paxeer.network`. The node namespaces are `debug`,
-`echo`, `eth`, `net`, `pax`, `test`, and `txpool`; availability depends on node
-configuration. Hosted gateway `px_` methods are defined separately in
-[`services/platform/hosted/gateway/openrpc.json`](../services/platform/hosted/gateway/openrpc.json).
+`echo`, `eth`, `net`, `pax`, `px`, `test`, and `txpool`; availability depends on node
+configuration. The `px` namespace answers from node state; `px_register` and
+`px_requestFunds` are operations of the hosted identity and faucet
+services declared in [the gateway OpenRPC contract](../services/platform/hosted/gateway/openrpc.json).
 `node.hyperpaxeer.com` is only the hpx library mirror, never a JSON-RPC endpoint.
 
 Commands below are run from the repository root unless noted.

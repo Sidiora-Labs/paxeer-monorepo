@@ -1,5 +1,7 @@
 # Hosted control
 
+Private-network only.
+
 Hosted control is retained for private or disposable networks. It has no public
 control hostname on Paxeer mainnet-beta. Public accounts receive native chain
 transfers; the private funding and reset APIs below are not a public funding
@@ -46,9 +48,9 @@ also carries the operator scripts under `/opt/layerx/`.
 | Admin | `0.0.0.0:9444` | `layerx-testnet-admin`, ClusterIP port `443` → `admin-tls` |
 
 Here “public” names the listener with unauthenticated status reads inside the
-private installation. The source manifest has no control Ingress. Library
-endpoint defaults are private `*.layerx-testnet.svc.cluster.local` HTTPS
-origins. The cluster helper can port-forward the public Service; the default
+private installation. The source manifest has no control Ingress. Configure
+operator-supplied private HTTPS origins with the `LAYERX_TESTNET_*_URL` keys
+below. The cluster helper can port-forward the public Service; the default
 local port is `19443`, exported through `LAYERX_TESTNET_URL`.
 
 ## TLS
@@ -167,9 +169,9 @@ Other outcomes, including transport failures and upstream 5xx, become
 
 The private faucet posts its reserved `funding_id`, DID, signer public key,
 and configured amount to control admin. After validation and journey
-admission, control forwards to the configured core-admin origin. The manifest
-uses
-`https://layerx-pending-core-admin.layerx-testnet.svc.cluster.local:9444`.
+admission, control forwards to the configured core-admin origin. Set
+`LAYERX_TESTNET_CORE_ADMIN_URL` to the operator-supplied private origin, for
+example `https://OPERATOR-CORE-ADMIN-ORIGIN:9444`.
 
 For new funding, core resolves the signer key to a nonzero chain address using
 the addr precompile at `0x0000000000000000000000000000000000001004`, then signs

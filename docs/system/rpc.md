@@ -37,9 +37,9 @@ and [`served_methods_ws.golden`](../../rpc/testdata/served_methods_ws.golden).
 
 | Registration configuration | Service calls | Subscription topics |
 |---|---|---|
-| HTTP, all legacy methods enabled, test API disabled | 105 | 0 |
-| HTTP, default legacy allowlist, test API disabled | 72 | 0 |
-| WebSocket | 55 | 3 |
+| HTTP, all legacy methods enabled, test API disabled | 120 | 0 |
+| HTTP, default legacy allowlist, test API disabled | 87 | 0 |
+| WebSocket | 72 | 3 |
 
 These counts cover the service calls below. They exclude Geth's built-in
 `rpc_modules` metadata method and the WebSocket subscription control methods
@@ -204,15 +204,32 @@ selectors are listed separately under [WebSocket subscriptions](#websocket-subsc
 
 | Method | Transport | Service type | Source |
 |---|---|---|---|
-| `px_getReceiptKeys` | HTTP | receiptKeysAPI | `rpc/sequencer_receipt.go` |
+| `px_getAccount` | HTTP, WS | pxAccountAPI | `rpc/px_account.go` |
+| `px_getBalances` | HTTP, WS | pxAccountAPI | `rpc/px_account.go` |
+| `px_getCapabilities` | HTTP, WS | pxAccountAPI | `rpc/px_discovery.go` |
+| `px_getCommit` | HTTP, WS | pxKernelAPI | `rpc/px_kernel.go` |
+| `px_getHistory` | HTTP, WS | pxHistoryAPI | `rpc/px_history.go` |
+| `px_getNetwork` | HTTP, WS | pxAccountAPI | `rpc/px_account.go` |
+| `px_getReceiptKeys` | HTTP, WS | receiptKeysAPI | `rpc/sequencer_receipt.go` |
+| `px_getRouteCatalogue` | HTTP, WS | pxAccountAPI | `rpc/px_discovery.go` |
+| `px_getSequenceBatch` | HTTP, WS | pxKernelAPI | `rpc/px_kernel.go` |
+| `px_getUnifiedHistory` | HTTP, WS | pxHistoryAPI | `rpc/px_history.go` |
+| `px_getValidators` | HTTP, WS | pxKernelAPI | `rpc/px_kernel.go` |
+| `px_listAssets` | HTTP, WS | pxAccountAPI | `rpc/px_assets.go` |
+| `px_listHolderRecords` | HTTP, WS | pxHistoryAPI | `rpc/px_history.go` |
+| `px_register` | HTTP, WS | pxAccountAPI | `rpc/px_account.go` |
+| `px_requestFunds` | HTTP, WS | pxAccountAPI | `rpc/px_account.go` |
+| `px_resolveAccount` | HTTP, WS | pxAccountAPI | `rpc/px_account.go` |
 
-This node method returns the governed receipt signing keys used to authenticate
-`pax_sequencerReceipt` results. Its result is `{"keys":[...]}`; entries contain
-`keyId`, `publicKey`, `firstHeight`, and `lastHeight`. An empty list is valid.
-It is the node upstream used by the hosted gateway's receipt-key relay. The
-hosted gateway's broader `px_*` contract lives in
-[`services/platform/hosted/gateway/openrpc.json`](../../services/platform/hosted/gateway/openrpc.json);
-those gateway methods are not all node registrations.
+The `px` namespace is served at the node root beside the other namespaces and
+answers from node state. `px_getReceiptKeys` returns the governed receipt
+signing keys used to authenticate `pax_sequencerReceipt` results. Its result is
+`{"keys":[...]}`; entries contain `keyId`, `publicKey`, `firstHeight`, and
+`lastHeight`. An empty list is valid. `px_register` and `px_requestFunds`
+validate their parameters and then answer `-32004` with error data code
+`hosted_gateway_service_required`: registration and funding are operations of
+the hosted identity and faucet services, whose method contract is
+[`services/platform/hosted/gateway/openrpc.json`](../../services/platform/hosted/gateway/openrpc.json).
 
 Both `px_getReceiptKeys` and `pax_sequencerReceipt` require a configured local
 receipt source or receipt forwarding URL. Without either, they return code

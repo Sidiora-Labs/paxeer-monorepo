@@ -38,7 +38,7 @@ The OpenRPC contract declares these hosted methods:
 
 Preserve method-specific parameter and result types from OpenRPC. For example, registration takes `signer_public_key` and `registration_signature`; receipt lookup takes `txHash`; history requires `account` and accepts `cursor`, `limit` and `kind`. History uses the [indexer's position order](../services/platform/hosted/gateway/src/history.rs), `(blockHeight, txIndex, logIndex)`, with opaque 32-character lowercase hexadecimal cursors, a default limit of 50 and a maximum of 100. Pass returned cursors through unchanged.
 
-Public node JSON-RPC is available at the HTTPS **root** of `api1.mainnet-beta.paxeer.network` through `api14.mainnet-beta.paxeer.network`, and `api-mainnet-beta.paxeer.network`, for example `https://api5.mainnet-beta.paxeer.network`. Node namespaces are `debug`, `echo`, `eth`, `net`, `pax`, `test` and `txpool`. Hosted `px_` methods are not an additional namespace promised by those public nodes. `node.hyperpaxeer.com` is only the build library mirror, not an RPC endpoint.
+Public node JSON-RPC is available at the HTTPS **root** of `api1.mainnet-beta.paxeer.network` through `api14.mainnet-beta.paxeer.network`, and `api-mainnet-beta.paxeer.network`, for example `https://api5.mainnet-beta.paxeer.network`. Node namespaces are `debug`, `echo`, `eth`, `net`, `pax`, `px`, `test` and `txpool`. The `px` namespace answers from node state; `px_register` and `px_requestFunds` are operations of the hosted identity and faucet services declared in `services/platform/hosted/gateway/openrpc.json`. `node.hyperpaxeer.com` is only the build library mirror, not an RPC endpoint.
 
 ## Gateway WS routes
 

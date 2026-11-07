@@ -17,6 +17,7 @@ sha2.workspace = true
 ed25519-dalek = { version = "=2.2.0", default-features = false }
 
 [dev-dependencies]
+layerx-wire = { path = "../../../services/agent/crates/layerx-wire" }
 ed25519-dalek = { version = "=2.2.0", default-features = false }
 layerx-committed-proof = { path = "../../../services/interop/crates/layerx-committed-proof" }
 layerx-programs-runtime = { path = "../layerx-programs-runtime" }

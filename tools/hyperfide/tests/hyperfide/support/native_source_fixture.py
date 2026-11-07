@@ -2,6 +2,7 @@
 import json
 import os
 from pathlib import Path
+import re
 import shutil
 import subprocess
 import sys
@@ -9,6 +10,34 @@ import tempfile
 from urllib.parse import parse_qs, urlparse
 
 ROOT = Path(__file__).resolve().parents[3]
+
+
+def default_source_migrations():
+    directory = ROOT / 'core/control-plane/migrations'
+    series = [path for path in sorted(directory.glob('*source-control*.sql'))
+              if re.match(r'^\d+-', path.name) and int(path.name.split('-', 1)[0]) >= 736]
+    identifier = r'[a-z_][a-z0-9_]*(?:\.[a-z_][a-z0-9_]*)?'
+    dependencies = {}
+    for path in series:
+        sql = path.read_text()
+        creates = set(re.findall(r'\bCREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?(' + identifier + r')', sql, re.I))
+        references = set(re.findall(r'\bREFERENCES\s+(' + identifier + r')', sql, re.I))
+        dependencies[path.name] = (creates, references)
+    selected = list(dependencies)
+    while True:
+        tables = set().union(*(dependencies[name][0] for name in selected))
+        eligible = [name for name in selected if dependencies[name][1] <= tables]
+        if eligible == selected:
+            return selected
+        selected = eligible
+
+
+def source_node_binary():
+    override = os.environ.get('HYPERFIDE_NODE_BINARY')
+    node = shutil.which(override or 'node')
+    if not node:
+        raise RuntimeError('CAPABILITY_MISSING: set HYPERFIDE_NODE_BINARY to an executable Node binary or install node on PATH')
+    return node
 
 
 def run_source_actor(actor_path, migrations=None, timeout=120, extra_files=(), actor_env=None):
@@ -47,11 +76,13 @@ def run_source_actor(actor_path, migrations=None, timeout=120, extra_files=(), a
         subprocess.run([str(ROOT / 'core/control-plane/node_modules/.bin/tsc'), '-p',
                         str(ROOT / 'sdk/source-control/tsconfig.json'), '--outDir', str(folder / 'sdk')],
                        cwd=ROOT, check=True)
-        selected_migrations = list(migrations or ['0736-source-control-storage.sql', '0737-source-control-metadata.sql', '0738-source-control-capabilities.sql', '0739-source-control-workspaces.sql'])
-        if '0737-source-control-metadata.sql' in selected_migrations and '0758-source-control-event-retention.sql' not in selected_migrations:
+        selected_migrations = default_source_migrations() if migrations is None else list(migrations)
+        if migrations is not None and '0737-source-control-metadata.sql' in selected_migrations and '0758-source-control-event-retention.sql' not in selected_migrations:
             selected_migrations.append('0758-source-control-event-retention.sql')
+        if Path(actor_path).name == 'native_source_sparse_fixture.mjs':
+            selected_migrations = sorted(set(selected_migrations) | set(default_source_migrations()))
         env = dict(os.environ, **(actor_env or {}), SOURCE_CONTROL_MODULE_ROOT=str(folder / 'control/source_control'),
                    SOURCE_CONTROL_SDK_MODULE_ROOT=str(folder / 'sdk'),
                    SOURCE_CONTROL_MIGRATIONS=json.dumps(selected_migrations))
-        return subprocess.run(['node', str(Path(actor_path).resolve()), str(folder / 'control/source_control')],
+        return subprocess.run([source_node_binary(), str(Path(actor_path).resolve()), str(folder / 'control/source_control')],
                               cwd=ROOT, env=env, timeout=timeout).returncode

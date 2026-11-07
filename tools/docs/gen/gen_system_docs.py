@@ -32,12 +32,12 @@ def go_sources(directory):
     return sorted(p for p in directory.glob("*.go") if not p.name.endswith("_test.go"))
 
 
-# Router routes -------------------------------------------------------------
+# Hosted route catalogue ----------------------------------------------------
 
 def gen_routes():
     path = ROOT / "tools/paxeer-x/route-catalogue.json"
     cat = json.loads(read(path))
-    out = [HEADER, "# Router routes\n\n",
+    out = [HEADER, "# Hosted route catalogue\n\n",
            f"Source: `{rel(path)}` (schema `{cat['schema']}`), the catalogue of the hosted gateway route table.\n\n",
            f"- Chain id: `{cat['chain_id']}`\n- Canonical origin: `{cat['canonical_origin']}`\n",
            f"- Services: {len(cat['services'])}\n- Routes: {len(cat['routes'])}\n\n",
@@ -279,7 +279,8 @@ def gen_kernel_modules():
     iface = re.compile(r"(LXP_MODULE_[A-Z]+),\s*(\w+),\s*\"(\w+)\",\s*(\w+)", re.S)
     out = [HEADER, "# LayerX kernel modules\n\n",
            "Source: the module ids in `include/layerx/lxp_module.h` and each `lxp_module_iface` registration "
-           "with its `activity_types` table under `src/modules/`.\n"]
+           "with its `activity_types` table under `src/modules/`. The bridge sources expose helpers "
+           "without an interface registration.\n"]
     mods = []
     for src in sorted((ROOT / "src/modules").rglob("*.c")):
         text = read(src)
@@ -288,8 +289,12 @@ def gen_kernel_modules():
             acts = re.findall(r"\b(LX\w+)\b", arr.group(1)) if arr else []
             mods.append((values.get(mid, "?"), name, mid, values.get(abi, abi.rstrip("Uu")), rel(src), acts))
     mods.sort(key=lambda m: (int(m[0]) if m[0].isdigit() else 999, m[1]))
-    out.append("\n## Summary\n\n" + table(["Id", "Module", "ABI version", "Activity types", "Registration"],
-                                          [[i, n, a, len(acts), f"`{s}`"] for i, n, _, a, s, acts in mods]))
+    rows = [[i, n, a, len(acts), f"`{s}`"] for i, n, _, a, s, acts in mods]
+    bridge_sources = sorted((ROOT / "src/modules/bridge").glob("*.c"))
+    rows.append([values["LXP_MODULE_BRIDGE"], "bridge", "-", "-",
+                 "No interface registration; " + ", ".join(f"`{rel(s)}`" for s in bridge_sources)])
+    rows.sort(key=lambda row: (int(row[0]) if row[0].isdigit() else 999, row[1]))
+    out.append("\n## Summary\n\n" + table(["Id", "Module", "ABI version", "Activity types", "Registration / sources"], rows))
     for i, name, mid, abi, src, acts in mods:
         out.append(f"\n## {name} (`{mid}` = {i})\n\n")
         if acts:
@@ -424,7 +429,7 @@ def gen_governance():
 
 
 TITLES = {
-    "routes.md": "Router routes",
+    "routes.md": "Hosted route catalogue",
     "rpc.md": "EVM JSON-RPC methods",
     "precompiles.md": "Precompile ABIs",
     "chain-modules.md": "Chain modules and parameters",
@@ -433,6 +438,14 @@ TITLES = {
     "cli.md": "CLI commands",
     "governance.md": "Governance proposal types",
 }
+
+
+def gen_index():
+    index = [HEADER, "# Paxeer X Network system reference\n\n",
+             "Generated from the repository sources. Regenerate with `tools/docs/gen-system-docs.sh`; "
+             "`--check` fails when this directory is stale.\n\n"]
+    index += [f"- [{TITLES[name]}]({name})\n" for name in TITLES]
+    return "INDEX.md", "".join(index)
 
 
 def main():
@@ -446,11 +459,8 @@ def main():
     dest.mkdir(parents=True, exist_ok=True)
     docs = dict(g() for g in (gen_routes, gen_rpc, gen_precompiles, gen_chain_modules, gen_kernel_modules,
                               gen_sdk, gen_cli, gen_governance))
-    index = [HEADER, "# Paxeer X Network system reference\n\n",
-             "Generated from the repository sources. Regenerate with `tools/docs/gen-system-docs.sh`; "
-             "`--check` fails when this directory is stale.\n\n"]
-    index += [f"- [{TITLES[name]}]({name})\n" for name in TITLES]
-    docs["INDEX.md"] = "".join(index)
+    name, text = gen_index()
+    docs[name] = text
     for name, text in docs.items():
         (dest / name).write_text(text.rstrip("\n") + "\n", encoding="utf-8")
 

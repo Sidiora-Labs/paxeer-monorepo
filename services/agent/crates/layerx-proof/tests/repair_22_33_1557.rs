@@ -336,6 +336,7 @@ fn retired_settlement_items_are_deprecated_and_checkpoint_api_is_retained() {
         assert!(!evidence.contains(retired));
     }
     assert!(!include_str!("../src/level.rs").contains("checkpoint_finalised"));
+    assert_eq!(VerificationLevel::COMMITTED.rung(), Some(Rung::Committed));
     // Historical configuration cannot raise the retained receipt verifier's rung.
     let decoded = transport(&artifact());
     let record = &decoded.receipts[0];
