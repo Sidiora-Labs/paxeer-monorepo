@@ -130,7 +130,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Set up Go
-        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: tools/loadtest/go.mod
           cache-dependency-path: tools/loadtest/go.sum
@@ -268,7 +268,7 @@ jobs:
           node-version: '24.22.0'
           package-manager-cache: false
       - name: Install pnpm
-        run: npm install --global pnpm@10.15.1
+        run: npm install --global "$(node -p 'require("./package.json").packageManager')"
       - name: Install package dependencies
         run: pnpm install --ignore-workspace --frozen-lockfile
       - name: Run package suite
@@ -288,7 +288,7 @@ jobs:
           node-version: '24.22.0'
           package-manager-cache: false
       - name: Set up Go
-        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: services/wallet/attestor/go.mod
           cache-dependency-path: services/wallet/attestor/go.sum
@@ -299,7 +299,7 @@ jobs:
         with:
           version: v1.8.1
       - name: Install pnpm
-        run: npm install --global pnpm@9.15.9
+        run: npm install --global pnpm@10.34.9+sha512.f49b5a8ea0fdedb44bb3c0c1d6575092a53c2950d95b7ad15df11f17974877a2de3a01c07e934e9b28ce716e51c09a94962c7306d09be2e1e4b18a8c8762fd32
       - name: Install wallet dependencies
         working-directory: services/wallet
         run: pnpm install --frozen-lockfile
