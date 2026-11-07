@@ -32939,3 +32939,387 @@ symbol = "human_runtime.rs"
 observed = "Attempt 13 at 362ea3c05914641d88beb631cc742769978aa0d9: build exit 0, dependent-crate check exit 0, verify exit 101: the EVM preview case was refused at the owner preview call (native_send_preview_evm.rs line 921) with no diagnostic line, and the two repair cases met the poisoned fixture lock (repair_22_31_560.rs line 899)."
 assumption = "The fixture span is the last seconds-era value after the milliseconds correction; the sited helper makes any remaining refusal readable in one run."
 severity = "high"
+
+[finding.22.37.26.1]
+task = "22.37.26"
+file = "docs/hyperfide/hyperfide/source-control.md"
+symbol = "source-control.md"
+observed = "Attempt 1 at 0696d1ee0eb7e3141fd1dd36f27cc0a90698b10e: build exit 0, verify exit 1: the packaged native source component smoke reports Dependency resolves outside approved installed roots."
+assumption = "The resolver climbed above the vendored tree to an optional peer installed only at the repository root; confining it to the vendored tree omits that peer."
+severity = "high"
+
+[finding.22.37.19.4]
+task = "22.37.19"
+file = "tools/hyperfide/core/host-daemon/src/source-control/metrics.ts"
+symbol = "metrics.ts"
+observed = "Attempt 4 at a2ef76dcbf9c58eff00c8eefc94c4ab73a2e8586: build exit 0 (third build, final revision), verify exit 1 at d36d2e3b515193ea108307c9ae933e031eef859e: the unauthorized-read case received SCOPE_DENIED on the allowed path main.txt before the repairs."
+assumption = "The final tree is unverified; the verify record belongs to an earlier revision."
+severity = "medium"
+
+[finding.22.31.478.19]
+task = "22.31.478"
+file = "programs/crates/layerx-programs-ai-market"
+symbol = "layerx-programs-ai-market"
+observed = "Attempt 19 at 2f504a9330592248fd1227190c6c9c47d0ac4a2c: build exit 0, dependent-crate check exit 0, verify exit 1: the Go proof, the library tests and two binaries pass; artifact_binding fails 13 of 14 cases with ApplicationError(1)."
+assumption = "The library changes of the task break a schema or framing read the unchanged suite exercises; the suite never ran in this lineage because an earlier binary failed first."
+severity = "high"
+
+[finding.22.35.10.1]
+task = "22.35.10"
+file = "apps/explorer/configs/app/features/assistant.ts"
+symbol = "assistant.ts"
+observed = "Attempt 1 at d8e385529522b154a54743c4a998c803477b0fa9: build exit 0 (third build, final revision), verify exit 1 at 7e522f416fbc883cfb611923f21022e430c1ff60: the API spec passed 7 cases and the panel spec failed 4 of 7 before the repairs."
+assumption = "The final tree is unverified; the verify record belongs to an earlier revision."
+severity = "medium"
+
+[finding.22.31.577.4]
+task = "22.31.577"
+file = "programs/crates/layerx-programs-runtime/src/replay_record.rs"
+symbol = "replay_record.rs"
+observed = "Attempt 4 at 92a3b8736a87423e7fd2db2494548cb6b477f30f: build exit 0 (third build, final revision), dependent-crate check exit 0, verify exit 1 at 6fb0b19d39df54c03aca69b0b4ee4b8a2bb0dc88: two 128-call proofs refused with capture witness bytes 1050243 and 1052118 over the permitted 1048576 before the repairs."
+assumption = "The final tree is unverified; the verify record belongs to an earlier revision."
+severity = "medium"
+
+[finding.22.31.560.14]
+task = "22.31.560"
+file = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+symbol = "human_runtime.rs"
+observed = "Attempt 14 at 71a7033bb7baf2939fb5efec63d46d68379814c4: build exit 0, dependent-crate check exit 0, verify exit 101: 2 of 3 cases pass; the first Prepare after the owner preview answers 403 owner.refused at approval carrier binding (first run at 03ed5ace871d3e1a5475a856f8eab0aaab42dd57 refused both native send cases at timestamp span exceeded)."
+assumption = "The carrier bind folds a dozen clauses into one code; the fixture clock against the millisecond bound is the first suspect and the print will say."
+severity = "high"
+
+[finding.22.37.26.2]
+task = "22.37.26"
+file = "docs/hyperfide/hyperfide/source-control.md"
+symbol = "source-control.md"
+observed = "Attempt 2 at aafa9ec1c6982eac339a729ec2a2cd56d99ab2a6: build exit 0, verify exit 1: the closure, the assembly and the reproducibility check pass; the consistency check refuses Full assertion inventory absent or reused: SCM-011 (first run at 7ea2c00bbd5c5aa6fdbcb953cef9c2b4129589f3 failed the closure on the nested string_decoder)."
+assumption = "The refusal is a rule the driver invented against data every producer agrees on."
+severity = "high"
+
+[finding.22.37.19.5]
+task = "22.37.19"
+file = "tools/hyperfide/core/host-daemon/src/source-control/metrics.ts"
+symbol = "metrics.ts"
+observed = "Attempt 5 at 24649c9cb9adfa6e84b08914b861a5c772d6c4a4: build exit 0 (two builds), verify exit 1 (two runs): the first run at e6524bd65bfc5402d71832adfedb77abd6671136 refused the VIRTUAL open with INTERNAL_ERROR because the driver applied no 0747 migration; after that repair the final run refuses the publication cancel with INTERNAL_ERROR Source operation failed and no recorded cause."
+assumption = "The driver proves a schema the service never runs, and the catch hides the column the select refuses; the cancel settlement reads two columns of migration 0764 the driver never applied."
+severity = "high"
+
+[finding.22.31.560.15]
+task = "22.31.560"
+file = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+symbol = "human_runtime.rs"
+observed = "Attempt 15 at eac043db6738b1717b13344165490f3e90bfe2ad: build exit 0, dependent-crate check exit 0, verify exit 101: 2 of 3 cases pass; the first Prepare after the owner preview answers 403 owner.refused at approval carrier reservation identity."
+assumption = "The carrier compares the reservation id with the envelope digest while every producer keys it by the unsigned-call digest of decision 2634."
+severity = "high"
+
+[finding.22.31.577.5]
+task = "22.31.577"
+file = "programs/crates/layerx-programs-runtime/src/replay_record.rs"
+symbol = "replay_record.rs"
+observed = "Attempt 5 at 7e4d0a7b73532eddabcccdb32209508cc9bfe4a4: build exit 0, dependent-crate check exit 0, verify exit 1: every carried suite passes; the two 128-call proofs refuse at capture witness bytes 1049962 and 1048801 over the permitted 1048576."
+assumption = "Two record constants repeated in every leaf cost about 58 kilobytes; the overages are 1386 and 225 bytes."
+severity = "high"
+
+[finding.22.37.19.6]
+task = "22.37.19"
+file = "tools/hyperfide/core/host-daemon/src/source-control/metrics.ts"
+symbol = "metrics.ts"
+observed = "Attempt 6 at 7e114a29d64a77c97368d3d2f49fb0f6723b877b: build exit 0, verify exit 1: the publication cancel passes and the product actor fails at line 615 with coverage COMPLETE where it asserted UNAVAILABLE."
+assumption = "The assertion encoded a hand-picked schema; the full series the fixture now applies creates the graphs table."
+severity = "high"
+
+[finding.22.31.478.20]
+task = "22.31.478"
+file = "programs/crates/layerx-programs-ai-market"
+symbol = "layerx-programs-ai-market"
+observed = "Attempt 20 at 831f32d7ca14a882709094ed26b497c7c2ea7898: build exit 0, dependent-crate check exit 0, verify exit 1: the Go proof and the library tests pass; 17 test binaries of the crate fail, 12 at AdmissionTable::decode on the joint section the unchanged test loaders never split, five on the native harness, the chain-domain environment and the routed fuel cap."
+assumption = "The red suites predate the task and are carried in the 22.99.77 tree; the task proof is the Fund path."
+severity = "high"
+
+[finding.22.36.4.1]
+task = "22.36.4"
+file = "apps/explorer/docs"
+symbol = "docs"
+observed = "Attempt 1 at 7e55d7e34b0cff5aeec2d1f8fce7431ba8d90d91: build exit 0, verify exit 1: five audit tests pass; the tracked-references test reports two deployment files outside the touches that name apps/explorer/docs/ENVS.md."
+assumption = "The references were outside the listed touches; the list is amended."
+severity = "medium"
+
+[finding.22.31.560.16]
+task = "22.31.560"
+file = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+symbol = "human_runtime.rs"
+observed = "Attempt 16 at 5708e96eb468dc3804c576f35a88bc01bfe4d294: build exit 0, dependent-crate check exit 0, verify exit 101: two cases pass; the first Prepare answers 403 owner.refused at approval carrier validation envelope preparation identity because validate still requires the preparation field to equal the envelope digest while bind stores the reservation identifier."
+assumption = "The digest equality was a leftover of the envelope-derived identifier; the envelope stays bound through its decode, authority and expiry checks."
+severity = "high"
+
+[finding.22.37.19.7]
+task = "22.37.19"
+file = "tools/hyperfide/core/host-daemon/src/source-control/metrics.ts"
+symbol = "metrics.ts"
+observed = "Attempt 7 at 59ddf413619c4f88131889679378e3960bf3974d: build exit 0, verify exit 1: the product actor passes the metrics check; the browser support fails to spawn /opt/chromium/chrome-headless-shell-linux64/chrome-headless-shell (ENOENT)."
+assumption = "Environmental; the tree is unchanged."
+severity = "medium"
+
+[finding.22.31.577.6]
+task = "22.31.577"
+file = "programs/crates/layerx-programs-runtime/src/replay_record.rs"
+symbol = "replay_record.rs"
+observed = "Attempt 6 at c4f94044d50e882971b9ab0c888fafa187d5b3d6: build exit 0, dependent-crate check exit 0, verify exit 101: every carried suite passes; the executor capture measures 1049404 bytes against 1048576 at leaf length 4998, and the live-snapshot adjudicator faulted on shifted function identifiers before the shared-catalog repair could be verified."
+assumption = "The excess is the graph replay state encoded twice per composed leaf; the shared catalog keeps the compiled identifiers stable."
+severity = "high"
+
+[finding.22.37.19.8]
+task = "22.37.19"
+file = "tools/hyperfide/core/host-daemon/src/source-control/metrics.ts"
+symbol = "metrics.ts"
+observed = "Attempt 8 at b374d3e909f57f476d101592d005da3694d1cb2a: build exit 0, verify exit 1: the browser journey stopped at Timed out: button Refresh workspace after the acceptance receipt; the Workspace input was empty because the field helper wrote the workspace id into the Workspace mode select whose label precedes it on the panel."
+assumption = "The prefix rule of the helper is the only cause; the panel labels are unchanged."
+severity = "medium"
+
+[finding.18.1562.1.10]
+task = "18.1562.1"
+file = "rpc/sequencer_receipt_vectors_test.go::TestAiMarketTransferAuthorityReceipt"
+symbol = "sequencer_receipt_vectors_test.go::TestAiMarketTransferAuthorityReceipt"
+observed = "Attempt 16 at b48f134b3b15e497e4dba745f1f8f93e52db96a2: build exit 0, verify exit 1 at the first-verify revision 2d27a47f4e4137bfb1caef0906acc50fd4134df9: 586929 is not less than or equal to 524288 at sequencer_receipt_vectors_test.go line 1873; the final tree adds the production optimisation pass unverified."
+assumption = "The optimised guest fits as it does for the production target; the gap was the missing tool in the qualification environment."
+severity = "medium"
+
+[finding.22.33.223.8]
+task = "22.33.223"
+file = "programs/crates/layerx-programs-ai-market/tests/repair_22_33_223.rs"
+symbol = "repair_22_33_223.rs"
+observed = "Attempt 9 at 11886f69b839deabe2308c102c41f8b8954c4b3b: build exit 0, dependent-crate check exit 0, verify exit 1: 13 of 14 cases pass; the fuel-cap case lists 334 maximum-state refusals over the cap, attempted 1000001 to 1000234, across twelve routed operations."
+assumption = "The over-cap operations are the cap repair of 22.99.77; the coverage of this task only measures them."
+severity = "medium"
+
+[finding.22.37.19.9]
+task = "22.37.19"
+file = "tools/hyperfide/core/host-daemon/src/source-control/metrics.ts"
+symbol = "metrics.ts"
+observed = "Attempt 9 at fc5dfcfe1d0c53fe527feabf4bb22d7d40bd5bd7: build exit 0, verify exit 1: the browser journey and product checks pass; the signed CLI open of the empty base revision with main.txt as read and write path exits 1 because the readiness check treats the read path as a required dependency."
+assumption = "Read scope paths are not closure requirements; the dependency declaration is."
+severity = "medium"
+
+[finding.22.31.577.7]
+task = "22.31.577"
+file = "programs/crates/layerx-programs-runtime/src/replay_record.rs"
+symbol = "replay_record.rs"
+observed = "Attempt 7 at ff63ef724b8285c7e44451a7f7568ac5a4f78339: build exit 0, dependent-crate check exit 0, verify exit 101: the live-snapshot proof admits 128 calls (leaf total 1041745, record total 1046552); the executor proof is refused at step 734 with 1048815 witness bytes against 1048576, leaf 853, host source 382."
+assumption = "The host source repeats header constants in every leaf; removing them is lossless and more than covers the 239-byte excess."
+severity = "high"
+
+[finding.22.31.539.6]
+task = "22.31.539"
+file = "services/agent/crates/layerx-agentd/tests/repair_22_31_539.rs"
+symbol = "repair_22_31_539.rs"
+observed = "Attempt 6 at adcd72ce225c3d8feeef7ef6f863f5774f946722: build exit 0, dependent-crate check exit 0, verify exit 101: agent_register_prepares_bind_layerx 403 owner.refused against 200 at line 704; the session case fell to the poisoned fixture lock at line 880; identical to attempt 5 after 22.31.560 landed."
+assumption = "owner_error hides which condition refused; one instrumented run names it."
+severity = "high"
+
+[finding.18.1562.1.11]
+task = "18.1562.1"
+file = "rpc/sequencer_receipt_vectors_test.go::TestAiMarketTransferAuthorityReceipt"
+symbol = "sequencer_receipt_vectors_test.go::TestAiMarketTransferAuthorityReceipt"
+observed = "Attempt 17 at 0ffe1e9e3315f83c8147f3e901364b11216d79f7: build exit 0; verify exit 1 twice: run 1 refused FUND as LXP_ERR_NON_CANONICAL (fixture fee asset and block layout), run 2 refused the ABI5 re-registration with profile 2 as LXP_ERR_VERSION_UNSUPPORTED at line 811; the profile-1 correction is in the final tree and has no verify run."
+assumption = "The final tree carries the correction decision 2736 records; only the gates are missing."
+severity = "medium"
+
+[finding.18.1562.1.12]
+task = "18.1562.1"
+file = "rpc/sequencer_receipt_vectors_test.go::TestAiMarketTransferAuthorityReceipt"
+symbol = "sequencer_receipt_vectors_test.go::TestAiMarketTransferAuthorityReceipt"
+observed = "Attempt 18 at bf312fc2181bb527cab3d5cc8602bfa30d55e2a0: build exit 0, verify exit 1: TestAiMarketTransferAuthorityReceipt refuses FUND at line 839 with LXP_ERR_FEE_UNPAYABLE (kernel gas allowance 10000000, EVM gas used 88480) after the profile-1 re-registration passes."
+assumption = "The kernel limit check compares the spendable fee balance with the fee limit before computing the fee; the fixture balance equals one fee limit and the CREATE fee, the occupancy settlement and the read activity spent part of it."
+severity = "high"
+
+[finding.22.31.217.9]
+task = "22.31.217"
+file = "services/agent/crates/layerx-agentd/tests/repair_22_31_217.rs"
+symbol = "repair_22_31_217.rs"
+observed = "Attempt 9 at 9303d75302808e2710a4d0b3a72aa09a880866cd: build 3 exit 101 (private binder called from the integration test); the verified tree had 12 passed and 6 failed: four SourceOwnership refusals and two lifecycle cases refused Receipt by read_signed_native_execution_observation."
+assumption = "The ownership repair is written but unbuilt; the lifecycle evidence is a fixture the task owns, and the production reader needs a receipt from the endpoint, not a capture file."
+severity = "high"
+
+[finding.22.31.577.8]
+task = "22.31.577"
+file = "programs/crates/layerx-programs-runtime/src/replay_record.rs"
+symbol = "replay_record.rs"
+observed = "Attempt 8 at 8b8f7f4246c2a20e64ed8dc46263ad1d19dd8a41: build exit 0, dependent-crate check exit 0, verify exit 1: the live-snapshot proof admits 128 calls (leaf_total 1027329, record_total 1032152); the executor proof refuses the capture at step 743, 1052740 bytes against 1048576, leaf 4918 against the live-snapshot 4649, the host runtime field 285 against 16."
+assumption = "The 252-byte difference per leaf is the header composition graph repeated in every leaf; 221 leaves times 252 bytes is 55692 bytes, far above the 4164-byte excess."
+severity = "high"
+
+[finding.18.1562.1.13]
+task = "18.1562.1"
+file = "rpc/sequencer_receipt_vectors_test.go::TestAiMarketTransferAuthorityReceipt"
+symbol = "sequencer_receipt_vectors_test.go::TestAiMarketTransferAuthorityReceipt"
+observed = "Attempt 19 at 8a2efbc6c3fee2ec60a65571ba09db081831ddd7: build exit 0, verify exit 1: FEE_UNPAYABLE is gone; the FUND through the call method fails with LXP_NON_CANONICAL at line 839 because the call carries no receipt authority for the balance sight."
+assumption = "The precompile call method cannot carry a receipt authority; callWithReceipts is the EVM-side form of the direct host path the production proof uses."
+severity = "high"
+
+[finding.22.31.539.7]
+task = "22.31.539"
+file = "services/agent/crates/layerx-agentd/tests/repair_22_31_539.rs"
+symbol = "repair_22_31_539.rs"
+observed = "Attempt 7 at 3c6a1baf032ad489aae2b83554d4b36e901640a0: build exit 0, verify exit 1: owner.refused is cleared; agent_register_prepares_bind_layerx fails at line 709 with envelope.malformed from bind_call on the 0x1004 call; the session case fell to the poisoned fixture lock."
+assumption = "The call disclosure decoder refuses the addr precompile target; the daemon path is right once the decoder discloses the call."
+severity = "high"
+
+[finding.22.31.577.9]
+task = "22.31.577"
+file = "programs/crates/layerx-programs-runtime/src/replay_record.rs"
+symbol = "replay_record.rs"
+observed = "Attempt 9 at a097f1b2762bbc7e1bf584114f5c71309f277c5c: build exit 0, dependent-crate check exit 0, verify exit 101: every carried suite passes, the live-snapshot proof admits 128 calls (leaf total 1027329, record total 1032153), the executor proof is refused at step 900 with capture witness observed 1048953 against the permitted 1048576 on a 518-byte leaf whose runtime source is 36 bytes against 16 for the live-snapshot shape."
+assumption = "The remaining twenty bytes per leaf are the response outcome region written verbatim, eighteen of them the record-constant capacity and its framing; the bound is the protocol maximum."
+severity = "high"
+
+[finding.22.31.582.1]
+task = "22.31.582"
+file = "precompiles/layerxprograms/call_receipts_test.go"
+symbol = "call_receipts_test.go"
+observed = "Attempt 1 at ef6ddee3c8900eaa2e0ffa27f272dc4c17ac7d10: build exit 0, verify exit 1: three of the four verify tests pass; the gas table test fails at the lease execution method row on the byte-equality assertion of the shared lease request helper (program, asset, limits and receipt words differ)."
+assumption = "Pre-existing since commit f3402ae5ff; nothing in the attempt-1 tree causes it."
+severity = "high"
+
+[finding.22.31.583.1]
+task = "22.31.583"
+file = "services/agent/crates/layerx-crypto/tests/repair_22_31_583.rs"
+symbol = "repair_22_31_583.rs"
+observed = "Attempt 1 at c768afd69cda3935fe06076adc13eb829de40c61: build 1 exit 101 (E0277 in the repair test), build 2 exit 0, dependent-crate check exit 101 at create.rs line 650 (non-exhaustive match, BindLayerX not covered); the verify never ran."
+assumption = "The crypto change is right; the single exhaustive consumer needs its arm."
+severity = "high"
+
+[finding.22.31.217.10]
+task = "22.31.217"
+file = "services/agent/crates/layerx-agentd/tests/repair_22_31_217.rs"
+symbol = "repair_22_31_217.rs"
+observed = "Attempt 10 at f7933439876ab95c389d70e4920c3681f8cd7759: build exit 0, dependent-crate check exit 0 (15 crates), verify exit 1 twice: 15 of 18 cases pass; the deploy and upgrade lifecycle case and the wind-down case refuse at prepare with Disclosure(MalformedPayload); the native effect settlement case panics on the missing burn capture."
+assumption = "The disclosure decoder is the cause of the lifecycle refusals; the burn capture is a corpus gap the loopback peer fills."
+severity = "high"
+
+[finding.22.31.547.5]
+task = "22.31.547"
+file = "services/agent/crates/layerx-sdk/tests/repair_22_31_547.rs"
+symbol = "repair_22_31_547.rs"
+observed = "Attempt 5 at 9fa0398090d51898f5ba081bcd13ad3139195fad: build exit 0, dependent-crate check exit 0, verify exit 101: case 1 fails at line 307 with 503 owner.unavailable after preparation receipt key read failed with -32601 Method not found from the fixture chain peer; case 2 fell to the poisoned fixture lock."
+assumption = "The shared chain peer predates the receipt key read 22.31.560 added to genuine Prepare; the SDK change under test is untouched."
+severity = "high"
+
+[finding.22.31.547.6]
+task = "22.31.547"
+file = "services/agent/crates/layerx-sdk/tests/repair_22_31_547.rs"
+symbol = "repair_22_31_547.rs"
+observed = "Attempt 6 at 26219f2e8ed4b5f956ac96a77adfc766cb86ed78: build exit 0, dependent-crate check exit 0, verify exit 1 twice: cycle 1 the first Prepare answered 403 owner.refused on the partial preview fixture; cycle 2 on the 22.31.560 harness the first Prepare answered 200 and the SDK verdict was Unknown with operation Prepare at line 313; the other three cases pass."
+assumption = "The daemon accepts the V2 purpose; one bound field of the accepted body disagrees with the SDK expectation and the test does not yet say which."
+severity = "high"
+
+[finding.22.31.547.7]
+task = "22.31.547"
+file = "services/agent/crates/layerx-sdk/tests/repair_22_31_547.rs"
+symbol = "repair_22_31_547.rs"
+observed = "Attempt 7 at 1922bbd43b5525308e8a5bbcb0760a6169ac9115: build exit 0, dependent-crate check exit 0, verify exit 1 twice: the daemon answered 200 and the first named disagreement is not_before (disclosed 0, request 1789365544000); the two included native send cases fail with PoisonError on the fixture lock after that panic; the SDK library cases and the preview case pass."
+assumption = "The window check is a consumer invention for ledger sends; the call carries the client envelope and the daemon binds the window elsewhere."
+severity = "high"
+
+[finding.9.98.4.8]
+task = "9.98.4"
+file = "services/agent/crates/layerx-agentd/src/ops/program.rs"
+symbol = "program.rs"
+observed = "Attempt 6 at 700b579c615cab59cf917989bbec225bc92408f2: no gate ran; the attempt reached the working-time limit after 44 read commands and two edits of human_runtime.rs; the tree carries the linked-block history fixture, the environment guard and the listener answering commit, validators, block_results, px_getHistory and pax_sequencerReceipt."
+assumption = "The fixture is built; the attempt ran out of time reading the reader chain rather than on a defect, and the next attempt builds first."
+severity = "medium"
+
+[finding.18.1562.1.14]
+task = "18.1562.1"
+file = "rpc/sequencer_receipt_vectors_test.go::TestAiMarketTransferAuthorityReceipt"
+symbol = "sequencer_receipt_vectors_test.go::TestAiMarketTransferAuthorityReceipt"
+observed = "Attempt 20 at e3dbfa274ff2cddca3511231349de84aab3f16d7: build exit 0, verify exit 1 at both revisions: the produced ABI5 reward receipt decodes, resolves and survives reopen and every refusal subcase passes; the final assertion demands distinct authority and applied-legs roots and the produced frame carries one leg and equal roots."
+assumption = "The assertion contradicts the response contract; the decoder is tightened to the node binding and the fixture stays as the producer emits it."
+severity = "high"
+
+[finding.9.98.4.9]
+task = "9.98.4"
+file = "services/agent/crates/layerx-agentd/src/ops/program.rs"
+symbol = "program.rs"
+observed = "Attempt 7 at 826111e4097f2dabef46eba727a9365b0803ac17: build 1 exit 101 (E0502 on block.commit), build 2 exit 0, dependent-crate check exit 0, verify exit 1: 6 passed, 6 failed: the submission fixture refuses the programs deploy kind, the history case expects 4 px_getHistory requests and sees 6, and the remaining four cases fail on poisoned locks."
+assumption = "The deploy encoder lands with 22.31.585; the request count follows the reader on main; the lock poisoning is a fixture defect."
+severity = "high"
+
+[finding.22.31.585.1]
+task = "22.31.585"
+file = "services/agent/crates/layerx-crypto/tests/repair_22_31_585.rs"
+symbol = "repair_22_31_585.rs"
+observed = "Attempt 1 ended with no change inside scope: no command ran during the two-hour working time; no build or verify ran."
+assumption = "Environmental stall before the first command; the task starts again."
+severity = "medium"
+
+[finding.22.31.573.7]
+task = "22.31.573"
+file = "programs/vendor/wasmi-0.31.2/src/store.rs"
+symbol = "store.rs"
+observed = "Attempt 7 at 3d896d0a9af30e559b0cd70c8c2f47c1eba217a8: no gate ran; the tree is the launch tree, unchanged by the session, which issued no command in 150 minutes."
+assumption = "Environmental stall before the first command; the ruling of the previous attempt still stands."
+severity = "medium"
+
+[finding.22.31.547.8]
+task = "22.31.547"
+file = "services/agent/crates/layerx-sdk/tests/repair_22_31_547.rs"
+symbol = "repair_22_31_547.rs"
+observed = "Attempt 8 at 94e776988899c68eb77d9c4d2fe71af8f041ab93: no gate ran; the tree is the launch tree, unchanged by the session, which issued no command in 120 minutes."
+assumption = "The session never reached its model; the ruling of attempt 7 still stands."
+severity = "medium"
+
+[finding.22.31.583.2]
+task = "22.31.583"
+file = "services/agent/crates/layerx-crypto/tests/repair_22_31_583.rs"
+symbol = "repair_22_31_583.rs"
+observed = "Attempt 2 at 0b8900b54f2f78a73ba06fe7b9e3265f18257c5f: no gate ran; the tree is the launch tree, unchanged by the session, which issued no command in 90 minutes."
+assumption = "The session never reached its model; the ruling of attempt 1 still stands."
+severity = "medium"
+
+[finding.22.99.77.22]
+task = "22.99.77"
+file = "programs/crates/layerx-programs-ai-market"
+symbol = "layerx-programs-ai-market"
+observed = "Attempt 20 at f0788359b8a81afb1b616ca5e549bd0b7da35a49: build exit 2 at the host boundary target (CALL diagnostic prepare_activity=-3, short CALL replay capture failed) before the ai-market build; no verify ran; the same target built at the attempt-19 base."
+assumption = "The C decoder of the replay record is at version 1 while the runtime of 22.31.577 writes version 2; the task tree itself did not change the decoder or the record."
+severity = "high"
+
+[finding.9.98.4.10]
+task = "9.98.4"
+file = "services/agent/crates/layerx-agentd/src/ops/program.rs"
+symbol = "program.rs"
+observed = "Attempt 8 at 3614b8b0925dc59a1bf7b9079e4f0cb9346fdc11: build exit 0, dependent-crate check exit 0, verify exit 1 with 8 passed and 4 failed: retained_settlement_settles_after_the_head_advances, retained_settlement_settles_once_across_replay and retained_settlement_refuses_a_failed_receipt panic at line 23748 with retained settlement: Refused; policy_usage_sums_only_proven_receipts_in_the_window expects 4 eth_blockNumber calls and observes 6."
+assumption = "The settle function refuses at a site the evidence cannot name; the fixture commit answer was built for the field set before 22.31.585; the history double answers eth_blockNumber twice per read."
+severity = "high"
+
+[finding.22.38.35.1]
+task = "22.38.35"
+file = "tools/qualification/audit_repairs/test_repair_22_38_35.py"
+symbol = "test_repair_22_38_35.py"
+observed = "Attempt 1 at e32810b2c27b1741d08d13519328d628b84f3b3d: build exit 0, verify: 19 tests passed, done gate refused with three symbol entries not defined in the graph (the three paths of the symbols field)."
+assumption = "The symbols field carried file paths; the tree is complete."
+severity = "low"
+
+[finding.22.38.23.1]
+task = "22.38.23"
+file = "apps/inference-peer/test/vendored_engine.test.mjs"
+symbol = "vendored_engine.test.mjs"
+observed = "Attempt 1 at 390cd756f0f784a00c80326d5931284bc8210f6d: build exit 0, verify: 5 tests passed, done gate refused with three symbol entries not defined in the graph (the three paths of the symbols field)."
+assumption = "The symbols field carried file paths; the tree is complete."
+severity = "low"
+
+[finding.22.38.9.1]
+task = "22.38.9"
+file = "precompiles/layerxpay/stream_ask_test.go"
+symbol = "stream_ask_test.go"
+observed = "Attempt 1 at 3eba70e030fcad0404550f152e22f7b287946817: build exit 0, verify exit 1: the precompiles/layerxpay test package failed to compile with assignment mismatch at thirteen GetEscrow and GetEscrowResult call sites of four pre-existing test files; TestStreamAsk never ran."
+assumption = "The pay keeper returns three values since 22.33.1303 and the precompile tests still take two; the task tree did not touch those files."
+severity = "high"
+
+[finding.22.38.1.1]
+task = "22.38.1"
+file = "programs/crates/layerx-programs-ai-market/tests/f11_family_table.rs"
+symbol = "f11_family_table.rs"
+observed = "Attempt 1 at ab795ff9f885b93b572afde929f55b25fd79de9e: build 2 exit 101: tests/identity_section_sharing.rs line 624 cannot compare an eleven-entry Availability array with the ten-entry expected array; the task widened feature_availability and left the enumerating tests at ten."
+assumption = "The arity change of feature_availability is the task scope; the enumerating tests are its consumers and belong to the task."
+severity = "high"

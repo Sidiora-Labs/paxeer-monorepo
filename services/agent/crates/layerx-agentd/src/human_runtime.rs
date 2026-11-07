@@ -531,7 +531,20 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
         request: layerx_agent_api::identity::NativeDisclosureRequestV1,
     ) -> Result<layerx_agent_api::identity::NativeDisclosureResultV1, HumanOperationError> {
         use sha2::{Digest, Sha256};
-        let id: [u8; 32] = Sha256::digest(&request.canonical_bytes).into();
+        let envelope_digest: [u8; 32] = Sha256::digest(&request.canonical_bytes).into();
+        let id = {
+            let store = self
+                .store
+                .lock()
+                .map_err(|_| HumanOperationError::Unavailable)?;
+            let key = crate::prepare::DurablePreparation::authorization_reference_key(
+                &context.principal().tenant,
+                envelope_digest,
+            )
+            .map_err(|_| HumanOperationError::Refused)?;
+            let reference = store.get(&key).ok_or(HumanOperationError::Refused)?;
+            <[u8; 32]>::try_from(reference.bytes()).map_err(|_| HumanOperationError::Refused)?
+        };
         let effect = {
             let store = self
                 .store
@@ -560,7 +573,7 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
         let cached = operations
             .prepared
             .get(&(
-                context.peer().tenant.clone(),
+                context.principal().tenant.as_str().to_owned(),
                 context.peer().principal.clone(),
                 hex(&id),
             ))
@@ -642,7 +655,11 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
         let mut operations = self.lock_operations()?;
         let cached = operations
             .prepared
-            .get(&(peer.tenant.clone(), peer.principal.clone(), reference))
+            .get(&(
+                context.principal().tenant.as_str().to_owned(),
+                peer.principal.clone(),
+                reference,
+            ))
             .cloned()
             .ok_or(HumanOperationError::Refused)?;
         let snapshot = core_preparation_snapshot(
@@ -5653,7 +5670,7 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
         .map_err(|_| HumanOperationError::Refused)?;
         let preparation_id = request.operation.purpose.purpose.preparation_id;
         let cache_key = (
-            context.peer().tenant.clone(),
+            context.principal().tenant.as_str().to_owned(),
             context.peer().principal.clone(),
             hex(&preparation_id),
         );
@@ -6115,7 +6132,8 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
             request.owner_public_key,
             snapshot.observed_head_sequence,
         )?;
-        let canonical_digest: [u8; 32] = Sha256::digest(prepared.call.encode_unsigned()).into();
+        let canonical_digest: [u8; 32] =
+            crate::prepare::DurablePreparation::native_identifier(&prepared.call);
         let purpose = NativePreparationPurposeV1 {
             tenant: ApiTenantId::new(owner.tenant().as_str())
                 .map_err(|_| HumanOperationError::Refused)?,
@@ -6279,24 +6297,42 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
             AgentDid, CapabilityId, NativeActivity, NativeSendPurposeV2, SessionId as ApiSessionId,
             TenantId as ApiTenantId,
         };
+        let refused = native_send_preview_refused;
+        let sited = |site, error| match error {
+            HumanOperationError::Refused => refused(site),
+            error => error,
+        };
         let human = request.prepare;
-        let actor = Did::new(human.actor.as_bytes()).map_err(|_| HumanOperationError::Refused)?;
+        let actor = Did::new(human.actor.as_bytes()).map_err(|_| refused("actor DID"))?;
         let activity = ActivityType::from_u32(human.activity_type)
-            .map_err(|_| HumanOperationError::Refused)?;
-        if peer.uid == 0
-            || peer.subject.is_none()
-            || peer.tenant != request.credential.tenant().as_str()
-            || peer
-                .subject
-                .as_ref()
-                .is_none_or(|scope| scope.owner.as_bytes() != actor.as_bytes())
-            || (activity.module(), activity.ordinal())
-                != (layerx_types::payload::ModuleId::Asset, 5)
-            || request.owner_public_key != request.local_grant.owner_public_key
-            || human.capability_id.is_none()
-            || request.request_id == 0
+            .map_err(|_| refused("activity encoding"))?;
+        if peer.uid == 0 {
+            return Err(refused("peer uid"));
+        }
+        if peer.subject.is_none() {
+            return Err(refused("peer subject"));
+        }
+        if peer.tenant != request.credential.tenant().as_str() {
+            return Err(refused("credential tenant"));
+        }
+        if peer
+            .subject
+            .as_ref()
+            .is_none_or(|scope| scope.owner.as_bytes() != actor.as_bytes())
         {
-            return Err(HumanOperationError::Refused);
+            return Err(refused("subject owner"));
+        }
+        if (activity.module(), activity.ordinal()) != (layerx_types::payload::ModuleId::Asset, 5) {
+            return Err(refused("send activity"));
+        }
+        if request.owner_public_key != request.local_grant.owner_public_key {
+            return Err(refused("local grant owner key"));
+        }
+        if human.capability_id.is_none() {
+            return Err(refused("capability id absent"));
+        }
+        if request.request_id == 0 {
+            return Err(refused("request id"));
         }
         {
             let sessions = self
@@ -6305,25 +6341,28 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
                 .map_err(|_| HumanOperationError::Unavailable)?;
             let token = sessions
                 .authenticate(&request.credential)
-                .map_err(|_| HumanOperationError::Refused)?;
+                .map_err(|_| refused("session authentication"))?;
             token
                 .boundary(&sessions)
-                .map_err(|_| HumanOperationError::Refused)?;
+                .map_err(|_| refused("session boundary"))?;
             if token.agent() != &actor {
-                return Err(HumanOperationError::Refused);
+                return Err(refused("session actor"));
             }
         }
-        let authority =
-            decode_owner_authority(&human.authority).map_err(|_| HumanOperationError::Refused)?;
+        let authority = decode_owner_authority(&human.authority)
+            .map_err(|_| refused("owner authority encoding"))?;
         let (authorization, prepared, disclosure, snapshot, fee) = {
             let mut ops = self.lock_operations()?;
             if !ops.unified_owner_active {
                 return Err(HumanOperationError::Unavailable);
             }
-            ops.require_write_admission(&peer.tenant)?;
-            ops.subject_owner(peer, &actor, &authority)?;
+            ops.require_write_admission(&peer.tenant)
+                .map_err(|error| sited("write admission", error))?;
+            ops.subject_owner(peer, &actor, &authority)
+                .map_err(|error| sited("subject owner authority", error))?;
             let snapshot =
-                core_preparation_snapshot(ops.chain.as_ref(), &ops.authority, peer, &actor)?;
+                core_preparation_snapshot(ops.chain.as_ref(), &ops.authority, peer, &actor)
+                    .map_err(|error| sited("core preparation snapshot", error))?;
             let authorization = native_send_preview_authorization(
                 &human,
                 authority,
@@ -6335,22 +6374,28 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
                 &authorization,
                 ops.maximum_payload_bytes,
                 Some(human.nonce),
-            )?;
+            )
+            .map_err(|error| sited("EVM preparation", error))?;
             let prepared = signing.transaction;
             let disclosure = layerx_crypto::send::DisclosedCall::from_call(
                 prepared.call.clone(),
                 signing.actor_address,
             )
-            .map_err(|_| HumanOperationError::Refused)?
+            .map_err(|_| refused("call disclosure"))?
             .disclosure;
             let fee = crate::budget::native_fee_policy(&ops.node, snapshot.observed_head_sequence)
                 .map_err(|_| HumanOperationError::Unavailable)?;
-            if authorization.envelope.payload_hash() != human.payload_hash
-                || prepared.observed_head_height != snapshot.observed_head_sequence
-                || fee.observed_sequence != snapshot.observed_head_sequence
-                || fee.state_root == [0; 32]
-            {
-                return Err(HumanOperationError::Refused);
+            if authorization.envelope.payload_hash() != human.payload_hash {
+                return Err(refused("prepared payload hash"));
+            }
+            if prepared.observed_head_height != snapshot.observed_head_sequence {
+                return Err(refused("prepared head"));
+            }
+            if fee.observed_sequence != snapshot.observed_head_sequence {
+                return Err(refused("fee policy head"));
+            }
+            if fee.state_root == [0; 32] {
+                return Err(refused("fee policy state root"));
             }
             (authorization, prepared, disclosure, snapshot, fee)
         };
@@ -6363,30 +6408,33 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
                 snapshot.observed_head_sequence,
                 None,
             )
-            .map_err(|_| HumanOperationError::Refused)?;
-        let context = crate::agent_rpc_peer::bind(self, &permit)?;
+            .map_err(|_| refused("session scope authorization"))?;
+        let context = crate::agent_rpc_peer::bind(self, &permit)
+            .map_err(|error| sited("RPC peer binding", error))?;
         if context.peer() != peer {
-            return Err(HumanOperationError::Refused);
+            return Err(refused("context peer"));
         }
-        let owner = self.native_send_purpose_owner(
-            &context,
-            request.owner_public_key,
-            snapshot.observed_head_sequence,
-        )?;
-        let canonical_digest: [u8; 32] = Sha256::digest(prepared.call.encode_unsigned()).into();
+        let owner = self
+            .native_send_purpose_owner(
+                &context,
+                request.owner_public_key,
+                snapshot.observed_head_sequence,
+            )
+            .map_err(|error| sited("purpose owner authority", error))?;
+        let canonical_digest: [u8; 32] =
+            crate::prepare::DurablePreparation::native_identifier(&prepared.call);
         let purpose = NativeSendPurposeV2 {
             tenant: ApiTenantId::new(owner.tenant().as_str())
-                .map_err(|_| HumanOperationError::Refused)?,
-            agent_did: AgentDid::new(human.actor.clone())
-                .map_err(|_| HumanOperationError::Refused)?,
+                .map_err(|_| refused("purpose tenant"))?,
+            agent_did: AgentDid::new(human.actor.clone()).map_err(|_| refused("purpose agent"))?,
             session_id: ApiSessionId::new(hex(&owner.session_id().0))
-                .map_err(|_| HumanOperationError::Refused)?,
+                .map_err(|_| refused("purpose session"))?,
             owner_did: AgentDid::new(
                 std::str::from_utf8(owner.agent().as_bytes())
-                    .map_err(|_| HumanOperationError::Refused)?
+                    .map_err(|_| refused("purpose owner DID bytes"))?
                     .to_owned(),
             )
-            .map_err(|_| HumanOperationError::Refused)?,
+            .map_err(|_| refused("purpose owner DID"))?,
             consent_public_key: owner.public_key(),
             evm_sender: prepared.from,
             generation: owner.generation(),
@@ -6398,35 +6446,50 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
             idempotency_key: authorization.envelope.idempotency_key().bytes(),
             capability_id: CapabilityId::new(hex(&human
                 .capability_id
-                .ok_or(HumanOperationError::Refused)?))
-            .map_err(|_| HumanOperationError::Refused)?,
+                .ok_or_else(|| refused("purpose capability id absent"))?))
+            .map_err(|_| refused("purpose capability id"))?,
             preparation_id: canonical_digest,
             canonical_digest,
             commitment: request.commitment,
         }
         .validate()
-        .map_err(|_| HumanOperationError::Refused)?;
+        .map_err(|_| refused("purpose validation"))?;
         crate::prepare::verify_disclosure_binding(&authorization)
-            .map_err(|_| HumanOperationError::Refused)?;
-        if prepared.from != owner.evm_sender()
-            || binding::purpose_commitment(&disclosure).is_some()
-            || purpose.economic_action != human.capability_id.ok_or(HumanOperationError::Refused)?
-            || purpose.economic_action != owner.session_id().0
-            || snapshot.protocol_timestamp >= purpose.expires_at_ms
-            || purpose.expires_at_ms > authorization.envelope.timestamp_bound().not_after()
+            .map_err(|_| refused("disclosure binding"))?;
+        if prepared.from != owner.evm_sender() {
+            return Err(refused("purpose EVM sender"));
+        }
+        if binding::purpose_commitment(&disclosure).is_some() {
+            return Err(refused("purpose disclosure commitment"));
+        }
+        if purpose.economic_action
+            != human
+                .capability_id
+                .ok_or_else(|| refused("purpose economic action capability absent"))?
         {
-            return Err(HumanOperationError::Refused);
+            return Err(refused("purpose economic action capability"));
+        }
+        if purpose.economic_action != owner.session_id().0 {
+            return Err(refused("purpose economic action session"));
+        }
+        if snapshot.protocol_timestamp >= purpose.expires_at_ms {
+            return Err(refused("purpose expired"));
+        }
+        if purpose.expires_at_ms > authorization.envelope.timestamp_bound().not_after() {
+            return Err(refused("purpose expiry outside authorization bound"));
         }
         let grant = crate::agent_rpc_wire::native_local_grant(
             &request.local_grant,
             layerx_agent_api::error::RequestId(request.request_id),
         )
-        .map_err(|_| HumanOperationError::Refused)?;
+        .map_err(|_| refused("local grant conversion"))?;
         context
             .permit()
             .with_native_owner_install(&control, |store, sessions| {
-                let refused = || {
-                    crate::session_control::SessionControlError::Human(HumanOperationError::Refused)
+                let refused = |site| {
+                    crate::session_control::SessionControlError::Human(native_send_preview_refused(
+                        site,
+                    ))
                 };
                 let staged = binding::stage_native_send_local_grant(
                     store,
@@ -6436,35 +6499,52 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
                     snapshot.observed_head_sequence,
                     snapshot.protocol_timestamp,
                 )
-                .map_err(|_| refused())?;
+                .map_err(|_| refused("local grant staging"))?;
                 let record = sessions
                     .get(owner.tenant(), owner.session_id())
-                    .ok_or_else(refused)?;
+                    .ok_or_else(|| refused("session record"))?;
                 if record
                     .request
                     .expiry_seconds
                     .and_then(|v| v.checked_mul(1000))
                     .is_none_or(|expiry| purpose.expires_at_ms > expiry)
                 {
-                    return Err(refused());
+                    return Err(refused("session expiry"));
                 }
                 let capability = &staged.grant().capability;
-                if capability.record.id != human.capability_id.ok_or_else(refused)?
-                    || capability.record.authority != record.request.authority
-                    || u128::from(purpose.expires_at_ms) > capability.record.not_after_ms()
-                    || !capability
-                        .activities
-                        .contains(&NativeActivity::from(activity))
-                    || !capability.purpose_commitments.contains(&purpose.commitment)
-                    || capability.record.rate_ceilings.is_empty()
+                if capability.record.id
+                    != human
+                        .capability_id
+                        .ok_or_else(|| refused("capability id absent"))?
                 {
-                    return Err(refused());
+                    return Err(refused("capability id"));
+                }
+                if capability.record.authority != record.request.authority {
+                    return Err(refused("capability authority"));
+                }
+                if u128::from(purpose.expires_at_ms) > capability.record.not_after_ms() {
+                    return Err(refused("capability expiry"));
+                }
+                if !capability
+                    .activities
+                    .contains(&NativeActivity::from(activity))
+                {
+                    return Err(refused("capability activity"));
+                }
+                if !capability.purpose_commitments.contains(&purpose.commitment) {
+                    return Err(refused("capability purpose commitment"));
+                }
+                if capability.record.rate_ceilings.is_empty() {
+                    return Err(refused("capability rate ceilings"));
                 }
                 let plan =
                     derive_native_effects(&authorization.disclosure, &VerifiedInputs::default())
-                        .map_err(|_| refused())?;
-                if !plan.program_spend_bounds().is_empty() || plan.effects().len() != 1 {
-                    return Err(refused());
+                        .map_err(|_| refused("effect derivation"))?;
+                if !plan.program_spend_bounds().is_empty() {
+                    return Err(refused("program spend bounds"));
+                }
+                if plan.effects().len() != 1 {
+                    return Err(refused("effect count"));
                 }
                 let Effect::Transfer {
                     from,
@@ -6473,21 +6553,24 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
                     amount,
                 } = plan.effects()[0]
                 else {
-                    return Err(refused());
+                    return Err(refused("transfer effect"));
                 };
                 let principal = layerx_types::account::AccountId::for_asset(
                     &human.actor,
                     asset,
                     fee.value.asset.asset_id,
                 )
-                .map_err(|_| refused())?;
+                .map_err(|_| refused("principal account"))?;
                 let source = layerx_wire::hash::account_id_for_protocol(
                     &principal,
                     authorization.envelope.protocol_version(),
                 )
-                .map_err(|_| refused())?;
-                if source != from || !capability.record.counterparties.contains(&to) {
-                    return Err(refused());
+                .map_err(|_| refused("source account hash"))?;
+                if source != from {
+                    return Err(refused("effect source"));
+                }
+                if !capability.record.counterparties.contains(&to) {
+                    return Err(refused("effect counterparty"));
                 }
                 let mut totals: BTreeMap<[u8; 32], u128> = BTreeMap::from([(asset, amount)]);
                 if let Some(charge) = binding::native_effect_fee(
@@ -6495,34 +6578,39 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
                     &fee,
                     snapshot.observed_head_sequence,
                 )
-                .map_err(|_| refused())?
+                .map_err(|_| refused("effect fee"))?
                 {
                     let total = totals.entry(charge.asset).or_default();
                     *total = total
                         .checked_add(charge.maximum_amount)
-                        .ok_or_else(refused)?;
+                        .ok_or_else(|| refused("fee total overflow"))?;
                 }
                 for (asset, amount) in totals {
-                    if !capability.record.assets.contains(&asset)
-                        || capability
-                            .record
-                            .amount_ceilings
-                            .get(&asset)
-                            .is_none_or(|bound| amount > *bound)
-                        || capability
-                            .spend_ceilings
-                            .get(&(timed::NativeSpendSourceV1::Principal, asset))
-                            .is_none_or(|bound| amount > *bound)
+                    if !capability.record.assets.contains(&asset) {
+                        return Err(refused("capability asset"));
+                    }
+                    if capability
+                        .record
+                        .amount_ceilings
+                        .get(&asset)
+                        .is_none_or(|bound| amount > *bound)
                     {
-                        return Err(refused());
+                        return Err(refused("capability amount ceiling"));
+                    }
+                    if capability
+                        .spend_ceilings
+                        .get(&(timed::NativeSpendSourceV1::Principal, asset))
+                        .is_none_or(|bound| amount > *bound)
+                    {
+                        return Err(refused("capability spend ceiling"));
                     }
                 }
                 Ok(())
             })
-            .map_err(rpc_commit_error)?;
+            .map_err(|error| sited("owner install boundary", rpc_commit_error(error)))?;
         permit
             .boundary(&control)
-            .map_err(|_| HumanOperationError::Refused)?;
+            .map_err(|_| refused("permit boundary"))?;
         Ok(crate::human::HumanNativeSendOwnerPreviewV1 {
             canonical_bytes: prepared.call.encode_unsigned(),
             signing_preimage: prepared.signing_hash.to_vec(),
@@ -6568,7 +6656,7 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
         .map_err(|_| HumanOperationError::Refused)?;
         let preparation_id = request.operation.purpose.purpose.preparation_id;
         let cache_key = (
-            context.peer().tenant.clone(),
+            context.principal().tenant.as_str().to_owned(),
             context.peer().principal.clone(),
             hex(&preparation_id),
         );
@@ -6895,6 +6983,7 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
                     let held = NativeEffectApprovalCarrier::bind(
                         context.peer(),
                         &prepared,
+                        preparation_id,
                         &origin,
                         crate::capability::CapabilityId(current.binding().capability_id()),
                         current.binding().purpose_commitment(),
@@ -7001,22 +7090,25 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
         use crate::approval::native_program::StagedNativeRateUse;
         use crate::capability::binding;
         use crate::session_control::SessionControlError;
-        let refused = || SessionControlError::Human(HumanOperationError::Refused);
+        fn refused(site: &'static str) -> HumanOperationError {
+            eprintln!("layerx-agentd: native send prepare refused at {site}");
+            HumanOperationError::Refused
+        }
         if crate::agent_rpc_dispatch::native_send_prepare_digest(&request.operation)
-            .map_err(|_| HumanOperationError::Refused)?
+            .map_err(|_| refused("request digest encoding"))?
             != request.body_digest
         {
-            return Err(HumanOperationError::Refused);
+            return Err(refused("request digest mismatch"));
         }
         let control = self.session_control.clone();
         let human = crate::agent_rpc_wire::native_send_human_prepare(
             &request.operation,
             layerx_agent_api::error::RequestId(request.request_id),
         )
-        .map_err(|_| HumanOperationError::Refused)?;
+        .map_err(|_| refused("human prepare conversion"))?;
         let preparation_id = request.operation.purpose.purpose.preparation_id;
         let cache_key = (
-            context.peer().tenant.clone(),
+            context.principal().tenant.as_str().to_owned(),
             context.peer().principal.clone(),
             hex(&preparation_id),
         );
@@ -7029,7 +7121,7 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
                 &context.principal().tenant,
                 preparation_id,
             )
-            .map_err(|_| HumanOperationError::Refused)?;
+            .map_err(|_| refused("durable lookup key"))?;
             store.get(&key).is_some()
         };
         if retained {
@@ -7062,12 +7154,12 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
             let cached = operations
                 .prepared
                 .get(&cache_key)
-                .ok_or(HumanOperationError::Refused)?;
+                .ok_or_else(|| refused("prepared cache lookup"))?;
             let prepared = cached.prepared.clone();
             let transaction = cached
                 .transaction
                 .clone()
-                .ok_or(HumanOperationError::Refused)?;
+                .ok_or_else(|| refused("cached signing transaction"))?;
             let snapshot = core_preparation_snapshot(
                 operations.chain.as_ref(),
                 &operations.authority,
@@ -7075,7 +7167,7 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
                 prepared.envelope.actor_did(),
             )?;
             if snapshot.observed_head_sequence != prepared.observed_head_sequence {
-                return Err(HumanOperationError::Refused);
+                return Err(refused("prepared head mismatch"));
             }
             (prepared, transaction, snapshot)
         };
@@ -7094,7 +7186,7 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
                 consent,
                 layerx_agent_api::error::RequestId(request.request_id),
             )
-            .map_err(|_| HumanOperationError::Refused)?;
+            .map_err(|_| refused("local grant conversion"))?;
             context
                 .permit()
                 .with_native_owner_install(&control, |store, registry| {
@@ -7106,8 +7198,10 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
                         snapshot.observed_head_sequence,
                         snapshot.protocol_timestamp,
                     )
-                    .map_err(|_| refused())?;
-                    let rows = staged.updates(&store).map_err(|_| refused())?;
+                    .map_err(|_| SessionControlError::Human(refused("local grant staging")))?;
+                    let rows = staged
+                        .updates(&store)
+                        .map_err(|_| SessionControlError::Human(refused("local grant updates")))?;
                     let (updates, inserts): (Vec<_>, Vec<_>) = rows
                         .into_iter()
                         .partition(|(key, _)| store.get(key).is_some());
@@ -7126,7 +7220,7 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
                 prepared.envelope.actor_did(),
                 prepared.envelope.protocol_version(),
             )
-            .map_err(|_| HumanOperationError::Refused)?;
+            .map_err(|_| refused("actor protocol identifier"))?;
             let caps = committed_prepared_caps(
                 &operations.node,
                 &prepared,
@@ -7137,7 +7231,7 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
                     .map_err(|_| HumanOperationError::Unavailable)?;
             if fee.observed_sequence != prepared.observed_head_sequence || fee.state_root == [0; 32]
             {
-                return Err(HumanOperationError::Refused);
+                return Err(refused("fee snapshot binding"));
             }
             (fee, caps)
         };
@@ -7160,7 +7254,9 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
                         snapshot.observed_head_sequence,
                         snapshot.protocol_timestamp,
                     )
-                    .map_err(|_| refused())?;
+                    .map_err(|_| {
+                        SessionControlError::Human(refused("owner purpose constraints"))
+                    })?;
                     binding::inspect_native_send_capability(
                         store,
                         &purpose,
@@ -7170,7 +7266,7 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
                         &fee,
                         snapshot.observed_head_sequence,
                     )
-                    .map_err(|_| refused())
+                    .map_err(|_| SessionControlError::Human(refused("send capability constraints")))
                 },
             )
             .map_err(rpc_commit_error)?;
@@ -7182,14 +7278,14 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
                 .peer()
                 .subject
                 .as_ref()
-                .ok_or(HumanOperationError::Refused)?;
+                .ok_or_else(|| refused("subject scope"))?;
             let policy_tenant = TenantId::new(scope.transport_tenant.clone())
-                .map_err(|_| HumanOperationError::Refused)?;
+                .map_err(|_| refused("policy tenant"))?;
             let policy = operations
                 .native_effect_policies
                 .get(&policy_tenant)
                 .filter(|source| source.tenant() == &policy_tenant)
-                .ok_or(HumanOperationError::Refused)?
+                .ok_or_else(|| refused("native effect policy"))?
                 .policy()
                 .clone();
             let windows = constraints
@@ -7209,7 +7305,7 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
             if caps.state_root() != fee.state_root
                 || caps.freshness().global_sequence != fee.observed_sequence
             {
-                return Err(HumanOperationError::Refused);
+                return Err(refused("capability fee snapshot binding"));
             }
             let resolved = crate::budget::read_native_effect_budget_sources(
                 &mut operations.node,
@@ -7219,7 +7315,7 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
                 boundary_correlation(context.peer(), &preparation_id, b"native-prepare-fee"),
                 crate::capability::NativeAdmissionProfile::Effect,
             )
-            .map_err(|_| HumanOperationError::Refused)?;
+            .map_err(|_| refused("budget source read"))?;
             if !resolved.matches_prepared(&prepared)
                 || operations
                     .node
@@ -7227,7 +7323,7 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
                     .map_err(|_| HumanOperationError::Unavailable)?
                     != prepared.observed_head_sequence
             {
-                return Err(HumanOperationError::Refused);
+                return Err(refused("resolved preparation binding"));
             }
             (proofs, resolved, policy)
         };
@@ -7250,7 +7346,9 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
                         snapshot.observed_head_sequence,
                         snapshot.protocol_timestamp,
                     )
-                    .map_err(|_| refused())?;
+                    .map_err(|_| {
+                        SessionControlError::Human(refused("owner purpose reservation"))
+                    })?;
                     let current = binding::inspect_native_send_capability(
                         store,
                         &purpose,
@@ -7260,46 +7358,60 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
                         &fee,
                         snapshot.observed_head_sequence,
                     )
-                    .map_err(|_| refused())?;
+                    .map_err(|_| {
+                        SessionControlError::Human(refused("send capability reservation"))
+                    })?;
                     if current != constraints || current.binding() != purpose.binding() {
-                        return Err(refused());
+                        return Err(SessionControlError::Human(refused(
+                            "capability constraints changed",
+                        )));
                     }
                     let durable_key = crate::prepare::DurablePreparation::store_key(
                         &context.principal().tenant,
                         preparation_id,
                     )
-                    .map_err(|_| refused())?;
+                    .map_err(|_| SessionControlError::Human(refused("durable record key")))?;
                     if let Some(stored) = store.get(&durable_key) {
                         let record = crate::prepare::DurablePreparation::decode(
                             context.principal().tenant.clone(),
                             stored.bytes(),
                         )
-                        .map_err(|_| refused())?;
+                        .map_err(|_| {
+                            SessionControlError::Human(refused("durable record decode"))
+                        })?;
                         if record.extensions.get(&11).map(Vec::as_slice)
                             != Some(b"native-send-v1".as_slice())
                         {
-                            return Err(refused());
+                            return Err(SessionControlError::Human(refused(
+                                "durable record variant",
+                            )));
                         }
                         if record.extensions.get(&8).map(Vec::as_slice)
                             != Some(request.body_digest.as_slice())
                         {
-                            return Err(refused());
+                            return Err(SessionControlError::Human(refused(
+                                "durable request digest",
+                            )));
                         }
                         return NativeEffectApprovalCarrier::read_id(
                             store,
                             context,
                             preparation_id,
                         )
-                        .map_err(|_| refused());
+                        .map_err(|_| {
+                            SessionControlError::Human(refused("durable approval carrier"))
+                        });
                     }
                     if !matches!(
                         lifecycle.state(preparation_id),
                         Err(crate::prepare::LifecycleError::NotFound)
                     ) {
-                        return Err(refused());
+                        return Err(SessionControlError::Human(refused(
+                            "preparation lifecycle state",
+                        )));
                     }
                     let actor = std::str::from_utf8(prepared.envelope.actor_did().as_bytes())
-                        .map_err(|_| refused())?;
+                        .map_err(|_| SessionControlError::Human(refused("actor UTF-8")))?;
                     let agent_digest = daemon_limit_agent(actor);
                     let allocations = resolved
                         .budget_allocations(|charge| {
@@ -7322,7 +7434,7 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
                             )?);
                             Ok(limits)
                         })
-                        .map_err(|_| refused())?;
+                        .map_err(|_| SessionControlError::Human(refused("budget allocations")))?;
                     let budget_request = crate::budget::ProgramReservationRequest {
                         id: preparation_id,
                         charges: allocations.charges().to_vec(),
@@ -7333,18 +7445,21 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
                         )),
                     };
                     let rate = StagedNativeRateUse::stage(store, &current, &prepared, &proofs)
-                        .map_err(|_| refused())?;
+                        .map_err(|_| SessionControlError::Human(refused("native rate staging")))?;
                     let staged = budgets
                         .stage_program_allocation(
                             &budget_request,
                             &allocations,
                             crate::budget::CoreTimestampMs(snapshot.protocol_timestamp),
                         )
-                        .map_err(|_| refused())?;
+                        .map_err(|_| {
+                            SessionControlError::Human(refused("budget allocation staging"))
+                        })?;
                     let origin = context.permit().preparation_authorization();
                     let held = NativeEffectApprovalCarrier::bind(
                         context.peer(),
                         &prepared,
+                        preparation_id,
                         &origin,
                         crate::capability::CapabilityId(current.binding().capability_id()),
                         current.binding().purpose_commitment(),
@@ -7354,7 +7469,41 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
                         &fee,
                         crate::capability::NativeAdmissionProfile::Effect,
                     )
-                    .map_err(|_| refused())?;
+                    .map_err(|error| {
+                        let reservation = staged.record();
+                        let site = if crate::prepare::verify_disclosure_binding(&prepared).is_err()
+                        {
+                            "approval carrier disclosure binding"
+                        } else if origin.session.tenant.as_str() != context.peer().tenant {
+                            "approval carrier origin tenant"
+                        } else if origin.generation == 0 {
+                            "approval carrier generation"
+                        } else if origin.session.session_id.0 == [0; 32] {
+                            "approval carrier session"
+                        } else if current.binding().capability_id() == [0; 32] {
+                            "approval carrier zero capability"
+                        } else if current.binding().purpose_commitment() == [0; 32] {
+                            "approval carrier zero purpose commitment"
+                        } else if prepared.envelope.protocol_version() != 3 {
+                            "approval carrier protocol version"
+                        } else if prepared.envelope.activity_type().module()
+                            == layerx_types::payload::ModuleId::Programs
+                        {
+                            "approval carrier programs module"
+                        } else if reservation.id != preparation_id {
+                            "approval carrier reservation identity"
+                        } else if reservation.expiry_sequence <= prepared.observed_head_sequence {
+                            "approval carrier reservation expiry sequence"
+                        } else if reservation.core_deadline.is_none_or(|deadline| {
+                            deadline.0 != prepared.envelope.timestamp_bound().not_after()
+                        }) {
+                            "approval carrier reservation deadline"
+                        } else {
+                            "approval carrier binding"
+                        };
+                        eprintln!("layerx-agentd: native send approval carrier error: {error:?}");
+                        SessionControlError::Human(refused(site))
+                    })?;
                     let origin = context.permit().preparation_authorization();
                     let record = crate::prepare::DurablePreparation {
                         tenant: context.principal().tenant.clone(),
@@ -7371,16 +7520,37 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
                                 crate::prepare::EXTENSION_IDEMPOTENCY,
                                 prepared.audit.idempotency_key.to_vec(),
                             ),
-                            (6, staged.record().encode().map_err(|_| refused())?),
-                            (9, held.held_digest().map_err(|_| refused())?.to_vec()),
+                            (
+                                6,
+                                staged.record().encode().map_err(|_| {
+                                    SessionControlError::Human(refused("budget record encoding"))
+                                })?,
+                            ),
+                            (
+                                9,
+                                held.held_digest()
+                                    .map_err(|_| {
+                                        SessionControlError::Human(refused("held digest"))
+                                    })?
+                                    .to_vec(),
+                            ),
                             (8, request.body_digest.to_vec()),
                             (11, b"native-send-v1".to_vec()),
                         ]),
                     };
-                    let replay = purpose.replay_update(store).map_err(|_| refused())?;
+                    let replay = purpose.replay_update(store).map_err(|_| {
+                        SessionControlError::Human(refused("purpose replay update"))
+                    })?;
                     let mut inserts = vec![
-                        (durable_key, record.encode().map_err(|_| refused())?),
-                        held.companion().map_err(|_| refused())?,
+                        (
+                            durable_key,
+                            record.encode().map_err(|_| {
+                                SessionControlError::Human(refused("durable record encoding"))
+                            })?,
+                        ),
+                        held.companion().map_err(|_| {
+                            SessionControlError::Human(refused("approval companion"))
+                        })?,
                     ];
                     let mut updates = Vec::new();
                     if store.get(&replay.0).is_some() {
@@ -7391,7 +7561,9 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
                     let undo_updates = updates
                         .iter()
                         .map(|(key, _)| {
-                            let old = store.get(key).ok_or_else(refused)?;
+                            let old = store.get(key).ok_or_else(|| {
+                                SessionControlError::Human(refused("replay undo record"))
+                            })?;
                             Ok((key.clone(), old.bytes().to_vec()))
                         })
                         .collect::<Result<Vec<_>, SessionControlError>>()?;
@@ -7409,10 +7581,10 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
                             ]
                             .concat(),
                         )
-                        .map_err(|_| refused())?,
+                        .map_err(|_| SessionControlError::Human(refused("rate record key")))?,
                     );
                     rate.commit_joined(store, updates, inserts)
-                        .map_err(|_| refused())?;
+                        .map_err(|_| SessionControlError::Human(refused("rate commit")))?;
                     if let Err(error) = lifecycle.register_authorized(
                         preparation_id,
                         &prepared,
@@ -7431,8 +7603,8 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
             .map_err(rpc_commit_error)?;
         native_response(&layerx_agent_api::identity::NativePrepareResultV1 {
             preparation_id,
-            canonical_bytes: prepared.canonical_bytes,
-            signing_preimage: prepared.signing_preimage,
+            canonical_bytes: transaction.transaction.call.encode_unsigned(),
+            signing_preimage: transaction.transaction.signing_hash,
             activity: request.operation.activity,
             approval_required: held.requires_approval(),
             approval_id: if held.requires_approval() {
@@ -7864,7 +8036,7 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
         preparation_id: [u8; 32],
     ) -> Result<(), HumanOperationError> {
         let key = (
-            context.peer().tenant.clone(),
+            context.principal().tenant.as_str().to_owned(),
             context.peer().principal.clone(),
             hex(&preparation_id),
         );
@@ -7903,6 +8075,11 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
             )
             .map_err(|_| HumanOperationError::Refused)?
         };
+        if crate::prepare::DurablePreparation::native_identifier(&transaction.transaction.call)
+            != preparation_id
+        {
+            return Err(HumanOperationError::Refused);
+        }
         operations.prepared.insert(
             key,
             CachedPreparation {
@@ -7920,7 +8097,7 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
         preparation_id: [u8; 32],
     ) -> Result<(), HumanOperationError> {
         let key = (
-            context.peer().tenant.clone(),
+            context.principal().tenant.as_str().to_owned(),
             context.peer().principal.clone(),
             hex(&preparation_id),
         );
@@ -7959,6 +8136,11 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
             )
             .map_err(|_| HumanOperationError::Refused)?
         };
+        if crate::prepare::DurablePreparation::native_identifier(&transaction.transaction.call)
+            != preparation_id
+        {
+            return Err(HumanOperationError::Refused);
+        }
         operations.prepared.insert(
             key,
             CachedPreparation {
@@ -7993,7 +8175,7 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
             let cached = operations
                 .prepared
                 .get(&(
-                    peer.tenant.clone(),
+                    context.principal().tenant.as_str().to_owned(),
                     peer.principal.clone(),
                     request.operation.preparation_ref.clone(),
                 ))
@@ -8162,7 +8344,7 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
             let cached = operations
                 .prepared
                 .get(&(
-                    peer.tenant.clone(),
+                    context.principal().tenant.as_str().to_owned(),
                     peer.principal.clone(),
                     request.operation.preparation_ref.clone(),
                 ))
@@ -8360,7 +8542,7 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
             let cached = operations
                 .prepared
                 .get(&(
-                    peer.tenant.clone(),
+                    context.principal().tenant.as_str().to_owned(),
                     peer.principal.clone(),
                     request.operation.preparation_ref.clone(),
                 ))
@@ -8689,7 +8871,7 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
             let cached = operations
                 .prepared
                 .get(&(
-                    peer.tenant.clone(),
+                    context.principal().tenant.as_str().to_owned(),
                     peer.principal.clone(),
                     request.operation.preparation_ref.clone(),
                 ))
@@ -8790,7 +8972,7 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
             let cached = operations
                 .prepared
                 .get(&(
-                    peer.tenant.clone(),
+                    context.principal().tenant.as_str().to_owned(),
                     peer.principal.clone(),
                     request.operation.preparation_ref.clone(),
                 ))
@@ -12324,15 +12506,14 @@ impl<A: HumanAuthorityBoundary> ProductionHumanOperations<A> {
         &mut self,
         peer: &HumanPeer,
     ) -> Result<(EvidenceAuthority, [u8; 32], SequencerAuthorization), HumanOperationError> {
-        let key = self
-            .chain
-            .receipt_key_at_head()
-            .map_err(|_| HumanOperationError::Unavailable)?;
-        let chain_id = u32::try_from(
-            self.chain
-                .chain_id()
-                .map_err(|_| HumanOperationError::Unavailable)?,
-        )
+        let key = self.chain.receipt_key_at_head().map_err(|error| {
+            eprintln!("layerx-agentd: preparation receipt key read failed: {error:?}");
+            HumanOperationError::Unavailable
+        })?;
+        let chain_id = u32::try_from(self.chain.chain_id().map_err(|error| {
+            eprintln!("layerx-agentd: preparation chain id read failed: {error:?}");
+            HumanOperationError::Unavailable
+        })?)
         .map_err(|_| HumanOperationError::Refused)?;
         let verifier = EvidenceAuthority::pinned_to_handshake(
             layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION,
@@ -12340,11 +12521,10 @@ impl<A: HumanAuthorityBoundary> ProductionHumanOperations<A> {
             key.public_key,
         )
         .map_err(|_| HumanOperationError::Refused)?
-        .with_receipt_keys(
-            self.chain
-                .receipt_keys()
-                .map_err(|_| HumanOperationError::Unavailable)?,
-        )
+        .with_receipt_keys(self.chain.receipt_keys().map_err(|error| {
+            eprintln!("layerx-agentd: preparation receipt keys read failed: {error:?}");
+            HumanOperationError::Unavailable
+        })?)
         .map_err(|_| HumanOperationError::Refused)?;
         let (_, _, _, _, _, _, authorization) = self.authority.balance_context(peer)?;
         Ok((verifier, key.public_key, authorization))
@@ -12973,7 +13153,8 @@ impl<A: HumanAuthorityBoundary> ProductionHumanOperations<A> {
             .store
             .lock()
             .map_err(|_| HumanOperationError::Unavailable)?;
-        let preparation_id: [u8; 32] = Sha256::digest(&prepared.canonical_bytes).into();
+        let preparation_id = digest_from_hex(&request.operation.preparation_ref)
+            .ok_or(HumanOperationError::Refused)?;
         let key = crate::prepare::DurablePreparation::store_key(&tenant, preparation_id)
             .map_err(|_| HumanOperationError::Refused)?;
         if let Some(raw) = store.get(&key) {
@@ -13005,7 +13186,6 @@ impl<A: HumanAuthorityBoundary> ProductionHumanOperations<A> {
         if submission_id != activity_id {
             return Err(HumanOperationError::Refused);
         }
-        let preparation_id: [u8; 32] = Sha256::digest(&prepared.canonical_bytes).into();
         let durable_key = crate::prepare::DurablePreparation::store_key(&tenant, preparation_id)
             .map_err(|_| HumanOperationError::Refused)?;
         if let Some(raw) = store.get(&durable_key) {
@@ -15354,23 +15534,48 @@ impl<A: HumanAuthorityBoundary> ProductionHumanOperations<A> {
         if prepared.envelope.payload_hash() != request.operation.payload_hash {
             return Err(HumanOperationError::Refused);
         }
-        let reference = hex(&Sha256::digest(&prepared.canonical_bytes));
+        let transaction = prepare_evm_write(&prepared, self.maximum_payload_bytes)?;
+        let preparation_id =
+            crate::prepare::DurablePreparation::native_identifier(&transaction.transaction.call);
+        let reference = hex(&preparation_id);
+        let tenant = match gate {
+            Some((context, _)) => context.principal().tenant.clone(),
+            None => TenantId::new(peer.tenant.clone()).map_err(|_| HumanOperationError::Refused)?,
+        };
         let cached_key = (
-            peer.tenant.clone(),
+            tenant.as_str().to_owned(),
             peer.principal.clone(),
             reference.clone(),
         );
-        let transaction = prepare_evm_write(&prepared, self.maximum_payload_bytes)?;
-        transaction
-            .retain(
-                &mut *self
-                    .store
-                    .lock()
-                    .map_err(|_| HumanOperationError::Unavailable)?,
-                TenantId::new(peer.tenant.clone()).map_err(|_| HumanOperationError::Refused)?,
+        {
+            let mut store = self
+                .store
+                .lock()
+                .map_err(|_| HumanOperationError::Unavailable)?;
+            transaction
+                .retain(&mut store, tenant.clone(), preparation_id)
+                .map_err(|error| {
+                    eprintln!("layerx-agentd: prepare signing retention failed: {error:?}");
+                    HumanOperationError::Refused
+                })?;
+            let key = crate::prepare::DurablePreparation::authorization_reference_key(
+                &tenant,
                 Sha256::digest(&prepared.canonical_bytes).into(),
             )
             .map_err(|_| HumanOperationError::Refused)?;
+            if let Some(old) = store.get(&key) {
+                if old.bytes() != preparation_id {
+                    return Err(HumanOperationError::Refused);
+                }
+            } else {
+                store
+                    .put_local(key, preparation_id.to_vec())
+                    .map_err(|error| {
+                        eprintln!("layerx-agentd: prepare authorization reference write failed: {error:?}");
+                        HumanOperationError::Unavailable
+                    })?;
+            }
+        }
         let cached = CachedPreparation {
             transaction: Some(transaction.clone()),
             prepared: prepared.clone(),
@@ -21604,6 +21809,11 @@ fn write_node() -> Result<crate::node_rpc::NodeRpc, HumanOperationError> {
     crate::node_rpc::NodeRpc::connect(&config).map_err(|_| HumanOperationError::Unavailable)
 }
 
+fn native_send_preview_refused(site: &'static str) -> HumanOperationError {
+    eprintln!("layerx-agentd: native send preview refused at {site}");
+    HumanOperationError::Refused
+}
+
 fn native_send_preview_authorization(
     human: &HumanPrepare,
     authority: Authority,
@@ -21613,31 +21823,42 @@ fn native_send_preview_authorization(
 ) -> Result<Prepared, HumanOperationError> {
     use layerx_types::activity::EnvelopeBuilder;
     use layerx_types::payload::Payload;
-    let refused = |_| HumanOperationError::Refused;
-    let bound =
-        TimestampBound::new(human.not_before_height, human.not_after_height).map_err(refused)?;
-    if timestamp_span == 0
-        || maximum_payload_bytes == 0
-        || human.payload.len() > maximum_payload_bytes
-        || human.nonce != snapshot.account_sequence
-        || bound.not_before() > snapshot.protocol_timestamp
+    let refused = native_send_preview_refused;
+    let bound = TimestampBound::new(human.not_before_height, human.not_after_height)
+        .map_err(|_| refused("timestamp bound encoding"))?;
+    if timestamp_span == 0 {
+        return Err(refused("timestamp span zero"));
+    }
+    if maximum_payload_bytes == 0 {
+        return Err(refused("payload limit zero"));
+    }
+    if human.payload.len() > maximum_payload_bytes {
+        return Err(refused("payload size"));
+    }
+    if human.nonce != snapshot.account_sequence {
+        return Err(refused("account nonce"));
+    }
+    if bound.not_before() > snapshot.protocol_timestamp
         || bound.not_after() < snapshot.protocol_timestamp
-        || bound.not_after().saturating_sub(bound.not_before()) > timestamp_span
     {
-        return Err(HumanOperationError::Refused);
+        return Err(refused("timestamp bound outside core time"));
     }
-    let activity =
-        ActivityType::from_u32(human.activity_type).map_err(|_| HumanOperationError::Refused)?;
+    if bound.not_after().saturating_sub(bound.not_before()) > timestamp_span {
+        return Err(refused("timestamp span exceeded"));
+    }
+    let activity = ActivityType::from_u32(human.activity_type)
+        .map_err(|_| refused("authorization activity"))?;
     let payload = Payload::new(&snapshot.module_registry, activity, &human.payload)
-        .map_err(|_| HumanOperationError::Refused)?;
-    let payload_hash =
-        layerx_wire::hash::payload_hash_for(&payload).map_err(|_| HumanOperationError::Refused)?;
+        .map_err(|_| refused("authorization payload"))?;
+    let payload_hash = layerx_wire::hash::payload_hash_for(&payload)
+        .map_err(|_| refused("authorization payload hash encoding"))?;
     if payload_hash != human.payload_hash {
-        return Err(HumanOperationError::Refused);
+        return Err(refused("authorization payload hash mismatch"));
     }
-    let actor = Did::new(human.actor.as_bytes()).map_err(|_| HumanOperationError::Refused)?;
+    let actor = Did::new(human.actor.as_bytes()).map_err(|_| refused("authorization actor"))?;
     let idempotency_key = IdempotencyKey::new(
-        digest_from_hex(&human.idempotency_key).ok_or(HumanOperationError::Refused)?,
+        digest_from_hex(&human.idempotency_key)
+            .ok_or_else(|| refused("authorization idempotency key"))?,
     );
     let mut builder = EnvelopeBuilder::new();
     builder
@@ -21652,17 +21873,19 @@ fn native_send_preview_authorization(
         .and_then(|builder| builder.fee_limit(Amount::from_u128(human.fee_limit)))
         .and_then(|builder| builder.payload_hash(payload_hash))
         .and_then(|builder| builder.payload(payload))
-        .map_err(|_| HumanOperationError::Refused)?;
-    let envelope = builder.build().map_err(|_| HumanOperationError::Refused)?;
+        .map_err(|_| refused("authorization envelope fields"))?;
+    let envelope = builder
+        .build()
+        .map_err(|_| refused("authorization envelope build"))?;
     let bytes = layerx_wire::activity::encode_unsigned_envelope(&envelope)
-        .map_err(|_| HumanOperationError::Refused)?;
+        .map_err(|_| refused("authorization envelope encoding"))?;
     crate::prepare::restore_canonical(
         &bytes,
         snapshot.observed_head_sequence,
         &snapshot.module_registry,
         Some(&authority),
     )
-    .map_err(|_| HumanOperationError::Refused)
+    .map_err(|_| refused("authorization canonical restore"))
 }
 
 fn prepare_evm_write(

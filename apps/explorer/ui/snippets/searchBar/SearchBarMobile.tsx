@@ -28,6 +28,7 @@ import SearchBarRecentKeywords from './SearchBarRecentKeywords';
 import SearchBarSuggest from './SearchBarSuggest/SearchBarSuggest';
 import useQuickSearchQuery from './useQuickSearchQuery';
 import useSearchShortcut from './useSearchShortcut';
+import { useSearchAssistant } from './useSearchQuery';
 import { getSearchRedirectRoute, useSearchRedirect, useSearchRequestGuard } from './utils';
 
 const paxeerXFeature = config.features.paxeerXLists;
@@ -43,7 +44,9 @@ const SearchBarMobile = ({ isHeroBanner, onGoToSearchResults }: Props) => {
   const router = useRouter();
 
   const { open, onOpen, onClose, onOpenChange } = useDisclosure();
-  const { searchTerm, debouncedSearchTerm, handleSearchTermChange, query, zetaChainCCTXQuery, externalSearchItem } = useQuickSearchQuery();
+  const search = useQuickSearchQuery();
+  const { searchTerm, debouncedSearchTerm, handleSearchTermChange, query, zetaChainCCTXQuery, externalSearchItem } = search;
+  const assistant = useSearchAssistant(search);
   const recentSearchKeywords = getRecentSearchKeywords();
   const resolveSearchRoute = useSearchRedirect();
   const searchGuard = useSearchRequestGuard();
@@ -108,8 +111,14 @@ const SearchBarMobile = ({ isHeroBanner, onGoToSearchResults }: Props) => {
 
   const handleSubmit = React.useCallback((event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (assistant.canAsk) {
+      searchGuard.discard();
+      void assistant.ask();
+
+      return;
+    }
     navigateToResults(true);
-  }, [ navigateToResults ]);
+  }, [ assistant, navigateToResults, searchGuard ]);
 
   const handleViewAllResultsClick = React.useCallback(() => {
     navigateToResults(false);
@@ -213,6 +222,7 @@ const SearchBarMobile = ({ isHeroBanner, onGoToSearchResults }: Props) => {
             ) }
             { searchTerm.trim().length > 0 && (
               <SearchBarSuggest
+                assistant={ assistant }
                 query={ query }
                 searchTerm={ debouncedSearchTerm }
                 onItemClick={ handleItemClick }

@@ -1,0 +1,29 @@
+[repair.22.31.584]
+base_revision = "020307c4deeaf98ed47aebe32ae4073623adf555"
+requirement = "22998.1"
+decision = "2742"
+gotchas = ["3355", "3142"]
+baseline = "No prior hf-build/hf-done ledger or scoped changes were present; the runner had already started the task."
+repair = "Pass fixture lease identity and receipt evidence into prepareSandboxExecute, encode its deployed program, fee asset and call limits, and return the encoded request for caller assertions."
+
+[provenance.recording]
+test = "TestProgramsSandboxExecuteEmitsUsage"
+vector = "precompiles/layerxprograms/testdata/repair_m213_lease_request.hex"
+binding = "Only the recording test asserts equality to the committed request bytes; its local decoded lease ID and receipt evidence reproduce the recorded fixture. The returned request decodes to the recorded program, asset, limits, activity ID and receipt digest and re-encodes byte for byte."
+regression = "TestRepair22_31_584/recording request codec round trip executes the recording test and its live native usage and committed result assertions."
+
+[provenance.gas-fixture]
+fixture = "gasSandboxExecuteFixture"
+binding = "The fixture deploys SHA256(t.Name()) and supplies its own lease ID, activity ID and receipt digest; decoded request assertions bind that program, the fixture fee asset and call limits without asserting the recording's bytes."
+regression = "TestRepair22_31_584 checks a distinct deployed program and its asset, then executes the real sandboxExecute gas row with the committed 50000 surcharge and KV gas formula; TestProgramsWriteMethodsChargeGasTable retains all fifteen write methods and fee accounting checks."
+
+[qualification]
+gate_ledger = "/out/run/gates.jsonl"
+build = "hf-build: the last kind=build entry records revision, command, exit and private log."
+verify = "hf-done: the last kind=verify entry records revision, command, exit and private log for cg spec done 22.31.584 -f layerx-merge --root /work/paxeer-monorepo and its declared verify_cmd."
+verified_revision = "Resolve from the last passing kind=verify entry in gate_ledger; qualification requires a passing kind=build entry at the same revision."
+policy = "No gate success is claimed before the ledger records it; this record is finalized before gating and is not amended after the gates."
+
+[gotcha.request-decoding]
+observed = "The production request API exports EncodeSandboxLeaseRequest but no Go request decoder."
+action = "Read the fixed v3 wire fields in a test helper with exact length and domain assertions; the recording test proves the decode/encode round trip and the native funding and activation paths consume every fixture's request."

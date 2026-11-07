@@ -566,7 +566,10 @@ pub mod legacy {
             let state = CorePreparationState {
                 network_id,
                 account_sequence,
-                protocol_timestamp: head.timestamp,
+                protocol_timestamp: head
+                    .timestamp
+                    .checked_mul(1000)
+                    .ok_or(CoreStateError::Unverified)?,
                 observed_head_sequence: head.number,
                 module_registry: self.module_registry.clone(),
             };
