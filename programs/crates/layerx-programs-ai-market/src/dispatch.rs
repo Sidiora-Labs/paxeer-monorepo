@@ -10,8 +10,8 @@ use crate::registry_ops::{self, CallContext, PolicySection};
 use crate::state::{self, RetainedResult, Section, SharedState};
 use crate::types::{Presence, RequestDigest};
 use crate::{
-    admission, aggregation, closure, commit_reveal, epoch, evidence, queries, rewards, tasks,
-    value_adapter, workers, MAX_STATE_BYTES,
+    admission, aggregation, closure, commit_reveal, epoch, evidence, queries, rewards, rooms,
+    tasks, value_adapter, workers, MAX_STATE_BYTES,
 };
 #[derive(Clone, Copy, Eq, PartialEq)]
 #[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
@@ -1152,6 +1152,7 @@ const TRANSITION_SCRATCH_BYTES: usize = max_of(&[
     F01_SECTION_CAP + CONTROL_CAP,
     REBIND_SCRATCH_BYTES,
     admission::ADMISSION_SCRATCH_BYTES,
+    rooms::SCRATCH_BYTES,
 ]);
 /// Router scratch: at least the largest scratch any routed transition or the F01 revision
 /// rebinding needs.
@@ -1369,7 +1370,7 @@ fn transition(
     if current.is_none()
         || matches!(
             envelope.envelope.operation.0,
-            0x0105 | 0x0111 | 0x0501..=0x0503 | 0x0601 | 0x0701..=0x0703 | 0x0A01 | 0x0A02
+            0x0105 | 0x0111 | 0x0501..=0x0503 | 0x0601 | 0x0701..=0x0703 | 0x0A01 | 0x0A02 | 0x0B01..=0x0B14
         )
     {
         return transition_inner(ctx, envelope, envelope_bytes, current, next, scratch, event);
@@ -1492,6 +1493,24 @@ fn transition_inner(
             }
         }
         0x0A01 | 0x0A02 => read(ctx, envelope, present(current)?, scratch),
+        0x0B01..=0x0B04 | 0x0B0C => {
+            match rooms::apply(ctx, envelope, present(current)?, next, scratch, event)? {
+                rooms::Outcome::Applied {
+                    revision,
+                    state_len,
+                    event_len,
+                } => Ok(Step::Applied {
+                    revision,
+                    state_len,
+                    event_len,
+                    payload: Payload::Suffix,
+                }),
+                rooms::Outcome::Retained(retained) => Ok(Step::Retained(retained)),
+                rooms::Outcome::AlreadyApplied(subject) => {
+                    Ok(Step::Unchanged(Payload::record(subject.as_bytes())?))
+                }
+            }
+        }
         _ => Err(UNKNOWN_OPERATION),
     }
 }
