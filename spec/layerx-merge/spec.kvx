@@ -384610,7 +384610,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.97]
 title = "Make the explorer image backend test step pass without the compiler binaries"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.39.51"]
