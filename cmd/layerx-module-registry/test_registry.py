@@ -1,12 +1,13 @@
 import hashlib
 import json
+import os
 from pathlib import Path
 import subprocess
 import sys
 import tempfile
 
-def main():
-    binary = str(Path(sys.argv[1]).resolve())
+def check_registry(binary):
+    binary = str(Path(binary).resolve())
     asset = 'b5a32b12029f8ddfb905f90f280f664b46390de0fc62770fc197dd87b18cd898'
     base = ['generate', '--network-id', '1', '--protocol-version', '3', '--asset', asset,
             '--symbol', 'LXT', '--currency', 'LXT', '--decimals', '18']
@@ -95,5 +96,11 @@ def main():
     print('module registry real-interface JSON, retired custody profile and input refusals passed')
 
 
+def test_registry():
+    root = Path(__file__).resolve().parents[2]
+    build = Path(os.environ.get("LAYERX_TEST_BUILD_DIR", root / "build"))
+    check_registry(build / "bin/layerx-module-registry")
+
+
 if __name__ == "__main__":
-    main()
+    check_registry(sys.argv[1])

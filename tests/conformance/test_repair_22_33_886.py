@@ -35,6 +35,7 @@ HERE = Path(__file__).resolve().parent
 spec = importlib.util.spec_from_file_location(
     "receipt_vector_copies", HERE / "check_receipt_vector_copies.py"
 )
+assert spec is not None and spec.loader is not None
 vectors = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(vectors)
 sys.path.insert(0, str(vectors.ROOT / "services/agent/sdk/python"))

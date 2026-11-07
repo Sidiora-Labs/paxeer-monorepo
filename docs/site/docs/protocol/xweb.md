@@ -245,7 +245,7 @@ contract ApiConsumer is IXWebConsumer {
 }
 ```
 
-`get` and `post` start the call, `header` adds a public header, `select` adds a JSON pointer, `withCredential` adds an envelope and `single` names the one attestor that answers. `submit` pays the current `fee()` from the contract's balance and returns the request id. The example lives at [`contracts/src/xweb/examples/ApiConsumer.sol`](https://github.com/Sidiora-Labs/Paxeer-X-Network/blob/main/contracts/src/xweb/examples/ApiConsumer.sol).
+`get` and `post` start the call, `header` adds a public header, `select` adds a JSON pointer, `withCredential` adds an envelope and `single` names the one attestor that answers. `submit` pays the current `fee()` from the contract's balance and returns the request id. The example lives at [`contracts/src/xweb/examples/ApiConsumer.sol`](https://github.com/Sidiora-Labs/paxeer-monorepo/blob/main/contracts/src/xweb/examples/ApiConsumer.sol).
 
 | Part | Bound |
 | --- | --- |
@@ -338,7 +338,7 @@ A pending request keeps the fee and the timeout height it was stored with when t
 
 The current tree wires xweb into the chain application. The program-origin keeper explicitly gates admission and fulfilment on `v7.0`. The presence of code is not evidence of activation or governance configuration on a particular node: inspect its parameters, pause state, attestors and request/result state before using it. The sidecar also requires usable chain dependencies and registered receipt keys; check `/readyz` as well as `/health`.
 
-Source in the [repository](https://github.com/Sidiora-Labs/Paxeer-X-Network):
+Source in the [repository](https://github.com/Sidiora-Labs/paxeer-monorepo):
 
 - Sidecar configuration, routes, payment verification, digest and relay: `services/interop/crates/x-websearch/src`.
 - Native requests, escrow, results, queries and governance: `modules/xweb/keeper` and `modules/xweb/types`.

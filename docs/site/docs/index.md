@@ -10,7 +10,7 @@ committed. Submitting a transaction or estimating its fee does not establish
 successful execution. Check the committed receipt's status and logs.
 
 Normative requirements and implementation tasks live under
-[`spec/layerx-merge/`](https://github.com/Sidiora-Labs/Paxeer-X-Network/tree/main/spec/layerx-merge).
+[`spec/layerx-merge/`](https://github.com/Sidiora-Labs/paxeer-monorepo/tree/main/spec/layerx-merge).
 The network is mainnet-beta and uses real assets; a local example is not a
 promise of a public test allocation. LayerX is licensed under Apache License 2.0.
 
@@ -62,7 +62,7 @@ on the appropriate transaction path.
 | Network operation | `node/`, `consensus/`, and `rpc/`: block processing, commit, recovery, and node access |
 
 The merged precompile address table is declared in
-[`precompiles/setup.go`](https://github.com/Sidiora-Labs/Paxeer-X-Network/blob/main/precompiles/setup.go).
+[`precompiles/setup.go`](https://github.com/Sidiora-Labs/paxeer-monorepo/blob/main/precompiles/setup.go).
 For example, Programs uses `0x000000000000000000000000000000000000101D`;
 its ABI is in `precompiles/layerxprograms/abi.json`. See [Programs](programs/index.md).
 
@@ -112,9 +112,9 @@ See [Assets and tokens](concepts/assets.md) for asset-specific material.
 - [Protocol](protocol/index.md)
 - [Modules](protocol/modules.md)
 - [Finality](protocol/finality.md)
-- [Merged network specification](https://github.com/Sidiora-Labs/Paxeer-X-Network/blob/main/spec/layerx-merge/spec.kvx)
-- [Contributing guide](https://github.com/Sidiora-Labs/Paxeer-X-Network/blob/main/CONTRIBUTING.md)
-- [Security policy](https://github.com/Sidiora-Labs/Paxeer-X-Network/blob/main/SECURITY.md)
+- [Merged network specification](https://github.com/Sidiora-Labs/paxeer-monorepo/blob/main/spec/layerx-merge/spec.kvx)
+- [Contributing guide](https://github.com/Sidiora-Labs/paxeer-monorepo/blob/main/CONTRIBUTING.md)
+- [Security policy](https://github.com/Sidiora-Labs/paxeer-monorepo/blob/main/SECURITY.md)
 - [Qualification documentation](operators/qualification.md)
 - [Monorepo layout](overview/monorepo.md)
 - [Programs](programs/index.md)

@@ -27,6 +27,7 @@ from layerx_sdk.verifier import SequencerReceiptVerificationError
 from layerx_sdk.x402_rpc import decode_receipt_keys
 
 spec = importlib.util.spec_from_file_location("payment_journey_22_31_352", HERE / "payment-journey.py")
+assert spec is not None and spec.loader is not None
 payment = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(payment)
 

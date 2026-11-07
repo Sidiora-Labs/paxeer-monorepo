@@ -4,9 +4,10 @@
   "description": "One-call LayerX x402 mount for Express applications",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Sidiora-Labs/Paxeer-X-Network.git",
+    "url": "git+https://github.com/Sidiora-Labs/paxeer-monorepo.git",
     "directory": "sdk/integrations/express"
   },
+  "homepage": "https://github.com/Sidiora-Labs/paxeer-monorepo/tree/main/sdk/integrations/express",
   "type": "module",
   "private": false,
   "license": "Apache-2.0",
