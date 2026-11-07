@@ -608,9 +608,7 @@ fn protocol_and_app_limit_changes_keep_their_real_enforcement_labels() {
     unfinalized.rung = layerx_types::rung::Rung::Receipted;
     assert!(matches!(
         ProductionAgentCreation::finalization_evidence(&unfinalized, ModuleId::Budget, 1, 1_002,),
-        Err(AgentFailure::Refused(
-            "lifecycle receipt is not checkpoint-finalized"
-        ))
+        Err(AgentFailure::Refused("lifecycle receipt is not committed"))
     ));
     let finalized = protocol_receipt([0x62; 32]);
     assert!(matches!(

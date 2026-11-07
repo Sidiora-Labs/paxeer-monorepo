@@ -1,7 +1,8 @@
-FROM golang:1.25.8-bookworm AS go-dist
+FROM node:24.11.0-bookworm-slim@sha256:76d0ed0ed93bed4f4376211e9d8fddac4d8b3fbdb54cc45955696001a3c91152 AS node-dist
+FROM golang:1.25.8-bookworm@sha256:4557cf171e3cdf5053a298d5171b1a5f5734d920260c25f22c79e94760eb2084 AS go-dist
 FROM docker.io/rust:1.91.1-bookworm@sha256:c1e5f19e773b7878c3f7a805dd00a495e747acbdc76fb2337a4ebf0418896b33 AS rust-dist
 
-FROM ubuntu:24.04
+FROM ubuntu:24.04@sha256:fe81560990fae86dc4743202b2cb4d3df98d0bcf949173cecef15ce1127ef852
 ENV HOME="/root" RUSTUP_HOME=/usr/local/rustup CARGO_HOME=/usr/local/cargo RUSTUP_TOOLCHAIN=1.91.1 PATH="/usr/local/cargo/bin:/root/go/bin:/pax-protocol/pax-chain/tests/integration/upgrade_module/scripts/:$PATH"
 RUN set -eux; \
     export DEBIAN_FRONTEND=noninteractive; \
@@ -37,7 +38,10 @@ RUN set -eux; \
       fi; \
       sleep 2; \
     done
-RUN curl -sL https://deb.nodesource.com/setup_16.x | bash
+COPY --from=node-dist /usr/local/bin/node /usr/local/bin/node
+COPY --from=node-dist /usr/local/lib/node_modules /usr/local/lib/node_modules
+RUN ln -s ../lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm \
+    && ln -s ../lib/node_modules/npm/bin/npx-cli.js /usr/local/bin/npx
 RUN mkdir -p /root/go/pkg/mod && \
     mkdir -p /root/.cache && \
     chmod -R a+rwX /root

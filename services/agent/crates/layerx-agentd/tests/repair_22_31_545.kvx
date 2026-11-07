@@ -50,3 +50,8 @@ evidence = "The exit and log fields of those entries are authoritative; no gate 
 [implementation_notes]
 api_request = "The API NativeSendPrepareRequestV1 still embeds SignedNativeSendPurposeV1; the daemon owns a V2 request so no out-of-scope API change or legacy conversion is needed."
 retained_bytes = "The retired verifier hashed signed transaction bytes, whereas owner preview binds unsigned type-2 canonical bytes; V2 checks the retained EVM SigningPreparation separately from its activity authorization."
+
+[regression.managed_agent_checks_613]
+boundary = "The included native preview purpose-commitment refusal retains operation.refused because SessionControl owns that guard; the V1 RPC decoder refusal remains envelope.malformed. Managed-agent reasons do not replace either check."
+execution = "The existing regression target runs alone under task 22.31.613; tests/repair_22_31_613.kvx references its private command, revision, exit and log. All behavioral cases and recording-only ignore attributes are preserved."
+evidence = "The final passing verify row in /out/run/gates.jsonl supplies the verified revision, command, exit and private log and must match the final passing build row; no result is claimed before execution."

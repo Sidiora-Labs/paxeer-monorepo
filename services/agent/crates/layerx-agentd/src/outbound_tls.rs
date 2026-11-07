@@ -1,10 +1,10 @@
 use ureq::tls::{Certificate, RootCerts, TlsConfig, TlsProvider};
 
 #[cfg(test)]
-#[path = "outbound_tls/tests.rs"]
 mod tests;
 
-pub(crate) fn private_ca(ca_der: &[u8]) -> Option<TlsConfig> {
+#[doc(hidden)]
+pub fn private_ca(ca_der: &[u8]) -> Option<TlsConfig> {
     if ca_der.is_empty() {
         return None;
     }

@@ -24,6 +24,8 @@ contract PaxRegistryTest {
         bytes32 node = registry.setSubnodeOwner(pax, keccak256("alice"), alice);
         require(node == keccak256(abi.encodePacked(pax, keccak256("alice"))), "subnode hash");
         require(registry.owner(node) == alice, "subnode owner");
+        require(registry.resolver(node) == address(0), "new subnode resolver");
+        require(registry.ttl(node) == 0, "new subnode ttl");
         vm.expectRevert(PaxRegistry.Unauthorised.selector);
         registry.setResolver(node, resolver);
         vm.prank(alice);

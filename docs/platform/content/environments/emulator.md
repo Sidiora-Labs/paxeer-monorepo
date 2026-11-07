@@ -89,7 +89,7 @@ A receipt is final once its block is committed. The merged network reports `subm
 
 For network finality, authenticate the block header and CometBFT commit, then verify transaction or state inclusion at the relevant height. See [Committed block evidence](https://github.com/Sidiora-Labs/paxeer-monorepo/blob/abc81fd2cead6b2b9d5612c6e09a6ab56f13c1ed/docs/site/docs/concepts/checkpoints.md#committed-block-evidence).
 
-For an environment with real finality and other participants, use the [beta quickstart](https://github.com/Sidiora-Labs/Paxeer-X-Network/blob/86fa9803386b75d1fea152cb40cacb3f1069cf4a/docs/wiki/Quickstart.md).
+For an environment with real finality and other participants, use the [beta quickstart](https://github.com/Sidiora-Labs/paxeer-monorepo/blob/main/docs/wiki/Quickstart.md).
 
 ## Enforced by
 

@@ -1,4 +1,6 @@
 [package]
+license = "Apache-2.0"
+authors = ["Sidiora Labs"]
 name = "pax-cosmwasm"
 version = "0.4.9"
 edition = "2018"

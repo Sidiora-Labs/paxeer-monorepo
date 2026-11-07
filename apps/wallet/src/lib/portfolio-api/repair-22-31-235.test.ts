@@ -9,6 +9,8 @@ import path from 'node:path';
 import { NextRequest } from 'next/server';
 import { afterAll, afterEach, beforeAll, beforeEach, expect, test } from 'vitest';
 import { PortfolioApiError } from './client';
+import { PAXEER_CONFIG } from '../constants';
+import { WALLET_CHAIN_HEADER } from '../wallet-read-contract';
 import { getWatchStatus, unwatchAddress, watchAddress } from './watch';
 import {
   createWebhook,
@@ -106,6 +108,8 @@ async function restartIndexer() {
 const received: { method: string; path: string; contentType: string | null; body: unknown }[] = [];
 
 beforeEach(() => {
+  transcript.length = 0;
+  fixtureErrors.length = 0;
   received.length = 0;
   producerReceived.length = 0;
   responses.length = 0;
@@ -220,6 +224,7 @@ async function finding_2_watch_mutations_require_authorization_at_the_real_proxy
     unwatchAddress(ADDRESS),
   ]);
   expect(received).toHaveLength(2);
+  expect(producerReceived).toHaveLength(0);
   expect(received).toEqual(
     expect.arrayContaining([
       {
@@ -262,6 +267,7 @@ async function finding_3_webhook_mutations_require_authorization_at_the_real_pro
     deleteWebhook(WEBHOOK_ID),
   ]);
   expect(received).toHaveLength(3);
+  expect(producerReceived).toHaveLength(0);
   expect(received).toEqual(
     expect.arrayContaining([
       {
@@ -640,4 +646,79 @@ test(
 test(
   portfolio_mutations_enforce_route_body_query_and_response_bounds.name,
   portfolio_mutations_enforce_route_body_query_and_response_bounds
+);
+
+async function portfolio_reads_consume_chain_identity_and_preserve_query_bounds() {
+  const chainId = String(PAXEER_CONFIG.chainId);
+  const watch = `/api/v2/watch/${ADDRESS}`;
+  const webhooks = '/api/v2/webhooks';
+  const deliveries = `${webhooks}/${WEBHOOK_ID}/deliveries`;
+  async function read(method: 'GET' | 'HEAD', path: string, query: string) {
+    return walletRoute[method](
+      new NextRequest(`http://localhost/wallet/api/wallet${path}${query}`, {
+        method,
+        headers: { Authorization: `Bearer ${TOKEN}` },
+      }),
+      { params: Promise.resolve({ path: path.slice(1).split('/') }) }
+    );
+  }
+  for (const [path, query] of [
+    [watch, `?chain_id=${chainId}&chain_id=${chainId}`],
+    ...['', '0125', '+125', '1e2', '1.25', '0', '-1', '1', '125000001'].map((value) => [
+      watch,
+      `?chain_id=${encodeURIComponent(value)}`,
+    ]),
+    [watch, `?chain_id=${chainId}&address=${ADDRESS}`],
+    [webhooks, `?chain_id=${chainId}&address=invalid`],
+    [webhooks, `?chain_id=${chainId}&address=${ADDRESS}&address=${ADDRESS}`],
+    [deliveries, `?chain_id=${chainId}&limit=0`],
+    [deliveries, `?chain_id=${chainId}&limit=101`],
+    [deliveries, `?chain_id=${chainId}&limit=01`],
+    [deliveries, `?chain_id=${chainId}&limit=1.5`],
+    [watch, `?chain_id=${chainId}&admin=true`],
+  ]) {
+    for (const method of ['GET', 'HEAD'] as const) {
+      const response = await read(method, path, query);
+      expect(response.status).toBe(400);
+      expect(response.headers.get(WALLET_CHAIN_HEADER)).toBe(chainId);
+      expect(await response.json()).toEqual({
+        error: { code: 'QUERY_INVALID', message: expect.any(String) },
+      });
+    }
+  }
+  expect(producerReceived).toHaveLength(0);
+
+  for (const [method, path, query, upstream, body] of [
+    ['GET', watch, `?chain_id=${chainId}`, watch, { watching: true }],
+    [
+      'GET',
+      webhooks,
+      `?address=${ADDRESS}&chain_id=${chainId}`,
+      `${webhooks}?address=${ADDRESS}`,
+      { webhooks: [] },
+    ],
+    ['HEAD', deliveries, `?chain_id=${chainId}&limit=100`, `${deliveries}?limit=100`, null],
+    ['GET', watch, '', watch, { watching: false }],
+  ] as const) {
+    transcript.push({
+      method,
+      path: upstream,
+      status: 200,
+      ...(body === null ? {} : { response: body }),
+    });
+    const response = await read(method, path, query);
+    expect(response.status).toBe(200);
+    expect(response.headers.get(WALLET_CHAIN_HEADER)).toBe(chainId);
+    expect(response.headers.get('cache-control')).toBe('no-store');
+    if (method === 'HEAD') expect(await response.text()).toBe('');
+    else expect(await response.json()).toEqual(body);
+  }
+  expect(producerReceived).toHaveLength(4);
+  expect(walletRoute.POST().headers.get(WALLET_CHAIN_HEADER)).toBe(chainId);
+  expect(walletRoute.PUT().headers.get(WALLET_CHAIN_HEADER)).toBe(chainId);
+}
+
+test(
+  portfolio_reads_consume_chain_identity_and_preserve_query_bounds.name,
+  portfolio_reads_consume_chain_identity_and_preserve_query_bounds
 );

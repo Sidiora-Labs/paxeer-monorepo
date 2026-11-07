@@ -267,6 +267,12 @@ test-tests-python:
 		tests/ci/test_runner_routing_container_runtime.py \
 		tests/test_lxgb_producers.py tests/test_beta_withdrawal_genesis.py tests/ci
 
+.PHONY: test-python-suites
+test-python-suites: layerx-genesis-build layerx-module-registry $(BUILD_DIR)/tests/explorer_fixture
+	PYTHONPATH=$(CURDIR)/services/agent/sdk/python \
+		LAYERX_TEST_BUILD_DIR="$(abspath $(BUILD_DIR))" \
+		python3 tests/ci/run_python_suites.py
+
 list-tests: $(BUILD_DIR)/tests/lxp_test_harness
 	$(BUILD_DIR)/tests/lxp_test_harness --list
 
@@ -1129,7 +1135,8 @@ test-contract-state-surface:
 	scripts/ci/solidity-state-surface.sh
 
 test-contracts: test-contract-state-surface
-	FOUNDRY_TEST=tests/solidity forge test --offline --root . --no-dynamic-test-linking
+	FOUNDRY_PROFILE=names forge test --offline --root . --no-dynamic-test-linking -vvv
+	FOUNDRY_PROFILE=governance forge test --offline --root . --no-dynamic-test-linking -vvv
 
 qualify-replay:
 	tools/lxp_qual_replay_matrix.sh
@@ -2720,24 +2727,19 @@ interop-build-ramps:
 interop-test-ramps-sandbox:
 	sh services/platform/ramps/sandbox-journey.sh
 
-INTEROP_CARGO ?= cargo
-INTEROP_MANIFEST := services/interop/Cargo.toml
-
 .PHONY: interop-build interop-test interop-lint interop-test-x402 interop-test-mandates interop-test-migration interop-test-migration-testnets interop-test-ucp interop-test-portable interop-test-visa-tap interop-test-mirrors
 
 interop-build:
 	$(INTEROP_CARGO) build --manifest-path $(INTEROP_MANIFEST) --locked --workspace
 
 interop-test:
-	$(INTEROP_CARGO) test --manifest-path $(INTEROP_MANIFEST) --locked --workspace
+	python3 tests/ci/interop_workspace_test.py --cargo "$(INTEROP_CARGO)" --manifest-path "$(INTEROP_MANIFEST)"
 
 interop-test-mirrors:
 	$(INTEROP_CARGO) test --manifest-path $(INTEROP_MANIFEST) --locked -p layerx-mirror
 	cargo test --manifest-path services/interop/contracts/solana-mirror/Cargo.toml --locked
-	forge test --root . --contracts services/interop/contracts/ethereum-mirror \
-		--match-path services/interop/contracts/ethereum-mirror/test/LayerXMirrorArchive.t.sol \
-		--use 0.8.30 --evm-version paris --optimize --optimizer-runs 100000 \
-		--via-ir --no-metadata
+	forge test --root services/interop/contracts/ethereum-mirror \
+		--evm-version paris --no-dynamic-test-linking -vvv
 
 interop-test-x402:
 	$(INTEROP_CARGO) test --manifest-path $(INTEROP_MANIFEST) --locked -p layerx-x402

@@ -1,3 +1,5 @@
+//! Library TLS cases, selected by the `outbound_tls::tests` unit-test filter.
+
 use std::error::Error;
 use std::io::{Read, Write};
 use std::net::TcpListener;

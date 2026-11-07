@@ -24,8 +24,10 @@ pub mod evaluators {
 #[cfg(target_arch = "wasm32")]
 mod guest_cell;
 pub mod host_adapter;
+pub mod laps;
 pub mod policy;
 pub mod queries;
+pub use queries::placement;
 pub mod registry;
 pub mod registry_ops;
 pub mod reputation;

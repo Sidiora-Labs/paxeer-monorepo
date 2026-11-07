@@ -10,8 +10,8 @@ use crate::registry_ops::{self, CallContext, PolicySection};
 use crate::state::{self, RetainedResult, Section, SharedState};
 use crate::types::{Presence, RequestDigest};
 use crate::{
-    admission, aggregation, canary, closure, commit_reveal, epoch, evidence, queries, rewards,
-    rooms, tasks, value_adapter, workers, MAX_STATE_BYTES,
+    admission, aggregation, canary, closure, commit_reveal, epoch, evidence, laps, queries,
+    rewards, rooms, tasks, value_adapter, workers, MAX_STATE_BYTES,
 };
 #[derive(Clone, Copy, Eq, PartialEq)]
 #[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
@@ -941,8 +941,8 @@ pub const OPERATIONS: &[OperationMetadata] = &[
         boundary: CallBoundary::Mutation,
         sequence: SequencePolicy::Role,
         delegate_allowed: false,
-        payload_min: 92,
-        payload_max: 92,
+        payload_min: laps::SETTLE_FIXED_BYTES + evidence::MANIFEST_FIXED_BYTES,
+        payload_max: laps::SETTLE_FIXED_BYTES + evidence::MAX_MANIFEST_BYTES,
         authority: AuthorityClass::Host,
         sections: &[
             Section::PolicyLifecycle,
@@ -1133,7 +1133,7 @@ pub const OPERATIONS: &[OperationMetadata] = &[
         payload_min: 32,
         payload_max: 32,
         authority: AuthorityClass::PublicRead,
-        sections: &[Section::IdentityRoster],
+        sections: &[Section::PolicyLifecycle, Section::SettlementClaims],
     },
 ];
 
@@ -1174,6 +1174,7 @@ const fn max_of(values: &[usize]) -> usize {
 const TRANSITION_SCRATCH_BYTES: usize = max_of(&[
     tasks::SCRATCH_BYTES,
     canary::SCRATCH_BYTES,
+    laps::SCRATCH_BYTES,
     commit_reveal::SCRATCH_BYTES,
     evidence::SEAL_SCRATCH_BYTES,
     challenge::CHALLENGE_SCRATCH_BYTES,
@@ -1265,6 +1266,12 @@ pub fn route(
     current: Option<&[u8]>,
     buffers: Buffers<'_>,
 ) -> CodecResult<Routed> {
+    if matches!(envelope_bytes.get(8..10), Some([0x0b, 0x10..=0x13])) {
+        return route_f11_view(ctx, envelope_bytes, current, buffers);
+    }
+    if queries::placement::is_book_view(envelope_bytes) {
+        return route_book_view(ctx, envelope_bytes, current, buffers);
+    }
     if commit_reveal::is_canary_score(envelope_bytes) {
         return route_canary_score(ctx, envelope_bytes, current, buffers);
     }
@@ -1347,6 +1354,99 @@ pub fn route(
     match framed {
         Ok(routed) => Ok(routed),
         Err(error) => refuse(error, Presence::Present(request), visible(), result),
+    }
+}
+
+fn route_book_view(
+    ctx: &CallContext,
+    input: &[u8],
+    current: Option<&[u8]>,
+    buffers: Buffers<'_>,
+) -> CodecResult<Routed> {
+    let visible = current
+        .and_then(|bytes| state::decode_shared_state(bytes).ok())
+        .map_or(0, |state| state.revision);
+    let request = match queries::placement::decode_book_envelope(input) {
+        Ok(request) => request,
+        Err(error) => return refuse(error, Presence::Absent, visible, buffers.result),
+    };
+    let digest = match request.request_digest() {
+        Ok(digest) => digest,
+        Err(error) => return refuse(error, Presence::Absent, visible, buffers.result),
+    };
+    let answer = (|| {
+        let envelope = &request.envelope;
+        codec::compare_native_principal(envelope, ctx.principal)?;
+        envelope.check_domain(
+            ctx.chain,
+            ctx.program,
+            codec::derive_market(ctx.chain, ctx.program)?,
+        )?;
+        envelope.check_expiry(ctx.height)?;
+        let current = present(current)?;
+        let shared = state::decode_shared_state(current)?;
+        bound_section(ctx, &shared)?;
+        let len = queries::answer_book_view(current, envelope.payload, buffers.scratch)?;
+        queries::frame_read_result(
+            digest,
+            shared.revision,
+            &buffers.scratch[..len],
+            buffers.result,
+        )
+    })();
+    match answer {
+        Ok(result_len) => Ok(Routed::Unchanged { result_len }),
+        Err(error) => refuse(error, Presence::Present(digest), visible, buffers.result),
+    }
+}
+
+fn route_f11_view(
+    ctx: &CallContext,
+    input: &[u8],
+    current: Option<&[u8]>,
+    buffers: Buffers<'_>,
+) -> CodecResult<Routed> {
+    let visible = current
+        .and_then(|bytes| state::decode_shared_state(bytes).ok())
+        .map_or(0, |state| state.revision);
+    let request = match queries::decode_view_envelope(input) {
+        Ok(request) => request,
+        Err(error) => return refuse(error, Presence::Absent, visible, buffers.result),
+    };
+    let digest = match request.request_digest() {
+        Ok(digest) => digest,
+        Err(error) => return refuse(error, Presence::Absent, visible, buffers.result),
+    };
+    let answer = (|| {
+        let envelope = &request.envelope;
+        codec::compare_native_principal(envelope, ctx.principal)?;
+        envelope.check_domain(
+            ctx.chain,
+            ctx.program,
+            codec::derive_market(ctx.chain, ctx.program)?,
+        )?;
+        envelope.check_expiry(ctx.height)?;
+        let current = present(current)?;
+        let shared = state::decode_shared_state(current)?;
+        bound_section(ctx, &shared)?;
+        let answer = match envelope.operation {
+            RoomView => queries::answer_room_view,
+            DealView => queries::answer_deal_view,
+            PeerView => queries::answer_peer_view,
+            ReceiptBatchView => queries::answer_receipt_batch_view,
+            _ => return Err(UNKNOWN_OPERATION),
+        };
+        let len = answer(current, envelope.payload, buffers.scratch)?;
+        queries::frame_read_result(
+            digest,
+            shared.revision,
+            &buffers.scratch[..len],
+            buffers.result,
+        )
+    })();
+    match answer {
+        Ok(result_len) => Ok(Routed::Unchanged { result_len }),
+        Err(error) => refuse(error, Presence::Present(digest), visible, buffers.result),
     }
 }
 
@@ -1602,7 +1702,8 @@ fn transition_inner(
         }
         0x0A01 | 0x0A02 => read(ctx, envelope, present(current)?, scratch),
         0x0B01..=0x0B04 | 0x0B0C => {
-            match rooms::apply(ctx, envelope, present(current)?, next, scratch, event)? {
+            match queries::placement::apply(ctx, envelope, present(current)?, next, scratch, event)?
+            {
                 rooms::Outcome::Applied {
                     revision,
                     state_len,
@@ -1617,6 +1718,21 @@ fn transition_inner(
                 rooms::Outcome::AlreadyApplied(subject) => {
                     Ok(Step::Unchanged(Payload::record(subject.as_bytes())?))
                 }
+            }
+        }
+        0x0B05 => {
+            match laps::apply_settle_laps(ctx, envelope, present(current)?, next, scratch, event)? {
+                laps::Outcome::Applied {
+                    revision,
+                    state_len,
+                    event_len,
+                } => Ok(Step::Applied {
+                    revision,
+                    state_len,
+                    event_len,
+                    payload: Payload::Suffix,
+                }),
+                laps::Outcome::Retained(retained) => Ok(Step::Retained(retained)),
             }
         }
         0x0B06 | 0x0B07 => {
