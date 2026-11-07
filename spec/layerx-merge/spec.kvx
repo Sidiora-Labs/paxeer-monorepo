@@ -182211,7 +182211,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.613]
 title = "Name the refusing managed-agent check in every refusal that crosses the human wire"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.31.539", "22.31.620"]
@@ -184132,7 +184132,7 @@ do_5 = "Attempt 2 (continue, gotcha 3146, decision 2603): the attempt-1 tree sta
 
 [task.22.31.540]
 title = "Retire the checkpoint-finalised label in the Human service spend, export and receipt frame producers"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.539", "22.31.572", "22.31.616", "22.31.622"]
