@@ -33539,3 +33539,19 @@ symbol = "repair_22_33_1536.rs"
 observed = "Attempt 8 at 34a1e6edcd85: build 1 exit 0, verify green; held at publication with a merge conflict on services/agent/crates/layerx-agentd/tests/human_node_budgets.rs against dbd4e68ed9."
 assumption = "The sibling part changed four lines of a file the attempt rewrites; the union is the intended state of the file."
 severity = "high"
+
+[finding.22.37.2.3]
+task = "22.37.2"
+file = "tools/hyperfide/tests/hyperfide/cases/source_control/layout_receipt_gate_test.py"
+symbol = "layout_receipt_gate_test.py"
+observed = "Attempt 3 at b046a74dc9cf: build 2 exit 0, verify 2 exit 1: the fifteen gate fixtures passed and the pending aggregation check refused one unexpected missing evidence of kind follow-on-authorization naming the candidate revision itself with eight changed paths; zero regressions, the five driver receipts pending as expected."
+assumption = "The only refusal is the self-reference of the allowlist, which the ruling resolves by construction."
+severity = "high"
+
+[finding.22.38.9.2]
+task = "22.38.9"
+file = "precompiles/layerxpay/stream_ask_test.go"
+symbol = "stream_ask_test.go"
+observed = "Attempt 2 at 0ab010459bb7: build 2 exit 0, verify 2 exit 1: TestStreamAskOpenAndHostMeter and every TestStreamAskOpenValidation case failed with LXP_PRECOMPILE_UNKNOWN_METHOD: askStreamOf at budget_test.go line 133, because the entry point never routes the two new methods."
+assumption = "The handlers exist in stream.go; two switch arms in the entry point connect them."
+severity = "high"
