@@ -2,7 +2,7 @@
   "author": "Sidiora Labs",
   "license": "Apache-2.0",
   "name": "@layerx/hosted-builder-tools",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "private": true,
   "dependencies": {
     "assemblyscript": "0.27.31",

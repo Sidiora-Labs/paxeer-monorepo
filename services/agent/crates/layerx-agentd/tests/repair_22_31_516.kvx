@@ -190,3 +190,8 @@ log = "/out/logs/verify-1.log"
 observed = "The build and dependent-crate checks passed; the new pre-clock refusal case passed, but the main case reached its retained-store read and Store::open refused a second writer while the serving owner held the writer lock."
 repair = "Both read-only retained-store inspections now use the production Store::open_read_only snapshot API; all assertions, live transport exchanges and serving-owner restart remain intact. Fixture writes and the pre-clock test's real writer reopen still use Store::open."
 evidence = "The final build and verify rows in /out/run/gates.jsonl record the repaired candidate, exact commands, exits and private logs; both gates must name the same revision. No success is claimed until hf-done passes."
+
+[regression.managed_agent_checks_613]
+boundary = "The foreign-principal, stale-sequence and changed-held-digest frames are refused by subject authorization or approval_budget_after outside managed_agent and retain operation.refused; the managed export zero-digest case now asserts ManagedAgent(EvidenceDigest)."
+execution = "The existing regression target runs alone under task 22.31.613; tests/repair_22_31_613.kvx references its private command, revision, exit and log. All behavioral cases and recording-only ignore attributes are preserved."
+evidence = "The final passing verify row in /out/run/gates.jsonl supplies the verified revision, command, exit and private log and must match the final passing build row; no result is claimed before execution."

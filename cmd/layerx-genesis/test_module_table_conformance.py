@@ -9,7 +9,8 @@ import pytest
 
 
 ROOT = Path(__file__).resolve().parents[2]
-BIN = ROOT / "build/bin"
+BUILD_DIR = Path(os.environ.get("LAYERX_TEST_BUILD_DIR", ROOT / "build"))
+BIN = BUILD_DIR / "bin"
 OPTIONAL_MODULES = {
     "escrow": 2,
     "budget": 3,
@@ -95,7 +96,7 @@ def module_table_reader(tmp_path_factory):
     source = directory / "reader.c"
     source.write_text(READER_SOURCE)
     reader = directory / "reader"
-    library = ROOT / "build/liblayerx.a"
+    library = BUILD_DIR / "liblayerx.a"
     _run(
         [
             *shlex.split(os.environ.get("CC", "cc")),
@@ -104,7 +105,7 @@ def module_table_reader(tmp_path_factory):
             "-Wextra",
             "-Werror",
             "-Iinclude",
-            "-Ibuild/generated",
+            "-I" + str(BUILD_DIR / "generated"),
             source,
             ROOT / "cmd/layerx-genesis/lxp_genesis_cli.c",
             library,
