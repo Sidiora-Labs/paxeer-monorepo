@@ -9,7 +9,12 @@ import {
   sendModuleTransactionReceipted,
   type ModuleTransaction,
 } from '@paxeer/wallet';
-import { PERPS_PRECOMPILE, XWEB_PRECOMPILE, abiSelector, encodeAbiCall } from '@sidiora/layerx-sdk';
+import {
+  PERPS_PRECOMPILE,
+  XWEB_PRECOMPILE,
+  abiSelector,
+  encodeAbiCall,
+} from '@sidiora/layerx-sdk/browser';
 import { keccak256, parseTransaction } from 'viem';
 import { mount } from '@/account/test/render';
 import { ExchangeView, USDL } from './ExchangeView';

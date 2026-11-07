@@ -2,8 +2,10 @@ import { defineConfig } from 'vitest/config';
 import path from 'node:path';
 
 const walletSdk = path.resolve(__dirname, '../../sdk/wallet/src/index.ts');
-const layerxSdk = path.resolve(__dirname, '../../services/agent/sdk/typescript/src/index.ts');
-const layerxSdkBrowser = path.resolve(__dirname, '../../services/agent/sdk/typescript/src/browser.ts');
+const layerxSdkBrowser = path.resolve(
+  __dirname,
+  '../../services/agent/sdk/typescript/src/browser.ts'
+);
 
 export default defineConfig({
   test: {
@@ -15,7 +17,7 @@ export default defineConfig({
     alias: {
       '@paxeer/wallet': walletSdk,
       '@sidiora/layerx-sdk/browser': layerxSdkBrowser,
-      '@sidiora/layerx-sdk': layerxSdk,
+      '@sidiora/layerx-sdk': layerxSdkBrowser,
       '@': path.resolve(__dirname, 'src'),
     },
     dedupe: [
