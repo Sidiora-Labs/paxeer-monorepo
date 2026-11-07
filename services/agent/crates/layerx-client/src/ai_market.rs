@@ -65,6 +65,159 @@ use layerx_programs_registry::chain_proof::{
     decode::ProofOp, state::verify_state, VerifiedChainHead,
 };
 
+pub mod inference_market {
+    pub use layerx_programs_ai_market as program;
+    pub use program::canary::{ChallengeLapPayload, ResolveChallengePayload};
+    pub use program::laps::{LapReceipt, ReceiptBatch, SettleLapsRequest};
+    pub use program::placement::BookView;
+    pub use program::policy::RoomProfile;
+    pub use program::queries::{DealView, PeerView, ReceiptBatchView, RoomView};
+    pub use program::rooms::{
+        LayerSplit, OpenRoomRequest, PostAskRequest, PostBidRequest, RecordDealRequest,
+    };
+    pub use program::types::{Digest32, PrincipalId, RequestId};
+
+    use super::{
+        AiClientError, FinalizedSnapshot, NativeTerms, OperationRequest, PreparedOperation,
+    };
+    use layerx_types::payload::ModuleRegistry;
+    use program::dispatch::{self, Operation};
+
+    #[derive(Clone, Debug, Eq, PartialEq)]
+    pub struct MarketOperation {
+        operation: Operation,
+        payload: Vec<u8>,
+    }
+
+    pub struct OperationContext<'a> {
+        pub actor: PrincipalId,
+        pub roster: Option<&'a [u8]>,
+        pub sequence: u64,
+        pub expiry: u64,
+        pub request: RequestId,
+        pub required_rank: u8,
+    }
+
+    impl MarketOperation {
+        fn new(operation: Operation, payload: Vec<u8>) -> Result<Self, AiClientError> {
+            operation.validate_payload_length(payload.len())?;
+            Ok(Self { operation, payload })
+        }
+
+        pub const fn operation(&self) -> Operation {
+            self.operation
+        }
+
+        pub fn payload(&self) -> &[u8] {
+            &self.payload
+        }
+
+        pub fn request<'a>(&'a self, context: OperationContext<'a>) -> OperationRequest<'a> {
+            OperationRequest {
+                operation: self.operation,
+                payload: &self.payload,
+                actor: context.actor,
+                roster: context.roster,
+                sequence: context.sequence,
+                expiry: context.expiry,
+                request: context.request,
+                required_rank: context.required_rank,
+            }
+        }
+
+        pub fn prepare(
+            &self,
+            snapshot: &FinalizedSnapshot,
+            registry: &ModuleRegistry,
+            authority_height: u64,
+            context: OperationContext<'_>,
+            terms: &NativeTerms<'_>,
+        ) -> Result<PreparedOperation, AiClientError> {
+            snapshot.prepare(registry, authority_height, &self.request(context), terms)
+        }
+    }
+
+    fn encode(
+        operation: Operation,
+        write: impl FnOnce(&mut [u8]) -> program::errors::CodecResult<usize>,
+    ) -> Result<MarketOperation, AiClientError> {
+        let mut payload = vec![0; operation.metadata().payload_max];
+        let length = write(&mut payload)?;
+        payload.truncate(length);
+        MarketOperation::new(operation, payload)
+    }
+
+    pub fn open_room(request: &OpenRoomRequest) -> Result<MarketOperation, AiClientError> {
+        encode(dispatch::OpenRoom, |out| request.encode(out))
+    }
+
+    pub fn post_ask(request: &PostAskRequest) -> Result<MarketOperation, AiClientError> {
+        encode(dispatch::PostAsk, |out| request.encode(out))
+    }
+
+    pub fn post_bid(request: &PostBidRequest) -> Result<MarketOperation, AiClientError> {
+        encode(dispatch::PostBid, |out| request.encode(out))
+    }
+
+    pub fn record_deal(request: &RecordDealRequest) -> Result<MarketOperation, AiClientError> {
+        encode(dispatch::RecordDeal, |out| request.encode(out))
+    }
+
+    pub fn settle_laps(request: &SettleLapsRequest<'_>) -> Result<MarketOperation, AiClientError> {
+        encode(dispatch::SettleLaps, |out| request.encode(out))
+    }
+
+    pub fn challenge_lap(request: &ChallengeLapPayload) -> Result<MarketOperation, AiClientError> {
+        MarketOperation::new(dispatch::ChallengeLap, request.encode()?.to_vec())
+    }
+
+    pub fn resolve_challenge(
+        request: &ResolveChallengePayload,
+    ) -> Result<MarketOperation, AiClientError> {
+        MarketOperation::new(dispatch::ResolveChallenge, request.encode()?.to_vec())
+    }
+
+    pub fn split_payout(payload: [u8; 80]) -> Result<MarketOperation, AiClientError> {
+        MarketOperation::new(dispatch::SplitPayout, payload.to_vec())
+    }
+
+    pub fn lock_bond(payload: [u8; 80]) -> Result<MarketOperation, AiClientError> {
+        MarketOperation::new(dispatch::LockBond, payload.to_vec())
+    }
+
+    pub fn slash_bond(payload: [u8; 104]) -> Result<MarketOperation, AiClientError> {
+        MarketOperation::new(dispatch::SlashBond, payload.to_vec())
+    }
+
+    pub fn refund_bond(payload: [u8; 64]) -> Result<MarketOperation, AiClientError> {
+        MarketOperation::new(dispatch::RefundBond, payload.to_vec())
+    }
+
+    pub fn close_room(room: Digest32) -> Result<MarketOperation, AiClientError> {
+        MarketOperation::new(dispatch::CloseRoom, room.bytes().to_vec())
+    }
+
+    pub fn decode_room_view(bytes: &[u8]) -> Result<RoomView, AiClientError> {
+        Ok(RoomView::decode(bytes)?)
+    }
+
+    pub fn decode_deal_view(bytes: &[u8]) -> Result<DealView, AiClientError> {
+        Ok(DealView::decode(bytes)?)
+    }
+
+    pub fn decode_peer_view(bytes: &[u8]) -> Result<PeerView, AiClientError> {
+        Ok(PeerView::decode(bytes)?)
+    }
+
+    pub fn decode_receipt_batch_view(bytes: &[u8]) -> Result<ReceiptBatchView, AiClientError> {
+        Ok(ReceiptBatchView::decode(bytes)?)
+    }
+
+    pub fn decode_book_view(bytes: &[u8]) -> Result<BookView<'_>, AiClientError> {
+        Ok(BookView::decode(bytes)?)
+    }
+}
+
 /// A host program namespace authenticated under a verified Comet app hash.
 /// The constructor verifies the real `progstor` head, manifest and AI state blob.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]

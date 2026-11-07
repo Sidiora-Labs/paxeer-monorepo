@@ -106,8 +106,10 @@ jobs:
         with:
           version: v1.7.1
           cache: false
-      - name: Install state surface tooling
-        run: sudo apt-get update && sudo apt-get install --yes ripgrep
+      - name: Install Solidity and mirror test dependencies
+        run: sudo apt-get update && sudo apt-get install --yes ripgrep build-essential libssl-dev pkg-config python3 openssl
+      - name: Install pinned mirror toolchain
+        run: rustup toolchain install 1.91.1 --profile minimal
       - name: Check formatting and state surface
         run: forge fmt --check && scripts/ci/solidity-state-surface.sh
       - name: Bootstrap pinned Solidity libraries
@@ -115,7 +117,9 @@ jobs:
       - name: Build contracts
         run: forge build --sizes
       - name: Run contract and invariant suites
-        run: forge test -vvv
+        run: make test-contracts
+      - name: Run mirror suites
+        run: make interop-test-mirrors
 
   loadtest:
     runs-on: ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && 'ubuntu-24.04' || vars.CI_LINUX_RUNNER || 'ubuntu-24.04' }}
@@ -264,7 +268,7 @@ jobs:
           node-version: '24.22.0'
           package-manager-cache: false
       - name: Install pnpm
-        run: npm install --global pnpm@10.15.1
+        run: npm install --global "$(node -p 'require("./package.json").packageManager')"
       - name: Install package dependencies
         run: pnpm install --ignore-workspace --frozen-lockfile
       - name: Run package suite
@@ -295,7 +299,7 @@ jobs:
         with:
           version: v1.8.1
       - name: Install pnpm
-        run: npm install --global pnpm@9.15.9
+        run: npm install --global pnpm@10.34.9+sha512.f49b5a8ea0fdedb44bb3c0c1d6575092a53c2950d95b7ad15df11f17974877a2de3a01c07e934e9b28ce716e51c09a94962c7306d09be2e1e4b18a8c8762fd32
       - name: Install wallet dependencies
         working-directory: services/wallet
         run: pnpm install --frozen-lockfile

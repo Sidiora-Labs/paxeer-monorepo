@@ -34865,3 +34865,75 @@ symbol = "test_platform_middleware_suites_wired.py"
 observed = "Attempt 1 at a177aacba81f: verification exit 1 after two repair cycles: 22 pay6 cases fail in four groups owned by x402_http.py, x402.py, x402_agent.py and x402_rpc.py of the Python SDK; everything the task owns passed."
 assumption = "The four Python modules are the only producers of the 22 failures."
 severity = "high"
+
+[finding.22.39.40.4]
+task = "22.39.40"
+file = "tests/ci/test_node_build_workflow_scope.py"
+symbol = "test_node_build_workflow_scope.py"
+observed = "Attempt 4 at d96e5a9eefb2: verification exit 1 in both runs: sixteen node tests outside the task fail with the three recorded failures skipped, each reproduces alone, and TestFinalizeAdoptedSealedBlockMatchesReexecution holds the package to the 15 minute limit; the activation tests and the standby commit release test of the task pass."
+assumption = "The sixteen failures and the timeout have one cause outside this task, carried by 22.39.138."
+severity = "high"
+
+[finding.22.39.128.2]
+task = "22.39.128"
+file = "services/agent/crates/layerx-agentd/src/budget/native_binding.rs"
+symbol = "native_binding.rs"
+observed = "Attempt 3 at f3749c56d963: build exit 0; verification exit 101: eighteen cases of repair_22_31_217 pass and repair_proof_revocation_counter_exports_and_verifies panics at line 1433 with counter above height must verify: Refused; the retained settlement tests never ran."
+assumption = "The refusal comes from the attempt change to the budget proof path, since the test and the recorded case are unchanged and verified on main."
+severity = "high"
+
+[finding.22.99.77.26]
+task = "22.99.77"
+file = "programs/crates/layerx-programs-ai-market"
+symbol = "layerx-programs-ai-market"
+observed = "Attempt 24 at 7e4373f372a9: build exit 1 three times: the producer gate of 22.31.478 measured the merged guest at 581212 bytes, then 550520 bytes after two cycles of size work, against the 524184 byte bound; the second cycle also left two compile errors in the library; verification never ran."
+assumption = "The attempt tree duplicates code the main tree provides; the main guest leaves 16 KB of headroom."
+severity = "high"
+
+[finding.22.39.54.4]
+task = "22.39.54"
+file = "tests/ci/test_tools_ci_suite_passes.py"
+symbol = "test_tools_ci_suite_passes.py"
+observed = "Attempt 4 at 15fc2db91b06: build exit 0; verification exit 1: 110 passed, 1 deselected, and tools/ci/tests/test_bridge_workflow_app.py fails because bridge-test.yml installs pnpm@12.15.0 while apps/bridge declares pnpm@10.34.9."
+assumption = "The one failure is the workflow pin that 22.39.106 left behind, outside this task and carried by 22.39.139."
+severity = "high"
+
+[finding.22.39.136.1]
+task = "22.39.136"
+file = "services/platform/middleware/conformance/pay6/test_http.py"
+symbol = "test_http.py"
+observed = "Attempt 2 at 2b9ed9cc02fa: build exit 0; verification exit 1: 13 pay6 cases pass and 8 fail before any Python assertion because the TypeScript peer exits with ERR_MODULE_NOT_FOUND for @noble/hashes; attempt 1 at 2b5e3f351d63 failed the same way."
+assumption = "The peers need their dependencies installed by the build step; the task code was never exercised by the eight cases."
+severity = "high"
+
+[finding.22.33.50.5]
+task = "22.33.50"
+file = "services/human/crates/layerx-human-service/tests/repair_22_33_50.rs"
+symbol = "repair_22_33_50.rs"
+observed = "Attempt 6 at 68eb25c760dc: build exit 0; verification exit 101: 1 passed, 2 failed, both panicking in the checked helper at line 70 with ReceiptStoreError::UnauthenticatedIngress raised by AuthenticatedTransactionReceipt::from_authenticated."
+assumption = "The recording claims commitment without presenting the committed header the producer has required since 22.33.1513; the test, not the daemon, is what changes."
+severity = "high"
+
+[finding.22.39.68.3]
+task = "22.39.68"
+file = "tests/ci/test_key_material_only_in_fixtures.py"
+symbol = "test_key_material_only_in_fixtures.py"
+observed = "Attempt 3 at 092fca9bb7f0: build exit 0; verification exit 101: the key-material test and the hosted internal crate passed, the ramp toolkit crate failed 4 of 11 cases, all in tests/contracts.rs and none touched by the attempt (three protected-input panics at line 461, one stale address assertion at line 225)."
+assumption = "All four failures predate the attempt; three are producer-qualified and one is the repair 22.39.140 carries."
+severity = "high"
+
+[finding.22.39.118.7]
+task = "22.39.118"
+file = "tools/platform/cli::rpc::tests::positional_requests_match_published_contract"
+symbol = "cli::rpc::tests::positional_requests_match_published_contract"
+observed = "Attempt 7 at 323c07506d2a: build exit 0; verification exit 2: the 94 library tests passed and make platform-test-tooling failed at program_call_submits_raw_transaction (program_evm_calls.rs line 261), which asserts an error for a closed capture peer where the CLI returns the unknown rung."
+assumption = "The one failure is a stale consumer assertion red at main since 22.33.1493, outside this task and carried by 22.39.141."
+severity = "high"
+
+[finding.22.38.6.1]
+task = "22.38.6"
+file = "programs/crates/layerx-programs-ai-market/tests/f11_payout_split.rs"
+symbol = "f11_payout_split.rs"
+observed = "Attempt 1 at e8614e7d1265: the build gate failed three times on the guest size, 533903 bytes at the first build and 534099 bytes after the second repair cycle against the bound 524184; the verification never ran."
+assumption = "The base tree is already above the qualification bound of the size record, so the reduction task of the programs owner lands first and the additions of this task are trimmed as well."
+severity = "high"

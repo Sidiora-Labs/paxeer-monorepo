@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.7
 
-FROM node:22-alpine AS sdk
+FROM node:22.22.0-alpine3.22@sha256:7aa86fa052f6e4b101557ccb56717cb4311be1334381f526fe013418fe157384 AS sdk
 WORKDIR /src/services/wallet
 ENV NEXT_TELEMETRY_DISABLED=1 \
     COREPACK_ENABLE_DOWNLOAD_PROMPT=0
@@ -13,7 +13,7 @@ COPY sdk/wallet /src/sdk/wallet
 RUN pnpm install --frozen-lockfile --filter ../../sdk/wallet... \
     && pnpm --filter ../../sdk/wallet... run build
 
-FROM node:22-alpine AS builder
+FROM node:22.22.0-alpine3.22@sha256:7aa86fa052f6e4b101557ccb56717cb4311be1334381f526fe013418fe157384 AS builder
 WORKDIR /src/apps/wallet
 ENV NEXT_TELEMETRY_DISABLED=1 \
     COREPACK_ENABLE_DOWNLOAD_PROMPT=0
@@ -90,7 +90,7 @@ ENV NEXT_PUBLIC_PAXEER_WALLET_API=$NEXT_PUBLIC_PAXEER_WALLET_API \
 
 RUN npm run build
 
-FROM node:22-alpine AS runner
+FROM node:22.22.0-alpine3.22@sha256:7aa86fa052f6e4b101557ccb56717cb4311be1334381f526fe013418fe157384 AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production \
