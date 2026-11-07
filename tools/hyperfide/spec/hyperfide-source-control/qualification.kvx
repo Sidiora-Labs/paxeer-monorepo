@@ -768,3 +768,75 @@ command = "cd tools/hyperfide && corepack enable && python3 tests/hyperfide/case
 exit_code = "BY_REFERENCE: private /out/run/gates.jsonl final verify.exit; receipt build/source-control/2.2/receipt.json#/exit_code; only zero qualifies."
 receipt_digest = "BY_REFERENCE: build/source-control/2.2/receipt.sha256, SHA-256 of receipt.json including installed-entry and incomplete dependency-closure receipts."
 log = "BY_REFERENCE: private /out/run/gates.jsonl final build.log and verify.log; owned PostgreSQL and HTTP API with the existing SigV4 component backend, with no live-provider claim."
+
+[qualification.layout_receipt_22_37_2]
+task = "22.37.2; carried source-control task 0.9"
+build_command = "cd tools/hyperfide && corepack enable && python3 -m py_compile tests/hyperfide/cases/source_control/0_9.py tests/hyperfide/cases/source_control/0_10.py"
+command = "cd tools/hyperfide && corepack enable && python3 tests/hyperfide/cases/source_control/layout_receipt_gate_test.py && python3 tests/hyperfide/cases/source_control/0_9.py"
+evidence = "/out/run/gates.jsonl; exact revision, command, exit and private log are retained in the matching hf-build and hf-done rows; import recapture: build/layout/0.3/import-recapture.json; layout receipt: build/layout/0.9/receipt.json"
+status = "BY_REFERENCE; qualification requires passing hf-build and hf-done at the same candidate revision; no runtime or historical qualification is inferred from fixtures or unavailable upstream history"
+
+[finding.layout_receipt_initial_recapture_22_37_2]
+revision = "b0c2c776d6da2d3c7692b27a0876b6d55460be29"
+command = "cg spec done 22.37.2 -f layerx-merge --root /work/paxeer-monorepo"
+exit_code = 1
+log = "/out/logs/verify-1.log; tools/hyperfide/build/layout/0.3/import-recapture.log"
+observed = "Eleven fixtures passed; imported baseline recapture ran Git archive from the project prefix and exported no driver, while the unchanged final-revision-clean assertion also reported a dirty worktree."
+assumption = "The task-scoped repair archives from the host root and retains every capture result; the runner must supply a clean candidate and the original historical evidence for full layout qualification."
+
+[qualification.layout_receipt_vendored_capture_22_37_2]
+task = "22.37.2; carried source-control task 0.9; decision 2769"
+build_command = "cd tools/hyperfide && corepack enable && python3 -m py_compile tests/hyperfide/cases/source_control/0_9.py tests/hyperfide/cases/source_control/0_10.py"
+command = "cg spec done 22.37.2 -f layerx-merge --root /work/paxeer-monorepo"
+evidence = "/out/run/gates.jsonl records exact candidate revision, build/verify commands, exit codes and private logs; build/layout/0.3/import-recapture.json binds the exported inventory; build/layout/0.9/receipt.json and the verify log retain every missing_evidence kind"
+status = "BY_REFERENCE; only passing build and verify rows at the same candidate qualify; frozen inventory capture records HISTORICAL_FILE_MISSING at build/layout/0.3-preserved-original/manifest.json as UNAVAILABLE, not historical runtime verification"
+
+[finding.layout_receipt_vendored_missing_evidence_22_37_2]
+revision = "40209feea3d5a6f224806f92e56cfae28f9ba079"
+command = "cg spec done 22.37.2 -f layerx-merge --root /work/paxeer-monorepo"
+exit_code = 1
+log = "/out/logs/verify-1.log; matching build: /out/logs/build-1.log; ledger: /out/run/gates.jsonl"
+observed = "Task 22.37.2/source task 0.9: build and twelve fixtures passed; vendored baseline accepted; aggregation BLOCKED with zero regressions and missing_evidence kinds aggregation-input (1), follow-on-authorization (29), task-runtime-receipt (5), retained in build/layout/0.9/receipt.json."
+assumption = "The missing aggregation input, explicit follow-on approvals and qualifying task 0.4-0.8 runtime receipts require their owning evidence; decision 2769 requires recording these kinds and stopping without claiming spec completion."
+
+[qualification.layout_receipt_pending_aggregation_22_37_2]
+revision = "BY_REFERENCE: final matching build.revision and verify.revision in private /out/run/gates.jsonl for task 22.37.2, carried source-control task 0.9."
+command = "BY_REFERENCE: build.command and verify.command in /out/run/gates.jsonl; verify runs cg spec done 22.37.2 -f layerx-merge --root /work/paxeer-monorepo with layout_receipt_gate_test.py followed by layout_pending_aggregation_check.py."
+exit_code = "BY_REFERENCE: final build.exit and verify.exit in /out/run/gates.jsonl; both must be zero at the same candidate revision to qualify."
+log = "BY_REFERENCE: final build.log and verify.log in private /out/run/gates.jsonl; aggregation details remain in tools/hyperfide/build/layout/0.9/receipt.json."
+observed = "Decision 2778: tracked aggregation input pins the vendored import and authorizes the landed subtree ancestry; pending aggregation accepts only passing checks, zero regressions and missing task-runtime-receipt evidence for 0.4 through 0.8; driver execution belongs to the follow-on task."
+
+[finding.layout_receipt_candidate_authorization_22_37_2]
+revision = "b21aaa6d2639cb7682893ead355f9535c0566e56"
+command = "cg spec done 22.37.2 -f layerx-merge --root /work/paxeer-monorepo"
+exit_code = 1
+log = "/out/logs/verify-1.log; matching build /out/logs/build-1.log; final bounded repair evidence by reference in /out/run/gates.jsonl"
+observed = "Build and fifteen fixtures passed; aggregation recorded zero regressions, the five pending driver receipts, one unauthorized runner-created candidate commit and the previously recorded source.final-revision-clean failure; a tracked full-commit allowlist cannot contain the hash of its own future commit."
+
+[qualification.layout_receipt_self_authorization_22_37_2]
+revision = "BY_REFERENCE: final matching build.revision and verify.revision in private /out/run/gates.jsonl for task 22.37.2, carried source-control task 0.9."
+command = "BY_REFERENCE: final build.command and verify.command in /out/run/gates.jsonl; hf-done runs cg spec done 22.37.2 -f layerx-merge --root /work/paxeer-monorepo with layout_receipt_gate_test.py and layout_pending_aggregation_check.py."
+exit_code = "BY_REFERENCE: final build.exit and verify.exit in /out/run/gates.jsonl; both must be zero at the same candidate revision to qualify."
+log = "BY_REFERENCE: final build.log and verify.log in private /out/run/gates.jsonl; tools/hyperfide/build/layout/0.9/receipt.json retains self_authorized_revision, the aggregation input SHA-256 and every missing evidence kind."
+observed = "Decision 2785: only the last commit changing the tracked aggregation input is self-authorized; every other unlisted subtree revision remains missing evidence and outside-ancestry authorizations remain regressions; two added real Git fixtures exercise both boundaries."
+
+[qualification.layout_receipt_tracked_cleanliness_22_37_2]
+revision = "BY_REFERENCE: final matching build.revision and verify.revision in private /out/run/gates.jsonl for task 22.37.2, carried source-control task 0.9."
+command = "BY_REFERENCE: final build.command and verify.command in /out/run/gates.jsonl; hf-done runs cg spec done 22.37.2 -f layerx-merge --root /work/paxeer-monorepo with layout_receipt_gate_test.py and layout_pending_aggregation_check.py."
+exit_code = "BY_REFERENCE: final build.exit and verify.exit in /out/run/gates.jsonl; only zero for both at the same candidate revision qualifies."
+log = "BY_REFERENCE: final build.log and verify.log in private /out/run/gates.jsonl; tools/hyperfide/build/layout/0.9/receipt.json records all check statuses, untracked paths and their count, regressions and missing evidence kinds."
+observed = "Decision 2789: source.final-revision-clean checks tracked changes only; two real Git fixtures cover untracked output and staged or unstaged tracked edits. Follow-on authorizations are regenerated from the landed subtree ancestry; only pending task-runtime-receipt evidence for 0.4 through 0.8 is accepted."
+
+[finding.layout_receipt_runner_tracked_bookkeeping_22_37_2]
+revision = "279f4adf5f44080885a7fdbc50c39fab613e3789"
+command = "cg spec done 22.37.2 -f layerx-merge --root /work/paxeer-monorepo"
+exit_code = 1
+log = "/out/logs/verify-1.log; matching build exit 0: /out/logs/build-1.log; private ledger: /out/run/gates.jsonl"
+observed = "Build and all nineteen fixtures passed; aggregation has zero regressions and only five pending driver receipts, but source.final-revision-clean correctly fails on pre-existing runner modifications to .cgignore and spec/layerx-merge/spec.kvx, both outside scope; no untracked paths were reported. The external bookkeeping failure is recorded without changing protected files, weakening the check or rerunning an unchanged failure."
+
+[qualification.layout_receipt_root_cleanliness_22_37_2]
+revision = "BY_REFERENCE: final matching build.revision and verify.revision in private /out/run/gates.jsonl for task 22.37.2, carried source-control task 0.9."
+command = "BY_REFERENCE: final build.command and verify.command in /out/run/gates.jsonl; hf-build compiles 0_9.py and 0_10.py, then hf-done runs cg spec done 22.37.2 -f layerx-merge --root /work/paxeer-monorepo with layout_receipt_gate_test.py and layout_pending_aggregation_check.py."
+exit_code = "BY_REFERENCE: final build.exit and verify.exit in /out/run/gates.jsonl; only zero for both at the same candidate revision qualifies."
+log = "BY_REFERENCE: final build.log and verify.log in private /out/run/gates.jsonl; tools/hyperfide/build/layout/0.9/receipt.json retains scoped worktree digest, outside_root_paths and count, untracked paths, check results and all missing evidence kinds."
+observed = "Decision 2793: tracked cleanliness uses git status --porcelain=v1 -z --untracked-files=no -- . from the layout root; external tracked changes are reported without failing the candidate, while tracked changes inside the root fail. Twenty-one real receipt/Git fixtures include both boundaries; authorizations cover the landed subtree ancestry, and only the five pending task-runtime-receipt drivers 0.4 through 0.8 are permitted."
