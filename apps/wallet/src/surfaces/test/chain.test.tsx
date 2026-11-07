@@ -4,6 +4,7 @@ import { webcrypto } from 'node:crypto';
 import { ethers } from 'ethers';
 import { bytesToHex, hexToBytes } from 'viem';
 import { verifySequencerReceipt } from '@sidiora/layerx-sdk/browser';
+import * as layerxSdk from '@sidiora/layerx-sdk';
 import {
   authenticateSequencerReceipt,
   decodeSequencerReceipt,
@@ -252,3 +253,13 @@ test(
   surface_chain_refuses_unrecorded_calls_and_invented_logs.name,
   surface_chain_refuses_unrecorded_calls_and_invented_logs
 );
+
+function surface_sdk_uses_the_browser_entry_without_sqlite() {
+  expect(layerxSdk.verifySequencerReceipt).toBe(verifySequencerReceipt);
+  expect(layerxSdk).not.toHaveProperty('PreparedGrantDraws');
+  expect(layerxSdk.bridgeOutCall(1n, ethers.ZeroAddress, 1n, ethers.ZeroAddress).to).toBe(
+    layerxSdk.LAYERX_BRIDGE_PRECOMPILE
+  );
+}
+
+test(surface_sdk_uses_the_browser_entry_without_sqlite);

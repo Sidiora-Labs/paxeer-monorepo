@@ -91,7 +91,7 @@ WebRTC relays use kind `offer` with payload `{ to, relay }`; the host supplies
 the admitted sender as `{ from, to, relay }` when forwarding. `relay` contains
 either `description: { type, sdp }` (offer/answer) or
 `candidate: { candidate, sdpMid, ... }`. The host must authenticate the sender
-and forward only to the named admitted peer. Task 22.38.16's host listener is
+and forward only to the named admitted peer. The planned host listener is
 not present in this checkout; these envelopes define the peer side of that
 integration. The declared transport tests use a loopback WebSocket stand-in,
 without qualifying chain admission or live host interoperability.
