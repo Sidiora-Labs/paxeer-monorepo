@@ -167,7 +167,7 @@ fn projected_journey_names_rung_vocabulary() {
     for (rung, expected) in [
         (Rung::Submitted, "unverified"),
         (Rung::Receipted, "receipt-verified"),
-        (Rung::Committed, "checkpoint-finalised"),
+        (Rung::Committed, "committed"),
     ] {
         assert_eq!(
             HumanComponentServer::verification_level_name(rung),
@@ -186,7 +186,7 @@ fn projection_never_emits_settlement_anchored() {
         .expect("activity scope");
     for (index, rung, expected) in [
         (1, Rung::Receipted, "receipt-verified"),
-        (2, Rung::Committed, "checkpoint-finalised"),
+        (2, Rung::Committed, "committed"),
     ] {
         let entry_id = ActivityEntryId::new(format!("act_projection{index}")).expect("entry id");
         let activity = AgentActivity::new(
@@ -249,7 +249,7 @@ fn authenticated_routes_preserve_reopened_producer_rungs() {
     for (rung, expected) in [
         (Rung::Submitted, "unverified"),
         (Rung::Receipted, "receipt-verified"),
-        (Rung::Committed, "checkpoint-finalised"),
+        (Rung::Committed, "committed"),
     ] {
         let mut fixture = recorded_bank::StoreFixture::new("p44");
         fixture.submitted();

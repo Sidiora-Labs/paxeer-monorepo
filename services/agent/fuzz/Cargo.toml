@@ -1,4 +1,6 @@
 [package]
+license = "Apache-2.0"
+authors = ["Sidiora Labs"]
 name = "layerx-agent-fuzz"
 version = "0.0.0"
 edition = "2021"

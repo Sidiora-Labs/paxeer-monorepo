@@ -35,6 +35,7 @@
     "test:pw:ci": "yarn test:pw --project=$PW_PROJECT",
     "test:pw:detect-affected": "node ./deploy/tools/affected-tests/index.js",
     "test:vitest": "vitest",
+    "test:vitest:ci": "vitest run",
     "test:telemetry": "vitest run instrumentation.node.spec.ts repair-22-33-423.spec.ts",
     "test:archive-receipts": "vitest run types/api/repair-22-33-517.spec.ts",
     "favicon:generate:dev": "./tools/scripts/favicon-generator.dev.sh",

@@ -1,3 +1,4 @@
+# Generated through services/explorer/swagger.yaml; stored here for frontend container packaging.
 openapi: 3.0.3
 info:
   title: Paxeer Explorer API

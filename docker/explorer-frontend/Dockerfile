@@ -1,7 +1,7 @@
 # *****************************
 # *** STAGE 1: Dependencies ***
 # *****************************
-FROM node:22.14.0-alpine AS deps
+FROM node:22.22.0-alpine3.22@sha256:7aa86fa052f6e4b101557ccb56717cb4311be1334381f526fe013418fe157384 AS deps
 # Check https://github.com/nodejs/docker-node/tree/b4117f9333da4138b03a546ec926ef50a31506c3#nodealpine to understand why libc6-compat might be needed.
 RUN apk add --no-cache libc6-compat python3 make g++
 RUN ln -sf /usr/bin/python3 /usr/bin/python
@@ -67,7 +67,7 @@ RUN yarn --frozen-lockfile --network-timeout 100000
 # *****************************
 # ****** STAGE 2: Build *******
 # *****************************
-FROM node:22.14.0-alpine AS builder
+FROM node:22.22.0-alpine3.22@sha256:7aa86fa052f6e4b101557ccb56717cb4311be1334381f526fe013418fe157384 AS builder
 RUN apk add --no-cache --upgrade libc6-compat bash jq
 
 # pass build args to env variables
@@ -85,6 +85,7 @@ ENV NODE_ENV=production
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY apps/explorer .
+# Keep this external build input in Dockerfile.dockerignore's allowlist.
 COPY docs/explorer/ENVS.md ./docs/explorer/ENVS.md
 
 # Build SVG sprite and generate .env.registry with ENVs list and save build args into .env file
@@ -145,7 +146,7 @@ RUN cd ./deploy/tools/llms-txt-generator && yarn build
 # ******* STAGE 3: Run ********
 # *****************************
 # Production image, copy all the files and run next
-FROM node:22.14.0-alpine AS runner
+FROM node:22.22.0-alpine3.22@sha256:7aa86fa052f6e4b101557ccb56717cb4311be1334381f526fe013418fe157384 AS runner
 RUN apk add --no-cache --upgrade bash curl jq unzip
 
 ### APP

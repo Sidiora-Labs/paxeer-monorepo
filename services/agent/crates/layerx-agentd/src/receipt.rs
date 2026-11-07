@@ -696,7 +696,7 @@ pub(crate) fn persist_authenticated_receipt(
         idempotency_key,
         global_sequence: receipt.global_sequence(),
         verification_level: if receipt.rung() == Rung::Committed {
-            VerificationLevel::CHECKPOINT_FINALISED
+            VerificationLevel::COMMITTED
         } else {
             VerificationLevel::SEQUENCER_SIGNED
         },
@@ -919,8 +919,7 @@ fn decode_metadata(bytes: &[u8]) -> Result<ReceiptMetadata, ReceiptStoreError> {
         1 => VerificationLevel::SEQUENCER_SIGNED,
         2 => VerificationLevel::BATCH_INCLUDED,
         3 => VerificationLevel::STATE_PROVEN,
-        4 => VerificationLevel::CHECKPOINT_FINALISED,
-        5 => VerificationLevel::SETTLEMENT_ANCHORED,
+        4 | 5 | 6 => VerificationLevel::COMMITTED,
         _ => return Err(ReceiptStoreError::Corrupt),
     };
     let mut result = [0_u8; 4];

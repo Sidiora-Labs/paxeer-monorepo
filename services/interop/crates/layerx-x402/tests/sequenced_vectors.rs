@@ -529,6 +529,14 @@ fn committed_proof(case: &Value) -> CommittedProof {
 fn committed_case() -> Value {
     let fixture: Value =
         serde_json::from_str(COMMITTED_RECEIPTS).expect("committed fixture decodes");
+    let recording: Value = serde_json::from_str(include_str!(
+        "../../../../../daemon/committed-fixture/vectors/vector-v4-committed.json"
+    ))
+    .expect("source recording decodes");
+    assert_eq!(
+        fixture["cases"][0]["signedReceipt"],
+        recording["positive"]["receipt"]
+    );
     fixture["cases"]
         .as_array()
         .expect("committed fixture cases")

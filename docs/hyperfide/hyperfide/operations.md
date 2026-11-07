@@ -179,7 +179,7 @@ $ node core/control-plane/dist/control.js --policy /nonexistent --spec-revision 
 
 Authenticated startup, refusal of a request that claims its own approval, refusal of a request for another run and service restart are exercised against PostgreSQL by tests/hyperfide/cases/tasks/28_1.py; the recorded outcome is artifacts/hyperfide/tasks/28.1/evidence-index.json (local, force-added evidence; not a full-case receipt).
 
-An installed release launches its own runtimes directly: runtime/node, bin/hyperfide, bin/hyperfide-native and runtime/python/bin/python3 (a wrapper over python3.bin) run under the host dynamic loader /lib64/ld-linux-x86-64.so.2 with the host glibc, and take every other native library from the release (bin/hyperfide and bin/hyperfide-native through RUNPATH $ORIGIN/../lib/hyperfide, the service units and the migration job through LD_LIBRARY_PATH=<release>/lib/hyperfide, Python through runtime/python/lib). glibc itself is never bundled, so a host needs a glibc no older than the one on the release build host; scripts/release.sh refuses to construct a release that stages a glibc member or whose node does not run both plainly and under the bundled library path.
+An installed release launches its own runtimes directly: runtime/node, bin/hyperfide, bin/hyperfide-native and runtime/python/bin/python3 (a wrapper over python3.bin) run under the host dynamic loader /lib64/ld-linux-x86-64.so.2 with the host glibc, and take every other native library from the release (bin/hyperfide and bin/hyperfide-native through RUNPATH $ORIGIN/../lib/hyperfide, the service units and the migration job through LD_LIBRARY_PATH=<release>/lib/hyperfide, Python through runtime/python/lib). glibc itself is never bundled, so a host needs a glibc no older than the one on the release build host; tools/repository/release.sh refuses to construct a release that stages a glibc member or whose node does not run both plainly and under the bundled library path.
 
 ## Host bootstrap
 
@@ -250,7 +250,7 @@ The local-first CLI is the hyperfide executable. cg is a deprecated compatibilit
 | hyperfide fleet up\|down [--drain] [--wait SECONDS]\|pause\|resume\|runs\|status | Local run supervision; fleet down releases claims and keeps branches.                                             |
 | hyperfide journal list\|apply\|drop                                              | Writes queued while the local database was busy.                                                                  |
 
-The configuration file is hyperfide.kvx (src/config.c); a tree that has only the legacy codify.kvx keeps reading it, and a tree with both is refused unless .hyperfide/names.json records a completed names migration. The 26.3 component migrates codify.kvx to hyperfide.kvx with a backup (docs/config.md). The installer (scripts/install.sh) is not advertised as a Hyperfide release until tasks 25.4 and 26.2 close.
+The configuration file is hyperfide.kvx (core/native/src/config.c); a tree that has only the legacy codify.kvx keeps reading it, and a tree with both is refused unless .hyperfide/names.json records a completed names migration. The 26.3 component migrates codify.kvx to hyperfide.kvx with a backup (docs/config.md). The installer (tools/repository/install.sh) is not advertised as a Hyperfide release until tasks 25.4 and 26.2 close.
 
 ## PostgreSQL and migrations
 
@@ -442,7 +442,7 @@ Reading needs only s3:GetObject on the evidence prefix. Publishing runs in the c
 
 Publishing from the host. One command publishes every local task directory: `python3 tests/hyperfide/publish-evidence.py --all`. For a single task run `qualify.py --publish <id>`, or give publish-evidence.py `--task <id>` (repeatable); publish-evidence.py `--dry-run` prints the plan without publishing. For each task the command bundles the directory and calls the compiled publishEvidenceBundle (core/control-plane/dist/artifacts/objects.js, so build first). The store calls (artifact.object.put, artifact.manifest.commit, artifact.manifest.read) go to component 15.2 of the control service through `hyperfide authority invoke`. The command then reads the receipted bundle back from the store with signed GETs. Only after that does it write tests/hyperfide/evidence-receipts/<id>.json, which you commit. The record also carries the bundle's evidence-index commits (`evidence_commits`), and resolution refuses a record whose commits differ from the bundle. A task whose tracked receipt already names the current bundle is reported CURRENT and skipped unless you pass `--force`. Required variables: the five HF_ARTIFACT_S3_* read variables above, HF_ARTIFACT_ORGANISATION_ID, and HYPERFIDE_TRANSPORT_CONFIG. The transport configuration must be an operator credential whose run is in the control service's HF_ARTIFACT_ALLOWED_RUN_IDS. If the configuration has no run_id, set HF_EVIDENCE_RUN_ID. When any of these is missing, the command refuses with exit 2, lists every missing name and states what it would publish. It never skips silently.
 
-Release marker. scripts/release.sh takes the 26.4 unit receipt from the first of these that exists:
+Release marker. tools/repository/release.sh takes the 26.4 unit receipt from the first of these that exists:
 
 1. HYPERFIDE_RELEASE_UNIT_RECEIPT.
 2. The local artifacts/hyperfide/tasks/26.4 cache, verified against its receipt when one is tracked.
@@ -558,14 +558,14 @@ reports extracted symbols and therefore has a lower symbol count.
 
 The post-0.7 rerun used the real merged modules and passed
 `tests/hyperfide/cases/v22/1_6.sh` on 2026-10-23. It indexed 767 files and
-9,993 symbols under `platform/apps/server/`. An audit of task 1.6's changes
+9,993 symbols under `core/server/`. An audit of task 1.6's changes
 found no stand-ins, projection modules, copied identity gates or SDK accessor
 call sites requiring replacement.
 
 The fixed snapshot preserves the initial r2 source inventory and ignore rules
 for comparison; the qualification copy additionally excludes its pnpm lockfile.
 The three earlier completed runs include 765 files and 9,988 symbols under
-`platform/apps/server/` and finish below the 2,700-second limit. The paired
+`core/server/` and finish below the 2,700-second limit. The paired
 nested measurement includes SQL profiling overhead. Init with `--nested` uses
 the same indexing pipeline as plain init; it changes project-root selection.
 
@@ -684,3 +684,39 @@ The [source guide](source-control.md#profile-qualification) records the current 
 The 7.1 driver executes documented source commands from both guides through the extracted binaries, checks source/evidence pins, validates recovery declarations and compares the carried specification, registry and claims inventories. It retains command logs, the package and release manifests, source input digest and component receipt under the private `tools/hyperfide/build/source-control/7.1/` evidence directory. The task’s bounded gate record supplies the verified candidate revision, command, exit status and private log reference. Keep those records with the exact package; requalify changed inputs instead of citing an older receipt.
 
 The package’s `source-release-manifest.json` describes pinned dependencies and the `git-source-pre-native-0736-v1` schema upgrade boundary. Deployment migration, full-case closure and explicit operator release acceptance have separate evidence requirements. Recovery profiles must cover metadata acknowledgment, object placements, backup retention, external journal identity and RPO/RTO objectives. Schema validity does not measure those objectives or authorize restoring an older authority epoch.
+
+## Running source release and restore drill
+
+Task 7.2 separates the bounded `7_2.py --self-test` gate from deployment qualification. The bounded gate exercises release-input checks, stale custody and missing evidence classes; all product case variants remain UNRUN in its closure report. Its build and verification references are recorded in the task record against the same candidate revision and the private gate ledger.
+
+Copy the [version-2 release manifest template](../../../tools/hyperfide/tests/hyperfide/source-control/manifests/release.json) into private release storage. Replace every sentinel identity, path, size and digest with the actual 7.1 package, current closure packet, deployment profile and independently checked receipts. The checked-in template cannot close a release. Paths may be absolute or relative to the private manifest, without parent traversal. Keep profiles, credentials, database dumps, raw receipts and logs owner-only.
+
+Prepare an isolated copy of the qualified deployment with a database named `hf_release_` followed by lowercase letters, digits or underscores. The runtime profile must explicitly set `disposable_restore_drill: true` and pin its PostgreSQL database name and system identifier. The driver refuses other clients before starting the service, uses an ephemeral loopback listener, and never restores the external authority journal. This is an exact-current-snapshot drill; it does not authorize a production restore, an older recovery point, failover, fresh writer activation or reopening writes. Those retain the independently qualified recovery runbook and full SCM-018/019 obligations.
+
+The private runtime profile has these exact fields:
+
+| Field                                | Required value                                                                                                                                                                                                                                    |
+| ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `schema_version`                     | `1`                                                                                                                                                                                                                                               |
+| `disposable_restore_drill`           | Explicit `true` for the isolated copy                                                                                                                                                                                                             |
+| `database_name`, `system_identifier` | Independently recorded PostgreSQL identity                                                                                                                                                                                                        |
+| `environment`                        | Exact string environment for the packaged service, including `DATABASE_URL`, `HYPERFIDE_DEPLOYMENT_ID`, the external `HYPERFIDE_AUTHORITY_JOURNAL_DIR`, listener/publication configuration, storage credentials, cursor key and workspace budgets |
+| `source`                             | Same complete native scope, revision, root, authority epoch and policy as the release manifest                                                                                                                                                    |
+| `inputs`                             | `HF_SOURCE_CONTROL_CONFIG` and `HF_SOURCE_PUBLICATION_CONFIG`, each with an absolute `path`, `sha256` and `size` matching the environment                                                                                                         |
+| `recovery_profile`                   | Absolute content pin for the qualified recovery declaration                                                                                                                                                                                       |
+| `journey`                            | `scope`, private absolute `token_file`, `initial_assignment_id`, `replacement_assignment_id`, `prior_checkpoint_revision_id`, `custody_id`, `acceptance_id` and `edit_path` from the real SCM-023 journey                                         |
+| `publication`                        | `destination_id`, dedicated `target_ref`, fresh `operation_id` and absolute `remote_git_directory` for the independent receiver readback                                                                                                          |
+
+The listener must use `127.0.0.1` or `::1` with port `0`. The receiver must already enable `core.logAllRefUpdates` (`true` or `always`), and its dedicated ref must differ from the candidate's published commit. Use the configured local Git receiver in this isolated drill; the separate GitHub evidence class still requires an actual GitHub campaign. Rotate the private bearer-token file as necessary without changing the release's source identity. The token needs the source/fleet/acceptance reads, workspace/object/tree/checkpoint operations, query diff, backup create/verify and publication create/read/resume permissions exercised by the driver. A taskless workspace credential does not replace fleet custody.
+
+From `tools/hyperfide`, run the deployment phase before requesting operator acceptance:
+
+```sh release
+python3 tests/hyperfide/cases/source_control/7_2.py --run-system --manifest /private/hyperfide/release/release.json
+```
+
+The driver verifies and extracts the 7.1 archive, uses its `bin/source-control`, Node, SDK and host modules, and revalidates assignment/replacement lineage, current retained custody, qualification and exact accepted source. It makes a real sparse edit and durable checkpoint and verifies the exact diff. It creates and verifies a native backup using the declared object backend. Its publication probe queues a real publication, forwards the resume request, drops the actual response, and resumes the original operation twice. Independent receiver ref, reflog, Git integrity and file-content readbacks require exactly one update.
+
+The driver snapshots accepted revisions and all verified object metadata and bytes, stops the packaged service, dumps PostgreSQL with `pg_dump`, and restores that dump with `pg_restore --clean --if-exists --exit-on-error --single-transaction`. Source object catalog, placements, routing, retained metadata and accepted roots are restored together; immutable object bytes remain in the qualified backend. After restart, fresh backend reads, source API reads and independent Git readback must reproduce the pre-drill snapshot exactly. The service must stop cleanly. Keep the generated `running-<id>/receipt.json` and all referenced evidence under `build/source-control/7.2/`; a failure retains private logs and cannot produce a passing runtime receipt.
+
+Pin that receipt in `runtime.receipt`. Record explicit operator acceptance with the release/source/closure packet binding plus `runtime_receipt_sha256` and `runtime_profile_sha256`, then pin the acceptance file in the manifest. Run closure with `7_2.py --manifest /private/hyperfide/release/release.json`. Closure checks every canonical full-case receipt independently and rechecks current custody against the pinned deployment using a fresh extraction of the archive. A revoked or superseded custody, missing evidence class, stale source, changed artifact, incomplete cleanup or absent operator acceptance refuses closure. `closure-report.json` lists every required case variant and its outcome, with component, live backend, fleet, GitHub, consolidation, growth and recovery evidence listed separately.

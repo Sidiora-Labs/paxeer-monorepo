@@ -1,6 +1,8 @@
 package replay
 
 import (
+	"fmt"
+
 	servertypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/server/types"
 	"github.com/spf13/cast"
 )
@@ -14,7 +16,7 @@ type Config struct {
 
 var DefaultConfig = Config{
 	Enabled:             false,
-	EthRPC:              "http://44.234.105.54:18545",
+	EthRPC:              "",
 	EthDataDir:          "/root/.ethereum/chaindata",
 	ContractStateChecks: false,
 }
@@ -48,6 +50,9 @@ func ReadConfig(opts servertypes.AppOptions) (Config, error) {
 		if cfg.ContractStateChecks, err = cast.ToBoolE(v); err != nil {
 			return cfg, err
 		}
+	}
+	if cfg.Enabled && cfg.EthRPC == "" {
+		return cfg, fmt.Errorf("%s is required when %s is enabled", flagEthRPC, flagEnabled)
 	}
 	return cfg, nil
 }

@@ -11,7 +11,7 @@
 - `hyperfide-app` (including `pnpm start`), `hyperfide-server`, and `hyperfide-host-daemon` capture service stdout and stderr in `logs/server-stdio.log` and `logs/host-daemon-stdio.log` under the selected data directory. These append across restarts; a file over 10 MB is renamed to `<name>-stdio.1.log` (replacing the previous one) when its service starts. They hold early startup errors, crashes, and other output that bypasses the logger. Application log lines go only to the rotating `<component>.N.log` files, which keep the five newest per component; the logger skips its pretty console copy when stdout is a plain file, so `pnpm dev` terminals still show it. Service output is not forwarded to the launcher's terminal.
 - Entity IDs in URLs (`proj_*`, `thr_*`) are primary keys. Query them directly against the active data dir: `sqlite3 <data>/hyperfide platform.db "SELECT * FROM threads WHERE id = 'thr_xxx';"`.
 - API routes are under `/api/v1/`, for example `GET /api/v1/threads/:id`. Use `curl` against the server API to isolate frontend issues from server behavior.
-- Use the CLI to inspect state: `pnpm hyperfide platform thread show <id>`, `pnpm hyperfide platform project list`, `pnpm hyperfide platform status`. From source, use `pnpm hyperfide platform:dev`.
+- Use the CLI to inspect state: `pnpm hyperfide-platform thread show <id>`, `pnpm hyperfide-platform project list`, `pnpm hyperfide-platform status`. From source, use `pnpm hyperfide-platform:dev`.
 
 The desktop main process also writes rotating `logs/desktop.log` immediately,
 including updater and startup errors. View → Local Logs is available
@@ -348,12 +348,12 @@ Ctrl-C. For desktop-only changes, start
 `pnpm exec turbo run dev --filter=@hyperfide/desktop` in a second terminal.
 
 Use Node 24 and pnpm 9.15 from the repository toolchain. Run development
-commands from the repository root with `pnpm -C platform`. For remote browser
+commands from the monorepo root with `pnpm -C tools/hyperfide`. For remote browser
 QA, set `HYPERFIDE_APP_URL` to the app origin you operate before restarting the
 dev app. The host daemon accepts only configured browser origins for local
 editor access.
 
-For CLI QA, `pnpm hyperfide platform:dev` derives this checkout's server and daemon endpoints.
+For CLI QA, `pnpm hyperfide-platform:dev` derives this checkout's server and daemon endpoints.
 In the test shell, clear inherited endpoint and thread context overrides first
 so commands target the dev instance. Keep these changes inside that shell.
 
@@ -361,7 +361,7 @@ Test agents with:
 
 ```bash
 unset HYPERFIDE_SERVER_URL HYPERFIDE_HOST_DAEMON_PORT HYPERFIDE_THREAD_ID HYPERFIDE_ENVIRONMENT_ID HYPERFIDE_THREAD_STORAGE HYPERFIDE_PROJECT_ID HYPERFIDE_CLI HYPERFIDE_CLI_REEXEC
-pnpm hyperfide platform:dev thread spawn --project proj_personal --provider codex --permission-mode accept-edits --title "Smoke test" --prompt "Reply only with ok." --json
+pnpm hyperfide-platform:dev thread spawn --project proj_personal --provider codex --permission-mode accept-edits --title "Smoke test" --prompt "Reply only with ok." --json
 ```
 
 ## Record Provider Bridge Traffic
@@ -377,7 +377,7 @@ In a second terminal, run:
 
 ```bash
 unset HYPERFIDE_SERVER_URL HYPERFIDE_HOST_DAEMON_PORT HYPERFIDE_THREAD_ID HYPERFIDE_ENVIRONMENT_ID HYPERFIDE_THREAD_STORAGE HYPERFIDE_PROJECT_ID HYPERFIDE_CLI HYPERFIDE_CLI_REEXEC
-pnpm hyperfide platform:dev thread spawn --project proj_personal --provider codex --prompt "Run git status." --json
+pnpm hyperfide-platform:dev thread spawn --project proj_personal --provider codex --prompt "Run git status." --json
 ls ~/.hyperfide/provider-recordings/raw/codex/
 ```
 
@@ -385,7 +385,7 @@ The layout is `<dir>/<providerId>/<threadId>/<direction>.ndjson`, plus a
 `_process` scope for lines that belong to no thread. See
 [provider-bridge-protocol.md](provider-bridge-protocol.md), "Record mode",
 for the entry format. Raw recordings can contain secrets and absolute paths.
-Run `node scripts/provider-recordings/redact.mjs <raw-dir> <out-dir>` before
+Run `node tools/workspace/provider-recordings/redact.mjs <raw-dir> <out-dir>` before
 you share one, and never commit a raw recording.
 
 To compare two checkouts' bridges on the committed recordings, run
@@ -393,7 +393,7 @@ To compare two checkouts' bridges on the committed recordings, run
 Each leg replays every cell through its own bridge, assembler, and timeline
 projection; the run prints a PASS/FAIL line per cell with event and row
 counts and exits non-zero on any diff outside
-`packages/provider-bridge-protocol/recordings/parity-allowlist.json`.
+`core/provider-bridge-protocol/recordings/parity-allowlist.json`.
 
 ## Performance Fixture Database
 
@@ -447,7 +447,7 @@ in-repo harness and scripts.
   `listCorpusThreads({ provider?, reasons? })`, and `loadCorpusThread(id)`.
   Event rows decode through the same `parseStoredThreadEvent` the server uses.
 
-Gates under `apps/server/test/provider-corpus/`:
+Gates under `core/server/test/provider-corpus/`:
 
 - `row-snapshots.test.ts` loads each thread into in-memory SQLite and projects
   every timeline page the way `GET /threads/:id/timeline` does (default and
@@ -464,8 +464,8 @@ Gates under `apps/server/test/provider-corpus/`:
 Run them:
 
 ```bash
-scripts/provider-corpus/snapshot-rows.sh compare   # default mode, fails on diffs
-scripts/provider-corpus/snapshot-rows.sh write     # refresh the baseline
+tools/workspace/provider-corpus/snapshot-rows.sh compare   # default mode, fails on diffs
+tools/workspace/provider-corpus/snapshot-rows.sh write     # refresh the baseline
 ```
 
 The script wraps `pnpm exec turbo run test:provider-corpus --filter=@hyperfide/server`
@@ -502,7 +502,7 @@ covers nothing fails the run because it is stale.
 `snapshots/rows` is the baseline minted on `main` and shared by every
 workstream, so never run `write` against it from a feature branch. A PR that
 intentionally changes rows carries its own allowlist in the repository
-(`apps/server/test/provider-corpus/allowlists/<ws>.json`, same schema, merged
+(`core/server/test/provider-corpus/allowlists/<ws>.json`, same schema, merged
 after the shared file) and compares with
 `HYPERFIDE_PROVIDER_CORPUS_ALLOWLIST=<that file>`. A snapshot of the branch's own
 rows goes to a shadow directory: `HYPERFIDE_PROVIDER_CORPUS_SNAPSHOT_DIR=<dir>`
@@ -512,7 +512,7 @@ after such a PR merges and delete the allowlist file it carried.
 A pointer allowlist cannot describe a change that adds or removes rows: every
 later sibling shifts and the diff reports the whole turn. For such a change,
 carry a row-class file instead
-(`apps/server/test/provider-corpus/allowlists/<ws>-row-classes.json`) and set
+(`core/server/test/provider-corpus/allowlists/<ws>-row-classes.json`) and set
 `HYPERFIDE_PROVIDER_CORPUS_ROW_CLASSES=<that file>` on the compare run. The gate then
 matches rows by identity (`callId`, `itemId`, `interactionId`, turn id, or row
 id), buckets every change into the first class whose matcher fits, and fails
@@ -529,9 +529,9 @@ corpus, mint the branch's rows once into a shadow directory and classify the
 two directories offline:
 
 ```bash
-pnpm exec tsx scripts/provider-corpus/classify-row-diff.ts \
+pnpm exec tsx tools/workspace/provider-corpus/classify-row-diff.ts \
   ~/.hyperfide/provider-corpus/snapshots/rows ~/.hyperfide/provider-corpus/snapshots/rows.<ws> \
-  --classes apps/server/test/provider-corpus/allowlists/<ws>-row-classes.json --verbose
+  --classes core/server/test/provider-corpus/allowlists/<ws>-row-classes.json --verbose
 ```
 
 Perf compare mode passes when each thread's normalized cost (minimum build time
@@ -570,10 +570,10 @@ browser profile.
 
 ## Provider-literal ratchet (G1)
 
-`node scripts/check-provider-literal-ratchet.mjs` counts provider-id literals
+`node tools/workspace/check-provider-literal-ratchet.mjs` counts provider-id literals
 (`"codex"`, `"claude-code"`, `"acp-…"`, `providerId === "…"`, `isAcpProviderId`, …)
 in core (everything outside `plugins/provider-*` and `examples/`) and compares a
-per-file count against `scripts/provider-literal-baseline.json`. The count may
+per-file count against `tools/workspace/provider-literal-baseline.json`. The count may
 only go down, so adding a provider-id branch to core fails CI. After removing
 literals, regenerate the baseline with `--write` and commit it. `--list` prints
 every hit. When the baseline reaches zero, delete it and the guard. See
@@ -656,7 +656,7 @@ directory and ports.
 
 Cache hits restore cached files but can leave extra files from an earlier
 build. Built source servers load bundled plugins from
-`packages/bundled-plugins/dist`; see
+`tools/bundled-plugins/dist`; see
 [official-plugin-release-process.md](official-plugin-release-process.md) for
 adding a bundled plugin. The launcher sets `HYPERFIDE_BUILD_TOOLCHAIN` (Node, OS, and
 architecture) to partition Turbo cache entries; do not set it yourself.

@@ -7,9 +7,12 @@ not cover every capability of the network.
 
 ## Provenance
 
-This package was taken from [Paxeer-Network/pax-js](https://github.com/Paxeer-Network/pax-js)
-at upstream tag `v1.0.6-pax.1`. It is now a first-party package, and its `dist`
-files are edited and maintained in this repository.
+This package was taken from `Paxeer-Network/pax-js` at upstream tag
+`v1.0.6-pax.1`. Its current home and repository are
+[Sidiora-Labs/paxeer-monorepo](https://github.com/Sidiora-Labs/paxeer-monorepo/tree/main/sdk/js).
+The [package manifest](./package.json) declares its distribution exports; this
+checkout does not contain the `dist` artifacts or a `src` build tree. The local
+references below describe the package contract without linking to absent files.
 
 ## Network and connection configuration
 
@@ -140,8 +143,8 @@ function mintDenom(sender: string, createdDenom: string, amount: string): MsgMin
 ```
 
 `MsgCreateDenom` also accepts an optional `allow_list` with an `addresses`
-array. See the [TokenFactory message types](./dist/types/types/tokenfactory/tx.d.ts)
-for the retained fields.
+array. See the [TokenFactory package contract](../../contracts/sdk-js.md#encoding-tokenfactory)
+for the retained message families.
 
 ## `@pax-js/cosmos/encoding`
 
@@ -312,7 +315,8 @@ Install the locked dependencies from the repository root:
 npm --prefix sdk/js ci
 ```
 
-Edit the checked-in `dist` files directly and run the package tests:
+The package tests require the distribution artifacts selected by the manifest.
+Once those artifacts are available, run:
 
 ```sh
 npm --prefix sdk/js test
@@ -320,8 +324,8 @@ npm --prefix sdk/js test
 
 The tests exercise the package's exported CommonJS entries, declarations,
 codecs, registries and REST routes, and check its provenance. The package has
-no build script; its maintained runtime files and declarations live in
-`dist/cjs`, `dist/esm` and `dist/types`.
+no build script. Its manifest selects runtime files and declarations under
+`dist/cjs`, `dist/esm` and `dist/types`, which are absent from this checkout.
 
 The README example test compiles every TypeScript code block independently
 against this package's public subpaths with TypeScript's compiler API. It

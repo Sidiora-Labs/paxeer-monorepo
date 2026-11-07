@@ -1,9 +1,13 @@
 {
+  "author": "Sidiora Labs",
+  "license": "Apache-2.0",
   "name": "@sidiora/layerx-doc-paid-route-next",
   "version": "0.1.0",
   "private": true,
   "type": "module",
   "scripts": {
+    "predev": "npm --prefix ../../../../.. run build:dependencies -- @sidiora/layerx-doc-paid-route-next",
+    "dev": "next dev",
     "prebuild": "npm --prefix ../../../../.. run build:dependencies -- @sidiora/layerx-doc-paid-route-next",
     "build": "next build",
     "start": "next start"

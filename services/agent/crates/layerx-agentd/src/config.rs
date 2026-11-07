@@ -624,8 +624,9 @@ fn parse_verification_defaults(
             "sequencer-signed" => VerificationLevel::SEQUENCER_SIGNED,
             "batch-included" => VerificationLevel::BATCH_INCLUDED,
             "state-proven" => VerificationLevel::STATE_PROVEN,
-            "checkpoint-finalised" => VerificationLevel::CHECKPOINT_FINALISED,
-            "settlement-anchored" => VerificationLevel::SETTLEMENT_ANCHORED,
+            "committed" | "checkpoint-finalised" | "settlement-anchored" => {
+                VerificationLevel::COMMITTED
+            }
             _ => return Err(error(setting, RejectionReason::InvalidVerificationLevel)),
         };
         levels.insert(tenant, level);
@@ -745,6 +746,20 @@ mod program_budget_configuration_tests {
 
     fn must<T, E: std::fmt::Debug>(value: Result<T, E>) -> T {
         value.unwrap_or_else(|error| panic!("Program budget configuration: {error:?}"))
+    }
+
+    #[test]
+    fn committed_verification_default_accepts_current_and_legacy_names() {
+        let tenant = must(TenantId::new("committed-owner"));
+        let tenants = BTreeSet::from([tenant.clone()]);
+        for name in ["committed", "checkpoint-finalised", "settlement-anchored"] {
+            let levels = must(parse_verification_defaults(
+                &format!("committed-owner:{name}"),
+                &tenants,
+            ));
+            assert_eq!(levels[&tenant], VerificationLevel::COMMITTED);
+        }
+        assert!(parse_verification_defaults("committed-owner:unknown", &tenants).is_err());
     }
 
     #[test]

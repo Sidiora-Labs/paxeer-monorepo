@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ethers } from 'ethers';
 import { useWallet, useWalletActions } from '@/providers/WalletProvider';
 import type { SwapToken, SwapQuote, SwapParams } from '@/lib/swap';
+import { swapJournalStorage } from '@/platform/storage/swap-records';
 import {
   validateEvmAddress,
   validateSlippageBps,
@@ -68,7 +69,7 @@ export function useJournaledSwapExecution(context: SwapExecutionContext): UseSwa
     if (!account || !chainId) return;
     let execution: JournaledSwapExecution;
     try {
-      const journal = new SwapJournal(window.localStorage, account, chainId);
+      const journal = new SwapJournal(swapJournalStorage, account, chainId);
       const current = journal.current();
       execution = new JournaledSwapExecution(
         journal,

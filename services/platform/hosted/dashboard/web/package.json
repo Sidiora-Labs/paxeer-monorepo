@@ -1,9 +1,13 @@
 {
+  "author": "Sidiora Labs",
+  "license": "Apache-2.0",
   "name": "@layerx/developer-dashboard",
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "engines": { "node": ">=24.0.0" },
+  "engines": {
+    "node": ">=24.0.0"
+  },
   "scripts": {
     "build": "next build",
     "test:static": "node tests/ui-contract.mjs && node tests/evidence-decoding.mjs && tsc --noEmit",

@@ -67,7 +67,10 @@ macro_rules! digest {
             ///
             /// # Errors
             /// Returns `NON_CANONICAL` when the bytes are all zero.
-            pub fn new(bytes: [u8; 32]) -> CodecResult<Self> { Ok(Self(Digest32::new(bytes)?)) }
+            #[cfg_attr(target_arch = "wasm32", inline(never))]
+            pub fn new(bytes: [u8; 32]) -> CodecResult<Self> {
+                if bytes == [0; 32] { Err(NON_CANONICAL) } else { Ok(Self(Digest32(bytes))) }
+            }
             pub const fn bytes(self) -> [u8; 32] { self.0.bytes() }
             pub const fn as_bytes(&self) -> &[u8; 32] { self.0.as_bytes() }
         }
@@ -122,29 +125,29 @@ impl Salt32 {
 }
 #[derive(Clone, Copy, Eq, PartialEq, Ord, PartialOrd)]
 #[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
-pub struct Version(u64);
+pub struct Version(core::num::NonZeroU64);
 impl Version {
     /// Builds a version from its value.
     ///
     /// # Errors
     /// Returns `NON_CANONICAL` when the value is zero.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn new(value: u64) -> CodecResult<Self> {
-        if value == 0 {
-            Err(NON_CANONICAL)
-        } else {
-            Ok(Self(value))
-        }
+        core::num::NonZeroU64::new(value)
+            .map(Self)
+            .ok_or(NON_CANONICAL)
     }
     #[must_use]
     pub const fn get(self) -> u64 {
-        self.0
+        self.0.get()
     }
     /// Returns the following version.
     ///
     /// # Errors
     /// Returns `ARITHMETIC` when the value is `u64::MAX`.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn next(self) -> CodecResult<Self> {
-        Self::new(self.0.checked_add(1).ok_or(ARITHMETIC)?)
+        Self::new(self.get().checked_add(1).ok_or(ARITHMETIC)?)
     }
 }
 #[derive(Clone, Copy, Eq, PartialEq, Ord, PartialOrd)]
@@ -155,6 +158,7 @@ impl Score {
     ///
     /// # Errors
     /// Returns `F03_SCORE_RANGE` when the value exceeds 1,000,000.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn new(value: u32) -> CodecResult<Self> {
         if value > 1_000_000 {
             Err(F03_SCORE_RANGE)

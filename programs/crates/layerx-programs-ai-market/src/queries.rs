@@ -1,6 +1,8 @@
 //! F10 read-only selectors, exact snapshot binding and bounded off-chain page framing.
 //! Selectors read one captured common state value; they never write, emit, pay or stage blobs.
 //! Host `ProgramRead` facts and finality evidence are inputs; nothing here establishes them.
+#[path = "placement.rs"]
+pub mod placement;
 #[cfg(target_arch = "wasm32")]
 use crate::codec::Sha256State as Sha256;
 use crate::{
@@ -39,6 +41,361 @@ pub const CURSOR_TOKEN_BYTES: usize = 2 * (CURSOR_PAYLOAD_BYTES + CURSOR_TAG_BYT
 const BINDING_PREFIX_MAX_BYTES: usize = 2 + 3 * 32 + 8 + 8 + 32 + 32 + 8 + 32 + 9 + 8 + 32 + 33;
 pub const BINDING_MAX_BYTES: usize = BINDING_PREFIX_MAX_BYTES + 8 + 32 + 32 + 32 + 1 + 8 + 8;
 const HEX: &[u8; 16] = b"0123456789abcdef";
+
+pub fn answer_book_view(state_bytes: &[u8], payload: &[u8], out: &mut [u8]) -> CodecResult<usize> {
+    let mut reader = Reader::new(payload);
+    let model = reader.digest32()?;
+    reader.finish()?;
+    let shared = state::decode_shared_state(state_bytes)?;
+    placement::PlacementBook::decode(shared.room_market()?.1, model)?.encode_view(out)
+}
+
+pub const ROOM_VIEW_BYTES: usize = crate::rooms::ROOM_RECORD_BYTES
+    + 32 * (crate::rooms::ASK_CAPACITY + crate::rooms::BID_CAPACITY);
+pub const DEAL_VIEW_BYTES: usize = crate::rooms::DEAL_RECORD_BYTES + 8 + 16;
+pub const PEER_VIEW_BYTES: usize =
+    32 * 4 + 8 * 5 + 2 + 1 + crate::workers::CapabilityFields::ENCODED_BYTES + 1 + 4;
+pub const RECEIPT_BATCH_VIEW_BYTES: usize = crate::laps::BATCH_BYTES;
+const _: () = assert!(ROOM_VIEW_BYTES <= crate::MAX_RESULT_PAYLOAD_BYTES);
+
+#[derive(Clone, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
+pub struct RoomView {
+    pub room: crate::rooms::RoomRecord,
+    pub open_asks: [Option<Digest32>; crate::rooms::ASK_CAPACITY],
+    pub open_bids: [Option<Digest32>; crate::rooms::BID_CAPACITY],
+}
+
+fn read_order_ids<const N: usize>(r: &mut Reader<'_>) -> CodecResult<[Option<Digest32>; N]> {
+    let mut ids = [None; N];
+    let mut previous = None;
+    let mut ended = false;
+    for id in &mut ids {
+        let bytes = r.fixed()?;
+        if bytes == [0; 32] {
+            ended = true;
+        } else {
+            let value = Digest32::new(bytes)?;
+            if ended || previous.is_some_and(|p| p >= value) {
+                return Err(NON_CANONICAL);
+            }
+            *id = Some(value);
+            previous = Some(value);
+        }
+    }
+    Ok(ids)
+}
+impl RoomView {
+    pub fn decode(bytes: &[u8]) -> CodecResult<Self> {
+        let mut r = Reader::new(bytes);
+        let value = Self {
+            room: crate::rooms::RoomRecord::decode(r.take(crate::rooms::ROOM_RECORD_BYTES)?)?,
+            open_asks: read_order_ids(&mut r)?,
+            open_bids: read_order_ids(&mut r)?,
+        };
+        r.finish()?;
+        if value.room.state == crate::rooms::RoomState::Closed
+            && (value.open_asks.iter().any(Option::is_some)
+                || value.open_bids.iter().any(Option::is_some))
+        {
+            return Err(NON_CANONICAL);
+        }
+        Ok(value)
+    }
+}
+
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
+pub struct DealView {
+    pub deal: crate::rooms::DealRecord,
+    pub settled_tokens: u64,
+    pub settled_amount_owed: u128,
+}
+impl DealView {
+    pub fn decode(bytes: &[u8]) -> CodecResult<Self> {
+        let mut r = Reader::new(bytes);
+        let value = Self {
+            deal: crate::rooms::DealRecord::decode(r.take(crate::rooms::DEAL_RECORD_BYTES)?)?,
+            settled_tokens: r.u64()?,
+            settled_amount_owed: r.u128()?,
+        };
+        r.finish()?;
+        Ok(value)
+    }
+}
+
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
+pub struct PeerView {
+    pub peer_key: PrincipalId,
+    pub worker: crate::types::WorkerId,
+    pub delegate: crate::types::PublicKey32,
+    pub metadata: MetadataDigest,
+    pub generation: u64,
+    pub key_version: u64,
+    pub metadata_revision: u64,
+    pub valid_from: u64,
+    pub expiry: u64,
+    pub state: WorkerState,
+    pub enrolled: bool,
+    pub capabilities: Option<crate::workers::CapabilityFields>,
+    pub bond_status: Availability,
+    pub fault_count: u32,
+}
+impl PeerView {
+    pub fn decode(bytes: &[u8]) -> CodecResult<Self> {
+        let mut r = Reader::new(bytes);
+        let peer_key = r.principal_id()?;
+        let worker = r.worker_id()?;
+        let delegate = crate::types::PublicKey32(r.fixed()?);
+        let metadata = r.metadata_digest()?;
+        let generation = r.u64()?;
+        let key_version = r.u64()?;
+        let metadata_revision = r.u64()?;
+        let valid_from = r.u64()?;
+        let expiry = r.u64()?;
+        let state = WorkerState::from_u8(r.u8()?)?;
+        let enrolled = match r.u8()? {
+            0 => false,
+            1 => true,
+            _ => return Err(NON_CANONICAL),
+        };
+        let capabilities = match r.u8()? {
+            1 => Some(crate::workers::CapabilityFields::read(&mut r)?),
+            4 => {
+                if r.take(crate::workers::CapabilityFields::ENCODED_BYTES)?
+                    != [0; crate::workers::CapabilityFields::ENCODED_BYTES]
+                {
+                    return Err(NON_CANONICAL);
+                }
+                None
+            }
+            _ => return Err(NON_CANONICAL),
+        };
+        let bond_status = match r.u8()? {
+            2 => Availability::NotEnabled,
+            _ => return Err(NON_CANONICAL),
+        };
+        let fault_count = r.u32()?;
+        r.finish()?;
+        if delegate.0 == [0; 32]
+            || generation == 0
+            || key_version == 0
+            || metadata_revision == 0
+            || valid_from >= expiry
+        {
+            return Err(NON_CANONICAL);
+        }
+        Ok(Self {
+            peer_key,
+            worker,
+            delegate,
+            metadata,
+            generation,
+            key_version,
+            metadata_revision,
+            valid_from,
+            expiry,
+            state,
+            enrolled,
+            capabilities,
+            bond_status,
+            fault_count,
+        })
+    }
+}
+
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
+pub struct ReceiptBatchView {
+    pub batch: crate::laps::ReceiptBatch,
+}
+impl ReceiptBatchView {
+    pub fn decode(bytes: &[u8]) -> CodecResult<Self> {
+        Ok(Self {
+            batch: crate::laps::ReceiptBatch::decode(bytes)?,
+        })
+    }
+}
+
+pub struct ViewRequest<'a> {
+    pub envelope: codec::Envelope<'a>,
+    unsigned: &'a [u8],
+}
+impl ViewRequest<'_> {
+    pub fn request_digest(&self) -> CodecResult<RequestDigest> {
+        RequestDigest::new(codec::domain_hash("PAXAI/request/v1", self.unsigned)?.bytes())
+    }
+}
+fn validate_view_envelope(e: &codec::Envelope<'_>) -> CodecResult<()> {
+    if !(0x0b10..=0x0b13).contains(&e.operation.selector()) {
+        return Err(crate::errors::UNKNOWN_OPERATION);
+    }
+    e.operation.validate_payload_length(e.payload.len())?;
+    if e.authentication != crate::types::Authentication::Native
+        || e.epoch != 0
+        || e.config != 0
+        || e.roster != Presence::Absent
+        || e.sequence != 0
+        || e.expiry == 0
+    {
+        return Err(NON_CANONICAL);
+    }
+    let mut r = Reader::new(e.payload);
+    r.digest32()?;
+    if e.operation == dispatch::ReceiptBatchView {
+        r.digest32()?;
+    }
+    r.finish()
+}
+pub fn encode_view_envelope(e: &codec::Envelope<'_>, out: &mut [u8]) -> CodecResult<usize> {
+    validate_view_envelope(e)?;
+    codec::encode_envelope_fields(e, out)
+}
+pub fn decode_view_envelope(input: &[u8]) -> CodecResult<ViewRequest<'_>> {
+    let (envelope, unsigned) = codec::decode_envelope_fields(input, false)?;
+    validate_view_envelope(&envelope)?;
+    Ok(ViewRequest { envelope, unsigned })
+}
+
+pub fn answer_room_view(state_bytes: &[u8], payload: &[u8], out: &mut [u8]) -> CodecResult<usize> {
+    use crate::rooms::*;
+    let mut r = Reader::new(payload);
+    let id = r.digest32()?;
+    r.finish()?;
+    let shared = state::decode_shared_state(state_bytes)?;
+    let bytes = shared.room_market()?.1;
+    let book = RoomBook::decode(bytes)?;
+    let room = book.room(id)?.ok_or(crate::errors::F11_ROOM_UNKNOWN)?;
+    let counts = book.counts();
+    let mut r = Reader::new(bytes);
+    r.take(14 + counts[0] * ROOM_RECORD_BYTES)?;
+    let asks = r.take(counts[1] * ASK_RECORD_BYTES)?;
+    let bids = r.take(counts[2] * BID_RECORD_BYTES)?;
+    let deals = r.take(counts[3] * DEAL_RECORD_BYTES)?;
+    r.finish()?;
+    let mut consumed = [false; BID_CAPACITY];
+    for row in deals.chunks_exact(DEAL_RECORD_BYTES) {
+        for split in DealRecord::decode(row)?.layers.iter().flatten() {
+            let index = bids
+                .chunks_exact(BID_RECORD_BYTES)
+                .position(|b| &b[32..64] == split.bid_id.as_bytes())
+                .ok_or(NON_CANONICAL)?;
+            consumed[index] = true;
+        }
+    }
+    let out = out.get_mut(..ROOM_VIEW_BYTES).ok_or(CAPACITY)?;
+    room.encode(out)?;
+    let mut w = Writer::new(&mut out[ROOM_RECORD_BYTES..]);
+    let mut count = 0;
+    for row in asks.chunks_exact(ASK_RECORD_BYTES) {
+        let ask = AskRecord::decode(row)?;
+        if room.state == RoomState::Open && ask.room_id == id && ask.state == AskState::Open {
+            w.put(ask.ask_id.as_bytes())?;
+            count += 1;
+        }
+    }
+    for _ in count..ASK_CAPACITY {
+        w.put(&[0; 32])?;
+    }
+    count = 0;
+    for (index, row) in bids.chunks_exact(BID_RECORD_BYTES).enumerate() {
+        let bid = BidRecord::decode(row)?;
+        if room.state == RoomState::Open && bid.room_id == id && !consumed[index] {
+            w.put(bid.bid_id.as_bytes())?;
+            count += 1;
+        }
+    }
+    for _ in count..BID_CAPACITY {
+        w.put(&[0; 32])?;
+    }
+    Ok(ROOM_VIEW_BYTES)
+}
+
+pub fn answer_deal_view(state_bytes: &[u8], payload: &[u8], out: &mut [u8]) -> CodecResult<usize> {
+    let mut r = Reader::new(payload);
+    let id = r.digest32()?;
+    r.finish()?;
+    let shared = state::decode_shared_state(state_bytes)?;
+    let deal = crate::rooms::RoomBook::decode(shared.room_market()?.1)?
+        .deal(id)?
+        .ok_or(crate::errors::F11_ROOM_UNKNOWN)?;
+    let settlement = crate::laps::settlement_from_state(state_bytes, id)?;
+    let out = out.get_mut(..DEAL_VIEW_BYTES).ok_or(CAPACITY)?;
+    let n = deal.encode(out)?;
+    let mut w = Writer::new(&mut out[n..]);
+    w.u64(settlement.map_or(0, |s| s.meter_reading()))?;
+    w.u128(settlement.map_or(0, |s| s.settled_amount_owed))?;
+    Ok(DEAL_VIEW_BYTES)
+}
+
+pub fn answer_peer_view(state_bytes: &[u8], payload: &[u8], out: &mut [u8]) -> CodecResult<usize> {
+    let mut r = Reader::new(payload);
+    let key = r.principal_id()?;
+    r.finish()?;
+    let shared = state::decode_shared_state(state_bytes)?;
+    let workers = worker_table(&shared)?;
+    let worker = workers
+        .iter()
+        .find(|w| w.owner == key)
+        .ok_or(crate::errors::F11_ROOM_UNKNOWN)?;
+    let table = crate::admission::AdmissionTable::decode(
+        crate::reputation_transition::split_joint(shared.section(Section::ReputationAdmission)?)?.1,
+    )?;
+    let enrolled = table
+        .get(crate::admission::Participant::Worker(worker.worker))
+        .is_some_and(|m| m.admitted() && !m.revoked())
+        && matches!(
+            worker.state,
+            WorkerState::Enrolled | WorkerState::Available | WorkerState::Draining
+        );
+    let mut faults = 0u32;
+    for record in crate::canary::CanaryRegion::decode(shared.control.feature_bytes)?.records() {
+        let record = record?;
+        if record.task.peer == worker.worker && record.peer_at_fault() {
+            faults = faults.checked_add(1).ok_or(ARITHMETIC)?;
+        }
+    }
+    let mut w = Writer::new(out.get_mut(..PEER_VIEW_BYTES).ok_or(CAPACITY)?);
+    w.put(worker.owner.as_bytes())?;
+    w.put(worker.worker.as_bytes())?;
+    w.put(&worker.delegate.0)?;
+    w.put(worker.metadata.as_bytes())?;
+    for value in [
+        worker.generation,
+        worker.key_version,
+        worker.metadata_revision,
+        worker.valid_from,
+        worker.expiry,
+    ] {
+        w.u64(value)?;
+    }
+    w.u8(worker.state as u8)?;
+    w.u8(u8::from(enrolled))?;
+    w.u8(Availability::ContentUnavailable as u8)?;
+    w.put(&[0; crate::workers::CapabilityFields::ENCODED_BYTES])?;
+    w.u8(Availability::NotEnabled as u8)?;
+    w.u32(faults)?;
+    Ok(w.len())
+}
+
+pub fn answer_receipt_batch_view(
+    state_bytes: &[u8],
+    payload: &[u8],
+    out: &mut [u8],
+) -> CodecResult<usize> {
+    let mut r = Reader::new(payload);
+    let deal = r.digest32()?;
+    let digest = r.digest32()?;
+    r.finish()?;
+    let record = crate::laps::settlement_from_state(state_bytes, deal)?
+        .filter(|s| s.batch.batch_digest == digest)
+        .ok_or(crate::errors::F11_ROOM_UNKNOWN)?;
+    out.get_mut(..RECEIPT_BATCH_VIEW_BYTES)
+        .ok_or(CAPACITY)?
+        .copy_from_slice(&record.batch.encode()?);
+    Ok(RECEIPT_BATCH_VIEW_BYTES)
+}
 
 /// Off-chain view failures keep their own names, separate from on-chain application codes.
 #[derive(Clone, Copy, Eq, PartialEq)]
@@ -526,9 +883,9 @@ pub enum Availability {
     UnsupportedVersion = 5,
 }
 
-/// Availability of content actually decoded from the exact capture, in F01..F10 order.
+/// Availability of content actually decoded from the exact capture, in F01..F11 order.
 /// Unknown codec versions and malformed content remain explicit to consumers.
-pub fn feature_availability(state_bytes: &[u8]) -> CodecResult<[Availability; 10]> {
+pub fn feature_availability(state_bytes: &[u8]) -> CodecResult<[Availability; 11]> {
     fn decoded<T>(bytes: &[u8], decode: impl FnOnce() -> CodecResult<T>) -> Availability {
         if bytes.is_empty() {
             return Availability::NotYetProduced;
@@ -540,9 +897,13 @@ pub fn feature_availability(state_bytes: &[u8]) -> CodecResult<[Availability; 10
         }
     }
     let shared = state::decode_shared_state(state_bytes)?;
-    let mut out = [Availability::NotYetProduced; 10];
+    let mut out = [Availability::NotYetProduced; 11];
     let policy = shared.section(Section::PolicyLifecycle)?;
     out[0] = decoded(policy, || policy_of(&shared));
+    out[10] = match out[0] {
+        Availability::Available => Availability::NotEnabled,
+        availability => availability,
+    };
     out[1] = decoded(shared.section(Section::IdentityRoster)?, || {
         worker_table(&shared)
     });
@@ -941,7 +1302,7 @@ pub fn project_capture(
     state_bytes: &[u8],
     binding: &SnapshotBinding,
     out: &mut [ParticipantRow],
-) -> QueryResult<([Availability; 10], usize)> {
+) -> QueryResult<([Availability; 11], usize)> {
     let header = read_header(state_bytes, binding.chain, binding.program)?;
     if header.market != binding.market
         || header.revision != binding.revision

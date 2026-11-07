@@ -145,12 +145,19 @@ impl BudgetIdentitySource for [u8] {
         let period_length_ms = integer(data, 7, 8)? as u64;
         let period_start_ms = integer(data, 8, 8)? as u64;
         let expiry_ms = integer(data, 9, 8)? as u64;
+        let source_account = if native { word(data, 12)? } else { [0; 32] };
+        let source_sequence = if native {
+            integer(data, 13, 8)? as u64
+        } else {
+            0
+        };
         if word(data, 0)? == [0; 32]
             || period_length_ms == 0
             || period_start_ms.checked_add(period_length_ms).is_none()
             || expiry_ms <= period_start_ms
             || !(1..=2).contains(&rollover)
             || (rollover == 1 && carry_cap != 0)
+            || (native && !native_source_terms(source_account, word(data, 1)?, source_sequence))
         {
             return Err(BudgetCreationError::InvalidLimit);
         }
@@ -170,14 +177,14 @@ impl BudgetIdentitySource for [u8] {
             expiry_ms,
             revocation_sequence: integer(data, 10, 8)? as u64,
             rollover,
-            source_account: if native { word(data, 12)? } else { [0; 32] },
-            source_sequence: if native {
-                integer(data, 13, 8)? as u64
-            } else {
-                0
-            },
+            source_account,
+            source_sequence,
         })
     }
+}
+
+fn native_source_terms(source: [u8; 32], budget_account: [u8; 32], nonce: u64) -> bool {
+    source != [0; 32] && source != budget_account && nonce != u64::MAX
 }
 
 impl BudgetIdentitySource for (&[u8], &SequencerReceipt) {
@@ -271,7 +278,11 @@ impl BudgetRequest {
             || !(1..=2).contains(&identity.rollover)
             || (identity.rollover == 1 && identity.carry_cap != 0)
             || (identity.encoding_version == 2
-                && (identity.source_account == [0; 32] || identity.source_sequence == 0))
+                && !native_source_terms(
+                    identity.source_account,
+                    identity.budget_account,
+                    identity.source_sequence,
+                ))
         {
             return Err(BudgetCreationError::InvalidLimit);
         }
@@ -319,6 +330,23 @@ impl BudgetRequest {
     > {
         SequencerBudgetPipeline {
             endpoint,
+            preparation_height: None,
+            committed_height: None,
+        }
+    }
+
+    /// Retains the preparation checkpoint for source ownership and nonce validation.
+    pub fn pipeline_at(
+        endpoint: SequencerEndpoint,
+        preparation_height: u64,
+    ) -> impl BudgetPipeline<SequencerReceipt, super::accounting::CommittedBudgetEvidence>
+           + super::mutate::BudgetMutationPipeline<
+        SequencerReceipt,
+        super::accounting::CommittedBudgetEvidence,
+    > {
+        SequencerBudgetPipeline {
+            endpoint,
+            preparation_height: Some(preparation_height),
             committed_height: None,
         }
     }
@@ -326,14 +354,65 @@ impl BudgetRequest {
 
 pub(crate) struct SequencerBudgetPipeline {
     pub(crate) endpoint: SequencerEndpoint,
+    preparation_height: Option<u64>,
     pub(crate) committed_height: Option<u64>,
 }
 impl SequencerBudgetPipeline {
+    fn source_checkpoint(&self) -> Result<u64, BudgetCreationError> {
+        let head = self
+            .endpoint
+            .block_number()
+            .map_err(|_| BudgetCreationError::Submission)?;
+        let height = self.preparation_height.unwrap_or(head);
+        if height == 0 || height > head {
+            return Err(BudgetCreationError::ContextMismatch);
+        }
+        Ok(height)
+    }
+
     pub(crate) fn submit(
         &mut self,
         submission: &VerifiedSubmission,
     ) -> Result<CoreBudgetReceipt<SequencerReceipt>, BudgetCreationError> {
         self.committed_height = None;
+        let (call, signature) = decode_signed(submission.exact_bytes())
+            .map_err(|_| BudgetCreationError::NotBudgetCreation)?;
+        let sender = recover_sender(&call, &signature)
+            .map_err(|_| BudgetCreationError::NotBudgetCreation)?;
+        if call.data.starts_with(&selector(BUDGET_CREATE_NATIVE)) {
+            let identity = submission.exact_bytes().identity()?;
+            let height = self.source_checkpoint()?;
+            validate_native_budget_source(
+                &self.endpoint,
+                height,
+                sender,
+                identity.source_account,
+                identity.asset,
+                identity.source_sequence,
+            )?;
+        } else if call.to == PrecompileTarget::Pay.address()
+            && call
+                .data
+                .starts_with(&selector("budgetFundNative(bytes32,uint128,uint64)"))
+        {
+            if call.data.len() != 100 {
+                return Err(BudgetCreationError::ContextMismatch);
+            }
+            let height = self.source_checkpoint()?;
+            let budget = ProtocolBudgetState::read_at(&self.endpoint, word(&call.data, 0)?, height)
+                .map_err(|_| BudgetCreationError::ContextMismatch)?;
+            let record = budget.record();
+            validate_native_budget_source(
+                &self.endpoint,
+                height,
+                sender,
+                record
+                    .source_account
+                    .ok_or(BudgetCreationError::ContextMismatch)?,
+                record.asset_id,
+                integer(&call.data, 2, 8)? as u64,
+            )?;
+        }
         let hash = self
             .endpoint
             .send_raw_transaction(submission.exact_bytes())
@@ -608,4 +687,84 @@ where
         observed_head_sequence: height,
         record,
     })
+}
+
+/// Checks the source nonce and the sender's source ownership at one authenticated checkpoint.
+pub fn validate_native_budget_source(
+    endpoint: &SequencerEndpoint,
+    height: u64,
+    sender: [u8; 20],
+    source: [u8; 32],
+    asset: [u8; 32],
+    source_sequence: u64,
+) -> Result<(), BudgetCreationError> {
+    if sender == [0; 20] || source == [0; 32] || asset == [0; 32] || source_sequence == u64::MAX {
+        return Err(BudgetCreationError::InvalidLimit);
+    }
+    let reads = crate::read::CommittedReads::open(endpoint, height)
+        .map_err(|_| BudgetCreationError::ContextMismatch)?;
+    let read = |target, signature: &str, args: &[u8]| {
+        let mut data = selector(signature).to_vec();
+        data.extend_from_slice(args);
+        reads
+            .capabilities(target, &data)
+            .map_err(|_| BudgetCreationError::ContextMismatch)
+    };
+    let mut address = [0; 32];
+    address[12..].copy_from_slice(&sender);
+    let binding = read(
+        layerx_client::sequencer::ADDR_PRECOMPILE,
+        "getLayerXDid(address)",
+        &address,
+    )?;
+    let binding = binding.canonical_bytes();
+    if binding.len() < 96
+        || binding[32..56] != [0; 24]
+        || binding[56..64] != 64_u64.to_be_bytes()
+        || binding[64..88] != [0; 24]
+    {
+        return Err(BudgetCreationError::ContextMismatch);
+    }
+    let length = u64::from_be_bytes(
+        binding[88..96]
+            .try_into()
+            .map_err(|_| BudgetCreationError::ContextMismatch)?,
+    ) as usize;
+    if length == 0
+        || length > 512
+        || binding.len() != 96 + length.div_ceil(32) * 32
+        || binding[96 + length..].iter().any(|byte| *byte != 0)
+    {
+        return Err(BudgetCreationError::ContextMismatch);
+    }
+    let did = layerx_types::ids::Did::new(&binding[96..96 + length])
+        .map_err(|_| BudgetCreationError::ContextMismatch)?;
+    let expected_did = format!(
+        "did:layerx:{}",
+        layerx_programs::hex::encode(&binding[..32])
+    );
+    if did.as_bytes() != expected_did.as_bytes() {
+        return Err(BudgetCreationError::IdentityMismatch);
+    }
+    let owner = layerx_wire::hash::did_id_for_protocol(&did, 3)
+        .map_err(|_| BudgetCreationError::ContextMismatch)?;
+    let source_owner = read(
+        PrecompileTarget::Ledger.address(),
+        "accountOwner(bytes32)",
+        &source,
+    )?;
+    let nonce = read(
+        PrecompileTarget::Ledger.address(),
+        "nextSequence(bytes32,bytes32)",
+        &[source, asset].concat(),
+    )?;
+    let nonce = nonce.canonical_bytes();
+    if source_owner.canonical_bytes() != owner
+        || nonce.len() != 32
+        || nonce[..24] != [0; 24]
+        || nonce[24..] != source_sequence.to_be_bytes()
+    {
+        return Err(BudgetCreationError::ContextMismatch);
+    }
+    Ok(())
 }

@@ -1,7 +1,5 @@
 <div align="center">
 
-<img src="https://cdn.redixusercontent.ocfstudio.com/perf_db.png" alt="PerfDB" width="500" />
-
 <h3>Embedded Rust database engine for high-frequency trading systems</h3>
 
 <p>
@@ -12,7 +10,7 @@ Time series storage · real-time state · relational data · event sourcing unif
 <p align="center">
   <img src="https://img.shields.io/badge/Project-PerfDB-FFFFFF?style=for-the-badge&amp;labelColor=004CED" alt="Project: PerfDB" />
   <img src="https://img.shields.io/badge/Built_by-Sidiora_Labs-004CED?style=for-the-badge&amp;labelColor=000000" alt="Built by Sidiora Labs" />
-  <a href="#license"><img src="https://img.shields.io/badge/License-MIT_OR_Apache--2.0-004CED?style=for-the-badge&amp;labelColor=000000" alt="License: MIT OR Apache-2.0" /></a>
+  <a href="#license"><img src="https://img.shields.io/badge/License-Apache--2.0-004CED?style=for-the-badge&amp;labelColor=000000" alt="License: Apache-2.0" /></a>
   <img src="https://img.shields.io/badge/Status-Pre--release-FF6B35?style=for-the-badge&amp;labelColor=000000" alt="Status: Pre-release" />
 </p>
 
@@ -170,18 +168,28 @@ The example creates `./data`; start with an empty directory for its single-tick 
 
 ## Installation
 
-PerfDB is not yet published to crates.io. Use it as a path or git dependency:
+PerfDB is not yet published to crates.io. Its source lives at
+`services/platform/perf-db` in the monorepo. Use it as a git dependency
+(Cargo finds the `perfdb` package in that directory):
 
 ```toml
 [dependencies]
-perfdb = { git = "https://github.com/Sidiora-Labs/perf-db" }
+perfdb = { git = "https://github.com/Sidiora-Labs/paxeer-monorepo" }
+```
+
+For a local monorepo checkout, use a path dependency, adjusting the path
+relative to your application's `Cargo.toml`:
+
+```toml
+[dependencies]
+perfdb = { path = "../paxeer-monorepo/services/platform/perf-db" }
 ```
 
 ### From source
 
 ```bash
-git clone https://github.com/Sidiora-Labs/perf-db.git
-cd perf-db
+git clone https://github.com/Sidiora-Labs/paxeer-monorepo
+cd paxeer-monorepo/services/platform/perf-db
 cargo build --release
 ```
 
@@ -325,8 +333,8 @@ Contributions are welcome. See [`CONTRIBUTING.md`](../../../CONTRIBUTING.md) for
 setup instructions, code standards, and the PR process.
 
 ```bash
-git clone https://github.com/Sidiora-Labs/perf-db.git
-cd perf-db
+git clone https://github.com/Sidiora-Labs/paxeer-monorepo
+cd paxeer-monorepo/services/platform/perf-db
 rustup component add clippy rustfmt
 cargo test
 cargo clippy --all-targets --all-features -- -D warnings
@@ -339,12 +347,8 @@ See [`SECURITY.md`](../../../SECURITY.md) for the vulnerability disclosure proce
 
 ## License
 
-Licensed under either of:
-
-- Apache License, Version 2.0 ([LICENSE](../../../LICENSE) or <http://www.apache.org/licenses/LICENSE-2.0>)
-- MIT License (<http://opensource.org/licenses/MIT>)
-
-at your option.
+Licensed under Apache-2.0 (Apache License, Version 2.0). See the repository
+[LICENSE](../../../LICENSE) or <http://www.apache.org/licenses/LICENSE-2.0>.
 
 ### Acknowledgments
 
@@ -368,5 +372,5 @@ at your option.
 </p>
 
 <p align="center">
-  <sub>SPDX-License-Identifier: MIT OR Apache-2.0</sub>
+  <sub>SPDX-License-Identifier: Apache-2.0</sub>
 </p>

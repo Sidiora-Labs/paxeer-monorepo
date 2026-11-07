@@ -5,93 +5,73 @@ package tests
 import (
 	"bytes"
 	"context"
-	"io"
-	"net"
 	"testing"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/internal/p2p/conn"
-	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/libs/utils"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/libs/utils/scope"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/libs/utils/tcp"
 )
 
 func FuzzP2PSecretConnection(f *testing.F) {
+	f.Add([]byte{})
+	f.Add([]byte("secret connection"))
+	f.Add(bytes.Repeat([]byte{0xff}, 1024))
+	f.Add(bytes.Repeat([]byte{0x01}, 1025))
+	f.Add(bytes.Repeat([]byte{0x00, 0xff}, 2048))
 	f.Fuzz(fuzz)
 }
 
 func fuzz(t *testing.T, data []byte) {
-	ctx := t.Context()
 	if len(data) == 0 {
 		return
 	}
 
-	fooConn, barConn := makeSecretConnPair(t)
-
-	// Run Write in a separate goroutine because if data is greater than 1024
-	// bytes, each Write must be followed by Read (see io.Pipe documentation).
-	go func() {
-		// Copy data because Write modifies the slice.
-		dataToWrite := make([]byte, len(data))
-		copy(dataToWrite, data)
-		utils.OrPanic(fooConn.Write(ctx, dataToWrite))
-		utils.OrPanic(fooConn.Flush(ctx))
-	}()
-
 	dataRead := make([]byte, len(data))
-	utils.OrPanic(barConn.Read(ctx, dataRead))
-
-	if !bytes.Equal(data, dataRead) {
-		panic("bytes written != read")
-	}
-}
-
-type kvstoreConn struct {
-	net.Conn
-	reader *io.PipeReader
-	writer *io.PipeWriter
-}
-
-func (drw kvstoreConn) Read(data []byte) (n int, err error)  { return drw.reader.Read(data) }
-func (drw kvstoreConn) Write(data []byte) (n int, err error) { return drw.writer.Write(data) }
-
-func (drw kvstoreConn) Close() (err error) {
-	err2 := drw.writer.CloseWithError(io.EOF)
-	err1 := drw.reader.Close()
-	if err2 != nil {
-		return err
-	}
-	return err1
-}
-
-func spawnBgForTest(t testing.TB, task func(context.Context) error) {
-	go func() {
-		if err := task(t.Context()); t.Context().Err() == nil {
-			utils.OrPanic(err)
-		}
-	}()
-}
-
-func makeSecretConnPair(tb testing.TB) (sc1 *conn.SecretConnection, sc2 *conn.SecretConnection) {
-	ctx := tb.Context()
 	c1, c2 := tcp.TestPipe()
-	spawnBgForTest(tb, c1.Run)
-	spawnBgForTest(tb, c2.Run)
-	// Make connections from both sides in parallel.
-	err := scope.Run(ctx, func(ctx context.Context, s scope.Scope) error {
-		s.Spawn(func() error {
+	defer c1.Close()
+	defer c2.Close()
+	err := scope.Run(t.Context(), func(ctx context.Context, s scope.Scope) error {
+		for _, c := range []tcp.Conn{c1, c2} {
+			s.SpawnBg(func() error {
+				err := c.Run(ctx)
+				if ctx.Err() != nil {
+					return nil
+				}
+				return err
+			})
+		}
+		var fooConn, barConn *conn.SecretConnection
+		// Make connections from both sides in parallel.
+		if err := scope.Run(ctx, func(ctx context.Context, s scope.Scope) error {
+			s.Spawn(func() error {
+				var err error
+				fooConn, err = conn.MakeSecretConnection(ctx, c1)
+				return err
+			})
 			var err error
-			sc1, err = conn.MakeSecretConnection(ctx, c1)
+			barConn, err = conn.MakeSecretConnection(ctx, c2)
 			return err
-		})
-		s.Spawn(func() error {
-			var err error
-			sc2, err = conn.MakeSecretConnection(ctx, c2)
+		}); err != nil {
 			return err
+		}
+		// Run Write in a separate goroutine because if data is greater than 1024
+		// bytes, each Write must be followed by Read (see io.Pipe documentation).
+		return scope.Run(ctx, func(ctx context.Context, s scope.Scope) error {
+			s.Spawn(func() error {
+				// Copy data because Write modifies the slice.
+				dataToWrite := bytes.Clone(data)
+				if err := fooConn.Write(ctx, dataToWrite); err != nil {
+					return err
+				}
+				return fooConn.Flush(ctx)
+			})
+			return barConn.Read(ctx, dataRead)
 		})
-		return nil
 	})
 	if err != nil {
-		tb.Fatal(err)
+		t.Fatal(err)
 	}
-	return sc1, sc2
+	if !bytes.Equal(data, dataRead) {
+		t.Fatal("bytes written != read")
+	}
 }

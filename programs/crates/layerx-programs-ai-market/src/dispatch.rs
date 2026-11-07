@@ -10,8 +10,8 @@ use crate::registry_ops::{self, CallContext, PolicySection};
 use crate::state::{self, RetainedResult, Section, SharedState};
 use crate::types::{Presence, RequestDigest};
 use crate::{
-    admission, aggregation, closure, commit_reveal, epoch, evidence, queries, rewards, tasks,
-    value_adapter, workers, MAX_STATE_BYTES,
+    admission, aggregation, canary, closure, commit_reveal, epoch, evidence, laps, queries,
+    rewards, rooms, tasks, value_adapter, workers, MAX_STATE_BYTES,
 };
 #[derive(Clone, Copy, Eq, PartialEq)]
 #[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
@@ -27,6 +27,18 @@ pub enum CallBoundary {
 }
 #[derive(Clone, Copy, Eq, PartialEq)]
 #[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
+pub enum AuthorityClass {
+    FeatureDefined,
+    Host,
+    AnyAccount,
+    EnrolledPeer,
+    HostOrAfterChallengeWindow,
+    ResolvedFault,
+    BondOwner,
+    PublicRead,
+}
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct Operation(u16);
 #[derive(Clone, Copy, Eq, PartialEq)]
 #[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
@@ -39,17 +51,34 @@ pub struct OperationMetadata {
     pub delegate_allowed: bool,
     pub payload_min: usize,
     pub payload_max: usize,
+    pub authority: AuthorityClass,
+    pub sections: &'static [Section],
 }
 impl Operation {
+    pub const OpenRoom: Self = OpenRoom;
+    pub const PostAsk: Self = PostAsk;
+    pub const PostBid: Self = PostBid;
+    pub const RecordDeal: Self = RecordDeal;
+    pub const SettleLaps: Self = SettleLaps;
+    pub const ChallengeLap: Self = ChallengeLap;
+    pub const ResolveChallenge: Self = ResolveChallenge;
+    pub const SplitPayout: Self = SplitPayout;
+    pub const LockBond: Self = LockBond;
+    pub const SlashBond: Self = SlashBond;
+    pub const RefundBond: Self = RefundBond;
+    pub const CloseRoom: Self = CloseRoom;
+    pub const RoomView: Self = RoomView;
+    pub const DealView: Self = DealView;
+    pub const PeerView: Self = PeerView;
+    pub const ReceiptBatchView: Self = ReceiptBatchView;
+    pub const BookView: Self = BookView;
     /// Decodes a selector from the frozen operation table.
     ///
     /// # Errors
     /// Returns `UNKNOWN_OPERATION` when the selector is not in the table.
     #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn decode(selector: u16) -> CodecResult<Self> {
-        OPERATIONS
-            .iter()
-            .find(|m| m.operation.0 == selector)
+        metadata_for_selector(selector)
             .map(|m| m.operation)
             .ok_or(UNKNOWN_OPERATION)
     }
@@ -58,25 +87,43 @@ impl Operation {
         self.0
     }
     #[must_use]
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn metadata(self) -> &'static OperationMetadata {
-        // The private constructor and static table make this branch unreachable.
-        for m in OPERATIONS {
-            if m.operation == self {
-                return m;
-            }
+        if let Some(metadata) = metadata_for_selector(self.0) {
+            return metadata;
         }
         #[cfg(target_arch = "wasm32")]
         core::arch::wasm32::unreachable();
         #[cfg(not(target_arch = "wasm32"))]
         unreachable!("Operation is constructed only by the frozen table")
     }
+
     /// Checks a payload length against the operation's bounds.
     ///
     /// # Errors
     /// Returns `NON_CANONICAL` when the length is outside the operation's bounds, or is neither 40 nor 48 for `0x0106`/`0x0107`.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn validate_payload_length(self, length: usize) -> CodecResult<()> {
+        if self == CommitScore {
+            return if length == 224 || length == canary::CANARY_COMMIT_BYTES {
+                Ok(())
+            } else {
+                Err(NON_CANONICAL)
+            };
+        }
+        if self == RevealScore {
+            if length == canary::CANARY_REVEAL_BYTES {
+                return Ok(());
+            }
+            if length < 364 {
+                return Err(NON_CANONICAL);
+            }
+        }
         let m = self.metadata();
         if matches!(self.0, 0x0106 | 0x0107) && length != 40 && length != 48 {
+            return Err(NON_CANONICAL);
+        }
+        if self == Self::RecordDeal && (length < 145 || (length - 145) % 36 != 0) {
             return Err(NON_CANONICAL);
         }
         if length < m.payload_min || length > m.payload_max {
@@ -143,6 +190,23 @@ pub const AdministrativeRemove: Operation = Operation(0x0809);
 pub const SealEvidence: Operation = Operation(0x0901);
 pub const READ_HEADER: Operation = Operation(0x0A01);
 pub const READ_STATE_CHUNK: Operation = Operation(0x0A02);
+pub const OpenRoom: Operation = Operation(0x0B01);
+pub const PostAsk: Operation = Operation(0x0B02);
+pub const PostBid: Operation = Operation(0x0B03);
+pub const RecordDeal: Operation = Operation(0x0B04);
+pub const SettleLaps: Operation = Operation(0x0B05);
+pub const ChallengeLap: Operation = Operation(0x0B06);
+pub const ResolveChallenge: Operation = Operation(0x0B07);
+pub const SplitPayout: Operation = Operation(0x0B08);
+pub const LockBond: Operation = Operation(0x0B09);
+pub const SlashBond: Operation = Operation(0x0B0A);
+pub const RefundBond: Operation = Operation(0x0B0B);
+pub const CloseRoom: Operation = Operation(0x0B0C);
+pub const RoomView: Operation = Operation(0x0B10);
+pub const DealView: Operation = Operation(0x0B11);
+pub const PeerView: Operation = Operation(0x0B12);
+pub const ReceiptBatchView: Operation = Operation(0x0B13);
+pub const BookView: Operation = Operation(0x0B14);
 #[allow(non_upper_case_globals)]
 pub const OPERATIONS: &[OperationMetadata] = &[
     OperationMetadata {
@@ -154,6 +218,8 @@ pub const OPERATIONS: &[OperationMetadata] = &[
         delegate_allowed: false,
         payload_min: 0,
         payload_max: 15965,
+        authority: AuthorityClass::FeatureDefined,
+        sections: &[],
     },
     OperationMetadata {
         operation: STAGE_POLICY,
@@ -164,6 +230,8 @@ pub const OPERATIONS: &[OperationMetadata] = &[
         delegate_allowed: false,
         payload_min: 0,
         payload_max: 15965,
+        authority: AuthorityClass::FeatureDefined,
+        sections: &[],
     },
     OperationMetadata {
         operation: CANCEL_POLICY,
@@ -174,6 +242,8 @@ pub const OPERATIONS: &[OperationMetadata] = &[
         delegate_allowed: false,
         payload_min: 16,
         payload_max: 16,
+        authority: AuthorityClass::FeatureDefined,
+        sections: &[],
     },
     OperationMetadata {
         operation: SCHEDULE_ACTIVATION,
@@ -184,6 +254,8 @@ pub const OPERATIONS: &[OperationMetadata] = &[
         delegate_allowed: false,
         payload_min: 16,
         payload_max: 16,
+        authority: AuthorityClass::FeatureDefined,
+        sections: &[],
     },
     OperationMetadata {
         operation: ADVANCE_ACTIVATION,
@@ -194,6 +266,8 @@ pub const OPERATIONS: &[OperationMetadata] = &[
         delegate_allowed: false,
         payload_min: 16,
         payload_max: 16,
+        authority: AuthorityClass::FeatureDefined,
+        sections: &[],
     },
     OperationMetadata {
         operation: SUSPEND,
@@ -204,6 +278,8 @@ pub const OPERATIONS: &[OperationMetadata] = &[
         delegate_allowed: false,
         payload_min: 40,
         payload_max: 48,
+        authority: AuthorityClass::FeatureDefined,
+        sections: &[],
     },
     OperationMetadata {
         operation: UPDATE_METADATA,
@@ -214,6 +290,8 @@ pub const OPERATIONS: &[OperationMetadata] = &[
         delegate_allowed: false,
         payload_min: 40,
         payload_max: 48,
+        authority: AuthorityClass::FeatureDefined,
+        sections: &[],
     },
     OperationMetadata {
         operation: APPOINT_OPERATOR,
@@ -224,6 +302,8 @@ pub const OPERATIONS: &[OperationMetadata] = &[
         delegate_allowed: false,
         payload_min: 49,
         payload_max: 49,
+        authority: AuthorityClass::FeatureDefined,
+        sections: &[],
     },
     OperationMetadata {
         operation: REVOKE_OPERATOR,
@@ -234,6 +314,8 @@ pub const OPERATIONS: &[OperationMetadata] = &[
         delegate_allowed: false,
         payload_min: 16,
         payload_max: 16,
+        authority: AuthorityClass::FeatureDefined,
+        sections: &[],
     },
     OperationMetadata {
         operation: REQUEST_CLOSE,
@@ -244,6 +326,8 @@ pub const OPERATIONS: &[OperationMetadata] = &[
         delegate_allowed: false,
         payload_min: 40,
         payload_max: 40,
+        authority: AuthorityClass::FeatureDefined,
+        sections: &[],
     },
     OperationMetadata {
         operation: ADVANCE_CLOSE,
@@ -254,6 +338,8 @@ pub const OPERATIONS: &[OperationMetadata] = &[
         delegate_allowed: false,
         payload_min: 11,
         payload_max: 11,
+        authority: AuthorityClass::FeatureDefined,
+        sections: &[],
     },
     OperationMetadata {
         operation: ADMIT_TASK,
@@ -264,6 +350,8 @@ pub const OPERATIONS: &[OperationMetadata] = &[
         delegate_allowed: false,
         payload_min: 248,
         payload_max: 248,
+        authority: AuthorityClass::FeatureDefined,
+        sections: &[],
     },
     OperationMetadata {
         operation: ACCEPT_TASK,
@@ -274,6 +362,8 @@ pub const OPERATIONS: &[OperationMetadata] = &[
         delegate_allowed: true,
         payload_min: 72,
         payload_max: 72,
+        authority: AuthorityClass::FeatureDefined,
+        sections: &[],
     },
     OperationMetadata {
         operation: CANCEL_TASK,
@@ -284,6 +374,8 @@ pub const OPERATIONS: &[OperationMetadata] = &[
         delegate_allowed: false,
         payload_min: 32,
         payload_max: 32,
+        authority: AuthorityClass::FeatureDefined,
+        sections: &[],
     },
     OperationMetadata {
         operation: COMMIT_TASK_RESULT,
@@ -294,6 +386,8 @@ pub const OPERATIONS: &[OperationMetadata] = &[
         delegate_allowed: true,
         payload_min: 72,
         payload_max: 72,
+        authority: AuthorityClass::FeatureDefined,
+        sections: &[],
     },
     OperationMetadata {
         operation: SEAL_TASK_SET,
@@ -304,6 +398,8 @@ pub const OPERATIONS: &[OperationMetadata] = &[
         delegate_allowed: false,
         payload_min: 48,
         payload_max: 48,
+        authority: AuthorityClass::FeatureDefined,
+        sections: &[],
     },
     OperationMetadata {
         operation: OPEN_EPOCH,
@@ -314,6 +410,8 @@ pub const OPERATIONS: &[OperationMetadata] = &[
         delegate_allowed: false,
         payload_min: 0,
         payload_max: 15965,
+        authority: AuthorityClass::FeatureDefined,
+        sections: &[],
     },
     OperationMetadata {
         operation: EnrollWorker,
@@ -324,6 +422,8 @@ pub const OPERATIONS: &[OperationMetadata] = &[
         delegate_allowed: false,
         payload_min: 136,
         payload_max: 136,
+        authority: AuthorityClass::FeatureDefined,
+        sections: &[],
     },
     OperationMetadata {
         operation: PublishMetadata,
@@ -334,6 +434,8 @@ pub const OPERATIONS: &[OperationMetadata] = &[
         delegate_allowed: true,
         payload_min: 0,
         payload_max: 15965,
+        authority: AuthorityClass::FeatureDefined,
+        sections: &[],
     },
     OperationMetadata {
         operation: SetDraining,
@@ -344,6 +446,8 @@ pub const OPERATIONS: &[OperationMetadata] = &[
         delegate_allowed: false,
         payload_min: 0,
         payload_max: 15965,
+        authority: AuthorityClass::FeatureDefined,
+        sections: &[],
     },
     OperationMetadata {
         operation: UndoDrain,
@@ -354,6 +458,8 @@ pub const OPERATIONS: &[OperationMetadata] = &[
         delegate_allowed: false,
         payload_min: 0,
         payload_max: 15965,
+        authority: AuthorityClass::FeatureDefined,
+        sections: &[],
     },
     OperationMetadata {
         operation: RotateDelegate,
@@ -364,6 +470,8 @@ pub const OPERATIONS: &[OperationMetadata] = &[
         delegate_allowed: false,
         payload_min: 0,
         payload_max: 15965,
+        authority: AuthorityClass::FeatureDefined,
+        sections: &[],
     },
     OperationMetadata {
         operation: RevokeDelegate,
@@ -374,6 +482,8 @@ pub const OPERATIONS: &[OperationMetadata] = &[
         delegate_allowed: false,
         payload_min: 0,
         payload_max: 15965,
+        authority: AuthorityClass::FeatureDefined,
+        sections: &[],
     },
     OperationMetadata {
         operation: RetireWorker,
@@ -384,6 +494,8 @@ pub const OPERATIONS: &[OperationMetadata] = &[
         delegate_allowed: false,
         payload_min: 0,
         payload_max: 15965,
+        authority: AuthorityClass::FeatureDefined,
+        sections: &[],
     },
     OperationMetadata {
         operation: AcceptEnrollment,
@@ -394,6 +506,8 @@ pub const OPERATIONS: &[OperationMetadata] = &[
         delegate_allowed: false,
         payload_min: 144,
         payload_max: 144,
+        authority: AuthorityClass::FeatureDefined,
+        sections: &[],
     },
     OperationMetadata {
         operation: ExpireEnrollment,
@@ -404,6 +518,8 @@ pub const OPERATIONS: &[OperationMetadata] = &[
         delegate_allowed: false,
         payload_min: 72,
         payload_max: 72,
+        authority: AuthorityClass::FeatureDefined,
+        sections: &[],
     },
     OperationMetadata {
         operation: ScheduleEvaluator,
@@ -414,6 +530,8 @@ pub const OPERATIONS: &[OperationMetadata] = &[
         delegate_allowed: false,
         payload_min: 160,
         payload_max: 160,
+        authority: AuthorityClass::FeatureDefined,
+        sections: &[],
     },
     OperationMetadata {
         operation: RotateEvaluatorKey,
@@ -424,6 +542,8 @@ pub const OPERATIONS: &[OperationMetadata] = &[
         delegate_allowed: false,
         payload_min: 88,
         payload_max: 88,
+        authority: AuthorityClass::FeatureDefined,
+        sections: &[],
     },
     OperationMetadata {
         operation: RevokeEvaluator,
@@ -434,6 +554,8 @@ pub const OPERATIONS: &[OperationMetadata] = &[
         delegate_allowed: false,
         payload_min: 74,
         payload_max: 74,
+        authority: AuthorityClass::FeatureDefined,
+        sections: &[],
     },
     OperationMetadata {
         operation: ChallengeAssessment,
@@ -444,6 +566,8 @@ pub const OPERATIONS: &[OperationMetadata] = &[
         delegate_allowed: false,
         payload_min: 97,
         payload_max: 97,
+        authority: AuthorityClass::FeatureDefined,
+        sections: &[],
     },
     OperationMetadata {
         operation: CommitScore,
@@ -453,7 +577,9 @@ pub const OPERATIONS: &[OperationMetadata] = &[
         sequence: SequencePolicy::Role,
         delegate_allowed: true,
         payload_min: 224,
-        payload_max: 224,
+        payload_max: canary::CANARY_COMMIT_BYTES,
+        authority: AuthorityClass::FeatureDefined,
+        sections: &[],
     },
     OperationMetadata {
         operation: RevealScore,
@@ -462,8 +588,10 @@ pub const OPERATIONS: &[OperationMetadata] = &[
         boundary: CallBoundary::Mutation,
         sequence: SequencePolicy::Role,
         delegate_allowed: true,
-        payload_min: 364,
+        payload_min: canary::CANARY_REVEAL_BYTES,
         payload_max: 1480,
+        authority: AuthorityClass::FeatureDefined,
+        sections: &[],
     },
     OperationMetadata {
         operation: BeginAggregation,
@@ -474,6 +602,8 @@ pub const OPERATIONS: &[OperationMetadata] = &[
         delegate_allowed: false,
         payload_min: 0,
         payload_max: 0,
+        authority: AuthorityClass::FeatureDefined,
+        sections: &[],
     },
     OperationMetadata {
         operation: ProcessAggregation,
@@ -484,6 +614,8 @@ pub const OPERATIONS: &[OperationMetadata] = &[
         delegate_allowed: false,
         payload_min: 34,
         payload_max: 34,
+        authority: AuthorityClass::FeatureDefined,
+        sections: &[],
     },
     OperationMetadata {
         operation: FinalizeAggregation,
@@ -494,6 +626,8 @@ pub const OPERATIONS: &[OperationMetadata] = &[
         delegate_allowed: false,
         payload_min: 32,
         payload_max: 32,
+        authority: AuthorityClass::FeatureDefined,
+        sections: &[],
     },
     OperationMetadata {
         operation: FUND,
@@ -504,6 +638,8 @@ pub const OPERATIONS: &[OperationMetadata] = &[
         delegate_allowed: false,
         payload_min: 57,
         payload_max: 57,
+        authority: AuthorityClass::FeatureDefined,
+        sections: &[],
     },
     OperationMetadata {
         operation: CLAIM,
@@ -514,6 +650,8 @@ pub const OPERATIONS: &[OperationMetadata] = &[
         delegate_allowed: false,
         payload_min: 80,
         payload_max: 80,
+        authority: AuthorityClass::FeatureDefined,
+        sections: &[],
     },
     OperationMetadata {
         operation: EXPIRE_EPOCH_CLAIMS,
@@ -524,6 +662,8 @@ pub const OPERATIONS: &[OperationMetadata] = &[
         delegate_allowed: false,
         payload_min: 0,
         payload_max: 0,
+        authority: AuthorityClass::FeatureDefined,
+        sections: &[],
     },
     OperationMetadata {
         operation: REFUND_FREE,
@@ -534,6 +674,8 @@ pub const OPERATIONS: &[OperationMetadata] = &[
         delegate_allowed: false,
         payload_min: 64,
         payload_max: 64,
+        authority: AuthorityClass::FeatureDefined,
+        sections: &[],
     },
     OperationMetadata {
         operation: PRUNE_EPOCH,
@@ -544,6 +686,8 @@ pub const OPERATIONS: &[OperationMetadata] = &[
         delegate_allowed: false,
         payload_min: 0,
         payload_max: 0,
+        authority: AuthorityClass::FeatureDefined,
+        sections: &[],
     },
     OperationMetadata {
         operation: ResetHistory,
@@ -554,6 +698,8 @@ pub const OPERATIONS: &[OperationMetadata] = &[
         delegate_allowed: false,
         payload_min: 73,
         payload_max: 73,
+        authority: AuthorityClass::FeatureDefined,
+        sections: &[],
     },
     OperationMetadata {
         operation: SuspendHistory,
@@ -564,6 +710,8 @@ pub const OPERATIONS: &[OperationMetadata] = &[
         delegate_allowed: false,
         payload_min: 73,
         payload_max: 73,
+        authority: AuthorityClass::FeatureDefined,
+        sections: &[],
     },
     OperationMetadata {
         operation: ResumeHistory,
@@ -574,6 +722,8 @@ pub const OPERATIONS: &[OperationMetadata] = &[
         delegate_allowed: false,
         payload_min: 73,
         payload_max: 73,
+        authority: AuthorityClass::FeatureDefined,
+        sections: &[],
     },
     OperationMetadata {
         operation: ApproveAdmission,
@@ -584,6 +734,8 @@ pub const OPERATIONS: &[OperationMetadata] = &[
         delegate_allowed: false,
         payload_min: 0,
         payload_max: 15965,
+        authority: AuthorityClass::FeatureDefined,
+        sections: &[],
     },
     OperationMetadata {
         operation: RevokeAdmissionApproval,
@@ -594,6 +746,8 @@ pub const OPERATIONS: &[OperationMetadata] = &[
         delegate_allowed: false,
         payload_min: 0,
         payload_max: 15965,
+        authority: AuthorityClass::FeatureDefined,
+        sections: &[],
     },
     OperationMetadata {
         operation: AdmitWorker,
@@ -604,6 +758,8 @@ pub const OPERATIONS: &[OperationMetadata] = &[
         delegate_allowed: false,
         payload_min: 0,
         payload_max: 15965,
+        authority: AuthorityClass::FeatureDefined,
+        sections: &[],
     },
     OperationMetadata {
         operation: AdmitEvaluator,
@@ -614,6 +770,8 @@ pub const OPERATIONS: &[OperationMetadata] = &[
         delegate_allowed: false,
         payload_min: 0,
         payload_max: 15965,
+        authority: AuthorityClass::FeatureDefined,
+        sections: &[],
     },
     OperationMetadata {
         operation: Heartbeat,
@@ -624,6 +782,8 @@ pub const OPERATIONS: &[OperationMetadata] = &[
         delegate_allowed: true,
         payload_min: 0,
         payload_max: 15965,
+        authority: AuthorityClass::FeatureDefined,
+        sections: &[],
     },
     OperationMetadata {
         operation: RequestExit,
@@ -634,6 +794,8 @@ pub const OPERATIONS: &[OperationMetadata] = &[
         delegate_allowed: false,
         payload_min: 0,
         payload_max: 15965,
+        authority: AuthorityClass::FeatureDefined,
+        sections: &[],
     },
     OperationMetadata {
         operation: CancelExit,
@@ -644,6 +806,8 @@ pub const OPERATIONS: &[OperationMetadata] = &[
         delegate_allowed: false,
         payload_min: 0,
         payload_max: 15965,
+        authority: AuthorityClass::FeatureDefined,
+        sections: &[],
     },
     OperationMetadata {
         operation: PruneInactive,
@@ -654,6 +818,8 @@ pub const OPERATIONS: &[OperationMetadata] = &[
         delegate_allowed: false,
         payload_min: 0,
         payload_max: 15965,
+        authority: AuthorityClass::FeatureDefined,
+        sections: &[],
     },
     OperationMetadata {
         operation: AdministrativeRemove,
@@ -664,6 +830,8 @@ pub const OPERATIONS: &[OperationMetadata] = &[
         delegate_allowed: false,
         payload_min: 0,
         payload_max: 15965,
+        authority: AuthorityClass::FeatureDefined,
+        sections: &[],
     },
     OperationMetadata {
         operation: SealEvidence,
@@ -674,6 +842,8 @@ pub const OPERATIONS: &[OperationMetadata] = &[
         delegate_allowed: true,
         payload_min: 131,
         payload_max: 131,
+        authority: AuthorityClass::FeatureDefined,
+        sections: &[],
     },
     OperationMetadata {
         operation: READ_HEADER,
@@ -684,6 +854,8 @@ pub const OPERATIONS: &[OperationMetadata] = &[
         delegate_allowed: false,
         payload_min: 0,
         payload_max: 0,
+        authority: AuthorityClass::FeatureDefined,
+        sections: &[],
     },
     OperationMetadata {
         operation: READ_STATE_CHUNK,
@@ -694,8 +866,294 @@ pub const OPERATIONS: &[OperationMetadata] = &[
         delegate_allowed: false,
         payload_min: 46,
         payload_max: 46,
+        authority: AuthorityClass::FeatureDefined,
+        sections: &[],
+    },
+    OperationMetadata {
+        operation: OpenRoom,
+        name: "OpenRoom",
+        feature: 11,
+        boundary: CallBoundary::Mutation,
+        sequence: SequencePolicy::Role,
+        delegate_allowed: false,
+        payload_min: 168,
+        payload_max: 168,
+        authority: AuthorityClass::Host,
+        sections: &[
+            Section::PolicyLifecycle,
+            Section::IdentityRoster,
+            Section::Control,
+        ],
+    },
+    OperationMetadata {
+        operation: PostAsk,
+        name: "PostAsk",
+        feature: 11,
+        boundary: CallBoundary::Mutation,
+        sequence: SequencePolicy::ObjectLocal,
+        delegate_allowed: false,
+        payload_min: 128,
+        payload_max: 128,
+        authority: AuthorityClass::AnyAccount,
+        sections: &[
+            Section::PolicyLifecycle,
+            Section::IdentityRoster,
+            Section::Control,
+        ],
+    },
+    OperationMetadata {
+        operation: PostBid,
+        name: "PostBid",
+        feature: 11,
+        boundary: CallBoundary::Mutation,
+        sequence: SequencePolicy::Role,
+        delegate_allowed: false,
+        payload_min: 130,
+        payload_max: 130,
+        authority: AuthorityClass::EnrolledPeer,
+        sections: &[
+            Section::PolicyLifecycle,
+            Section::IdentityRoster,
+            Section::SettlementClaims,
+            Section::Control,
+        ],
+    },
+    OperationMetadata {
+        operation: RecordDeal,
+        name: "RecordDeal",
+        feature: 11,
+        boundary: CallBoundary::Mutation,
+        sequence: SequencePolicy::Role,
+        delegate_allowed: false,
+        payload_min: 181,
+        payload_max: 1297,
+        authority: AuthorityClass::Host,
+        sections: &[
+            Section::PolicyLifecycle,
+            Section::IdentityRoster,
+            Section::Control,
+        ],
+    },
+    OperationMetadata {
+        operation: SettleLaps,
+        name: "SettleLaps",
+        feature: 11,
+        boundary: CallBoundary::Mutation,
+        sequence: SequencePolicy::Role,
+        delegate_allowed: false,
+        payload_min: laps::SETTLE_FIXED_BYTES + evidence::MANIFEST_FIXED_BYTES,
+        payload_max: laps::SETTLE_FIXED_BYTES + evidence::MAX_MANIFEST_BYTES,
+        authority: AuthorityClass::Host,
+        sections: &[
+            Section::PolicyLifecycle,
+            Section::IdentityRoster,
+            Section::SettlementClaims,
+            Section::Control,
+        ],
+    },
+    OperationMetadata {
+        operation: ChallengeLap,
+        name: "ChallengeLap",
+        feature: 11,
+        boundary: CallBoundary::Mutation,
+        sequence: SequencePolicy::ObjectLocal,
+        delegate_allowed: false,
+        payload_min: 88,
+        payload_max: 88,
+        authority: AuthorityClass::AnyAccount,
+        sections: &[
+            Section::PolicyLifecycle,
+            Section::IdentityRoster,
+            Section::CurrentReports,
+            Section::Control,
+        ],
+    },
+    OperationMetadata {
+        operation: ResolveChallenge,
+        name: "ResolveChallenge",
+        feature: 11,
+        boundary: CallBoundary::Mutation,
+        sequence: SequencePolicy::ObjectLocal,
+        delegate_allowed: false,
+        payload_min: 104,
+        payload_max: 104,
+        authority: AuthorityClass::AnyAccount,
+        sections: &[
+            Section::PolicyLifecycle,
+            Section::IdentityRoster,
+            Section::CurrentReports,
+            Section::SettlementClaims,
+            Section::Control,
+        ],
+    },
+    OperationMetadata {
+        operation: SplitPayout,
+        name: "SplitPayout",
+        feature: 11,
+        boundary: CallBoundary::Mutation,
+        sequence: SequencePolicy::ObjectLocal,
+        delegate_allowed: false,
+        payload_min: 80,
+        payload_max: 80,
+        authority: AuthorityClass::HostOrAfterChallengeWindow,
+        sections: &[
+            Section::PolicyLifecycle,
+            Section::IdentityRoster,
+            Section::CurrentReports,
+            Section::SettlementClaims,
+            Section::Control,
+        ],
+    },
+    OperationMetadata {
+        operation: LockBond,
+        name: "LockBond",
+        feature: 11,
+        boundary: CallBoundary::Mutation,
+        sequence: SequencePolicy::Role,
+        delegate_allowed: false,
+        payload_min: 80,
+        payload_max: 80,
+        authority: AuthorityClass::EnrolledPeer,
+        sections: &[
+            Section::PolicyLifecycle,
+            Section::IdentityRoster,
+            Section::SettlementClaims,
+            Section::Control,
+        ],
+    },
+    OperationMetadata {
+        operation: SlashBond,
+        name: "SlashBond",
+        feature: 11,
+        boundary: CallBoundary::Mutation,
+        sequence: SequencePolicy::ObjectLocal,
+        delegate_allowed: false,
+        payload_min: 104,
+        payload_max: 104,
+        authority: AuthorityClass::ResolvedFault,
+        sections: &[
+            Section::PolicyLifecycle,
+            Section::IdentityRoster,
+            Section::CurrentReports,
+            Section::SettlementClaims,
+            Section::Control,
+        ],
+    },
+    OperationMetadata {
+        operation: RefundBond,
+        name: "RefundBond",
+        feature: 11,
+        boundary: CallBoundary::Mutation,
+        sequence: SequencePolicy::Role,
+        delegate_allowed: false,
+        payload_min: 64,
+        payload_max: 64,
+        authority: AuthorityClass::BondOwner,
+        sections: &[
+            Section::PolicyLifecycle,
+            Section::IdentityRoster,
+            Section::CurrentReports,
+            Section::SettlementClaims,
+            Section::Control,
+        ],
+    },
+    OperationMetadata {
+        operation: CloseRoom,
+        name: "CloseRoom",
+        feature: 11,
+        boundary: CallBoundary::Mutation,
+        sequence: SequencePolicy::Role,
+        delegate_allowed: false,
+        payload_min: 32,
+        payload_max: 32,
+        authority: AuthorityClass::Host,
+        sections: &[
+            Section::PolicyLifecycle,
+            Section::IdentityRoster,
+            Section::CurrentReports,
+            Section::SettlementClaims,
+            Section::Control,
+        ],
+    },
+    OperationMetadata {
+        operation: RoomView,
+        name: "RoomView",
+        feature: 11,
+        boundary: CallBoundary::ProgramRead,
+        sequence: SequencePolicy::ObjectLocal,
+        delegate_allowed: false,
+        payload_min: 32,
+        payload_max: 32,
+        authority: AuthorityClass::PublicRead,
+        sections: &[Section::PolicyLifecycle, Section::IdentityRoster],
+    },
+    OperationMetadata {
+        operation: DealView,
+        name: "DealView",
+        feature: 11,
+        boundary: CallBoundary::ProgramRead,
+        sequence: SequencePolicy::ObjectLocal,
+        delegate_allowed: false,
+        payload_min: 32,
+        payload_max: 32,
+        authority: AuthorityClass::PublicRead,
+        sections: &[Section::IdentityRoster, Section::SettlementClaims],
+    },
+    OperationMetadata {
+        operation: PeerView,
+        name: "PeerView",
+        feature: 11,
+        boundary: CallBoundary::ProgramRead,
+        sequence: SequencePolicy::ObjectLocal,
+        delegate_allowed: false,
+        payload_min: 32,
+        payload_max: 32,
+        authority: AuthorityClass::PublicRead,
+        sections: &[Section::IdentityRoster, Section::SettlementClaims],
+    },
+    OperationMetadata {
+        operation: ReceiptBatchView,
+        name: "ReceiptBatchView",
+        feature: 11,
+        boundary: CallBoundary::ProgramRead,
+        sequence: SequencePolicy::ObjectLocal,
+        delegate_allowed: false,
+        payload_min: 64,
+        payload_max: 64,
+        authority: AuthorityClass::PublicRead,
+        sections: &[Section::IdentityRoster, Section::SettlementClaims],
+    },
+    OperationMetadata {
+        operation: BookView,
+        name: "BookView",
+        feature: 11,
+        boundary: CallBoundary::ProgramRead,
+        sequence: SequencePolicy::ObjectLocal,
+        delegate_allowed: false,
+        payload_min: 32,
+        payload_max: 32,
+        authority: AuthorityClass::PublicRead,
+        sections: &[Section::PolicyLifecycle, Section::SettlementClaims],
     },
 ];
+
+static OPERATION_INDICES: [[u8; 32]; 12] = {
+    let mut indices = [[u8::MAX; 32]; 12];
+    let mut i = 0;
+    while i < OPERATIONS.len() {
+        let selector = OPERATIONS[i].operation.0 as usize;
+        indices[selector >> 8][selector & 0xff] = i as u8;
+        i += 1;
+    }
+    indices
+};
+
+#[cfg_attr(target_arch = "wasm32", inline(never))]
+fn metadata_for_selector(selector: u16) -> Option<&'static OperationMetadata> {
+    let family = OPERATION_INDICES.get(usize::from(selector >> 8))?;
+    let index = *family.get(usize::from(selector & 0xff))?;
+    OPERATIONS.get(usize::from(index))
+}
 
 const CONTROL_CAP: usize = Section::Control.payload_cap();
 const REBIND_SCRATCH_BYTES: usize = F01_SECTION_CAP + CONTROL_CAP + MAX_STATE_BYTES;
@@ -715,6 +1173,8 @@ const fn max_of(values: &[usize]) -> usize {
 
 const TRANSITION_SCRATCH_BYTES: usize = max_of(&[
     tasks::SCRATCH_BYTES,
+    canary::SCRATCH_BYTES,
+    laps::SCRATCH_BYTES,
     commit_reveal::SCRATCH_BYTES,
     evidence::SEAL_SCRATCH_BYTES,
     challenge::CHALLENGE_SCRATCH_BYTES,
@@ -725,6 +1185,7 @@ const TRANSITION_SCRATCH_BYTES: usize = max_of(&[
     F01_SECTION_CAP + CONTROL_CAP,
     REBIND_SCRATCH_BYTES,
     admission::ADMISSION_SCRATCH_BYTES,
+    rooms::SCRATCH_BYTES,
 ]);
 /// Router scratch: at least the largest scratch any routed transition or the F01 revision
 /// rebinding needs.
@@ -768,6 +1229,7 @@ enum Payload {
     Record([u8; RECORD_PAYLOAD_BYTES], usize),
 }
 impl Payload {
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     fn record(bytes: &[u8]) -> CodecResult<Self> {
         let mut out = [0; RECORD_PAYLOAD_BYTES];
         out.get_mut(..bytes.len())
@@ -804,6 +1266,15 @@ pub fn route(
     current: Option<&[u8]>,
     buffers: Buffers<'_>,
 ) -> CodecResult<Routed> {
+    if matches!(envelope_bytes.get(8..10), Some([0x0b, 0x10..=0x13])) {
+        return route_f11_view(ctx, envelope_bytes, current, buffers);
+    }
+    if queries::placement::is_book_view(envelope_bytes) {
+        return route_book_view(ctx, envelope_bytes, current, buffers);
+    }
+    if commit_reveal::is_canary_score(envelope_bytes) {
+        return route_canary_score(ctx, envelope_bytes, current, buffers);
+    }
     let visible = || {
         current
             .and_then(|bytes| state::decode_shared_state(bytes).ok())
@@ -886,6 +1357,171 @@ pub fn route(
     }
 }
 
+fn route_book_view(
+    ctx: &CallContext,
+    input: &[u8],
+    current: Option<&[u8]>,
+    buffers: Buffers<'_>,
+) -> CodecResult<Routed> {
+    let visible = current
+        .and_then(|bytes| state::decode_shared_state(bytes).ok())
+        .map_or(0, |state| state.revision);
+    let request = match queries::placement::decode_book_envelope(input) {
+        Ok(request) => request,
+        Err(error) => return refuse(error, Presence::Absent, visible, buffers.result),
+    };
+    let digest = match request.request_digest() {
+        Ok(digest) => digest,
+        Err(error) => return refuse(error, Presence::Absent, visible, buffers.result),
+    };
+    let answer = (|| {
+        let envelope = &request.envelope;
+        codec::compare_native_principal(envelope, ctx.principal)?;
+        envelope.check_domain(
+            ctx.chain,
+            ctx.program,
+            codec::derive_market(ctx.chain, ctx.program)?,
+        )?;
+        envelope.check_expiry(ctx.height)?;
+        let current = present(current)?;
+        let shared = state::decode_shared_state(current)?;
+        bound_section(ctx, &shared)?;
+        let len = queries::answer_book_view(current, envelope.payload, buffers.scratch)?;
+        queries::frame_read_result(
+            digest,
+            shared.revision,
+            &buffers.scratch[..len],
+            buffers.result,
+        )
+    })();
+    match answer {
+        Ok(result_len) => Ok(Routed::Unchanged { result_len }),
+        Err(error) => refuse(error, Presence::Present(digest), visible, buffers.result),
+    }
+}
+
+fn route_f11_view(
+    ctx: &CallContext,
+    input: &[u8],
+    current: Option<&[u8]>,
+    buffers: Buffers<'_>,
+) -> CodecResult<Routed> {
+    let visible = current
+        .and_then(|bytes| state::decode_shared_state(bytes).ok())
+        .map_or(0, |state| state.revision);
+    let request = match queries::decode_view_envelope(input) {
+        Ok(request) => request,
+        Err(error) => return refuse(error, Presence::Absent, visible, buffers.result),
+    };
+    let digest = match request.request_digest() {
+        Ok(digest) => digest,
+        Err(error) => return refuse(error, Presence::Absent, visible, buffers.result),
+    };
+    let answer = (|| {
+        let envelope = &request.envelope;
+        codec::compare_native_principal(envelope, ctx.principal)?;
+        envelope.check_domain(
+            ctx.chain,
+            ctx.program,
+            codec::derive_market(ctx.chain, ctx.program)?,
+        )?;
+        envelope.check_expiry(ctx.height)?;
+        let current = present(current)?;
+        let shared = state::decode_shared_state(current)?;
+        bound_section(ctx, &shared)?;
+        let answer = match envelope.operation {
+            RoomView => queries::answer_room_view,
+            DealView => queries::answer_deal_view,
+            PeerView => queries::answer_peer_view,
+            ReceiptBatchView => queries::answer_receipt_batch_view,
+            _ => return Err(UNKNOWN_OPERATION),
+        };
+        let len = answer(current, envelope.payload, buffers.scratch)?;
+        queries::frame_read_result(
+            digest,
+            shared.revision,
+            &buffers.scratch[..len],
+            buffers.result,
+        )
+    })();
+    match answer {
+        Ok(result_len) => Ok(Routed::Unchanged { result_len }),
+        Err(error) => refuse(error, Presence::Present(digest), visible, buffers.result),
+    }
+}
+
+fn route_canary_score(
+    ctx: &CallContext,
+    input: &[u8],
+    current: Option<&[u8]>,
+    buffers: Buffers<'_>,
+) -> CodecResult<Routed> {
+    let visible = current
+        .and_then(|s| state::decode_shared_state(s).ok())
+        .map_or(0, |s| s.revision);
+    let score = match commit_reveal::decode_canary_envelope(input) {
+        Ok(score) => score,
+        Err(error) => return refuse(error, Presence::Absent, visible, buffers.result),
+    };
+    let request = match score.request_digest() {
+        Ok(request) => request,
+        Err(error) => return refuse(error, Presence::Absent, visible, buffers.result),
+    };
+    let Buffers {
+        next,
+        scratch,
+        event,
+        result,
+    } = buffers;
+    let applied = present(current).and_then(|current| {
+        commit_reveal::apply_canary_score(ctx, &score, current, next, scratch, event)
+    });
+    let operation = score.envelope.operation;
+    match applied {
+        Ok(canary::Outcome::Applied {
+            record,
+            revision,
+            state_len,
+            event_len,
+        }) => {
+            let (payload, n) =
+                commit_reveal::canary_score_payload(&record, operation, score.envelope.sequence)?;
+            match applied_frame(
+                operation,
+                request,
+                revision,
+                event,
+                event_len,
+                &Payload::record(&payload[..n])?,
+                result,
+            ) {
+                Ok(result_len) => Ok(Routed::Applied {
+                    operation,
+                    revision,
+                    state_len,
+                    event_len,
+                    result_len,
+                }),
+                Err(error) => refuse(error, Presence::Present(request), visible, result),
+            }
+        }
+        Ok(canary::Outcome::Retained(retained)) => {
+            let result_len = frame(
+                ApplicationResult::success(
+                    ResultStatus::AlreadyApplied,
+                    request,
+                    retained.applied_revision,
+                    &retained.result_digest.bytes(),
+                ),
+                result,
+            )?;
+            Ok(Routed::Unchanged { result_len })
+        }
+        Ok(canary::Outcome::AlreadyApplied) => Err(NON_CANONICAL),
+        Err(error) => refuse(error, Presence::Present(request), visible, result),
+    }
+}
+
 fn frame(value: CodecResult<ApplicationResult<'_>>, out: &mut [u8]) -> CodecResult<usize> {
     codec::encode_result(&value?, out)
 }
@@ -942,7 +1578,7 @@ fn transition(
     if current.is_none()
         || matches!(
             envelope.envelope.operation.0,
-            0x0105 | 0x0111 | 0x0501..=0x0503 | 0x0601 | 0x0701..=0x0703 | 0x0A01 | 0x0A02
+            0x0105 | 0x0111 | 0x0501..=0x0503 | 0x0601 | 0x0701..=0x0703 | 0x0A01 | 0x0A02 | 0x0B01..=0x0B14
         )
     {
         return transition_inner(ctx, envelope, envelope_bytes, current, next, scratch, event);
@@ -1065,6 +1701,69 @@ fn transition_inner(
             }
         }
         0x0A01 | 0x0A02 => read(ctx, envelope, present(current)?, scratch),
+        0x0B01..=0x0B04 | 0x0B0C => {
+            match queries::placement::apply(ctx, envelope, present(current)?, next, scratch, event)?
+            {
+                rooms::Outcome::Applied {
+                    revision,
+                    state_len,
+                    event_len,
+                } => Ok(Step::Applied {
+                    revision,
+                    state_len,
+                    event_len,
+                    payload: Payload::Suffix,
+                }),
+                rooms::Outcome::Retained(retained) => Ok(Step::Retained(retained)),
+                rooms::Outcome::AlreadyApplied(subject) => {
+                    Ok(Step::Unchanged(Payload::record(subject.as_bytes())?))
+                }
+            }
+        }
+        0x0B05 => {
+            match laps::apply_settle_laps(ctx, envelope, present(current)?, next, scratch, event)? {
+                laps::Outcome::Applied {
+                    revision,
+                    state_len,
+                    event_len,
+                } => Ok(Step::Applied {
+                    revision,
+                    state_len,
+                    event_len,
+                    payload: Payload::Suffix,
+                }),
+                laps::Outcome::Retained(retained) => Ok(Step::Retained(retained)),
+            }
+        }
+        0x0B06 | 0x0B07 => {
+            let outcome = if operation == ChallengeLap {
+                canary::apply_challenge_lap(ctx, envelope, present(current)?, next, scratch, event)?
+            } else {
+                canary::apply_resolve_challenge(
+                    ctx,
+                    envelope,
+                    present(current)?,
+                    next,
+                    scratch,
+                    event,
+                )?
+            };
+            match outcome {
+                canary::Outcome::Applied {
+                    revision,
+                    state_len,
+                    event_len,
+                    ..
+                } => Ok(Step::Applied {
+                    revision,
+                    state_len,
+                    event_len,
+                    payload: Payload::Suffix,
+                }),
+                canary::Outcome::AlreadyApplied => Ok(Step::Unchanged(Payload::Empty)),
+                canary::Outcome::Retained(retained) => Ok(Step::Retained(retained)),
+            }
+        }
         _ => Err(UNKNOWN_OPERATION),
     }
 }

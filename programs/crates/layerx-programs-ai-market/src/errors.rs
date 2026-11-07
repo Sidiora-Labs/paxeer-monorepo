@@ -1,44 +1,57 @@
 //! Frozen application and independent offchain error spaces. Native errors are untouched.
 #[cfg(not(target_arch = "wasm32"))]
 use core::fmt;
+use core::num::NonZeroU8;
 
 #[derive(Clone, Copy, Eq, PartialEq)]
-#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
-pub struct ApplicationError(u16);
+pub struct ApplicationError(NonZeroU8);
 pub type CodecResult<T> = Result<T, ApplicationError>;
 impl ApplicationError {
     /// Looks up a registered application error code.
     ///
     /// # Errors
     /// Returns `NON_CANONICAL` when the code is not registered.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn from_code(code: u16) -> CodecResult<Self> {
-        if APPLICATION_ERROR_CODES.contains(&code) {
-            Ok(Self(code))
-        } else {
-            Err(NON_CANONICAL)
-        }
+        let index = APPLICATION_ERROR_CODES
+            .iter()
+            .position(|registered| *registered == code)
+            .ok_or(NON_CANONICAL)?;
+        NonZeroU8::new((index + 1) as u8)
+            .map(Self)
+            .ok_or(NON_CANONICAL)
     }
     #[must_use]
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub const fn code(self) -> u16 {
-        self.0
+        APPLICATION_ERROR_CODES[self.0.get() as usize - 1]
     }
     /// Looks up an application error by feature and name, aliases included.
     ///
     /// # Errors
     /// Returns `NON_CANONICAL` when no entry matches.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn named(feature: &str, name: &str) -> CodecResult<Self> {
         APPLICATION_ERRORS
             .iter()
             .chain(APPLICATION_ALIASES.iter())
             .find(|e| e.feature == feature && e.name == name)
-            .map(|e| Self(e.code))
             .ok_or(NON_CANONICAL)
+            .and_then(|e| Self::from_code(e.code))
+    }
+}
+#[cfg(not(target_arch = "wasm32"))]
+impl fmt::Debug for ApplicationError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_tuple("ApplicationError")
+            .field(&self.code())
+            .finish()
     }
 }
 #[cfg(not(target_arch = "wasm32"))]
 impl fmt::Display for ApplicationError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "PAXAI application error {:04x}", self.0)
+        write!(f, "PAXAI application error {:04x}", self.code())
     }
 }
 #[derive(Clone, Copy, Eq, PartialEq)]
@@ -53,157 +66,235 @@ pub struct ErrorEntry {
 // this projection at compile time so the published error registry stays the only
 // source of accepted codes, including its gaps and aliases.
 const APPLICATION_ERROR_CODES: [u16; APPLICATION_ERRORS.len()] = {
+    assert!(APPLICATION_ERRORS.len() <= u8::MAX as usize);
     let mut codes = [0; APPLICATION_ERRORS.len()];
     let mut i = 0;
     while i < codes.len() {
         codes[i] = APPLICATION_ERRORS[i].code;
+        assert!(codes[i] != 0);
         i += 1;
     }
     codes
 };
-pub const BAD_VERSION: ApplicationError = ApplicationError(0x0001);
-pub const NON_CANONICAL: ApplicationError = ApplicationError(0x0002);
-pub const WRONG_DOMAIN: ApplicationError = ApplicationError(0x0003);
-pub const WRONG_PROGRAM: ApplicationError = ApplicationError(0x0004);
-pub const WRONG_MARKET: ApplicationError = ApplicationError(0x0005);
-pub const UNAUTHORIZED: ApplicationError = ApplicationError(0x0006);
-pub const ROLE_CONFLICT: ApplicationError = ApplicationError(0x0007);
-pub const REVOKED: ApplicationError = ApplicationError(0x0008);
-pub const KEY_MISMATCH: ApplicationError = ApplicationError(0x0009);
-pub const BAD_SIGNATURE: ApplicationError = ApplicationError(0x000a);
-pub const EXPIRED: ApplicationError = ApplicationError(0x000b);
-pub const WRONG_EPOCH: ApplicationError = ApplicationError(0x000c);
-pub const WRONG_CONFIG: ApplicationError = ApplicationError(0x000d);
-pub const WRONG_ROSTER: ApplicationError = ApplicationError(0x000e);
-pub const WRONG_PHASE: ApplicationError = ApplicationError(0x000f);
-pub const REPLAY_CONFLICT: ApplicationError = ApplicationError(0x0010);
-pub const SEQUENCE_CONSUMED: ApplicationError = ApplicationError(0x0011);
-pub const SEQUENCE_GAP: ApplicationError = ApplicationError(0x0012);
-pub const STALE_CURSOR: ApplicationError = ApplicationError(0x0013);
-pub const CONFLICT: ApplicationError = ApplicationError(0x0014);
-pub const NOT_FOUND: ApplicationError = ApplicationError(0x0015);
-pub const CAPACITY: ApplicationError = ApplicationError(0x0016);
-pub const RETENTION_FULL: ApplicationError = ApplicationError(0x0017);
-pub const INSUFFICIENT_FREE: ApplicationError = ApplicationError(0x0018);
-pub const ACCOUNT_BINDING: ApplicationError = ApplicationError(0x0019);
-pub const HOST_CAPABILITY: ApplicationError = ApplicationError(0x001a);
-pub const HOST_TRANSFER: ApplicationError = ApplicationError(0x001b);
-pub const ARITHMETIC: ApplicationError = ApplicationError(0x001c);
-pub const EVIDENCE_BINDING: ApplicationError = ApplicationError(0x001d);
-pub const READINESS_BLOCKED: ApplicationError = ApplicationError(0x001e);
-pub const UNKNOWN_OPERATION: ApplicationError = ApplicationError(0x001f);
-pub const F03_NO_GRANT: ApplicationError = ApplicationError(0x0301);
-pub const F03_EVALUATOR_CAPACITY: ApplicationError = ApplicationError(0x0302);
-pub const F03_BAD_ACTIVATION: ApplicationError = ApplicationError(0x0303);
-pub const F03_KEY_REUSED: ApplicationError = ApplicationError(0x0304);
-pub const F03_KEY_VERSION_CONFLICT: ApplicationError = ApplicationError(0x0305);
-pub const F03_GRANT_VERSION_CONFLICT: ApplicationError = ApplicationError(0x0306);
-pub const F03_REPORT_ALREADY_FINAL: ApplicationError = ApplicationError(0x0307);
-pub const F03_CHALLENGE_CAPACITY: ApplicationError = ApplicationError(0x0308);
-pub const F03_UNKNOWN_WORKER: ApplicationError = ApplicationError(0x0309);
-pub const F03_NO_SCORES: ApplicationError = ApplicationError(0x030a);
-pub const F03_SCORE_RANGE: ApplicationError = ApplicationError(0x030b);
-pub const F03_NONCANONICAL_VECTOR: ApplicationError = ApplicationError(0x030c);
-pub const F03_EVIDENCE_NOT_SEALED: ApplicationError = ApplicationError(0x030d);
-pub const F03_EVIDENCE_ROOT_MISMATCH: ApplicationError = ApplicationError(0x030e);
-pub const F06_FUNDING_POLICY_MISMATCH: ApplicationError = ApplicationError(0x0601);
-pub const F06_REFUND_RECIPIENT_MISMATCH: ApplicationError = ApplicationError(0x0602);
-pub const F06_WRONG_ASSET: ApplicationError = ApplicationError(0x0603);
-pub const F06_INVALID_AMOUNT: ApplicationError = ApplicationError(0x0604);
-pub const F06_EPOCH_ALREADY_RESERVED: ApplicationError = ApplicationError(0x0605);
-pub const F06_EPOCH_NOT_RESERVED: ApplicationError = ApplicationError(0x0606);
-pub const F06_AGGREGATION_MISMATCH: ApplicationError = ApplicationError(0x0607);
-pub const F06_EPOCH_TERMINAL: ApplicationError = ApplicationError(0x0608);
-pub const F06_CLAIM_NOT_READY: ApplicationError = ApplicationError(0x0609);
-pub const F06_CLAIM_EXPIRED: ApplicationError = ApplicationError(0x060a);
-pub const F06_UNKNOWN_WORKER_ENTITLEMENT: ApplicationError = ApplicationError(0x060b);
-pub const F06_WRONG_CLAIM_RECIPIENT: ApplicationError = ApplicationError(0x060c);
-pub const F06_WRONG_CLAIM_AMOUNT: ApplicationError = ApplicationError(0x060d);
-pub const F06_NOTHING_TO_CLAIM: ApplicationError = ApplicationError(0x060e);
-pub const F06_LEDGER_INVARIANT_VIOLATION: ApplicationError = ApplicationError(0x060f);
-pub const F06_CONTRIBUTION_CONSENT_REQUIRED: ApplicationError = ApplicationError(0x0610);
-pub const F01_INVALID_POLICY: ApplicationError = ApplicationError(0x0101);
-pub const F01_PRINCIPAL_MISMATCH: ApplicationError = ApplicationError(0x0102);
-pub const F01_STALE_REVISION: ApplicationError = ApplicationError(0x0103);
-pub const F01_ALREADY_CREATED: ApplicationError = ApplicationError(0x0104);
-pub const F01_ACCOUNT_BINDING_MISSING: ApplicationError = ApplicationError(0x0105);
-pub const F01_VERSION_MISMATCH: ApplicationError = ApplicationError(0x0106);
-pub const F01_PENDING_POLICY_EXISTS: ApplicationError = ApplicationError(0x0107);
-pub const F01_NO_PENDING_POLICY: ApplicationError = ApplicationError(0x0108);
-pub const F01_ACTIVATION_TOO_EARLY: ApplicationError = ApplicationError(0x0109);
-pub const F01_ACTIVATION_NOT_READY: ApplicationError = ApplicationError(0x010a);
-pub const F01_ALREADY_ACTIVATED: ApplicationError = ApplicationError(0x010b);
-pub const F01_WRONG_LIFECYCLE: ApplicationError = ApplicationError(0x010c);
-pub const F01_LIFECYCLE_CLOSED: ApplicationError = ApplicationError(0x010d);
-pub const F01_INVALID_REASON: ApplicationError = ApplicationError(0x010e);
-pub const F01_GRANT_ALREADY_REVOKED: ApplicationError = ApplicationError(0x010f);
-pub const F01_ALREADY_CLOSING: ApplicationError = ApplicationError(0x0110);
-pub const F01_OBLIGATIONS_OUTSTANDING: ApplicationError = ApplicationError(0x0111);
-pub const F01_CAPACITY_UNAVAILABLE: ApplicationError = ApplicationError(0x0112);
-pub const F01_NO_TASK_CAPACITY: ApplicationError = ApplicationError(0x0113);
-pub const F01_UNKNOWN_WORKER: ApplicationError = ApplicationError(0x0114);
-pub const F01_TASK_CONFLICT: ApplicationError = ApplicationError(0x0115);
-pub const F01_TASK_EXPIRED: ApplicationError = ApplicationError(0x0116);
-pub const F01_POLICY_MISMATCH: ApplicationError = ApplicationError(0x0117);
-pub const F01_TASK_NOT_FOUND: ApplicationError = ApplicationError(0x0118);
-pub const F01_WRONG_WORKER: ApplicationError = ApplicationError(0x0119);
-pub const F01_TASK_ALREADY_ACCEPTED: ApplicationError = ApplicationError(0x011a);
-pub const F02_OWNER_REQUIRED: ApplicationError = ApplicationError(0x0201);
-pub const F02_DELEGATE_CONSENT_REQUIRED: ApplicationError = ApplicationError(0x0202);
-pub const F02_DELEGATE_REVOKED: ApplicationError = ApplicationError(0x0203);
-pub const F02_IDENTITY_FROZEN: ApplicationError = ApplicationError(0x0204);
-pub const F02_STALE_AUTHORITY: ApplicationError = ApplicationError(0x0205);
-pub const F02_WRONG_GENERATION: ApplicationError = ApplicationError(0x0206);
-pub const F02_WRONG_REVISION: ApplicationError = ApplicationError(0x0207);
-pub const F02_METADATA_EXPIRED: ApplicationError = ApplicationError(0x0208);
-pub const F02_METADATA_UNAVAILABLE: ApplicationError = ApplicationError(0x0209);
-pub const F02_METADATA_INTEGRITY_FAILURE: ApplicationError = ApplicationError(0x020a);
-pub const F02_CAPABILITY_MISMATCH: ApplicationError = ApplicationError(0x020b);
-pub const F02_ADMISSION_NOT_EFFECTIVE: ApplicationError = ApplicationError(0x020c);
-pub const F02_MARKET_PAUSED: ApplicationError = ApplicationError(0x020d);
-pub const F02_RATE_LIMITED: ApplicationError = ApplicationError(0x020e);
-pub const F02_INPUT_TOO_LARGE: ApplicationError = ApplicationError(0x020f);
-pub const F02_OUTPUT_TOO_LARGE: ApplicationError = ApplicationError(0x0210);
-pub const F02_DEADLINE_INVALID: ApplicationError = ApplicationError(0x0211);
-pub const F02_ACCESS_DENIED: ApplicationError = ApplicationError(0x0212);
-pub const F02_UNKNOWN_EXECUTION: ApplicationError = ApplicationError(0x0213);
-pub const F04_NO_SCORES: ApplicationError = ApplicationError(0x0401);
-pub const F04_SALT_INVALID: ApplicationError = ApplicationError(0x0402);
-pub const F04_COMMIT_MISMATCH: ApplicationError = ApplicationError(0x0403);
-pub const F05_REPORT_INVARIANT: ApplicationError = ApplicationError(0x0501);
-pub const F07_IDENTITY_FROZEN: ApplicationError = ApplicationError(0x0701);
-pub const F07_SEGMENT_MISMATCH: ApplicationError = ApplicationError(0x0702);
-pub const F07_GENERATION_MISMATCH: ApplicationError = ApplicationError(0x0703);
-pub const F07_UNKNOWN_WORKER: ApplicationError = ApplicationError(0x0704);
-pub const F07_EPOCH_NOT_SEALED: ApplicationError = ApplicationError(0x0705);
-pub const F07_BINDING_MISMATCH: ApplicationError = ApplicationError(0x0706);
-pub const F07_RESOURCE_LIMIT: ApplicationError = ApplicationError(0x0707);
-pub const F07_FINALITY_UNAVAILABLE: ApplicationError = ApplicationError(0x0708);
-pub const F08_OWNER_REQUIRED: ApplicationError = ApplicationError(0x0801);
-pub const F08_ADMINISTRATOR_APPROVAL_REQUIRED: ApplicationError = ApplicationError(0x0802);
-pub const F08_BAD_CONSENT: ApplicationError = ApplicationError(0x0803);
-pub const F08_PERMIT_EXPIRED: ApplicationError = ApplicationError(0x0804);
-pub const F08_PERMIT_CONSUMED: ApplicationError = ApplicationError(0x0805);
-pub const F08_IDENTITY_FROZEN: ApplicationError = ApplicationError(0x0806);
-pub const F08_DELEGATE_REVOKED: ApplicationError = ApplicationError(0x0807);
-pub const F08_WRONG_GENERATION: ApplicationError = ApplicationError(0x0808);
-pub const F08_MARKET_PAUSED: ApplicationError = ApplicationError(0x0809);
-pub const F08_DUPLICATE_IDENTITY: ApplicationError = ApplicationError(0x080a);
-pub const F08_OWNER_CAPACITY_EXCEEDED: ApplicationError = ApplicationError(0x080b);
-pub const F08_CAPACITY_EXCEEDED: ApplicationError = ApplicationError(0x080c);
-pub const F08_ADMISSION_WINDOW_FULL: ApplicationError = ApplicationError(0x080d);
-pub const F08_RATE_LIMITED: ApplicationError = ApplicationError(0x080e);
-pub const F08_NO_PRUNABLE_MEMBER: ApplicationError = ApplicationError(0x080f);
-pub const F08_CANDIDATE_CHANGED: ApplicationError = ApplicationError(0x0810);
-pub const F08_STALE_STATE: ApplicationError = ApplicationError(0x0811);
-pub const F08_RETENTION_BLOCKED: ApplicationError = ApplicationError(0x0812);
-pub const F08_QUORUM_UNAVAILABLE: ApplicationError = ApplicationError(0x0813);
-pub const F08_IDEMPOTENCY_CONFLICT: ApplicationError = ApplicationError(0x0814);
-pub const F08_RESOURCE_EXHAUSTED: ApplicationError = ApplicationError(0x0815);
-pub const F09_EVIDENCE_TASK_SET_UNSEALED: ApplicationError = ApplicationError(0x0901);
-pub const F09_EVIDENCE_SEAL_CONFLICT: ApplicationError = ApplicationError(0x0902);
-pub const F07_IDEMPOTENCY_CONFLICT: ApplicationError = ApplicationError(0x0709);
+// The private nonzero index leaves zero for success without carrying wire-code
+// padding through every codec Result. Wire codes remain the registry's u16 values.
+const fn application_error(code: u16) -> ApplicationError {
+    let mut index = 0;
+    while index < APPLICATION_ERROR_CODES.len() {
+        if APPLICATION_ERROR_CODES[index] == code {
+            return match NonZeroU8::new((index + 1) as u8) {
+                Some(index) => ApplicationError(index),
+                None => panic!("application error index must be nonzero"),
+            };
+        }
+        index += 1;
+    }
+    panic!("application error constants must be registered")
+}
+
+pub const BAD_VERSION: ApplicationError = application_error(0x0001);
+pub const NON_CANONICAL: ApplicationError = application_error(0x0002);
+pub const WRONG_DOMAIN: ApplicationError = application_error(0x0003);
+pub const WRONG_PROGRAM: ApplicationError = application_error(0x0004);
+pub const WRONG_MARKET: ApplicationError = application_error(0x0005);
+pub const UNAUTHORIZED: ApplicationError = application_error(0x0006);
+pub const ROLE_CONFLICT: ApplicationError = application_error(0x0007);
+pub const REVOKED: ApplicationError = application_error(0x0008);
+pub const KEY_MISMATCH: ApplicationError = application_error(0x0009);
+pub const BAD_SIGNATURE: ApplicationError = application_error(0x000a);
+pub const EXPIRED: ApplicationError = application_error(0x000b);
+pub const WRONG_EPOCH: ApplicationError = application_error(0x000c);
+pub const WRONG_CONFIG: ApplicationError = application_error(0x000d);
+pub const WRONG_ROSTER: ApplicationError = application_error(0x000e);
+pub const WRONG_PHASE: ApplicationError = application_error(0x000f);
+pub const REPLAY_CONFLICT: ApplicationError = application_error(0x0010);
+pub const SEQUENCE_CONSUMED: ApplicationError = application_error(0x0011);
+pub const SEQUENCE_GAP: ApplicationError = application_error(0x0012);
+pub const STALE_CURSOR: ApplicationError = application_error(0x0013);
+pub const CONFLICT: ApplicationError = application_error(0x0014);
+pub const NOT_FOUND: ApplicationError = application_error(0x0015);
+pub const CAPACITY: ApplicationError = application_error(0x0016);
+pub const RETENTION_FULL: ApplicationError = application_error(0x0017);
+pub const INSUFFICIENT_FREE: ApplicationError = application_error(0x0018);
+pub const ACCOUNT_BINDING: ApplicationError = application_error(0x0019);
+pub const HOST_CAPABILITY: ApplicationError = application_error(0x001a);
+pub const HOST_TRANSFER: ApplicationError = application_error(0x001b);
+pub const ARITHMETIC: ApplicationError = application_error(0x001c);
+pub const EVIDENCE_BINDING: ApplicationError = application_error(0x001d);
+pub const READINESS_BLOCKED: ApplicationError = application_error(0x001e);
+pub const UNKNOWN_OPERATION: ApplicationError = application_error(0x001f);
+pub const F03_NO_GRANT: ApplicationError = application_error(0x0301);
+pub const F03_EVALUATOR_CAPACITY: ApplicationError = application_error(0x0302);
+pub const F03_BAD_ACTIVATION: ApplicationError = application_error(0x0303);
+pub const F03_KEY_REUSED: ApplicationError = application_error(0x0304);
+pub const F03_KEY_VERSION_CONFLICT: ApplicationError = application_error(0x0305);
+pub const F03_GRANT_VERSION_CONFLICT: ApplicationError = application_error(0x0306);
+pub const F03_REPORT_ALREADY_FINAL: ApplicationError = application_error(0x0307);
+pub const F03_CHALLENGE_CAPACITY: ApplicationError = application_error(0x0308);
+pub const F03_UNKNOWN_WORKER: ApplicationError = application_error(0x0309);
+pub const F03_NO_SCORES: ApplicationError = application_error(0x030a);
+pub const F03_SCORE_RANGE: ApplicationError = application_error(0x030b);
+pub const F03_NONCANONICAL_VECTOR: ApplicationError = application_error(0x030c);
+pub const F03_EVIDENCE_NOT_SEALED: ApplicationError = application_error(0x030d);
+pub const F03_EVIDENCE_ROOT_MISMATCH: ApplicationError = application_error(0x030e);
+pub const F06_FUNDING_POLICY_MISMATCH: ApplicationError = application_error(0x0601);
+pub const F06_REFUND_RECIPIENT_MISMATCH: ApplicationError = application_error(0x0602);
+pub const F06_WRONG_ASSET: ApplicationError = application_error(0x0603);
+pub const F06_INVALID_AMOUNT: ApplicationError = application_error(0x0604);
+pub const F06_EPOCH_ALREADY_RESERVED: ApplicationError = application_error(0x0605);
+pub const F06_EPOCH_NOT_RESERVED: ApplicationError = application_error(0x0606);
+pub const F06_AGGREGATION_MISMATCH: ApplicationError = application_error(0x0607);
+pub const F06_EPOCH_TERMINAL: ApplicationError = application_error(0x0608);
+pub const F06_CLAIM_NOT_READY: ApplicationError = application_error(0x0609);
+pub const F06_CLAIM_EXPIRED: ApplicationError = application_error(0x060a);
+pub const F06_UNKNOWN_WORKER_ENTITLEMENT: ApplicationError = application_error(0x060b);
+pub const F06_WRONG_CLAIM_RECIPIENT: ApplicationError = application_error(0x060c);
+pub const F06_WRONG_CLAIM_AMOUNT: ApplicationError = application_error(0x060d);
+pub const F06_NOTHING_TO_CLAIM: ApplicationError = application_error(0x060e);
+pub const F06_LEDGER_INVARIANT_VIOLATION: ApplicationError = application_error(0x060f);
+pub const F06_CONTRIBUTION_CONSENT_REQUIRED: ApplicationError = application_error(0x0610);
+pub const F01_INVALID_POLICY: ApplicationError = application_error(0x0101);
+pub const F01_PRINCIPAL_MISMATCH: ApplicationError = application_error(0x0102);
+pub const F01_STALE_REVISION: ApplicationError = application_error(0x0103);
+pub const F01_ALREADY_CREATED: ApplicationError = application_error(0x0104);
+pub const F01_ACCOUNT_BINDING_MISSING: ApplicationError = application_error(0x0105);
+pub const F01_VERSION_MISMATCH: ApplicationError = application_error(0x0106);
+pub const F01_PENDING_POLICY_EXISTS: ApplicationError = application_error(0x0107);
+pub const F01_NO_PENDING_POLICY: ApplicationError = application_error(0x0108);
+pub const F01_ACTIVATION_TOO_EARLY: ApplicationError = application_error(0x0109);
+pub const F01_ACTIVATION_NOT_READY: ApplicationError = application_error(0x010a);
+pub const F01_ALREADY_ACTIVATED: ApplicationError = application_error(0x010b);
+pub const F01_WRONG_LIFECYCLE: ApplicationError = application_error(0x010c);
+pub const F01_LIFECYCLE_CLOSED: ApplicationError = application_error(0x010d);
+pub const F01_INVALID_REASON: ApplicationError = application_error(0x010e);
+pub const F01_GRANT_ALREADY_REVOKED: ApplicationError = application_error(0x010f);
+pub const F01_ALREADY_CLOSING: ApplicationError = application_error(0x0110);
+pub const F01_OBLIGATIONS_OUTSTANDING: ApplicationError = application_error(0x0111);
+pub const F01_CAPACITY_UNAVAILABLE: ApplicationError = application_error(0x0112);
+pub const F01_NO_TASK_CAPACITY: ApplicationError = application_error(0x0113);
+pub const F01_UNKNOWN_WORKER: ApplicationError = application_error(0x0114);
+pub const F01_TASK_CONFLICT: ApplicationError = application_error(0x0115);
+pub const F01_TASK_EXPIRED: ApplicationError = application_error(0x0116);
+pub const F01_POLICY_MISMATCH: ApplicationError = application_error(0x0117);
+pub const F01_TASK_NOT_FOUND: ApplicationError = application_error(0x0118);
+pub const F01_WRONG_WORKER: ApplicationError = application_error(0x0119);
+pub const F01_TASK_ALREADY_ACCEPTED: ApplicationError = application_error(0x011a);
+pub const F02_OWNER_REQUIRED: ApplicationError = application_error(0x0201);
+pub const F02_DELEGATE_CONSENT_REQUIRED: ApplicationError = application_error(0x0202);
+pub const F02_DELEGATE_REVOKED: ApplicationError = application_error(0x0203);
+pub const F02_IDENTITY_FROZEN: ApplicationError = application_error(0x0204);
+pub const F02_STALE_AUTHORITY: ApplicationError = application_error(0x0205);
+pub const F02_WRONG_GENERATION: ApplicationError = application_error(0x0206);
+pub const F02_WRONG_REVISION: ApplicationError = application_error(0x0207);
+pub const F02_METADATA_EXPIRED: ApplicationError = application_error(0x0208);
+pub const F02_METADATA_UNAVAILABLE: ApplicationError = application_error(0x0209);
+pub const F02_METADATA_INTEGRITY_FAILURE: ApplicationError = application_error(0x020a);
+pub const F02_CAPABILITY_MISMATCH: ApplicationError = application_error(0x020b);
+pub const F02_ADMISSION_NOT_EFFECTIVE: ApplicationError = application_error(0x020c);
+pub const F02_MARKET_PAUSED: ApplicationError = application_error(0x020d);
+pub const F02_RATE_LIMITED: ApplicationError = application_error(0x020e);
+pub const F02_INPUT_TOO_LARGE: ApplicationError = application_error(0x020f);
+pub const F02_OUTPUT_TOO_LARGE: ApplicationError = application_error(0x0210);
+pub const F02_DEADLINE_INVALID: ApplicationError = application_error(0x0211);
+pub const F02_ACCESS_DENIED: ApplicationError = application_error(0x0212);
+pub const F02_UNKNOWN_EXECUTION: ApplicationError = application_error(0x0213);
+pub const F04_NO_SCORES: ApplicationError = application_error(0x0401);
+pub const F04_SALT_INVALID: ApplicationError = application_error(0x0402);
+pub const F04_COMMIT_MISMATCH: ApplicationError = application_error(0x0403);
+pub const F05_REPORT_INVARIANT: ApplicationError = application_error(0x0501);
+pub const F07_IDENTITY_FROZEN: ApplicationError = application_error(0x0701);
+pub const F07_SEGMENT_MISMATCH: ApplicationError = application_error(0x0702);
+pub const F07_GENERATION_MISMATCH: ApplicationError = application_error(0x0703);
+pub const F07_UNKNOWN_WORKER: ApplicationError = application_error(0x0704);
+pub const F07_EPOCH_NOT_SEALED: ApplicationError = application_error(0x0705);
+pub const F07_BINDING_MISMATCH: ApplicationError = application_error(0x0706);
+pub const F07_RESOURCE_LIMIT: ApplicationError = application_error(0x0707);
+pub const F07_FINALITY_UNAVAILABLE: ApplicationError = application_error(0x0708);
+pub const F08_OWNER_REQUIRED: ApplicationError = application_error(0x0801);
+pub const F08_ADMINISTRATOR_APPROVAL_REQUIRED: ApplicationError = application_error(0x0802);
+pub const F08_BAD_CONSENT: ApplicationError = application_error(0x0803);
+pub const F08_PERMIT_EXPIRED: ApplicationError = application_error(0x0804);
+pub const F08_PERMIT_CONSUMED: ApplicationError = application_error(0x0805);
+pub const F08_IDENTITY_FROZEN: ApplicationError = application_error(0x0806);
+pub const F08_DELEGATE_REVOKED: ApplicationError = application_error(0x0807);
+pub const F08_WRONG_GENERATION: ApplicationError = application_error(0x0808);
+pub const F08_MARKET_PAUSED: ApplicationError = application_error(0x0809);
+pub const F08_DUPLICATE_IDENTITY: ApplicationError = application_error(0x080a);
+pub const F08_OWNER_CAPACITY_EXCEEDED: ApplicationError = application_error(0x080b);
+pub const F08_CAPACITY_EXCEEDED: ApplicationError = application_error(0x080c);
+pub const F08_ADMISSION_WINDOW_FULL: ApplicationError = application_error(0x080d);
+pub const F08_RATE_LIMITED: ApplicationError = application_error(0x080e);
+pub const F08_NO_PRUNABLE_MEMBER: ApplicationError = application_error(0x080f);
+pub const F08_CANDIDATE_CHANGED: ApplicationError = application_error(0x0810);
+pub const F08_STALE_STATE: ApplicationError = application_error(0x0811);
+pub const F08_RETENTION_BLOCKED: ApplicationError = application_error(0x0812);
+pub const F08_QUORUM_UNAVAILABLE: ApplicationError = application_error(0x0813);
+pub const F08_IDEMPOTENCY_CONFLICT: ApplicationError = application_error(0x0814);
+pub const F08_RESOURCE_EXHAUSTED: ApplicationError = application_error(0x0815);
+pub const F09_EVIDENCE_TASK_SET_UNSEALED: ApplicationError = application_error(0x0901);
+pub const F09_EVIDENCE_SEAL_CONFLICT: ApplicationError = application_error(0x0902);
+pub const F07_IDEMPOTENCY_CONFLICT: ApplicationError = application_error(0x0709);
+pub const F11_ROOM_UNKNOWN: ApplicationError = application_error(0x0B01);
+pub const F11_ROOM_CLOSED: ApplicationError = application_error(0x0B02);
+pub const F11_ASK_UNFUNDED: ApplicationError = application_error(0x0B03);
+pub const F11_BID_BELOW_FLOOR: ApplicationError = application_error(0x0B04);
+pub const F11_ROSTER_DIGEST_MISMATCH: ApplicationError = application_error(0x0B05);
+pub const F11_BATCH_UNSEALED: ApplicationError = application_error(0x0B06);
+pub const F11_CHALLENGE_WINDOW_CLOSED: ApplicationError = application_error(0x0B07);
+pub const F11_BOND_LOCKED: ApplicationError = application_error(0x0B08);
+pub const F11_BOND_INSUFFICIENT: ApplicationError = application_error(0x0B09);
+pub const F11_SPLIT_EXCEEDS_SETTLED: ApplicationError = application_error(0x0B0A);
 pub const APPLICATION_ERRORS: &[ErrorEntry] = &[
+    ErrorEntry {
+        feature: "F11",
+        name: "RoomUnknown",
+        code: 0x0B01,
+    },
+    ErrorEntry {
+        feature: "F11",
+        name: "RoomClosed",
+        code: 0x0B02,
+    },
+    ErrorEntry {
+        feature: "F11",
+        name: "AskUnfunded",
+        code: 0x0B03,
+    },
+    ErrorEntry {
+        feature: "F11",
+        name: "BidBelowFloor",
+        code: 0x0B04,
+    },
+    ErrorEntry {
+        feature: "F11",
+        name: "RosterDigestMismatch",
+        code: 0x0B05,
+    },
+    ErrorEntry {
+        feature: "F11",
+        name: "BatchUnsealed",
+        code: 0x0B06,
+    },
+    ErrorEntry {
+        feature: "F11",
+        name: "ChallengeWindowClosed",
+        code: 0x0B07,
+    },
+    ErrorEntry {
+        feature: "F11",
+        name: "BondLocked",
+        code: 0x0B08,
+    },
+    ErrorEntry {
+        feature: "F11",
+        name: "BondInsufficient",
+        code: 0x0B09,
+    },
+    ErrorEntry {
+        feature: "F11",
+        name: "SplitExceedsSettled",
+        code: 0x0B0A,
+    },
     ErrorEntry {
         feature: "F07",
         name: "IdempotencyConflict",
@@ -1055,17 +1146,20 @@ pub enum OffchainSpace {
 ///
 /// # Errors
 /// Returns `NON_CANONICAL` for code 0 or a code past the end of the table.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn offchain_error(space: OffchainSpace, code: u16) -> CodecResult<&'static str> {
-    let table = match space {
-        OffchainSpace::WorkerService => WORKER_SERVICE_ERRORS,
-        OffchainSpace::ArtifactService => ARTIFACT_SERVICE_ERRORS,
-        OffchainSpace::HistoryQuery => HISTORY_QUERY_ERRORS,
-        OffchainSpace::ViewProjection => VIEW_PROJECTION_ERRORS,
-        OffchainSpace::ViewQuery => VIEW_QUERY_ERRORS,
-    };
+    let table = OFFCHAIN_ERROR_TABLES[space as usize];
     let index = code.checked_sub(1).ok_or(NON_CANONICAL)?;
     table.get(usize::from(index)).copied().ok_or(NON_CANONICAL)
 }
+static OFFCHAIN_ERROR_TABLES: [&[&str]; 5] = [
+    WORKER_SERVICE_ERRORS,
+    ARTIFACT_SERVICE_ERRORS,
+    HISTORY_QUERY_ERRORS,
+    VIEW_PROJECTION_ERRORS,
+    VIEW_QUERY_ERRORS,
+];
+
 pub const WORKER_SERVICE_ERRORS: &[&str] = &[
     "NonCanonical",
     "UnsupportedVersion",

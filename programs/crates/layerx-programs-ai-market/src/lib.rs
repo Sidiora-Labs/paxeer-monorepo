@@ -2,9 +2,12 @@
 //! value establishes host authority or finality.
 #![cfg_attr(target_arch = "wasm32", no_std)]
 
+// File modules are mirrored in gateway/tests/repair_22_33_1439.rs and checked by
+// tests/ci/test_ai_market_module_mirror.py, including conditional private modules.
 pub mod admission;
 pub mod aggregation;
 pub mod aggregation_codec;
+pub mod canary;
 pub mod closure;
 pub mod codec;
 pub mod commit_reveal;
@@ -21,8 +24,10 @@ pub mod evaluators {
 #[cfg(target_arch = "wasm32")]
 mod guest_cell;
 pub mod host_adapter;
+pub mod laps;
 pub mod policy;
 pub mod queries;
+pub use queries::placement;
 pub mod registry;
 pub mod registry_ops;
 pub mod reputation;
@@ -30,6 +35,7 @@ pub mod reputation_codec;
 pub mod reputation_transition;
 pub mod reward_math;
 pub mod rewards;
+pub mod rooms;
 pub mod roster;
 pub mod state;
 pub mod tasks;
@@ -105,7 +111,7 @@ mod deployment {
             Some(hex) => parse_domain(hex.as_bytes()),
             None => Some(crate::MERGED_CHAIN_DOMAIN),
         })?;
-        if domain.bytes() != crate::merged_chain_domain(crate::MERGED_CHAIN_ID) {
+        if domain.bytes() != crate::MERGED_CHAIN_DOMAIN {
             return Err(WRONG_DOMAIN);
         }
         Ok(domain)
@@ -298,7 +304,8 @@ mod guest {
         };
         let current_len = match call.read_state(current) {
             Ok(Some(state)) => match state.encoded_len() {
-                Ok(n) => Some(n),
+                Ok(n) if n <= current.len() => Some(n),
+                Ok(_) => return Err(failure(crate::errors::NON_CANONICAL, result)),
                 Err(error) => return Err(failure(error, result)),
             },
             Ok(None) => None,
@@ -324,6 +331,24 @@ mod guest {
                 result_len,
                 ..
             }) => {
+                if state_len > next.len() || event_len > event.len() || result_len > result.len() {
+                    return Err(failure(crate::errors::NON_CANONICAL, result));
+                }
+                if matches!(
+                    operation,
+                    dispatch::ChallengeLap | dispatch::ResolveChallenge
+                ) {
+                    let Some(n) = current_len else {
+                        return Err(EMPTY_REFUSAL);
+                    };
+                    match crate::canary::stage_value(operation, &current[..n], &next[..state_len]) {
+                        Ok(()) => {}
+                        Err(AdapterError::Application(error)) => {
+                            return Err(failure(error, result))
+                        }
+                        Err(AdapterError::Host(_)) => return Err(EMPTY_REFUSAL),
+                    }
+                }
                 let events = [ApplicationEvent {
                     operation,
                     body: &event[..event_len],
@@ -335,15 +360,28 @@ mod guest {
                 }
             }
             Ok(Routed::Unchanged { result_len }) => {
+                if result_len > result.len() {
+                    return Err(failure(crate::errors::NON_CANONICAL, result));
+                }
                 Ok(EntryResponse::new(CallResult::OK, &result[..result_len]))
             }
-            Ok(Routed::Refused { result_len }) => Err(rejected(&result[..result_len])),
+            Ok(Routed::Refused { result_len }) => {
+                if result_len > result.len() {
+                    return Err(failure(crate::errors::NON_CANONICAL, result));
+                }
+                Err(rejected(&result[..result_len]))
+            }
             Err(error) => Err(failure(error, result)),
         }
     }
 }
 
-pub use errors::{ApplicationError, CodecResult};
+pub use errors::{
+    ApplicationError, CodecResult, F11_ASK_UNFUNDED, F11_BATCH_UNSEALED, F11_BID_BELOW_FLOOR,
+    F11_BOND_INSUFFICIENT, F11_BOND_LOCKED, F11_CHALLENGE_WINDOW_CLOSED, F11_ROOM_CLOSED,
+    F11_ROOM_UNKNOWN, F11_ROSTER_DIGEST_MISMATCH, F11_SPLIT_EXCEEDS_SETTLED,
+};
+pub use policy::{MarketPolicy, RoomProfile};
 pub use types::*;
 
 pub const SCHEMA_VERSION: u16 = 1;

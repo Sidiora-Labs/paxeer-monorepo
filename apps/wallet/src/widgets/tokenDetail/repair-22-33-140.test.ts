@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { parseWalletReadRequest, walletReadResponseHeaders } from '@/lib/wallet-read-contract';
 import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { act, createElement, useLayoutEffect } from 'react';
@@ -36,6 +37,8 @@ import {
   type MarketSeries,
 } from './detailQueries';
 import type { AppRoute } from '@/widgets/shell/useAppRoute';
+import { queryKeys } from '@/lib/queries/keys';
+import { scopedQueryKey } from '@/lib/queries/scope';
 import { preferencesRepository } from '@/platform/storage/repositories';
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -160,6 +163,11 @@ function nativeTransaction(): Transaction {
 async function startReadServer(): Promise<void> {
   server = createServer((req, res) => {
     const url = new URL(req.url ?? '/', 'http://127.0.0.1');
+    if (url.pathname.startsWith('/api/v2/')) {
+      const read = parseWalletReadRequest(url);
+      for (const [key, value] of Object.entries(walletReadResponseHeaders(read)))
+        res.setHeader(key, value);
+    }
     requests.push(url);
     const path = url.pathname;
     let body: unknown;
@@ -333,7 +341,7 @@ beforeEach(async () => {
   client = new QueryClient({
     defaultOptions: { queries: { retry: false, staleTime: Infinity, gcTime: Infinity } },
   });
-  client.setQueryData(['paxPrice', 'PAX'], { latest: 3 });
+  client.setQueryData(queryKeys.paxPrice('PAX'), { latest: 3 });
   container = document.createElement('div');
   document.body.appendChild(container);
 });
@@ -446,7 +454,15 @@ async function wpax_address_detection_uses_active_chain_and_exact_alias() {
       params: [{ chainId: ethers.toQuantity(125000001) }],
     });
   });
-  await until(() => walletContext().chainId === 125000001 && client.isFetching() === 0);
+  await until(
+    () =>
+      walletContext().chainId === 125000001 &&
+      client.getQueryState(
+        scopedQueryKey(['tokenMeta', 125000001, TOKENS.WPAX9.address.toLowerCase(), false])
+      )?.status === 'success' &&
+      client.isFetching() === 0 &&
+      metric('Symbol') !== '???'
+  );
   expect(metric('Symbol')).toBe('SAME');
   expect(metric('24h High')).toBeNull();
   expect(container.textContent).toContain('Activity unavailable for this network');
@@ -461,6 +477,11 @@ async function wpax_address_detection_uses_active_chain_and_exact_alias() {
 
 async function token_detail_zero_decimals_preserves_units_through_display_and_actions() {
   await mount(TOKEN_A);
+  await until(
+    () =>
+      client.getQueryState(queryKeys.portfolio(loadConstructions().address))?.status ===
+        'success' && metric('Balance') !== null
+  );
   expect(metric('Decimals')).toBe('0');
   expect(metric('Balance')).toBe('42 SAME');
   expect(metric('Value')).toBe('$84.00');
@@ -472,10 +493,9 @@ async function token_detail_zero_decimals_preserves_units_through_display_and_ac
   expect(sent).toEqual([TOKEN_A.toLowerCase()]);
   expect(navigated).toEqual(['swap']);
   expect(
-    client.getQueryData<{ token_holdings: Array<{ balance_raw: string; decimals: number }> }>([
-      'portfolio',
-      loadConstructions().address.toLowerCase(),
-    ])?.token_holdings[0]
+    client.getQueryData<{ token_holdings: Array<{ balance_raw: string; decimals: number }> }>(
+      queryKeys.portfolio(loadConstructions().address)
+    )?.token_holdings[0]
   ).toMatchObject({ balance_raw: '42', decimals: 0 });
   expect(container.textContent).toContain('-42.0 SAME');
 }
@@ -496,7 +516,7 @@ async function token_detail_precision_is_null_aware_and_validated() {
       root = null;
     }
     client.clear();
-    client.setQueryData(['paxPrice', 'PAX'], { latest: 3 });
+    client.setQueryData(queryKeys.paxPrice('PAX'), { latest: 3 });
     current = null;
     // Reuse the real signed-in identity; the fresh provider restores it.
     routeId = TOKEN_A;
@@ -507,7 +527,13 @@ async function token_detail_precision_is_null_aware_and_validated() {
       await act(async () => {
         await walletContext().verifyEmailCode(EMAIL, EMAIL_CODE);
       });
-    await until(() => current?.status === 'ready' && client.isFetching() === 0);
+    await until(
+      () =>
+        current?.status === 'ready' &&
+        client.getQueryState(scopedQueryKey(['tokenMeta', CHAIN_ID, TOKEN_A.toLowerCase(), false]))
+          ?.status === 'success' &&
+        client.isFetching() === 0
+    );
     expect(metric('Decimals')).toBe('0');
     expect(button('Send').disabled).toBe(false);
   }
@@ -518,7 +544,7 @@ async function token_detail_precision_is_null_aware_and_validated() {
   for (const invalid of [undefined, -1, 1.5, 81]) {
     const key = ['tokenMeta', CHAIN_ID, TOKEN_A.toLowerCase(), false];
     await act(async () => {
-      client.setQueryData(key, {
+      client.setQueryData(scopedQueryKey(key), {
         public: { token_address: TOKEN_A, decimals: invalid },
         chain: null,
       });

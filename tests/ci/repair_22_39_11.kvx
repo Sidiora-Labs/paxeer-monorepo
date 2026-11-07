@@ -1,0 +1,13 @@
+[repair.22.39.11]
+decision = "2787"
+requirement = "22998.1"
+base_revision = "c1c16a3682cc8a2685b1ee7e9c2901866bd40732"
+case = "677 installed dependency files remained tracked despite existing node_modules ignore rules."
+implementation = "Remove only the index entries for the three installed node_modules trees, retaining the local files and existing ignore rules."
+paths = ["apps/web/packages/layerx-ui/node_modules", "sdk/integrations/express/example/node_modules", "services/wallet/gateway/src/db/node_modules"]
+removed_counts = [42, 587, 48]
+test = "tests/ci/test_no_tracked_node_modules.py::test_no_tracked_node_modules"
+proof = "Run git ls-files with NUL-delimited full paths from the repository root, require a nonempty inventory and reject every tracked path containing an exact node_modules segment anywhere in the repository."
+build_command = "python3 -m py_compile tests/ci/test_no_tracked_node_modules.py"
+verify_command = "python3 -m pytest -q tests/ci/test_no_tracked_node_modules.py"
+evidence = "The private /out/run/gates.jsonl ledger names the exact built and verified candidate revision, command, exit code and log; the final response copies the last hf-done record."

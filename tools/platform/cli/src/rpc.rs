@@ -123,6 +123,18 @@ pub enum SubmissionFailure {
     Indeterminate { tx_hash: String, detail: String },
 }
 
+impl std::fmt::Display for SubmissionFailure {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Unsent(detail) => write!(formatter, "submission_unsent: {detail}"),
+            Self::Refused(detail) => write!(formatter, "submission_refused: {detail}"),
+            Self::Indeterminate { tx_hash, detail } => {
+                write!(formatter, "submission_indeterminate: {tx_hash}: {detail}")
+            }
+        }
+    }
+}
+
 /// Validated signed bytes and their reconciliation identity, retained before transport.
 pub struct PreparedSubmission {
     command: Value,
@@ -189,15 +201,14 @@ pub fn prepare_submission(
     Ok(PreparedSubmission { command, tx_hash })
 }
 
-/// Public invocations share one recovery result; unsent and refused remain explicit failures.
+/// Recoverable invocations retain unknown submissions; unsent and refused remain failures.
 pub fn submission_outcome(result: Result<Value, SubmissionFailure>) -> Result<Value, String> {
     match result {
         Ok(value) => Ok(value),
         Err(SubmissionFailure::Indeterminate { tx_hash, detail }) => {
             Ok(json!({"txHash":tx_hash,"rung":"unknown","detail":detail}))
         }
-        Err(SubmissionFailure::Unsent(detail)) => Err(format!("submission_unsent: {detail}")),
-        Err(SubmissionFailure::Refused(detail)) => Err(format!("submission_refused: {detail}")),
+        Err(failure) => Err(failure.to_string()),
     }
 }
 

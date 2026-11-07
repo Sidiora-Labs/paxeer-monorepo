@@ -37,6 +37,8 @@ var methodGas = pcommon.GasTable{
 	"budgetPull":              writeGas(58000),
 	"budgetDelegateSpend":     writeGas(60000),
 	"streamOpen":              writeGas(50000),
+	streamOpenForAsk:          writeGas(50000),
+	askStreamOf:               readGas(1000),
 	"streamTopUp":             writeGas(50000),
 	"streamMeter":             writeGas(38000),
 	"streamSettle":            writeGas(60000),

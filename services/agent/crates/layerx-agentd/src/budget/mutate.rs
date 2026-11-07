@@ -25,15 +25,34 @@ pub enum BudgetMutation {
         budget_id: [u8; 32],
         amount: u128,
         encoding_version: u16,
+        /// Source account nonce; retained field name for API compatibility.
         source_height: Option<u64>,
     },
     Revoke {
         budget_id: [u8; 32],
+        /// Monotonic revocation counter, independent of block height.
         revocation_height: u64,
     },
 }
 
 impl BudgetMutation {
+    /// Native source account nonce, independent of the committed block coordinate.
+    pub const fn source_sequence(&self) -> Option<u64> {
+        match self {
+            Self::Fund { source_height, .. } => *source_height,
+            Self::Revoke { .. } => None,
+        }
+    }
+
+    pub const fn revocation_sequence(&self) -> Option<u64> {
+        match self {
+            Self::Revoke {
+                revocation_height, ..
+            } => Some(*revocation_height),
+            Self::Fund { .. } => None,
+        }
+    }
+
     #[must_use]
     pub const fn budget_id(&self) -> [u8; 32] {
         match self {
@@ -115,10 +134,7 @@ pub fn budget_mutation_identity(
         } else {
             None
         };
-        if amount == 0
-            || source_height
-                .is_some_and(|height| height == 0 || height > context.observed_head_sequence)
-        {
+        if amount == 0 || source_height.is_some_and(|nonce| nonce == u64::MAX) {
             return Err(BudgetCreationError::ContextMismatch);
         }
         return Ok(BudgetMutation::Fund {
@@ -243,10 +259,8 @@ where
     }
     let mutation = budget_mutation_identity(submission.exact_bytes(), registry, context)?;
     let receipt = pipeline.submit_verified(submission)?;
-    let executed = committed_receipt(
-        receipt.evidence.layerxpay_receipt()?,
-        submission.activity_id(),
-    )?;
+    let observed = receipt.evidence.layerxpay_receipt()?;
+    let executed = committed_receipt(observed, submission.activity_id())?;
     let (call, signature) = decode_signed(submission.exact_bytes())
         .map_err(|_| BudgetCreationError::NotBudgetCreation)?;
     if recover_sender(&call, &signature).map_err(|_| BudgetCreationError::NotBudgetCreation)?
@@ -266,6 +280,55 @@ where
         return Err(BudgetCreationError::IdentityMismatch);
     }
     let state = pipeline.budget_state(mutation.budget_id())?;
+    let (record, _) = state.verified_record(verifier)?;
+    let balance = pipeline.budget_balance(record.budget_account, record.asset_id)?;
+    verify_committed_budget_mutation(
+        submission.exact_bytes(),
+        registry,
+        context,
+        observed,
+        &state,
+        balance,
+        verifier,
+    )
+}
+
+/// Checks an already committed native mutation without admitting a new submission.
+/// External native producers may execute methods the daemon disclosure producer cannot yet prepare.
+/// The same receipt, state identity, monotonic counter and debit checks apply to both paths.
+pub fn verify_committed_budget_mutation<S>(
+    signed_transaction: &[u8],
+    registry: &ModuleRegistry,
+    context: &BudgetStateContext,
+    receipt: &SequencerReceipt,
+    state: &ProtocolBudgetState<S>,
+    balance: u128,
+    verifier: &EvidenceAuthority,
+) -> Result<ConfirmedBudgetMutation, BudgetCreationError>
+where
+    ProtocolBudgetState<S>: BudgetStateEvidence,
+{
+    let mutation = budget_mutation_identity(signed_transaction, registry, context)?;
+    let activity_id = layerx_crypto::evm_transaction::transaction_hash(signed_transaction);
+    let executed = committed_receipt(receipt, activity_id)?;
+    let (call, signature) =
+        decode_signed(signed_transaction).map_err(|_| BudgetCreationError::NotBudgetCreation)?;
+    if recover_sender(&call, &signature).map_err(|_| BudgetCreationError::NotBudgetCreation)?
+        != executed.from
+        || call.nonce != executed.nonce
+    {
+        return Err(BudgetCreationError::IdentityMismatch);
+    }
+    let event = budget_log(
+        executed,
+        match mutation {
+            BudgetMutation::Fund { .. } => "BudgetFunded(bytes32,uint128)",
+            BudgetMutation::Revoke { .. } => "BudgetRevoked(bytes32,uint128,uint64)",
+        },
+    )?;
+    if event.topics[1] != mutation.budget_id() {
+        return Err(BudgetCreationError::IdentityMismatch);
+    }
     let (record, height) = state.verified_record(verifier)?;
     let same_identity = height == executed.height
         && height >= context.observed_head_sequence
@@ -276,7 +339,6 @@ where
         && record.purpose_hash == context.purpose_hash
         && record.source_account == context.native_source.then_some(context.source_account)
         && !record.closed;
-    let balance = pipeline.budget_balance(record.budget_account, record.asset_id)?;
     let effect = match mutation {
         BudgetMutation::Fund { amount, .. } => {
             event.data.len() == 32
@@ -294,7 +356,6 @@ where
                 && event.data[16..32] == context.balance.to_be_bytes()
                 && event.data[32..56].iter().all(|byte| *byte == 0)
                 && event.data[56..] == revocation_height.to_be_bytes()
-                && revocation_height <= height
                 && record.revoked
                 && record.revocation_sequence == revocation_height
                 && record.per_period_limit == record.spent_this_period
@@ -306,7 +367,7 @@ where
     }
     Ok(ConfirmedBudgetMutation {
         mutation,
-        activity_id: submission.activity_id(),
+        activity_id,
         receipt_bytes: executed.receipt.clone(),
         observed_head_sequence: height,
         record,

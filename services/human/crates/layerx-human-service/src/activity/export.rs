@@ -1304,7 +1304,7 @@ pub fn verify_receipt_export_with_consensus(
             .receipts
             .iter()
             .map(|receipt| match receipt.rung {
-                Rung::Committed => layerx_types::verify::VerificationLevel::CHECKPOINT_FINALISED,
+                Rung::Committed => layerx_types::verify::VerificationLevel::COMMITTED,
                 Rung::Receipted | Rung::Submitted => {
                     layerx_types::verify::VerificationLevel::SEQUENCER_SIGNED
                 }

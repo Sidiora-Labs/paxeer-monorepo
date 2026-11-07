@@ -82,7 +82,7 @@ export const SWAP_TOKENS: SwapToken[] = [
     address: TOKENS.USID.address.toLowerCase(),
     decimals: 18,
     isStablecoin: true,
-    iconUrl: 'https://cdn.redixusercontent.ocfstudio.com/usid.svg',
+    iconUrl: '/wallet/default_icon.webp',
   },
   {
     symbol: TOKENS.SID.symbol,

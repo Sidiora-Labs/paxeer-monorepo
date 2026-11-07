@@ -594,7 +594,7 @@ fn assert_balance(result: &Value, rung: Option<Rung>) {
         .map(|r| match r {
             Rung::Submitted => "unverified",
             Rung::Receipted => "receipt-verified",
-            Rung::Committed => "checkpoint-finalised",
+            Rung::Committed => "committed",
         })
         .unwrap_or("unverified");
     assert_eq!(result["verification"], verification);

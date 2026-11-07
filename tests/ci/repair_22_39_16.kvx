@@ -1,0 +1,13 @@
+[repair.22.39.16]
+decision = "2787"
+requirement = "22998.1"
+base_revision = "c1c16a3682cc8a2685b1ee7e9c2901866bd40732"
+verified_revision = "The exact candidate revision, command, exit code and private log are recorded by hf-done in /out/run/gates.jsonl and copied into the final task evidence."
+build_cmd = "python3 -m py_compile tests/ci/test_vendored_docs_task_references.py"
+verify_cmd = "python3 -m pytest -q tests/ci/test_vendored_docs_task_references.py"
+
+[case.documentation_page_names_no_task_ids]
+test = "tests/ci/test_vendored_docs_task_references.py::test_documentation_page_names_no_task_ids"
+repair = "Describe distributed documentation operations through the operations page and their exclusion from the local CLI in this revision; replace the remaining internal workflow spec path with descriptive configuration wording."
+assertions = "Read the real documentation page and reject dotted numeric task identifiers and directory-qualified KVX spec paths throughout it; require the distributed operations statement and the unchanged authority-mode sentence and link."
+preserved = "Keep the local documentation lifecycle instructions, distributed operations link, authority refusal exit code and authority-mode link. No existing test is removed or weakened."

@@ -4,7 +4,7 @@ Hyperfide's documentation stage gives your existing agent the repository evidenc
 
 Start with the [command reference](../../tools/hyperfide/README.md#command-reference), [architecture](ARCHITECTURE.md), or [contribution guide](../../CONTRIBUTING.md) if you are new to the project. Examples use `hyperfide`; `cg` is the deprecated compatibility alias of the same executable, with identical arguments, JSON and exit codes.
 
-This page describes the local CLI. The distributed documentation operations (`docs.packet`, `docs.check`, `docs.close`) are described in [docs/hyperfide/operations.md](hyperfide/operations.md#distributed-documentation-api); their task (28.2) is pending in `spec/hyperfide/spec.kvx`, so that path is not qualified in this revision. Under a distributed authority descriptor the local `hyperfide docs` and `hyperfide spec` commands refuse with exit 78 (see [Authority mode](integrate.md#authority-mode)).
+This page describes the local CLI. The distributed documentation operations (`docs.packet`, `docs.check`, `docs.close`) are described in the [operations page](hyperfide/operations.md#distributed-documentation-api) and are not part of the local CLI in this revision. Under a distributed authority descriptor the local `hyperfide docs` and `hyperfide spec` commands refuse with exit 78 (see [Authority mode](integrate.md#authority-mode)).
 
 ## Enable the final stage
 
@@ -39,7 +39,7 @@ hyperfide spec next
 hyperfide spec run -n 1 --max-fail 0
 ```
 
-The orchestrator requires an initialized `.codegraph/` and workflow mode `parallel` or `prod`. It reads the driver from `[agents]` in `spec/workflow.kvx`: `codex`, `claude`, or `custom`. The installed driver must already be authenticated and have the permissions needed for the work. `-n 1` limits concurrency, not the total number of tasks; run it at the documentation frontier if that is the only work you want dispatched. `--max-fail 0` stops after the first failure.
+The orchestrator requires an initialized `.codegraph/` and workflow mode `parallel` or `prod`. It reads the driver from `[agents]` in the workflow configuration: `codex`, `claude`, or `custom`. The installed driver must already be authenticated and have the permissions needed for the work. `-n 1` limits concurrency, not the total number of tasks; run it at the documentation frontier if that is the only work you want dispatched. `--max-fail 0` stops after the first failure.
 
 Implementation completion only exposes the next stage. `hyperfide spec done` does not recursively launch an agent. Likewise, `hyperfide docs packet` (also spelled `hyperfide docs generate`) creates evidence, not finished public documentation. A connected interactive session can consume that packet instead of starting another process.
 
