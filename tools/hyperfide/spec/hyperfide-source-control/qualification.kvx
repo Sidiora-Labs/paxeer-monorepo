@@ -840,3 +840,23 @@ command = "BY_REFERENCE: final build.command and verify.command in /out/run/gate
 exit_code = "BY_REFERENCE: final build.exit and verify.exit in /out/run/gates.jsonl; only zero for both at the same candidate revision qualifies."
 log = "BY_REFERENCE: final build.log and verify.log in private /out/run/gates.jsonl; tools/hyperfide/build/layout/0.9/receipt.json retains scoped worktree digest, outside_root_paths and count, untracked paths, check results and all missing evidence kinds."
 observed = "Decision 2793: tracked cleanliness uses git status --porcelain=v1 -z --untracked-files=no -- . from the layout root; external tracked changes are reported without failing the candidate, while tracked changes inside the root fail. Twenty-one real receipt/Git fixtures include both boundaries; authorizations cover the landed subtree ancestry, and only the five pending task-runtime-receipt drivers 0.4 through 0.8 are permitted."
+[qualification.agent_group_contract_surface_22_37_3]
+revision = "BY_REFERENCE: final matching build.revision and verify.revision in private /out/run/gates.jsonl; monorepo task 22.37.3, tools/hyperfide carried source-control task 0.10."
+command = "BY_REFERENCE: final build.command and verify.command in /out/run/gates.jsonl; hf-done runs cg spec done 22.37.3 -f layerx-merge --root /work/paxeer-monorepo with agent-group-contracts.test.ts, the exit-2 layout receipt refusal from cases/source_control/0_10.py, and support/contract_surface_consumer.mjs directly."
+exit_code = "BY_REFERENCE: final build.exit and verify.exit in /out/run/gates.jsonl; only zero for both at the same candidate revision qualifies."
+log = "BY_REFERENCE: final build.log and verify.log in private /out/run/gates.jsonl retain exact commands, revisions, exits and /out/logs/build-*.log and /out/logs/verify-*.log evidence locations."
+observed = "The driver requires a schema-valid PASS layout receipt bound to the current mapping digest and generation; the SDK test compiles canonical envelope aliases and checks every manager action and byte-identical compiled contract copy through the real scheduler consumer."
+
+[finding.agent_group_missing_layout_receipt_22_37_3]
+revision = "f2b3411498cb3ba211ea3ef92afb8e6c132b7bd1"
+command = "cg spec done 22.37.3 -f layerx-merge --root /work/paxeer-monorepo"
+exit_code = 1
+log = "/out/logs/verify-1.log; build exit 0: /out/logs/build-1.log; exact final repair evidence: /out/run/gates.jsonl"
+observed = "The driver correctly exits 2 with LAYOUT_RECEIPT_REQUIRED because tools/hyperfide/build/layout/0.9/receipt.json is absent; a qualifying task 0.9 receipt is an external prerequisite, and the bounded repair corrects Vitest callback registration without changing receipt validation."
+
+[qualification.agent_group_live_aggregation_22_37_3]
+revision = "BY_REFERENCE: final matching build.revision and verify.revision in private /out/run/gates.jsonl; carried implementation 2db44337329ed838683a060aaa3930fa9169d35d, monorepo base 723db5d8d6406617cf6a2c05c4cec3c85e4cf797."
+command = "cd tools/hyperfide && python3 tests/hyperfide/cases/source_control/0_10.py"
+exit_code = "UNRUN"
+log = "BY_REFERENCE: final verify.log in private /out/run/gates.jsonl records the prerequisite refusal, not a live aggregation PASS."
+observed = "Live aggregation is UNRUN because tools/hyperfide/build/layout/0.9/receipt.json is absent; decision 2797 qualifies the SDK types and compiled control-plane contract consumer independently while preserving LAYOUT_RECEIPT_REQUIRED."

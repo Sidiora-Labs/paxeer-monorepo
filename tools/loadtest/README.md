@@ -394,8 +394,9 @@ SHA-256-verified Solidity 0.8.19 release bytes into private `.tools/`. The histo
 `make generate` refuses missing or changed tools and records compiler/generator
 versions, tool hashes, and ABI/bytecode/binding hashes in per-binding `.provenance`
 files. It renders scenario constructors with `config.Scenario` and updates the
-factory using the compiled `build/paxload scaffold` commands. Complete each
-explicit contract constructor/transaction TODO before building a new scenario.
+factory using the compiled `build/paxload scaffold` commands. Replace every
+constructor and transaction placeholder that the scaffold emits before building a
+new scenario.
 The image uses digest-pinned stages, disables automatic toolchain downloads and
 checks the compiler identity before building.
 

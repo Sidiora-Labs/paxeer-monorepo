@@ -33819,3 +33819,123 @@ symbol = "test_qualification_suites_collect.py"
 observed = "Attempt 1: builds 3, verification 1 exit 1 at the whole-suite run with 4172 passed, 267 failed, 1 error, 5 skipped; the final tree d186f583392a collected in full and the verification could not be rerun because both repair cycles were spent."
 assumption = "Collection is complete and verifiable on its own; the assertion drift is settled by 22.31.623 after the record is complete."
 severity = "high"
+
+[finding.22.39.8.4]
+task = "22.39.8"
+file = "services/wallet/attestor/internal/server/native_purpose_test.go"
+symbol = "native_purpose_test.go"
+observed = "Attempt 4 at f0a1d7853316: build exit 0 (both consumers built); verification exit 1: both Go tests passed their own assertions, the custody consumer returned Io WouldBlock after 0.82 seconds and the send consumer returned Mismatch on the native send domain after 1.14 seconds; the attempt recorded that the directed repair file was outside the touches."
+assumption = "The read timeout mapping is the custody fault; the send domain disagreement is a derivation difference between the Go server and the Rust consumer that the native policy document settles."
+severity = "high"
+
+[finding.22.39.30.2]
+task = "22.39.30"
+file = "tests/ci/test_platform_site_finality_model.py"
+symbol = "test_platform_site_finality_model.py"
+observed = "Attempt 2 at 4622e0d9befc: build exit 0, 13 tests passed, the site check failed: the install page labels Native payment execution and block finality, which no capability in docs/platform/capabilities.kvx declares."
+assumption = "The row was written with the documentation fold and the capabilities document was never extended; the check is right and the row or the document is the fix."
+severity = "high"
+
+[finding.22.31.620.2]
+task = "22.31.620"
+file = "tests/ci/test_ai_market_module_mirror.py"
+symbol = "test_ai_market_module_mirror.py"
+observed = "Attempt 2 at ce6e7549ba08: build exit 0; verification exit 101: 39 passed, 2 failed: the fixture test of the included support module could not read programs/target/repair-478/owner (No such file or directory, run the declared Go fixture gate first), and node_root_and_explicit_chain_paths_reject_router_paths saw a Null eth_blockNumber result instead of 0xb."
+assumption = "The fixture test belongs to the crate that owns the fixture, not to a shared support module; the Null result is either an artefact of the attempt-2 test edits or a gateway path fault of the same owner."
+severity = "high"
+
+[finding.22.39.40.1]
+task = "22.39.40"
+file = "tests/ci/test_node_build_workflow_scope.py"
+symbol = "test_node_build_workflow_scope.py"
+observed = "Attempt 1 at 2ebcae0995a4: builds exit 0 (two), verification exit 1 (two runs): the node package failed on the activation pending-store test (store xweb not found in the memiavl iterator) and the sequencer package on six tests the standby hang had masked; the public check test was not reached."
+assumption = "The activation test is the fault of this task and is repaired here; the six sequencer failures predate the task and are repaired by 22.39.86 against the whole package."
+severity = "high"
+
+[finding.22.39.56.1]
+task = "22.39.56"
+file = "tests/ci/test_docs_canonical_repository_links.py"
+symbol = "test_docs_canonical_repository_links.py"
+observed = "Attempt 1 at 016a2f12a44b: build exit 0; verification exit 1: 2 passed, 2 failed: 372 noncanonical repository URL lines, 339 of them in the vendored project trees pointing at that project upstream, and the root README clone command at line 332 followed by a fence instead of a cd line."
+assumption = "The 13 pages are repaired; the guard reached pages that belong to the vendored copies and to 22.39.64, and the README clone block lacks its cd line."
+severity = "high"
+
+[finding.22.39.57.1]
+task = "22.39.57"
+file = "tests/ci/test_docs_release_version_examples.py"
+symbol = "test_docs_release_version_examples.py"
+observed = "Attempt 1 at ecccd4a4c554: build exit 0; verification exit 1: 1 passed, 1 failed: five placeholder markers, two in vendored library READMEs and three in the example and plugin READMEs of the vendored project directory."
+assumption = "The three pages are repaired; the five markers are upstream text in vendored copies that the allowlist of the task text did not name."
+severity = "high"
+
+[finding.22.31.622.1]
+task = "22.31.622"
+file = "tests/ci/test_committed_vector_copy_current.py"
+symbol = "test_committed_vector_copy_current.py"
+observed = "Attempt 1 at 812ee7db75e9: build exit 0; the dependent-crate check failed to compile the gateway test target (unresolved imports canary and rooms, thirteen errors, gotcha 3417); verification never ran."
+assumption = "The failure sits on main and belongs to 22.31.620; the attempt-1 work is complete and only needs the gate to run after that repair."
+severity = "high"
+
+[finding.22.39.38.1]
+task = "22.39.38"
+file = "tests/ci/test_docs_no_programme_references.py"
+symbol = "test_docs_no_programme_references.py"
+observed = "Attempt 1 at 5b1a56176a9c: build exit 0; verification exit 1: 4 passed, 1 failed: two task numbers remain in sdk/contrib/rosetta/node/README.md line 29 and tools/launchpad/production/load/README.md line 124."
+assumption = "The guard is right; the two pages were outside the scope the task text named."
+severity = "high"
+
+[finding.22.39.54.1]
+task = "22.39.54"
+file = "tests/ci/test_tools_ci_suite_passes.py"
+symbol = "test_tools_ci_suite_passes.py"
+observed = "Attempt 1 at 799a0dafcb68: builds exit 0 (two), verification exit 1 (two runs): 112 passed, 277 subtests passed, 1 failed: the beta ledger check over spec/layerx-merge/qualification.kvx reports 6448 violations (unterminated string at line 494, repeated section headers and keys)."
+assumption = "The 18 settlements are complete; the ledger faults belong to the ledger file and are repaired by 22.39.87."
+severity = "high"
+
+[finding.22.39.51.1]
+task = "22.39.51"
+file = "tests/ci/test_action_pins_consistent.py"
+symbol = "test_action_pins_consistent.py"
+observed = "Attempt 1 at b70c71c3cbf2: build exit 0; verification exit 1: 1 passed, 2 failed: conflicting SHAs across 51 workflow files and three toolchain pins whose comment reads stable."
+assumption = "The task text named a repository-wide unification; the touches named three files. Scope is widened to the directory."
+severity = "high"
+
+[finding.22.37.4.1]
+task = "22.37.4"
+file = "tools/hyperfide/sdk/client/test/install-status.test.ts"
+symbol = "install-status.test.ts"
+observed = "Attempt 1 at 3ff690464a5b: builds exit 0 (two); verification exit 1 (two runs): install_status_reads_actual_ready_and_preserves_typed_errors failed with FileNotFoundError for /usr/bin/python3 raised by the component fixture; the component cases otherwise passed."
+assumption = "The attempt-1 implementation is complete; the fault is a fixed interpreter path in an inherited fixture outside the original touches."
+severity = "high"
+
+[finding.22.39.30.3]
+task = "22.39.30"
+file = "tests/ci/test_platform_site_finality_model.py"
+symbol = "test_platform_site_finality_model.py"
+observed = "Attempt 3 at fe2b3029520b: build exit 0; verification exit 1: 13 tests passed, then the site check refused: capabilities declared but documented on no page: Scheduled beta resets."
+assumption = "The missing row pre-exists on main (the reference page that carries it is generated and not counted); one row on a page already in the touches closes it."
+severity = "high"
+
+[finding.22.39.68.1]
+task = "22.39.68"
+file = "tests/ci/test_key_material_only_in_fixtures.py"
+symbol = "test_key_material_only_in_fixtures.py"
+observed = "Attempt 1 at 5ba896bc2b9b: no gate ran; the agent stopped on the destination directories and the four consumer tests outside the touches and reported seven more key-like files in two other crates."
+assumption = "The move is right; the touches named the source directories but not the destination directories or the consumers. The seven other files belong to two crates of other owners and get their own task."
+severity = "high"
+
+[finding.22.39.61.1]
+task = "22.39.61"
+file = "tests/ci/test_frontend_asset_names.py"
+symbol = "test_frontend_asset_names.py"
+observed = "Attempt 1 at 7fd627359bac: build exit 2: tsc in apps/launchpad/web could not resolve the two launchpad SDK packages because they were linked but not built; verification never ran."
+assumption = "The build command omitted the SDK build step the launchpad web type check depends on; the implementation is complete."
+severity = "high"
+
+[finding.22.39.65.1]
+task = "22.39.65"
+file = "tests/ci/test_no_deployment_hosts_in_source.py"
+symbol = "test_no_deployment_hosts_in_source.py"
+observed = "Attempt 1 at 58f6f9d20eb0: build exit 101: cargo check over the gateway test targets failed on the unresolved imports of gotcha 3417; verification never ran."
+assumption = "The failure sits on main and belongs to 22.31.620; the attempt-1 work is complete and only needs the gate to run after that repair."
+severity = "high"

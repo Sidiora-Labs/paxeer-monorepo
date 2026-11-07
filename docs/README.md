@@ -26,6 +26,7 @@ checked-in gateway contract for current integrations.
 | Path | Contents |
 | --- | --- |
 | [site/](site/) | MkDocs Material site (Overview, Concepts, Protocol, Programs, Agents, Human, Platform, Interop, Operators, Reference); preview and build instructions in [site/README.md](site/README.md) |
+| [CI secrets and runners](ci/secrets-and-runners.md) | Workflow secret and variable names, provisioning roles and runner labels |
 | [Public node JSON-RPC](site/docs/reference/public-rpc.md) | Root node endpoints, chain identity, namespaces, and client guidance |
 | [Hosted gateway OpenRPC](../services/platform/hosted/gateway/openrpc.json) | Declared hosted JSON-RPC method, parameter, result, and error contracts; implementation in [gateway source](../services/platform/hosted/gateway/src/) |
 | [site/build_wiki.py](site/build_wiki.py) | Renders `wiki/` to static HTML under `site/out/` and refuses broken relative links |

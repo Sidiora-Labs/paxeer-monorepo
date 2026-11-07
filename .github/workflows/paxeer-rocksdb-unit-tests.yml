@@ -139,8 +139,6 @@ concurrency:
   cancel-in-progress: true
   group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event_name == 'push' && github.sha || github.ref }}
 
-# TODO: we should combine these tests into go-test at some point. For now this is complicated enough to approach separately.
-
 permissions:
   contents: read
 
