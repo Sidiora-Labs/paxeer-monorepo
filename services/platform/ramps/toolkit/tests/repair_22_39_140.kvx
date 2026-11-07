@@ -1,0 +1,34 @@
+[repair.22.39.140]
+base = "3d1eff197f5a931feb5afc3e595d856f9f57e02b"
+test = "payment_direction_selects_direct_send_or_customer_grant"
+baseline = "No earlier scoped edits or gate runs were present; the stale destination assertion is recorded in gotcha 3529. No pre-change gate was run."
+evidence = "The hf-build and hf-done ledger records the verified candidate revision, exact command, exit code and private log; the final response copies the last gate evidence."
+
+[assertion.payment-authority]
+change = "Assert draw.to equals evm::PAY_ADDRESS (0x101b), replacing the retired LEDGER_ADDRESS (0x101a) expectation."
+producer = "services/platform/ramps/toolkit/src/lib.rs:361 delegates compile_payer_grant_draw to compile_customer_payment; line 368 sets to: PAY_ADDRESS."
+
+[assertion.budget-spend-selector]
+change = "Assert draw.data[..4] equals the first four Keccak256 bytes of budgetSpend(bytes32,bytes32,uint128); retain the grant identifier assertion at bytes 4..36 and the other assertions except the producer-aligned on-ramp error correction recorded below."
+producer = "services/platform/ramps/toolkit/src/lib.rs:369 uses encode_budget_spend; services/platform/ramps/toolkit/src/evm.rs:15-18 encodes budgetSpend(bytes32,bytes32,uint128), and encode_call at line 127 prefixes its Keccak256 selector."
+
+[qualification.scope]
+protected_inputs = "The declared verification excludes only failed_callback_apply_retains_no_event_and_retry_is_idempotent, mismatched_pending_append_prefix_preserves_history_and_refuses_recovery and interrupted_callback_write_recovers_on_restart_without_repair; decision 2325 and gotcha 3529 assign those cases to the ramp recovery workflow supplying LAYERX_RAMP_RECOVERY_CONTRACT_CONFIG."
+
+[qualification.failure]
+revision = "efdd0e5a8a7a3b4b0a81b652f57612028bb963c1"
+command = "cg spec done 22.39.140 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Build passed; the destination, selector and grant identifier assertions passed, but the unchanged compile_payer_grant_draw(&on_ramp, 9) assertion at contracts.rs:237 expected PayerGrantRequired and received InvalidOrder; cargo test exited 101 with 7 passed, 1 failed and 3 filtered out."
+assumption = "The existing customer_payment_authorization direction guard at src/lib.rs:339-340 returns InvalidOrder for OnRamp; changing this assertion or the producer violates the declared scope and requirement to preserve every other assertion, so this pre-existing failure is recorded without rerunning or chasing it."
+
+[assertion.on-ramp-draw-error]
+change = "Assert compile_payer_grant_draw(&on_ramp, 9) equals Err(RampError::InvalidOrder), replacing the retired PayerGrantRequired expectation as authorized by the attempt-2 ruling and gotcha 3534."
+producer = "services/platform/ramps/toolkit/src/lib.rs:361 delegates to compile_customer_payment; line 366 propagates customer_payment_authorization, whose direction guard at lines 339-340 refuses an on-ramp order with InvalidOrder."
+
+[qualification.continuation]
+base = "e7d1456b92559a3e8e97a00f26ce219bcc69aebb"
+prior_work = "Continue the applied attempt-1 destination and selector assertions and repair record; the attempt-2 ruling supersedes the preservation constraint documented in qualification.failure.assumption for the on-ramp error assertion."
+build_reference = "/out/run/gates.jsonl: build record for this candidate names the exact revision, command, exit code and private log; first-run log is /out/logs/build-1.log."
+verify_reference = "/out/run/gates.jsonl: verify record for the same candidate names the exact revision, command, exit code and private log; first-run log is /out/logs/verify-1.log."
