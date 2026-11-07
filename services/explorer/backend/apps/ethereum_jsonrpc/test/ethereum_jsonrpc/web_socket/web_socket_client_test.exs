@@ -65,14 +65,14 @@ defmodule EthereumJSONRPC.WebSocket.WebSocketClientTest do
   describe "terminate/2" do
     setup :example_state
 
-    test "broadcasts close to all subscribers", %{state: %WebSocketClient{url: url} = state} do
+    test "broadcasts the termination error to all subscribers", %{state: %WebSocketClient{url: url} = state} do
       subscription_id = 1
       subscription_reference = make_ref()
       subscription = subscription(%{url: url, reference: subscription_reference})
       state = put_subscription(state, subscription_id, subscription)
 
       assert :ok = WebSocketClient.terminate(:close, state)
-      assert_receive {^subscription, :close}
+      assert_receive {^subscription, {:error, {:websocket_terminated, :close}}}
     end
   end
 
