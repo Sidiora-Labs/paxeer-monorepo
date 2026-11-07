@@ -22,6 +22,7 @@ custodyproof
 daemon
 docker
 !docker/platform-registry/init.sh
+!docker/platform-registry/chain-trust.py
 engine
 tests/fixtures/example
 hpx
