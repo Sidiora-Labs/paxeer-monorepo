@@ -13,7 +13,7 @@ cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platf
 The pinned builder environment is defined in
 [`builder-environment/`](builder-environment). Kubernetes manifests are
 [`deployment.yaml`](deployment.yaml) and [`journal-pvc.yaml`](journal-pvc.yaml).
-`fly.toml` deploys the same service on Fly.io from
+The container image is built from
 [`docker/platform-registry/Dockerfile`](../../../../docker/platform-registry/Dockerfile),
 where `docker/platform-registry/init.sh` provisions the build boundary without
 systemd before starting the registry.
