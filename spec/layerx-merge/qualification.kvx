@@ -33755,3 +33755,67 @@ symbol = "test_site_links_inside_docs_dir.py"
 observed = "Attempt 1 at 76f5c401454d (base abc81fd2ce): build exit 0; verification exit 1: test_site_relative_links_resolve passed and test_site_relative_links_stay_inside_docs_dir failed on docs/site/docs/protocol/finality.md line 9 linking ../../../paxeer-network.md outside docs/site/docs."
 assumption = "The link resolves to a tracked file and so escaped the survey of the task text; it is the one remaining link outside the site directory and belongs to this task."
 severity = "high"
+
+[finding.22.39.47.1]
+task = "22.39.47"
+file = "tests/ci/test_tools_ci_suites_collected.py"
+symbol = "test_tools_ci_suites_collected.py"
+observed = "Attempt 1 at 4fae3a7ef385: build exit 0; verification exit 1 with 20 failed and 105 passed in tools/ci/tests, every failure recorded in the task-local record; the suite collected in full for the first time."
+assumption = "The twenty are producer and test drift settled by 22.39.54 on main; the merged tree passes the whole suite."
+severity = "high"
+
+[finding.22.37.15.1]
+task = "22.37.15"
+file = "tools/hyperfide/core/control-plane/src/source_control/workspaces.ts"
+symbol = "workspaces.ts"
+observed = "Attempt 1 at 705085632471: build exit 0; verification 1 exit 1 with ERR_MODULE_NOT_FOUND on the source-control SDK dist host.js under the host daemon package link; verification 2 exit 1 with SourceControlError Missing source object backend configuration before any mounted assertion; two repair cycles spent."
+assumption = "The SDK build step and the component mode make the case qualify in the environment; the live run waits on owner credentials as decision 2700 provides."
+severity = "high"
+
+[finding.22.39.30.1]
+task = "22.39.30"
+file = "tests/ci/test_platform_site_finality_model.py"
+symbol = "test_platform_site_finality_model.py"
+observed = "Attempt 1 at 97f1c0369a16: build exit 0; verification exit 1, thirteen tests passed and the platform site check failed with FileNotFoundError on /docs/platform/site.kvx because the command passed ../.. from the repository root."
+assumption = "The pages are correct and the only defect was the path argument of the verification."
+severity = "high"
+
+[finding.22.39.37.1]
+task = "22.39.37"
+file = "tests/ci/test_docs_no_programme_references.py"
+symbol = "test_docs_no_programme_references.py"
+observed = "Attempt 1 at 3deb4f6cdbd5: build exit 0; verification exit 1 with 2 failed and 1 passed: the repository-wide tests found a task id and four decision ids in three pages outside the touches."
+assumption = "The three pages are documentation only and the same rewrite rule applies to them."
+severity = "high"
+
+[finding.22.39.48.1]
+task = "22.39.48"
+file = "tests/ci/test_image_namespaces.py"
+symbol = "test_image_namespaces.py"
+observed = "Attempt 1 at 8ff17c5a4935: build exit 0; verification exit 1 with 12 passed and 1 failed: the namespace test found the old repository name in the state database package prefix of the db-tests workflow, which is the Go module path."
+assumption = "The module path is a declared module name, not a registry namespace; the narrowed test passes at the attempt tree."
+severity = "high"
+
+[finding.22.39.53.1]
+task = "22.39.53"
+file = "tests/ci/test_websearch_context.py"
+symbol = "test_websearch_context.py"
+observed = "Attempt 1 at 47e49dfbb78e: build exit 0; verification exit 1 with 3 passed and 1 failed: the context check refused the node image context because the declared test target services/interop/tests/repair_22_33_95.rs is excluded."
+assumption = "A one-line negation in the ignore file carries the declared file into the context and the check passes."
+severity = "high"
+
+[finding.22.39.42.1]
+task = "22.39.42"
+file = "tests/ci/test_wallet_test_workflow.py"
+symbol = "test_wallet_test_workflow.py"
+observed = "Attempt 1 at e3a22cbc5a67: build exit 0; verification exit 1: the four CI tests passed, every suite collected, and 27 assertions failed in seven suites (WebDataView 18, ExchangeView 4, BridgeView, FeeChoice, LaunchpadView, chain and repair-22-33-206 one each) of the form condition not reached: receipt or a retired grant assertion."
+assumption = "The loading repair is complete and verifiable on its own; the assertion drift belongs to the live receipt model and is settled by 22.39.55."
+severity = "high"
+
+[finding.22.31.621.1]
+task = "22.31.621"
+file = "tests/ci/test_qualification_suites_collect.py"
+symbol = "test_qualification_suites_collect.py"
+observed = "Attempt 1: builds 3, verification 1 exit 1 at the whole-suite run with 4172 passed, 267 failed, 1 error, 5 skipped; the final tree d186f583392a collected in full and the verification could not be rerun because both repair cycles were spent."
+assumption = "Collection is complete and verifiable on its own; the assertion drift is settled by 22.31.623 after the record is complete."
+severity = "high"

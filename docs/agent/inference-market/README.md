@@ -8,13 +8,10 @@ model or join a room.
 
 ## Availability
 
-These guides describe the [inference market contract](../../../spec/layerx-merge/contracts/inference-market.md)
-and tasks 22.38.1–22.38.39. At documentation base revision
-`29cba7c7b28f86cdc8a18af7abe8d8e48606d7e6`, the F11 operations, daemon profile,
-peer runtime, SDK additions and wallet/explorer surfaces are pending. The daemon
-mode parser currently accepts `full` and `human-owner`, so selecting
-`inference-market` at that revision fails. These pages document the intended
-interfaces, not a deployed service or an end-to-end qualification result.
+The inference market is not yet available. These guides describe its planned
+interface, including the F11 operations, daemon profile, peer runtime, SDK
+additions and wallet/explorer surfaces. The daemon mode parser currently accepts
+`full` and `human-owner`; the planned `inference-market` profile is unavailable.
 Check F11 availability on the target network before attempting the flows.
 
 ## Three planes
@@ -23,7 +20,7 @@ Check F11 availability on the target network before attempting the flows.
 | --- | --- | --- |
 | Protocol and settlement | Node execution of the ai-market program F11, pay at `0x101B`, attestor at `0x0907` | Enrolment records, rooms, asks, bids, deals, sealed receipts, challenges, bonds, metered streams and reward credits |
 | Orchestration | Operator's `layerx-agentd` inference-market profile | Capability enrolment, placement, signalling, signed writes, lap collection, canary checks, recovery and completion routes |
-| Inference | Host plus browser or native peers under `apps/inference-peer` | Execute the assigned model layers over WebRTC data channels and countersign contributed laps; the host keeps embedding and head |
+| Inference | Host plus browser or native peers; see `apps/inference-peer/README.md` | Execute the assigned model layers over WebRTC data channels and countersign contributed laps; the host keeps embedding and head |
 
 The operator runs the host daemon and provides its node connection, signing
 identity, model/runtime digests and room policy. Peer operators provide compute,
@@ -43,8 +40,7 @@ No participant gains protocol authority from an HTTP success or a local receipt.
 - [Threat statement](threats.md): development attestation, incorrect answers,
   liveness, collusion and privacy limits.
 
-The planned isolated-chain driver is
-`tools/qualification/paxeer-x/inference_market_room.py` (task 22.38.36). It is
-intended to prove ask → stream → lap settlement → claim and a canary failure
-that slashes a bond with one host, two native peers and a synthetic scripted
-model. Documentation checks establish page coverage, not those runtime results.
+The planned isolated-chain driver is intended to prove
+ask → stream → lap settlement → claim and a canary failure that slashes a bond
+with one host, two native peers and a synthetic scripted model. Documentation
+checks establish page coverage, not those runtime results.
