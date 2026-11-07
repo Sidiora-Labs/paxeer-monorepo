@@ -490,11 +490,12 @@ giga-integration-test:
 .PHONY: giga-integration-test
 
 # Run Autobahn integration tests with an Autobahn-enabled cluster.
+AUTOBAHN_TEST_TIMEOUT ?= 30m
 autobahn-integration-test:
 	@# The test drives cluster start/stop itself via TestMain — see
 	@# tests/integration/autobahn/autobahn_test.go. GOWORK=off: ignore ambient
-	@# go.work; this target only needs stdlib + pax-tendermint.
-	@GOWORK=off go test -tags autobahn_integration -v -count=1 -timeout 30m ./tests/integration/autobahn/...
+	@# go.work; compile the integration package in the repository-root module.
+	@GOWORK=off go -C "$(PAXEER_PROJECT_HOME)" test -tags autobahn_integration -v -count=1 -timeout "$(AUTOBAHN_TEST_TIMEOUT)" ./tests/integration/autobahn/...
 .PHONY: autobahn-integration-test
 
 # Run a mixed-mode cluster: node 0 uses GIGA_EXECUTOR with OCC, nodes 1-3 use standard V2.
