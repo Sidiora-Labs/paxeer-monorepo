@@ -332273,7 +332273,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.109]
 title = "Move the published explorer signature-provider and verifier images off floating and end-of-life bases"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -332389,7 +332389,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.105]
 title = "Add the wallet gateway PGlite packages to the apps/perps workspace lockfile"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -333151,7 +333151,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.66]
 title = "Rewrite the READMEs and docs that explain the product through task, repair, gotcha and decision numbers"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.39.37"]
@@ -334060,7 +334060,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.30]
 title = "Rewrite the platform developer site receipt pages that present batch headers and checkpoint levels as the live finality model"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
