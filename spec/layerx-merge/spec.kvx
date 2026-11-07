@@ -9579,6 +9579,54 @@ value = "A fixture chain peer that a test drives through the production Prepare 
 basis = "Production Prepare reads the receipt key at head since 22.31.560; a peer that answers Method not found turns the whole crossing into 503 and hides the assertion the test exists for."
 affects = ["22.31.547"]
 
+[decision.2745]
+title = "A daemon crossing asserts the accepted body field by field before the SDK verdict"
+value = "A test that drives an SDK operation through the daemon RPC and asserts acceptance decodes the accepted response body with the SDK decoder of that operation and asserts each field the SDK verdict binds, one assertion per field with the field named in its message (for a native send Prepare: version, preparation id against the purpose preparation id and against the SHA-256 of the canonical bytes, activity against the request, the decoded unsigned call against the request sender, actor, sequence, window, idempotency key, fee limit and payload, the signing preimage against the call signing hash, the chain id and transaction type against the purpose, and the approval id), before it unwraps the SDK verdict. The SDK keeps collapsing disagreements into one Unknown verdict for callers; the test, not the SDK, names the disagreeing field."
+basis = "The SDK verdict is a single Unknown for every mismatch by design; a crossing test that asserts status and verdict alone turns a one-field disagreement into an unexplained failure that costs an attempt per field."
+affects = ["22.31.547"]
+
+[decision.2746]
+title = "A ledger send call carries the client payload and no request window"
+value = "A prepared native ledger send (Asset module ordinal 5) is the EVM call send(bytes) to 0x101A whose data is the client send envelope unchanged; the envelope carries its own expires_at and the call carries no activity window, so the disclosure bound from the canonical bytes reads not_before 0, not_after u64::MAX and payload_expires_at from the envelope. The request window not_before and not_after is bound by the daemon in the preparation digest and the human request record, not in the call. A consumer matching a prepared ledger send against its request compares the target, nonce, activity type, idempotency key, fee limit, payload bytes, canonical bytes and payload hash and does not compare the request window to the disclosed bounds; the window comparison stands for methods whose call carries the bounds (program calls through the envelope terms, grants)."
+basis = "The precompile envelope shape is the producer contract; a consumer check the call cannot satisfy fails every genuine crossing while every fixture that bypasses the call passes."
+affects = ["22.31.547"]
+
+[decision.2747]
+title = "A policy history fixture serves the signed block chain the reader authenticates"
+value = "A daemon test double that answers read_policy_history serves, for every history height h it reports, the block_results of h and the commit of h plus 1 whose last_results_hash is the Merkle root of those results, blocks parent-linked by block hash and signed by the served validator set, validators at each served height, and the px_getHistory page in ascending block position; the results endpoint URL the reader takes from the environment is published through a guard that holds a module-level lock and restores the previous value on drop, taken by every case that drives the reader. A case that proves an unproven refusal omits the results of exactly the unproven height and keeps the remaining chain valid."
+basis = "The reader authenticates results against the next signed block, so a double that serves history items without the following block proves nothing and fails as ItemUnproven; the environment variable is process-global and two cases racing on it corrupt each other."
+affects = ["9.98.4"]
+
+[decision.2748]
+title = "The transfer-authority wrapper root equals the applied-legs root"
+value = "In a programs terminal frame the transfer-authority wrapper carries the transfer root of the settled set, which is the Merkle root of the applied legs of the same frame; the runtime publishes both from one transfer set and occupancy charges settle in their own activity. A consumer decoder refuses a wrapper whose bound root differs from the applied-legs root, as the Go binding does, in addition to reconstructing the root from the authorization legs; a consumer test asserts that equality on a produced receipt and proves the refusal with a frame whose applied legs are extended past the authorized set."
+basis = "The response contract fixes the wrapper root to the verified root; a test that demands distinct roots demands a frame the producer never emits, and a decoder that tolerates distinct roots is weaker than the node binding."
+affects = ["18.1562.1"]
+
+[decision.2749]
+title = "A submission fixture builds the programs deploy call with the codec encoder"
+value = "The daemon test fixture that turns a prepared native activity into a signed EVM submission builds a programs deploy (module 9 ordinal 1) as the deploy call of the programs precompile encoded by the deploy encoder of the call disclosure codec that task 22.31.585 adds beside encode_program_call (decision 2743), from the disclosed deploy of the preparation, the way it builds the governance lifecycle and bridge credit calls from their disclosures; a fixture arm never hand-packs a selector the codec encodes. A daemon history double asserts the request counts the reader on main makes, derived from read_newest and the policy reader, never a count carried from an earlier reader. A module lock that only serialises environment state is taken poison-tolerant so one failing case does not fail the cases after it."
+basis = "The retained settlement cases have called the fixture with a deploy since the audit repair while the fixture knew two kinds; the reader changed its paging; and expect on a poisoned lock turns one failure into four."
+affects = ["9.98.4", "22.31.585"]
+
+[decision.2750]
+title = "A session that issued no command carries the previous ruling unchanged"
+value = "When an attempt ends with the tree exactly as the engineering process prepared it at launch and no command was issued, the next attempt continues on that tree and the ruling written for the stalled attempt applies unchanged, restated in full in the new note; no new finding about the product is drawn from such an attempt and no directive is added or withdrawn on its account."
+basis = "Two attempts in one afternoon ended this way; a ruling that was never acted on is still the ruling."
+affects = ["22.31.573", "22.31.585"]
+
+[decision.2751]
+title = "The engineering process checks its model endpoint before a launch"
+value = "Before an attempt starts, the engineering process sends one small request to the model endpoint it would give the session and, when the endpoint refuses it (usage limit, error or no answer within 25 seconds), gives the session the next endpoint in rotation instead; an attempt whose session issued no command because its endpoint was refused is relaunched under decision 2750 and draws no finding on the product."
+basis = "Four attempts in one afternoon spent their whole working time retrying a refused endpoint; a check before the launch costs one small request."
+affects = ["22.31.547", "22.31.583", "22.31.573", "22.31.585"]
+
+[decision.2752]
+title = "The chain verifies, pays and connects inference peers; an off-chain profile orchestrates rooms"
+value = "The pooled inference market is split into three planes. The chain plane is the ai-market program family F11 (selectors 0x0B01 upward) plus two precompile bindings: it registers rooms, asks, bids, deals bound to a roster digest, lap receipt batches sealed as evidence, canary challenges, payout splits and peer bonds, and pays through one metered stream at 0x101B per ask. The orchestration plane is an agent daemon profile (LAYERX_AGENT_MODE=inference-market) that enrols hosts, signals peers, negotiates deals, drives lap receipts and canaries, recovers from peer loss and serves completion routes; no validator or node runs any orchestration step and the chain is never in the token loop. The peer plane is the vendored MIT engine under apps/inference-peer, running in a browser page or a native command-line process. Tasks 22.38.1 to 22.38.39 implement the three planes; their interface rows are status new in interfaces.kvx under contracts/inference-market.md."
+basis = "The owner ruled that the chain is purely for verifying, paying and connecting peers and that orchestration runs off chain without relying on validators or nodes; the existing ai-market program, evidence sealing, reward ledger, metered streams and attestation verifier already cover the chain half."
+affects = ["22.38.1", "22.38.2", "22.38.3", "22.38.4", "22.38.5", "22.38.6", "22.38.7", "22.38.8", "22.38.9", "22.38.10", "22.38.11", "22.38.12", "22.38.13", "22.38.14", "22.38.15", "22.38.16", "22.38.17", "22.38.18", "22.38.19", "22.38.20", "22.38.21", "22.38.22", "22.38.23", "22.38.24", "22.38.25", "22.38.26", "22.38.27", "22.38.28", "22.38.29", "22.38.30", "22.38.31", "22.38.32", "22.38.33", "22.38.34", "22.38.35", "22.38.36", "22.38.37", "22.38.38", "22.38.39"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -38469,6 +38517,357 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.38.39]
+title = "Close the inference market series: interface rows served, docs cross-checked, reconcile clean"
+reqs = ["22380.6", "22998.1"]
+touches = ["spec/layerx-merge/interfaces.kvx", "spec/layerx-merge/contracts/inference-market.md", "spec/layerx-merge/programme/interfaces_reconcile.py", "tools/qualification/audit_repairs"]
+tests = ["tools/qualification/audit_repairs/test_repair_22_38_39.py"]
+verification_contract = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_38_39.py"
+do_1 = "do_1 Run spec/layerx-merge/programme/interfaces_reconcile.py over the tree and update every interface.22.inference-* row of spec/layerx-merge/interfaces.kvx from status new to served with its real path, line, signature and callers; update the contracts/inference-market.md revision and status column to match."
+symbols = ["tools/qualification/audit_repairs/test_repair_22_38_39.py"]
+
+[capability.22.38.38]
+title = "Prove ask to stream to lap settlement to claim"
+reqs = ["22380.6"]
+touches = ["tools/qualification/paxeer-x/fixtures/merged_runtime_fixture.py"]
+tests = []
+verification_contract = "d=$(mktemp -d) && PAXEER_X_EVIDENCE_DIR=$d PAXEER_X_BUILDER_ID=$(hostname) python3 tools/qualification/paxeer-x/inference_market_room.py --proof settlement || { tail -n 150 $d/*/native.log; exit 1; }"
+do_1 = "do_1 Add the --proof settlement mode to inference_market_room.py: after the completion the driver asserts the sealed batch digest, the SettleLaps write, the streamMeter reading equal to the settled cumulative tokens, the SplitPayout credits in the deal proportions, and a CLAIM by each peer that moves the credit to its account; the evidence records the amounts."
+symbols = ["proof_settlement"]
+
+[capability.22.38.37]
+title = "Prove that a canary failure slashes the faulty peer bond"
+reqs = ["22380.6"]
+touches = ["tools/qualification/paxeer-x/fixtures/merged_runtime_fixture.py"]
+tests = []
+verification_contract = "d=$(mktemp -d) && PAXEER_X_EVIDENCE_DIR=$d PAXEER_X_BUILDER_ID=$(hostname) python3 tools/qualification/paxeer-x/inference_market_room.py --proof canary || { tail -n 150 $d/*/native.log; exit 1; }"
+do_1 = "do_1 Add the --proof canary mode to inference_market_room.py: the second peer is started with a fault flag that perturbs one logit, the host injects a canary, and the driver asserts the ChallengeLap, RevealScore and ResolveChallenge writes, the SlashBond write, and that the slashed fraction reached the reward ledger of the honest peer."
+symbols = ["proof_canary_slash"]
+
+[capability.22.38.36]
+title = "Drive an isolated chain, one host, two native peers and one asker through a room on a synthetic model"
+reqs = ["22380.6"]
+touches = ["tools/qualification/paxeer-x/fixtures/merged_runtime_fixture.py", "tools/qualification/paxeer-x/agent_operation_envelope.py"]
+tests = []
+verification_contract = "d=$(mktemp -d) && PAXEER_X_EVIDENCE_DIR=$d PAXEER_X_BUILDER_ID=$(hostname) python3 tools/qualification/paxeer-x/inference_market_room.py --proof room || { tail -n 150 $d/*/native.log; exit 1; }"
+do_1 = "do_1 Add tools/qualification/paxeer-x/inference_market_room.py on the RuntimeFixture of tools/qualification/paxeer-x/fixtures/merged_runtime_fixture.py: it starts the isolated chain, deploys the ai-market program and opens the market with a room profile, starts the agent daemon in inference-market mode against the chain, starts two native peers from apps/inference-peer on the scripted CPU model, and an asker script that funds an ask stream and sends a completion request; the driver records every chain write and answer as evidence in the PAXEER_X_EVIDENCE_DIR layout."
+symbols = ["tools/qualification/paxeer-x/inference_market_room.py", "InferenceRoomDriver"]
+
+[capability.22.38.35]
+title = "Write the inference market docs: overview, protocol, operator guide, client guide and threat statement"
+reqs = ["22380.6"]
+touches = ["docs/agent/COMPATIBILITY.md", "tools/qualification/audit_repairs"]
+tests = ["tools/qualification/audit_repairs/test_repair_22_38_35.py"]
+verification_contract = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_38_35.py"
+do_1 = "do_1 Create docs/agent/inference-market/ with README.md (what the market is, the three planes, who runs what), protocol.md (room lifecycle, F11 operations and payload layouts, lap receipts, canary derivation, payout split, bonds, the metered stream rule), operator.md (running the daemon profile, enrolling, opening a room, funding, claiming), client.md (SDK calls, completion routes, wallet and explorer paths) and threats.md stating plainly that only the development attestation envelope is accepted today, that canaries bound but do not eliminate wrong answers, and the liveness and collusion limits; link the directory from docs/agent/COMPATIBILITY.md."
+symbols = ["docs/agent/inference-market/README.md", "docs/agent/inference-market/protocol.md", "docs/agent/inference-market/threats.md"]
+
+[capability.22.38.34]
+title = "Fund an ask and show peer earnings in the wallet"
+reqs = ["22380.5"]
+touches = ["apps/wallet/src/surfaces/routes.ts", "apps/wallet/src/surfaces/useSurface.ts"]
+tests = ["apps/wallet/src/surfaces/InferenceView.test.tsx"]
+verification_contract = "pnpm --dir apps/wallet exec vitest run src/surfaces/InferenceView.test.tsx"
+do_1 = "do_1 Add the inference surface to apps/wallet: src/surfaces/InferenceView.tsx with an ask form (model, price cap per thousand tokens, total cap) that opens the metered stream through the SDK fundAsk helper and the existing send path, an ask list with the stream reading and remaining cap, and an earnings panel for the connected key read from px_getInferencePeer and the reward ledger; add the route to routes.ts and the surface id to the union."
+symbols = ["InferenceView", "SURFACE_ROUTES", "useInferenceAsks"]
+
+[capability.22.38.33]
+title = "List rooms, deals and receipt batches in the explorer"
+reqs = ["22380.5"]
+touches = ["apps/explorer/lib/hooks/useNavItems.tsx", "apps/explorer/pages/api/assistant.ts", "apps/explorer/pages/paxeer-x", "apps/explorer/lib/api/services/general/index.ts"]
+tests = ["apps/explorer/ui/pages/PaxeerXInference.spec.tsx"]
+verification_contract = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json && yarn vitest run ui/pages/PaxeerXInference.spec.tsx"
+do_1 = "do_1 Add pages/api/inference.ts (a server route in the shape of pages/api/assistant.ts that calls px_getInferenceRooms, px_getInferenceRoom, px_getInferenceDeal and px_getInferenceReceipts on the configured node root and never exposes the node address to the browser), the resource entries in lib/api/services/general/paxeerXInference.ts, pages/paxeer-x/inference.tsx and ui/pages/PaxeerXInference.tsx with a rooms table (model, host, peers, open asks, settled tokens), a deal panel and a receipt batch table in the dense market-data style of the design brief, and the Inference item under the paxeer-x group of useNavItems.tsx."
+symbols = ["PaxeerXInference", "apps/explorer/pages/api/inference.ts", "paxeerXInference"]
+
+[capability.22.38.32]
+title = "Expose the market operations and reads in the Rust SDK"
+reqs = ["22380.5"]
+touches = ["services/agent/crates/layerx-sdk/src/lib.rs", "services/agent/crates/layerx-client/src/ai_market.rs"]
+tests = ["services/agent/crates/layerx-sdk/tests/inference_market.rs"]
+verification_contract = "cargo test --locked --manifest-path services/agent/crates/layerx-sdk/Cargo.toml --test inference_market"
+do_1 = "do_1 Add src/inference_market.rs to layerx-sdk with the same operation encoders, view decoders and px reads as 22.38.31, built on the ai-market client of layerx-client and the px read route of the SDK; export it from lib.rs."
+symbols = ["InferenceMarket", "open_room", "post_ask", "get_inference_rooms"]
+
+[capability.22.38.31]
+title = "Expose the market operations and reads in the TypeScript SDK"
+reqs = ["22380.5"]
+touches = ["services/agent/sdk/typescript/src/px.ts", "services/agent/sdk/typescript/src/index.ts", "services/agent/sdk/typescript/src/ai_market.ts"]
+tests = ["services/agent/sdk/typescript/test/inference-market.test.ts"]
+verification_contract = "cd services/agent/sdk/typescript && npm ci && npm run build && node --test dist/test/inference-market.test.js"
+do_1 = "do_1 Add src/inference_market.ts exporting the F11 operation encoders (openRoom, postAsk, postBid, recordDeal, settleLaps, challengeLap, resolveChallenge, splitPayout, lockBond, slashBond, refundBond, closeRoom) with the payload layouts of 22.38.3 to 22.38.7, the view decoders, the px_ reads (getInferenceRooms, getInferenceRoom, getInferenceDeal, getInferencePeer, getInferenceReceipts) through the existing px client of src/px.ts, and the ask funding helper fundAsk that encodes streamOpenForAsk; export it from src/index.ts."
+symbols = ["openRoom", "postAsk", "recordDeal", "settleLaps", "getInferenceRooms", "fundAsk"]
+
+[capability.22.38.30]
+title = "Ship the native command-line peer with an attestation binding and a local serve bridge"
+reqs = ["22380.4"]
+touches = ["docs/MONOREPO.md"]
+tests = ["apps/inference-peer/test/cli.test.mjs"]
+verification_contract = "node --test apps/inference-peer/test/cli.test.mjs"
+do_1 = "do_1 Add bin/inference-peer.mjs with the commands join (host address, room id, optional attestation envelope file that the peer submits to bindPeer through the host before enrolling), serve (runs a local OpenAI-compatible route that forwards to the host completion route with the ask bearer) and status; native mode uses node-datachannel for WebRTC and the webgpu package when present, else the CPU path of the engine."
+symbols = ["apps/inference-peer/bin/inference-peer.mjs", "joinCommand", "serveCommand"]
+
+[capability.22.38.29]
+title = "Ship the browser peer page"
+reqs = ["22380.4"]
+touches = ["docs/MONOREPO.md"]
+tests = ["apps/inference-peer/test/page.test.mjs"]
+verification_contract = "node --test apps/inference-peer/test/page.test.mjs"
+do_1 = "do_1 Add index.html and src/page.mjs: a single page that shows the WebGPU adapter and measured manifest, lets the visitor paste a host signalling address and a room id, joins the room with the persisted identity, shows the assigned layer range, lap count, countersigned receipts and the earnings read from the host status frame, and leaves cleanly with bye on unload; no bundler, plain ES modules served by npm run serve (a static file server script in scripts/serve.mjs)."
+symbols = ["apps/inference-peer/index.html", "PeerPage", "renderStatus"]
+
+[capability.22.38.28]
+title = "Answer canary prompts inside the lap"
+reqs = ["22380.4"]
+touches = ["docs/MONOREPO.md"]
+tests = ["apps/inference-peer/test/canary.test.mjs"]
+verification_contract = "node --test apps/inference-peer/test/canary.test.mjs"
+do_1 = "do_1 Add src/canary.mjs: a canary position arrives as an ordinary activation; the peer processes it as any other and, when the host asks through a canary-answer request, returns the top-8 logits of that position as fixed-point i32 with 16 fractional bits in the same layout the program compares (22.38.5)."
+symbols = ["canaryAnswer", "encodeFixedPointLogits"]
+
+[capability.22.38.27]
+title = "Countersign lap receipts the peer contributed to"
+reqs = ["22380.4"]
+touches = ["docs/MONOREPO.md"]
+tests = ["apps/inference-peer/test/laps.test.mjs"]
+verification_contract = "node --test apps/inference-peer/test/laps.test.mjs"
+do_1 = "do_1 Add src/laps.mjs: on a lap-receipt frame the peer checks the lap index continuity, that its layer range digest in the receipt equals the digest of the activations it processed, and that the cumulative token count advanced by the generated count; it then returns a countersign frame with its ed25519 signature over the receipt digest, or a refusal with the reason."
+symbols = ["countersignLap", "LapTracker"]
+
+[capability.22.38.26]
+title = "Run the assigned layer range as a deal client"
+reqs = ["22380.4"]
+touches = ["docs/MONOREPO.md"]
+tests = ["apps/inference-peer/test/deal.test.mjs"]
+verification_contract = "node --test apps/inference-peer/test/deal.test.mjs"
+do_1 = "do_1 Add src/deal.mjs: on a deal frame the peer loads only the weight shards of its layer range from the model source named in the offer, verifies each shard against the model digest manifest, acknowledges with a signature, then runs activations received on the mesh through its layers and forwards them to the next peer or back to the host; the key-value cache is kept per request and dropped on bye."
+symbols = ["DealClient", "loadLayerRange", "runActivation"]
+
+[capability.22.38.25]
+title = "Present a chain identity in the peer hello and enrol through the host"
+reqs = ["22380.4"]
+touches = ["docs/MONOREPO.md"]
+tests = ["apps/inference-peer/test/identity.test.mjs"]
+verification_contract = "node --test apps/inference-peer/test/identity.test.mjs"
+do_1 = "do_1 Add src/identity.mjs: an ed25519 peer key kept in IndexedDB in the browser or in a file in native mode, a hello signature over the room id and nonce, a measured v2 manifest (accelerator memory from the WebGPU adapter limits, system memory from navigator.deviceMemory or os.totalmem, bandwidth class from a short probe, runtime kind browser or native) and an enrol request to the host enrol_peer route carrying the signed manifest."
+symbols = ["PeerIdentity", "measureManifest", "signHello"]
+
+[capability.22.38.24]
+title = "Implement the room wire protocol and transport for the peer"
+reqs = ["22380.4"]
+touches = ["docs/MONOREPO.md"]
+tests = ["apps/inference-peer/test/wire.test.mjs", "apps/inference-peer/test/transport.test.mjs"]
+verification_contract = "node --test apps/inference-peer/test/wire.test.mjs apps/inference-peer/test/transport.test.mjs"
+do_1 = "do_1 Add src/wire.mjs (frame codec: hello, offer, deal, deal-ack, activation, lap-receipt, countersign, canary-answer, bye; length-prefixed binary with a u16 kind and a u32 length, 65536 bytes maximum) and src/transport.mjs (WebSocket signalling client to the host of 22.38.16, WebRTC data channel mesh to the deal peers with the browser API or node-datachannel in native mode, ordered reliable channels for control and unordered for activations)."
+symbols = ["encodeFrame", "decodeFrame", "SignalClient", "PeerMesh"]
+
+[capability.22.38.23]
+title = "Vendor the MIT inference engine under apps/inference-peer with its attribution"
+reqs = ["22380.4"]
+touches = ["docs/MONOREPO.md"]
+tests = ["apps/inference-peer/test/vendored_engine.test.mjs"]
+verification_contract = "node --test apps/inference-peer/test/vendored_engine.test.mjs"
+do_1 = "do_1 Create apps/inference-peer as a standalone npm package (type module, own package-lock.json, no build step) with engine/ copied from the upstream MIT project (the dense and quantised model loaders, tokenizer, sampling, generation loop and WGSL shaders), LICENSE-ENGINE carrying the upstream MIT notice, NOTICE naming the upstream project and commit, and a README that states what is vendored and what is ours."
+symbols = ["apps/inference-peer/package.json", "apps/inference-peer/engine", "apps/inference-peer/NOTICE"]
+
+[capability.22.38.22]
+title = "Queue requests per room with speculative-decode slots"
+reqs = ["22380.3"]
+touches = ["services/agent/crates/layerx-agentd/src/main.rs"]
+tests = ["services/agent/crates/layerx-agentd/tests/inference_queue.rs"]
+verification_contract = "cargo test --locked --manifest-path services/agent/crates/layerx-agentd/Cargo.toml --test inference_queue"
+do_1 = "do_1 Add src/inference_market/queue.rs: a per-room request queue (room profile depth, default 32) with fair ordering per ask, at most one active generation per room plus up to four speculative slots when a peer advertises a draft model in its manifest runtime kind; a queue overflow answers 429 with a retry-after header."
+symbols = ["RequestQueue", "SpeculativeSlot", "enqueue"]
+
+[capability.22.38.21]
+title = "Serve OpenAI-compatible and Anthropic-compatible completion routes gated on a funded ask stream"
+reqs = ["22380.3", "22380.2"]
+touches = ["services/agent/crates/layerx-agentd/src/main.rs", "services/agent/crates/layerx-agentd/src/node_rpc.rs"]
+tests = ["services/agent/crates/layerx-agentd/tests/inference_serve.rs"]
+verification_contract = "cargo test --locked --manifest-path services/agent/crates/layerx-agentd/Cargo.toml --test inference_serve"
+do_1 = "do_1 Add src/inference_market/serve.rs: POST /v1/chat/completions (OpenAI shape, streaming through server-sent events) and POST /v1/messages (Anthropic shape) on the completion listener; the bearer token of a request names an ask reference, the route reads askStreamOf and the stream state from the node and refuses with 402 when the stream is absent, closed or its cap is reached; tokens are counted per request and attributed to the ask lap receipts."
+symbols = ["ServeRoutes", "chat_completions", "messages", "AskGate"]
+
+[capability.22.38.20]
+title = "Recover a room from peer loss by re-planning the layer split"
+reqs = ["22380.3"]
+touches = ["services/agent/crates/layerx-agentd/src/main.rs"]
+tests = ["services/agent/crates/layerx-agentd/tests/inference_recovery.rs"]
+verification_contract = "cargo test --locked --manifest-path services/agent/crates/layerx-agentd/Cargo.toml --test inference_recovery"
+do_1 = "do_1 Add src/inference_market/recovery.rs: on a lost data channel, a liveness timeout (room profile) or a slash mark, the host removes the peer, re-plans the layer split over the remaining peers and any peer waiting in the room, records a new deal that references the previous deal id, and resumes generation from the last countersigned lap (the key-value cache of the lost range is recomputed by the peer that takes it over)."
+symbols = ["RecoveryEngine", "replan_after_loss", "RoomPaused"]
+
+[capability.22.38.19]
+title = "Inject canary prompts and audit peer answers"
+reqs = ["22380.3"]
+touches = ["services/agent/crates/layerx-agentd/src/main.rs", "services/agent/crates/layerx-client/src/ai_market.rs"]
+tests = ["services/agent/crates/layerx-agentd/tests/inference_canary.rs"]
+verification_contract = "cargo test --locked --manifest-path services/agent/crates/layerx-agentd/Cargo.toml --test inference_canary"
+do_1 = "do_1 Add src/inference_market/canary.rs: at the room profile canary ratio the host inserts a canary position into the lap (a prompt whose expected logits the host computed locally on the full model or took from the model digest canary table), commits the expectation through CommitScore before the lap, compares the peer answer after the lap, and on a miss submits ChallengeLap and RevealScore so ResolveChallenge marks the fault."
+symbols = ["CanaryEngine", "canary_positions", "audit_answer", "challenge_and_reveal"]
+
+[capability.22.38.18]
+title = "Issue, countersign, seal and settle lap receipts"
+reqs = ["22380.3", "22380.2"]
+touches = ["services/agent/crates/layerx-agentd/src/main.rs", "services/agent/crates/layerx-client/src/ai_market.rs"]
+tests = ["services/agent/crates/layerx-agentd/tests/inference_laps.rs"]
+verification_contract = "cargo test --locked --manifest-path services/agent/crates/layerx-agentd/Cargo.toml --test inference_laps"
+do_1 = "do_1 Add src/inference_market/laps.rs: every lap (room profile lap size in generated tokens) the host issues a lap receipt, sends it to each peer for countersignature over the signalling channel, collects the bitmap, appends the receipt to the batch Merkle tree, and at the batch size or the deal end seals the batch digest through SealEvidence and submits SettleLaps, then reports the cumulative token count to the ask stream through streamMeter with the host meter key."
+symbols = ["LapEngine", "issue_lap", "seal_and_settle", "report_meter"]
+
+[capability.22.38.17]
+title = "Negotiate deals from the placement book and record them on chain"
+reqs = ["22380.3"]
+touches = ["services/agent/crates/layerx-agentd/src/main.rs", "services/agent/crates/layerx-client/src/ai_market.rs"]
+tests = ["services/agent/crates/layerx-agentd/tests/inference_deals.rs"]
+verification_contract = "cargo test --locked --manifest-path services/agent/crates/layerx-agentd/Cargo.toml --test inference_deals"
+do_1 = "do_1 Add src/inference_market/deals.rs: the host polls BookView, picks crossing pairs, plans the layer split over the admitted peers from their manifest accelerator memory (contiguous layer ranges, largest memory first, the host keeps the embedding and head), computes the roster digest from the admitted participants and submits RecordDeal; peers receive the deal frame over the signalling channel and acknowledge with a signature."
+symbols = ["DealEngine", "LayerPlan", "plan_layers", "record_deal"]
+
+[capability.22.38.16]
+title = "Signal peers through chain-anchored offers over a WebSocket listener"
+reqs = ["22380.3"]
+touches = ["services/agent/crates/layerx-agentd/src/main.rs", "services/agent/crates/layerx-agentd/Cargo.toml"]
+tests = ["services/agent/crates/layerx-agentd/tests/inference_signal.rs"]
+verification_contract = "cargo test --locked --manifest-path services/agent/crates/layerx-agentd/Cargo.toml --test inference_signal"
+do_1 = "do_1 Add src/inference_market/signal.rs: a WebSocket listener (plain, not mutual TLS, because browsers connect) that accepts hello frames carrying a peer key, a signature over the room id and a nonce, and the v2 manifest; it answers with the room offer (room id, model digest, runtime digest, layer plan, price) whose digest the host has posted on chain in the room record, and relays WebRTC session descriptions and ICE candidates between admitted peers."
+symbols = ["SignalListener", "HelloFrame", "RoomOffer", "relay_description"]
+
+[capability.22.38.15]
+title = "Enrol the host and peers with a v2 manifest, a bond lock and a price quote"
+reqs = ["22380.3"]
+touches = ["services/agent/crates/layerx-agentd/src/main.rs", "services/agent/crates/layerx-client/src/ai_market.rs", "services/agent/crates/layerx-agentd/src/finality.rs"]
+tests = ["services/agent/crates/layerx-agentd/tests/inference_enrol.rs"]
+verification_contract = "cargo test --locked --manifest-path services/agent/crates/layerx-agentd/Cargo.toml --test inference_enrol"
+do_1 = "do_1 Add src/inference_market/enrol.rs: build a v2 manifest from the measured capability of the process (accelerator memory, system memory, bandwidth class from a short probe, region from configuration, attestation family, runtime kind daemon), submit the enrolment operation through the existing ai-market client in layerx-client, wait for the acceptance finality through the finality module, then LockBond and PostBid at the configured quote."
+symbols = ["enrol_host", "enrol_peer", "measured_manifest", "EnrolOutcome"]
+
+[capability.22.38.14]
+title = "Add the inference-market profile to the agent daemon with its configuration, boot and degraded rules"
+reqs = ["22380.3"]
+touches = ["services/agent/crates/layerx-agentd/src/human_owner_mode.rs", "services/agent/crates/layerx-agentd/src/main.rs", "services/agent/crates/layerx-agentd/src/config.rs", "services/agent/crates/layerx-agentd/src/degraded.rs", "services/agent/crates/layerx-agentd/src/boot.rs"]
+tests = ["services/agent/crates/layerx-agentd/tests/inference_profile_boot.rs"]
+verification_contract = "cargo test --locked --manifest-path services/agent/crates/layerx-agentd/Cargo.toml --test inference_profile_boot"
+do_1 = "do_1 Add the mode value inference-market to the mode parser in human_owner_mode.rs and a new module src/inference_market/mod.rs with serve_inference_market() wired from run(); the profile reads LAYERX_AGENT_INFERENCE_SIGNAL_LISTEN (WebSocket signalling listener, default 127.0.0.1:8790), LAYERX_AGENT_INFERENCE_SERVE_LISTEN (completion routes, default 127.0.0.1:8791), LAYERX_AGENT_INFERENCE_MODEL_DIGEST, LAYERX_AGENT_INFERENCE_RUNTIME_DIGEST, LAYERX_AGENT_INFERENCE_ROOM_PROFILE (path to a room profile file) and the existing node, signing and finality settings through config()."
+symbols = ["Mode::InferenceMarket", "serve_inference_market", "InferenceConfig", "InferenceBootGate"]
+
+[capability.22.38.13]
+title = "Prove every F11 operation under the fuel cap and the replay profile through the native host boundary"
+reqs = ["22380.1"]
+touches = ["programs/crates/layerx-programs-ai-market/tests/fuel_budget.rs", "tests/programs/test_ai_host_boundary.c", "programs/Cargo.toml"]
+tests = ["programs/crates/layerx-programs-ai-market/tests/fuel_budget.rs"]
+verification_contract = "cargo test --locked --manifest-path programs/Cargo.toml -p layerx-programs-ai-market --test fuel_budget --test host_boundary"
+do_1 = "do_1 Extend tests/fuel_budget.rs with every F11 operation at its maximum payload and a full room (16 rooms, 64 asks, 128 bids, 64-lap batch) and assert each stays under 1000000 CPU fuel and within 4096 replay boundaries and 1048576 bytes."
+symbols = ["f11_fuel_table", "test_f11_host_boundary"]
+
+[capability.22.38.12]
+title = "Serve the market reads at the node root as px_ methods"
+reqs = ["22380.2", "22380.5"]
+touches = ["rpc/server.go", "rpc/px_route_catalogue.json", "rpc/generate_px_catalogue.py", "rpc/px_account.go", "services/platform/hosted/gateway/openrpc.json"]
+tests = ["rpc/px_node_root_inference_test.go"]
+verification_contract = "go test -count=1 ./rpc/ -run '^TestPxNodeRootInference'"
+do_1 = "do_1 Add rpc/px_inference.go with px_getInferenceRooms, px_getInferenceRoom(roomId), px_getInferenceDeal(dealId), px_getInferencePeer(peerKey) and px_getInferenceReceipts(dealId) that call the F11 views through the program read path of px_account.go, decode the fixed-width answers and add the ask stream state from 0x101B and the peer binding from 0x0907 to the room and peer answers."
+symbols = ["GetInferenceRooms", "GetInferenceRoom", "GetInferenceDeal", "GetInferencePeer", "GetInferenceReceipts"]
+
+[capability.22.38.11]
+title = "Keep a placement book of open asks and bids per model digest inside the program"
+reqs = ["22380.1"]
+touches = ["programs/crates/layerx-programs-ai-market/src/lib.rs", "programs/crates/layerx-programs-ai-market/src/dispatch.rs", "programs/crates/layerx-programs-ai-market/src/queries.rs"]
+tests = ["programs/crates/layerx-programs-ai-market/tests/f11_placement_book.rs"]
+verification_contract = "cargo test --locked --manifest-path programs/Cargo.toml -p layerx-programs-ai-market --test f11_placement_book"
+do_1 = "do_1 Add src/placement.rs: a per-model-digest book of open asks (price descending) and open bids (price ascending) with at most 64 entries per side, updated by PostAsk, PostBid, RecordDeal and CloseRoom, and the BookView read (0x0B14) listing the crossing pairs the host may record as deals."
+symbols = ["PlacementBook", "BookView", "crossing_pairs"]
+
+[capability.22.38.10]
+title = "Bind a verified peer attestation to a peer key, model digest and runtime digest"
+reqs = ["22380.2"]
+touches = ["precompiles/layerxagent/teeattestor/teeattestor.go"]
+tests = ["precompiles/layerxagent/teeattestor/peer_binding_test.go"]
+verification_contract = "go test -count=1 ./precompiles/layerxagent/teeattestor/ -run '^TestPeerBinding'"
+do_1 = "do_1 In the 0x0907 precompile add bindPeer(uint8 family, bytes envelope, bytes32 peerKey, bytes32 modelDigest, bytes32 runtimeDigest) that calls the existing verifier and accepts only when the envelope report data equals keccak256(peerKey, modelDigest, runtimeDigest); on success it stores the binding keyed by peerKey with the verified family and the block height, and peerBinding(bytes32 peerKey) returns it."
+symbols = ["bindPeer", "peerBinding", "PeerAttestationBound", "peerBindingKey"]
+
+[capability.22.38.9]
+title = "Bind ask funding to a metered stream whose meter authority is the room host"
+reqs = ["22380.2"]
+touches = ["precompiles/layerxpay/stream.go", "precompiles/layerxpay/abi.json", "precompiles/layerxpay/events.go", "precompiles/layerxpay/gas.go", "modules/layerxpay/keeper/stream_open.go"]
+tests = ["precompiles/layerxpay/stream_ask_test.go"]
+verification_contract = "go test -count=1 ./precompiles/layerxpay/ -run '^TestStreamAsk'"
+do_1 = "do_1 In the 0x101B precompile add streamOpenForAsk(bytes32 askRef, address settlementAccount, uint256 rate, uint8 rateUnit, uint256 totalCap, bytes32 hostAuthorityKey) that opens a metered stream (StreamModeMetered) with the host key as the single meter authority and records the ask reference in the stream metadata, and askStreamOf(bytes32 askRef) returning the stream id; streamMeter stays the only way to advance the reading."
+symbols = ["streamOpenForAsk", "askStreamOf", "AskStreamOpened", "StreamMetadataAskRef"]
+
+[capability.22.38.8]
+title = "Serve the F11 reads for rooms, deals, peers and receipt batches"
+reqs = ["22380.1"]
+touches = ["programs/crates/layerx-programs-ai-market/src/queries.rs", "programs/crates/layerx-programs-ai-market/src/dispatch.rs"]
+tests = ["programs/crates/layerx-programs-ai-market/tests/f11_views.rs"]
+verification_contract = "cargo test --locked --manifest-path programs/Cargo.toml -p layerx-programs-ai-market --test f11_views"
+do_1 = "do_1 Implement RoomView, DealView, PeerView and ReceiptBatchView in queries.rs as fixed-width answers (room with its open asks and bids, deal with its split and settled totals, peer with manifest v2 fields, bond state and fault count, batch with digest and quorum) that the node px_ reads of 22.38.12 decode."
+symbols = ["RoomView", "DealView", "PeerView", "ReceiptBatchView", "answer_room_view"]
+
+[capability.22.38.7]
+title = "Lock, slash and refund peer bonds"
+reqs = ["22380.1"]
+touches = ["programs/crates/layerx-programs-ai-market/src/lib.rs", "programs/crates/layerx-programs-ai-market/src/dispatch.rs", "programs/crates/layerx-programs-ai-market/src/rewards.rs"]
+tests = ["programs/crates/layerx-programs-ai-market/tests/f11_bonds.rs"]
+verification_contract = "cargo test --locked --manifest-path programs/Cargo.toml -p layerx-programs-ai-market --test f11_bonds"
+do_1 = "do_1 Implement LockBond (a peer locks the room profile minimum bond against its bid; PostBid refuses without a lock), SlashBond (after a resolved canary miss or a missed countersign deadline the bond is slashed by the room profile slash fraction in basis points into the reward ledger of the other peers of the deal) and RefundBond (after the last deal of the peer closes and the challenge window passes)."
+symbols = ["BondRecord", "apply_lock_bond", "apply_slash_bond", "apply_refund_bond"]
+
+[capability.22.38.6]
+title = "Split settled payouts into the reward ledger in deal proportions"
+reqs = ["22380.1", "22380.2"]
+touches = ["programs/crates/layerx-programs-ai-market/src/rewards.rs", "programs/crates/layerx-programs-ai-market/src/reward_math.rs", "programs/crates/layerx-programs-ai-market/src/dispatch.rs"]
+tests = ["programs/crates/layerx-programs-ai-market/tests/f11_payout_split.rs"]
+verification_contract = "cargo test --locked --manifest-path programs/Cargo.toml -p layerx-programs-ai-market --test f11_payout_split"
+do_1 = "do_1 Implement SplitPayout: for a settled batch the host (or any account after the challenge window) splits the settled amount into reward ledger credits per peer in the layer-weight proportions the deal records, with the host share and the protocol share from the room profile; the split refuses when it exceeds the settled amount or when a challenge on the batch is open."
+symbols = ["apply_split_payout", "PayoutShares", "split_settled_amount"]
+
+[capability.22.38.5]
+title = "Implement canary challenges with commit-reveal and fixed-point tolerance"
+reqs = ["22380.1"]
+touches = ["programs/crates/layerx-programs-ai-market/src/lib.rs", "programs/crates/layerx-programs-ai-market/src/commit_reveal.rs", "programs/crates/layerx-programs-ai-market/src/dispatch.rs"]
+tests = ["programs/crates/layerx-programs-ai-market/tests/f11_canary_challenge.rs"]
+verification_contract = "cargo test --locked --manifest-path programs/Cargo.toml -p layerx-programs-ai-market --test f11_canary_challenge"
+do_1 = "do_1 Add src/canary.rs: a canary task kind whose prompt digest and expected logits digest are committed by the host through CommitScore and revealed through RevealScore in the existing commit-reveal window; the reveal carries the top-8 logits of the canary position as fixed-point i32 with 16 fractional bits."
+symbols = ["CanaryCommitment", "apply_challenge_lap", "apply_resolve_challenge", "relative_tolerance_hit"]
+
+[capability.22.38.4]
+title = "Implement lap receipt batches settled through sealed evidence"
+reqs = ["22380.1", "22380.2"]
+touches = ["programs/crates/layerx-programs-ai-market/src/lib.rs", "programs/crates/layerx-programs-ai-market/src/evidence.rs", "programs/crates/layerx-programs-ai-market/src/dispatch.rs"]
+tests = ["programs/crates/layerx-programs-ai-market/tests/f11_lap_settlement.rs"]
+verification_contract = "cargo test --locked --manifest-path programs/Cargo.toml -p layerx-programs-ai-market --test f11_lap_settlement"
+do_1 = "do_1 Add src/laps.rs with the lap receipt (deal id, lap index, prompt tokens, generated tokens, cumulative tokens, layer range digest per peer, host signature, peer countersignatures as a bitmap over the deal roster) and the receipt batch (deal id, first and last lap index, cumulative tokens at the last lap, batch digest as the Merkle root of the lap receipts, countersign quorum)."
+symbols = ["LapReceipt", "ReceiptBatch", "apply_settle_laps", "LAP_BATCH_MAX"]
+
+[capability.22.38.3]
+title = "Implement rooms, asks, bids and deals bound to the roster digest"
+reqs = ["22380.1"]
+touches = ["programs/crates/layerx-programs-ai-market/src/lib.rs", "programs/crates/layerx-programs-ai-market/src/dispatch.rs", "programs/crates/layerx-programs-ai-market/src/state.rs"]
+tests = ["programs/crates/layerx-programs-ai-market/tests/f11_rooms_and_deals.rs"]
+verification_contract = "cargo test --locked --manifest-path programs/Cargo.toml -p layerx-programs-ai-market --test f11_rooms_and_deals"
+do_1 = "do_1 Add src/rooms.rs with the room record (room id, host key, model digest, runtime digest, room profile, settlement account, state open or closed, opened at epoch), the ask record (ask id, asker key, model digest, maximum price per thousand tokens, stream id, state), the bid record (bid id, peer key, capability digest, minimum price per thousand tokens, bond amount, layer capacity) and their fixed-width codecs inside the state budget of 196608 bytes with at most 16 rooms, 64 asks and 128 bids."
+symbols = ["RoomRecord", "AskRecord", "BidRecord", "DealRecord", "apply_record_deal", "ROOM_CAPACITY"]
+
+[capability.22.38.2]
+title = "Extend the participant manifest with inference capability fields"
+reqs = ["22380.1"]
+touches = ["programs/crates/layerx-programs-ai-market/src/workers.rs", "programs/crates/layerx-programs-ai-market/src/roster.rs", "programs/crates/layerx-programs-ai-market/src/codec.rs"]
+tests = ["programs/crates/layerx-programs-ai-market/tests/manifest_v2_capabilities.rs"]
+verification_contract = "cargo test --locked --manifest-path programs/Cargo.toml -p layerx-programs-ai-market --test manifest_v2_capabilities"
+do_1 = "do_1 Extend decode_manifest in the participants module with a manifest version 2 that adds, after the version 1 fields, accelerator memory in MiB (u32), system memory in MiB (u32), bandwidth class (u8, 0 unknown to 4 datacentre), region code (two ASCII letters), attestation family (u8, 255 none) and runtime kind (u8: 0 browser, 1 native command line, 2 daemon); version 1 manifests still decode and MAX_MANIFEST_BYTES stays 8192."
+symbols = ["ManifestV2", "decode_manifest", "CapabilityFields", "PARTICIPANT_METADATA_DOMAIN_V2"]
+
+[capability.22.38.1]
+title = "Add the room market family F11 to the ai-market program with its operation table, selectors and availability"
+reqs = ["22380.1"]
+touches = ["programs/crates/layerx-programs-ai-market/src/dispatch.rs", "programs/crates/layerx-programs-ai-market/src/errors.rs", "programs/crates/layerx-programs-ai-market/src/queries.rs", "programs/crates/layerx-programs-ai-market/src/policy.rs", "programs/crates/layerx-programs-ai-market/src/lib.rs"]
+tests = ["programs/crates/layerx-programs-ai-market/tests/f11_family_table.rs"]
+verification_contract = "cargo test --locked --manifest-path programs/Cargo.toml -p layerx-programs-ai-market --test f11_family_table"
+do_1 = "do_1 Add family F11 to the operation table of the routing module: OpenRoom 0x0B01, PostAsk 0x0B02, PostBid 0x0B03, RecordDeal 0x0B04, SettleLaps 0x0B05, ChallengeLap 0x0B06, ResolveChallenge 0x0B07, SplitPayout 0x0B08, LockBond 0x0B09, SlashBond 0x0B0A, RefundBond 0x0B0B, CloseRoom 0x0B0C and the reads RoomView 0x0B10, DealView 0x0B11, PeerView 0x0B12, ReceiptBatchView 0x0B13 and BookView 0x0B14, each with its payload length, authority class and section set in OperationMetadata."
+symbols = ["Operation::OpenRoom", "Operation::SettleLaps", "Operation::RoomView", "F11_ROOM_UNKNOWN", "MarketPolicy::room_profile", "feature_availability"]
 
 [capability.22.31.585]
 title = "Disclose the programs lifecycle calls in the call disclosure decoder"
@@ -149449,6 +149848,326 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.38.34]
+title = "Fund an ask and show peer earnings in the wallet"
+status = "pending"
+mode = "BUILD"
+wave = 7
+requires = ["22.38.31"]
+reqs = ["22380.5"]
+capabilities = ["22.38.34"]
+interfaces = ["interface.22.ts-wallet-inferenceview"]
+do_1 = "do_1 Add the inference surface to apps/wallet: src/surfaces/InferenceView.tsx with an ask form (model, price cap per thousand tokens, total cap) that opens the metered stream through the SDK fundAsk helper and the existing send path, an ask list with the stream reading and remaining cap, and an earnings panel for the connected key read from px_getInferencePeer and the reward ledger; add the route to routes.ts and the surface id to the union."
+do_2 = "do_2 Write src/surfaces/InferenceView.test.tsx: the form encodes the stream open with the entered caps, the ask list renders a fixture reading, and the earnings panel renders the fixture credit."
+symbols = ["InferenceView", "SURFACE_ROUTES", "useInferenceAsks"]
+touches = ["apps/wallet/src/surfaces/routes.ts", "apps/wallet/src/surfaces/useSurface.ts"]
+tests = ["apps/wallet/src/surfaces/InferenceView.test.tsx"]
+planned_paths = ["apps/wallet/src/surfaces/InferenceView.tsx", "apps/wallet/src/surfaces/InferenceView.test.tsx"]
+build_cmd = "pnpm --dir apps/wallet run typecheck"
+verify_cmd = "pnpm --dir apps/wallet exec vitest run src/surfaces/InferenceView.test.tsx"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-wallet"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.38.33]
+title = "List rooms, deals and receipt batches in the explorer"
+status = "pending"
+mode = "BUILD"
+wave = 6
+requires = ["22.38.12"]
+reqs = ["22380.5"]
+capabilities = ["22.38.33"]
+interfaces = ["interface.22.http-explorer-api-inference", "interface.22.ts-explorer-paxeerxinference"]
+do_1 = "do_1 Add pages/api/inference.ts (a server route in the shape of pages/api/assistant.ts that calls px_getInferenceRooms, px_getInferenceRoom, px_getInferenceDeal and px_getInferenceReceipts on the configured node root and never exposes the node address to the browser), the resource entries in lib/api/services/general/paxeerXInference.ts, pages/paxeer-x/inference.tsx and ui/pages/PaxeerXInference.tsx with a rooms table (model, host, peers, open asks, settled tokens), a deal panel and a receipt batch table in the dense market-data style of the design brief, and the Inference item under the paxeer-x group of useNavItems.tsx."
+do_2 = "do_2 Write ui/pages/PaxeerXInference.spec.tsx asserting the page renders a fixture room list, the deal panel renders the split, and the server route refuses a method outside the five."
+symbols = ["PaxeerXInference", "apps/explorer/pages/api/inference.ts", "paxeerXInference"]
+touches = ["apps/explorer/lib/hooks/useNavItems.tsx", "apps/explorer/pages/api/assistant.ts", "apps/explorer/pages/paxeer-x", "apps/explorer/lib/api/services/general/index.ts"]
+tests = ["apps/explorer/ui/pages/PaxeerXInference.spec.tsx"]
+planned_paths = ["apps/explorer/pages/api/inference.ts", "apps/explorer/lib/api/services/general/paxeerXInference.ts", "apps/explorer/pages/paxeer-x/inference.tsx", "apps/explorer/ui/pages/PaxeerXInference.tsx", "apps/explorer/ui/pages/PaxeerXInference.spec.tsx"]
+build_cmd = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json"
+verify_cmd = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json && yarn vitest run ui/pages/PaxeerXInference.spec.tsx"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.38.31]
+title = "Expose the market operations and reads in the TypeScript SDK"
+status = "pending"
+mode = "BUILD"
+wave = 6
+requires = ["22.38.12"]
+reqs = ["22380.5"]
+capabilities = ["22.38.31"]
+interfaces = ["interface.22.ts-sdk-inference-market"]
+do_1 = "do_1 Add src/inference_market.ts exporting the F11 operation encoders (openRoom, postAsk, postBid, recordDeal, settleLaps, challengeLap, resolveChallenge, splitPayout, lockBond, slashBond, refundBond, closeRoom) with the payload layouts of 22.38.3 to 22.38.7, the view decoders, the px_ reads (getInferenceRooms, getInferenceRoom, getInferenceDeal, getInferencePeer, getInferenceReceipts) through the existing px client of src/px.ts, and the ask funding helper fundAsk that encodes streamOpenForAsk; export it from src/index.ts."
+do_2 = "do_2 Write test/inference-market.test.ts asserting each encoder reproduces the fixture bytes recorded from the program tests, each decoder reproduces the recorded view, and the px reads call the node root method names exactly."
+symbols = ["openRoom", "postAsk", "recordDeal", "settleLaps", "getInferenceRooms", "fundAsk"]
+touches = ["services/agent/sdk/typescript/src/px.ts", "services/agent/sdk/typescript/src/index.ts", "services/agent/sdk/typescript/src/ai_market.ts"]
+tests = ["services/agent/sdk/typescript/test/inference-market.test.ts"]
+planned_paths = ["services/agent/sdk/typescript/src/inference_market.ts", "services/agent/sdk/typescript/test/inference-market.test.ts"]
+build_cmd = "cd services/agent/sdk/typescript && npm ci && npm run build"
+verify_cmd = "cd services/agent/sdk/typescript && npm ci && npm run build && node --test dist/test/inference-market.test.js"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.38.30]
+title = "Ship the native command-line peer with an attestation binding and a local serve bridge"
+status = "pending"
+mode = "BUILD"
+wave = 6
+requires = ["22.38.26", "22.38.10"]
+reqs = ["22380.4"]
+capabilities = ["22.38.30"]
+interfaces = ["interface.22.cli-inference-peer-join", "interface.22.cli-inference-peer-serve", "interface.22.cli-inference-peer-status"]
+do_1 = "do_1 Add bin/inference-peer.mjs with the commands join (host address, room id, optional attestation envelope file that the peer submits to bindPeer through the host before enrolling), serve (runs a local OpenAI-compatible route that forwards to the host completion route with the ask bearer) and status; native mode uses node-datachannel for WebRTC and the webgpu package when present, else the CPU path of the engine."
+do_2 = "do_2 Write test/cli.test.mjs: join parses its arguments and sends hello, an attestation file whose report data does not match the identity is refused locally before any send, and serve forwards a request and streams the answer from a stand-in host."
+symbols = ["apps/inference-peer/bin/inference-peer.mjs", "joinCommand", "serveCommand"]
+touches = ["docs/MONOREPO.md"]
+tests = ["apps/inference-peer/test/cli.test.mjs"]
+planned_paths = ["apps/inference-peer/bin/inference-peer.mjs", "apps/inference-peer/src/cli.mjs", "apps/inference-peer/test/cli.test.mjs"]
+build_cmd = "npm --prefix apps/inference-peer install --no-audit --no-fund --ignore-scripts"
+verify_cmd = "node --test apps/inference-peer/test/cli.test.mjs"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.38.29]
+title = "Ship the browser peer page"
+status = "pending"
+mode = "BUILD"
+wave = 6
+requires = ["22.38.26"]
+reqs = ["22380.4"]
+capabilities = ["22.38.29"]
+interfaces = []
+do_1 = "do_1 Add index.html and src/page.mjs: a single page that shows the WebGPU adapter and measured manifest, lets the visitor paste a host signalling address and a room id, joins the room with the persisted identity, shows the assigned layer range, lap count, countersigned receipts and the earnings read from the host status frame, and leaves cleanly with bye on unload; no bundler, plain ES modules served by npm run serve (a static file server script in scripts/serve.mjs)."
+do_2 = "do_2 Write test/page.test.mjs with jsdom: the join flow sends hello with the stored key, the status panel renders a deal frame, and unload sends bye."
+symbols = ["apps/inference-peer/index.html", "PeerPage", "renderStatus"]
+touches = ["docs/MONOREPO.md"]
+tests = ["apps/inference-peer/test/page.test.mjs"]
+planned_paths = ["apps/inference-peer/index.html", "apps/inference-peer/src/page.mjs", "apps/inference-peer/scripts/serve.mjs", "apps/inference-peer/test/page.test.mjs"]
+build_cmd = "npm --prefix apps/inference-peer install --no-audit --no-fund --ignore-scripts"
+verify_cmd = "node --test apps/inference-peer/test/page.test.mjs"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.38.28]
+title = "Answer canary prompts inside the lap"
+status = "pending"
+mode = "BUILD"
+wave = 6
+requires = ["22.38.26", "22.38.19"]
+reqs = ["22380.4"]
+capabilities = ["22.38.28"]
+interfaces = []
+do_1 = "do_1 Add src/canary.mjs: a canary position arrives as an ordinary activation; the peer processes it as any other and, when the host asks through a canary-answer request, returns the top-8 logits of that position as fixed-point i32 with 16 fractional bits in the same layout the program compares (22.38.5)."
+do_2 = "do_2 Write test/canary.test.mjs: the fixed-point encoding of a fixture logit vector equals the program fixture bytes, and an answer for an unknown position refuses."
+symbols = ["canaryAnswer", "encodeFixedPointLogits"]
+touches = ["docs/MONOREPO.md"]
+tests = ["apps/inference-peer/test/canary.test.mjs"]
+planned_paths = ["apps/inference-peer/src/canary.mjs", "apps/inference-peer/test/canary.test.mjs"]
+build_cmd = "npm --prefix apps/inference-peer install --no-audit --no-fund --ignore-scripts"
+verify_cmd = "node --test apps/inference-peer/test/canary.test.mjs"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 90
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.38.27]
+title = "Countersign lap receipts the peer contributed to"
+status = "pending"
+mode = "BUILD"
+wave = 6
+requires = ["22.38.26", "22.38.18"]
+reqs = ["22380.4"]
+capabilities = ["22.38.27"]
+interfaces = []
+do_1 = "do_1 Add src/laps.mjs: on a lap-receipt frame the peer checks the lap index continuity, that its layer range digest in the receipt equals the digest of the activations it processed, and that the cumulative token count advanced by the generated count; it then returns a countersign frame with its ed25519 signature over the receipt digest, or a refusal with the reason."
+do_2 = "do_2 Write test/laps.test.mjs: a matching receipt is countersigned, a receipt with a foreign range digest is refused, a lap index gap is refused, and the signature verifies against the program lap codec fixture of 22.38.4."
+symbols = ["countersignLap", "LapTracker"]
+touches = ["docs/MONOREPO.md"]
+tests = ["apps/inference-peer/test/laps.test.mjs"]
+planned_paths = ["apps/inference-peer/src/laps.mjs", "apps/inference-peer/test/laps.test.mjs"]
+build_cmd = "npm --prefix apps/inference-peer install --no-audit --no-fund --ignore-scripts"
+verify_cmd = "node --test apps/inference-peer/test/laps.test.mjs"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 90
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.38.26]
+title = "Run the assigned layer range as a deal client"
+status = "pending"
+mode = "BUILD"
+wave = 5
+requires = ["22.38.24", "22.38.17"]
+reqs = ["22380.4"]
+capabilities = ["22.38.26"]
+interfaces = []
+do_1 = "do_1 Add src/deal.mjs: on a deal frame the peer loads only the weight shards of its layer range from the model source named in the offer, verifies each shard against the model digest manifest, acknowledges with a signature, then runs activations received on the mesh through its layers and forwards them to the next peer or back to the host; the key-value cache is kept per request and dropped on bye."
+do_2 = "do_2 Write test/deal.test.mjs with the scripted CPU stand-in model of tests/scripted_model.mjs: a two-peer split reproduces the single-process output token for token, a shard with a wrong digest refuses the deal, and bye drops the cache."
+symbols = ["DealClient", "loadLayerRange", "runActivation"]
+touches = ["docs/MONOREPO.md"]
+tests = ["apps/inference-peer/test/deal.test.mjs"]
+planned_paths = ["apps/inference-peer/src/deal.mjs", "apps/inference-peer/tests/scripted_model.mjs", "apps/inference-peer/test/deal.test.mjs"]
+build_cmd = "npm --prefix apps/inference-peer install --no-audit --no-fund --ignore-scripts"
+verify_cmd = "node --test apps/inference-peer/test/deal.test.mjs"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.38.25]
+title = "Present a chain identity in the peer hello and enrol through the host"
+status = "pending"
+mode = "BUILD"
+wave = 4
+requires = ["22.38.24", "22.38.15"]
+reqs = ["22380.4"]
+capabilities = ["22.38.25"]
+interfaces = []
+do_1 = "do_1 Add src/identity.mjs: an ed25519 peer key kept in IndexedDB in the browser or in a file in native mode, a hello signature over the room id and nonce, a measured v2 manifest (accelerator memory from the WebGPU adapter limits, system memory from navigator.deviceMemory or os.totalmem, bandwidth class from a short probe, runtime kind browser or native) and an enrol request to the host enrol_peer route carrying the signed manifest."
+do_2 = "do_2 Write test/identity.test.mjs: the key persists across two instances on the same store, the hello signature verifies with the public key, and the manifest encodes to the v2 layout the program decodes (fixture bytes from 22.38.2)."
+symbols = ["PeerIdentity", "measureManifest", "signHello"]
+touches = ["docs/MONOREPO.md"]
+tests = ["apps/inference-peer/test/identity.test.mjs"]
+planned_paths = ["apps/inference-peer/src/identity.mjs", "apps/inference-peer/test/identity.test.mjs"]
+build_cmd = "npm --prefix apps/inference-peer install --no-audit --no-fund --ignore-scripts"
+verify_cmd = "node --test apps/inference-peer/test/identity.test.mjs"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.38.24]
+title = "Implement the room wire protocol and transport for the peer"
+status = "pending"
+mode = "BUILD"
+wave = 2
+requires = ["22.38.23"]
+reqs = ["22380.4"]
+capabilities = ["22.38.24"]
+interfaces = ["interface.22.inference-peer-wire-frame"]
+do_1 = "do_1 Add src/wire.mjs (frame codec: hello, offer, deal, deal-ack, activation, lap-receipt, countersign, canary-answer, bye; length-prefixed binary with a u16 kind and a u32 length, 65536 bytes maximum) and src/transport.mjs (WebSocket signalling client to the host of 22.38.16, WebRTC data channel mesh to the deal peers with the browser API or node-datachannel in native mode, ordered reliable channels for control and unordered for activations)."
+do_2 = "do_2 Write test/wire.test.mjs (every frame round-trips, an oversize frame refuses, an unknown kind refuses) and test/transport.test.mjs with an in-process WebSocket stand-in (hello then offer then deal-ack in order)."
+symbols = ["encodeFrame", "decodeFrame", "SignalClient", "PeerMesh"]
+touches = ["docs/MONOREPO.md"]
+tests = ["apps/inference-peer/test/wire.test.mjs", "apps/inference-peer/test/transport.test.mjs"]
+planned_paths = ["apps/inference-peer/src/wire.mjs", "apps/inference-peer/src/transport.mjs", "apps/inference-peer/test/wire.test.mjs", "apps/inference-peer/test/transport.test.mjs"]
+build_cmd = "npm --prefix apps/inference-peer install --no-audit --no-fund --ignore-scripts"
+verify_cmd = "node --test apps/inference-peer/test/wire.test.mjs apps/inference-peer/test/transport.test.mjs"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.38.23]
+title = "Vendor the MIT inference engine under apps/inference-peer with its attribution"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22380.4"]
+capabilities = ["22.38.23"]
+interfaces = []
+do_1 = "do_1 Create apps/inference-peer as a standalone npm package (type module, own package-lock.json, no build step) with engine/ copied from the upstream MIT project (the dense and quantised model loaders, tokenizer, sampling, generation loop and WGSL shaders), LICENSE-ENGINE carrying the upstream MIT notice, NOTICE naming the upstream project and commit, and a README that states what is vendored and what is ours."
+do_2 = "do_2 Add the package to the apps table of docs/MONOREPO.md and keep every vendored file byte-identical to upstream except a header comment naming its origin; local changes go into src/, never into engine/."
+do_3 = "do_3 Write test/vendored_engine.test.mjs: the engine modules import, the tokenizer round-trips a fixture string, and NOTICE names the upstream commit."
+symbols = ["apps/inference-peer/package.json", "apps/inference-peer/engine", "apps/inference-peer/NOTICE"]
+touches = ["docs/MONOREPO.md"]
+tests = ["apps/inference-peer/test/vendored_engine.test.mjs"]
+planned_paths = ["apps/inference-peer/package.json", "apps/inference-peer/package-lock.json", "apps/inference-peer/LICENSE-ENGINE", "apps/inference-peer/NOTICE", "apps/inference-peer/README.md", "apps/inference-peer/engine", "apps/inference-peer/test/vendored_engine.test.mjs"]
+build_cmd = "npm --prefix apps/inference-peer install --no-audit --no-fund --ignore-scripts"
+verify_cmd = "node --test apps/inference-peer/test/vendored_engine.test.mjs"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.31.580]
 title = "Bring the core server builtin-registry test current with the bundled plugins directory and the source-control plugin"
 status = "done"
@@ -169701,6 +170420,121 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.38.38]
+title = "Prove ask to stream to lap settlement to claim"
+status = "pending"
+mode = "BUILD"
+wave = 8
+requires = ["22.38.36"]
+reqs = ["22380.6"]
+capabilities = ["22.38.38"]
+interfaces = []
+do_1 = "do_1 Add the --proof settlement mode to inference_market_room.py: after the completion the driver asserts the sealed batch digest, the SettleLaps write, the streamMeter reading equal to the settled cumulative tokens, the SplitPayout credits in the deal proportions, and a CLAIM by each peer that moves the credit to its account; the evidence records the amounts."
+symbols = ["proof_settlement"]
+touches = ["tools/qualification/paxeer-x/fixtures/merged_runtime_fixture.py"]
+tests = []
+planned_paths = ["tools/qualification/paxeer-x/inference_market_room.py"]
+build_cmd = "export PAXEER_X_BUILDER_ID=$(hostname); make -C . build/liblayerx.a && cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd && npm --prefix apps/inference-peer install --no-audit --no-fund --ignore-scripts && python3 tools/qualification/paxeer-x/inference_market_room.py --begin-build && python3 tools/qualification/paxeer-x/inference_market_room.py --build"
+verify_cmd = "d=$(mktemp -d) && PAXEER_X_EVIDENCE_DIR=$d PAXEER_X_BUILDER_ID=$(hostname) python3 tools/qualification/paxeer-x/inference_market_room.py --proof settlement || { tail -n 150 $d/*/native.log; exit 1; }"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.38.37]
+title = "Prove that a canary failure slashes the faulty peer bond"
+status = "pending"
+mode = "BUILD"
+wave = 8
+requires = ["22.38.36", "22.38.28", "22.38.7"]
+reqs = ["22380.6"]
+capabilities = ["22.38.37"]
+interfaces = []
+do_1 = "do_1 Add the --proof canary mode to inference_market_room.py: the second peer is started with a fault flag that perturbs one logit, the host injects a canary, and the driver asserts the ChallengeLap, RevealScore and ResolveChallenge writes, the SlashBond write, and that the slashed fraction reached the reward ledger of the honest peer."
+symbols = ["proof_canary_slash"]
+touches = ["tools/qualification/paxeer-x/fixtures/merged_runtime_fixture.py"]
+tests = []
+planned_paths = ["tools/qualification/paxeer-x/inference_market_room.py"]
+build_cmd = "export PAXEER_X_BUILDER_ID=$(hostname); make -C . build/liblayerx.a && cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd && npm --prefix apps/inference-peer install --no-audit --no-fund --ignore-scripts && python3 tools/qualification/paxeer-x/inference_market_room.py --begin-build && python3 tools/qualification/paxeer-x/inference_market_room.py --build"
+verify_cmd = "d=$(mktemp -d) && PAXEER_X_EVIDENCE_DIR=$d PAXEER_X_BUILDER_ID=$(hostname) python3 tools/qualification/paxeer-x/inference_market_room.py --proof canary || { tail -n 150 $d/*/native.log; exit 1; }"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.38.36]
+title = "Drive an isolated chain, one host, two native peers and one asker through a room on a synthetic model"
+status = "pending"
+mode = "BUILD"
+wave = 7
+requires = ["22.38.21", "22.38.27"]
+reqs = ["22380.6"]
+capabilities = ["22.38.36"]
+interfaces = ["interface.22.cli-inference-market-room-driver"]
+do_1 = "do_1 Add tools/qualification/paxeer-x/inference_market_room.py on the RuntimeFixture of tools/qualification/paxeer-x/fixtures/merged_runtime_fixture.py: it starts the isolated chain, deploys the ai-market program and opens the market with a room profile, starts the agent daemon in inference-market mode against the chain, starts two native peers from apps/inference-peer on the scripted CPU model, and an asker script that funds an ask stream and sends a completion request; the driver records every chain write and answer as evidence in the PAXEER_X_EVIDENCE_DIR layout."
+do_2 = "do_2 Support the --begin-build and --build steps like the other drivers so the daemon and the peer package are built once per run."
+do_3 = "do_3 The first proof: the completion answer equals the scripted model output token for token and a deal with two peers is recorded on chain."
+symbols = ["tools/qualification/paxeer-x/inference_market_room.py", "InferenceRoomDriver"]
+touches = ["tools/qualification/paxeer-x/fixtures/merged_runtime_fixture.py", "tools/qualification/paxeer-x/agent_operation_envelope.py"]
+tests = []
+planned_paths = ["tools/qualification/paxeer-x/inference_market_room.py"]
+build_cmd = "export PAXEER_X_BUILDER_ID=$(hostname); make -C . build/liblayerx.a && cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd && npm --prefix apps/inference-peer install --no-audit --no-fund --ignore-scripts && python3 tools/qualification/paxeer-x/inference_market_room.py --begin-build && python3 tools/qualification/paxeer-x/inference_market_room.py --build"
+verify_cmd = "d=$(mktemp -d) && PAXEER_X_EVIDENCE_DIR=$d PAXEER_X_BUILDER_ID=$(hostname) python3 tools/qualification/paxeer-x/inference_market_room.py --proof room || { tail -n 150 $d/*/native.log; exit 1; }"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.38.13]
+title = "Prove every F11 operation under the fuel cap and the replay profile through the native host boundary"
+status = "pending"
+mode = "BUILD"
+wave = 6
+requires = ["22.38.4", "22.38.5", "22.38.6", "22.38.7", "22.38.11"]
+reqs = ["22380.1"]
+capabilities = ["22.38.13"]
+interfaces = []
+do_1 = "do_1 Extend tests/fuel_budget.rs with every F11 operation at its maximum payload and a full room (16 rooms, 64 asks, 128 bids, 64-lap batch) and assert each stays under 1000000 CPU fuel and within 4096 replay boundaries and 1048576 bytes."
+do_2 = "do_2 Extend tests/programs/test_ai_host_boundary.c with one native CALL per F11 operation through the built guest and assert status 0 and a present replay record; bring any operation over the cap under it through the joint-section readers."
+symbols = ["f11_fuel_table", "test_f11_host_boundary"]
+touches = ["programs/crates/layerx-programs-ai-market/tests/fuel_budget.rs", "tests/programs/test_ai_host_boundary.c", "programs/Cargo.toml"]
+tests = ["programs/crates/layerx-programs-ai-market/tests/fuel_budget.rs"]
+planned_paths = []
+build_cmd = "make -s paxai-host-boundary-build && cargo build --locked --manifest-path programs/Cargo.toml -p layerx-programs-ai-market --tests"
+verify_cmd = "cargo test --locked --manifest-path programs/Cargo.toml -p layerx-programs-ai-market --test fuel_budget --test host_boundary"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-programs"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.31.566]
 title = "Name the replay bound and the guest fault with distinct kernel status codes"
 status = "done"
@@ -170240,7 +171074,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1562.1]
 title = "Issue #1562: Decode and validate transfer-authority wrappers in AI market receipts"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["13.99.1", "22.99.160", "1.23.7", "5.99.1", "22.31.441", "22.31.463", "22.31.478", "22.31.582"]
@@ -170283,6 +171117,7 @@ do_16 = "Attempt 17 (continue, gotcha 3343, decision 2733): the attempt-16 tree 
 do_17 = "Attempt 18 (requalify, gotcha 3348, decision 2736): the attempt-17 tree at 0ffe1e9e3315f83c8147f3e901364b11216d79f7 stands as it is, including the wasm-opt requirement, the production-optimised guest deployment within 524288 bytes, the separately registered fee asset with occupancy finalised before FUND, and the ABI5 re-registration with profile 1 at line 805 that the budget left unverified. Re-run the build and the verify on that tree without further change and record them by reference in the task record; if the verify fails at a later step of the proof, record the step, the result code and the compared values, and stop at that finding."
 do_18 = "Attempt 19 (continue, gotcha 3349, decision 2737): the attempt-18 tree at bf312fc2181bb527cab3d5cc8602bfa30d55e2a0 stands (the profile-1 re-registration, the wasm-opt requirement, the production-optimised guest). In rpc/sequencer_receipt_vectors_test.go give the main account the production balance 1000000000 in place of 100000000 at line 598 (the balance words) and line 614 (the assertion), the value rpc/repair_478_test.go line 217 uses; keep every fee limit at 100000000 (lines 683, 782 and 831) and keep the occupancy settlement at line 800 and the account read at line 811 as they are. Do not raise the gas allowance or any measuring budget. Run the build and the verify at the final revision and record them by reference in the task record."
 do_19 = "Attempt 20 (continue after 22.31.582, gotcha 3352, decision 2739): the attempt-19 tree stands (the fee balance of 1000000000 at lines 598 and 614, the wrapper decoding and the SDK test). In rpc/sequencer_receipt_vectors_test.go line 831 pack callWithReceipts instead of call with the same nine arguments and a tenth argument of one lxphost.ReceiptAuthority whose CanonicalReceipt is sightReceipt.Encoded and whose BlockHeight is the block height of the context the sight receipt was executed under (the height before next), the authority the production proof passes at rpc/repair_478_test.go line 409; unpack the outputs with the callWithReceipts method and keep the rest of the case. Rebase onto main once 22.31.582 is there, run the build and the verify at the final revision and record them by reference in the task record."
+do_20 = "Attempt 21 (continue, gotcha 3362, decision 2748): the attempt-20 tree stands (the callWithReceipts Fund with the sight receipt authority, the wrapper decoding, the journal and refusal cases). In services/agent/sdk/typescript/test/ai-market.test.ts replace the final assertion (lines 438 to 439) with an assertion that rewardAuthorityRoot equals rootOf(rewardLegs), the equality the response contract fixes; then add one refusal subcase that builds a frame from rewardDetail with the applied legs extended by one more well-formed 115-byte leg and the matching outer root, and expects decodeProgramsCallResult to refuse it with ReceiptMismatch. In services/agent/sdk/typescript/src/ai_market.ts validateProgramsTransferAuthority (line 3697 onward) refuse a wrapper whose root differs from programsLegRoot of the applied legs, keeping the reconstruction from the authorization legs and the subset walk, and correct the comment at lines 3554 to 3555 to state that the wrapper root equals the applied-legs root while occupancy charges settle in their own activity. Change nothing in the Go vector case. Run the build and the verify at the final revision and record them by reference in the task record."
 
 [task.18.1561.1]
 title = "Issue #1561: Prepare the codec replay corpus before agent vector tests"
@@ -177868,9 +178703,577 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.38.32]
+title = "Expose the market operations and reads in the Rust SDK"
+status = "pending"
+mode = "BUILD"
+wave = 6
+requires = ["22.38.12"]
+reqs = ["22380.5"]
+capabilities = ["22.38.32"]
+interfaces = ["interface.22.rs-sdk-inference-market"]
+do_1 = "do_1 Add src/inference_market.rs to layerx-sdk with the same operation encoders, view decoders and px reads as 22.38.31, built on the ai-market client of layerx-client and the px read route of the SDK; export it from lib.rs."
+do_2 = "do_2 Write tests/inference_market.rs asserting the encoders reproduce the program fixture bytes and the px reads name the node root methods."
+symbols = ["InferenceMarket", "open_room", "post_ask", "get_inference_rooms"]
+touches = ["services/agent/crates/layerx-sdk/src/lib.rs", "services/agent/crates/layerx-client/src/ai_market.rs"]
+tests = ["services/agent/crates/layerx-sdk/tests/inference_market.rs"]
+planned_paths = ["services/agent/crates/layerx-sdk/src/inference_market.rs", "services/agent/crates/layerx-sdk/tests/inference_market.rs"]
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-sdk -p layerx-client --tests"
+verify_cmd = "cargo test --locked --manifest-path services/agent/crates/layerx-sdk/Cargo.toml --test inference_market"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.38.22]
+title = "Queue requests per room with speculative-decode slots"
+status = "pending"
+mode = "BUILD"
+wave = 6
+requires = ["22.38.21"]
+reqs = ["22380.3"]
+capabilities = ["22.38.22"]
+interfaces = []
+do_1 = "do_1 Add src/inference_market/queue.rs: a per-room request queue (room profile depth, default 32) with fair ordering per ask, at most one active generation per room plus up to four speculative slots when a peer advertises a draft model in its manifest runtime kind; a queue overflow answers 429 with a retry-after header."
+do_2 = "do_2 Write tests/inference_queue.rs: ordering is fair across two asks, overflow answers 429, and a speculative slot is used only when a draft-capable peer is in the deal."
+symbols = ["RequestQueue", "SpeculativeSlot", "enqueue"]
+touches = ["services/agent/crates/layerx-agentd/src/main.rs"]
+tests = ["services/agent/crates/layerx-agentd/tests/inference_queue.rs"]
+planned_paths = ["services/agent/crates/layerx-agentd/src/inference_market/queue.rs", "services/agent/crates/layerx-agentd/tests/inference_queue.rs"]
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --tests"
+verify_cmd = "cargo test --locked --manifest-path services/agent/crates/layerx-agentd/Cargo.toml --test inference_queue"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.38.21]
+title = "Serve OpenAI-compatible and Anthropic-compatible completion routes gated on a funded ask stream"
+status = "pending"
+mode = "BUILD"
+wave = 5
+requires = ["22.38.9", "22.38.17"]
+reqs = ["22380.3", "22380.2"]
+capabilities = ["22.38.21"]
+interfaces = ["interface.22.http-inference-chat-completions", "interface.22.http-inference-messages"]
+do_1 = "do_1 Add src/inference_market/serve.rs: POST /v1/chat/completions (OpenAI shape, streaming through server-sent events) and POST /v1/messages (Anthropic shape) on the completion listener; the bearer token of a request names an ask reference, the route reads askStreamOf and the stream state from the node and refuses with 402 when the stream is absent, closed or its cap is reached; tokens are counted per request and attributed to the ask lap receipts."
+do_2 = "do_2 Both routes accept only the model id equal to the room model digest alias, cap the request body at 1048576 bytes and the generated tokens at the room profile maximum, and answer the usage block from the lap counts."
+do_3 = "do_3 Write tests/inference_serve.rs: an unfunded ask answers 402, a funded ask streams tokens and the usage block equals the lap count, a foreign model id answers 404, and the Anthropic shape maps the same completion."
+symbols = ["ServeRoutes", "chat_completions", "messages", "AskGate"]
+touches = ["services/agent/crates/layerx-agentd/src/main.rs", "services/agent/crates/layerx-agentd/src/node_rpc.rs"]
+tests = ["services/agent/crates/layerx-agentd/tests/inference_serve.rs"]
+planned_paths = ["services/agent/crates/layerx-agentd/src/inference_market/serve.rs", "services/agent/crates/layerx-agentd/tests/inference_serve.rs"]
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --tests"
+verify_cmd = "cargo test --locked --manifest-path services/agent/crates/layerx-agentd/Cargo.toml --test inference_serve"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.38.20]
+title = "Recover a room from peer loss by re-planning the layer split"
+status = "pending"
+mode = "BUILD"
+wave = 5
+requires = ["22.38.17"]
+reqs = ["22380.3"]
+capabilities = ["22.38.20"]
+interfaces = []
+do_1 = "do_1 Add src/inference_market/recovery.rs: on a lost data channel, a liveness timeout (room profile) or a slash mark, the host removes the peer, re-plans the layer split over the remaining peers and any peer waiting in the room, records a new deal that references the previous deal id, and resumes generation from the last countersigned lap (the key-value cache of the lost range is recomputed by the peer that takes it over)."
+do_2 = "do_2 A room with no peer able to cover a layer range moves to paused and the completion routes answer 503 with a retry-after header until a peer joins."
+do_3 = "do_3 Write tests/inference_recovery.rs: loss of one peer yields a new deal covering every layer, the resumed lap index equals the last countersigned index plus one, and an uncoverable range pauses the room."
+symbols = ["RecoveryEngine", "replan_after_loss", "RoomPaused"]
+touches = ["services/agent/crates/layerx-agentd/src/main.rs"]
+tests = ["services/agent/crates/layerx-agentd/tests/inference_recovery.rs"]
+planned_paths = ["services/agent/crates/layerx-agentd/src/inference_market/recovery.rs", "services/agent/crates/layerx-agentd/tests/inference_recovery.rs"]
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --tests"
+verify_cmd = "cargo test --locked --manifest-path services/agent/crates/layerx-agentd/Cargo.toml --test inference_recovery"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.38.19]
+title = "Inject canary prompts and audit peer answers"
+status = "pending"
+mode = "BUILD"
+wave = 5
+requires = ["22.38.5", "22.38.17"]
+reqs = ["22380.3"]
+capabilities = ["22.38.19"]
+interfaces = []
+do_1 = "do_1 Add src/inference_market/canary.rs: at the room profile canary ratio the host inserts a canary position into the lap (a prompt whose expected logits the host computed locally on the full model or took from the model digest canary table), commits the expectation through CommitScore before the lap, compares the peer answer after the lap, and on a miss submits ChallengeLap and RevealScore so ResolveChallenge marks the fault."
+do_2 = "do_2 The canary sampling key is derived from the deal id and the lap index so a peer cannot predict canary positions; the derivation is documented in the protocol page (22.38.35)."
+do_3 = "do_3 Write tests/inference_canary.rs: a correct answer leaves no challenge, a wrong answer produces commit, challenge and reveal in order, and the sampling key is deterministic per deal and lap."
+symbols = ["CanaryEngine", "canary_positions", "audit_answer", "challenge_and_reveal"]
+touches = ["services/agent/crates/layerx-agentd/src/main.rs", "services/agent/crates/layerx-client/src/ai_market.rs"]
+tests = ["services/agent/crates/layerx-agentd/tests/inference_canary.rs"]
+planned_paths = ["services/agent/crates/layerx-agentd/src/inference_market/canary.rs", "services/agent/crates/layerx-agentd/tests/inference_canary.rs"]
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd -p layerx-client --tests"
+verify_cmd = "cargo test --locked --manifest-path services/agent/crates/layerx-agentd/Cargo.toml --test inference_canary"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.38.18]
+title = "Issue, countersign, seal and settle lap receipts"
+status = "pending"
+mode = "BUILD"
+wave = 5
+requires = ["22.38.4", "22.38.17"]
+reqs = ["22380.3", "22380.2"]
+capabilities = ["22.38.18"]
+interfaces = []
+do_1 = "do_1 Add src/inference_market/laps.rs: every lap (room profile lap size in generated tokens) the host issues a lap receipt, sends it to each peer for countersignature over the signalling channel, collects the bitmap, appends the receipt to the batch Merkle tree, and at the batch size or the deal end seals the batch digest through SealEvidence and submits SettleLaps, then reports the cumulative token count to the ask stream through streamMeter with the host meter key."
+do_2 = "do_2 A peer that misses the countersign deadline twice in a batch is marked for SlashBond (22.38.7) and dropped (22.38.20)."
+do_3 = "do_3 Write tests/inference_laps.rs: receipt issue and countersign, batch root equals the on-chain sealed digest, settle then meter in that order, and a missing countersign marks the peer."
+symbols = ["LapEngine", "issue_lap", "seal_and_settle", "report_meter"]
+touches = ["services/agent/crates/layerx-agentd/src/main.rs", "services/agent/crates/layerx-client/src/ai_market.rs"]
+tests = ["services/agent/crates/layerx-agentd/tests/inference_laps.rs"]
+planned_paths = ["services/agent/crates/layerx-agentd/src/inference_market/laps.rs", "services/agent/crates/layerx-agentd/tests/inference_laps.rs"]
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd -p layerx-client --tests"
+verify_cmd = "cargo test --locked --manifest-path services/agent/crates/layerx-agentd/Cargo.toml --test inference_laps"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.38.17]
+title = "Negotiate deals from the placement book and record them on chain"
+status = "pending"
+mode = "BUILD"
+wave = 4
+requires = ["22.38.3", "22.38.11", "22.38.16"]
+reqs = ["22380.3"]
+capabilities = ["22.38.17"]
+interfaces = []
+do_1 = "do_1 Add src/inference_market/deals.rs: the host polls BookView, picks crossing pairs, plans the layer split over the admitted peers from their manifest accelerator memory (contiguous layer ranges, largest memory first, the host keeps the embedding and head), computes the roster digest from the admitted participants and submits RecordDeal; peers receive the deal frame over the signalling channel and acknowledge with a signature."
+do_2 = "do_2 A deal is live only after RecordDeal reaches finality and every peer acknowledged; a peer that does not acknowledge within the room profile window is dropped and the plan is recomputed."
+do_3 = "do_3 Write tests/inference_deals.rs: a crossing pair becomes a recorded deal, the layer plan covers every layer exactly once, a missing acknowledgement re-plans, and the roster digest matches the chain value."
+symbols = ["DealEngine", "LayerPlan", "plan_layers", "record_deal"]
+touches = ["services/agent/crates/layerx-agentd/src/main.rs", "services/agent/crates/layerx-client/src/ai_market.rs"]
+tests = ["services/agent/crates/layerx-agentd/tests/inference_deals.rs"]
+planned_paths = ["services/agent/crates/layerx-agentd/src/inference_market/deals.rs", "services/agent/crates/layerx-agentd/tests/inference_deals.rs"]
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd -p layerx-client --tests"
+verify_cmd = "cargo test --locked --manifest-path services/agent/crates/layerx-agentd/Cargo.toml --test inference_deals"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.38.16]
+title = "Signal peers through chain-anchored offers over a WebSocket listener"
+status = "pending"
+mode = "BUILD"
+wave = 2
+requires = ["22.38.14"]
+reqs = ["22380.3"]
+capabilities = ["22.38.16"]
+interfaces = ["interface.22.inference-signal-hello-frame", "interface.22.ws-inference-signal"]
+do_1 = "do_1 Add src/inference_market/signal.rs: a WebSocket listener (plain, not mutual TLS, because browsers connect) that accepts hello frames carrying a peer key, a signature over the room id and a nonce, and the v2 manifest; it answers with the room offer (room id, model digest, runtime digest, layer plan, price) whose digest the host has posted on chain in the room record, and relays WebRTC session descriptions and ICE candidates between admitted peers."
+do_2 = "do_2 Refuse a hello whose signature does not verify, whose peer key has no enrolment on chain, or whose manifest digest differs from the enrolled one; cap connections at 64 and frames at 65536 bytes."
+do_3 = "do_3 Write tests/inference_signal.rs: hello admitted, bad signature refused, unenrolled refused, relay delivers a description to the named peer only, and the cap refuses the 65th connection."
+symbols = ["SignalListener", "HelloFrame", "RoomOffer", "relay_description"]
+touches = ["services/agent/crates/layerx-agentd/src/main.rs", "services/agent/crates/layerx-agentd/Cargo.toml"]
+tests = ["services/agent/crates/layerx-agentd/tests/inference_signal.rs"]
+planned_paths = ["services/agent/crates/layerx-agentd/src/inference_market/signal.rs", "services/agent/crates/layerx-agentd/tests/inference_signal.rs"]
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --tests"
+verify_cmd = "cargo test --locked --manifest-path services/agent/crates/layerx-agentd/Cargo.toml --test inference_signal"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.38.15]
+title = "Enrol the host and peers with a v2 manifest, a bond lock and a price quote"
+status = "pending"
+mode = "BUILD"
+wave = 3
+requires = ["22.38.2", "22.38.14"]
+reqs = ["22380.3"]
+capabilities = ["22.38.15"]
+interfaces = []
+do_1 = "do_1 Add src/inference_market/enrol.rs: build a v2 manifest from the measured capability of the process (accelerator memory, system memory, bandwidth class from a short probe, region from configuration, attestation family, runtime kind daemon), submit the enrolment operation through the existing ai-market client in layerx-client, wait for the acceptance finality through the finality module, then LockBond and PostBid at the configured quote."
+do_2 = "do_2 Expose enrol_peer(manifest, quote) so a native peer (22.38.30) can enrol through the host with its own signature rather than its own node connection."
+do_3 = "do_3 Write tests/inference_enrol.rs against the loopback node of tests/support: manifest fields reach the chain, the bond lock precedes the bid, and a refused enrolment surfaces the program error name."
+symbols = ["enrol_host", "enrol_peer", "measured_manifest", "EnrolOutcome"]
+touches = ["services/agent/crates/layerx-agentd/src/main.rs", "services/agent/crates/layerx-client/src/ai_market.rs", "services/agent/crates/layerx-agentd/src/finality.rs"]
+tests = ["services/agent/crates/layerx-agentd/tests/inference_enrol.rs"]
+planned_paths = ["services/agent/crates/layerx-agentd/src/inference_market/enrol.rs", "services/agent/crates/layerx-agentd/tests/inference_enrol.rs"]
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd -p layerx-client --tests"
+verify_cmd = "cargo test --locked --manifest-path services/agent/crates/layerx-agentd/Cargo.toml --test inference_enrol"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.38.14]
+title = "Add the inference-market profile to the agent daemon with its configuration, boot and degraded rules"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22380.3"]
+capabilities = ["22.38.14"]
+interfaces = ["interface.22.inference-mode-inference-market", "interface.22.env-layerx-agent-inference-signal-listen", "interface.22.env-layerx-agent-inference-serve-listen", "interface.22.env-layerx-agent-inference-model-digest", "interface.22.env-layerx-agent-inference-runtime-digest", "interface.22.env-layerx-agent-inference-room-profile"]
+do_1 = "do_1 Add the mode value inference-market to the mode parser in human_owner_mode.rs and a new module src/inference_market/mod.rs with serve_inference_market() wired from run(); the profile reads LAYERX_AGENT_INFERENCE_SIGNAL_LISTEN (WebSocket signalling listener, default 127.0.0.1:8790), LAYERX_AGENT_INFERENCE_SERVE_LISTEN (completion routes, default 127.0.0.1:8791), LAYERX_AGENT_INFERENCE_MODEL_DIGEST, LAYERX_AGENT_INFERENCE_RUNTIME_DIGEST, LAYERX_AGENT_INFERENCE_ROOM_PROFILE (path to a room profile file) and the existing node, signing and finality settings through config()."
+do_2 = "do_2 Boot order: node RPC readiness, program authority, the F11 availability read (refuse when the family is absent), then the signalling listener and the completion listener; a lost node connection moves the profile to degraded (no new deals, open deals keep serving) through the existing degraded controller."
+do_3 = "do_3 Write tests/inference_profile_boot.rs: the mode parses, missing digests refuse at config validation, the profile refuses to boot when availability lacks F11, and degraded refuses a new deal while keeping the open one."
+symbols = ["Mode::InferenceMarket", "serve_inference_market", "InferenceConfig", "InferenceBootGate"]
+touches = ["services/agent/crates/layerx-agentd/src/human_owner_mode.rs", "services/agent/crates/layerx-agentd/src/main.rs", "services/agent/crates/layerx-agentd/src/config.rs", "services/agent/crates/layerx-agentd/src/degraded.rs", "services/agent/crates/layerx-agentd/src/boot.rs"]
+tests = ["services/agent/crates/layerx-agentd/tests/inference_profile_boot.rs"]
+planned_paths = ["services/agent/crates/layerx-agentd/src/inference_market/mod.rs", "services/agent/crates/layerx-agentd/tests/inference_profile_boot.rs"]
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --tests"
+verify_cmd = "cargo test --locked --manifest-path services/agent/crates/layerx-agentd/Cargo.toml --test inference_profile_boot"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.38.11]
+title = "Keep a placement book of open asks and bids per model digest inside the program"
+status = "pending"
+mode = "BUILD"
+wave = 3
+requires = ["22.38.3"]
+reqs = ["22380.1"]
+capabilities = ["22.38.11"]
+interfaces = ["interface.22.inference-placement-book"]
+do_1 = "do_1 Add src/placement.rs: a per-model-digest book of open asks (price descending) and open bids (price ascending) with at most 64 entries per side, updated by PostAsk, PostBid, RecordDeal and CloseRoom, and the BookView read (0x0B14) listing the crossing pairs the host may record as deals."
+do_2 = "do_2 Write tests/f11_placement_book.rs: insertion order, crossing detection, removal on deal and on close, and the book stays within the state budget at capacity."
+symbols = ["PlacementBook", "BookView", "crossing_pairs"]
+touches = ["programs/crates/layerx-programs-ai-market/src/lib.rs", "programs/crates/layerx-programs-ai-market/src/dispatch.rs", "programs/crates/layerx-programs-ai-market/src/queries.rs"]
+tests = ["programs/crates/layerx-programs-ai-market/tests/f11_placement_book.rs"]
+planned_paths = ["programs/crates/layerx-programs-ai-market/src/placement.rs", "programs/crates/layerx-programs-ai-market/tests/f11_placement_book.rs"]
+build_cmd = "cargo build --locked --manifest-path programs/Cargo.toml -p layerx-programs-ai-market --tests"
+verify_cmd = "cargo test --locked --manifest-path programs/Cargo.toml -p layerx-programs-ai-market --test f11_placement_book"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-programs"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 90
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.38.8]
+title = "Serve the F11 reads for rooms, deals, peers and receipt batches"
+status = "pending"
+mode = "BUILD"
+wave = 4
+requires = ["22.38.3", "22.38.4"]
+reqs = ["22380.1"]
+capabilities = ["22.38.8"]
+interfaces = ["interface.22.inference-f11-views"]
+do_1 = "do_1 Implement RoomView, DealView, PeerView and ReceiptBatchView in queries.rs as fixed-width answers (room with its open asks and bids, deal with its split and settled totals, peer with manifest v2 fields, bond state and fault count, batch with digest and quorum) that the node px_ reads of 22.38.12 decode."
+do_2 = "do_2 Write tests/f11_views.rs asserting each view decodes to the record written by the operations of 22.38.3 and 22.38.4 and that an unknown id answers the room unknown error."
+symbols = ["RoomView", "DealView", "PeerView", "ReceiptBatchView", "answer_room_view"]
+touches = ["programs/crates/layerx-programs-ai-market/src/queries.rs", "programs/crates/layerx-programs-ai-market/src/dispatch.rs"]
+tests = ["programs/crates/layerx-programs-ai-market/tests/f11_views.rs"]
+planned_paths = ["programs/crates/layerx-programs-ai-market/tests/f11_views.rs"]
+build_cmd = "cargo build --locked --manifest-path programs/Cargo.toml -p layerx-programs-ai-market --tests"
+verify_cmd = "cargo test --locked --manifest-path programs/Cargo.toml -p layerx-programs-ai-market --test f11_views"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-programs"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 90
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.38.7]
+title = "Lock, slash and refund peer bonds"
+status = "pending"
+mode = "BUILD"
+wave = 5
+requires = ["22.38.5", "22.38.6"]
+reqs = ["22380.1"]
+capabilities = ["22.38.7"]
+interfaces = ["interface.22.inference-bond-record"]
+do_1 = "do_1 Implement LockBond (a peer locks the room profile minimum bond against its bid; PostBid refuses without a lock), SlashBond (after a resolved canary miss or a missed countersign deadline the bond is slashed by the room profile slash fraction in basis points into the reward ledger of the other peers of the deal) and RefundBond (after the last deal of the peer closes and the challenge window passes)."
+do_2 = "do_2 Write tests/f11_bonds.rs: lock then bid passes, bid without lock refuses, slash after miss moves the fraction, double slash for one lap refuses, refund before window refuses and refund after window returns the remainder."
+symbols = ["BondRecord", "apply_lock_bond", "apply_slash_bond", "apply_refund_bond"]
+touches = ["programs/crates/layerx-programs-ai-market/src/lib.rs", "programs/crates/layerx-programs-ai-market/src/dispatch.rs", "programs/crates/layerx-programs-ai-market/src/rewards.rs"]
+tests = ["programs/crates/layerx-programs-ai-market/tests/f11_bonds.rs"]
+planned_paths = ["programs/crates/layerx-programs-ai-market/src/bonds.rs", "programs/crates/layerx-programs-ai-market/tests/f11_bonds.rs"]
+build_cmd = "cargo build --locked --manifest-path programs/Cargo.toml -p layerx-programs-ai-market --tests"
+verify_cmd = "cargo test --locked --manifest-path programs/Cargo.toml -p layerx-programs-ai-market --test f11_bonds"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-programs"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.38.6]
+title = "Split settled payouts into the reward ledger in deal proportions"
+status = "pending"
+mode = "BUILD"
+wave = 4
+requires = ["22.38.4"]
+reqs = ["22380.1", "22380.2"]
+capabilities = ["22.38.6"]
+interfaces = ["interface.22.inference-payout-split"]
+do_1 = "do_1 Implement SplitPayout: for a settled batch the host (or any account after the challenge window) splits the settled amount into reward ledger credits per peer in the layer-weight proportions the deal records, with the host share and the protocol share from the room profile; the split refuses when it exceeds the settled amount or when a challenge on the batch is open."
+do_2 = "do_2 Credits land in the existing epoch reward ledger so peers claim through CLAIM (0x0602) unchanged; the FUND operation word is not used, the settlement account is debited by the keeper-side draw of 22.38.9."
+do_3 = "do_3 Write tests/f11_payout_split.rs: split in proportions sums to the settled amount, exceeding refuses, open challenge refuses, a peer at fault for a lap loses that lap share to the others, and CLAIM pays the credited peer."
+symbols = ["apply_split_payout", "PayoutShares", "split_settled_amount"]
+touches = ["programs/crates/layerx-programs-ai-market/src/rewards.rs", "programs/crates/layerx-programs-ai-market/src/reward_math.rs", "programs/crates/layerx-programs-ai-market/src/dispatch.rs"]
+tests = ["programs/crates/layerx-programs-ai-market/tests/f11_payout_split.rs"]
+planned_paths = ["programs/crates/layerx-programs-ai-market/tests/f11_payout_split.rs"]
+build_cmd = "cargo build --locked --manifest-path programs/Cargo.toml -p layerx-programs-ai-market --tests"
+verify_cmd = "cargo test --locked --manifest-path programs/Cargo.toml -p layerx-programs-ai-market --test f11_payout_split"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-programs"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.38.5]
+title = "Implement canary challenges with commit-reveal and fixed-point tolerance"
+status = "pending"
+mode = "BUILD"
+wave = 2
+requires = ["22.38.1"]
+reqs = ["22380.1"]
+capabilities = ["22.38.5"]
+interfaces = ["interface.22.inference-canary-commitment"]
+do_1 = "do_1 Add src/canary.rs: a canary task kind whose prompt digest and expected logits digest are committed by the host through CommitScore and revealed through RevealScore in the existing commit-reveal window; the reveal carries the top-8 logits of the canary position as fixed-point i32 with 16 fractional bits."
+do_2 = "do_2 Implement ChallengeLap (any account names a deal, a lap index and a canary commitment) and ResolveChallenge (after the reveal: the peer answer is compared to the expected logits with a relative tolerance from the room profile in basis points; a miss marks the peer at fault for that lap and feeds 22.38.7, a hit returns the challenge deposit)."
+do_3 = "do_3 Write tests/f11_canary_challenge.rs: commit, challenge, reveal, resolve hit, resolve miss, challenge outside the window refuses, and a tolerance of 0 basis points requires equality."
+symbols = ["CanaryCommitment", "apply_challenge_lap", "apply_resolve_challenge", "relative_tolerance_hit"]
+touches = ["programs/crates/layerx-programs-ai-market/src/lib.rs", "programs/crates/layerx-programs-ai-market/src/commit_reveal.rs", "programs/crates/layerx-programs-ai-market/src/dispatch.rs"]
+tests = ["programs/crates/layerx-programs-ai-market/tests/f11_canary_challenge.rs"]
+planned_paths = ["programs/crates/layerx-programs-ai-market/src/canary.rs", "programs/crates/layerx-programs-ai-market/tests/f11_canary_challenge.rs"]
+build_cmd = "cargo build --locked --manifest-path programs/Cargo.toml -p layerx-programs-ai-market --tests"
+verify_cmd = "cargo test --locked --manifest-path programs/Cargo.toml -p layerx-programs-ai-market --test f11_canary_challenge"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-programs"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.38.4]
+title = "Implement lap receipt batches settled through sealed evidence"
+status = "pending"
+mode = "BUILD"
+wave = 3
+requires = ["22.38.3"]
+reqs = ["22380.1", "22380.2"]
+capabilities = ["22.38.4"]
+interfaces = ["interface.22.inference-lap-receipt"]
+do_1 = "do_1 Add src/laps.rs with the lap receipt (deal id, lap index, prompt tokens, generated tokens, cumulative tokens, layer range digest per peer, host signature, peer countersignatures as a bitmap over the deal roster) and the receipt batch (deal id, first and last lap index, cumulative tokens at the last lap, batch digest as the Merkle root of the lap receipts, countersign quorum)."
+do_2 = "do_2 Implement SettleLaps: the host submits a batch whose digest must already be sealed through SealEvidence as an artifact manifest chunk root for the deal task set; the operation refuses an unsealed digest, a lap index below the last settled index and a quorum below the deal roster size minus one."
+do_3 = "do_3 On success the settled cumulative token count becomes the meter reading the room host reports to the stream (22.38.9); the record stores the settled amount owed at the deal price."
+do_4 = "do_4 Write tests/f11_lap_settlement.rs: settle after seal passes, unsealed refuses, regression refuses, quorum short refuses, and the fuel of SettleLaps at 64 laps stays under 1000000."
+symbols = ["LapReceipt", "ReceiptBatch", "apply_settle_laps", "LAP_BATCH_MAX"]
+touches = ["programs/crates/layerx-programs-ai-market/src/lib.rs", "programs/crates/layerx-programs-ai-market/src/evidence.rs", "programs/crates/layerx-programs-ai-market/src/dispatch.rs"]
+tests = ["programs/crates/layerx-programs-ai-market/tests/f11_lap_settlement.rs"]
+planned_paths = ["programs/crates/layerx-programs-ai-market/src/laps.rs", "programs/crates/layerx-programs-ai-market/tests/f11_lap_settlement.rs"]
+build_cmd = "cargo build --locked --manifest-path programs/Cargo.toml -p layerx-programs-ai-market --tests"
+verify_cmd = "cargo test --locked --manifest-path programs/Cargo.toml -p layerx-programs-ai-market --test f11_lap_settlement"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-programs"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.38.3]
+title = "Implement rooms, asks, bids and deals bound to the roster digest"
+status = "pending"
+mode = "BUILD"
+wave = 2
+requires = ["22.38.1"]
+reqs = ["22380.1"]
+capabilities = ["22.38.3"]
+interfaces = ["interface.22.inference-room-record"]
+do_1 = "do_1 Add src/rooms.rs with the room record (room id, host key, model digest, runtime digest, room profile, settlement account, state open or closed, opened at epoch), the ask record (ask id, asker key, model digest, maximum price per thousand tokens, stream id, state), the bid record (bid id, peer key, capability digest, minimum price per thousand tokens, bond amount, layer capacity) and their fixed-width codecs inside the state budget of 196608 bytes with at most 16 rooms, 64 asks and 128 bids."
+do_2 = "do_2 Implement OpenRoom, PostAsk, PostBid and CloseRoom through the routing module with the authority rules: OpenRoom and CloseRoom by the host key, PostAsk by any account, PostBid by an enrolled participant whose manifest capability digest matches the bid."
+do_3 = "do_3 Implement RecordDeal: the host records ask id, the ordered bid ids, the agreed price, the layer split per peer and the roster digest; the operation refuses when the roster digest differs from the current roster digest of the admitted participants or when the ask stream id is zero."
+do_4 = "do_4 Write tests/f11_rooms_and_deals.rs covering open, ask, bid, deal, roster digest mismatch refusal, unfunded ask refusal, bid floor refusal and close with open deals refusal."
+symbols = ["RoomRecord", "AskRecord", "BidRecord", "DealRecord", "apply_record_deal", "ROOM_CAPACITY"]
+touches = ["programs/crates/layerx-programs-ai-market/src/lib.rs", "programs/crates/layerx-programs-ai-market/src/dispatch.rs", "programs/crates/layerx-programs-ai-market/src/state.rs"]
+tests = ["programs/crates/layerx-programs-ai-market/tests/f11_rooms_and_deals.rs"]
+planned_paths = ["programs/crates/layerx-programs-ai-market/src/rooms.rs", "programs/crates/layerx-programs-ai-market/tests/f11_rooms_and_deals.rs"]
+build_cmd = "cargo build --locked --manifest-path programs/Cargo.toml -p layerx-programs-ai-market --tests"
+verify_cmd = "cargo test --locked --manifest-path programs/Cargo.toml -p layerx-programs-ai-market --test f11_rooms_and_deals"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-programs"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.38.2]
+title = "Extend the participant manifest with inference capability fields"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22380.1"]
+capabilities = ["22.38.2"]
+interfaces = ["interface.22.inference-manifest-v2"]
+do_1 = "do_1 Extend decode_manifest in the participants module with a manifest version 2 that adds, after the version 1 fields, accelerator memory in MiB (u32), system memory in MiB (u32), bandwidth class (u8, 0 unknown to 4 datacentre), region code (two ASCII letters), attestation family (u8, 255 none) and runtime kind (u8: 0 browser, 1 native command line, 2 daemon); version 1 manifests still decode and MAX_MANIFEST_BYTES stays 8192."
+do_2 = "do_2 Carry the new fields into the participant roster entry and its metadata digest under domain PAXAI/participant-metadata/v2, keeping the v1 digest for v1 manifests."
+do_3 = "do_3 Write tests/manifest_v2_capabilities.rs proving a v2 manifest decodes to the new fields, a v1 manifest decodes unchanged, a v2 manifest with an unknown runtime kind or a three-letter region is refused, and the digest domains differ by version."
+symbols = ["ManifestV2", "decode_manifest", "CapabilityFields", "PARTICIPANT_METADATA_DOMAIN_V2"]
+touches = ["programs/crates/layerx-programs-ai-market/src/workers.rs", "programs/crates/layerx-programs-ai-market/src/roster.rs", "programs/crates/layerx-programs-ai-market/src/codec.rs"]
+tests = ["programs/crates/layerx-programs-ai-market/tests/manifest_v2_capabilities.rs"]
+planned_paths = ["programs/crates/layerx-programs-ai-market/tests/manifest_v2_capabilities.rs"]
+build_cmd = "cargo build --locked --manifest-path programs/Cargo.toml -p layerx-programs-ai-market --tests"
+verify_cmd = "cargo test --locked --manifest-path programs/Cargo.toml -p layerx-programs-ai-market --test manifest_v2_capabilities"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-programs"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 90
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.38.1]
+title = "Add the room market family F11 to the ai-market program with its operation table, selectors and availability"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22380.1"]
+capabilities = ["22.38.1"]
+interfaces = ["interface.22.inference-f11-operation-table", "interface.22.inference-f11-errors", "interface.22.inference-f11-availability", "interface.22.inference-room-profile"]
+do_1 = "do_1 Add family F11 to the operation table of the routing module: OpenRoom 0x0B01, PostAsk 0x0B02, PostBid 0x0B03, RecordDeal 0x0B04, SettleLaps 0x0B05, ChallengeLap 0x0B06, ResolveChallenge 0x0B07, SplitPayout 0x0B08, LockBond 0x0B09, SlashBond 0x0B0A, RefundBond 0x0B0B, CloseRoom 0x0B0C and the reads RoomView 0x0B10, DealView 0x0B11, PeerView 0x0B12, ReceiptBatchView 0x0B13 and BookView 0x0B14, each with its payload length, authority class and section set in OperationMetadata."
+do_2 = "do_2 Add the F11 error codes 0x0B01 upward in errors.rs (room unknown, room closed, ask unfunded, bid below floor, roster digest mismatch, batch unsealed, challenge window closed, bond locked, bond insufficient, split exceeds settled) with their names exported from lib.rs."
+do_3 = "do_3 Extend feature_availability in queries.rs to eleven entries and the market policy codec in policy.rs with the room profile fields: minimum bond, canary ratio in basis points, lap size in tokens, challenge window in blocks, slash fraction in basis points, host share and protocol share in basis points, and settlement account."
+do_4 = "do_4 Write tests/f11_family_table.rs asserting every F11 selector routes, the availability array has eleven entries, each new error code is distinct from the F01 to F10 codes, and the policy codec round-trips the room profile fields."
+symbols = ["Operation::OpenRoom", "Operation::SettleLaps", "Operation::RoomView", "F11_ROOM_UNKNOWN", "MarketPolicy::room_profile", "feature_availability"]
+touches = ["programs/crates/layerx-programs-ai-market/src/dispatch.rs", "programs/crates/layerx-programs-ai-market/src/errors.rs", "programs/crates/layerx-programs-ai-market/src/queries.rs", "programs/crates/layerx-programs-ai-market/src/policy.rs", "programs/crates/layerx-programs-ai-market/src/lib.rs"]
+tests = ["programs/crates/layerx-programs-ai-market/tests/f11_family_table.rs"]
+planned_paths = ["programs/crates/layerx-programs-ai-market/tests/f11_family_table.rs"]
+build_cmd = "cargo build --locked --manifest-path programs/Cargo.toml -p layerx-programs-ai-market --tests"
+verify_cmd = "cargo test --locked --manifest-path programs/Cargo.toml -p layerx-programs-ai-market --test f11_family_table"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-programs"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.31.585]
 title = "Disclose the programs lifecycle calls in the call disclosure decoder"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -177899,10 +179302,11 @@ time_limit_minutes = 120
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Attempt 2 (relaunch, gotcha 3364): attempt 1 produced no change; the engineering process issued no command during its whole working time and nothing of it is carried. Implement do_1 and do_2 as specified from current main, run the build and the verify at the final revision and record them by reference in the task record."
 
 [task.22.31.583]
 title = "Disclose the bindLayerX registration call in the call disclosure decoder"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -177930,6 +179334,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Attempt 2 (continue, gotcha 3356): the attempt-1 tree stands (the BindLayerX variant, the 160-byte argument check, the Governance ordinal 1 disclosure). In the repair test map the PayloadError of the signature construction to a DisclosureError explicitly with map_err instead of the question-mark operator, so the first build passes. In services/human/crates/layerx-human-service/src/agents/create.rs line 650 add an arm Some(ConstructMethod::BindLayerX { .. }) that returns Err(AgentFailure::Refused(lifecycle transaction is a bind registration)) beside the PointerTransfer arm, so the exhaustive match compiles and the dependent-crate check passes; rebase onto main before the final gates because 22.31.585 adds arms to the same match. Run the build, the dependent-crate check and the verify at the final revision and record them by reference in the task record."
+do_5 = "Attempt 3 (continue, gotcha 3366, decisions 2750 and 2751): the attempt-2 tree stands; it is the attempt-1 tree as prepared at launch and the attempt-2 session issued no command, so the attempt-2 ruling applies unchanged: keep the BindLayerX variant, the 160-byte argument check and the Governance ordinal 1 disclosure. In the repair test map the PayloadError of the signature construction to a DisclosureError explicitly with map_err instead of the question-mark operator, so the first build passes. In services/human/crates/layerx-human-service/src/agents/create.rs line 650 add an arm Some(ConstructMethod::BindLayerX { .. }) that returns Err(AgentFailure::Refused(lifecycle transaction is a bind registration)) beside the PointerTransfer arm, so the exhaustive match compiles and the dependent-crate check passes; merge current main before the final gates because 22.31.585 adds arms to the same match. Run the build, the dependent-crate check and the verify at the final revision and record them by reference in the task record."
 
 [task.22.31.579]
 title = "Decode the daemon TRACK answer in the Human agent runtime as the daemon writes it"
@@ -177998,7 +179403,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.577]
 title = "Commit boundary memory through a chunk root and rebuild the pre memory for single-step adjudication"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.574"]
@@ -178128,7 +179533,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.573]
 title = "Charge a replay boundary with the state it retains so a default-stack guest is admitted under the kernel replay profile"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.569", "22.31.572", "22.31.574", "22.31.577"]
@@ -178163,6 +179568,7 @@ do_8 = "Attempt 4 (continue, gotcha 3279, decision 2689): the attempt-3 tree sta
 do_9 = "Attempt 5 (continue, gotcha 3282, decision 2692): the attempt-4 tree stands (the retained-state supplement accounting, the vendored engine changes, the 564 reason amendment, the 573 proof and record). In programs/crates/layerx-programs-runtime/src/execute.rs, when the executor carries a program replay profile, do not materialize the legacy ExecutionTrace: skip the trace build and its peak accounting (the guard at line 893 and the account_trace_snapshot path before it) and leave the optional trace field of the record None; the commit.rs totals are then never reached for a profiled execution and commit.rs is unchanged. Executions without a profile are unchanged. In tests/repair_22_31_573.rs shrink the baseline storage value the guest writes before the host calls from 4096 bytes to 32 bytes so the per-boundary witness no longer carries 8 KiB of baseline copies; keep RETAINED_PAGE_BYTES for the memory pages, keep every assertion including the rollback read of the baseline, and record the measured leaf total and count of the 128-call case in the task record. If the 128-call case still exceeds 1048576 witness bytes, lower HOST_CALLS to the largest count whose leaves fit, keep it above 64, and record the per-boundary witness composition. If a suite in the verify list asserts a legacy trace under a replay profile, record the case in the task record and stop. Run the repair_22_31_573 and repair_22_31_569 binaries individually first, then the build, the dependent-crate check and the full verify at the final revision and record them by reference in the task record."
 do_10 = "Attempt 6 (continue, gotcha 3288, decision 2696): the attempt-5 tree stands (the profiled execution without the legacy trace, the 32-byte baseline, the largest-count search). In programs/crates/layerx-programs-runtime/src/portable_replay.rs and the capture in src/replay.rs encode the linear memory field of a leaf as the pages changed by that boundary (index and bytes per page, the first leaf against the initial memory of the validated module, later leaves against the previous leaf of the record) and give the decoder a reader that rebuilds the memory of a boundary from the leaves before it; keep every other leaf field, the leaf hash, the witness root and the fuel binding of replay_record.rs from_captured unchanged; both files are added to the touches. Where src/modules/programs/call.c or another kernel reader decodes the memory field of a leaf, record the site in the task record and stop. In tests/repair_22_31_573.rs replace the per-leaf 17-page assertion with the rebuilt memory and keep every other assertion; record the measured leaf total, the leaf count and the bytes per leaf kind of the admitted count in the task record; if 128 calls still exceed 1048576 bytes, keep the largest-count search as it stands with no floor and record the admitted count. Run the program_replay suite and the five verify binaries individually first, then the build, the dependent-crate check and the full verify at the final revision and record them by reference in the task record."
 do_11 = "Attempt 7 (continue, gotcha 3290, decision 2698, which supersedes decision 2696): do_10 is withdrawn; the leaf encoding is the work of 22.31.577, which this task now requires, so start from main with 577 merged and keep the attempt-5 tree (the retained-state supplement accounting, the vendored engine changes, the profiled execution without the legacy trace, the 32-byte baseline). In tests/repair_22_31_573.rs run the largest-count search under the chunk-root leaves of 577: assert the 128-call case is admitted under ProgramReplayProfile::new(4096, 1048576) with leaves totalling at most 1048576 bytes, or record the largest admitted count above 64 with the measured totals; replace the assertions that read the complete linear memory of a leaf (lines 50, 325 and 335 of the attempt-5 proof) with the memory rebuilt through the reader 577 adds. Change nothing in src/portable_replay.rs or src/replay.rs. Run the build and the verify at the final revision and record them by reference in the task record."
+do_12 = "Attempt 8 (continue, gotcha 3365, decision 2750): the attempt-7 tree stands; it is the attempt-6 tree merged with current main (22.31.577 landed) and the attempt-7 session issued no command, so the attempt-7 ruling applies unchanged: do_10 is withdrawn; the leaf encoding is the work of 22.31.577, which this task requires, so keep the attempt-5 tree (the retained-state supplement accounting, the vendored engine changes, the profiled execution without the legacy trace, the 32-byte baseline) as merged. In tests/repair_22_31_573.rs run the largest-count search under the chunk-root leaves of 577: assert the 128-call case is admitted under ProgramReplayProfile::new(4096, 1048576) with leaves totalling at most 1048576 bytes, or record the largest admitted count above 64 with the measured totals; replace the assertions that read the complete linear memory of a leaf (lines 50, 325 and 335 of the attempt-5 proof) with the memory rebuilt through the reader 577 adds. Change nothing in src/portable_replay.rs or src/replay.rs. Run the build and the verify at the final revision and record them by reference in the task record."
 
 [task.22.31.572]
 title = "Point the daemon compatibility include and README link at the matrix moved under docs/agent"
@@ -178946,6 +180352,9 @@ do_5 = "Attempt 3 (continue after the first verify run since 22.31.550): the att
 do_6 = "Attempt 4 (continue after the first real crossing, gotcha 3187): the attempt-3 tree stands (the SDK V2 purpose encoding, the malformed legacy refusal, the catalogue change; build and dependent-crate check pass). The daemon answers the V2 Prepare with 403 owner.refused, which is HumanOperationError::Refused from rpc_prepare_native_send or native_send_purpose_owner; the refusing check is not named on the wire. In the test, before the RPC crossing, call the owner resolution steps directly with the fixture values and assert each: the body digest of the encoded request equals native_send_prepare_digest of the wire operation; native_purpose_owner for the account key at the fixture head (peer subject and uid, tenant, session origin, identity head sequence 50, CHECKPOINT_FINALISED, revocation 1, PrimaryKey authority); bound_address for the account key through the chain peer (the eth_call at pending to the addr precompile) equals the account EVM address; the node head number equals the observed head sequence of the preparation snapshot. Where a fixture value is wrong, align the fixture (native_send_preview_evm.rs is included by path and now in the touches); where the daemon check cannot hold for a real network, record the finding in the task record with the check named and stop at implemented. Run the second case after the first passes; its PoisonError is the first panic holding the fixture lock."
 do_7 = "Attempt 5 (requalify after 22.31.560, gotcha 3192, decision 2634): the attempt-4 tree stands (the fixture assertions on the identity head, the finalised checkpoint, the revocation and the pending address binding; build exit 0, dependent-crate check exit 0, SDK library suite 10 passed). Case 1 failed because the daemon keys the preparation under the envelope digest while the purpose names the EVM call digest, a production gap 22.31.560 owns; case 2 fell to the poisoned fixture lock as a cascade. Re-run the gates as they stand once 22.31.560 is on main; if case 2 then fails on its own assertion, that failure names the next production fact and is recorded in the task record. Rewrite no cache entry and forge no record."
 do_8 = "Attempt 6 (continue, gotcha 3358, decision 2744): the attempt-5 tree stands (the fixture assertions on the identity head, the finalised checkpoint, the revocation and the pending address binding; build exit 0, dependent-crate check exit 0, SDK library suite 10 passed). In services/agent/crates/layerx-agentd/tests/native_send_preview_evm.rs extend chain_peer (line 233) to serve px_getReceiptKeys with one entry whose key id is nonzero, whose public key is the fixture signing key the authority peer already uses, and whose height range contains the fixture head, in the 0x-prefixed fixed hex layout the sequencer decoder of layerx-client requires (repair_22_31_560.rs lines 358 to 367 are the reference); serve px_getCommit and px_getValidators at the head the same way if the daemon reads them next; keep the broadcast refusal and the panic on any other unexpected method. Then the first Prepare answers 200 and the crossing case asserts the daemon V2 acceptance it exists for; if the preview case then fails on its own assertion, that failure names the next production fact and is recorded in the task record. Run the build, the dependent-crate check and the verify at the final revision and record them by reference in the task record. Rewrite no cache entry and forge no record."
+do_9 = "Attempt 7 (continue, gotcha 3359, decision 2745): the attempt-6 tree stands (the receipt keys, commit and validators served by the shared chain peer; the crossing on the repair harness of 22.31.560 with fixture_with_receipt_keys; the preview and the two included native send cases passing). In services/agent/crates/layerx-sdk/tests/repair_22_31_547.rs before the unwrap at line 313 decode the accepted body observed[1].1 with layerx_sdk::agent_envelope::decode_native_preparation and assert, one assertion per field with the field named in its message, the version, the preparation id against purpose.preparation_id and against the SHA-256 of the canonical bytes, the activity against request.activity, the unsigned call decoded from the canonical bytes against the request sender, actor, account sequence, window, idempotency key, fee limit and payload, the signing preimage against the call signing hash, the chain id and transaction type against the purpose, and the approval id. The first failing assertion names the disagreeing field: if the disagreement is in the SDK purpose or encoder under services/agent/crates/layerx-sdk/src (native_effect.rs or agent_envelope.rs), repair it there within this task; if it is a daemon-side value, change nothing under layerx-agentd, record the field, the two values and the daemon site in the task record, and the task continues after the repair task the next ruling names. Run the build, the dependent-crate check and the verify at the final revision and record them by reference in the task record. Rewrite no cache entry and forge no record."
+do_10 = "Attempt 8 (continue, gotcha 3360, decision 2746): the attempt-7 tree stands (the extended chain peer, the included 22.31.560 harness, the field-by-field assertions). The disagreement is a consumer check in the SDK, within scope: in services/agent/crates/layerx-sdk/src/agent_envelope.rs raw_call_matches_request (lines 1592 to 1593) compare the request window to the disclosed bounds only when the activity is not the Asset module ordinal 5; for a ledger send the target, nonce, activity type, idempotency key, fee limit, expected payload, canonical bytes and payload hash checks stand unchanged. In services/agent/crates/layerx-sdk/tests/repair_22_31_547.rs replace the not_before and not_after assertions (lines 364 to 368) with assertions that the disclosed not_before is 0 and not_after is u64::MAX (the ledger send call carries no window) and that payload_expires_at equals the expires_at of the send envelope the fixture signs (native_send_preview_evm.rs line 736; expose that value from the fixture request if it is not already reachable), each with the field named in its message. Run the crossing case through the catch-unwind lock helper with_fixture_lock of repair_22_31_560.rs (line 901) instead of holding the lock guard directly, so an assertion failure no longer poisons the shared lock and cascades into the included cases. Change nothing under layerx-agentd or layerx-agent-api beyond the fixture file already in the task touches. Run the build, the dependent-crate check and the verify at the final revision and record them by reference in the task record. Rewrite no cache entry and forge no record."
+do_11 = "Attempt 9 (continue, gotcha 3366, decisions 2750 and 2751): the attempt-8 tree stands; it is the attempt-7 tree as prepared at launch and the attempt-8 session issued no command, so the attempt-8 ruling applies unchanged: keep the extended chain peer, the included 22.31.560 harness and the field-by-field assertions. The disagreement is a consumer check in the SDK, within scope: in services/agent/crates/layerx-sdk/src/agent_envelope.rs raw_call_matches_request (lines 1592 to 1593) compare the request window to the disclosed bounds only when the activity is not the Asset module ordinal 5; for a ledger send the target, nonce, activity type, idempotency key, fee limit, expected payload, canonical bytes and payload hash checks stand unchanged. In services/agent/crates/layerx-sdk/tests/repair_22_31_547.rs replace the not_before and not_after assertions (lines 364 to 368) with assertions that the disclosed not_before is 0 and not_after is u64::MAX (the ledger send call carries no window) and that payload_expires_at equals the expires_at of the send envelope the fixture signs (native_send_preview_evm.rs line 736; expose that value from the fixture request if it is not already reachable), each with the field named in its message. Run the crossing case through the catch-unwind lock helper with_fixture_lock of repair_22_31_560.rs (line 901) instead of holding the lock guard directly, so an assertion failure no longer poisons the shared lock and cascades into the included cases. Change nothing under layerx-agentd or layerx-agent-api beyond the fixture file already in the task touches. Run the build, the dependent-crate check and the verify at the final revision and record them by reference in the task record."
 
 [task.22.31.546]
 title = "Declare the NativeSendPurposeV2 and SignedNativeSendPurposeV2 records in the agent API schema and its golden copy"
@@ -194052,7 +195461,7 @@ title = "Carry paymentDenom in every daemon receipt fixture so the exact receipt
 status = "pending"
 mode = "BUILD"
 wave = 2
-requires = ["22.23.11", "22.31.443", "22.31.485", "22.31.497", "22.31.558", "22.31.572", "22.31.560"]
+requires = ["22.23.11", "22.31.443", "22.31.485", "22.31.497", "22.31.558", "22.31.572", "22.31.560", "22.31.585"]
 reqs = ["9998.1"]
 capabilities = ["9.98.4"]
 interfaces = []
@@ -194072,7 +195481,7 @@ rollback = "Revert the task's commit."
 max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
-time_limit_minutes = 90
+time_limit_minutes = 150
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
@@ -194083,6 +195492,8 @@ do_7 = "Attempt 3 (continue): the dependency check failed only in the human-serv
 do_8 = "Attempt 4 (after 22.31.485): attempt 3 built the daemon with its fifteen changed files; the dependent-crate check failed only in the hosted core and indexer against the reshaped PxAssetEntry (gotcha 3004), repaired by 22.31.485. Re-run the gates on the attempt-3 tree once 22.31.485 is on main; the verify has not run yet and every failure inside the paths is fixed in that attempt."
 do_9 = "Attempt 5 (after 22.31.497): attempt 4 could not qualify because the daemon test targets human_approval_budget_actor and human_projection_facts do not compile on main (gotcha 3033), repaired by 22.31.497; the verify never ran or ran against a broken build. Re-run the gates on the attempt-4 tree once 22.31.497 is on main and fix inside the paths only what still fails."
 do_10 = "Attempt 6 (continue, gotcha 3321, decision 2716; after 22.31.560): the attempt-5 tree stands (paymentDenom in every receipt fixture, the asset hash in the AuthorizedBatch authority). In the HistoryRpc double of human_runtime.rs (lines 22969 onward) publish the native results endpoint URL that read_policy_history reads (line 22589) as the fixture listener URL, through a guard that holds a module-level environment lock and restores the previous value on drop in the manner of the Environment guard at lines 23947 to 23966, taken by policy_usage_sums_only_proven_receipts_in_the_window and native_policy_usage_refuses_a_page_without_a_proof; answer commit, validators and block_results on that listener (read/result_source.rs lines 58, 75, 187 and 204) with the fixture checkpoint, its validator set and per-height results that match the px_getHistory entries, keeping the assertions on count 2, two successes, amount sum 18, activity ids 8 and 7 and the method counts at lines 23172 to 23206, and keeping the unproven refusal with code read.history_item_unproven. Do not change read_policy_history, CommittedCaps::level (read/committed.rs line 166) or the COMMITTED requirement at budget/budget_proof.rs line 22; the four retained settlement cases pass once 22.31.560 is on main (decision 2694), which this attempt now waits for. Run the build and the verify at the final revision and record them by reference in the task record."
+do_11 = "Attempt 7 (continue, gotcha 3361, decision 2747; the task time limit is now 150 minutes): the attempt-6 tree stands (paymentDenom in every receipt fixture, the asset hash in the AuthorizedBatch authority, history_result, history_checkpoints, the environment guard and the listener in the HistoryRpc double of human_runtime.rs). Do not re-read the reader chain: the remaining work is wiring only. Make policy_usage_sums_only_proven_receipts_in_the_window take the environment guard the same way native_policy_usage_refuses_a_page_without_a_proof does, confirm the listener answers block_results for heights 6 to 8 and commit and validators for heights 6 to 9 from history_checkpoints with the px_getHistory entries at the heights the checkpoints cover, keep the assertions on count 2, two successes, amount sum 18, activity ids 8 and 7 and the method counts, and keep the unproven refusal with code read.history_item_unproven by omitting the results of height 7 only. Then run the build at once and the verify; the first verify names any remaining mismatch, and one repair cycle follows it. Do not change read_policy_history, read_policy_history_from_sources, CommittedCaps::level or the COMMITTED requirement of budget_proof.rs. Record the build, the dependent-crate check and the verify by reference in the task record."
+do_12 = "Attempt 8 (continue after 22.31.585, gotcha 3363, decision 2749): the attempt-7 tree stands (paymentDenom in every receipt fixture, the linked-block history fixture, the environment guard, the repaired checkpoint builder). This task now requires 22.31.585 and runs after it lands. In human_runtime.rs transaction_submission (match at lines 20548 to 20584) add the arm for module 9 ordinal 1 that builds the programs precompile deploy call with the deploy encoder 22.31.585 adds to the call disclosure codec, from the disclosed deploy of the prepared activity, with the fee limit the retained cases reserve; keep the governance and bridge arms. In policy_usage_sums_only_proven_receipts_in_the_window replace the px_getHistory count 4 at line 23567 and the eth_blockNumber count at line 23573 with the counts the reader on main makes (read_newest in read/history.rs lines 420 onward issues the history requests of one page; the policy reader in policy_history.rs calls it at lines 73 and 190 and block_number once per read); the verify of attempt 7 observed 6 px_getHistory requests. Take the history environment lock (line 23268) and the retained settlement environment lock (lines 24347, 24380, 24405 and 24420) with unwrap_or_else(PoisonError::into_inner) instead of expect. Change nothing in read_policy_history, read_policy_history_from_sources or budget_proof.rs. Then run the build, the dependent-crate check and the verify at the final revision and record them by reference in the task record."
 
 [task.22.99.159]
 title = "Restore the provider-subject consent fixture the agent daemon tests include"
@@ -284236,9 +285647,99 @@ do_16 = "Attempt 34 re-qualified the attempt 33 files on a base with 13.27.6 and
 do_17 = "Attempt 35 (566d189c8) reverts TestProgramsSandboxExecuteEmitsUsage with LXP_FATAL_INVARIANT on a base that holds 13.27.7 (7331258b0), and the test output carries no sandbox.c invariant line although sandbox_invariant (src/modules/programs/sandbox.c:82, called at :395, :411 and :440) prints the line, site and state to stderr: run the test so the kernel's stderr reaches the output (go test -v; the precompile harness must not redirect fd 2) and include the printed site with the lease-state record in the failure message. When the site shows the precompile's request out of order or missing a step (admit host, open lease, execute, publish usage, release), fix method_sandbox_execute.go; when the kernel refuses a legal sequence, record file, line and site as a finding and stop without changing src/."
 do_18 = "Attempt 35 (566d189c8) fails only because the kernel receipt projection (src/protocol/lxp_kernel.c:2389-2394) refuses the sandbox escrow-charge effect that task 13.27.7 made the call emit; task 13.27.8 binds it in the kernel (decision.1898). Once 13.27.8 is on main, continue attempt 35 unchanged: one build, one verify."
 
+[task.22.38.12]
+title = "Serve the market reads at the node root as px_ methods"
+status = "pending"
+mode = "BUILD"
+wave = 5
+requires = ["22.38.8"]
+reqs = ["22380.2", "22380.5"]
+capabilities = ["22.38.12"]
+interfaces = ["interface.22.rpc-px-getinferencerooms", "interface.22.rpc-px-getinferenceroom", "interface.22.rpc-px-getinferencedeal", "interface.22.rpc-px-getinferencepeer", "interface.22.rpc-px-getinferencereceipts"]
+do_1 = "do_1 Add rpc/px_inference.go with px_getInferenceRooms, px_getInferenceRoom(roomId), px_getInferenceDeal(dealId), px_getInferencePeer(peerKey) and px_getInferenceReceipts(dealId) that call the F11 views through the program read path of px_account.go, decode the fixed-width answers and add the ask stream state from 0x101B and the peer binding from 0x0907 to the room and peer answers."
+do_2 = "do_2 Register the five methods on both servers in rpc/server.go, add them to rpc/px_route_catalogue.json through rpc/generate_px_catalogue.py and to the openrpc.json of the hosted platform with their result schemas."
+do_3 = "do_3 Write rpc/px_node_root_inference_test.go asserting the methods are registered on both servers, the strict params guard refuses extra parameters, and each decoder reproduces a recorded fixed-width answer."
+symbols = ["GetInferenceRooms", "GetInferenceRoom", "GetInferenceDeal", "GetInferencePeer", "GetInferenceReceipts"]
+touches = ["rpc/server.go", "rpc/px_route_catalogue.json", "rpc/generate_px_catalogue.py", "rpc/px_account.go", "services/platform/hosted/gateway/openrpc.json"]
+tests = ["rpc/px_node_root_inference_test.go"]
+planned_paths = ["rpc/px_inference.go", "rpc/px_node_root_inference_test.go"]
+build_cmd = "go build ./rpc/"
+verify_cmd = "go test -count=1 ./rpc/ -run '^TestPxNodeRootInference'"
+gate_kind = "planned"
+sandbox_profile = "go-cgo"
+owner_role = "fm-rpc-api"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.38.10]
+title = "Bind a verified peer attestation to a peer key, model digest and runtime digest"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22380.2"]
+capabilities = ["22.38.10"]
+interfaces = ["interface.22.pc-0x0907-bindpeer", "interface.22.pc-0x0907-peerbinding", "interface.22.pc-0x0907-evt-peerattestationbound"]
+do_1 = "do_1 In the 0x0907 precompile add bindPeer(uint8 family, bytes envelope, bytes32 peerKey, bytes32 modelDigest, bytes32 runtimeDigest) that calls the existing verifier and accepts only when the envelope report data equals keccak256(peerKey, modelDigest, runtimeDigest); on success it stores the binding keyed by peerKey with the verified family and the block height, and peerBinding(bytes32 peerKey) returns it."
+do_2 = "do_2 Emit PeerAttestationBound(peerKey, family, modelDigest, runtimeDigest); keep the rule that only the development envelope family is accepted today and state it in the method documentation comment."
+do_3 = "do_3 Write peer_binding_test.go: a development envelope with matching report data binds, mismatched report data refuses, an unknown family refuses, and peerBinding answers the stored fields."
+symbols = ["bindPeer", "peerBinding", "PeerAttestationBound", "peerBindingKey"]
+touches = ["precompiles/layerxagent/teeattestor/teeattestor.go"]
+tests = ["precompiles/layerxagent/teeattestor/peer_binding_test.go"]
+planned_paths = ["precompiles/layerxagent/teeattestor/peer_binding_test.go"]
+build_cmd = "go build ./precompiles/layerxagent/teeattestor/"
+verify_cmd = "go test -count=1 ./precompiles/layerxagent/teeattestor/ -run '^TestPeerBinding'"
+gate_kind = "planned"
+sandbox_profile = "go-cgo"
+owner_role = "fm-ledger-auth-pay"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 90
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.38.9]
+title = "Bind ask funding to a metered stream whose meter authority is the room host"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22380.2"]
+capabilities = ["22.38.9"]
+interfaces = ["interface.22.pc-0x101b-streamopenforask", "interface.22.pc-0x101b-askstreamof", "interface.22.pc-0x101b-evt-askstreamopened"]
+do_1 = "do_1 In the 0x101B precompile add streamOpenForAsk(bytes32 askRef, address settlementAccount, uint256 rate, uint8 rateUnit, uint256 totalCap, bytes32 hostAuthorityKey) that opens a metered stream (StreamModeMetered) with the host key as the single meter authority and records the ask reference in the stream metadata, and askStreamOf(bytes32 askRef) returning the stream id; streamMeter stays the only way to advance the reading."
+do_2 = "do_2 Emit AskStreamOpened(askRef, streamId, settlementAccount) and document the rule that a reading equals the cumulative token count of the last settled lap batch."
+do_3 = "do_3 Write stream_ask_test.go: open for ask, meter by the host key advances, meter by another key refuses, regression refuses, askStreamOf answers the id, and the gas table charges the open."
+symbols = ["streamOpenForAsk", "askStreamOf", "AskStreamOpened", "StreamMetadataAskRef"]
+touches = ["precompiles/layerxpay/stream.go", "precompiles/layerxpay/abi.json", "precompiles/layerxpay/events.go", "precompiles/layerxpay/gas.go", "modules/layerxpay/keeper/stream_open.go"]
+tests = ["precompiles/layerxpay/stream_ask_test.go"]
+planned_paths = ["precompiles/layerxpay/stream_ask_test.go"]
+build_cmd = "go build ./precompiles/layerxpay/ ./modules/layerxpay/..."
+verify_cmd = "go test -count=1 ./precompiles/layerxpay/ -run '^TestStreamAsk'"
+gate_kind = "planned"
+sandbox_profile = "go-cgo"
+owner_role = "fm-ledger-auth-pay"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.31.584]
 title = "Bind the recorded lease request vector to the usage test that recorded it"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -284269,7 +285770,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.582]
 title = "Serve receipt authorities on a programs precompile call through callWithReceipts"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.584"]
@@ -327047,7 +328548,7 @@ qualification = "UNRUN"
 
 [task.18.0.1]
 title = "Refuse the open-issue closure while any issue task is not done"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 37
 requires = ["18.670.1", "18.671.1", "18.672.1", "18.677.1", "18.684.1", "18.687.1", "18.689.1", "18.691.1", "18.694.1", "18.698.1", "18.700.1", "18.701.1", "18.704.1", "18.715.1", "18.723.1", "18.724.1", "18.732.1", "18.747.1", "18.764.1", "18.765.1", "18.767.1", "18.768.1", "18.770.1", "18.771.1", "18.772.1", "18.776.1", "18.778.1", "18.779.1", "18.783.1", "18.784.1", "18.785.1", "18.786.1", "18.787.1", "18.788.1", "18.789.1", "18.790.1", "18.791.1", "18.799.1", "18.800.1", "18.801.1", "18.802.1", "18.803.1", "18.804.1", "18.805.1", "18.806.1", "18.807.1", "18.808.1", "18.809.1", "18.810.1", "18.811.1", "18.814.1", "18.816.1", "18.818.1", "18.819.1", "18.820.1", "18.824.1", "18.825.1", "18.826.1", "18.827.1", "18.828.1", "18.830.1", "18.832.1", "18.833.1", "18.834.1", "18.836.1", "18.837.1", "18.838.1", "18.846.1", "18.849.1", "18.856.1", "18.861.1", "18.865.1", "18.867.1", "18.868.1", "18.869.1", "18.872.1", "18.873.1", "18.874.1", "18.875.1", "18.877.1", "18.878.1", "18.880.1", "18.881.1", "18.883.1", "18.887.1", "18.889.1", "18.890.1", "18.904.1", "18.906.1", "18.907.1", "18.910.1", "18.911.1", "18.915.1", "18.916.1", "18.917.1", "18.919.1", "18.924.1", "18.925.1", "18.926.1", "18.928.1", "18.931.1", "18.932.1", "18.933.1", "18.937.1", "18.939.1", "18.940.1", "18.941.1", "18.942.1", "18.943.1", "18.944.1", "18.946.1", "18.947.1", "18.948.1", "18.955.1", "18.957.1", "18.964.1", "18.969.1", "18.970.1", "18.973.1", "18.974.1", "18.975.1", "18.977.1", "18.978.1", "18.982.1", "18.983.1", "18.987.1", "18.989.1", "18.990.1", "18.997.1", "18.998.1", "18.1001.1", "18.1003.1", "18.1005.1", "18.1006.1", "18.1010.1", "18.1012.1", "18.1017.1", "18.1022.1", "18.1023.1", "18.1024.1", "18.1025.1", "18.1026.1", "18.1027.1", "18.1035.1", "18.1036.1", "18.1037.1", "18.1052.1", "18.1053.1", "18.1054.1", "18.1055.1", "18.1056.1", "18.1065.1", "18.1066.1", "18.1067.1", "18.1068.1", "18.1069.1", "18.1070.1", "18.1071.1", "18.1072.1", "18.1073.1", "18.1074.1", "18.1076.1", "18.1077.1", "18.1078.1", "18.1083.1", "18.1088.1", "18.1089.1", "18.1098.1", "18.1104.1", "18.1109.1", "18.1111.1", "18.1115.1", "18.1116.1", "18.1119.1", "18.1120.1", "18.1121.1", "18.1122.1", "18.1123.1", "18.1124.1", "18.1125.1", "18.1126.1", "18.1127.1", "18.1129.1", "18.1130.1", "18.1131.1", "18.1132.1", "18.741.1", "18.742.1", "18.745.1", "18.752.1", "18.753.1", "18.754.1", "18.755.1", "18.758.1", "18.760.1", "18.761.1", "18.812.1", "18.844.1", "18.845.1", "18.851.1", "18.853.1", "18.859.1", "18.870.1", "18.885.1", "18.894.1", "18.896.1", "18.897.1", "18.900.1", "18.902.1", "18.921.1", "18.922.1", "18.923.1", "18.936.1", "18.951.1", "18.1038.1", "18.1039.1", "18.1040.1", "18.1041.1", "18.1044.1", "18.1045.1", "18.1047.1", "18.1048.1", "18.1049.1", "18.1050.1", "18.1051.1", "18.1058.1", "18.1060.1", "18.1061.1", "18.1062.1", "18.1063.1", "18.1064.1", "18.1086.1", "18.1091.1", "18.1094.1", "18.1095.1", "18.1096.1", "18.1097.1", "18.1101.1", "18.1103.1", "18.1108.1", "18.1110.1", "18.1117.1", "18.721.1", "18.850.1", "18.884.1", "18.888.1", "18.899.1", "18.950.1", "18.961.1", "18.1133.1", "18.1106.1", "18.1135.1", "18.1136.1", "18.1137.1", "18.1138.1", "18.1001.2", "18.1141.1", "18.731.1", "18.876.1", "18.1081.1", "18.817.1", "18.1105.1", "18.929.1", "18.1139.1", "18.1142.1", "18.1143.1", "18.1144.1", "18.1147.1", "18.1149.1", "18.680.1", "18.726.1", "18.729.1", "18.1150.1", "18.1151.1", "18.1152.1", "18.1153.1", "18.1154.1", "18.1155.1", "18.1156.1", "18.1157.1", "18.1158.1", "18.1161.1", "18.1162.1", "18.1163.1", "18.1164.1", "18.1165.1", "18.1167.1", "18.1171.1", "18.1172.1", "18.1176.1", "18.1177.1", "18.1173.1", "18.1173.2", "18.1174.1", "18.1175.1", "18.1178.1", "18.1184.1", "18.1185.1", "18.1182.1", "18.1182.2", "18.1183.1", "18.1186.1", "18.1188.1", "18.766.1", "18.914.1", "18.1092.1", "18.1113.1", "18.1180.1", "18.1189.1", "18.1192.1", "18.1194.1", "18.1195.1", "18.1196.1", "18.1197.1", "18.1199.1", "18.1200.1", "18.1203.1", "18.1204.1", "18.1205.1", "18.1206.1", "18.1218.1", "18.1219.1", "18.1221.1", "18.1222.1", "18.1223.1", "18.1224.1", "18.1225.1", "18.1227.1", "18.1228.1", "18.1229.1", "18.1230.1", "18.1231.1", "18.1233.1", "18.1234.1", "18.1235.1", "18.1236.1", "18.1237.1", "18.1239.1", "18.1193.1", "18.1215.1", "18.1043.1", "18.1209.1", "18.1001.3", "18.1172.2", "18.1245.1", "18.1246.1", "18.1159.1", "18.1201.1", "18.1241.1", "18.1244.1", "18.1240.1", "18.1243.1", "18.1242.1", "18.756.1", "18.757.1", "18.769.1", "18.813.1", "18.821.1", "18.962.1", "18.1214.1", "18.1238.1", "18.1271.1", "18.1303.1", "18.1311.1", "18.1312.1", "18.1313.1", "18.1314.1", "18.1315.1", "18.1316.1", "18.1317.1", "18.1318.1", "18.1320.1", "18.1322.1", "18.1323.1", "18.1325.1", "18.1327.1", "18.1328.1", "18.1329.1", "18.1330.1", "18.1331.1", "18.1333.1", "18.1335.1", "18.1337.1", "18.1338.1", "18.1339.1", "18.1341.1", "18.1344.1", "18.1346.1", "18.1347.1", "18.1348.1", "18.1349.1", "18.1350.1", "18.1351.1", "18.1352.1", "18.1353.1", "18.1355.1", "18.1356.1", "18.1357.1", "18.1358.1", "18.1359.1", "18.1360.1", "18.1362.1", "18.1363.1", "18.1364.1", "18.1365.1", "18.1366.1", "18.1367.1", "18.1369.1", "18.1370.1", "18.1371.1", "18.1373.1", "18.1374.1", "18.1375.1", "18.1376.1", "18.1377.1", "18.1378.1", "18.1379.1", "18.1381.1", "18.1382.1", "18.1383.1", "18.1387.1", "18.1388.1", "18.1389.1", "18.1391.1", "18.1392.1", "18.1394.1", "18.1396.1", "18.1402.1", "18.1403.1", "18.1404.1", "18.1405.1", "18.1406.1", "18.1408.1", "18.1409.1", "18.1410.1", "18.1412.1", "18.1413.1", "18.1417.1", "18.1423.1", "18.1424.1", "18.1425.1", "18.1426.1", "18.1427.1", "18.1326.1", "18.1075.1", "18.1134.1", "18.1148.1", "18.1188.2", "18.1202.1", "18.1204.2", "18.1211.1", "18.1211.2", "18.1211.3", "18.1211.4", "18.1211.5", "18.1228.2", "18.1232.1", "18.1243.2", "18.1250.1", "18.1252.1", "18.1254.1", "18.1255.1", "18.1256.1", "18.1257.1", "18.1258.1", "18.1259.1", "18.1262.1", "18.1263.1", "18.1264.1", "18.1265.1", "18.1268.1", "18.1269.1", "18.1270.1", "18.1272.1", "18.1273.1", "18.1275.1", "18.1279.1", "18.1279.2", "18.1279.3", "18.1286.1", "18.1287.1", "18.1288.1", "18.1289.1", "18.1291.1", "18.1291.2", "18.1292.1", "18.1293.1", "18.1293.2", "18.1293.3", "18.1293.4", "18.1294.1", "18.1295.1", "18.1296.1", "18.1297.1", "18.1297.2", "18.1298.1", "18.1299.1", "18.1300.1", "18.1301.1", "18.1302.1", "18.1304.1", "18.1305.1", "18.1306.1", "18.1307.1", "18.1308.1", "18.1308.2", "18.1308.3", "18.1309.1", "18.1310.1", "18.1429.1", "18.1430.1", "18.1431.1", "18.1432.1", "18.1433.1", "18.1434.1", "18.1435.1", "18.1435.2", "18.1435.3", "18.1435.4", "18.1435.5", "18.1437.1", "18.1439.1", "18.1441.1", "18.835.1", "18.893.1", "18.90.1", "18.905.1", "18.911.2", "18.918.1", "18.927.1", "18.960.1", "18.963.1", "18.1443.1", "18.1444.1", "18.1445.1", "18.1446.1", "18.1451.1", "18.1452.1", "18.1453.1", "18.1456.1", "18.1459.1", "18.1460.1", "18.1463.1", "18.1467.1", "18.1468.1", "18.1471.1", "18.1472.1", "18.1475.1", "18.1477.1", "18.1478.1", "18.1479.1", "18.1481.1", "18.1482.1", "18.1483.1", "18.1484.1", "18.1485.1", "18.1486.1", "18.1487.1", "18.1476.1", "18.1488.1", "18.1489.1", "18.1490.1", "18.1491.1", "18.1492.1", "18.1493.1", "18.1494.1", "18.1211.6", "18.1211.7", "18.1510.1", "18.1515.1", "18.1518.1", "18.1519.1", "18.1521.1", "18.1522.1", "18.1525.1", "18.1526.1", "18.1527.1", "18.1528.1", "18.1535.1", "18.1536.1", "18.1537.1", "18.1539.1", "18.1541.1", "18.1543.1", "18.1545.1", "18.1547.1", "18.1548.1", "18.1549.1", "18.1550.1", "18.1551.1", "18.1552.1", "18.1556.1", "18.1558.1", "18.1561.1", "18.1562.1"]
@@ -327077,6 +328578,64 @@ do_3 = "Add test_issue_closure_treats_a_superseded_task_as_closed to spec/layerx
 do_4 = "Finding 18.0.1.1: attempt 1 (943ca6eff) implemented both files and its tests passed; the closure over the live spec named three pending issue tasks that the requires list now carries and one superseded task. Once every required task is done, continue from attempt 1 rebased onto current main, add the superseded case of decision 2248 with its test, and run the declared build and verify once as written."
 do_5 = "Decision 2456 (attempt 2, 26e5df6d3, re-qualify unchanged once eligible): the three programme tests pass and the closure gate exits 1 only because 29 issue tasks are not done; the task now requires every one of them and is re-qualified without change when the last publishes."
 do_6 = "Attempt 3: the closure check is a gate over the whole issue programme; it now requires every open issue task, so it is launched only when all of them are done and its verify can pass. Keep the superseded-task handling and the three regression cases of attempt 2."
+
+[task.22.38.39]
+title = "Close the inference market series: interface rows served, docs cross-checked, reconcile clean"
+status = "pending"
+mode = "BUILD"
+wave = 9
+requires = ["22.38.37", "22.38.38", "22.38.33", "22.38.34", "22.38.35", "22.38.32", "22.38.13", "22.38.22", "22.38.29", "22.38.30"]
+reqs = ["22380.6", "22998.1"]
+capabilities = ["22.38.39"]
+interfaces = []
+do_1 = "do_1 Run spec/layerx-merge/programme/interfaces_reconcile.py over the tree and update every interface.22.inference-* row of spec/layerx-merge/interfaces.kvx from status new to served with its real path, line, signature and callers; update the contracts/inference-market.md revision and status column to match."
+do_2 = "do_2 Write tools/qualification/audit_repairs/test_repair_22_38_39.py asserting every interface.22.inference-* row has status served and a present symbol at its path, protocol.md names every served F11 operation, the explorer, wallet and SDK test files of 22.38.31 to 22.38.34 exist, and the record repair_22_38_39.kvx lists the qualified tasks of the series."
+symbols = ["tools/qualification/audit_repairs/test_repair_22_38_39.py"]
+touches = ["spec/layerx-merge/interfaces.kvx", "spec/layerx-merge/contracts/inference-market.md", "spec/layerx-merge/programme/interfaces_reconcile.py", "tools/qualification/audit_repairs"]
+tests = ["tools/qualification/audit_repairs/test_repair_22_38_39.py"]
+planned_paths = ["tools/qualification/audit_repairs/test_repair_22_38_39.py", "tools/qualification/audit_repairs/repair_22_38_39.kvx"]
+build_cmd = "python3 --version"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_38_39.py"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.38.35]
+title = "Write the inference market docs: overview, protocol, operator guide, client guide and threat statement"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22380.6"]
+capabilities = ["22.38.35"]
+interfaces = []
+do_1 = "do_1 Create docs/agent/inference-market/ with README.md (what the market is, the three planes, who runs what), protocol.md (room lifecycle, F11 operations and payload layouts, lap receipts, canary derivation, payout split, bonds, the metered stream rule), operator.md (running the daemon profile, enrolling, opening a room, funding, claiming), client.md (SDK calls, completion routes, wallet and explorer paths) and threats.md stating plainly that only the development attestation envelope is accepted today, that canaries bound but do not eliminate wrong answers, and the liveness and collusion limits; link the directory from docs/agent/COMPATIBILITY.md."
+do_2 = "do_2 Write tools/qualification/audit_repairs/test_repair_22_38_35.py asserting the five pages exist, every F11 operation name of 22.38.1 appears in protocol.md, threats.md carries the development-envelope sentence, no page names a retired reference of docs_check.py, and the record tools/qualification/audit_repairs/repair_22_38_35.kvx lists the pages."
+symbols = ["docs/agent/inference-market/README.md", "docs/agent/inference-market/protocol.md", "docs/agent/inference-market/threats.md"]
+touches = ["docs/agent/COMPATIBILITY.md", "tools/qualification/audit_repairs"]
+tests = ["tools/qualification/audit_repairs/test_repair_22_38_35.py"]
+planned_paths = ["docs/agent/inference-market", "tools/qualification/audit_repairs/test_repair_22_38_35.py", "tools/qualification/audit_repairs/repair_22_38_35.kvx"]
+build_cmd = "python3 --version"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_38_35.py"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
 [task.22.31.581]
 title = "Write the hosted Human timestamp span in milliseconds and document the unit"
@@ -384832,6 +386391,34 @@ qualification = "UNRUN"
 title = "Retired kernel test programs without a rule are deleted and the trading vector generator is built and checked against its fixture"
 ac_1 = "tests/state/lxp_test_idempotency.c, tests/network/test_oracle_replay_absent.c and tests/programs/test_paxai_storage_continuity.c are absent; tests/ci/test_claims_and_replay_removed.py::test_replay_expects_sequence_refusal and tests/ci/test_retired_daemon_lni.py::test_daemon_lni_retired pass without them."
 ac_2 = "make build/tools/dump_trading_vectors builds tests/modules/dump_trading_vectors.c, and the JSON it prints carries source tests/modules/dump_trading_vectors.c and the same (name, activity_type) vector list as tests/fixtures/trading-payloads/vectors.json."
+
+[req.22380.6]
+title = "An isolated-chain driver proves the market end to end and the docs describe it honestly"
+ac_1 = "tools/qualification/paxeer-x/inference_market_room.py starts an isolated chain, one host profile, two native peers and one asker on a synthetic scripted model and proves ask to stream to lap settlement to claim, and a canary failure that slashes a bond; docs/agent/inference-market describes the protocol, the operator path, the client path and a threat statement that states only the development attestation envelope is accepted today."
+
+[req.22380.5]
+title = "SDKs, explorer and wallet expose the market"
+ac_1 = "The TypeScript and Rust SDKs expose the F11 operations and the px_ market reads with the producer names; the explorer lists rooms, deals and receipt batches from a server route that reads the node root; the wallet funds an ask stream and shows peer earnings; every consumer test asserts the names the producer exports."
+
+[req.22380.4]
+title = "A browser page and a native command-line peer run the vendored engine inside a room"
+ac_1 = "apps/inference-peer vendors the MIT engine with its licence and attribution, speaks the room wire protocol over WebRTC data channels and WebSocket signalling, presents a chain identity in its hello, runs the layer range the deal assigns, countersigns every lap receipt it contributed to, answers canary prompts, and runs both as a browser page and as a native command-line process that can serve the completion routes locally."
+
+[req.22380.3]
+title = "The agent daemon runs an inference-market profile that orchestrates rooms off chain"
+ac_1 = "LAYERX_AGENT_MODE=inference-market starts a profile that enrols the host with a capability manifest, opens rooms, signals peers over chain-anchored offers, records deals, issues and countersigns lap receipts, injects canary prompts, recovers a lost peer by re-planning the layer split, and serves OpenAI-compatible and Anthropic-compatible completion routes that refuse until the ask stream is funded; no validator or node executes any of these steps, and every chain write goes through the existing signing and finality paths."
+
+[req.22380.2]
+title = "Asks pay through one metered stream and peers may bind a verified attestation"
+ac_1 = "An ask is funded by one metered stream opened at 0x101B to the room settlement account with the room host as meter authority; the meter reading equals the cumulative token count the countersigned lap receipts carry, SplitPayout credits the reward ledger from the settled amount in the deal proportions, and a peer attestation accepted at 0x0907 binds report data equal to the hash of the peer key, the model digest and the runtime digest; both bindings are readable at the node root through px_ methods."
+
+[req.22380.1]
+title = "The ai-market program carries a room market family that registers rooms, deals, lap settlements, canary challenges, payout splits and bonds"
+ac_1 = "The ai-market program serves family F11 at selectors 0x0B01 upward: OpenRoom, PostAsk, PostBid, RecordDeal, SettleLaps, ChallengeLap, ResolveChallenge, SplitPayout, LockBond, SlashBond, RefundBond, CloseRoom and the reads RoomView, DealView, PeerView, ReceiptBatchView and BookView; RecordDeal binds the roster digest, SettleLaps accepts only a batch digest sealed through SealEvidence, every operation stays under 1000000 CPU fuel and the replay profile of 4096 boundaries and 1048576 bytes, and feature_availability reports eleven families."
+
+[req.22998.1]
+title = "Every feature 22 task qualifies at its declared gates and its outputs are on main"
+ac_1 = "Every task of feature 22 passes its declared build_cmd and verify_cmd at its qualified revision, its touched and planned files are present on main at that revision, and every interface row it names reconciles as served; no task claims a gate that did not run."
 
 [task.16.28.5]
 title = "Delete the three rule-less retired kernel test programs and give the trading vector generator a Makefile rule"
