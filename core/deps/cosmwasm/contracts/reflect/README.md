@@ -62,13 +62,13 @@ be done simply by running `cargo check` or `cargo unit-test`
 ## Using your project
 
 Once you have your custom repo, you should check out
-[Developing](./Developing.md) to explain more on how to run tests and develop
+[Developing](https://github.com/Paxeer-Network/pax-cosmwasm/blob/a91fa4cd4cffd561df214dd28bd345e7ef5de7bc/contracts/reflect/Developing.md) to explain more on how to run tests and develop
 code. Or go through the [online tutorial](https://book.cosmwasm.com/index.html)
 to get a better feel of how to develop.
 
-[Publishing](./Publishing.md) contains useful information on how to publish your
+[Publishing](https://github.com/Paxeer-Network/pax-cosmwasm/blob/a91fa4cd4cffd561df214dd28bd345e7ef5de7bc/contracts/reflect/Publishing.md) contains useful information on how to publish your
 contract to the world, once you are ready to deploy it on a running blockchain.
-And [Importing](./Importing.md) contains information about pulling in other
+And [Importing](https://github.com/Paxeer-Network/pax-cosmwasm/blob/a91fa4cd4cffd561df214dd28bd345e7ef5de7bc/contracts/reflect/Importing.md) contains information about pulling in other
 contracts or crates that have been published.
 
 Please replace this README file with information about your specific project.

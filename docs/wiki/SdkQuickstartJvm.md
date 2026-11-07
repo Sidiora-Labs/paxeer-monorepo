@@ -4,10 +4,8 @@ Maven coordinates: `com.sidiora.layerx:layerx-sdk` at
 `sdk/platform/jvm`. There is no public JSON-RPC client in this
 package.
 
-The in-repo `sdk/platform/jvm/examples/FirstPaymentExample.java`
-calls `client.agent("prepare", …)` against placeholder URIs. This
-page uses the human-plane sample that actually ships a complete
-quote/commit path:
+The native transaction examples below use HTTP directly. For hosted
+human payments, a separate quote/commit example lives at
 `services/platform/examples/samples/first-payment-jvm`.
 
 ---
@@ -26,62 +24,58 @@ for self-service principal creation.
 
 ## Fund from faucet
 
-No `lx_requestFunds` wrapper. `"faucet.claim"` exists on the agent
-catalog and needs an agent-plane URL on
-`HttpProductionTransport`. Use [Hosted faucet](HostedFaucet.md) or
-`lx_requestFunds` as documented on [Public JSON-RPC](PublicRpc.md).
+Send `px_requestFunds` to the configured hosted gateway with an identity
+session. Set `HOSTED_GATEWAY_URL`, `SESSION_TOKEN`, `DID`, and
+`SIGNER_PUBLIC_KEY` (the 32-byte public key as lowercase hex):
+
+```sh
+curl --fail-with-body "$HOSTED_GATEWAY_URL" \
+  -H 'Content-Type: application/json' \
+  -H "Authorization: Bearer $SESSION_TOKEN" \
+  --data "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"px_requestFunds\",\"params\":[\"$DID\",\"$SIGNER_PUBLIC_KEY\"]}"
+```
+
+This is the hosted faucet operation; it is separate from node transaction
+submission. See [Hosted faucet](HostedFaucet.md).
 
 ---
 
 ## Send
 
-Human-plane quote then commit
-(`services/platform/examples/samples/first-payment-jvm`):
+Build and sign a native EVM transaction with your wallet, using the target
+network's chain ID, nonce, gas limit and fees. Set `RAW_TRANSACTION` to its
+`0x`-prefixed signed bytes and `NODE_RPC_URL` to the node root (`/`). Submit
+with `eth_sendRawTransaction`:
 
-```java
-import com.fasterxml.jackson.databind.JsonNode;
-import com.sidiora.layerx.sdk.HttpProductionTransport;
-import com.sidiora.layerx.sdk.IdempotencyKey;
-import com.sidiora.layerx.sdk.ProductionClient;
-import com.sidiora.layerx.sdk.SecretBytes;
-import java.net.URI;
-import java.nio.charset.StandardCharsets;
-import java.util.Map;
-
-public final class Pay {
-    public static JsonNode pay(
-        String apiUrl,
-        String apiToken,
-        String source,
-        String destination,
-        Map<String, String> money,
-        String paymentKey
-    ) {
-        var credential = new HttpProductionTransport.BearerCredential(
-            new SecretBytes(apiToken.getBytes(StandardCharsets.UTF_8)));
-        var layerx = new ProductionClient(
-            HttpProductionTransport.create(URI.create(apiUrl), URI.create(apiUrl), credential));
-        var quote = layerx.human(
-            "move.quote",
-            Map.of("source", source, "destination", destination, "money", money),
-            JsonNode.class,
-            ProductionClient.Options.none()).toCompletableFuture().join();
-        return layerx.human(
-            "move.commit",
-            Map.of("quote_id", quote.path("quote_id").asText()),
-            JsonNode.class,
-            ProductionClient.Options.idempotent(new IdempotencyKey(paymentKey)))
-            .toCompletableFuture().join();
-    }
-
-    private Pay() {}
-}
+```sh
+curl --fail-with-body "$NODE_RPC_URL" \
+  -H 'Content-Type: application/json' \
+  --data "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"eth_sendRawTransaction\",\"params\":[\"$RAW_TRANSACTION\"]}"
 ```
 
-`HttpProductionTransport.create` takes a human URL and an agent URL.
-The sample passes the same human origin twice. Agent `prepare` /
-`submit` need a real agent RPC origin; this package does not invent
-one.
+The result is a transaction hash, not a verified receipt. Set `TX_HASH` to
+that hash and read its committed transaction receipt at the same node root:
+
+```sh
+curl --fail-with-body "$NODE_RPC_URL" \
+  -H 'Content-Type: application/json' \
+  --data "{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"eth_getTransactionReceipt\",\"params\":[\"$TX_HASH\"]}"
+```
+
+A null receipt is pending. Read account balances with `px_getBalances`
+using `DID`, and network state with `px_getNetwork`, at that same root:
+
+```sh
+curl --fail-with-body "$NODE_RPC_URL" \
+  -H 'Content-Type: application/json' \
+  --data "{\"jsonrpc\":\"2.0\",\"id\":3,\"method\":\"px_getBalances\",\"params\":[\"$DID\"]}"
+curl --fail-with-body "$NODE_RPC_URL" \
+  -H 'Content-Type: application/json' \
+  --data '{"jsonrpc":"2.0","id":4,"method":"px_getNetwork","params":[]}'
+```
+
+These wire methods are used by `services/agent/crates/layerx-sdk/src/rpc.rs`.
+This package has no public JSON-RPC wrapper; use an HTTP client as above.
 
 ---
 

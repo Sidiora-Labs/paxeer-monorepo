@@ -2,9 +2,12 @@
 //! value establishes host authority or finality.
 #![cfg_attr(target_arch = "wasm32", no_std)]
 
+// File modules are mirrored in gateway/tests/repair_22_33_1439.rs and checked by
+// tests/ci/test_ai_market_module_mirror.py, including conditional private modules.
 pub mod admission;
 pub mod aggregation;
 pub mod aggregation_codec;
+pub mod canary;
 pub mod closure;
 pub mod codec;
 pub mod commit_reveal;
@@ -325,6 +328,21 @@ mod guest {
                 result_len,
                 ..
             }) => {
+                if matches!(
+                    operation,
+                    dispatch::ChallengeLap | dispatch::ResolveChallenge
+                ) {
+                    let Some(n) = current_len else {
+                        return Err(EMPTY_REFUSAL);
+                    };
+                    match crate::canary::stage_value(operation, &current[..n], &next[..state_len]) {
+                        Ok(()) => {}
+                        Err(AdapterError::Application(error)) => {
+                            return Err(failure(error, result))
+                        }
+                        Err(AdapterError::Host(_)) => return Err(EMPTY_REFUSAL),
+                    }
+                }
                 let events = [ApplicationEvent {
                     operation,
                     body: &event[..event_len],

@@ -5,4 +5,4 @@ root. The platform does not own a separate GitHub Actions workflow tree.
 
 Plugin fork validation remains available with `pnpm check:plugin-forks`.
 Its changed-file selection and shard partitioning use local Git fixtures in
-`packages/scripts/test/plugin-fork-selection.test.mjs`.
+`tools/scripts/test/plugin-fork-selection.test.mjs`.

@@ -249,7 +249,7 @@ $(BUILD_DIR)/tests/lxp_test_arena_asan: tests/protocol/lxp_test_arena.c \
 test-arena: $(BUILD_DIR)/tests/lxp_test_arena \
 		$(BUILD_DIR)/tests/lxp_test_arena_asan
 	$(BUILD_DIR)/tests/lxp_test_arena
-	ASAN_OPTIONS=abort_on_error=1:detect_leaks=1:poison_heap=1 \
+	env -u LD_PRELOAD ASAN_OPTIONS=abort_on_error=1:detect_leaks=1:poison_heap=1 \
 		$(BUILD_DIR)/tests/lxp_test_arena_asan
 
 $(BUILD_DIR)/tests/lxp_test_harness: tests/lxp_test_harness.c \
@@ -1198,7 +1198,7 @@ qualify-fuzz-run: $(BUILD_DIR)/tests/test_fuzz_smoke
 		"$(FUZZ_QUAL_ITERATIONS)"
 
 qualify-fuzz: qualify-fuzz-run
-	ASAN_OPTIONS=abort_on_error=1:detect_leaks=1:strict_string_checks=1 \
+	env -u LD_PRELOAD ASAN_OPTIONS=abort_on_error=1:detect_leaks=1:strict_string_checks=1 \
 	$(MAKE) --no-print-directory BUILD_DIR=build/qualification/fuzz-asan \
 		EXTRA_CFLAGS="$(SANITIZER_CFLAGS) -fsanitize=address" \
 		EXTRA_LDFLAGS="-fsanitize=address" FUZZ_QUAL_ITERATIONS=25000 \
@@ -1322,7 +1322,7 @@ $(BUILD_DIR)/tests/lxp_fuzz_codec: tests/fuzz/lxp_fuzz_codec.c \
 		-fsanitize=address,undefined $^ -fsanitize=address,undefined -o $@
 
 fuzz-codec-smoke: $(BUILD_DIR)/tests/lxp_fuzz_codec
-	ASAN_OPTIONS=abort_on_error=1:detect_leaks=1 \
+	env -u LD_PRELOAD ASAN_OPTIONS=abort_on_error=1:detect_leaks=1 \
 	UBSAN_OPTIONS=halt_on_error=1 $(BUILD_DIR)/tests/lxp_fuzz_codec
 
 $(BUILD_DIR)/tests/lxp_test_hash: tests/crypto/lxp_test_hash.c $(LIBRARY)
@@ -1380,7 +1380,7 @@ test-crypto-suite: test-crypto-hash test-crypto-ed25519 \
 	$(RUN_PREFIX) $(BUILD_DIR)/tests/lxp_test_ct
 
 test-crypto-sanitizers:
-	ASAN_OPTIONS=abort_on_error=1:detect_leaks=1 \
+	env -u LD_PRELOAD ASAN_OPTIONS=abort_on_error=1:detect_leaks=1 \
 	$(MAKE) --no-print-directory BUILD_DIR=build/crypto-asan \
 		EXTRA_CFLAGS="$(SANITIZER_CFLAGS) -fsanitize=address" \
 		EXTRA_LDFLAGS="-fsanitize=address" test-crypto-suite
@@ -1454,7 +1454,7 @@ $(BUILD_DIR)/tests/lxp_test_arith_property_san: $(ARITH_PROPERTY_SOURCES) \
 test-arith-property: $(BUILD_DIR)/tests/lxp_test_arith_property \
 		$(BUILD_DIR)/tests/lxp_test_arith_property_san
 	$(RUN_PREFIX) $(BUILD_DIR)/tests/lxp_test_arith_property
-	ASAN_OPTIONS=abort_on_error=1:detect_leaks=1 \
+	env -u LD_PRELOAD ASAN_OPTIONS=abort_on_error=1:detect_leaks=1 \
 	UBSAN_OPTIONS=halt_on_error=1 $(BUILD_DIR)/tests/lxp_test_arith_property_san
 
 $(BUILD_DIR)/tests/lxp_test_nofloat: tests/arith/lxp_test_nofloat.c $(LIBRARY)

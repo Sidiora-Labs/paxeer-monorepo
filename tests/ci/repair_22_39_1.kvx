@@ -1,0 +1,31 @@
+[repair.22.39.1]
+base_revision = "c1c16a3682cc8a2685b1ee7e9c2901866bd40732"
+requirement = "22998.1"
+decision = "2787"
+baseline = "No prior gate ledger or task implementation existed; baseline tests were not run under the ordered gate contract."
+evidence = "The private /out/run/gates.jsonl ledger names the verified candidate revision, command, exit code and log; the final response copies hf-done evidence."
+verify_cmd = "python3 -m pytest -q tests/ci/test_release_rollout_identity.py"
+tests = ["test_swap_reads_version_and_upgrade_from_version_json", "test_stage_requires_tag_from_version_json", "test_rollback_names_use_release_version", "test_swap_forwards_plan_info_for_merge_plan", "test_swap_refuses_merge_plan_without_plan_info"]
+
+[case.identity]
+test = "test_swap_reads_version_and_upgrade_from_version_json"
+repair = "Read the binary version and distinct upgrade name once through jq; install the derived staged binary and verify the real node document and receipt."
+
+[case.stage]
+test = "test_stage_requires_tag_from_version_json"
+repair = "Reject the previous tag, accept the version.json tag, install both derived assets and verify retained and staged binaries."
+
+[case.rollback]
+test = "test_rollback_names_use_release_version"
+repair = "Read and validate the derived snapshot archive, check the versioned set-aside path and reject a collision before mutation."
+
+[case.plan]
+test = "test_swap_forwards_plan_info_for_merge_plan"
+repair = "Forward an explicit plan-info path or consume embedded info through the real upgrade_info.py producer, verify the JSON at the halt height and reject corrupt or mismatched info."
+
+[case.refusal]
+test = "test_swap_refuses_merge_plan_without_plan_info"
+repair = "Refuse missing, invalid and uncovered merge plans before stopping services, writing home metadata or replacing the installed binary."
+
+[boundary]
+execution = "Copied production scripts and upgrade_info.py run with a temporary version.json; PATH peers record commands, replace node and service readiness and prevent network access; hashing, copying, JSON generation, plan validation, archive parsing and filesystem checks execute real code. The tar/zstd peers transport uncompressed fixture tar bytes without requiring a compressor."

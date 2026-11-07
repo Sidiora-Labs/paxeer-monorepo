@@ -238,7 +238,7 @@ fn policy_redaction_retention_verification_and_approvals_are_per_tenant() {
                 audit: 200,
                 receipts: 300,
             },
-            verification_default: VerificationLevel::CHECKPOINT_FINALISED,
+            verification_default: VerificationLevel::COMMITTED,
             approval_required_for: BTreeSet::from([7]),
         })
         .unwrap_or_else(|error| panic!("alpha config is valid: {error:?}"));

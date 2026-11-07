@@ -64,6 +64,15 @@ pub(crate) const COMMIT_OPENS: u64 = 64;
 pub(crate) const COMMIT_CLOSES: u64 = 80;
 const REVEAL_OPENS: u64 = 80;
 const REVEAL_CLOSES: u64 = 96;
+
+pub fn canary_window(origin: u64, epoch: u64, reveal: bool) -> CodecResult<HeightWindow> {
+    let (opens, closes) = if reveal {
+        (REVEAL_OPENS, REVEAL_CLOSES)
+    } else {
+        (COMMIT_OPENS, COMMIT_CLOSES)
+    };
+    HeightWindow::epoch(origin, epoch, opens, closes)
+}
 const POLICY_CAP: usize = Section::PolicyLifecycle.payload_cap();
 const REPORTS_CAP: usize = Section::CurrentReports.payload_cap();
 const CONTROL_CAP: usize = Section::Control.payload_cap();
@@ -700,4 +709,206 @@ pub fn apply(
     } else {
         reveal_score(&call, current, next, scratch, event)
     }
+}
+
+pub struct CanaryEnvelope<'a> {
+    pub envelope: codec::Envelope<'a>,
+    unsigned: &'a [u8],
+}
+impl CanaryEnvelope<'_> {
+    pub fn request_digest(&self) -> CodecResult<crate::types::RequestDigest> {
+        crate::types::RequestDigest::new(
+            codec::domain_hash("PAXAI/request/v1", self.unsigned)?.bytes(),
+        )
+    }
+}
+
+pub fn is_canary_score(input: &[u8]) -> bool {
+    matches!(input.get(8..10), Some([4, 1] | [4, 2]))
+        && input.get(codec::ENVELOPE_PREFIX_BYTES..codec::ENVELOPE_PREFIX_BYTES + 8)
+            == Some(crate::canary::CANARY_TASK_KIND.as_slice())
+}
+
+fn validate_canary_envelope(e: &codec::Envelope<'_>) -> CodecResult<()> {
+    if e.sequence == 0 || e.config == 0 || e.expiry == 0 || e.roster == Presence::Absent {
+        return Err(NON_CANONICAL);
+    }
+    if e.authentication != Authentication::Native {
+        return Err(UNAUTHORIZED);
+    }
+    e.operation.validate_payload_length(e.payload.len())?;
+    if e.operation == dispatch::CommitScore {
+        crate::canary::CanaryTask::decode(e.payload)?;
+    } else if e.operation == dispatch::RevealScore {
+        crate::canary::CanaryReveal::decode(e.payload)?;
+    } else {
+        return Err(UNKNOWN_OPERATION);
+    }
+    Ok(())
+}
+
+pub fn encode_canary_envelope(e: &codec::Envelope<'_>, out: &mut [u8]) -> CodecResult<usize> {
+    validate_canary_envelope(e)?;
+    let n = codec::ENVELOPE_PREFIX_BYTES
+        .checked_add(e.payload.len())
+        .and_then(|n| n.checked_add(1))
+        .ok_or(ARITHMETIC)?;
+    if n > crate::MAX_ENVELOPE_BYTES || out.len() < n {
+        return Err(CAPACITY);
+    }
+    let mut w = Writer::new(out);
+    w.put(b"PAXAI1")?;
+    w.u16(crate::SCHEMA_VERSION)?;
+    w.u16(e.operation.selector())?;
+    w.put(e.chain.as_bytes())?;
+    w.put(e.program.as_bytes())?;
+    w.put(e.market.as_bytes())?;
+    w.put(e.actor.as_bytes())?;
+    w.u64(e.epoch)?;
+    w.u64(e.config)?;
+    let Presence::Present(roster) = e.roster else {
+        return Err(WRONG_ROSTER);
+    };
+    w.put(roster.as_bytes())?;
+    w.u64(e.sequence)?;
+    w.u64(e.expiry)?;
+    w.put(e.request.as_bytes())?;
+    w.bytes(e.payload, crate::MAX_PAYLOAD_BYTES)?;
+    w.u8(0)?;
+    Ok(w.len())
+}
+
+pub fn decode_canary_envelope(input: &[u8]) -> CodecResult<CanaryEnvelope<'_>> {
+    if input.len() > crate::MAX_ENVELOPE_BYTES {
+        return Err(CAPACITY);
+    }
+    let mut r = Reader::new(input);
+    if r.take(6)? != b"PAXAI1" {
+        return Err(NON_CANONICAL);
+    }
+    if r.u16()? != crate::SCHEMA_VERSION {
+        return Err(crate::errors::BAD_VERSION);
+    }
+    let operation = dispatch::Operation::decode(r.u16()?)?;
+    let chain = r.chain_domain()?;
+    let program = r.program_id()?;
+    let market = r.market_id()?;
+    let actor = r.principal_id()?;
+    let epoch = r.u64()?;
+    let config = r.u64()?;
+    let roster = Presence::Present(r.roster_digest()?);
+    let sequence = r.u64()?;
+    let expiry = r.u64()?;
+    let request = r.request_id()?;
+    let payload = r.bytes(crate::MAX_PAYLOAD_BYTES)?;
+    let unsigned = &input[..r.offset()];
+    if r.u8()? != 0 {
+        return Err(UNAUTHORIZED);
+    }
+    r.finish()?;
+    let envelope = codec::Envelope {
+        operation,
+        chain,
+        program,
+        market,
+        actor,
+        epoch,
+        config,
+        roster,
+        sequence,
+        expiry,
+        request,
+        payload,
+        authentication: Authentication::Native,
+    };
+    validate_canary_envelope(&envelope)?;
+    Ok(CanaryEnvelope { envelope, unsigned })
+}
+
+pub fn canary_score_payload(
+    record: &crate::canary::CanaryCommitment,
+    operation: dispatch::Operation,
+    sequence: u64,
+) -> CodecResult<([u8; COMMIT_RESULT_BYTES], usize)> {
+    let mut bytes = [0; COMMIT_RESULT_BYTES];
+    if operation == dispatch::CommitScore {
+        let mut w = Writer::new(&mut bytes);
+        w.u8(2)?;
+        w.put(record.host.as_bytes())?;
+        w.put(record.id.as_bytes())?;
+        w.u64(record.committed_height)?;
+        w.u64(sequence)?;
+        Ok((bytes, COMMIT_RESULT_BYTES))
+    } else if operation == dispatch::RevealScore {
+        bytes[..32].copy_from_slice(record.id.as_bytes());
+        Ok((bytes, 32))
+    } else {
+        Err(UNKNOWN_OPERATION)
+    }
+}
+
+pub fn apply_canary_score(
+    ctx: &CallContext,
+    score: &CanaryEnvelope<'_>,
+    current: &[u8],
+    next: &mut [u8],
+    scratch: &mut [u8],
+    event: &mut [u8],
+) -> CodecResult<crate::canary::Outcome> {
+    let e = &score.envelope;
+    let state = decode_shared_state(current)?;
+    let section = crate::canary::check_call(ctx, e, &state)?;
+    if e.actor != section.header.owner_principal {
+        return Err(UNAUTHORIZED);
+    }
+    let actor = state
+        .control
+        .replay
+        .actor(ActorSlot::OWNER)
+        .ok_or(NOT_FOUND)?;
+    let digest = score.request_digest()?;
+    let request = ReplayRequest {
+        slot: ActorSlot::OWNER,
+        principal: e.actor,
+        authority_version: actor.authority_version,
+        sequence: e.sequence,
+        request_id: e.request,
+        digest,
+        expiry_height: e.expiry,
+    };
+    if let ReplayDecision::AlreadyApplied(retained) =
+        state.control.replay.check(&request, ctx.height)?
+    {
+        return Ok(crate::canary::Outcome::Retained(retained));
+    }
+    let record = if e.operation == dispatch::CommitScore {
+        crate::canary::commit_task(
+            ctx,
+            e,
+            &state,
+            crate::canary::CanaryTask::decode(e.payload)?,
+        )?
+    } else if e.operation == dispatch::RevealScore {
+        crate::canary::reveal_task(
+            ctx,
+            e,
+            &state,
+            crate::canary::CanaryReveal::decode(e.payload)?,
+        )?
+    } else {
+        return Err(UNKNOWN_OPERATION);
+    };
+    let (payload, n) = canary_score_payload(&record, e.operation, e.sequence)?;
+    crate::canary::persist(
+        ctx,
+        e,
+        digest,
+        current,
+        record,
+        Some(&request),
+        &payload[..n],
+        next,
+        scratch,
+        event,
+    )
 }

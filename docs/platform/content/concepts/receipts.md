@@ -1,10 +1,10 @@
 # Receipts and verification
 
-A receipt is the thing that makes a LayerX Network payment different from a database row that says a payment happened. It is a canonical byte string produced by the protocol, and it verifies against an authorised batch header using only those two inputs. No LayerX node, gateway or hosted service is in the path.
+A receipt records protocol execution. A receipt is final once its block is committed. Paxeer is one BFT network; the separate execution, checkpoint and settlement architecture is retired.
 
-That is the whole point: someone who trusts none of the operators can still check the claim.
+For independent finality verification, authenticate the block header and CometBFT commit, then verify transaction or state inclusion against the authenticated root at the relevant height. See [Committed block evidence](https://github.com/Sidiora-Labs/paxeer-monorepo/blob/abc81fd2cead6b2b9d5612c6e09a6ab56f13c1ed/docs/site/docs/concepts/checkpoints.md#committed-block-evidence).
 
-The verification path is implemented in source, but the beta contract records the receipt surfaces at rung `source_present` without a release-bound gate record in that contract. Treat the commands below as the way to produce your own proof, not as evidence that the system has been qualified.
+The batch-based Rust sample and `layerx receipt verify` below are a local compatibility verifier. They check receipt bytes against caller-supplied batch facts without a network connection. Their success does not establish the merged network's committed rung or qualify a deployed service.
 
 ## What verification actually checks
 
@@ -12,29 +12,26 @@ The verification path is implemented in source, but the beta contract records th
 |---|---|
 | Canonical encoding | The bytes are not a receipt this protocol version could have produced |
 | Protocol invariants | The receipt describes a state change the transition function would not have made |
-| Root chain | The receipt does not belong under the batch header you supplied |
-| Signature | The sequencer did not authorise this batch |
+| Root chain | The receipt does not match the supplied compatibility batch roots |
+| Signature | The signature does not match the supplied compatibility key |
 
 The verifier returns the exact check that failed. It never returns a generic "invalid".
 
 ## Verification levels
 
-A verified receipt carries a level, and the levels are ordered by declaration: a later one implies every earlier one.
+The current network reports achieved evidence rungs:
 
-| Level | What backs it |
+| Rung | What backs it |
 |---|---|
-| `Unverified` | Nothing yet |
-| `SequencerSigned` | The sequencer signed the batch containing this activity |
-| `BatchIncluded` | Merkle inclusion in that batch is proven |
-| `StateProven` | The state transition is proven |
-| `CheckpointFinalised` | A finalised checkpoint covers it |
-| `SettlementAnchored` | External settlement evidence anchors it |
+| `submitted` | A known transaction without a signed execution receipt |
+| `receipted` | A signed execution receipt awaiting block commitment |
+| `committed` | The committed block covers the receipt; block commit is finality |
 
-No layer reports a level its evidence does not justify. When a requested level is not achieved, the response says so rather than quietly downgrading.
+`checkpoint-finalised` and `done-finalised` are retained API names for the `committed` rung. `settlement-anchored` and `paxeer-finalised` are never reached on the merged network. A signed execution receipt alone is not final; the compatibility verifier's wire rank does not prove block commitment.
 
 ## Verifying one yourself
 
-The Rust sample below is a complete program. Give it the receipt bytes and the batch facts, and it prints the verification level, the amount, the protocol result code and the receipt digest, or the exact check that refused.
+The Rust sample below checks the compatibility receipt bytes against the five batch facts you supply. It returns the local verification level, amount, protocol result code and receipt digest, or the exact check that refused. Obtain the batch facts from an independently trusted source; internally consistent inputs alone do not authenticate chain evidence.
 
 ```rust sample=verify-receipt-rust
 use layerx_proof::receipt::AuthorizedBatch;
@@ -48,7 +45,7 @@ fn settlement(receipt: &[u8], batch: &BatchFacts) -> Result<Settlement, String> 
 }
 ```
 
-The same thing from a shell, with the CLI:
+The same local compatibility check from a shell, with the CLI:
 
 ```text
 layerx receipt verify --receipt ./receipt.bin \
@@ -62,13 +59,13 @@ layerx receipt verify --receipt ./receipt.bin \
 
 On the human plane, a journey carries evidence references. A reference whose class is `layerx-receipt` can be fetched as evidence material - the canonical bytes exactly as the protocol produced them, plus its content type and verification level. On the agent plane, `read.proof_bundle` and `export.offline` give you the same material for offline use.
 
-You can also verify from an untrusted mirror archive with no LayerX dependency at all. That path returns freshness with the result instead of implying it.
+You can also check compatibility receipts from an untrusted mirror archive. That path returns freshness with the result instead of implying it; it does not replace committed block evidence for finality.
 
 ## Enforced by
 
 | Capability | Layer | What that means here |
 |---|---|---|
-| Offline receipt verification | `protocol` | Verification needs no LayerX component. A settlement claim can be checked by someone who trusts none of them. |
+| Offline receipt verification | `protocol` | The local compatibility check needs only receipt bytes and independently trusted batch facts; finality requires committed block evidence. |
 | Honest verification levels | `agent-layer` | Every successful response carries its verification status, and a shortfall is reported rather than silently downgraded. |
 | Done means verified | `service` | The human service renders `done` only against verified evidence, never against its own optimism. |
 | Receipt-gated resource release | `service` | Seller middleware releases your resource only after the receipt covering the request verifies. |

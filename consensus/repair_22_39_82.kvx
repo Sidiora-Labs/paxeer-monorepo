@@ -1,0 +1,45 @@
+[task.22.39.82]
+base_revision = "c6a45ed6d0f1f5ee8cf4a80ea804efdef8e8d9c4"
+decision = "2804"
+gotcha = "3438"
+continuation_base_revision = "deb2deb978c0804f7876e36fe9f6896fc1e616bf"
+continuation_decision = "2817"
+repair = "Run separate Go workflow matrix legs for mock_block_validation, mock_chain_validation, libsecp256k1_sdk, release and gofuzz; invoke the Autobahn cluster target and test the independent HPX registry module in dedicated jobs. Align the registry Go directive with the root toolchain."
+tests = ["test_go_test_matrix_covers_build_tags", "test_hpx_registry_go_test_wired"]
+evidence = "The hf-build and hf-done candidate ledger at /out/run/gates.jsonl names the exact revision, command, exit and private log. A verified revision exists only if both gates pass on the same candidate; no pre-change gate was run under the implementation-first rule."
+
+[repair.fuzz]
+observed = "All three native fuzz targets lacked seeds, so ordinary tagged go test executed no fuzz callbacks. The secret-connection harness left TCP workers running until test cleanup and did not join its writer."
+change = "Add empty and nonempty mempool, JSON-RPC and secret-connection seeds, including frame-boundary and multi-frame payloads; isolate each mempool input and join real TCP, handshake and write/read workers with scope.Run. Preserve response decoding and byte equality assertions."
+
+[repair.release]
+change = "Keep the eight-client, three-attempt reconnect jitter integration and add the zero-configured-attempt boundary using the same real listener and complete retry, jitter and stream-termination assertions."
+
+[gotcha.validation_tags]
+observed = "Attempt 1 at 4c33ac989e9e combined mock_block_validation and mock_chain_validation in verification, redeclaring ConsensusPolicy and HandleError; running validation mocks across all consensus packages also changed unrelated validation contracts (gotcha 3455)."
+action = "Decision 2817 runs each mock tag in its own matrix leg over ./consensus/types/...; the wiring test rejects combined mock tags, additional tags in those matrix entries and any broader or additional package targets. The revised declared verification runs the tags separately over the same package scope."
+
+[qualification]
+build_command = "python3 -m py_compile tests/ci/test_go_build_tags_wired.py && go vet -tags=mock_block_validation ./consensus/..."
+verify_command = "python3 -m pytest -q tests/ci/test_go_build_tags_wired.py && go test -count=1 -tags=mock_block_validation ./consensus/types/... && go test -count=1 -tags=mock_chain_validation ./consensus/types/... && cd tools/hpx/registry && go test -count=1 ./..."
+build_evidence = "/out/run/gates.jsonl: final kind=build record; revision, command, exit and private log are recorded by hf-build"
+verify_evidence = "/out/run/gates.jsonl: final kind=verify record; revision, command, exit and private log are recorded by hf-done"
+verified_revision = "By reference to the final build and verify evidence records, valid only when both exit zero and their revision values match."
+
+[qualification.preexisting_conflict]
+revision = "1ec2024092e060966779bf145863a2c2a8d44f0f"
+command = "cg spec done 22.39.82 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The two wiring tests passed; mock_block_validation then failed TestBlockValidateBasic/Tampered_Data and TestBlockValidateBasic/Tampered_DataHash at consensus/types/block_test.go:126 because DefaultConsensusPolicy intentionally swallows ErrDataHash, as TestConsensusPolicy_MockBlockValidation_Matrix requires."
+assumption = "The unchanged consensus/types tests and policy are outside scope; preserve both conflicting assertions and policy semantics, record the failure without rerunning it, and leave the task unqualified. The chain-tag and registry commands were not reached."
+
+[repair.default_validation_policy]
+continuation_revision = "ddb3191922ab81a24059449cd7bd0ddd67712e51"
+gotcha = "3474"
+decision = "2817"
+observed = "TestBlockValidateBasic asserts rejection of data, last-commit and evidence mismatches that the mock validation policies intentionally accept."
+change = "Move TestBlockValidateBasic unchanged from block_test.go into block_default_policy_test.go under !mock_block_validation && !mock_chain_validation, matching consensus_policy_test.go. Keep the tag-independent block tests and the tagged policy matrix assertions intact."
+resolution = "The earlier qualification.preexisting_conflict assumption is superseded by the expanded consensus/types scope and the explicit continuation ruling; the default-policy test remains fully asserted in default builds."
+build_evidence = "/out/run/gates.jsonl: final kind=build record at its recorded revision, command, exit and private log"
+verify_evidence = "/out/run/gates.jsonl: final kind=verify record at the same recorded revision, including both mock tag legs and the registry module"

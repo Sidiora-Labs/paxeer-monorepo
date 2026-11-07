@@ -8,7 +8,8 @@ how long a stolen share is worth anything.
 ## Trigger
 
 - The fixed cadence: every `<refresh-interval>` set by the owner, counted from
-  the last completed refresh recorded in `spec/paxeer-x-wallet/qualification.kvx`.
+  the last completed refresh in the operator's change record, which includes
+  the command, exit code and log path.
 - Immediately after any `keys.addshare` (see `node-replacement.md`), for the
   key that gained a share.
 - Immediately, for every key, on a suspected compromise of any node's machine,
@@ -78,7 +79,7 @@ Every node passes, reports an `epoch=` no lower than in step 1, an `audit=`
 sequence advanced by at least the number of keys refreshed, and every key
 response of step 3 carried the raised epoch. Record the
 revision, the command, its exit code, the log path and the count of keys
-refreshed in `spec/paxeer-x-wallet/qualification.kvx`.
+refreshed in the operator's change record.
 
 ## Rollback
 

@@ -4,7 +4,7 @@ The Paxeer X Network bridge locks assets in a foreign vault and mints their brid
 
 Paxeer is one BFT network running `paxd`, with the kernel participating in execution and block proposal. Its EVM chain id is `125` (`0x7d`); a receipt is final when its block is committed. For Paxeer EVM reads, use the public node JSON-RPC at the root URL, such as `https://api-mainnet-beta.paxeer.network` or `https://api1.mainnet-beta.paxeer.network`. The [public RPC reference](../../docs/site/docs/reference/public-rpc.md) lists the node endpoints. Set `PAXEER_BRIDGE_PAXEER_RPC_URL` to the selected root URL for the checklist. Foreign-chain finality depths remain separate configuration values for observing deposits.
 
-This page is the operator runbook: what to deploy, in what order, with which environment variables, how the Paxeer side is configured through governance, and what must read back before the bridge is opened. The Paxeer side is the `layerxbridge` module in `modules/layerxbridge` and its precompile in `precompiles/layerxbridge`. The source is [the Paxeer X Network repository](https://github.com/Sidiora-Labs/Paxeer-X-Network).
+This page is the operator runbook: what to deploy, in what order, with which environment variables, how the Paxeer side is configured through governance, and what must read back before the bridge is opened. The Paxeer side is the `layerxbridge` module in `modules/layerxbridge` and its precompile in `precompiles/layerxbridge`. The source is [the Paxeer X Network repository](https://github.com/Sidiora-Labs/paxeer-monorepo).
 
 ---
 

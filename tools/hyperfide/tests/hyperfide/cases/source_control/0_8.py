@@ -170,7 +170,7 @@ def installed_control_observation(archive):
         service.mkdir(parents=True)
         with tarfile.open(archive) as package:
             package.extractall(service, filter='data')
-        node = os.environ.get('HYPERFIDE_LAYOUT_NODE') or shutil.which('node')
+        node = os.environ.get('HYPERFIDE_LAYOUT_NODE24') or os.environ.get('HYPERFIDE_LAYOUT_NODE') or shutil.which('node')
         if not node:
             raise ValueError('Node required for installed control startup')
         preflight = """import assert from 'node:assert/strict';import fs from 'node:fs';import {pathToFileURL} from 'node:url';
@@ -218,7 +218,7 @@ def main():
               'checked_at': datetime.now(timezone.utc).isoformat(), 'required_assertions': REQUIRED,
               'commands': [], 'assertions': [], 'checks': [], 'artifacts': [], 'missing_evidence': [],
               'regressions': [], **bindings.capture_bindings()}
-    node = os.environ.get('HYPERFIDE_LAYOUT_NODE') or shutil.which('node')
+    node = os.environ.get('HYPERFIDE_LAYOUT_NODE24') or os.environ.get('HYPERFIDE_LAYOUT_NODE') or shutil.which('node')
     implementation = [Path(__file__), Path(__file__).with_name('0_9.py'), PACK / 'layout-reference-exceptions.json', ROOT / 'tests/hyperfide/support/layout_tooling_stamp.mjs', PACK / 'repository-layout.json']
 
     def check(ident, passed, detail):
@@ -464,4 +464,7 @@ if __name__ == '__main__':
         assert result.returncode in {0, 1} and set(result.stdout.splitlines()) == set(private)
         print(json.dumps({'status': 'PASS', 'private_paths': len(private), 'public_examples': len(public)}))
     else:
-        raise SystemExit(main())
+        spec = importlib.util.spec_from_file_location('layout_driver_runner', Path(__file__).with_name('0_9.py'))
+        contract = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(contract)
+        raise SystemExit(contract.run_driver('0.8', main))

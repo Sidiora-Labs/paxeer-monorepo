@@ -1,7 +1,7 @@
 # Inference market protocol
 
-This is the planned F11 contract. See [availability](README.md#availability)
-and the [source contract](../../../spec/layerx-merge/contracts/inference-market.md).
+The inference market is not yet available. This page describes the planned F11
+interface; see [availability](README.md#availability).
 F11 selectors belong to the ai-market program operation envelope; they are not
 standalone EVM method selectors. Submit program calls through the existing
 program signing and finality path.
@@ -28,10 +28,9 @@ room without changing the room record's open/closed state.
 
 ## F11 operation table and payload layouts
 
-The table describes payload fields and authority requirements from tasks
-22.38.1 and 22.38.3–22.38.8. Exact byte offsets, integer widths, padding,
-length bounds and read-key encodings remain to be established by their pending
-codecs and `OperationMetadata` in
+The table describes planned payload fields and authority requirements.
+Exact byte offsets, integer widths, padding, length bounds and read-key encodings
+remain to be established by their pending codecs and `OperationMetadata` in
 [dispatch.rs](../../../programs/crates/layerx-programs-ai-market/src/dispatch.rs).
 Use the qualified producer codecs and SDK encoders when available; this field
 inventory is not a substitute binary encoder. The governing room/deal/batch
@@ -61,12 +60,12 @@ Room records contain room ID, host key, model/runtime digests, room profile,
 settlement account, open/closed state and opening epoch. Ask records contain ask
 ID, asker key, model digest, price ceiling, stream ID and state. Bid records
 contain bid ID, peer key, capability digest, price floor, bond amount and layer
-capacity. Task 22.38.3 bounds state at 196608 bytes with at most 16 rooms,
+capacity. The planned state limit is 196608 bytes with at most 16 rooms,
 64 asks and 128 bids; these are planned codec bounds.
 
 The room profile includes minimum bond, canary ratio in basis points, lap size
 in generated tokens, challenge window in blocks, slash fraction, host and
-protocol shares in basis points, and settlement account. Dependent daemon tasks
+protocol shares in basis points, and settlement account. The planned daemon will
 also use tolerance, liveness/acknowledgement windows and maximum generated
 tokens. The profile file schema must come from the implementation, not from
 invented configuration keys here.
@@ -89,10 +88,10 @@ it does not establish semantic correctness of every generated token.
 
 ## Canary derivation and challenge
 
-Task 22.38.19 derives a deterministic sampling key from the **deal ID and lap
-index**, then samples positions at the room's canary ratio. The host computes
-expected logits locally on the full model or obtains them from the canary table
-bound to the model digest. It commits prompt and expected-logit digests through
+The planned canary check derives a deterministic sampling key from the **deal ID
+and lap index**, then samples positions at the room's canary ratio. The host
+computes expected logits locally on the full model or obtains them from the
+canary table bound to the model digest. It commits prompt and expected-logit digests through
 CommitScore before the lap, compares the peer answer, and on a miss submits
 ChallengeLap followed by RevealScore in the existing commit/reveal window.
 

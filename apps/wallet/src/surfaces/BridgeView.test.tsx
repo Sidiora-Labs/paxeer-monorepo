@@ -5,7 +5,7 @@ import {
   LAYERX_BRIDGE_PRECOMPILE,
   abiSelector,
   bridgeOutCall,
-} from '@sidiora/layerx-sdk';
+} from '@sidiora/layerx-sdk/browser';
 import { bridge } from '@paxeer/wallet';
 import { BridgeView } from './BridgeView';
 import { proveBridgeRung } from './test/bridgeRung';

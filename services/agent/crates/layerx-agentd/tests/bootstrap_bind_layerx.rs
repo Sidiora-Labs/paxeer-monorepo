@@ -392,11 +392,11 @@ fn authority_peer(
                 "/v1/agent/subject-context" => {
                     json!({"subject_principal":peer.principal, "tenant":subject.transport_tenant, "agent_tenant":peer.tenant,
                     "owner_did":subject.owner, "account_id":hex::encode(account_id), "asset_id":hex::encode(subject.asset),
-                    "verification_level":"checkpoint_finalised", "observed_head_sequence":identity.head_sequence, "checkpoint_digest":hex::encode(random::<32>())})
+                    "verification_level":"committed", "observed_head_sequence":identity.head_sequence, "checkpoint_digest":hex::encode(random::<32>())})
                 }
                 "/v1/agent/identity" => {
                     json!({"canonical_core_bytes":hex::encode(&identity.canonical_bytes), "head_sequence":identity.head_sequence,
-                    "revocation_sequence":identity.revocation_sequence, "frozen":identity.frozen, "verification_level":"checkpoint_finalised",
+                    "revocation_sequence":identity.revocation_sequence, "frozen":identity.frozen, "verification_level":"committed",
                     "authorities":identity.authorities.iter().map(|authority| match authority { ProtocolAuthority::PrimaryKey(id) => json!({"kind":"primary_key","id":hex::encode(id)}), _ => panic!("owner authority") }).collect::<Vec<_>>()})
                 }
                 other => panic!("unexpected authority read: {other}"),
@@ -497,7 +497,7 @@ impl OwnerFixture {
             canonical_bytes: public_key.to_vec(),
             head_sequence: HEAD,
             revocation_sequence: 1,
-            verification_level: layerx_types::verify::VerificationLevel::CHECKPOINT_FINALISED,
+            verification_level: layerx_types::verify::VerificationLevel::COMMITTED,
             frozen: false,
             authorities: vec![ProtocolAuthority::PrimaryKey(public_key)],
         };
@@ -570,6 +570,7 @@ impl OwnerFixture {
             "anvil_setNonce",
             json!([format!("0x{}", hex::encode(from)), "0x7"]),
         );
+        node.rpc("anvil_mine", json!([format!("0x{HEAD:x}")]));
         let binding = Binding::new(125, from, 3).sign(account.layerx_seed());
         let writes = Arc::new(AtomicUsize::new(0));
         let (url, chain_worker) = chain_peer(&node, binding, Arc::clone(&writes));
@@ -580,6 +581,10 @@ impl OwnerFixture {
             deadline: Duration::from_secs(3),
         }));
         let node_head = must(endpoint.block_number());
+        assert_eq!(
+            node_head, HEAD,
+            "identity and committed node head must agree"
+        );
         let mut operations = must(ProductionHumanOperations::new(
             authority,
             must(SequencerEndpoint::new(&url, &[])),

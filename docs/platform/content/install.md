@@ -168,6 +168,11 @@ again, because a fresh send invocation generates a new native idempotency key.
 Receipt verification requires independently pinned keys with height ranges;
 fetched bytes alone are not a verification or finality claim.
 
+A receipt is final once its block is committed. For independent finality
+verification, authenticate the block header and CometBFT commit, then verify
+transaction or state inclusion at the relevant height. See
+[Committed block evidence](https://github.com/Sidiora-Labs/paxeer-monorepo/blob/abc81fd2cead6b2b9d5612c6e09a6ab56f13c1ed/docs/site/docs/concepts/checkpoints.md#committed-block-evidence).
+
 The installation result names an owner-only `authorization.credential_file`.
 Send its value as `Authorization: Bearer <value>` on every loopback JSON-RPC
 POST. The Agent Card is readable without that bearer. Installation JSON exposes

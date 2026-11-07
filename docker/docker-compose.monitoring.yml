@@ -1,7 +1,7 @@
 services:
   prometheus:
     container_name: pax-prometheus
-    image: prom/prometheus:latest
+    image: "prom/prometheus:v2.55.1"
     ports:
       - "127.0.0.1:9099:9090"
     volumes:
@@ -15,7 +15,7 @@ services:
 
   grafana:
     container_name: pax-grafana
-    image: grafana/grafana:latest
+    image: "grafana/grafana:11.3.0"
     ports:
       - "${GRAFANA_BIND_ADDRESS:-127.0.0.1}:3000:3000"
     volumes:

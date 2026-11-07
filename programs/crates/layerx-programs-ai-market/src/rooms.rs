@@ -569,7 +569,7 @@ impl<'a> RoomBook<'a> {
             let offset = if i == 0 { 0 } else { 32 };
             let index = self.tables[i]
                 .chunks_exact(*width)
-                .take_while(|b| &b[offset..offset + 32] < id.as_bytes())
+                .take_while(|b| &b[offset..offset + 32] < &id.as_bytes()[..])
                 .count();
             let at = index * width;
             w.put(&self.tables[i][..at])?;

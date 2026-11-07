@@ -102,7 +102,7 @@ export class FileFulfillmentRepository {
     const resource = await release();
     const record = JSON.stringify({
       requestDigest: proposed.requestDigest,
-      receipt: proposed.receiptDigest,
+      receipt: Buffer.from(proposed.canonicalReceipt).toString("base64"),
       resource,
     });
     let file;
@@ -121,11 +121,12 @@ export class FileFulfillmentRepository {
 
   async read(path, proposed) {
     const stored = JSON.parse(await readFile(path, "utf8"));
-    if (stored.requestDigest !== proposed.requestDigest || stored.receipt !== proposed.receiptDigest) {
+    if (stored.requestDigest !== proposed.requestDigest) {
       throw new MiddlewareError("fulfillment-conflict");
     }
     return {
       ...proposed,
+      canonicalReceipt: Uint8Array.from(Buffer.from(stored.receipt, "base64")),
       resource: stored.resource,
     };
   }
