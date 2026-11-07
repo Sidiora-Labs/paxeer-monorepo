@@ -17285,3 +17285,58 @@ fix = "Decision 2833: the proxy admits and validates chain_id and acknowledges t
 title = "The visitor asset weight test treats two empty vendored chart style files as budget offenders"
 symptom = "22.39.70 attempt 1 at 1cedcb49d76f: the eight assets shrank by 93 percent at their display sizes and the route catalogue check passes, but test_public_assets_under_weight_cap in tests/ci/test_web_asset_weight.py requires 0 < size <= budget and lists apps/launchpad/web/public/charting_library/bundles/3060.fbb750fd312778403036.css and its rtl twin (0 bytes, emitted empty by the vendored chart bundle and tracked that way on main) as offenders; two repair cycles went to source-mapping fixes and left the condition."
 fix = "Attempt 2 asserts the cap only (size <= budget); an empty vendored style is not weight."
+
+[gotcha.3493]
+title = "The schema coverage test counts a retired schema operation among the generated ones"
+symptom = "22.31.542 attempt 4 at fdbd181e8ff0: build exit 0, verification exit 101; the hosted authority target, the agent library filters and four of the five integration targets pass; the schema coverage test of rpc_surface_major_two fails with faucet.claim present only on the schema side (53 generated operations against 54 schema sections). The test body is identical on main; the section carries disposition retired since 5b4f53b03f and the routing module refuses the wire name, which retired_faucet_claim_wire_name_is_refused already asserts."
+fix = "The coverage test takes the sections whose disposition is retired out of the compared set (or asserts generated plus retired equals schema) and asserts each retired name is refused; no production change (decision 2762, gotcha 3046)."
+
+[gotcha.3494]
+title = "The budget verifier decodes the native carrier bytes as a typed transaction and refuses every retained native settlement"
+symptom = "9.98.4 attempt 11 at 9194e2966f44: build exit 0, verification exit 101; eight retained settlement tests pass and four panic with retained settlement: Preparation; refused at None. The approval carrier of the native program path keeps the wire envelope canonical bytes that prepare::restore_canonical reproduces; validate_retained_preparation in budget/native_binding.rs (landed with 22.31.217 at 75df69e084) decodes the same bytes with the EIP-1559 decoder, maps the failure to NativeBindingError::Preparation, and validate_prepared of program_sources.rs refuses the settlement before any budget source is read."
+fix = "Decision 2834 and task 22.39.128: the budget verifier binds the typed call through the retained signing preparation of the same preparation and never decodes the envelope bytes as a transaction; 9.98.4 requalifies after 22.39.128 lands."
+
+[gotcha.3495]
+title = "The interrupted-install case is refused on the provider pools action although its component holds the grant"
+symptom = "22.37.4 attempt 4 at 6db52be61634: two repair cycles; the install status test of the client SDK fails because the interrupted-install case module is refused with AUTH_SCOPE_DENIED on provider.pools.configure for component 8.2 under the provisioner key, after the fixture restarted with the provisioner role. The grant tuple of sdk_status.py lists 8.2 and the component record lists the action; the refusal text names neither the principal row nor the run identity it compared."
+fix = "The next attempt makes the refusal diagnosable from the case module (the principal row of the provisioner and the action and run identity of the invocation) and repairs the fixture side within touches; the live provider run stays UNRUN (decision 2700)."
+
+[gotcha.3496]
+title = "The ai-market suite carries thirty-four failures after the codec merge and the fuel budget test needs the Go producer"
+symptom = "22.99.77 attempt 23 at 9ba14541e3d9: two repair cycles, guest 497897 bytes under the 524184 bound; twelve targets and thirty-four tests fail: the selector freeze test expects 55 operations while the crate exposes 72, eleven availability entries return NotEnabled, four application error codes differ from the expected ones, the f03 to f07 cases and the reputation public key case fail, and fuel_budget cannot find programs/target/repair-478 because the Go gate of 22.31.478 that writes it did not run. The attempt resolved six conflict files between the landed 22.31.615 codec and its own section reuse."
+fix = "Decision 2828: the build command of the task runs the Go producer gate first; the attempt records the baseline of the unchanged merged main tree, repairs the failures the sweep owns and re-resolves the attempt-only ones with the landed producer shape winning; the freeze test asserts the live operation count."
+
+[gotcha.3497]
+title = "The qualification record names producers outside the touches of the record task"
+symptom = "22.31.623 attempt 2 at 2dea78a64748: two repair cycles; 22 failed and 4408 passed. Eighteen cases are recorded blocked-scope and five recorded-unrelated because the producer the record names lies outside touches: the release identity reader indexes a field 22.31.587 removed from the version file (ten cases of 22.33.806), the agent guidance file and the ignore file of the vendored project directory under tools/ (three cases of 22.36.1), the receipt refusal fixture drift of 22.33.849, the native binding fixture of 22.33.865, the Android receipt gate states of 22.31.418, the sig-provider precompile inventory of 22.33.312, the kernel launcher of 22.33.769, the human step-up golden of the beta driver, and the Node version, OpenAPI header and swagger header cases."
+fix = "Decision 2836: the producer modules the record names enter the touches of the record task; the next attempt repairs each named producer where it violates a live rule and rewrites the pin from the live producer where the pin is stale."
+
+[gotcha.3498]
+title = "Eighteen canonical repository links sit in files the link task does not touch"
+symptom = "22.39.64 attempt 1 at 4048a95975b9: the canonical link test finds eighteen noncanonical links in eleven files under docs/site/docs, docs/platform/content and consensus/spec/README.md, outside the nine package manifests, three pom files, the citation file and the version file the task touches."
+fix = "The three paths join touches; links pinned to old blob paths point at the current page of the canonical repository or the sentence is rewritten."
+
+[gotcha.3499]
+title = "The qualification host target fails while the qualification suite itself is red"
+symptom = "22.39.26 attempt 2 at a5906618a6b0: two repair cycles; make test-qualification-python runs the whole tools/qualification tree and reports 324 failures and one error (jsonschema absent in the first run), the same tree 22.31.623 is bringing to green."
+fix = "22.39.26 requires 22.31.623 and requalifies after it lands; the host target is not repaired twice."
+
+[gotcha.3500]
+title = "An attempt withheld the include edit its continuation note directed because the file was outside touches"
+symptom = "22.38.4 attempt 2 at c1f66a1b05b2: the native build passes at 495478 bytes, the module mirror check fails because the hosted gateway test include file lacks the laps module, and the attempt stopped for a scope clarification although do_5 named services/platform/hosted/gateway/tests/repair_22_33_1439.rs as the file to edit."
+fix = "Decision 2835: a file a continuation note directs an attempt to edit is listed in touches by the same batch; the file joins the touches of 22.38.4 and attempt 3 applies the include line."
+
+[gotcha.3501]
+title = "The faucet route tests invoke the faucet command without the service endpoint the command now requires"
+symptom = "22.39.118 attempt 4 at b9073eb05083: build exit 0, verification exit 2; the rpc tests, the wallet test, the credential tests and the bootstrap test pass; both tests of tools/platform/cli/tests/faucet_route.rs fail: the identity test receives invalid_arguments instead of identity_session_required and the route test sees the command exit before sending. 7884cd3f83 (22.33.1492) made --service-endpoint a required argument of the faucet command and the tests still pass only --key."
+fix = "The tests pass --service-endpoint with the listener address in both cases and keep their assertions; the file is inside the touched directory (gotcha 3046)."
+
+[gotcha.3502]
+title = "The x402 sequenced settlement document carries the transaction hash of the recording before the refresh"
+symptom = "22.31.622 attempt 3 at 61134f40bb83: build exit 0, verification exit 1; the copy checks, the committed-proof targets and the three enabled facilitator tests pass; two sequenced_vectors tests fail at line 557 because services/interop/specs/conformance/x402/sequenced-settlement.json still names the earlier transaction hash while the committed recording the copy test follows names the current one; the document is outside touches."
+fix = "The document joins the touches of 22.31.622; the next attempt refreshes its committed case from the same recording and keeps the assertion."
+
+[gotcha.3503]
+title = "The reverted swap test runs the in-process EVM without a time bound"
+symptom = "22.39.43 attempt 4 at fadf6bebf6d1: two repair cycles; the inventory check and 89 wallet tests pass; execute_swap_refuses_a_reverted_swap times out at the default 5000 ms after the executor test moved from a spawned node to an in-process EVM compiled with solc at suite start (84 s for the four tests), while the two confirmed-quote tests of the same file carry a 15000 ms bound."
+fix = "The reverted swap test carries the same bound as its siblings; the attempt-4 tree stands."
