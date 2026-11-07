@@ -291,7 +291,7 @@ curl --max-time 15 -sS https://api1.mainnet-beta.paxeer.network \
 
 The expected chain ID is `"0x7d"`. For the method inventory and other nodes,
 see [Public RPC endpoints](../reference/public-rpc.md). The public namespaces
-are `debug`, `echo`, `eth`, `net`, `pax`, `test`, and `txpool`.
+are `debug`, `echo`, `eth`, `net`, `pax`, `px`, `test`, and `txpool`.
 `node.hyperpaxeer.com` is the hpx library mirror, never an RPC endpoint.
 
 ## Refusals

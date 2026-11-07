@@ -30,9 +30,10 @@ First distinguish the transports involved:
 | MCP | Local stdio, or the protected Unix listener declared by the binding; the client forwards tool calls to the authenticated daemon transport |
 | Agent program reads | The binding's loopback `agent.endpoint` and protected bearer; this is not the public node URL |
 
-The node namespaces are `debug`, `echo`, `eth`, `net`, `pax`, `test`, and
-`txpool`. A hosted `px_` method is not automatically available on a public
-node. Obtain the hosted origin and its credentials from the deployment
+The node namespaces are `debug`, `echo`, `eth`, `net`, `pax`, `px`, `test`, and
+`txpool`. The `px` namespace answers from node state; `px_register` and
+`px_requestFunds` are operations of the hosted identity and faucet
+services declared in `services/platform/hosted/gateway/openrpc.json`. Obtain the hosted origin and its credentials from the deployment
 operator; a node hostname alone does not establish an agent gateway.
 
 The unified router and its `/rpc`, `/rpc/ws`, and `/rpc/schema` public routes are retired.

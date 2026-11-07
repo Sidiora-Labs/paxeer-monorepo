@@ -28,11 +28,10 @@ Keep the node RPC origin and the hosted gateway origin separate:
 | Agent program listener | Private loopback `127.0.0.1:<port>` endpoint protected by its program bearer |
 | Human and local MCP listeners | Protected Unix sockets with explicit peer admission |
 
-The public node namespaces are `debug`, `echo`, `eth`, `net`, `pax`, `test`
-and `txpool`. The hosted methods, including `px_getReceiptKeys` and
-`px_requestFunds`, are declared in
-`services/platform/hosted/gateway/openrpc.json`; they are not public node
-methods. A deployment manifest naming the public node alias does not turn
+The public node namespaces are `debug`, `echo`, `eth`, `net`, `pax`, `px`, `test`
+and `txpool`. The `px` namespace answers from node state; `px_register` and
+`px_requestFunds` are operations of the hosted identity and faucet
+services declared in `services/platform/hosted/gateway/openrpc.json`. A deployment manifest naming the public node alias does not turn
 that alias into an authenticated gateway. See [Public RPC endpoints](../reference/public-rpc.md).
 
 For example, check the node identity before signing or broadcasting:

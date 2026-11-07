@@ -47,9 +47,9 @@ curl --fail-with-body --silent --show-error "$RPC_URL" \
 ```
 
 The chain ID result is `0x7d`. Node namespaces are `debug`, `echo`, `eth`, `net`,
-`pax`, `test` and `txpool`. Hosted `px_` methods belong to
-[`services/platform/hosted/gateway`](../../../services/platform/hosted/gateway/openrpc.json);
-they are not implied by a public node URL. `node.hyperpaxeer.com` is only the library mirror used by build scripts.
+`pax`, `px`, `test` and `txpool`. The `px` namespace answers from node state; `px_register` and
+`px_requestFunds` are operations of the hosted identity and faucet
+services declared in [the gateway OpenRPC contract](../../../services/platform/hosted/gateway/openrpc.json). `node.hyperpaxeer.com` is only the library mirror used by build scripts.
 
 The global `--rpc` override and the environment endpoint must be an HTTP(S)
 origin at the root path (`/`); the CLI refuses any other path, including the

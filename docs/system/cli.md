@@ -17,9 +17,9 @@ There is no separate LayerX interface or sequencer service in the merged network
 Public node JSON-RPC uses the root path on `https://api1.mainnet-beta.paxeer.network`
 through `https://api14.mainnet-beta.paxeer.network` and
 `https://api-mainnet-beta.paxeer.network`. The node namespaces are `debug`, `echo`,
-`eth`, `net`, `pax`, `test` and `txpool`. Hosted `px_` methods belong to
-[`services/platform/hosted/gateway/openrpc.json`](../../services/platform/hosted/gateway/openrpc.json);
-they are not an additional node namespace.
+`eth`, `net`, `pax`, `px`, `test` and `txpool`. The `px` namespace answers from node state; `px_register` and
+`px_requestFunds` are operations of the hosted identity and faucet
+services declared in [the gateway OpenRPC contract](../../services/platform/hosted/gateway/openrpc.json).
 `node.hyperpaxeer.com` is the hpx library mirror, not an RPC endpoint.
 
 The router and its `/rpc`, `/rpc/ws` and `/rpc/schema` paths are retired.

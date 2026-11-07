@@ -13,8 +13,10 @@ domains in the database, launchable without new infrastructure.
 The public node JSON-RPC endpoints are the root paths of
 `https://api-mainnet-beta.paxeer.network` and `https://api1.mainnet-beta.paxeer.network`
 through `https://api14.mainnet-beta.paxeer.network`. EVM chain ID is `125`
-(`0x7d`). Node namespaces are `debug`, `echo`, `eth`, `net`, `pax`, `test` and
-`txpool`. Hosted `px_*` methods belong to the gateway, not the node API.
+(`0x7d`). Node namespaces are `debug`, `echo`, `eth`, `net`, `pax`, `px`, `test` and
+`txpool`. The `px` namespace answers from node state; `px_register` and
+`px_requestFunds` are operations of the hosted identity and faucet
+services declared in `services/platform/hosted/gateway/openrpc.json`.
 Obtain the gateway origin and enabled product routes from its operator.
 The checked-in Ingress names the public node hostname; that manifest alone
 does not establish a deployed public gateway there.

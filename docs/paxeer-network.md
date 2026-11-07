@@ -58,10 +58,10 @@ curl --max-time 15 -sS https://api1.mainnet-beta.paxeer.network \
 Check chain identity before signing, use bounded timeouts, and compare
 `eth_blockNumber` across configured nodes when freshness matters. Consult
 [Public RPC endpoints](site/docs/reference/public-rpc.md) for the full list.
-The public node namespaces are `debug`, `echo`, `eth`, `net`, `pax`, `test`
-and `txpool`; availability depends on node configuration. Hosted `px_`
-methods are specified separately in
-[`services/platform/hosted/gateway/openrpc.json`](../services/platform/hosted/gateway/openrpc.json).
+The public node namespaces are `debug`, `echo`, `eth`, `net`, `pax`, `px`, `test`
+and `txpool`; availability depends on node configuration. The `px` namespace answers from node state; `px_register` and
+`px_requestFunds` are operations of the hosted identity and faucet
+services declared in [the gateway OpenRPC contract](../services/platform/hosted/gateway/openrpc.json).
 
 The former router and its prefixed RPC routes are retired. `node.hyperpaxeer.com` is only the hpx library mirror, never a JSON-RPC endpoint.
 

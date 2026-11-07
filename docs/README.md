@@ -13,9 +13,9 @@ in the database, rather than separately deployed networks.
 
 Start integrations with the public node JSON-RPC at the root of
 `https://api-mainnet-beta.paxeer.network` or the numbered nodes `api1` through
-`api14.mainnet-beta.paxeer.network`. The hosted gateway's `px_` methods are
-defined in its OpenRPC contract; that contract does not imply those methods
-are available on every public node.
+`api14.mainnet-beta.paxeer.network`. The node serves the `px` namespace at
+the same root; `px_register` and `px_requestFunds` are hosted identity and
+faucet operations defined in the gateway OpenRPC contract.
 The former router and separate LayerX interface are retired.
 
 The historical references below retain useful background, but their pre-merge

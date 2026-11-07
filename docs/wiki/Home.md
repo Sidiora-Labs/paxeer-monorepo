@@ -74,10 +74,11 @@ storage also carries deterministic occupancy charges. See
 [Programs](Programs.md#occupancy-and-committed-state), [Fees](Fees.md), and
 [Assets and tokens](Assets.md).
 
-Hosted `px_*` methods belong to `services/platform/hosted/gateway/`, whose
-`openrpc.json` defines their contract. They are not node namespaces. The
-public node namespaces are `debug`, `echo`, `eth`, `net`, `pax`, `test`, and
-`txpool`; obtain hosted service availability from its operator.
+The public node namespaces are `debug`, `echo`, `eth`, `net`, `pax`, `px`,
+`test`, and `txpool`. The `px` namespace answers from node state; `px_register`
+and `px_requestFunds` are hosted identity and faucet operations whose contract
+is `services/platform/hosted/gateway/openrpc.json`. Obtain hosted service
+availability from its operator.
 
 ## Resources
 

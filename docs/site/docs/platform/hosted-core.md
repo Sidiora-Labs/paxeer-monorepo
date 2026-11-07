@@ -11,10 +11,10 @@ The public node JSON-RPC is at the root of
 `https://api1.mainnet-beta.paxeer.network` through
 `https://api14.mainnet-beta.paxeer.network` hosts, with EVM chain ID `125`
 (`0x7d`). See [Public RPC endpoints](../reference/public-rpc.md). The node
-namespaces are `debug`, `echo`, `eth`, `net`, `pax`, `test` and `txpool`.
-Hosted gateway `px_` methods are declared in
-`services/platform/hosted/gateway/openrpc.json`; configure that gateway where
-core needs those methods. A direct node URL alone does not supply the gateway
+namespaces are `debug`, `echo`, `eth`, `net`, `pax`, `px`, `test` and `txpool`.
+The `px` namespace answers from node state; `px_register` and
+`px_requestFunds` are operations of the hosted identity and faucet
+services declared in `services/platform/hosted/gateway/openrpc.json`. A direct node URL alone does not supply the gateway
 contract. Sub-chains are tenant domains in the database, not additional node
 infrastructure.
 

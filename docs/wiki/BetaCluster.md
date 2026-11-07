@@ -176,10 +176,10 @@ Public mainnet-beta JSON-RPC uses the root of
 `https://api-mainnet-beta.paxeer.network` or the numbered hosts
 `https://api1.mainnet-beta.paxeer.network` through
 `https://api14.mainnet-beta.paxeer.network`. The public node namespaces are
-`debug`, `echo`, `eth`, `net`, `pax`, `test` and `txpool`.
-Hosted `px_` methods have their own contract in
-`services/platform/hosted/gateway/openrpc.json`; obtain the hosted origin from
-its operator rather than assuming those methods exist on a public node.
+`debug`, `echo`, `eth`, `net`, `pax`, `px`, `test` and `txpool`.
+The `px` namespace answers from node state; `px_register` and
+`px_requestFunds` are operations of the hosted identity and faucet
+services declared in `services/platform/hosted/gateway/openrpc.json`.
 The former router and prefixed RPC endpoints are retired.
 `node.hyperpaxeer.com` is only the hpx library mirror, never an RPC endpoint.
 See the site's [public RPC reference](../site/docs/reference/public-rpc.md)

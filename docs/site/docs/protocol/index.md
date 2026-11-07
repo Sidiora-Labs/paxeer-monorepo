@@ -18,7 +18,7 @@ curl https://api-mainnet-beta.paxeer.network/ \
   --data '{"jsonrpc":"2.0","id":1,"method":"eth_chainId","params":[]}'
 ```
 
-The expected chain ID is `0x7d`. Node namespaces are `debug`, `echo`, `eth`, `net`, `pax`, `test` and `txpool`. Hosted `px_` methods have their own contract in `services/platform/hosted/gateway/openrpc.json`; their presence in that contract does not make them node methods. See [Public RPC](../reference/public-rpc.md).
+The expected chain ID is `0x7d`. Node namespaces are `debug`, `echo`, `eth`, `net`, `pax`, `px`, `test` and `txpool`. The `px` namespace answers from node state; `px_register` and `px_requestFunds` are operations of the hosted identity and faucet services declared in `services/platform/hosted/gateway/openrpc.json`. See [Public RPC](../reference/public-rpc.md).
 
 `node.hyperpaxeer.com` is only the hpx library mirror used by build scripts; it is not an RPC endpoint. Sub-chains are tenant domains represented in the database, rather than additional validator deployments; their node-side implementation lives in `modules/layerxchains/`.
 

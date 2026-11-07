@@ -287,11 +287,10 @@ curl -sS https://api1.mainnet-beta.paxeer.network \
 ```
 
 Node root-path handling is in [rpcstack.go](../../rpc/rpcstack.go).
-The public node namespaces are `debug`, `echo`, `eth`, `net`, `pax`, `test`,
-and `txpool`. Hosted `px_` operations such as registration and funding are
-described by the gateway's
-[OpenRPC contract](../../services/platform/hosted/gateway/openrpc.json);
-a node URL does not by itself supply those hosted identity services.
+The public node namespaces are `debug`, `echo`, `eth`, `net`, `pax`, `px`, `test`,
+and `txpool`. The `px` namespace answers from node state; `px_register` and
+`px_requestFunds` are operations of the hosted identity and faucet
+services declared in [the gateway OpenRPC contract](../../services/platform/hosted/gateway/openrpc.json).
 The retired router and `/rpc`, `/rpc/ws`, and `/rpc/schema` paths are not public node endpoints.
 
 [rpc.rs](../../tools/platform/cli/src/rpc.rs) requires a node URL at the root
