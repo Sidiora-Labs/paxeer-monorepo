@@ -202,9 +202,10 @@ jobs:
 
       - name: Clone ETH Blocktests
         run: |
-          git clone https://github.com/ethereum/tests.git ethtests
-          cd ethtests
-          git checkout c67e485ff8b5be9abc8ad15345ec21aa22e290d9
+          git init ethtests
+          git -C ethtests remote add origin https://github.com/ethereum/tests.git
+          git -C ethtests fetch --depth 1 origin c67e485ff8b5be9abc8ad15345ec21aa22e290d9
+          git -C ethtests checkout --detach c67e485ff8b5be9abc8ad15345ec21aa22e290d9
 
       - name: Prepare isolated Pax home
         id: pax-home
