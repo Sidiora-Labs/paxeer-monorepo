@@ -1,4 +1,5 @@
 # Qualification findings for layerx-merge v2: one [finding.<N>.<k>.<m>] per finding, keyed by the v2 task id that met it; a second finding for the same task is [finding.<N>.<k>.<m>.<n>].
+# Task 22.31.620 retains its declared gates; exact candidate receipts are in /out/run/gates.jsonl and its gateway repair record.
 # Keys, in this order (spec/workflow.kvx [qualification_log] entry_keys): task, file, symbol, observed, assumption, severity.
 # Format source: spec/workflow.kvx [qualification_log] and [loop] step_6. Path of this ledger: spec/layerx-merge/qualification.kvx.
 #   task       = "<N>.<k>.<m>"  the v2 task whose qualification exposed the finding
@@ -33740,14 +33741,6 @@ observed = "Attempt 2 at 3810cd465592 (base 9ef707c66718): builds 2, dependent-c
 assumption = "The mismatch is on main since 74ef78b42b and belongs to the repair task 22.31.622; the attempt tree needs no change."
 severity = "high"
 
-[finding.22.31.620.1]
-task = "22.31.620"
-file = "tests/ci/test_ai_market_module_mirror.py"
-symbol = "test_ai_market_module_mirror.py"
-observed = "Attempt 1 at 34d49ec60d93 (base 97835484dd): build exit 101 with E0277 at rooms.rs line 572 in the mirrored compilation (no PartialOrd between a byte slice and a 32-byte array); the verification never ran."
-assumption = "A slice-against-slice comparison compiles in both module trees, so the one-line change inside the crate closes the build without a separate task."
-severity = "high"
-
 [finding.22.39.39.1]
 task = "22.39.39"
 file = "tests/ci/test_site_links_inside_docs_dir.py"
@@ -33939,3 +33932,16 @@ symbol = "test_no_deployment_hosts_in_source.py"
 observed = "Attempt 1 at 58f6f9d20eb0: build exit 101: cargo check over the gateway test targets failed on the unresolved imports of gotcha 3417; verification never ran."
 assumption = "The failure sits on main and belongs to 22.31.620; the attempt-1 work is complete and only needs the gate to run after that repair."
 severity = "high"
+[finding.22.31.620.2]
+task = "22.31.620"
+file = "programs/crates/layerx-programs-ai-market/tests/support/repair_478_fixture.rs:301"
+observed = "Revision e3909f381a34b1344c5b48e30dce92143ed4f4de, command cg spec done 22.31.620 -f layerx-merge --root /work/paxeer-monorepo, exit 1 (cargo test exit 101), private log /out/logs/verify-1.log: fund_entry_gas_for_committed_receipt_fixture_is_bounded failed reading the absent owner file under services/platform/target/repair-478; the Go-produced fixture is required and the Python currency check was not reached."
+assumption = "The fixture must be supplied by its real Go producer, whose gate is outside the allowed gates; retain the declared build and verification commands and every assertion unchanged."
+severity = "blocker"
+
+[finding.22.31.620.3]
+task = "22.31.620"
+file = "services/platform/hosted/gateway/tests/repair_22_33_1439.rs:609"
+observed = "Revision e3909f381a34b1344c5b48e30dce92143ed4f4de, command cg spec done 22.31.620 -f layerx-merge --root /work/paxeer-monorepo, exit 1 (cargo test exit 101), private log /out/logs/verify-1.log: the unchanged node_root_and_explicit_chain_paths_reject_router_paths test received null instead of 0xb for eth_blockNumber, while the gateway target compiled and 39 tests passed."
+assumption = "The pre-existing node-path assertion is unrelated to module mirroring; retain it unchanged and do not chase or rerun the recorded failure."
+severity = "blocker"
