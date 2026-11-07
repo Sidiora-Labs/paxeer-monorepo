@@ -33603,3 +33603,11 @@ symbol = "program.rs"
 observed = "Attempt 10 at aaf20e51047e: build 1 exit 0, verify 1 exit 101 before any test ran: the clock helper refused because services/platform/Cargo.lock needs to be updated under the locked flag."
 assumption = "The refusal is the stale platform lockfile of the main tree (reproduced there), not the attempt tree; after 22.31.614 lands the verification reaches the tests."
 severity = "high"
+
+[finding.22.39.8.1]
+task = "22.39.8"
+file = "services/wallet/attestor/internal/server/native_purpose_test.go"
+symbol = "native_purpose_test.go"
+observed = "Attempt 1 at 072c86dbd9c7: build 1 exit 0, verify 1 exit 1: both real-profile tests failed at the consumer requirement (prebuilt real Rust custody consumer is required) after the inventory wiring passed."
+assumption = "With the consumer executable built and exported and the clock socket provided, the two tests reach their assertions; the gate of 18.1110.1 proves the shape."
+severity = "high"
