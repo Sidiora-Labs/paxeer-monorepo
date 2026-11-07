@@ -1151,6 +1151,8 @@ pub(crate) mod tests {
         let (endpoint, worker) = endpoint(answers);
         let reads = CommittedReads::open(&endpoint, 8).expect("committed checkpoint");
         let caps = reads.capabilities([1; 20], &[1; 4]).expect("capabilities");
+        assert_eq!(caps.level(), VerificationLevel::COMMITTED);
+        assert_eq!(caps.level().wire_rank(), 6);
         assert_eq!(caps.canonical_bytes(), &[7; 32]);
         assert_eq!(caps.state_root(), checkpoint.app_hash);
         assert_eq!(caps.freshness().observed_head_sequence, 8);
@@ -1571,6 +1573,8 @@ pub(crate) mod tests {
         let (endpoint, worker) = endpoint(answers);
         let reads = CommittedReads::open(&endpoint, 8).expect("checkpoint");
         let mut caps = reads.inventory(&did, &[asset], asset).expect("inventory");
+        assert_eq!(caps.level(), VerificationLevel::COMMITTED);
+        assert_eq!(caps.level().wire_rank(), 6);
         reads
             .inventory_records(&mut caps, &[[9; 32]], &[[6; 32]])
             .expect("selected budget and grant");
