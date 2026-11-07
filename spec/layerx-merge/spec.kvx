@@ -330920,7 +330920,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.50]
 title = "Make the labeler and the label enforcement agree with the labels the repository and release notes use"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
