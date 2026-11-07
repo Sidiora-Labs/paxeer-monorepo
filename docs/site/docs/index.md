@@ -123,8 +123,6 @@ See [Assets and tokens](concepts/assets.md) for asset-specific material.
 - [SDK terminal verification](agents/sdk-verification.md)
 - [Portable receipt verifier](interop/portable-receipts.md)
 - [x402 transport](interop/x402.md)
-- [402LXP protocol](https://github.com/Sidiora-Labs/Paxeer-X-Network/blob/main/spec/402lxp/protocol.md)
-- [402LXP RPC verification guide](https://github.com/Sidiora-Labs/Paxeer-X-Network/blob/main/spec/402lxp/README.md)
 - [Agentd](agents/agentd.md)
 - [CLI](platform/cli.md)
 - [Hosted core](platform/hosted-core.md)
