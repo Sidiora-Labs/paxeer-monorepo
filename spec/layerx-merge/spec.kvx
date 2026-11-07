@@ -10083,6 +10083,12 @@ value = "When a task verification names an integration target whose test reads a
 basis = "Gotcha 3486"
 affects = ["22.31.542"]
 
+[decision.2829]
+title = "A task whose touches include a crate manifest lists the lockfile of every workspace that resolves it among its planned paths"
+value = "When a task record names a Cargo.toml (or any package manifest) in its touches, the record also lists the lockfile of every workspace that resolves that manifest (decisions 2259 and 2513 require the refresh), so the refresh the gates need is never read as a change outside scope; a held result whose only finding is such a lockfile is published once the record is corrected, without a rerun."
+basis = "Gotcha 3487"
+affects = ["22.31.549"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -183562,7 +183568,7 @@ do_5 = "do_5 Record in services/agent/crates/layerx-agentd/tests/repair_22_31_54
 symbols = []
 touches = ["services/agent/crates/layerx-types/src/verify.rs", "services/platform/hosted/authority/src/human.rs", "services/platform/hosted/authority/src/human/dynamic.rs", "services/platform/hosted/authority/Cargo.toml", "services/platform/hosted/authority/tests/repair_22_31_549.rs", "services/agent/crates/layerx-agentd/src/human_runtime.rs", "services/agent/crates/layerx-agentd/src/human_runtime/subject.rs", "services/agent/crates/layerx-agentd/tests/bootstrap_bind_layerx.rs", "services/agent/crates/layerx-agentd/tests/native_send_preview_evm.rs", "services/agent/crates/layerx-agentd/tests/human_approval_budget_actor.rs", "services/agent/crates/layerx-agentd/tests/human_projection_facts.rs", "services/agent/crates/layerx-agentd/tests/support/repair_22_33_1529.rs", "services/agent/crates/layerx-agentd/tests/repair_22_31_549.rs", "services/agent/crates/layerx-agentd/tests/repair_22_31_549.kvx"]
 tests = ["services/platform/hosted/authority/tests/repair_22_31_549.rs", "services/agent/crates/layerx-agentd/tests/repair_22_31_549.rs"]
-planned_paths = ["services/agent/crates/layerx-types", "services/platform/hosted/authority", "services/agent/crates/layerx-agentd"]
+planned_paths = ["services/agent/crates/layerx-types", "services/platform/hosted/authority", "services/agent/crates/layerx-agentd", "services/platform/Cargo.lock"]
 build_cmd = "cargo build --locked --manifest-path services/agent/crates/layerx-types/Cargo.toml --lib && cargo build --locked --manifest-path services/platform/hosted/authority/Cargo.toml --lib --test repair_22_31_549 && cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib --test repair_22_31_549 --test bootstrap_bind_layerx --test human_approval_budget_actor --test human_projection_facts --test native_send_preview_evm"
 verify_cmd = "cargo test --locked --manifest-path services/agent/crates/layerx-types/Cargo.toml --lib -- wire_label && cargo test --locked --manifest-path services/platform/hosted/authority/Cargo.toml --test repair_22_31_549 && cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test repair_22_31_549 --test bootstrap_bind_layerx"
 gate_kind = "planned"
