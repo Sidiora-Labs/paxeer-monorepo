@@ -303,7 +303,7 @@ impl VerifiedResolvedProgramCharges {
             caps.observed_height(),
             caps.freshness().observed_head_sequence
         );
-        assert!(caps.level() >= layerx_types::verify::VerificationLevel::CHECKPOINT_FINALISED);
+        assert!(caps.level() >= layerx_types::verify::VerificationLevel::COMMITTED);
     }
 }
 

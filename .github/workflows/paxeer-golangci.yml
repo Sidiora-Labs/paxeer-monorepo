@@ -25,6 +25,8 @@ on:
       - 'tools/release/version.json'
       - 'admin/**'
       - 'api/**'
+      - 'services/bridge/deploy/**'
+      - 'tools/flyci/**'
       - 'tools/benchmark/**'
       - 'consensus/**'
       - 'custodyproof/**'
@@ -89,6 +91,8 @@ on:
       - 'tools/release/version.json'
       - 'admin/**'
       - 'api/**'
+      - 'services/bridge/deploy/**'
+      - 'tools/flyci/**'
       - 'tools/benchmark/**'
       - 'consensus/**'
       - 'custodyproof/**'
@@ -164,5 +168,5 @@ jobs:
         uses: golangci/golangci-lint-action@4afd733a84b1f43292c63897423277bb7f4313a9 # v8
         with:
           version: v2.8.0
-          args: --timeout 10m0s
+          args: --config .golangci.yml --timeout 10m0s
           working-directory: .
