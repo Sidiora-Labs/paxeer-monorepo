@@ -179631,7 +179631,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.17]
 title = "Delete the commented-out impl block in the zksolc standard JSON output module"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -329953,7 +329953,7 @@ do_6 = "Attempt 3: the closure check is a gate over the whole issue programme; i
 
 [task.22.39.18]
 title = "Delete the unreferenced 8 MB wallet image and rename the committed sample env file"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -330069,7 +330069,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.13]
 title = "Replace in-network service host names in the beta and faucet docs with operator placeholders"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -330098,7 +330098,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.12]
 title = "Replace the retired lx_ methods in the SDK quickstart wiki pages"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -330127,7 +330127,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.11]
 title = "Untrack the remaining installed node_modules trees"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -330185,7 +330185,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.9]
 title = "Allow the archive node api2 in the README public host test"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -330213,7 +330213,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.7]
 title = "Install Maven before the Android sample step of the platform job"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -330360,7 +330360,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1]
 title = "Take the release identity of the rollout scripts from version.json and carry the merge plan info"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
