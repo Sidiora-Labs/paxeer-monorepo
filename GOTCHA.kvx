@@ -17340,3 +17340,18 @@ fix = "The document joins the touches of 22.31.622; the next attempt refreshes i
 title = "The reverted swap test runs the in-process EVM without a time bound"
 symptom = "22.39.43 attempt 4 at fadf6bebf6d1: two repair cycles; the inventory check and 89 wallet tests pass; execute_swap_refuses_a_reverted_swap times out at the default 5000 ms after the executor test moved from a spawned node to an in-process EVM compiled with solc at suite start (84 s for the four tests), while the two confirmed-quote tests of the same file carry a 15000 ms bound."
 fix = "The reverted swap test carries the same bound as its siblings; the attempt-4 tree stands."
+
+[gotcha.3504]
+title = "A deselect list the continuation note directed was outside the planned paths"
+symptom = "22.39.54 attempt 2 at f188e5ea648f: the attempt moved seven script jobs of the continuous integration workflow to the routing expression and kept the eighteen settlements, then stopped before any gate because do_7 directed it to create tests/ci/data/tools_ci_deselect.txt and neither touches nor planned_paths listed the file."
+fix = "Decision 2835: the file joins planned_paths; attempt 3 creates it with the one ledger entry and runs the gates."
+
+[gotcha.3505]
+title = "The licence task was directed to set five authors in manifests outside its touches"
+symptom = "22.39.63 attempt 2 at 7e9bfc50b82d: build exit 0, verification exit 1; the two licence tests pass and test_first_party_authors_are_organisation fails on contracts/package.json, the three chainflow SDK manifests and tests/integration/dapp_tests/package.json, the five files do_4 named for the author change while touches listed none of them."
+fix = "Decision 2835: the three paths join touches (the chainflow directory covers its three manifests); attempt 3 sets the author and keeps the test."
+
+[gotcha.3506]
+title = "Eight regression suites folded into one test binary fail on shared state and a missing executable"
+symptom = "22.31.613 attempt 1 at 50812234f9c1: build exit 0, verification exit 1; the three new cases and the 22.31.219 target pass; tests/repair_22_31_613.rs includes eight landed regression files as path modules, so 41 tests run in one process: three preview cases fail because the anvil executable the preview test spawns is absent, two cases fail on poisoned locks left by those panics, and three assertions differ (a rung count of 6 against 2 in the 22.31.562 suite, an export count of 0 against 1 in the projection suite, and a PREPARE answer whose refusal byte is 1 against 0 in the 22.31.571 suite) that cannot be attributed while the suites share a process."
+fix = "Decision 2837: the regression suites run as their own targets; the next attempt removes the includes, runs each target alone and repairs any assertion that persists, since a typed refusal changes only the reason string and never the acceptance of a path."

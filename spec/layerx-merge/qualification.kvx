@@ -34509,3 +34509,27 @@ symbol = "test_wallet_repair_suites_listed.py"
 observed = "Attempt 4 at fadf6bebf6d1: two repair cycles; the inventory check passed, 89 wallet tests passed, execute_swap_refuses_a_reverted_swap timed out at 5000 ms."
 assumption = "The test completes under the bound; the in-process EVM startup is the only cost."
 severity = "high"
+
+[finding.22.39.54.2]
+task = "22.39.54"
+file = "tests/ci/test_tools_ci_suite_passes.py"
+symbol = "test_tools_ci_suite_passes.py"
+observed = "Attempt 2 at f188e5ea648f: no gate ran; the attempt stopped because the deselect list file do_7 directed was outside touches and planned_paths."
+assumption = "The file is the only missing scope item; the gates pass once it exists."
+severity = "high"
+
+[finding.22.39.63.2]
+task = "22.39.63"
+file = "tests/ci/test_manifest_license_fields.py"
+symbol = "test_manifest_license_fields.py"
+observed = "Attempt 2 at 7e9bfc50b82d: build exit 0; verification exit 1: two licence tests passed, test_first_party_authors_are_organisation failed on the five manifests do_4 named outside touches."
+assumption = "No other first-party manifest carries a foreign author."
+severity = "high"
+
+[finding.22.31.613.1]
+task = "22.31.613"
+file = "services/agent/crates/layerx-agentd/tests/repair_22_31_613.rs"
+symbol = "repair_22_31_613.rs"
+observed = "Attempt 1 at 50812234f9c1: build exit 0; verification exit 1: 33 passed, 8 failed, 2 ignored in tests/repair_22_31_613.rs, where eight landed regression files run as path modules of one binary; three preview cases could not spawn anvil, two cases met poisoned locks, and three assertions differed."
+assumption = "The three assertion differences are either process sharing or a refusal the typed change now raises on an accepted path; the separated targets decide which."
+severity = "high"
