@@ -182703,7 +182703,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.38.8]
 title = "Serve the F11 reads for rooms, deals, peers and receipt batches"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["22.38.3", "22.38.4", "22.31.615", "22.31.620"]
