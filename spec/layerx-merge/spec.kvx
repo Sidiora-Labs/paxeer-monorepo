@@ -152092,7 +152092,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.43]
 title = "Bring the apps/wallet test files with assertion drift back in line with the code they test"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.39.42", "22.39.55"]
