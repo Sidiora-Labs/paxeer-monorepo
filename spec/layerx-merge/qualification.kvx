@@ -35177,3 +35177,19 @@ symbol = "test_core_test_all_wired.py"
 observed = "Attempt 4 at 1ab4401a1dc7e419f0b75677eda2a3b80897f8c0: build exit 0; verification exit 1: both wiring tests and the four ported suites passed, qualify-arith refused for the unavailable clang after forge, cbmc and z3 answered."
 assumption = "The gate named the tools of the last failure instead of the tools the proof script resolves; clang completes the set."
 severity = "high"
+
+[finding.22.39.142.2]
+task = "22.39.142"
+file = "programs/crates/layerx-programs-ai-market/tests/f11_views.rs"
+symbol = "f11_views.rs"
+observed = "Attempt 2 at 77bfba6a279be09fc90f7172b752ba9290e372d2: build exit 0; verification exit 1 at the size assertion, 500894 bytes against 484184, before the four f11 binaries ran; attempt 1 measured 504844 and the starting tree 511946."
+assumption = "The remaining gap is found by measuring the artifact, not by reading more sources; the two structural techniques are the ones not yet applied."
+severity = "high"
+
+[finding.22.39.147.1]
+task = "22.39.147"
+file = "tests/ci/test_workflow_live_inputs_guarded.py"
+symbol = "test_workflow_live_inputs_guarded.py"
+observed = "Attempt 1 at 94f1769f81b7be0ae0070751721ff5075a9ad9d8: build exit 0; verification exit 1 at the routing check with thirteen refusals in four workflows outside the touches; the pytest step never ran."
+assumption = "The seven restored lines are right; the check sees the whole repository and every refusal belongs to this repair."
+severity = "high"
