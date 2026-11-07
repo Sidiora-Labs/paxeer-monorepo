@@ -31,7 +31,7 @@ Each file holds a JSON array of records:
 `PaymentHandler`, `IdempotencyKey`, `CheckoutStatus` and `UcpCapability` types,
 so the suite the deployment pins is the suite the tests exercise.
 
-Two cases in that file are not vectors and are not counted: the Codify anchor
+Two cases in that file are not vectors and are not counted: the crate descriptor
 and the vendored-revision check assert against constants compiled into the
 crate rather than against wire data.
 

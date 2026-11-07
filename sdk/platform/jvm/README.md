@@ -274,7 +274,7 @@ material, never production trust anchors.
 
 The generated Human API intentionally uses `unverified`, `receipt-verified`
 and `checkpoint-finalised` in `HumanModels.HumanVerificationLevel`.
-`checkpoint-finalised` names the committed rung in that API (decision 2115);
+`checkpoint-finalised` names the committed rung in that API;
 it does not add another network finality step or change the local verifier enum.
 See the [client contract](../../../spec/layerx-merge/contracts/clients.md)
 and [receipt and key-pin contract](../../../spec/layerx-merge/contracts/sequencer.md#receipt-key-pin).

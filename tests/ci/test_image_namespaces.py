@@ -10,6 +10,12 @@ import yaml
 
 ROOT = Path(__file__).resolve().parents[2]
 WORKFLOWS = ROOT / ".github/workflows"
+COMPOSE_FILES = (
+    "docker/docker-compose.yml",
+    "docker/docker-compose.monitoring.yml",
+    "services/explorer/deploy/docker-compose.local.yml",
+    "tools/ops/monitoring/docker-compose.yml",
+)
 
 
 def workflow(name):
@@ -118,3 +124,90 @@ def test_no_old_repository_name_in_workflows():
             text = go_import.sub("", text)
         assert "paxeer-x-network" not in text.lower(), relative
         assert "ghcr.io/paxeer-network/" not in text.lower(), relative
+
+
+@pytest.mark.parametrize("relative", COMPOSE_FILES)
+def test_compose_first_party_images_use_ghcr_namespace(relative):
+    services = yaml.safe_load((ROOT / relative).read_text())["services"]
+    expected = {}
+    if relative == "docker/docker-compose.yml":
+        expected = {f"node{i}": "localnode" for i in range(4)}
+        expected["x-websearch"] = "x-websearch"
+    elif relative == "services/explorer/deploy/docker-compose.local.yml":
+        expected = {
+            name: f"paxeer-x-explorer-{name}"
+            for name in (
+                "smart-contract-verifier",
+                "sig-provider",
+                "backend",
+                "frontend",
+            )
+        }
+    for name, repository in expected.items():
+        assert services[name]["image"].startswith(
+            f"ghcr.io/sidiora-labs/{repository}:"
+        ), (relative, name, services[name]["image"])
+    images = [service["image"] for service in services.values() if "image" in service]
+    assert images, relative
+    for image in images:
+        assert not image.startswith("pax-chain/"), (relative, image)
+        if image.startswith("ghcr.io/"):
+            assert image.startswith("ghcr.io/sidiora-labs/"), (relative, image)
+
+
+@pytest.mark.parametrize("relative", COMPOSE_FILES)
+def test_compose_images_have_explicit_tags(relative):
+    services = yaml.safe_load((ROOT / relative).read_text())["services"]
+    images = {
+        name: service["image"]
+        for name, service in services.items()
+        if "image" in service
+    }
+    assert images, relative
+    for name, image in images.items():
+        reference = re.fullmatch(r"[^:\s]+:(.+)", image)
+        assert reference, (relative, name, image)
+        tag = reference[1]
+        if image.startswith("ghcr.io/sidiora-labs/"):
+            required = re.fullmatch(r"\$\{([A-Z][A-Z0-9_]*):\?[^{}]+\}", tag)
+            assert required, (relative, name, image)
+            if relative == "services/explorer/deploy/docker-compose.local.yml":
+                assert required[1] == "EXPLORER_IMAGE_TAG", (name, image)
+            elif relative == "docker/docker-compose.yml":
+                variable = (
+                    "X_WEBSEARCH_IMAGE_TAG"
+                    if name == "x-websearch"
+                    else "LOCALNODE_IMAGE_TAG"
+                )
+                assert required[1] == variable, (name, image)
+        else:
+            assert re.fullmatch(r"[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}", tag), (
+                relative,
+                name,
+                image,
+            )
+            assert tag.lower() not in {
+                "latest",
+                "stable",
+                "main",
+                "edge",
+                "rolling",
+                "beta",
+            }, (relative, name, image)
+
+    if relative == "docker/docker-compose.monitoring.yml":
+        ops = yaml.safe_load(
+            (ROOT / "tools/ops/monitoring/docker-compose.yml").read_text()
+        )["services"]
+        assert images["prometheus"] == ops["prometheus"]["image"]
+        assert images == {
+            "prometheus": "prom/prometheus:v2.55.1",
+            "grafana": "grafana/grafana:11.3.0",
+        }
+    elif relative == "tools/ops/monitoring/docker-compose.yml":
+        assert images == {
+            "prometheus": "prom/prometheus:v2.55.1",
+            "alertmanager": "prom/alertmanager:v0.27.0",
+            "blackbox": "prom/blackbox-exporter:v0.25.0",
+            "node-exporter": "prom/node-exporter:v1.8.2",
+        }

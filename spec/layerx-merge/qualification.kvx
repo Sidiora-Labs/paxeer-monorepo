@@ -3678,6 +3678,38 @@ severity = "blocker"
 #   1.1.3 -> 1.39.3: kernel account rows checked against the Go codec account kinds
 #   10.0.2 -> 6.7.3: activation addresses without a custom precompile reported
 
+# Qualification findings for layerx-merge v2: one [finding.<N>.<k>.<m>] per finding, keyed by the v2 task id that met it; a second finding for the same task is [finding.<N>.<k>.<m>.<n>].
+# Keys, in this order (spec/workflow.kvx [qualification_log] entry_keys): task, file, symbol, observed, assumption, severity.
+# Format source: spec/workflow.kvx [qualification_log] and [loop] step_6. Path of this ledger: spec/layerx-merge/qualification.kvx.
+#   task       = "<N>.<k>.<m>"  the v2 task whose qualification exposed the finding
+#   file       = "<repo-relative path>:<line>"  where the failure or contradiction is observed
+#   symbol     = "<exact identifier: test, function, error code, selector or key>"
+#   observed   = "<one sentence naming revision, exact command, exit code and log path, then what failed>"
+#   assumption = "<one sentence: the assumption the task proceeds on>"
+#   severity   = "blocker" | "suspect" | "assumption" | "note"
+# Append when: You hit an unrelated or pre-existing failure, a contradiction between requirements or tasks, a missing external interface, or a repair that would require weakening a check. Append once; never append the same finding twice.
+# Never: Do not log a task-scoped failure as an excuse to skip repair. Do not write narrative: observed is one sentence, assumption is one sentence, and every entry names revision, exact command, exit code and log path. An entry over six lines is a defect.
+# An entry is exactly the six keys above (six lines); append once and never re-run or re-investigate a recorded finding.
+#
+# The v2 specification starts clean: this ledger holds no findings at revision 2a1033aa2.
+# The 330 findings of the previous ledger were recorded against v1 task ids of the stale specification and are not carried forward.
+# Superseded findings: previous-ledger finding ids whose recorded gap is now a v2 task (previous id -> v2 task, reason).
+#   5.0.8 -> 11.15.1: interop lock check; decision.1101 records the finding as not reproduced at HEAD
+#   5.0.9 -> 16.7.4: build_cmd is bash -n tools/bringup/xweb-config.sh
+#   7.0.7 -> 17.6.1: solidity sandbox profile runs contracts/bridge/evm/bootstrap-libs.sh before forge
+#   12.0.2 -> 16.38.1: OCC harness loads cw20_base.wasm instead of mars.wasm (decision.1628)
+#   10.0.4 -> 6.91.1: arbiter codes -737..-739 registered in the LXP error registry
+#   0.111 -> 7.10.1: newHeads key set aligned with eth_getBlockByNumber
+#   5.1.2 -> 6.65.1: IXWeb.sol names the three origin-2 methods
+#   gateway.lx-reads-wait-on-ingress-off -> 8.3.1: every lx_ name answers -32601
+#   4.3.4 -> 13.22.1: 0x101D executor, merge constructor and dispatch table
+#   8.5.24 -> 8.47.3: streaming conformance resumes logs by (blockHeight, txIndex, logIndex)
+#   13.3.3 -> 1.20.2: linked escrow arbiter rule with LXP_ERR_UNAUTHORIZED_ARBITER
+#   1.2.2 -> 6.3.2: paused-denom bank send reverts with LXP_ASSET_PAUSED
+#   0.1 -> 6.6.9: unread PrecompileLastUpgrade retired
+#   1.1.3 -> 1.39.3: kernel account rows checked against the Go codec account kinds
+#   10.0.2 -> 6.7.3: activation addresses without a custom precompile reported
+
 [finding.11.15.1]
 task = "11.15.1"
 file = "spec/layerx-merge/spec.kvx:146838"
@@ -9190,18 +9222,18 @@ severity = "major"
 
 [finding.18.849.1.3]
 task = "18.849.1"
-file = "docker/layerx/Dockerfile.dockerignore:70"
-symbol = "x-websearch"
-observed = "Attempt 7 (4039a22e0) built the native stage and failed the full image at the x-websearch stage: cargo could not load workspace member services/interop/crates/layerx-committed-proof, which 70d213655 added to services/interop/Cargo.toml after the ignore file's interop re-includes were written; the attempt read do_5 as forbidding that repair."
-assumption = "do_5 now names the re-include; no other interop member is missing from the context."
+file = "docker/layerx/Dockerfile:55"
+symbol = "libwasmvm download"
+observed = "Attempt 6 (719e97a42) fails in the builder stage: curl to https://node.hyperpaxeer.com/lib/libwasmvm.x86_64.so returns 502 on every retry (issue #1106), while the same three x86_64 libraries sit in the tree with digests equal to wasm-runtime/libwasmvm-linux.sha256."
+assumption = "Task 18.1106.1 copies the libraries from the build context; 18.849.1 and 18.869.1 require it."
 severity = "major"
 
 [finding.18.1129.1.2]
 task = "18.1129.1"
-file = "services/interop/crates/x-websearch/tests/payment.rs:2805"
-symbol = "payer_account"
-observed = "Attempts 1 to 6 could not re-record because the harness offers the EVM payer address (bad892c80) while the recorder still issues grants and receipts from the ed25519 payer DID's account, so every metered step is refused with grant_payer_mismatch; the recorder regenerates all five gateway recordings from in-file keys, so the repair rewrites metered.json and pending.json too."
-assumption = "do_5 to do_8 and the widened touches carry the fix; no external authority is needed."
+file = "services/interop/crates/layerx-x402/src/buyer.rs:403"
+symbol = "unhex"
+observed = "Attempts 1 to 4 fail the same 22 of 35 payment tests at main: unhex requires a 0x prefix while model.rs validates bare 64-hex assets, so every exact capture is refused with EvidenceMismatch, and the seller's evidence (seller.rs:353-357) carries no logs."
+assumption = "Issue #1133 / task 18.1133.1 fixes layerx-x402; 18.1129.1 requires it and re-records afterwards."
 severity = "major"
 
 [finding.18.1129.1.3]
@@ -9214,10 +9246,10 @@ severity = "major"
 
 [finding.18.869.1.3]
 task = "18.869.1"
-file = "go.sum:2128"
-symbol = "module_simulation"
-observed = "Attempt 10 (75673db2b) built the paxd-node image and failed the layerx image's builder stage: go.sum lacks the go.mod hash of golang.org/x/net v0.0.0-20190404232315-eb5bcb51f2a3 that the keyring dependency of modules/epoch requires (issue #1141)."
-assumption = "Task 18.1141.1 adds the hash; 18.869.1 and 18.849.1 require it."
+file = "docker/layerx/Dockerfile:55"
+symbol = "libwasmvm download"
+observed = "Attempt 9 (0dd49d24a) fails the same way as 18.849.1 attempt 6: the library host answers 502 before the paxd-node changes are reached."
+assumption = "Blocked on 18.1106.1; the candidate's Dockerfile.paxd-node changes are kept for the next attempt."
 severity = "major"
 
 [finding.10.2.7.2]
@@ -9238,19 +9270,19 @@ severity = "major"
 
 [finding.18.1131.1.2]
 task = "18.1131.1"
-file = "services/agent/crates/layerx-agentd/tests/delivery.rs:187"
-symbol = "Cursor"
-observed = "Attempt 5 (7e04618b7) built --tests and failed on the pre-existing ApiCursor(Sequence(..)) constructors 051d11e3a (9.11.1) left in four test files (issue #1143)."
-assumption = "Task 18.1143.1 repairs them; 18.1131.1 requires it."
+file = "services/agent/crates/layerx-agentd/tests/handshake_gate.rs:142"
+symbol = "config_with_authority"
+observed = "Attempt 3 (f73cbbc6f) fails the build: the fixture sets expected_protocol_version and sequencer_authority_source, removed from StartupConfig by 5609ec802 (9.12.3), and readiness_node_rpc.rs includes the file by #[path], so every agentd test-target build fails (issue #1138)."
+assumption = "Pre-existing; 18.1138.1 ports the fixture and 18.1131.1 and 9.95.1 require it."
 severity = "major"
 
 [finding.5.55.5.3]
 task = "5.55.5"
-file = "node/sequencer/standby_role.go:135"
-symbol = "standbyRoleReplay"
-observed = "Attempt 10 (3f207b061, base with 07d11e56d) stopped at openAccount with standby execute seq 6: replayed receipt differs; the standby commits by re-execution because 18.1126.1 never installed the sealed-layer source its second step named (issue #1144)."
-assumption = "Task 18.1144.1 installs it with a reproducing node test; 5.55.5 requires it."
-severity = "major"
+file = "node/sequencer/standby.go:325"
+symbol = "Replicator"
+observed = "Attempt 5 on a base containing a0615a88e (18.1074.1) and 0dc2d6d81 (5.55.6) still halts, at openAccount: 'standby refused the group: standby holds seq 5' (ErrStandbyRefused, epoch not above the primary's); the recorder output does not say which Standby.receive branch refused."
+assumption = "Progress from seq 1 to seq 5 shows the adoption fix landed; the remaining refusal is a node defect filed as issue #1109, task 18.1109.1, which 5.55.5 now requires."
+severity = "blocker"
 
 [finding.18.1126.1.1]
 task = "18.1126.1"
@@ -33868,9 +33900,153 @@ observed = "Attempt 1 at ecccd4a4c554: build exit 0; verification exit 1: 1 pass
 assumption = "The three pages are repaired; the five markers are upstream text in vendored copies that the allowlist of the task text did not name."
 severity = "high"
 
+[finding.22.31.622.1]
+task = "22.31.622"
+file = "tests/ci/test_committed_vector_copy_current.py"
+symbol = "test_committed_vector_copy_current.py"
+observed = "Attempt 1 at 812ee7db75e9: build exit 0; the dependent-crate check failed to compile the gateway test target (unresolved imports canary and rooms, thirteen errors, gotcha 3417); verification never ran."
+assumption = "The failure sits on main and belongs to 22.31.620; the attempt-1 work is complete and only needs the gate to run after that repair."
+severity = "high"
+
+[finding.22.39.38.1]
+task = "22.39.38"
+file = "tests/ci/test_docs_no_programme_references.py"
+symbol = "test_docs_no_programme_references.py"
+observed = "Attempt 1 at 5b1a56176a9c: build exit 0; verification exit 1: 4 passed, 1 failed: two task numbers remain in sdk/contrib/rosetta/node/README.md line 29 and tools/launchpad/production/load/README.md line 124."
+assumption = "The guard is right; the two pages were outside the scope the task text named."
+severity = "high"
+
+[finding.22.39.54.1]
+task = "22.39.54"
+file = "tests/ci/test_tools_ci_suite_passes.py"
+symbol = "test_tools_ci_suite_passes.py"
+observed = "Attempt 1 at 799a0dafcb68: builds exit 0 (two), verification exit 1 (two runs): 112 passed, 277 subtests passed, 1 failed: the beta ledger check over spec/layerx-merge/qualification.kvx reports 6448 violations (unterminated string at line 494, repeated section headers and keys)."
+assumption = "The 18 settlements are complete; the ledger faults belong to the ledger file and are repaired by 22.39.87."
+severity = "high"
+
+[finding.22.39.51.1]
+task = "22.39.51"
+file = "tests/ci/test_action_pins_consistent.py"
+symbol = "test_action_pins_consistent.py"
+observed = "Attempt 1 at b70c71c3cbf2: build exit 0; verification exit 1: 1 passed, 2 failed: conflicting SHAs across 51 workflow files and three toolchain pins whose comment reads stable."
+assumption = "The task text named a repository-wide unification; the touches named three files. Scope is widened to the directory."
+severity = "high"
+
+[finding.22.37.4.1]
+task = "22.37.4"
+file = "tools/hyperfide/sdk/client/test/install-status.test.ts"
+symbol = "install-status.test.ts"
+observed = "Attempt 1 at 3ff690464a5b: builds exit 0 (two); verification exit 1 (two runs): install_status_reads_actual_ready_and_preserves_typed_errors failed with FileNotFoundError for /usr/bin/python3 raised by the component fixture; the component cases otherwise passed."
+assumption = "The attempt-1 implementation is complete; the fault is a fixed interpreter path in an inherited fixture outside the original touches."
+severity = "high"
+
+[finding.22.39.30.3]
+task = "22.39.30"
+file = "tests/ci/test_platform_site_finality_model.py"
+symbol = "test_platform_site_finality_model.py"
+observed = "Attempt 3 at fe2b3029520b: build exit 0; verification exit 1: 13 tests passed, then the site check refused: capabilities declared but documented on no page: Scheduled beta resets."
+assumption = "The missing row pre-exists on main (the reference page that carries it is generated and not counted); one row on a page already in the touches closes it."
+severity = "high"
+
+[finding.22.39.68.1]
+task = "22.39.68"
+file = "tests/ci/test_key_material_only_in_fixtures.py"
+symbol = "test_key_material_only_in_fixtures.py"
+observed = "Attempt 1 at 5ba896bc2b9b: no gate ran; the agent stopped on the destination directories and the four consumer tests outside the touches and reported seven more key-like files in two other crates."
+assumption = "The move is right; the touches named the source directories but not the destination directories or the consumers. The seven other files belong to two crates of other owners and get their own task."
+severity = "high"
+
+[finding.22.39.61.1]
+task = "22.39.61"
+file = "tests/ci/test_frontend_asset_names.py"
+symbol = "test_frontend_asset_names.py"
+observed = "Attempt 1 at 7fd627359bac: build exit 2: tsc in apps/launchpad/web could not resolve the two launchpad SDK packages because they were linked but not built; verification never ran."
+assumption = "The build command omitted the SDK build step the launchpad web type check depends on; the implementation is complete."
+severity = "high"
+
+[finding.22.39.65.1]
+task = "22.39.65"
+file = "tests/ci/test_no_deployment_hosts_in_source.py"
+symbol = "test_no_deployment_hosts_in_source.py"
+observed = "Attempt 1 at 58f6f9d20eb0: build exit 101: cargo check over the gateway test targets failed on the unresolved imports of gotcha 3417; verification never ran."
+assumption = "The failure sits on main and belongs to 22.31.620; the attempt-1 work is complete and only needs the gate to run after that repair."
+severity = "high"
+
 [repair.22.37.30]
 starting_revision = "c6a45ed6d0f1f5ee8cf4a80ea804efdef8e8d9c4"
 final_revision = "private-gate-ledger:22.37.30:verify:revision"
 command = "hf-done (cg spec done 22.37.30 -f layerx-merge --root /work/paxeer-monorepo)"
 evidence = "Exact candidate revision, exit code and log location are retained in the task private gate ledger; this entry makes no gate outcome claim."
 observed = "The assignment path now shares the workspace root-pin helper, and the declared actor exercises one assigned participant upload and checkpoint."
+
+[finding.22.39.43.1]
+task = "22.39.43"
+file = "tests/ci/test_wallet_repair_suites_listed.py"
+symbol = "test_wallet_repair_suites_listed.py"
+observed = "Attempt 1 at cc9ee73d4a2c: build exit 0; verification 1 failed in the scope test on the account suite; verification 2 ran the whole wallet suite: 47 failed, 595 passed in 110 files, most failures in the surfaces suites of 22.39.55."
+assumption = "The whole-suite verification cannot pass while the surfaces baseline is unsettled; the dependency orders the two tasks."
+severity = "high"
+
+[finding.22.39.55.1]
+task = "22.39.55"
+file = "apps/wallet/src/surfaces/test/repair-22-39-55.test.ts"
+symbol = "repair-22-39-55.test.ts"
+observed = "Attempt 1 at c4b593a8cfd7: build 1 failed (TS2305 in two widget tests), build 2 exit 0; verification: 9 failed, 97 passed in 18 files; every failure raises no node receipt vector for this call."
+assumption = "The recorded receipt producer is the missing piece; the consumers already assert the producer names."
+severity = "high"
+
+[finding.22.39.82.1]
+task = "22.39.82"
+file = "tests/ci/test_go_build_tags_wired.py"
+symbol = "test_go_build_tags_wired.py"
+observed = "Attempt 1 at 4c33ac989e9e: build exit 0; verification exit 1: ConsensusPolicy.HandleError declared twice under the combined tags, then TestRepair_79_HeaderBudgetRejectsOversize and a lane range panic under the mock."
+assumption = "The verification command of the task combined alternatives that never build together; the fix is in the command and the matrix, not in the consensus code."
+severity = "high"
+
+[finding.22.39.66.1]
+task = "22.39.66"
+file = "tests/ci/test_docs_free_of_process_numbering.py"
+symbol = "test_docs_free_of_process_numbering.py"
+observed = "Attempt 1 at 83e936a7ccc3: build exit 0; verification exit 1: 713 lines, 697 under spec/ and 18 in twelve product pages outside the touches."
+assumption = "The spec tree is the engineering record and is excluded; the twelve pages are product documentation and are rewritten."
+severity = "high"
+
+[finding.22.39.63.1]
+task = "22.39.63"
+file = "tests/ci/test_manifest_license_fields.py"
+symbol = "test_manifest_license_fields.py"
+observed = "Attempt 1 at bc04f6d249a3: build exit 0; verification exit 1: 187 manifests without a licence (111 vendored, 64 example or test, 3 testdata), 5 authors not naming the organisation."
+assumption = "The vendored tree is third-party and allowlisted; the example and test manifests are first-party and declare the licence."
+severity = "high"
+
+[finding.22.39.61.2]
+task = "22.39.61"
+file = "tests/ci/test_frontend_asset_names.py"
+symbol = "test_frontend_asset_names.py"
+observed = "Attempt 2 at 3b4cfe9e8827 (claimed before the replaced build command landed): build exit 2, TS2307 cannot find module @kindle/sdk in 78 files; no verification run."
+assumption = "The attempt ran the former build command; the current main carries the replacement."
+severity = "high"
+
+[finding.22.31.623.1]
+task = "22.31.623"
+file = "tests/ci/test_qualification_suites_collect.py"
+symbol = "test_qualification_suites_collect.py"
+observed = "Attempt 1 at 3d7128cbbf39: build exit 0 twice; verification 2: 166 failed, 1 error, 4273 passed; two repair cycles used; the record states 82 modules outside the three touched files."
+assumption = "The scope was the defect; the settlement needs the whole suite and the producers it names."
+severity = "high"
+
+[finding.22.39.30.4]
+task = "22.39.30"
+file = "tests/ci/test_platform_site_finality_model.py"
+symbol = "test_platform_site_finality_model.py"
+observed = "Attempt 4 at d13135ed13b0: build exit 0; verification: 13 passed, then stale documentation output for next.md and reference/enforcement.md."
+assumption = "The two pages carry generated sections; regenerating them completes the attempt."
+severity = "high"
+
+[finding.22.39.90.1]
+task = "22.39.90"
+file = "tests/ci/test_docs_make_targets_and_scripts.py"
+symbol = "test_docs_make_targets_and_scripts.py"
+observed = "Attempt 1 at 02026748ea78: build exit 0; verification: 2 passed, then the site check failed on docs/platform/content/install.md line 202 labelling an undeclared capability (pre-existing on main 5d43caa56d)."
+assumption = "The site check failure belongs to 22.39.30; ordering the tasks removes it."
+severity = "high"
