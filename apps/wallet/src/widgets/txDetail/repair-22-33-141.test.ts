@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { parseWalletReadRequest, walletReadResponseHeaders } from '@/lib/wallet-read-contract';
 import { createServer, type Server } from 'node:http';
 import { once } from 'node:events';
 import { act, createElement, useLayoutEffect } from 'react';
@@ -64,7 +65,12 @@ let stopAnnouncement: (() => void) | undefined;
 
 beforeAll(async () => {
   server = createServer((request, response) => {
-    const path = request.url ?? '';
+    const url = new URL(request.url ?? '/', 'http://localhost');
+    const read = parseWalletReadRequest(url);
+    for (const [key, value] of Object.entries(walletReadResponseHeaders(read)))
+      response.setHeader(key, value);
+    expect(read.chainId).toBe(125);
+    const path = url.pathname;
     requests.push(path);
     response.setHeader('Content-Type', 'application/json');
     if (path === `/api/v2/transactions/${hash}`) {
@@ -155,7 +161,8 @@ async function mount() {
   await until(
     () =>
       current?.status === 'ready' &&
-      client.getQueryState(queryKeys.txDetail(hash))?.status === 'success'
+      client.getQueryState(queryKeys.txDetail(hash))?.status === 'success' &&
+      client.getQueryState(queryKeys.txTransfers(hash))?.status === 'success'
   );
   expect(requests).toEqual(
     expect.arrayContaining([
@@ -222,7 +229,7 @@ async function tx_detail_zero_decimals_preserves_numeric_and_string_zero() {
   expect(detail('From')).toBe(`From${shortenAddress(sender)}`);
   await act(async () => {
     transfers = [transfer(owner, sender, 17n, 'WHOLE', '0')];
-    await client.refetchQueries({ queryKey: queryKeys.txDetail(hash) });
+    await client.refetchQueries({ queryKey: queryKeys.txTransfers(hash) });
   });
   await until(() => headline() === '-17 WHOLE');
   expect(detail('To')).toBe(`To${shortenAddress(sender)}`);
@@ -273,7 +280,7 @@ test.each([null, undefined, '', ' ', false, -1, 1.5, '1.5', '1e2', 81, '81', 255
     expect(headline()).toBe('+Amount unavailable (precision unknown; raw: 42) UNKNOWN');
     await act(async () => {
       transfers.push(transfer(owner, router, 7n, 'WHOLE', 0));
-      await client.refetchQueries({ queryKey: queryKeys.txDetail(hash) });
+      await client.refetchQueries({ queryKey: queryKeys.txTransfers(hash) });
     });
     await until(() => headline() === '2 token transfers');
     const rows = container.querySelector('[aria-label="Token transfers"]');
