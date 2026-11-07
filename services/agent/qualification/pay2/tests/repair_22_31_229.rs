@@ -323,10 +323,7 @@ fn pay2_nonce_snapshot_uses_bound_sender_and_committed_authority() {
     assert_eq!(height, fixture.height);
     assert_eq!(nonce, 37);
     assert_ne!(nonce, height);
-    assert_eq!(
-        record.verification_level(),
-        VerificationLevel::CHECKPOINT_FINALISED
-    );
+    assert_eq!(record.verification_level(), VerificationLevel::COMMITTED);
     assert_eq!(
         record.authorities(),
         &[identity::ProtocolAuthority::CapabilityGrant(capability)]

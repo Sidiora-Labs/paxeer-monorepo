@@ -708,7 +708,7 @@ fn rung(value: u8) -> Option<Rung> {
     Some(match value {
         0 => Rung::Submitted,
         1 => Rung::Receipted,
-        2 => Rung::Committed,
+        2 | 4 | 5 | 6 => Rung::Committed,
         _ => return None,
     })
 }
@@ -734,10 +734,10 @@ mod receipt_rung_wire_tests {
     }
 
     #[test]
-    fn checkpoint_finalised_receipt_decodes_as_committed() -> Result<(), HumanOperationError> {
+    fn committed_receipt_decodes_as_committed() -> Result<(), HumanOperationError> {
         assert_eq!(
             rung(crate::human_runtime::receipt_rung_code(
-                VerificationLevel::CHECKPOINT_FINALISED
+                VerificationLevel::COMMITTED
             )?),
             Some(Rung::Committed)
         );
@@ -745,7 +745,11 @@ mod receipt_rung_wire_tests {
     }
 
     #[test]
-    fn settlement_anchored_receipt_level_is_refused() {
+    #[allow(deprecated)]
+    fn legacy_receipt_levels_decode_as_committed() {
+        for code in [4, 5, 6] {
+            assert_eq!(rung(code), Some(Rung::Committed));
+        }
         assert_eq!(
             crate::human_runtime::receipt_rung_code(VerificationLevel::SETTLEMENT_ANCHORED),
             Err(HumanOperationError::Refused)
