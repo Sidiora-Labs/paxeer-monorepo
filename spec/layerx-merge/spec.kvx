@@ -334591,7 +334591,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.73]
 title = "Repair the agent SDK Python suite import drift and run both SDK test trees and the unwired agent crates from the agent workflow"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
