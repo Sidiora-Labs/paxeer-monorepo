@@ -333249,7 +333249,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.110]
 title = "Pin every base image of the shared image table by tag and digest and retire the end-of-life ones"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.39.108"]
