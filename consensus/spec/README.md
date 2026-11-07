@@ -182,6 +182,6 @@ historical models labeled with their assumptions rather than treating them as a
 proof of the current fork.
 
 Proposals can be discussed in the
-[repository](https://github.com/Sidiora-Labs/Paxeer-X-Network). Report
+[repository](https://github.com/Sidiora-Labs/paxeer-monorepo). Report
 security-sensitive discrepancies through the repository
 [security policy](../../SECURITY.md).
