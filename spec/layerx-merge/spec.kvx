@@ -333838,7 +333838,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.100]
 title = "Fetch third-party sources at commit SHAs in the public checks and the bootstrap scripts"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.39.51"]
@@ -333867,7 +333867,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.99]
 title = "Stop passing unused secrets to the integration-test matrix jobs"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.39.51"]
@@ -333896,7 +333896,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.98]
 title = "Guard every automatically triggered live job on the presence of its configuration"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.39.51"]
@@ -333925,7 +333925,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.96]
 title = "Build every linked native archive in the wallet Go check and refresh the attestor copy of the layerxpay ABI"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.39.51"]
