@@ -151928,7 +151928,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.61]
 title = "Give the launchpad and perps assets descriptive names and one copy each"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.105"]
@@ -173040,7 +173040,7 @@ do_4 = "Attempt 2 (continue, gotcha 3435, decision 2800): the attempt-1 final tr
 
 [task.22.31.615]
 title = "Bring the ai-market guest back under the deployment payload bound with headroom"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.620"]
