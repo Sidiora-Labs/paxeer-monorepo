@@ -35049,3 +35049,43 @@ symbol = "test_pnpm_workspace_roots.py"
 observed = "Attempt 1 at 8e020814aea8: build exit 0; verification exit 1: the three wiring tests pass, the frozen install resolves, vitest reports 31 failed, 109 passed, 38 todo in ten files the task never touched."
 assumption = "The wallet suite rotted at main outside this task; the wiring lands with a recorded per-name baseline and a retiring task repairs the suite."
 severity = "high"
+
+[finding.22.39.103.1]
+task = "22.39.103"
+file = "tests/ci/test_workflow_duplicate_jobs.py"
+symbol = "test_workflow_duplicate_jobs.py"
+observed = "Attempt 1 at fe038cf56879: build exit 0; verification exit 1: test_release_workflows_share_toolchain_action passes, test_no_make_target_duplicated_across_automatic_workflows fails on chain.mk install shared by two automatic workflows; the tests that read platform.yml were not run."
+assumption = "The duplicate is a dependency install of the allowlisted class; the other workflow tests must follow the moved lanes before the repair lands."
+severity = "high"
+
+[finding.22.39.118.9]
+task = "22.39.118"
+file = "tools/platform/cli::rpc::tests::positional_requests_match_published_contract"
+symbol = "cli::rpc::tests::positional_requests_match_published_contract"
+observed = "Attempt 9 at 992ae4771ccd: build exit 0; verification exit 1: the three rpc tests and the library tests pass; program_deploy_calldata_matches_vector and program_wind_down_modes_use_layerxprograms fail at program_evm_lifecycle.rs line 58 because the command refuses without --receipt-policy."
+assumption = "The lifecycle test predates the required policy argument; the response-shape assertions of attempt 9 are right and were never reached."
+severity = "high"
+
+[finding.22.39.128.4]
+task = "22.39.128"
+file = "services/agent/crates/layerx-agentd/src/budget/native_binding.rs"
+symbol = "native_binding.rs"
+observed = "Attempt 5 at fb5a29eb0340: build exit 0; verification exit 101: all 19 repair_22_31_217 cases pass; the four retained_settlement_tests cases fail, the first with Refused on the fixture receipt without paymentDenom, the other three on the poisoned environment lock."
+assumption = "The library fixture predates a producer requirement a repair added without running this module; one fixture field completes the task."
+severity = "high"
+
+[finding.22.39.136.4]
+task = "22.39.136"
+file = "services/platform/middleware/conformance/pay6/test_http.py"
+symbol = "test_http.py"
+observed = "Attempt 5 at fc0b73e9b64c: build exit 0; verification exit 1: 17 passed, 4 failed, 3 teardown errors; three failures and the errors come from the seller digest check against the fixture digest, the fourth from the scheme assertion at test_http.py line 122."
+assumption = "Every remaining failure sits in the pay6 fixtures and the seller-side assertion that task 22.39.146 owns."
+severity = "high"
+
+[finding.22.39.142.1]
+task = "22.39.142"
+file = "programs/crates/layerx-programs-ai-market/tests/f11_views.rs"
+symbol = "f11_views.rs"
+observed = "Attempt 1 at 4140d2b8a2f5: build exit 0 at the final tree; the verification at the previous candidate 853d7ece98d5 failed the size assertion at 523935 bytes; the final tree measures 504844 bytes against the 484184 bound and the four f11 binaries never ran because both repair units were spent."
+assumption = "The techniques work and half the modules are done; the remaining large modules hold more than the missing bytes."
+severity = "high"
