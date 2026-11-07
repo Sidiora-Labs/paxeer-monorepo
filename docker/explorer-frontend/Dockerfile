@@ -85,6 +85,7 @@ ENV NODE_ENV=production
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY apps/explorer .
+# Keep this external build input in Dockerfile.dockerignore's allowlist.
 COPY docs/explorer/ENVS.md ./docs/explorer/ENVS.md
 
 # Build SVG sprite and generate .env.registry with ENVs list and save build args into .env file

@@ -39,7 +39,7 @@ a thread.
 From the CLI:
 
 ```bash
-pnpm hyperfide platform thread spawn \
+pnpm hyperfide-platform thread spawn \
   --project <project-id> \
   --new-environment worktree \
   --prompt "..."

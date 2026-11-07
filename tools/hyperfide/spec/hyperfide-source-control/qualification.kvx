@@ -768,3 +768,185 @@ command = "cd tools/hyperfide && corepack enable && python3 tests/hyperfide/case
 exit_code = "BY_REFERENCE: private /out/run/gates.jsonl final verify.exit; receipt build/source-control/2.2/receipt.json#/exit_code; only zero qualifies."
 receipt_digest = "BY_REFERENCE: build/source-control/2.2/receipt.sha256, SHA-256 of receipt.json including installed-entry and incomplete dependency-closure receipts."
 log = "BY_REFERENCE: private /out/run/gates.jsonl final build.log and verify.log; owned PostgreSQL and HTTP API with the existing SigV4 component backend, with no live-provider claim."
+
+[qualification.layout_receipt_22_37_2]
+task = "22.37.2; carried source-control task 0.9"
+build_command = "cd tools/hyperfide && corepack enable && python3 -m py_compile tests/hyperfide/cases/source_control/0_9.py tests/hyperfide/cases/source_control/0_10.py"
+command = "cd tools/hyperfide && corepack enable && python3 tests/hyperfide/cases/source_control/layout_receipt_gate_test.py && python3 tests/hyperfide/cases/source_control/0_9.py"
+evidence = "/out/run/gates.jsonl; exact revision, command, exit and private log are retained in the matching hf-build and hf-done rows; import recapture: build/layout/0.3/import-recapture.json; layout receipt: build/layout/0.9/receipt.json"
+status = "BY_REFERENCE; qualification requires passing hf-build and hf-done at the same candidate revision; no runtime or historical qualification is inferred from fixtures or unavailable upstream history"
+
+[finding.layout_receipt_initial_recapture_22_37_2]
+revision = "b0c2c776d6da2d3c7692b27a0876b6d55460be29"
+command = "cg spec done 22.37.2 -f layerx-merge --root /work/paxeer-monorepo"
+exit_code = 1
+log = "/out/logs/verify-1.log; tools/hyperfide/build/layout/0.3/import-recapture.log"
+observed = "Eleven fixtures passed; imported baseline recapture ran Git archive from the project prefix and exported no driver, while the unchanged final-revision-clean assertion also reported a dirty worktree."
+assumption = "The task-scoped repair archives from the host root and retains every capture result; the runner must supply a clean candidate and the original historical evidence for full layout qualification."
+
+[qualification.layout_receipt_vendored_capture_22_37_2]
+task = "22.37.2; carried source-control task 0.9; decision 2769"
+build_command = "cd tools/hyperfide && corepack enable && python3 -m py_compile tests/hyperfide/cases/source_control/0_9.py tests/hyperfide/cases/source_control/0_10.py"
+command = "cg spec done 22.37.2 -f layerx-merge --root /work/paxeer-monorepo"
+evidence = "/out/run/gates.jsonl records exact candidate revision, build/verify commands, exit codes and private logs; build/layout/0.3/import-recapture.json binds the exported inventory; build/layout/0.9/receipt.json and the verify log retain every missing_evidence kind"
+status = "BY_REFERENCE; only passing build and verify rows at the same candidate qualify; frozen inventory capture records HISTORICAL_FILE_MISSING at build/layout/0.3-preserved-original/manifest.json as UNAVAILABLE, not historical runtime verification"
+
+[finding.layout_receipt_vendored_missing_evidence_22_37_2]
+revision = "40209feea3d5a6f224806f92e56cfae28f9ba079"
+command = "cg spec done 22.37.2 -f layerx-merge --root /work/paxeer-monorepo"
+exit_code = 1
+log = "/out/logs/verify-1.log; matching build: /out/logs/build-1.log; ledger: /out/run/gates.jsonl"
+observed = "Task 22.37.2/source task 0.9: build and twelve fixtures passed; vendored baseline accepted; aggregation BLOCKED with zero regressions and missing_evidence kinds aggregation-input (1), follow-on-authorization (29), task-runtime-receipt (5), retained in build/layout/0.9/receipt.json."
+assumption = "The missing aggregation input, explicit follow-on approvals and qualifying task 0.4-0.8 runtime receipts require their owning evidence; decision 2769 requires recording these kinds and stopping without claiming spec completion."
+
+[qualification.layout_receipt_pending_aggregation_22_37_2]
+revision = "BY_REFERENCE: final matching build.revision and verify.revision in private /out/run/gates.jsonl for task 22.37.2, carried source-control task 0.9."
+command = "BY_REFERENCE: build.command and verify.command in /out/run/gates.jsonl; verify runs cg spec done 22.37.2 -f layerx-merge --root /work/paxeer-monorepo with layout_receipt_gate_test.py followed by layout_pending_aggregation_check.py."
+exit_code = "BY_REFERENCE: final build.exit and verify.exit in /out/run/gates.jsonl; both must be zero at the same candidate revision to qualify."
+log = "BY_REFERENCE: final build.log and verify.log in private /out/run/gates.jsonl; aggregation details remain in tools/hyperfide/build/layout/0.9/receipt.json."
+observed = "Decision 2778: tracked aggregation input pins the vendored import and authorizes the landed subtree ancestry; pending aggregation accepts only passing checks, zero regressions and missing task-runtime-receipt evidence for 0.4 through 0.8; driver execution belongs to the follow-on task."
+
+[finding.layout_receipt_candidate_authorization_22_37_2]
+revision = "b21aaa6d2639cb7682893ead355f9535c0566e56"
+command = "cg spec done 22.37.2 -f layerx-merge --root /work/paxeer-monorepo"
+exit_code = 1
+log = "/out/logs/verify-1.log; matching build /out/logs/build-1.log; final bounded repair evidence by reference in /out/run/gates.jsonl"
+observed = "Build and fifteen fixtures passed; aggregation recorded zero regressions, the five pending driver receipts, one unauthorized runner-created candidate commit and the previously recorded source.final-revision-clean failure; a tracked full-commit allowlist cannot contain the hash of its own future commit."
+
+[qualification.layout_receipt_self_authorization_22_37_2]
+revision = "BY_REFERENCE: final matching build.revision and verify.revision in private /out/run/gates.jsonl for task 22.37.2, carried source-control task 0.9."
+command = "BY_REFERENCE: final build.command and verify.command in /out/run/gates.jsonl; hf-done runs cg spec done 22.37.2 -f layerx-merge --root /work/paxeer-monorepo with layout_receipt_gate_test.py and layout_pending_aggregation_check.py."
+exit_code = "BY_REFERENCE: final build.exit and verify.exit in /out/run/gates.jsonl; both must be zero at the same candidate revision to qualify."
+log = "BY_REFERENCE: final build.log and verify.log in private /out/run/gates.jsonl; tools/hyperfide/build/layout/0.9/receipt.json retains self_authorized_revision, the aggregation input SHA-256 and every missing evidence kind."
+observed = "Decision 2785: only the last commit changing the tracked aggregation input is self-authorized; every other unlisted subtree revision remains missing evidence and outside-ancestry authorizations remain regressions; two added real Git fixtures exercise both boundaries."
+
+[qualification.layout_receipt_tracked_cleanliness_22_37_2]
+revision = "BY_REFERENCE: final matching build.revision and verify.revision in private /out/run/gates.jsonl for task 22.37.2, carried source-control task 0.9."
+command = "BY_REFERENCE: final build.command and verify.command in /out/run/gates.jsonl; hf-done runs cg spec done 22.37.2 -f layerx-merge --root /work/paxeer-monorepo with layout_receipt_gate_test.py and layout_pending_aggregation_check.py."
+exit_code = "BY_REFERENCE: final build.exit and verify.exit in /out/run/gates.jsonl; only zero for both at the same candidate revision qualifies."
+log = "BY_REFERENCE: final build.log and verify.log in private /out/run/gates.jsonl; tools/hyperfide/build/layout/0.9/receipt.json records all check statuses, untracked paths and their count, regressions and missing evidence kinds."
+observed = "Decision 2789: source.final-revision-clean checks tracked changes only; two real Git fixtures cover untracked output and staged or unstaged tracked edits. Follow-on authorizations are regenerated from the landed subtree ancestry; only pending task-runtime-receipt evidence for 0.4 through 0.8 is accepted."
+
+[finding.layout_receipt_runner_tracked_bookkeeping_22_37_2]
+revision = "279f4adf5f44080885a7fdbc50c39fab613e3789"
+command = "cg spec done 22.37.2 -f layerx-merge --root /work/paxeer-monorepo"
+exit_code = 1
+log = "/out/logs/verify-1.log; matching build exit 0: /out/logs/build-1.log; private ledger: /out/run/gates.jsonl"
+observed = "Build and all nineteen fixtures passed; aggregation has zero regressions and only five pending driver receipts, but source.final-revision-clean correctly fails on pre-existing runner modifications to .cgignore and spec/layerx-merge/spec.kvx, both outside scope; no untracked paths were reported. The external bookkeeping failure is recorded without changing protected files, weakening the check or rerunning an unchanged failure."
+
+[qualification.layout_receipt_root_cleanliness_22_37_2]
+revision = "BY_REFERENCE: final matching build.revision and verify.revision in private /out/run/gates.jsonl for task 22.37.2, carried source-control task 0.9."
+command = "BY_REFERENCE: final build.command and verify.command in /out/run/gates.jsonl; hf-build compiles 0_9.py and 0_10.py, then hf-done runs cg spec done 22.37.2 -f layerx-merge --root /work/paxeer-monorepo with layout_receipt_gate_test.py and layout_pending_aggregation_check.py."
+exit_code = "BY_REFERENCE: final build.exit and verify.exit in /out/run/gates.jsonl; only zero for both at the same candidate revision qualifies."
+log = "BY_REFERENCE: final build.log and verify.log in private /out/run/gates.jsonl; tools/hyperfide/build/layout/0.9/receipt.json retains scoped worktree digest, outside_root_paths and count, untracked paths, check results and all missing evidence kinds."
+observed = "Decision 2793: tracked cleanliness uses git status --porcelain=v1 -z --untracked-files=no -- . from the layout root; external tracked changes are reported without failing the candidate, while tracked changes inside the root fail. Twenty-one real receipt/Git fixtures include both boundaries; authorizations cover the landed subtree ancestry, and only the five pending task-runtime-receipt drivers 0.4 through 0.8 are permitted."
+[qualification.agent_group_contract_surface_22_37_3]
+revision = "BY_REFERENCE: final matching build.revision and verify.revision in private /out/run/gates.jsonl; monorepo task 22.37.3, tools/hyperfide carried source-control task 0.10."
+command = "BY_REFERENCE: final build.command and verify.command in /out/run/gates.jsonl; hf-done runs cg spec done 22.37.3 -f layerx-merge --root /work/paxeer-monorepo with agent-group-contracts.test.ts, the exit-2 layout receipt refusal from cases/source_control/0_10.py, and support/contract_surface_consumer.mjs directly."
+exit_code = "BY_REFERENCE: final build.exit and verify.exit in /out/run/gates.jsonl; only zero for both at the same candidate revision qualifies."
+log = "BY_REFERENCE: final build.log and verify.log in private /out/run/gates.jsonl retain exact commands, revisions, exits and /out/logs/build-*.log and /out/logs/verify-*.log evidence locations."
+observed = "The driver requires a schema-valid PASS layout receipt bound to the current mapping digest and generation; the SDK test compiles canonical envelope aliases and checks every manager action and byte-identical compiled contract copy through the real scheduler consumer."
+
+[finding.agent_group_missing_layout_receipt_22_37_3]
+revision = "f2b3411498cb3ba211ea3ef92afb8e6c132b7bd1"
+command = "cg spec done 22.37.3 -f layerx-merge --root /work/paxeer-monorepo"
+exit_code = 1
+log = "/out/logs/verify-1.log; build exit 0: /out/logs/build-1.log; exact final repair evidence: /out/run/gates.jsonl"
+observed = "The driver correctly exits 2 with LAYOUT_RECEIPT_REQUIRED because tools/hyperfide/build/layout/0.9/receipt.json is absent; a qualifying task 0.9 receipt is an external prerequisite, and the bounded repair corrects Vitest callback registration without changing receipt validation."
+
+[qualification.agent_group_live_aggregation_22_37_3]
+revision = "BY_REFERENCE: final matching build.revision and verify.revision in private /out/run/gates.jsonl; carried implementation 2db44337329ed838683a060aaa3930fa9169d35d, monorepo base 723db5d8d6406617cf6a2c05c4cec3c85e4cf797."
+command = "cd tools/hyperfide && python3 tests/hyperfide/cases/source_control/0_10.py"
+exit_code = "UNRUN"
+log = "BY_REFERENCE: final verify.log in private /out/run/gates.jsonl records the prerequisite refusal, not a live aggregation PASS."
+observed = "Live aggregation is UNRUN because tools/hyperfide/build/layout/0.9/receipt.json is absent; decision 2797 qualifies the SDK types and compiled control-plane contract consumer independently while preserving LAYOUT_RECEIPT_REQUIRED."
+[qualification.task_22_37_18_source_4_2]
+revision = "BY_REFERENCE: final matching build.revision and verify.revision in private /out/run/gates.jsonl; task 22.37.18, tools/hyperfide carried source-control task 4.2."
+command = "BY_REFERENCE: final build.command and verify.command in /out/run/gates.jsonl; hf-done runs cg spec done 22.37.18 -f layerx-merge --root /work/paxeer-monorepo and the declared plugin test plus source_control/4_2.py."
+exit_code = "BY_REFERENCE: final build.exit and verify.exit in /out/run/gates.jsonl; both must be zero at one candidate revision to qualify."
+log = "BY_REFERENCE: final build.log and verify.log in /out/run/gates.jsonl name private /out/logs/build-*.log and /out/logs/verify-*.log; component assertions are in tools/hyperfide/build/source-control/4.2/receipt.json."
+observed = "Qualification requires real native SDK queue integration, source connection loss and service restart, independent authority outage, exactly one custody/task qualification/acceptance, API_ONLY manager without a materialized workspace, zero recorded Git calls in the native actor phase, and explicit publication with independent bare destination read-back."
+
+[finding.task_22_37_18_legacy_lockfile]
+revision = "1984e426f8cd9228a10971b45fc4f36d5e234b8a"
+command = "cg spec done 22.37.18 -f layerx-merge --root /work/paxeer-monorepo"
+exit_code = 1
+log = "/out/logs/verify-1.log"
+observed = "The existing legacy queue treats platform/pnpm-lock.yaml as a held merge conflict, so its unchanged regeneration and machine-failure assertions fail; the native actor was not reached."
+
+[qualification.task_22_37_18_workspace_lock_repair]
+revision = "4224248cd6a71c1c44a6f9f6a9a83e0c9136410d"
+command = "cd tools/hyperfide && corepack enable && pnpm install --frozen-lockfile && pnpm --filter @hyperfide/process-utils run generate:profile-worker && npm --prefix core/control-plane ci --ignore-scripts && npm --prefix core/control-plane run build && pnpm --filter @hyperfide/hyperfide-dispatch typecheck && make -j$(nproc) all"
+exit_code = 1
+log = "/out/logs/build-1.log"
+observed = "Frozen installation found the carried plugin manifest's source-control workspace dependency absent from pnpm-lock.yaml; regenerate the workspace lockfile before the next build and retain the generated lockfile with the task."
+
+[finding.task_22_37_18_inherited_manager_legacy_tests]
+revision = "b34273fede7fdfd22ee01e7a9eb86e07dc48f3cc"
+command = "cg spec done 22.37.18 -f layerx-merge --root /work/paxeer-monorepo"
+exit_code = 1
+log = "/out/logs/verify-1.log"
+observed = "Seven suites and 34 tests passed, including the unchanged lockfile cases and native queue outage case; 15 dispatcher/server-backend assertions failed before 4_2.py ran because tests expect implicit legacy dispatch, legacy controls and two RPC registrations while base 05002f9e4 already defaults to manager planning, requires authenticated manager decisions and registers three contracts. Assumption: repairing these inherited expectations requires separately scoped test/backend work; preserve the manager authority checks and record without rerunning."
+
+[finding.task_22_37_18_managed_workspace_retention]
+revision = "80191829197ac34c7333ab1125d46994ca483c68"
+command = "cg spec done 22.37.18 -f layerx-merge --root /work/paxeer-monorepo"
+exit_code = 1
+log = "/out/logs/verify-1.log"
+observed = "Build passed and all five plugin suites passed (23 tests); source_control/4_2.py failed at the first worker checkpoint with WORKSPACE_EXPIRED because the existing fleet-adapter.ts assignment producer inserts source_workspaces without the WORKSPACE position-0 retention pin required by workspaces.ts:788. Assumption: repair belongs to the out-of-scope fleet assignment producer; managed workers cannot call source.workspaces.open, so preserve authority, retention checks and actor assertions without fabricating a pin or rerunning the recorded failure."
+
+[qualification.task_22_37_18_retention_continuation]
+revision = "BY_REFERENCE: final matching build.revision and verify.revision in private /out/run/gates.jsonl; task 22.37.18, tools/hyperfide carried source-control task 4.2, on base 68628a27044d26a1f88a0811f752b1b0e92724c9 with task 22.37.30 landed."
+command = "BY_REFERENCE: final build.command and verify.command in /out/run/gates.jsonl; hf-build runs the declared build and hf-done runs cg spec done 22.37.18 -f layerx-merge --root /work/paxeer-monorepo with queue, runners, spec-source, builder and storage suites followed by source_control/4_2.py."
+exit_code = "BY_REFERENCE: final build.exit and verify.exit in /out/run/gates.jsonl; both must be zero at the same candidate revision to qualify."
+log = "BY_REFERENCE: final build.log and verify.log in private /out/run/gates.jsonl; component assertions are retained in tools/hyperfide/build/source-control/4.2/receipt.json."
+observed = "The carried native router, queue, outage, API_ONLY manager and default bare-destination publication assertions are preserved; the current base assignment producer pins workspace retention through pinWorkspaceRoot, with no retention-producer change in this task."
+
+[qualification.task_22_37_18_continuation_lock_repair]
+revision = "47000fc57848231faf5d9f12dc808799a0912f4e"
+command = "cd tools/hyperfide && corepack enable && pnpm install --frozen-lockfile && pnpm --filter @hyperfide/process-utils run generate:profile-worker && npm --prefix core/control-plane ci --ignore-scripts && npm --prefix core/control-plane run build && pnpm --filter @hyperfide/hyperfide-dispatch typecheck && make -j$(nproc) all"
+exit_code = 1
+log = "/out/logs/build-1.log; final repaired build and verification are recorded by reference in /out/run/gates.jsonl."
+observed = "Frozen install found the carried source-control dependency missing from the current base lockfile; regenerate the permitted lockfile with pnpm install --lockfile-only --no-frozen-lockfile --ignore-scripts before the bounded build repair."
+
+[qualification.task_22_37_18_api_only_readiness_repair]
+revision = "8cf8dd718c4f8fa84657edbf88652c120d85471e"
+command = "cg spec done 22.37.18 -f layerx-merge --root /work/paxeer-monorepo"
+exit_code = 1
+log = "/out/logs/verify-1.log; matching build exit 0: /out/logs/build-2.log; final bounded repair evidence is retained by reference in /out/run/gates.jsonl."
+observed = "All five suites and 23 tests passed, and the actor checkpointed and replayed submission; the manager API_ONLY assertion omitted the current SDK readiness receipt, so the repair retains exact result equality and adds the full workspace-bound receipt, fixed empty-entry and incomplete-closure digests, and receipt digest verification."
+
+[qualification.task_22_37_18_readiness_continuation]
+revision = "BY_REFERENCE: final matching build.revision and verify.revision in private /out/run/gates.jsonl; the preserved attempt-4 implementation is carried from e5ec1ae9d8508554f58ab109fd01a6287686d62a."
+command = "BY_REFERENCE: final build.command and verify.command in /out/run/gates.jsonl; hf-build runs the declared build and hf-done runs cg spec done 22.37.18 -f layerx-merge --root /work/paxeer-monorepo."
+exit_code = "BY_REFERENCE: final build.exit and verify.exit in /out/run/gates.jsonl; only zero for both at the same candidate revision qualifies."
+log = "BY_REFERENCE: final build.log and verify.log in private /out/run/gates.jsonl; initial frozen-install failure at revision 8675d151129a7310b8ee14c326339767f3e9b18a, exit 1, /out/logs/build-1.log."
+observed = "The carried plugin requires its source-control workspace dependency to be regenerated in pnpm-lock.yaml; the continuation preserves the full WORKSPACE_READINESS receipt equality and all native outage, manager, publication and zero-Git assertions."
+
+[qualification.task_22_37_29_legacy_manager_contracts]
+revision = "BY_REFERENCE: task 22.37.29 final matching build.revision and verify.revision in private /out/run/gates.jsonl; do not infer PASS from this entry."
+command = "BY_REFERENCE: final build.command and verify.command in /out/run/gates.jsonl; hf-done invokes cg spec done 22.37.29 -f layerx-merge --root /work/paxeer-monorepo and the declared full dispatch plugin test."
+exit_code = "BY_REFERENCE: final build.exit and verify.exit in /out/run/gates.jsonl; qualification requires both zero at one revision."
+log = "BY_REFERENCE: final build.log and verify.log in private /out/run/gates.jsonl."
+observed = "Server cases now assert manager-directed paused status, all three registered contracts, refusal of cap/pause/cancel/destroy without mutation, default manager waiting and refusal of resume despite configured compute; dispatcher.test.ts additionally proves default manager waiting without execution and preserves all ten legacy execution cases unchanged."
+
+[finding.task_22_37_29_missing_manager_dispatch_interface]
+revision = "BY_REFERENCE: task 22.37.29 final gate revision in private /out/run/gates.jsonl."
+command = "BY_REFERENCE: task 22.37.29 final gate command in private /out/run/gates.jsonl."
+exit_code = "BY_REFERENCE: task 22.37.29 final gate exit in private /out/run/gates.jsonl."
+log = "BY_REFERENCE: task 22.37.29 final gate log in private /out/run/gates.jsonl."
+observed = "Dispatcher.start and schedule return in manager mode, and registerManagerDecisions only forwards to remote fleet.manager.execute, which does not activate local Dispatcher jobs; assumption: driving the ten retained execution cases through authenticated manager decisions needs an absent execution/fixture interface, while selecting legacy-nonadaptive would bypass the requested manager path and changing the remote producer is outside scope."
+
+[qualification.task_22_37_29_install_repair]
+revision = "72354327e6b7e6e579936e219ab342af34d72b82"
+command = "cd tools/hyperfide && corepack enable && pnpm install --frozen-lockfile && pnpm --filter @hyperfide/process-utils run generate:profile-worker && pnpm --filter @hyperfide/hyperfide-dispatch typecheck"
+exit_code = 1
+log = "/out/logs/build-1.log; final repair evidence is retained by reference in private /out/run/gates.jsonl."
+observed = "Frozen install found the existing source-control dependency absent from the dispatch importer in pnpm-lock.yaml and the workspace formatter was not installed; install with regenerated permitted lockfile before formatting the two touched tests and running the bounded build repair."
+
+[qualification.task_22_37_29_explicit_legacy_planning]
+revision = "BY_REFERENCE: task 22.37.29 final matching build.revision and verify.revision in private /out/run/gates.jsonl."
+command = "BY_REFERENCE: final build.command and verify.command in private /out/run/gates.jsonl; hf-build then hf-done run the declared commands at the final revision."
+exit_code = "BY_REFERENCE: final build.exit and verify.exit in private /out/run/gates.jsonl; both must be zero at one revision."
+log = "BY_REFERENCE: final build.log and verify.log in private /out/run/gates.jsonl."
+observed = "Decision 2831, gotcha 3489 supersedes the missing-interface finding: the typed fixture planning parameter explicitly selects legacy-nonadaptive for pause/cap, cancellation, HTTP 429 backoff, membership claims, reservations, availability, single retry, backoff ceiling, interrupted ledgers and preparation cleanup; all assertions, the default WAITING_FOR_MANAGER case, five server cases and production sources remain as carried from attempt 1 at 85ff403ccf24."

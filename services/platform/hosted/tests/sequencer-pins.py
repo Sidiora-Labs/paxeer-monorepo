@@ -106,7 +106,7 @@ def gateway_manifest(pod, container):
            "value": RECEIPT_KEYS_MOUNT + "/" + RECEIPT_KEYS_FILE}
     mount = {"name": "receipt-keys", "mountPath": RECEIPT_KEYS_MOUNT, "readOnly": True}
     volume = {"name": "receipt-keys", "secret": {
-        "secretName": RECEIPT_KEYS_SECRET, "defaultMode": 0o440,
+        "secretName": RECEIPT_KEYS_SECRET, "optional": False, "defaultMode": 0o440,
         "items": [{"key": RECEIPT_KEYS_FILE, "path": RECEIPT_KEYS_FILE}]}}
     for entries, item in ((container["env"], env),
                           (container.setdefault("volumeMounts", []), mount),

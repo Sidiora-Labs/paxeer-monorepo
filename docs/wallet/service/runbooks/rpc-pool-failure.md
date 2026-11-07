@@ -10,7 +10,7 @@ each endpoint's head; an endpoint that errors is `down`, one that trails the
 best head by more than the lag threshold is `lagging`, and only `healthy`
 endpoints serve requests, with failover between them. Balance and chain reads
 in `src/chainReads.ts` and `src/chain.ts` still use the single
-`HYPERPAXEER_RPC_URL` (observation 2.2.1). The attestors read binding nonces
+`HYPERPAXEER_RPC_URL`. The attestors read binding nonces
 through `ATTESTOR_RPC_URL`, and the shared endpoint relays `eth_` methods to
 the first answering name of `LAYERX_GATEWAY_PAXEER_RPC_URLS`.
 
@@ -86,9 +86,9 @@ curl -sS https://<gateway-base>/readyz
 ```
 
 The route answers 200 with `components.rpc_pool.state` `up` and `healthy` of
-two or more, and `scripts/wallet/check-live.sh gateway` (added by task 4.1)
+two or more, and `scripts/wallet/check-live.sh gateway`
 passes. Record revision, command, exit code and log path in
-`spec/paxeer-x-wallet/qualification.kvx`, with the count of endpoints and no
+the operator's change record, with the count of endpoints and no
 URL.
 
 ## Rollback

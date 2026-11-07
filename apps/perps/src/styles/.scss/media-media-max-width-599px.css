@@ -1,5 +1,1 @@
-@media(max-width: 599px) {
-    .prompt-card__badge {
-        height: 18px
-    }
-}
+@import "../../../../explorer/.scss/media-media-max-width-599px.css";

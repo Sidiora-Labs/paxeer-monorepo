@@ -342,10 +342,30 @@ impl IdentityResolver for AuthorityIdentity<'_> {
     }
 }
 
-fn authority_peer(
+#[derive(Clone)]
+struct ServedLabels {
+    identity: String,
+    context: String,
+}
+
+impl Default for ServedLabels {
+    fn default() -> Self {
+        Self {
+            identity: layerx_types::verify::VerificationLevel::COMMITTED
+                .wire_label()
+                .to_owned(),
+            context: layerx_types::verify::VerificationLevel::COMMITTED
+                .wire_label()
+                .to_owned(),
+        }
+    }
+}
+
+fn authority_peer_with_labels(
     peer: HumanPeer,
     identity: CoreIdentity,
     activity: ActivityType,
+    labels: Arc<Mutex<ServedLabels>>,
 ) -> (RemoteHumanAuthority, Peer) {
     let (ca, ca_key) = certificate(None);
     let (cert, key) = certificate(Some((&ca, &ca_key)));
@@ -385,6 +405,7 @@ fn authority_peer(
                 .split('?')
                 .next()
                 .expect("route");
+            let labels = must(labels.lock()).clone();
             let value = match path {
                 "/v1/agent/registry" => {
                     json!({"modules":[{"module_id":activity.module() as u16, "activity_types":[activity.value()]}]})
@@ -392,11 +413,11 @@ fn authority_peer(
                 "/v1/agent/subject-context" => {
                     json!({"subject_principal":peer.principal, "tenant":subject.transport_tenant, "agent_tenant":peer.tenant,
                     "owner_did":subject.owner, "account_id":hex::encode(account_id), "asset_id":hex::encode(subject.asset),
-                    "verification_level":"committed", "observed_head_sequence":identity.head_sequence, "checkpoint_digest":hex::encode(random::<32>())})
+                    "verification_level":labels.context, "observed_head_sequence":identity.head_sequence, "checkpoint_digest":hex::encode(random::<32>())})
                 }
                 "/v1/agent/identity" => {
                     json!({"canonical_core_bytes":hex::encode(&identity.canonical_bytes), "head_sequence":identity.head_sequence,
-                    "revocation_sequence":identity.revocation_sequence, "frozen":identity.frozen, "verification_level":"committed",
+                    "revocation_sequence":identity.revocation_sequence, "frozen":identity.frozen, "verification_level":labels.identity,
                     "authorities":identity.authorities.iter().map(|authority| match authority { ProtocolAuthority::PrimaryKey(id) => json!({"kind":"primary_key","id":hex::encode(id)}), _ => panic!("owner authority") }).collect::<Vec<_>>()})
                 }
                 other => panic!("unexpected authority read: {other}"),
@@ -452,6 +473,9 @@ fn clock_peer(root: &Path) -> (Arc<RuntimeClock>, Peer) {
 }
 
 struct OwnerFixture {
+    peer: HumanPeer,
+    labels: Arc<Mutex<ServedLabels>>,
+    credential: layerx_agentd::session::SessionCredential,
     owner: SharedAgentOwner<RemoteHumanAuthority>,
     retained: Arc<Mutex<Store>>,
     document: Value,
@@ -501,7 +525,9 @@ impl OwnerFixture {
             frozen: false,
             authorities: vec![ProtocolAuthority::PrimaryKey(public_key)],
         };
-        let (mut authority, authority_worker) = authority_peer(peer.clone(), identity, activity);
+        let labels = Arc::new(Mutex::new(ServedLabels::default()));
+        let (mut authority, authority_worker) =
+            authority_peer_with_labels(peer.clone(), identity, activity, Arc::clone(&labels));
         let mut store = must(Store::open(root.join("store")));
         let identity = must(identity::register(
             &mut store,
@@ -661,6 +687,9 @@ impl OwnerFixture {
             "agent_register": {"tenant":tenant.as_str(), "agent_did":account.did(), "authority_ref":hex::encode(public_key), "client":"sdk", "policy_version":"v1", "owner_address":hex::encode(from), "binding_consent":hex::encode(binding.signature()), "fee_limit":"1000000000000"},
             "session_open": {"context":context, "grant_id":hex::encode(issued.grant_id), "registration_payload":hex::encode(issued.registration_payload), "expiry_sequence":"1000", "purpose":hex::encode(random::<32>()), "fee_limit":"1000000000000"}});
         Self {
+            peer,
+            labels,
+            credential,
             owner,
             retained,
             document,

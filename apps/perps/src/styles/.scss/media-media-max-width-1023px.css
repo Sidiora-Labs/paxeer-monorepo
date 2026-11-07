@@ -1,5 +1,1 @@
-@media(max-width: 1023px) {
-    .card-group--expand .card-group__cards--card {
-        height: var(--expand-card-mobile-height)
-    }
-}
+@import "../../../../explorer/.scss/media-media-max-width-1023px.css";

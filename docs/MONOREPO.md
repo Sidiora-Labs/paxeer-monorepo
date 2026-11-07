@@ -2,7 +2,7 @@
 
 This repository contains one Paxeer X Network: the `paxd` node with the LayerX kernel embedded in it, contracts, hosted services, SDKs and applications. The kernel participates in block proposal and execution inside the network; a receipt is final when its block is committed. Source directories and language-specific builds are development boundaries within that network.
 
-See [Paxeer Network](paxeer-network.md) for chain identity, public endpoints and tenant domains. The target directory layout is specified in [`spec/monorepo-layout/spec.kvx`](../spec/monorepo-layout/spec.kvx); the tables below distinguish existing paths from planned moves.
+See [Paxeer Network](paxeer-network.md) for chain identity, public endpoints and tenant domains. The tables below distinguish existing paths from planned moves. See [Contributing](../CONTRIBUTING.md#specifications-come-first) for the specifications that govern layout changes.
 
 ## Target groups
 
@@ -91,7 +91,7 @@ WebRTC relays use kind `offer` with payload `{ to, relay }`; the host supplies
 the admitted sender as `{ from, to, relay }` when forwarding. `relay` contains
 either `description: { type, sdp }` (offer/answer) or
 `candidate: { candidate, sdpMid, ... }`. The host must authenticate the sender
-and forward only to the named admitted peer. Task 22.38.16's host listener is
+and forward only to the named admitted peer. The planned host listener is
 not present in this checkout; these envelopes define the peer side of that
 integration. The declared transport tests use a loopback WebSocket stand-in,
 without qualifying chain admission or live host interoperability.

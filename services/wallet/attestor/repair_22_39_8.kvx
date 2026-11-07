@@ -1,0 +1,216 @@
+[repair]
+task = "22.39.8"
+acceptance = "22998.1"
+base_revision = "bedd71ff1d52a89329be5be9c6a95b7667fe5412"
+prerequisite_revision = "f35e90cf0cf26d82703f74adafae6e7a816f1f27"
+
+[real_profiles]
+tests = ["TestNativeCustodyRealProfiles", "TestNativeSendPurposeRealProfiles"]
+inventory = "Both tests already install the real signed inventory through nativeInventory; preserve its authority, stored-share checks and restart setup."
+refusal = "Missing owner-approved inventory must return token_unavailable with HTTP 401; both RealProfiles tests now exercise and assert that production refusal before signing with the installed inventory."
+chain = "The shared newTestClusterWith setup already installs the bind-nonce chain fixture used by the other policy tests."
+clock = "Both real Rust consumer entry points require RuntimeClock::from_environment. Launch each consumer through tools/runtime/run-with-clock.sh so the actual clock supervisor is present for focused Go runs as well as the full CI suite."
+workflow = "Keep make build/liblayerx.a and its absolute CGO_LDFLAGS; explicitly enable cgo and disable the Go test result cache."
+
+[qualification]
+build = "make build/liblayerx.a && (cd services/wallet/attestor && CGO_ENABLED=1 CGO_LDFLAGS=-L$PWD/../../../build go vet ./internal/server/) && cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-kms --test attestor_native_profile --no-run && cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --test native_send_purpose --no-run"
+verify = "exe=$(realpath $(ls -t ${CARGO_TARGET_DIR:-services/human/target}/debug/deps/attestor_native_profile-* | grep -v -e [.]d$ | head -1)) && send=$(realpath $(ls -t ${CARGO_TARGET_DIR:-services/human/target}/debug/deps/native_send_purpose-* | grep -v -e [.]d$ | head -1)) && cd services/wallet/attestor && PAXEER_X_NATIVE_CUSTODY_RUST_TEST=$exe PAXEER_X_NATIVE_SEND_RUST_TEST=$send CGO_ENABLED=1 CGO_LDFLAGS=-L$PWD/../../../build sh ../../../tools/runtime/run-with-clock.sh go test -count=1 ./internal/server/ -run 'RealProfiles$'"
+verified_revision_source = "/out/run/gates.jsonl: revision of the successful hf-done verify row, which must equal the hf-build revision; no success is claimed without that row."
+private_evidence = "/out/run/gates.jsonl and the exact private log paths in its gate rows."
+prerequisites = "The declared build compiles both Rust native consumers; verification supplies both executable paths and launches the unchanged RealProfiles tests under the runtime clock."
+
+[attempt1.result]
+revision = "072c86dbd9c7ef95821d86bd53229239ee3571b5"
+command = "cg spec done 22.39.8 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Both RealProfiles tests executed, asserted token_unavailable for missing inventory, and passed their Go signing, replay, restart and refusal assertions before failing with prebuilt real Rust custody consumer is required; the native library build and go vet passed at this same revision in /out/logs/build-1.log."
+assumption = "Missing external Rust consumer executables are a pre-existing sandbox prerequisite failure, not token_unavailable or chain_unavailable on an authorized signing request; do not chase or rerun this recorded failure, and do not claim either Rust handshake or full qualification passed."
+
+[gotcha.scope]
+observed = "Root gotcha and feature qualification records are outside this task's explicit scope, and only hf-build and hf-done are authorized gates."
+action = "Keep task findings in this scoped record and retain exact candidate revision, command, exit code and private log in the runner ledger."
+
+[attempt2]
+implementation = "Preserve the attempt-1 inventory assertions, native refusal, clock wrapper and CI changes; qualify after the platform lockfile prerequisite. Both existing RealProfiles tests and their real Rust consumers remain mandatory."
+result_source = "/out/run/gates.jsonl: the current verify row and its private log record the actual outcomes of TestNativeCustodyRealProfiles and TestNativeSendPurposeRealProfiles, including any remaining refusal code; the build and verify revisions must match before qualification is claimed."
+external_interface = "The declared gate supplies only the custody executable; the send executable is a different Rust target and cannot be substituted with the custody executable, which lacks native_send_provider_and_sdk_real_cluster. Preserve the required executable check and record the gate outcome."
+
+[attempt2.result]
+revision = "5f8a72b333912fa52c5f66671845265cec717774"
+command = "make build/liblayerx.a && (cd services/wallet/attestor && CGO_ENABLED=1 CGO_LDFLAGS=-L$PWD/../../../build go vet ./internal/server/) && cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-kms --test attestor_native_profile --no-run"
+exit = 101
+log = "/out/logs/build-1.log"
+observed = "The native library build and Go vet completed successfully; the declared Rust consumer build refused with Cargo.lock needs to be updated but --locked was passed to prevent this for services/human/Cargo.lock (exit 101), before either RealProfiles test could execute."
+assumption = "The human workspace lockfile mismatch predates this task and is outside its editable paths; preserve --locked, record the prerequisite failure without chasing it, and do not claim qualification."
+
+[attempt2.tests]
+TestNativeCustodyRealProfiles = "Not executed: hf-build failed before producing the required Rust consumer executable; no current refusal code was observed."
+TestNativeSendPurposeRealProfiles = "Not executed: hf-build failed before verification; no current refusal code was observed, and the separate send consumer executable remains absent from the declared gate."
+
+[gotcha.attempt2]
+observed = "Refreshing the platform lockfile prerequisite does not make the separate human workspace lockfile current; the mandated consumer build can still refuse --locked."
+action = "Retain the external lockfile failure in this scoped record; do not remove --locked, change a manifest or run undeclared gates."
+
+[attempt3]
+base_revision = "c71bbe8cb44690017e63f5d0d20fe75dfc8e3651"
+platform_prerequisite = "64411cc05dfe9bca582631c8e592d1e6ea8776ff"
+human_prerequisite = "3d705097da3f6624bcc38158cf711ad80501e035"
+implementation = "Reviewed and retained the complete attempt-2 tree, including both declared test functions, real signed inventory and chain fixtures, strict inventory refusal, Rust clock supervision and uncached cgo CI execution."
+result_source = "/out/run/gates.jsonl: the attempt-3 hf-build and hf-done rows bind the exact candidate revision, command, exit and private log; qualification requires both rows to pass at the same revision."
+
+[attempt3.tests]
+TestNativeCustodyRealProfiles = "Executed and failed at the real Rust consumer after the Go signing, replay, restart and refusal assertions passed; missing inventory returned the asserted token_unavailable with HTTP 401, then native_provider_and_sdk_real_cluster returned Io OS code 11, WouldBlock, Resource temporarily unavailable (consumer exit 101)."
+TestNativeSendPurposeRealProfiles = "Executed and failed at the required send consumer check after the Go signing, replay, restart and refusal assertions passed; missing inventory returned the asserted token_unavailable with HTTP 401, then PAXEER_X_NATIVE_SEND_RUST_TEST was absent and the test reported prebuilt real Rust custody consumer is required."
+external_interface = "The mandated gate builds and exports the custody executable only; preserve the separate send executable requirement and record any missing interface without substituting a consumer, adding an undeclared build or weakening assertions."
+
+[attempt3.build]
+revision = "6cfd335c5d88c9a7d1c0fe121ea35e9c4e15e45c"
+command = "make build/liblayerx.a && (cd services/wallet/attestor && CGO_ENABLED=1 CGO_LDFLAGS=-L$PWD/../../../build go vet ./internal/server/) && cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-kms --test attestor_native_profile --no-run"
+exit = 0
+log = "/out/logs/build-1.log"
+
+[attempt3.result]
+revision = "6cfd335c5d88c9a7d1c0fe121ea35e9c4e15e45c"
+command = "cg spec done 22.39.8 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Both RealProfiles tests reached their required Rust consumer phase: custody failed with Io OS code 11 WouldBlock inside the Rust consumer, and send failed because its separate executable was not supplied by the declared gate."
+assumption = "These external consumer failures are outside the task touches; stop as do_4 requires without chasing them, rerunning gates or claiming qualification; this outcome record was appended after the recorded candidate was tested."
+
+[attempt4]
+base_revision = "df14eb1e5c6520953222660d7f8cf11c5b58d347"
+implementation = "Preserve the complete attempt-3 Go and CI implementation. The declared build now compiles both native Rust consumers and the declared verification exports both executable paths under the runtime clock wrapper."
+scope_conflict = "The explicit four-file scope excludes services/human/crates/layerx-human-kms/src/attestor.rs, although do_5 requires instrumentation, a clock-budget repair and transport_error timeout mapping in that file; requested scope clarification before making any Rust edit."
+observed_code = "AttestorClient::post passes budget.unwrap_or(self.deadline).min(self.deadline) to ureq timeout_global; transport_error maps ureq::Error::Timeout to Timeout but has no WouldBlock or TimedOut IO match. No current failing node, effective transport budget or error source chain has been measured."
+result_source = "/out/run/gates.jsonl: the attempt-4 hf-build and hf-done rows bind the exact candidate revision, command, exit and private log; both gates must pass at the same revision before qualification is claimed."
+tests_source = "The attempt-4 hf-done private log records both RealProfiles outcomes and any remaining refusal or transport error; no result is inferred from the earlier attempts."
+
+[attempt4.build]
+revision = "b8f1b5856b06d5cda88b80a9147e9504f2319024"
+command = "make build/liblayerx.a && (cd services/wallet/attestor && CGO_ENABLED=1 CGO_LDFLAGS=-L$PWD/../../../build go vet ./internal/server/) && cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-kms --test attestor_native_profile --no-run && cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --test native_send_purpose --no-run"
+exit = 0
+log = "/out/logs/build-1.log"
+
+[attempt4.result]
+revision = "b8f1b5856b06d5cda88b80a9147e9504f2319024"
+command = "cg spec done 22.39.8 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Both real Rust consumers executed and failed: custody returned Io OS code 11 WouldBlock, and send returned Mismatch(native_send.domain); both Go tests asserted token_unavailable for missing inventory."
+assumption = "The required Rust instrumentation and repair are excluded by the explicit scope and await clarification; preserve tests and production refusals, do not rerun an unchanged gate or claim qualification, and retain this post-gate outcome as evidence only."
+
+[attempt4.tests]
+TestNativeCustodyRealProfiles = "Failed after its Go signing, replay, restart and refusal assertions: native_provider_and_sdk_real_cluster ran one test, returned Io(Os { code: 11, kind: WouldBlock, message: Resource temporarily unavailable }) and exited 101 after 0.82 seconds; the Go test failed after 2.29 seconds."
+TestNativeSendPurposeRealProfiles = "Failed after its Go signing, replay, restart and refusal assertions: native_send_provider_and_sdk_real_cluster ran one test, returned Mismatch(native_send.domain) and exited 101 after 1.14 seconds; the Go test failed after 3.23 seconds."
+trace_node = "Not measured: test-only Rust instrumentation requires the excluded attestor.rs file."
+trace_budget = "Not measured: the configured Rust client deadline is 120 seconds, but the effective failing-call transport budget was not printed."
+trace_error = "Io(Os { code: 11, kind: WouldBlock, message: Resource temporarily unavailable }); a source chain was not printed by the unmodified Rust consumer."
+
+[attempt5]
+base_revision = "c6a45ed6d0f1f5ee8cf4a80ea804efdef8e8d9c4"
+implementation = "Retain the attempt-4 Go and CI changes; derive the request timeout from a Deadline and remaining observations of the same runtime clock, refuse zero remaining time, classify WouldBlock and TimedOut transport errors as Timeout, and retry only the durably bound native signing request within that deadline."
+clock_binding = "The send consumer explicitly binds its RuntimeClock through AttestorKms and AttestorClient; native replay journals bind the same clock into their transport. Other clients attach to the runtime supervisor rather than a host-clock deadline."
+store = "The scoped send test shares one PrincipalStore owner between its custody signer and principal scopes, and releases each principal scope before switching principals; all consent, replay, foreign-principal and passkey assertions remain."
+trace = "Both real consumer outputs are retained in private per-consumer logs when HF_OUT_DIR is present; request diagnostics report node, path and effective timeout, and any transport error includes Debug plus its source chain. The send test prints its expected and producer-bound domain exactly once before decoding."
+policy = "Keep internal/policy/native/native.go and the native policy document unchanged. Its SendPurposeDomain is LayerX/native/send-purpose/v1 followed by NUL, while NativeSendPurposeV2::DOMAIN is LayerX/native/send-purpose/v2 followed by NUL and the Rust API explicitly rejects legacy V1. No coercion, fallback, parser weakening or assertion weakening is permitted."
+scope_conflict = "The custody test opens the same principal store twice at attestor_native_profile.rs lines 365 and 378 before signing, then opens it again for the foreign principal; PrincipalStore::open requires an exclusive owner and returns Io WouldBlock for competing opens. That test file is outside the explicit scope; requested scope clarification rather than weakening store ownership."
+result_source = "/out/run/gates.jsonl: final hf-build and hf-done rows record revision, exact command, exit and private log; qualification requires passing rows at the same candidate revision."
+trace_custody_source = "/out/logs/native_provider_and_sdk_real_cluster.log records actual post node/budget values and any transport source chain, or the earlier principal-store ownership refusal if the test never reaches native signing."
+trace_send_source = "/out/logs/native_send_provider_and_sdk_real_cluster.log records the actual consumer and producer domains and exact consumer outcome."
+qualification_source = "/out/logs/build-1.log and /out/logs/verify-1.log, or the final repair-run logs named in /out/run/gates.jsonl; neither success nor a transport failure is inferred in advance."
+
+[attempt5.build]
+revision = "f105525808fcdb21f970026fd4e224f05a3388c2"
+command = "make build/liblayerx.a && (cd services/wallet/attestor && CGO_ENABLED=1 CGO_LDFLAGS=-L$PWD/../../../build go vet ./internal/server/) && cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-kms --test attestor_native_profile --no-run && cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --test native_send_purpose --no-run"
+exit = 0
+log = "/out/logs/build-1.log"
+
+[attempt5.result]
+revision = "f105525808fcdb21f970026fd4e224f05a3388c2"
+command = "cg spec done 22.39.8 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+
+[attempt5.tests]
+TestNativeCustodyRealProfiles = "\nrunning 1 test\ntest native_provider_and_sdk_real_cluster ... native attestor post node=node-4 path=/v1/keys/generate budget=119.998645759s\nnative attestor post node=node-1 path=/v1/keys/generate budget=119.994460078s\nnative attestor post node=node-3 path=/v1/keys/generate budget=119.994815618s\nnative attestor post node=node-5 path=/v1/keys/generate budget=119.995303308s\nnative attestor post node=node-2 path=/v1/keys/generate budget=119.993076578s\nnative principal store ownership error=Io(Os { code: 11, kind: WouldBlock, message: \"Resource temporarily unavailable\" })\nError: Io(Os { code: 11, kind: WouldBlock, message: \"Resource temporarily unavailable\" })\nFAILED\n\nfailures:\n\nfailures:\n    native_provider_and_sdk_real_cluster\n\ntest result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.92s\n\n"
+TestNativeSendPurposeRealProfiles = "\nrunning 1 test\ntest native_send_provider_and_sdk_real_cluster ... native attestor post node=node-1 path=/v1/keys/generate budget=119.995315448s\nnative attestor post node=node-2 path=/v1/keys/generate budget=119.994668138s\nnative attestor post node=node-3 path=/v1/keys/generate budget=119.995273748s\nnative attestor post node=node-5 path=/v1/keys/generate budget=119.99863277s\nnative attestor post node=node-4 path=/v1/keys/generate budget=119.99874506s\nnative send domains: consumer=\"LayerX/native/send-purpose/v2\\0\" producer=\"LayerX/native/send-purpose/v1\\0\"\nError: \"Mismatch(\\\"native_send.domain\\\")\"\nFAILED\n\nfailures:\n\nfailures:\n    native_send_provider_and_sdk_real_cluster\n\ntest result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.97s\n\n"
+
+[attempt5.finding]
+revision = "f105525808fcdb21f970026fd4e224f05a3388c2"
+command = "cg spec done 22.39.8 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Both real Rust consumers ran and failed: custody logged its PrincipalStore ownership-lock Io WouldBlock before native signing, with all five preceding request budgets between 119.993076578s and 119.998645759s and no transport error; send printed consumer send-purpose/v2 and producer send-purpose/v1 before Mismatch(native_send.domain); both Go tests asserted token_unavailable for missing inventory."
+assumption = "The custody fixture's competing store opens are outside scope; the unchanged native policy's V1 purpose conflicts with the current Rust API's mandatory V2 purpose. Scope/policy clarification was requested; preserve ownership and domain assertions, do not rerun these recorded pre-existing contradictions unchanged, and do not claim qualification."
+
+
+[attempt6]
+base_revision = "7358f14a6affa95ff1dbd8686c2e4a0c36a8f974"
+prior_evidence_revision = "5de94a0b37e01f87d76beb084bac9dad54c98303"
+implementation = "Retain the attempt-5 changes. The custody support fixture opens one PrincipalStore and shares its Arc Mutex with the signer; principal scopes release before switching principals. The custody provider uses the same runtime clock as its consumer."
+send = "The server parses only LayerX/native/send-purpose/v2 NUL and version 2, following the golden V2 field order, and signs SHA256 of those exact bytes. Validate canonical DIDs, bounded UTF8, nonzero consent key and EVM sender, lifetimes, EIP-1559 type 2, chain 125, Send activity and five nonzero digests; reject truncation and trailing bytes. Match the consent key to the stored Ed25519 share and the independently encoded sender to the stored wallet account. Keep the policy document unchanged."
+fixtures = "Send purpose, capability, session and configured test policy use the same canonical agent DID. The stable owner DID is independent of the consent key and EVM sender. Both existing RealProfiles functions retain their signing, replay, encrypted-store restart, inventory, foreign-owner, expiry, grant, passkey and consumer assertions."
+regressions = "The send test verifies every truncated canonical prefix, every signed field mutation, retired domain, unsupported version/type/chain/activity, zero keys/sender/lifetimes/digests, oversize records and stored-key/account mismatches; malformed records also exercise the real signing endpoint."
+
+[attempt6.qualification]
+revision_source = "/out/run/gates.jsonl: use the revision in the final hf-done verify row, which must exactly equal the final successful hf-build row. These external evidence rows avoid embedding a self-referential candidate hash."
+build_source = "/out/run/gates.jsonl: final kind=build row records the exact revision, declared build command, exit code and private log path."
+verify_source = "/out/run/gates.jsonl: final kind=verify row records the exact revision, cg spec done command, exit code and private log path; completion requires exit 0 with matching build revision."
+TestNativeCustodyRealProfiles = "Outcome and token_unavailable refusal assertion are recorded by the final verification log; /out/logs/native_provider_and_sdk_real_cluster.log retains the actual Rust consumer output and transport diagnostics."
+TestNativeSendPurposeRealProfiles = "Outcome and token_unavailable refusal assertion are recorded by the final verification log; /out/logs/native_send_provider_and_sdk_real_cluster.log retains the actual Rust consumer output and producer/consumer V2 domains."
+
+[gotcha.attempt6]
+observed = "Switching only the domain label cannot produce V2: the retired encoding omits the independent EVM sender, uses protocol/network widths instead of transaction type/chain, and its alice agent DID is not canonical for the current Rust API."
+action = "Implement the V2 wire shape and canonical send fixture coordinates together, while preserving native preparation and local grant encodings and all policy refusals."
+
+
+[attempt6.first_verification]
+revision = "6152fd10316c645530b9f54c2f7110b893b2ea18"
+command = "cg spec done 22.39.8 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Custody passed the store owner boundary and launched only two native quorum requests before two 120-second Global timeouts and Kms(InvalidConfiguration); send decoded matching V2 domains, launched only four public-wallet requests and returned Kms(KeyNotFound). Both tests asserted token_unavailable for missing inventory. Build passed at this revision in /out/logs/build-1.log, and the dependent check passed in /out/logs/dependents-1.log."
+
+[attempt6.repair1]
+observed = "RuntimeClock::exchange validates each completed sample against its previous observation after concurrent transport workers finish; shared unsynchronized samples can complete out of observation order and refuse with ClockError::Regression before an HTTP request starts."
+implementation = "AttestorClock serializes observations of the supplied real runtime clock without serializing quorum HTTP requests or changing any deadline bound or clock refusal. AttestorClient clock injection, durable native replay binding and AttestorKms clock connections use the adapter; all deadlines still derive from the same runtime authority. Native consumer diagnostics retain exact clock and node response errors."
+result_source = "/out/run/gates.jsonl: final build and verify rows must pass at the same revision; private build-2.log and verify-2.log (or a final repair row) record the actual result."
+
+
+[attempt6.build]
+revision = "7c9761effeeca9e9c7a11e0b2017512eb853aeb2"
+command = "make build/liblayerx.a && (cd services/wallet/attestor && CGO_ENABLED=1 CGO_LDFLAGS=-L$PWD/../../../build go vet ./internal/server/) && cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-kms --test attestor_native_profile --no-run && cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --test native_send_purpose --no-run"
+exit = 0
+log = "/out/logs/build-2.log"
+
+
+[attempt6.result]
+revision = "7c9761effeeca9e9c7a11e0b2017512eb853aeb2"
+command = "cg spec done 22.39.8 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-2.log"
+
+[attempt6.tests]
+TestNativeCustodyRealProfiles = "Passed at the recorded final gate revision: the real Rust consumer completed 1 passed, 0 failed, 0 ignored in 3.42 seconds, including genuine passkey issuance, grant consent, foreign-principal, forgery, ceremony replay, consumed evidence and token_not_owner assertions; missing inventory returned token_unavailable."
+TestNativeSendPurposeRealProfiles = "Failed at the recorded final gate revision: producer and consumer both reported LayerX/native/send-purpose/v2 NUL; all five public-wallet calls returned HTTP 404 Refused(category=key, code=key_not_found), then the real Rust consumer returned Error: Kms(KeyNotFound), 0 passed, 1 failed, 0 ignored, exit 101 in 0.84 seconds; missing inventory returned token_unavailable."
+private_custody_output = "/out/logs/native_provider_and_sdk_real_cluster.log"
+private_send_output = "/out/logs/native_send_provider_and_sdk_real_cluster.log"
+stop = "Implemented, not qualified. The runner counts build-2 and verify-2 as its two allowed reruns; the repair budget is exhausted. Preserve the public-wallet refusal and stop without another gate, a forced completion, a commit or a push. This outcome-only entry was appended after the recorded candidate was tested; it does not claim a new qualified revision."
+
+[attempt7]
+base_revision = "31084c2a39cdb49c1bbd01b48422cc3b169c76b6"
+prior_tree = "30ec04278493116ed5b919f1256e5d7f39e393be"
+implementation = "Retain the attempt-6 implementation. Before launching the send consumer, import a genuine five-node secp256k1 wallet for testOwner through the production ceremony endpoint with signed inventory approval, then limit its inventory operation to sign. Assert each node holds the expected curve, public key, owner, account, epoch, membership and audited import response."
+sender = "Derive the EVM sender from the imported secp256k1 public key; use that account for the Rust-generated primary and encode the same sender into the V2 purpose. Assert the parsed canonical sender equals the held wallet address. The Rust consumer and production handlers remain unchanged by this attempt."
+
+[attempt7.qualification]
+revision_source = "/out/run/gates.jsonl: the final successful build and verify rows must name the same exact candidate revision. This record is part of that candidate and references the external evidence rather than embedding a self-referential hash."
+build_source = "/out/run/gates.jsonl: final kind=build row records revision, exact declared command, exit and private log."
+verify_source = "/out/run/gates.jsonl: final kind=verify row records revision, cg spec done command, exit and private log. Only exit 0 at the built candidate qualifies the task."
+TestNativeCustodyRealProfiles = "The final verify log records this test and its token_unavailable refusal assertion; /out/logs/native_provider_and_sdk_real_cluster.log retains the real consumer outcome."
+TestNativeSendPurposeRealProfiles = "The final verify log records this test and its token_unavailable refusal assertion; /out/logs/native_send_provider_and_sdk_real_cluster.log retains the wallet resolution, V2 consent and actual consumer outcome, including any remaining refusal code."
+
+[gotcha.attempt7]
+observed = "The public-wallet endpoint requires a unique held secp256k1 identity for the primary owner and requires both held accounts to equal the address derived from that wallet public key; a signed Ed25519 primary alone cannot resolve the EVM sender."
+action = "Provision the wallet before the Rust consumer starts and derive every consumer account and canonical sender from the same imported wallet key, preserving all ownership, inventory and encoding checks."

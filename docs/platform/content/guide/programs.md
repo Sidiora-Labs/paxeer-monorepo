@@ -1,6 +1,6 @@
 # Programs
 
-A LayerX Network program is deterministic WASM that runs against protocol state. It can compute, use principal-scoped and shared storage, call other programs, and request transfers through explicitly granted authority. It never writes a balance.
+A LayerX kernel program is deterministic WASM that runs against protocol state. It can compute, use principal-scoped and shared storage, call other programs, and request transfers through explicitly granted authority. It never writes a balance.
 
 ## The monetary law
 
@@ -151,8 +151,8 @@ multiplier is small because memory use of 2 MiB per call dominates the fee, so
 the interpreted route's extra CPU fuel (4x to 8x on these workloads) barely
 moves the price. These observed values are measurements, not a promise: a
 different script, schedule or host can land anywhere up to the 12x ceiling,
-and only the ceiling is gated. The broader cold/warm execution baseline and performance ledger remain
-the qualification-owned task 32.7 component of this aggregate Make entry.
+and only the ceiling is gated. The broader cold/warm execution baseline and
+performance ledger remain qualification components of this aggregate Make entry.
 
 Use interpretation when removing a compiler from an agent's deployment path
 is worth a potentially material execution premium: small policies, bounded

@@ -110,8 +110,8 @@ def test_published_image_digest_is_appended_to_existing_release_notes():
     assert "set -euo pipefail" in script
     assert '[[ "$IMAGE_DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]]' in script
     assert 'gh release view "$RELEASE_TAG" --json body --jq \'.body\' > "$notes"' in script
-    assert 'ghcr.io/paxeer-network/pax:v%s@%s' in script
-    assert '"$VERSION" "$IMAGE_DIGEST" >> "$notes"' in script
+    assert '`%s:v%s@%s`' in script
+    assert '"$IMAGE_NAME" "$VERSION" "$IMAGE_DIGEST" >> "$notes"' in script
     assert 'gh release edit "$RELEASE_TAG" --notes-file "$notes"' in script
 
 

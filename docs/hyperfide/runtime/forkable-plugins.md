@@ -7,7 +7,7 @@ only:
 - the published `@hyperfide/plugin-sdk`;
 - npm packages;
 - the plugin's own files;
-- UI components from hyperfide platform's component registry (`packages/plugin-registry`),
+- UI components from hyperfide platform's component registry (`tools/plugin-registry`),
   imported through the scaffold's `@/components/ui/*` and `@/lib/*` aliases.
 
 Forking is for someone who wants to diverge from a built-in instead of using
@@ -15,7 +15,7 @@ hyperfide platform's extension points.
 
 ## The list
 
-[`scripts/forkable-plugins.json`](../../../tools/hyperfide/tools/workspace/forkable-plugins.json) names the
+[`tools/workspace/forkable-plugins.json`](../../../tools/hyperfide/tools/workspace/forkable-plugins.json) names the
 built-ins held to this rule. Two checks read it:
 
 - The `hyperfide/forkable-plugin-imports` lint rule, run by each listed plugin's own
@@ -24,7 +24,7 @@ built-ins held to this rule. Two checks read it:
   that leave the plugin directory, and `@/` paths no registry item provides.
 - `pnpm check:plugin-forks` (CI job "Plugin Fork Check") copies each listed
   plugin to a temporary directory the way a fork would, with the rewrite in
-  [`scripts/lib/plugin-fork.mjs`](../../../tools/hyperfide/tools/workspace/lib/plugin-fork.mjs): it writes
+  [`tools/workspace/lib/plugin-fork.mjs`](../../../tools/hyperfide/tools/workspace/lib/plugin-fork.mjs): it writes
   the registry items the plugin imports into the copy, points `@/*` at `./*`,
   installs the packed SDK and npm packages with `--legacy-peer-deps`, and runs
   the copy's typecheck, tests, and `hyperfide platform plugin build`. Pass plugin directories
@@ -47,16 +47,16 @@ each; a shard with nothing selected skips setup.
 
 - **UI through the registry alias.** Components come from `@/components/ui/*`
   and helpers from `@/lib/*`. The plugin's `tsconfig.json` maps `@/*` onto
-  `packages/shared-ui/src`, the source the registry is generated from, and
+  `lib/shared-ui/src`, the source the registry is generated from, and
   `@/components/ui/icon` onto the registry's host-backed icon
-  (`packages/plugin-registry/flavors/components/ui/icon.tsx`); a plugin that
+  (`tools/plugin-registry/flavors/components/ui/icon.tsx`); a plugin that
   imports `@/components/ui/question-form-host` maps it onto that item's flavor
   the same way. tsc, esbuild, and
-  vitest follow the mapping, and `apps/app/vite-forkable-plugin-paths.ts`
+  vitest follow the mapping, and `apps/web/vite-forkable-plugin-paths.ts`
   applies it when app tests and Ladle stories import the plugin.
   `@hyperfide/shared-ui` stays in `package.json` so pnpm links it; the fork replaces
   it with the registry items' packages. A shared-ui component a plugin needs
-  becomes a registry item in `packages/plugin-registry/registry.json`.
+  becomes a registry item in `tools/plugin-registry/registry.json`.
   Plugin-only logic moves into the plugin.
 - **Its own test config.** `vitest.config.ts` uses `defineConfig` from
   `vitest/config` with `resolve: { tsconfigPaths: true }`, not
@@ -82,16 +82,16 @@ each; a shard with nothing selected skips setup.
   They do not import app or workspace source, and they do not assert on host
   behavior. Tests of the plugin's own components live in the plugin. Host
   tests that load a listed plugin import it by a resolved path at runtime, as
-  `apps/app/src/components/sidebar/sidebar.bench.test.tsx` does: a literal
+  `apps/web/src/components/sidebar/sidebar.bench.test.tsx` does: a literal
   import would pull the plugin's `@/` imports into the host's own type
   program, where `@/` means the host's source. For the same reason, Ladle
   stories either live in the plugin directory, are listed in
-  `apps/app/.ladle/config.mjs`, and import nothing outside the plugin (they
+  `apps/web/.ladle/config.mjs`, and import nothing outside the plugin (they
   lay out their own rows, and a story whose host components need app data
   asks for it in its Ladle `meta`: `modelPickerCatalog` seeds the model
-  picker catalog, read by `apps/app/.ladle/components.tsx`), or live in the
+  picker catalog, read by `apps/web/.ladle/components.tsx`), or live in the
   app and load the plugin with `import.meta.glob`, as
-  `apps/app/src/components/thread/pending-interactions/InteractionStates.stories.tsx`
+  `apps/web/src/components/thread/pending-interactions/InteractionStates.stories.tsx`
   does.
 - **Turbo entries.** `turbo.json` gives the plugin's `typecheck` and `test`
   tasks the registry flavors as inputs, and `test` depends on

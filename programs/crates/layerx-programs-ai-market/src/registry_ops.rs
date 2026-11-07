@@ -67,6 +67,7 @@ impl<'a> PolicySection<'a> {
     pub fn recent(&self) -> &[PolicyHistoryHeader] {
         &self.recent[..self.recent_len]
     }
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     fn push_history(&mut self, header: PolicyHistoryHeader) -> CodecResult<()> {
         if self.recent_len == MAX_RECENT_POLICY_HEADERS {
             self.history_root = fold_policy_history(self.history_root, 0, &self.recent[..1])?;
@@ -78,6 +79,7 @@ impl<'a> PolicySection<'a> {
         }
         Ok(())
     }
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     fn activated(&self, version: u64) -> bool {
         version == self.header.active_config_version
             || self
@@ -95,6 +97,7 @@ impl<'a> PolicySection<'a> {
         self.validate_records()
     }
     /// [`Self::validate`] after the header, for a header `MarketHeader::decode` validated.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     fn validate_records(&self) -> CodecResult<()> {
         if self.recent_len == 0 || self.recent_len > MAX_RECENT_POLICY_HEADERS {
             return Err(NON_CANONICAL);
@@ -246,6 +249,7 @@ impl<'a> PolicySection<'a> {
 ///
 /// # Errors
 /// Returns `F01_LIFECYCLE_CLOSED` when the market is winding down or closed; `F01_NO_PENDING_POLICY` when nothing is staged; `F01_ACTIVATION_TOO_EARLY` when `epoch` precedes the effective epoch; propagates history-fold and `validate` refusals.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn activate_pending_policy<'a>(
     section: &PolicySection<'a>,
     epoch: u64,
@@ -329,6 +333,7 @@ enum Action {
     Revoke(u64),
 }
 
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn parse(operation: Operation, payload: &[u8]) -> CodecResult<(u64, Action)> {
     operation.validate_payload_length(payload.len())?;
     let mut r = Reader::new(payload);
@@ -360,6 +365,7 @@ fn parse(operation: Operation, payload: &[u8]) -> CodecResult<(u64, Action)> {
     Ok((expected, action))
 }
 
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn build_receipt(
     market: MarketId,
     revision: u64,
@@ -391,6 +397,7 @@ struct Effect {
     subject: [u8; 32],
 }
 
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn emit(
     operation: Operation,
     section: &PolicySection<'_>,
@@ -421,6 +428,7 @@ fn emit(
     )
 }
 
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn created_replay(
     owner: PrincipalId,
     treasury: Presence<PrincipalId>,
@@ -466,6 +474,7 @@ struct CreateRequest {
     metadata: MetadataDigest,
 }
 impl CreateRequest {
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     fn parse(payload: &[u8]) -> CodecResult<Self> {
         let mut r = Reader::new(payload);
         let owner = r.principal_id()?;
@@ -486,6 +495,7 @@ impl CreateRequest {
             metadata,
         })
     }
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     fn header(&self, ctx: &CallContext, market: MarketId) -> MarketHeader {
         MarketHeader {
             format_version: 1,
@@ -517,6 +527,7 @@ impl CreateRequest {
 
 /// A create against an existing market: the owner's exact retry returns its retained
 /// result; anything else is `F01_ALREADY_CREATED`.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn retried_create<'a>(
     ctx: &CallContext,
     state: &SharedState<'a>,
@@ -746,6 +757,7 @@ pub fn apply<'a>(
 }
 
 /// The replay slot and authority version of an owner or operator request.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn authorize(
     actor: PrincipalId,
     section: &PolicySection<'_>,
@@ -989,6 +1001,7 @@ fn revoke(
 }
 
 /// Replaces the bound operator slot, or binds it on first appointment.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn bind_operator(
     replay: &mut ReplayTable,
     principal: PrincipalId,

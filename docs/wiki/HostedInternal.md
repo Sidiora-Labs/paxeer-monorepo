@@ -99,8 +99,8 @@ event adapters have DNS and upstream allowances (`deployment.yaml`,
 `services/platform/hosted/human/deployment.yaml`). Policies are additive, so
 inspect both producer and reader policies when diagnosing an edge.
 
-Webhooks uses `https://kms.layerx-internal.svc` and the four source Service
-names. Its KMS token and per-source reader tokens come from
+Webhooks uses `<kms-origin>` and the four source Service origins, all supplied
+by the operator over HTTPS. Its KMS token and per-source reader tokens come from
 `LAYERX_WEBHOOKS_KMS_TOKEN_FILE` and
 `LAYERX_WEBHOOKS_{JOURNEY|PAYMENT|APPROVAL|PROGRAM}_SOURCE_TOKEN_FILE`
 (`services/platform/hosted/webhooks/deployment.yaml`).
@@ -149,12 +149,14 @@ create/sign endpoints and verifies signatures against the returned public key
 ## Event source request and response
 
 `LAYERX_EVENTS_KIND` is `journeys`, `approvals`, `payments` or `programs`.
+The operator supplies the bare HTTPS origins `<human-service-origin>` and
+`<gateway-origin>` for the configured upstreams below.
 
 | Kind | Configured upstream | Principal credential | Retained snapshot pull |
 | --- | --- | --- | --- |
-| `journeys` | `https://layerx-human.layerx-testnet.svc:9443` | `__Host-layerx_access` cookie | `/v1/journeys/{resource}` |
+| `journeys` | `<human-service-origin>` | `__Host-layerx_access` cookie | `/v1/journeys/{resource}` |
 | `approvals` | Same Human origin | Same session cookie | `/v1/approvals/{resource}` |
-| `payments` | `https://layerx-gateway.layerx-testnet.svc` | `Authorization: LayerX-Key …` | `/v1/receipts/{resource}` |
+| `payments` | `<gateway-origin>` | `Authorization: LayerX-Key …` | `/v1/receipts/{resource}` |
 | `programs` | Same gateway origin, for principal binding | `Authorization: LayerX-Key …` | Retired: reader-token observation returns `410 program_pull_retired` |
 
 The normal producer path sends a full observation to
@@ -284,8 +286,9 @@ Human producer configuration uses `LAYERX_EVENTS_JOURNEY_*`,
 
 Redis serves TLS `6379`, with `appendonly yes`, `appendfsync always` and an ACL
 file. Its readiness uses an authenticated probe user. Webhooks and dashboard
-use `rediss://redis.layerx-internal.svc:6379` with their configured credentials
-(`deployment.yaml`, `services/platform/hosted/webhooks/deployment.yaml`).
+use the operator-supplied `<redis-url>` with the `rediss` scheme and their
+configured credentials (`deployment.yaml`,
+`services/platform/hosted/webhooks/deployment.yaml`).
 
 ## Refusals
 
