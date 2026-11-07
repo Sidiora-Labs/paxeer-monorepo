@@ -135,10 +135,20 @@ defmodule EthereumJSONRPC.PaxeerXTest do
     end
 
     test "the stored type is configurable" do
-      put_paxeer_x_env(cosmos_transaction_type: 100)
+      put_paxeer_x_env(cosmos_transaction_type: 128)
 
-      assert PaxeerX.stored_cosmos_transaction_type() == 100
-      assert PaxeerX.normalize_transaction_type("0xffffffff") == 100
+      assert PaxeerX.stored_cosmos_transaction_type() == 128
+      assert PaxeerX.normalize_transaction_type("0xffffffff") == 128
+    end
+
+    test "the stored type rejects supported EVM types, wire markers and column overflow" do
+      for type <- [0, 2, 100, 126, 2_147_483_648, 4_294_967_295, "128", nil] do
+        put_paxeer_x_env(cosmos_transaction_type: type)
+
+        assert_raise ArgumentError,
+                     "cosmos_transaction_type must be an integer in 127..2147483647, outside supported EVM types and wire markers",
+                     fn -> PaxeerX.stored_cosmos_transaction_type() end
+      end
     end
 
     test "the stored type falls back to the documented default when unconfigured" do
