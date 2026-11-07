@@ -181654,7 +181654,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.539]
 title = "Retire the checkpoint-finalised label in the agent daemon: COMMITTED everywhere, legacy codes decoded as COMMITTED"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.538", "22.31.541", "22.31.516", "22.31.558", "22.31.560", "22.31.572", "22.31.583"]
