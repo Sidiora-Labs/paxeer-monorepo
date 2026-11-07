@@ -33867,3 +33867,10 @@ symbol = "test_docs_release_version_examples.py"
 observed = "Attempt 1 at ecccd4a4c554: build exit 0; verification exit 1: 1 passed, 1 failed: five placeholder markers, two in vendored library READMEs and three in the example and plugin READMEs of the vendored project directory."
 assumption = "The three pages are repaired; the five markers are upstream text in vendored copies that the allowlist of the task text did not name."
 severity = "high"
+
+[repair.22.37.30]
+starting_revision = "c6a45ed6d0f1f5ee8cf4a80ea804efdef8e8d9c4"
+final_revision = "private-gate-ledger:22.37.30:verify:revision"
+command = "hf-done (cg spec done 22.37.30 -f layerx-merge --root /work/paxeer-monorepo)"
+evidence = "Exact candidate revision, exit code and log location are retained in the task private gate ledger; this entry makes no gate outcome claim."
+observed = "The assignment path now shares the workspace root-pin helper, and the declared actor exercises one assigned participant upload and checkpoint."
