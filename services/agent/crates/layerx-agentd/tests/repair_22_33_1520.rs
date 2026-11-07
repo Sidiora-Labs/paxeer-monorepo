@@ -728,6 +728,10 @@ fn fee_preferences_reach_preparation_and_reservation_at_historical_height() {
             &registry,
         )
         .unwrap();
+        let signing = SigningPreparation {
+            actor_address: native.from,
+            transaction: native.clone(),
+        };
         // The preference is read at the held preparation height even after the head advances.
         case.replay
             .answers
@@ -754,6 +758,7 @@ fn fee_preferences_reach_preparation_and_reservation_at_historical_height() {
             read_native_effect_budget_sources(
                 &mut case.replay.endpoint(),
                 &prepared,
+                Some(&signing),
                 &case.caps(8),
                 1_700_000_000_000,
                 1,
@@ -766,6 +771,7 @@ fn fee_preferences_reach_preparation_and_reservation_at_historical_height() {
         let sources = read_native_effect_budget_sources(
             &mut case.replay.endpoint(),
             &prepared,
+            Some(&signing),
             &case.caps(8),
             1_700_000_000_000,
             1,
