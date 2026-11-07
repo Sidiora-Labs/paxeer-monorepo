@@ -1,6 +1,6 @@
 {
   "name": "pax-chain",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "description": "\"Contracts for Pax Chain\"",
   "main": "index.js",
   "directories": {
