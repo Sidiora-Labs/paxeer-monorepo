@@ -26,7 +26,7 @@ test('regular block +@mobile +@dark-mode', async({ render, page }) => {
   await expect(component).toHaveScreenshot();
 });
 
-test('genesis block', async({ render, page }) => {
+test('genesis block +@dark-mode', async({ render, page }) => {
   const query = {
     data: blockMock.genesis,
     isPending: false,
@@ -39,7 +39,7 @@ test('genesis block', async({ render, page }) => {
   await expect(component).toHaveScreenshot();
 });
 
-test('with blob txs', async({ render, page, mockEnvs }) => {
+test('with blob txs +@dark-mode', async({ render, page, mockEnvs }) => {
   await mockEnvs([
     [ 'NEXT_PUBLIC_DATA_AVAILABILITY_ENABLED', 'true' ],
   ]);
@@ -55,7 +55,7 @@ test('with blob txs', async({ render, page, mockEnvs }) => {
   await expect(component).toHaveScreenshot();
 });
 
-test('rootstock custom fields', async({ render, page, mockEnvs }) => {
+test('rootstock custom fields +@dark-mode', async({ render, page, mockEnvs }) => {
   await mockEnvs(ENVS_MAP.blockHiddenFields);
   const query = {
     data: blockMock.rootstock,

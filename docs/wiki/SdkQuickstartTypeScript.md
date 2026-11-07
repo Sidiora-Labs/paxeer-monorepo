@@ -64,10 +64,11 @@ Other exposed methods include `getAccount`, `getBalance`, `getBalances`,
 `subscribe`, and `subscribeFrom`. Check `src/rpc.ts` for their actual wire
 methods; these wrappers do not all target public-node namespaces.
 
-The constructor in `src/rpc.ts` still appends the retired `/rpc` path, so it cannot target the public node root correctly.
-Use a root-path JSON-RPC request for public nodes until that client limitation
-is corrected. This example accepts a transaction already signed by your wallet
-for chain ID 125 and returns its submission hash:
+The `JsonRpcClient` constructor in `src/rpc.ts` accepts an HTTPS URL (or
+loopback HTTP) without credentials, query or fragment, and posts to that URL
+unchanged; pass the node root URL. For a plain root-path request without the
+SDK, this example accepts a transaction already signed by your wallet for
+chain ID 125 and returns its submission hash:
 
 ```ts
 import { Buffer } from "node:buffer";
@@ -111,7 +112,7 @@ returns `-32000`. The response contract is in
 [`rpc/sequencer_receipt.go`](../../rpc/sequencer_receipt.go).
 
 Hosted human-plane send (quote then commit), as in
-`services/platform/docs/samples/first-payment-typescript`:
+`services/platform/examples/samples/first-payment-typescript`:
 
 ```ts
 import { ProductionClient, idempotencyKey } from "@sidiora/layerx-sdk";

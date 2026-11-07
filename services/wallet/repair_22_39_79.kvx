@@ -1,0 +1,35 @@
+[repair.22.39.79]
+decision = "2804"
+gotcha = "3438"
+requirement = "22998.1"
+base_revision = "a2eba65986da02648e4a8c7f536a3fb3878c51dd"
+verified_revision = "The exact candidate revision, command, exit code and private log are recorded by hf-done in /out/run/gates.jsonl and copied into the final handoff; this record is part of that candidate."
+build_cmd = "python3 -m py_compile tests/ci/test_wallet_js_suites_wired.py"
+verify_cmd = "python3 -m pytest -q tests/ci/test_wallet_js_suites_wired.py"
+baseline = "No prior gate ledger or task implementation was present. No pre-change suite was run: the task requires complete implementation before qualification and permits only the declared Python build and verification."
+limitation = "The bounded gates qualify the workflow wiring and dependency declarations; the gateway, importer and demo suites execute in CI and are not claimed as locally passing. No assertion, test registration, exclusion or test selection is changed."
+
+[case.gateway]
+observed = "The Go workflow installs gateway dependencies but does not execute its Vitest suite."
+repair = "Add an independent wallet workflow job running pnpm test with Node 24.22.0, Go from the attestor module, Anvil, OpenSSL, PostgreSQL fixture binaries, the agent SDK build and installed wallet SDK and workspace dependencies. Declare the workflow's pnpm version in the gateway manifest."
+command = "pnpm test"
+directory = "services/wallet/gateway"
+test = "test_wallet_gateway_vitest_wired"
+
+[case.ceremony_import]
+observed = "The standalone ceremony importer has Vitest and Python lockfile tests with no workflow runner; its integration test imports the real gateway route and PostgreSQL fixture helper."
+repair = "Add an independent job installing PostgreSQL, Python and pytest, the wallet workspace for the gateway route, and the importer's standalone frozen lockfile. Run pnpm test and python3 -m pytest -q test from the importer directory. Declare the workflow's pnpm version in the importer manifest."
+commands = ["pnpm test", "python3 -m pytest -q test"]
+directory = "services/wallet/ceremony/legacy-import"
+test = "test_wallet_ceremony_import_tests_wired"
+
+[case.demo]
+observed = "The demo has Vitest configuration and component tests but no package test script or workflow runner."
+repair = "Add the unfiltered vitest run test script and an independent workflow job running pnpm test after building the agent SDK and installing the wallet SDK and wallet workspace. Declare the workflow's pnpm version in the demo manifest."
+command = "pnpm test"
+directory = "services/wallet/demo"
+test = "test_wallet_demo_tests_wired"
+
+[note.scope]
+observed = "The general workflow requests GOTCHA/spec edits and worker publication outside this task's explicit scope."
+resolution = "Keep task findings here, leave the runner's existing bookkeeping changes intact, and let the runner commit the qualified candidate."

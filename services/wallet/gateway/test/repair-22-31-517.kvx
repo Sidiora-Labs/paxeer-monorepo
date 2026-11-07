@@ -1,0 +1,100 @@
+[repair]
+task = "22.31.517"
+requirement = "22998.1"
+base_revision = "7d5db08196d6c24493a563e6b754b6e5cf74901a"
+verified_revision = "The candidate revision in the private hf-done ledger, kind=verify; only exit=0 qualifies this record."
+build_command = "pnpm --dir services/wallet install --frozen-lockfile --ignore-scripts && pnpm --dir services/wallet/gateway run typecheck"
+verify_command = "pnpm --dir services/wallet/gateway run typecheck && pnpm --dir services/wallet/gateway exec vitest run test/repair-22-31-517.test.ts"
+evidence = "hf-build and hf-done emit the exact content-addressed candidate revision, command, exit and private log path; the runner attaches the matching build and verify records."
+
+[site.human_signing]
+path = "services/wallet/gateway/src/routes/sign.ts"
+routes = ["POST /v1/wallet/send", "POST /v1/wallet/sign", "POST /v1/wallet/sign-message", "POST /v1/wallet/sign-typed-data", "POST /v1/wallet/sign-digest"]
+before = "Pool client limit; checkout; BEGIN; wallet SHARE lock; pool-backed archived lookup on missing wallet; pool account limit; client policy and daily reservation; COMMIT; BEGIN; wallet SHARE lock; nested pool nonce transaction and signature-accounting transactions; pool reservation/hash/recovery writes; COMMIT; release; pool audit."
+after = "Pool client limit; checkout; client wallet/archived lookup and disabled refusal; client account limit in autocommit; BEGIN; principal transaction lock and wallet recheck; client policy/reservation; COMMIT; client custody recheck; signing in short transactions on the same session; nonce session lock for transactions; client reservation/hash/recovery writes committed before submission; release; pool audit."
+preserved = "Client then account then signed-operation refusals and all status mappings; account hits persist on policy and signing failures; daily charges and signed evidence commit independently; legacy and attestor custody still hold wallet SHARE locks during signing."
+
+[site.evm_review]
+path = "services/wallet/gateway/src/routes/evmApprovals.ts"
+routes = ["POST /v1/wallet/evm/review"]
+before = "Pool client limit; checkout; BEGIN; original wallet and inventory verification; pool account limit; client capacity/read/write; COMMIT; release."
+after = "Pool client limit; checkout; original wallet and inventory verification; client account limit in autocommit; BEGIN; original wallet recheck; client capacity/read/write; COMMIT; release."
+
+[site.evm_sign]
+path = "services/wallet/gateway/src/routes/evmApprovals.ts"
+routes = ["POST /v1/wallet/evm/sign"]
+before = "Pool client limit; checkout; BEGIN; retained approval/state/expiry/binding checks; pool account limit; client stage write; COMMIT; release; reconciliation."
+after = "Pool client limit; checkout; retained approval/state/expiry/binding checks; client account limit in autocommit only for a newly attempted approved row; BEGIN; repeat retained-state checks; client stage write; COMMIT; release; reconciliation."
+
+[site.evm_approve]
+path = "services/wallet/gateway/src/routes/evmApprovals.ts"
+routes = ["POST /v1/wallet/evm/approve"]
+status = "Found clean: client limiter is before checkout; all retained approval, wallet and update queries use the transaction client."
+
+[site.lx_review]
+path = "services/wallet/gateway/src/routes/sign.ts"
+routes = ["POST /v1/wallet/lx/review"]
+before = "Pool client limit; checkout; BEGIN; original wallet checks; pool account limit; client capacity/read/write; COMMIT; release."
+after = "Pool client limit; checkout; original wallet checks; client account limit in autocommit; BEGIN; original wallet recheck; client capacity/read/write; COMMIT; release."
+
+[site.lx_approve]
+path = "services/wallet/gateway/src/routes/sign.ts"
+routes = ["POST /v1/wallet/lx/approve"]
+before = "Checkout; BEGIN; pool client limit; client original wallet, retained approval and update; COMMIT; release."
+after = "Pool client limit; checkout; BEGIN; client original wallet, retained approval and update; COMMIT; release."
+
+[site.lx_sign]
+path = "services/wallet/gateway/src/routes/sign.ts"
+routes = ["POST /v1/wallet/lx/sign"]
+status = "Staging found clean: client limiter precedes checkout and all staging queries use the transaction client. Reconciliation repaired below."
+
+[site.approval_reconciliation]
+paths = ["services/wallet/gateway/src/routes/approvalRecovery.ts", "services/wallet/gateway/src/routes/sign.ts", "services/wallet/gateway/src/routes/evmApprovals.ts", "services/wallet/gateway/src/routes/humanSendRecovery.ts"]
+routes = ["GET /v1/wallet/lx/approvals/:id", "GET /v1/wallet/evm/approvals/:id", "LX/EVM post-sign reconciliation", "Human/LX/EVM startup and periodic recovery"]
+before = "Checkout session advisory-lock client; callback checks out another transaction client and/or reads/saves recovery through the pool; unlock; release."
+after = "Checkout session advisory-lock client; callback uses that client for short retained-state transactions and committed recovery read/save operations; unlock; release."
+
+[site.nonce_callbacks]
+paths = ["services/wallet/gateway/src/nonce/store.ts", "services/wallet/gateway/src/util/walletLock.ts", "services/wallet/gateway/src/provision/state.ts"]
+callers = ["sign.ts human sign/send", "agentExec.ts transaction execution", "owner.ts sendFromWallet", "agent.ts nonce peek", "agent/actions/nonceLock.ts distributed action execution", "provision/state.ts sendSetupTransaction"]
+before = "Nonce checkout and BEGIN remain open across callbacks that use pool-backed policy, custody, accounting and persistence."
+after = "Signing callbacks serialize on a session advisory nonce lock and use the same client through a bounded AsyncLocalStorage scope. SQL helpers and short accounting transactions borrow that client. Nonce holds and signed hashes are persisted before broadcast; unsigned holds are removed on callback failure. Existing transaction-mode callers take the same advisory lock to serialize with signing sessions."
+
+[site.signing_dependencies]
+paths = ["services/wallet/gateway/src/db/pool.ts", "services/wallet/gateway/src/db/wallets.ts", "services/wallet/gateway/src/db/signatureAccounting.ts", "services/wallet/gateway/src/db/agents.ts", "services/wallet/gateway/src/audit.ts"]
+before = "Some nested signing, agent budget, signature reservation/completion and attestor audit calls acquire a pool client while a route/nonce client is checked out."
+after = "An explicit client or signing-session scope supplies each query. Accounting reservation commits before custody, custody has its own wallet-lock transaction, and accounting completion commits afterward. Pool queries resume only after the scoped client is released."
+
+[site.other_connect_and_transaction_owners]
+paths = ["services/wallet/gateway/src/agent/authority.ts", "services/wallet/gateway/src/db/migrate.ts", "services/wallet/gateway/src/db/actions.ts", "services/wallet/gateway/src/db/agents.ts", "services/wallet/gateway/src/db/authorizations.ts"]
+status = "Found clean: authority publication performs its SQL on its dedicated client; migrations use their advisory-lock client and do not open a transaction; action/principal/authorization transaction callbacks use their supplied client (including reserveBudget). No other route file calls connect or opens BEGIN."
+
+[site.provision_subject_lock]
+path = "services/wallet/gateway/src/provision/state.ts"
+status = "Audited lockSubject: session advisory lock, no BEGIN or caller-owned transaction. The separately exported sendSetupTransaction nonce callback is included in the repair above."
+
+[proof]
+file = "services/wallet/gateway/test/repair-22-31-517.test.ts"
+database = "Real PGlite with pgcrypto, exposed over PostgreSQL wire by PGLiteSocketServer; normal gateway migrations; env.DATABASE_POOL_MAX=1 before getPool."
+transport = "Fastify injection into real routes with locally signed JWTs verified over the existing local identity-provider JWKS server; existing TestChain for signed EVM transactions and sequencer receipts. No live endpoints, credentials, subprocess toolchain or externally supplied environment required."
+deadline = "Each named test has a 4000ms deadline, below the pool acquisition timeout of 5000ms."
+tests = ["walletSendCompletesWithOneConnection", "walletSendKeepsClientAccountPolicyRefusalOrder", "walletSendKeepsMissingArchivedDisabledResponses", "messageSigningCommitsAccountingOnOneConnection", "lxApprovalLimiterAndRecoveryCompleteWithOneConnection", "evmApprovalAndRecoveryCompleteWithOneConnection", "parallelSendsKeepDistinctNoncesOnOneConnection", "sharedWalletLockReusesClientForDurableSigning", "signOnlyKeepsSignedBytesAndNonceWithOneConnection", "humanSendRecoveryReopensOnOneConnection"]
+regression = "Pre-repair sign.ts checks out the only client before the account limiter requests another one. The send tests must therefore time out (or receive send_failed instead of the asserted response). The LX approve regression reaches its former pool client limiter inside BEGIN; recovery GET tests reach the former nested checkout under an advisory lock."
+
+[gotcha.missing_reference]
+symptom = "The task references test/support/node-receipts.ts, which is absent in this revision."
+resolution = "Use the same committed PGlite/pgcrypto/PGLiteSocketServer bootstrap as repair-22-33-180.test.ts, through src/db/testDatabase.ts, and the real migration runner."
+
+[qualification.build_prerequisite]
+revision = "f75f9efcbf80e1a0adb81391293dd06ad6521029"
+command = "pnpm --dir services/wallet/gateway install --frozen-lockfile && pnpm --dir services/wallet/gateway run typecheck"
+exit = 1
+log = "/out/logs/build-1.log"
+observed = "The pre-existing workspace install stops with ERR_PNPM_IGNORED_BUILDS for @sentry/cli@2.39.1, bufferutil@4.1.0, keccak@3.0.4 and utf-8-validate@5.0.10 before typecheck; no typecheck or test result is claimed."
+assumption = "Workspace dependency-build approvals are outside task scope; record without changing policy or rerunning this failure. hf-done requires a successful hf-build and was not run. The implementation and ten regression cases remain unqualified."
+
+[qualification.attempt_3]
+previous_revision = "fde7b7d9d2a058c7d81839cd938539b6adb94757"
+observed = "Attempt 2 reached typecheck with the corrected build command and failed with TS18048 in evmApprovals.ts: ready's hoisted function declaration did not retain the parse-result narrowing."
+repair = "Bind approvalId immediately after the signSchema.safeParse guard and use it in ready; preserve transaction ordering, the staged-row account limiter and all ten regression cases."
+evidence = "The final private hf-done ledger supplies this candidate's exact verified revision, command, exit and log; the matching hf-build ledger uses the corrected build_command above."

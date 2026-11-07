@@ -17,9 +17,12 @@ describe('stat recipe, scan variant', () => {
     });
   });
 
-  it('sets the label in muted small caps above a heading-sized value', () => {
+  it('sets the label in muted small caps above a stat-value sized value', () => {
     expect(scan?.label).toMatchObject({ color: 'text.muted', textStyle: 'xs', textTransform: 'uppercase' });
-    expect(scan?.valueText).toMatchObject({ color: 'text.primary', textStyle: 'heading.sm' });
+    expect(scan?.valueText).toMatchObject({ color: 'text.primary' });
+    expect(scan?.valueText).not.toHaveProperty('textStyle');
+    const scanCompound = recipe.compoundVariants?.find((entry) => entry.variant === 'scan');
+    expect(scanCompound?.css?.valueText).toMatchObject({ textStyle: 'statValue', fontWeight: '600' });
   });
 
   it('colours a rising delta apart from a falling one', () => {

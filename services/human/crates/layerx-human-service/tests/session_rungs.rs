@@ -682,3 +682,11 @@ fn rotation_observation_for_another_transaction_is_refused() {
     ));
     assert!(replacement.is_some());
 }
+
+#[path = "support/repair_22_33_63_rotation.rs"]
+mod current_rotation_path;
+
+#[test]
+fn current_rotation_requires_a_real_producer_before_rung_acceptance() {
+    current_rotation_path::current_rotation_reaches_custody("session-rungs-current-rotation");
+}

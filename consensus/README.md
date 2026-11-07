@@ -55,4 +55,4 @@ To report a vulnerability, follow the repository [security policy](../SECURITY.m
 
 ## Documentation
 
-Hosted documentation for Paxeer X Network is at [docs.paxeer.app](https://docs.paxeer.app/). The source repository is [Sidiora-Labs/Paxeer-X-Network](https://github.com/Sidiora-Labs/Paxeer-X-Network).
+Hosted documentation for Paxeer X Network is at [docs.paxeer.app](https://docs.paxeer.app/). The source repository is [Sidiora-Labs/paxeer-monorepo](https://github.com/Sidiora-Labs/paxeer-monorepo).

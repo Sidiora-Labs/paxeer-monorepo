@@ -27,11 +27,12 @@ The expected result is `"0x7d"`. Other public node names are
 `api14.mainnet-beta.paxeer.network`, also at the root path. Check chain ID
 before signing. Use integer base units for amounts and fee limits.
 
+The node serves the `px` account, history and capability reads at the root.
 The hosted gateway is an operator deployment with its own contract in
-[`openrpc.json`](../../services/platform/hosted/gateway/openrpc.json).
-Its account helpers and capability reads are distinct from the public node
-API. A hosted client must obtain the endpoint and credentials from its
-operator and consult `px_getCapabilities` before using a gated surface;
+[`openrpc.json`](../../services/platform/hosted/gateway/openrpc.json); it also
+carries the hosted `px_register` and `px_requestFunds` operations. A hosted
+client must obtain the endpoint and credentials from its operator. Consult
+`px_getCapabilities` before using a gated surface;
 unsupported precompile submissions return `-32003 surface_unavailable`.
 This guide submits signed EVM transactions directly to a node.
 
@@ -138,8 +139,8 @@ Use `eth_call` with ledger ABI calldata for `getAsset(assetId)`,
 `balanceOf(accountId,assetId)`, `totalUnits(assetId)`, and
 `nextSequence(accountId,assetId)`. These are ledger reads; an ERC-20
 `balanceOf(address)` call has a different signature. Read EVM gas funds with
-`eth_getBalance`. The ledger ABI has no Asset enumeration method; a hosted
-`px_listAssets` read has the separate gateway contract described above.
+`eth_getBalance`. The ledger ABI has no Asset enumeration method; use `px_listAssets` for
+the registered Asset list.
 
 `eth_estimateGas` estimates execution gas; `eth_gasPrice` is a price read.
 Neither reserves funds or guarantees successful execution. An included

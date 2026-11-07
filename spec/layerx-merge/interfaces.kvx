@@ -775130,3 +775130,445 @@ status = "served"
 contract = "contracts/programme.md#programme-artifacts"
 notes = "programme kvx reader with the grammar of CONTRACT section 1; refuses duplicate sections and keys; callers are the programme tasks named in task.interfaces; served at HEAD (reconcile 2026-11-02, 2ca2d5bac): def load at spec/layerx-merge/programme/kvx.py:63; planned wording was: load(path) -> dict[str, dict[str, str|int|list]]"
 
+
+[interface.22.inference-f11-operation-table]
+kind = "rust_pub_item"
+path = "programs/crates/layerx-programs-ai-market/src/dispatch.rs"
+line = 0
+signature = "pub const OpenRoom: Operation = Operation(0x0B01) through CloseRoom = Operation(0x0B0C) and the reads RoomView = Operation(0x0B10) through BookView = Operation(0x0B14)"
+callers = []
+status = "new"
+contract = "contracts/inference-market.md#f11-operations"
+notes = "planned by task 22.38.1 (batch 581, decision 2752); absent at 8e40540496; status new until the task lands and the series closure 22.38.39 reconciles it to served"
+
+[interface.22.inference-f11-errors]
+kind = "rust_pub_item"
+path = "programs/crates/layerx-programs-ai-market/src/errors.rs"
+line = 0
+signature = "pub const F11_ROOM_UNKNOWN and the other F11 error codes"
+callers = []
+status = "new"
+contract = "contracts/inference-market.md#f11-operations"
+notes = "planned by task 22.38.1 (batch 581, decision 2752); absent at 8e40540496; status new until the task lands and the series closure 22.38.39 reconciles it to served"
+
+[interface.22.inference-f11-availability]
+kind = "rust_pub_item"
+path = "programs/crates/layerx-programs-ai-market/src/queries.rs"
+line = 0
+signature = "pub fn feature_availability(state_bytes: &[u8]) -> CodecResult<[Availability; 11]>"
+callers = []
+status = "new"
+contract = "contracts/inference-market.md#f11-operations"
+notes = "planned by task 22.38.1 (batch 581, decision 2752); absent at 8e40540496; status new until the task lands and the series closure 22.38.39 reconciles it to served"
+
+[interface.22.inference-room-profile]
+kind = "rust_pub_item"
+path = "programs/crates/layerx-programs-ai-market/src/policy.rs"
+line = 0
+signature = "room profile fields of the market policy (host share, protocol share, bond, lap size, challenge window, maximum tokens)"
+callers = []
+status = "new"
+contract = "contracts/inference-market.md#f11-operations"
+notes = "planned by task 22.38.1 (batch 581, decision 2752); absent at 8e40540496; status new until the task lands and the series closure 22.38.39 reconciles it to served"
+
+[interface.22.inference-manifest-v2]
+kind = "file_format"
+path = "programs/crates/layerx-programs-ai-market/src/workers.rs"
+line = 0
+signature = "ManifestV2: v1 fields then runtime digest, model digest, device class, memory bytes, bandwidth class, price quote; domain PARTICIPANT_METADATA_DOMAIN_V2"
+callers = []
+status = "new"
+contract = "contracts/inference-market.md#manifest-v2"
+notes = "planned by task 22.38.2 (batch 581, decision 2752); absent at 8e40540496; status new until the task lands and the series closure 22.38.39 reconciles it to served"
+
+[interface.22.inference-room-record]
+kind = "rust_pub_item"
+path = "programs/crates/layerx-programs-ai-market/src/rooms.rs"
+line = 0
+signature = "pub struct RoomRecord, AskRecord, BidRecord, DealRecord and pub fn apply_record_deal"
+callers = []
+status = "new"
+contract = "contracts/inference-market.md#room-records"
+notes = "planned by task 22.38.3 (batch 581, decision 2752); absent at 8e40540496; status new until the task lands and the series closure 22.38.39 reconciles it to served"
+
+[interface.22.inference-lap-receipt]
+kind = "rust_pub_item"
+path = "programs/crates/layerx-programs-ai-market/src/laps.rs"
+line = 0
+signature = "pub struct LapReceipt, ReceiptBatch and pub fn apply_settle_laps"
+callers = []
+status = "new"
+contract = "contracts/inference-market.md#lap-receipts"
+notes = "planned by task 22.38.4 (batch 581, decision 2752); absent at 8e40540496; status new until the task lands and the series closure 22.38.39 reconciles it to served"
+
+[interface.22.inference-canary-commitment]
+kind = "rust_pub_item"
+path = "programs/crates/layerx-programs-ai-market/src/canary.rs"
+line = 0
+signature = "pub struct CanaryCommitment, pub fn apply_challenge_lap, apply_resolve_challenge, relative_tolerance_hit"
+callers = []
+status = "new"
+contract = "contracts/inference-market.md#canary"
+notes = "planned by task 22.38.5 (batch 581, decision 2752); absent at 8e40540496; status new until the task lands and the series closure 22.38.39 reconciles it to served"
+
+[interface.22.inference-payout-split]
+kind = "rust_pub_item"
+path = "programs/crates/layerx-programs-ai-market/src/rewards.rs"
+line = 0
+signature = "pub fn apply_split_payout and pub struct PayoutShares"
+callers = []
+status = "new"
+contract = "contracts/inference-market.md#payout-split"
+notes = "planned by task 22.38.6 (batch 581, decision 2752); absent at 8e40540496; status new until the task lands and the series closure 22.38.39 reconciles it to served"
+
+[interface.22.inference-bond-record]
+kind = "rust_pub_item"
+path = "programs/crates/layerx-programs-ai-market/src/bonds.rs"
+line = 0
+signature = "pub struct BondRecord, pub fn apply_lock_bond, apply_slash_bond, apply_refund_bond"
+callers = []
+status = "new"
+contract = "contracts/inference-market.md#bonds"
+notes = "planned by task 22.38.7 (batch 581, decision 2752); absent at 8e40540496; status new until the task lands and the series closure 22.38.39 reconciles it to served"
+
+[interface.22.inference-f11-views]
+kind = "rust_pub_item"
+path = "programs/crates/layerx-programs-ai-market/src/queries.rs"
+line = 0
+signature = "pub struct RoomView, DealView, PeerView, ReceiptBatchView and pub fn answer_room_view"
+callers = []
+status = "new"
+contract = "contracts/inference-market.md#views"
+notes = "planned by task 22.38.8 (batch 581, decision 2752); absent at 8e40540496; status new until the task lands and the series closure 22.38.39 reconciles it to served"
+
+[interface.22.inference-placement-book]
+kind = "rust_pub_item"
+path = "programs/crates/layerx-programs-ai-market/src/placement.rs"
+line = 0
+signature = "pub struct PlacementBook, BookView and pub fn crossing_pairs"
+callers = []
+status = "new"
+contract = "contracts/inference-market.md#placement-book"
+notes = "planned by task 22.38.11 (batch 581, decision 2752); absent at 8e40540496; status new until the task lands and the series closure 22.38.39 reconciles it to served"
+
+[interface.22.pc-0x101b-streamopenforask]
+kind = "precompile_method"
+path = "precompiles/layerxpay/stream.go"
+line = 0
+signature = "streamOpenForAsk(bytes32,address,uint256,uint8,uint256,bytes32) returns (uint64) (planned)"
+address = "0x101B"
+selector = "0x382e3492"
+callers = []
+status = "new"
+contract = "contracts/inference-market.md#streams-0x101b"
+notes = "planned by task 22.38.9 (batch 581, decision 2752); absent at 8e40540496; status new until the task lands and the series closure 22.38.39 reconciles it to served"
+
+[interface.22.pc-0x101b-askstreamof]
+kind = "precompile_method"
+path = "precompiles/layerxpay/stream.go"
+line = 0
+signature = "askStreamOf(bytes32) view returns (uint64) (planned)"
+address = "0x101B"
+selector = "0x929c1012"
+callers = []
+status = "new"
+contract = "contracts/inference-market.md#streams-0x101b"
+notes = "planned by task 22.38.9 (batch 581, decision 2752); absent at 8e40540496; status new until the task lands and the series closure 22.38.39 reconciles it to served"
+
+[interface.22.pc-0x101b-evt-askstreamopened]
+kind = "precompile_event"
+path = "precompiles/layerxpay/events.go"
+line = 0
+signature = "AskStreamOpened(bytes32 indexed,uint64 indexed,address) (planned)"
+address = "0x101B"
+selector = "0x6f08b9aa8d2830cd88fe10722ae13a87e4761ee05380ce005d7bf908c963a53a"
+callers = []
+status = "new"
+contract = "contracts/inference-market.md#streams-0x101b"
+notes = "planned by task 22.38.9 (batch 581, decision 2752); absent at 8e40540496; status new until the task lands and the series closure 22.38.39 reconciles it to served"
+
+[interface.22.pc-0x0907-bindpeer]
+kind = "precompile_method"
+path = "precompiles/layerxagent/teeattestor/teeattestor.go"
+line = 0
+signature = "bindPeer(uint8,bytes,bytes32,bytes32,bytes32) returns (bool) (planned)"
+address = "0x0907"
+selector = "0xc7c179e5"
+callers = []
+status = "new"
+contract = "contracts/inference-market.md#attestation-0x0907"
+notes = "planned by task 22.38.10 (batch 581, decision 2752); absent at 8e40540496; status new until the task lands and the series closure 22.38.39 reconciles it to served"
+
+[interface.22.pc-0x0907-peerbinding]
+kind = "precompile_method"
+path = "precompiles/layerxagent/teeattestor/teeattestor.go"
+line = 0
+signature = "peerBinding(bytes32) view returns (uint8,bytes32,bytes32,uint64) (planned)"
+address = "0x0907"
+selector = "0xc3c05f2e"
+callers = []
+status = "new"
+contract = "contracts/inference-market.md#attestation-0x0907"
+notes = "planned by task 22.38.10 (batch 581, decision 2752); absent at 8e40540496; status new until the task lands and the series closure 22.38.39 reconciles it to served"
+
+[interface.22.pc-0x0907-evt-peerattestationbound]
+kind = "precompile_event"
+path = "precompiles/layerxagent/teeattestor/teeattestor.go"
+line = 0
+signature = "PeerAttestationBound(bytes32 indexed,uint8,bytes32,bytes32) (planned)"
+address = "0x0907"
+selector = "0xb2675f0546c3f64db3575e68d8a769972fbf02993bed9c75abe0e34452f985f5"
+callers = []
+status = "new"
+contract = "contracts/inference-market.md#attestation-0x0907"
+notes = "planned by task 22.38.10 (batch 581, decision 2752); absent at 8e40540496; status new until the task lands and the series closure 22.38.39 reconciles it to served"
+
+[interface.22.rpc-px-getinferencerooms]
+kind = "jsonrpc_method"
+path = "rpc/px_inference.go"
+line = 0
+signature = "px_getInferenceRooms() -> room summaries (planned)"
+callers = []
+status = "new"
+contract = "contracts/inference-market.md#px-reads"
+notes = "planned by task 22.38.12 (batch 581, decision 2752); absent at 8e40540496; status new until the task lands and the series closure 22.38.39 reconciles it to served"
+
+[interface.22.rpc-px-getinferenceroom]
+kind = "jsonrpc_method"
+path = "rpc/px_inference.go"
+line = 0
+signature = "px_getInferenceRoom(roomId) -> room view with ask stream state (planned)"
+callers = []
+status = "new"
+contract = "contracts/inference-market.md#px-reads"
+notes = "planned by task 22.38.12 (batch 581, decision 2752); absent at 8e40540496; status new until the task lands and the series closure 22.38.39 reconciles it to served"
+
+[interface.22.rpc-px-getinferencedeal]
+kind = "jsonrpc_method"
+path = "rpc/px_inference.go"
+line = 0
+signature = "px_getInferenceDeal(dealId) -> deal view (planned)"
+callers = []
+status = "new"
+contract = "contracts/inference-market.md#px-reads"
+notes = "planned by task 22.38.12 (batch 581, decision 2752); absent at 8e40540496; status new until the task lands and the series closure 22.38.39 reconciles it to served"
+
+[interface.22.rpc-px-getinferencepeer]
+kind = "jsonrpc_method"
+path = "rpc/px_inference.go"
+line = 0
+signature = "px_getInferencePeer(peerKey) -> peer view with attestation binding (planned)"
+callers = []
+status = "new"
+contract = "contracts/inference-market.md#px-reads"
+notes = "planned by task 22.38.12 (batch 581, decision 2752); absent at 8e40540496; status new until the task lands and the series closure 22.38.39 reconciles it to served"
+
+[interface.22.rpc-px-getinferencereceipts]
+kind = "jsonrpc_method"
+path = "rpc/px_inference.go"
+line = 0
+signature = "px_getInferenceReceipts(dealId) -> receipt batch views (planned)"
+callers = []
+status = "new"
+contract = "contracts/inference-market.md#px-reads"
+notes = "planned by task 22.38.12 (batch 581, decision 2752); absent at 8e40540496; status new until the task lands and the series closure 22.38.39 reconciles it to served"
+
+[interface.22.inference-mode-inference-market]
+kind = "rust_pub_item"
+path = "services/agent/crates/layerx-agentd/src/human_owner_mode.rs"
+line = 0
+signature = "Mode::InferenceMarket parsed from the mode value inference-market"
+callers = []
+status = "new"
+contract = "contracts/inference-market.md#daemon-profile"
+notes = "planned by task 22.38.14 (batch 581, decision 2752); absent at 8e40540496; status new until the task lands and the series closure 22.38.39 reconciles it to served"
+
+[interface.22.env-layerx-agent-inference-signal-listen]
+kind = "env_var"
+path = "services/agent/crates/layerx-agentd/src/inference_market/mod.rs"
+line = 0
+signature = "LAYERX_AGENT_INFERENCE_SIGNAL_LISTEN"
+callers = []
+status = "new"
+contract = "contracts/inference-market.md#daemon-profile"
+notes = "planned by task 22.38.14 (batch 581, decision 2752); absent at 8e40540496; status new until the task lands and the series closure 22.38.39 reconciles it to served"
+
+[interface.22.env-layerx-agent-inference-serve-listen]
+kind = "env_var"
+path = "services/agent/crates/layerx-agentd/src/inference_market/mod.rs"
+line = 0
+signature = "LAYERX_AGENT_INFERENCE_SERVE_LISTEN"
+callers = []
+status = "new"
+contract = "contracts/inference-market.md#daemon-profile"
+notes = "planned by task 22.38.14 (batch 581, decision 2752); absent at 8e40540496; status new until the task lands and the series closure 22.38.39 reconciles it to served"
+
+[interface.22.env-layerx-agent-inference-model-digest]
+kind = "env_var"
+path = "services/agent/crates/layerx-agentd/src/inference_market/mod.rs"
+line = 0
+signature = "LAYERX_AGENT_INFERENCE_MODEL_DIGEST"
+callers = []
+status = "new"
+contract = "contracts/inference-market.md#daemon-profile"
+notes = "planned by task 22.38.14 (batch 581, decision 2752); absent at 8e40540496; status new until the task lands and the series closure 22.38.39 reconciles it to served"
+
+[interface.22.env-layerx-agent-inference-runtime-digest]
+kind = "env_var"
+path = "services/agent/crates/layerx-agentd/src/inference_market/mod.rs"
+line = 0
+signature = "LAYERX_AGENT_INFERENCE_RUNTIME_DIGEST"
+callers = []
+status = "new"
+contract = "contracts/inference-market.md#daemon-profile"
+notes = "planned by task 22.38.14 (batch 581, decision 2752); absent at 8e40540496; status new until the task lands and the series closure 22.38.39 reconciles it to served"
+
+[interface.22.env-layerx-agent-inference-room-profile]
+kind = "env_var"
+path = "services/agent/crates/layerx-agentd/src/inference_market/mod.rs"
+line = 0
+signature = "LAYERX_AGENT_INFERENCE_ROOM_PROFILE"
+callers = []
+status = "new"
+contract = "contracts/inference-market.md#daemon-profile"
+notes = "planned by task 22.38.14 (batch 581, decision 2752); absent at 8e40540496; status new until the task lands and the series closure 22.38.39 reconciles it to served"
+
+[interface.22.inference-signal-hello-frame]
+kind = "file_format"
+path = "services/agent/crates/layerx-agentd/src/inference_market/signal.rs"
+line = 0
+signature = "hello frame (peer key, signature over room id and nonce, v2 manifest) answered by the room offer (room id, model digest, runtime digest, layer plan, price); frames at most 65536 bytes"
+callers = []
+status = "new"
+contract = "contracts/inference-market.md#signalling"
+notes = "planned by task 22.38.16 (batch 581, decision 2752); absent at 8e40540496; status new until the task lands and the series closure 22.38.39 reconciles it to served"
+
+[interface.22.ws-inference-signal]
+kind = "ws_route"
+path = "services/agent/crates/layerx-agentd/src/inference_market/signal.rs"
+line = 0
+signature = "WS / on the signalling listener (planned)"
+callers = []
+status = "new"
+contract = "contracts/inference-market.md#signalling"
+notes = "planned by task 22.38.16 (batch 581, decision 2752); absent at 8e40540496; status new until the task lands and the series closure 22.38.39 reconciles it to served"
+
+[interface.22.http-inference-chat-completions]
+kind = "http_route"
+path = "services/agent/crates/layerx-agentd/src/inference_market/serve.rs"
+line = 0
+signature = "POST /v1/chat/completions (planned)"
+callers = []
+status = "new"
+contract = "contracts/inference-market.md#completion-routes"
+notes = "planned by task 22.38.21 (batch 581, decision 2752); absent at 8e40540496; status new until the task lands and the series closure 22.38.39 reconciles it to served"
+
+[interface.22.http-inference-messages]
+kind = "http_route"
+path = "services/agent/crates/layerx-agentd/src/inference_market/serve.rs"
+line = 0
+signature = "POST /v1/messages (planned)"
+callers = []
+status = "new"
+contract = "contracts/inference-market.md#completion-routes"
+notes = "planned by task 22.38.21 (batch 581, decision 2752); absent at 8e40540496; status new until the task lands and the series closure 22.38.39 reconciles it to served"
+
+[interface.22.inference-peer-wire-frame]
+kind = "file_format"
+path = "apps/inference-peer/src/wire.mjs"
+line = 0
+signature = "room wire frame encoded by encodeFrame and decoded by decodeFrame (kind, room id, sequence, payload)"
+callers = []
+status = "new"
+contract = "contracts/inference-market.md#peer-wire"
+notes = "planned by task 22.38.24 (batch 581, decision 2752); absent at 8e40540496; status new until the task lands and the series closure 22.38.39 reconciles it to served"
+
+[interface.22.cli-inference-peer-join]
+kind = "cli_command"
+path = "apps/inference-peer/bin/inference-peer.mjs"
+line = 0
+signature = "'join <host> <room>' -- join a room, optionally with an attestation envelope file"
+callers = []
+status = "new"
+contract = "contracts/inference-market.md#peer-cli"
+notes = "planned by task 22.38.30 (batch 581, decision 2752); absent at 8e40540496; status new until the task lands and the series closure 22.38.39 reconciles it to served"
+
+[interface.22.cli-inference-peer-serve]
+kind = "cli_command"
+path = "apps/inference-peer/bin/inference-peer.mjs"
+line = 0
+signature = "'serve' -- local OpenAI-compatible route forwarding to the host completion route"
+callers = []
+status = "new"
+contract = "contracts/inference-market.md#peer-cli"
+notes = "planned by task 22.38.30 (batch 581, decision 2752); absent at 8e40540496; status new until the task lands and the series closure 22.38.39 reconciles it to served"
+
+[interface.22.cli-inference-peer-status]
+kind = "cli_command"
+path = "apps/inference-peer/bin/inference-peer.mjs"
+line = 0
+signature = "'status' -- print the joined room, layer range and lap counters"
+callers = []
+status = "new"
+contract = "contracts/inference-market.md#peer-cli"
+notes = "planned by task 22.38.30 (batch 581, decision 2752); absent at 8e40540496; status new until the task lands and the series closure 22.38.39 reconciles it to served"
+
+[interface.22.ts-sdk-inference-market]
+kind = "ts_export"
+path = "services/agent/sdk/typescript/src/inference_market.ts"
+line = 0
+signature = "export openRoom, postAsk, fundAsk, recordDeal, settleLaps, getInferenceRooms"
+callers = []
+status = "new"
+contract = "contracts/inference-market.md#sdks"
+notes = "planned by task 22.38.31 (batch 581, decision 2752); absent at 8e40540496; status new until the task lands and the series closure 22.38.39 reconciles it to served"
+
+[interface.22.rs-sdk-inference-market]
+kind = "rust_pub_item"
+path = "services/agent/crates/layerx-sdk/src/inference_market.rs"
+line = 0
+signature = "pub struct InferenceMarket with open_room, post_ask, get_inference_rooms"
+callers = []
+status = "new"
+contract = "contracts/inference-market.md#sdks"
+notes = "planned by task 22.38.32 (batch 581, decision 2752); absent at 8e40540496; status new until the task lands and the series closure 22.38.39 reconciles it to served"
+
+[interface.22.http-explorer-api-inference]
+kind = "http_route"
+path = "apps/explorer/pages/api/inference.ts"
+line = 0
+signature = "ANY /api/inference (planned)"
+callers = []
+status = "new"
+contract = "contracts/inference-market.md#explorer"
+notes = "planned by task 22.38.33 (batch 581, decision 2752); absent at 8e40540496; status new until the task lands and the series closure 22.38.39 reconciles it to served"
+
+[interface.22.ts-explorer-paxeerxinference]
+kind = "ts_export"
+path = "apps/explorer/ui/pages/PaxeerXInference.tsx"
+line = 0
+signature = "export default function PaxeerXInference()"
+callers = []
+status = "new"
+contract = "contracts/inference-market.md#explorer"
+notes = "planned by task 22.38.33 (batch 581, decision 2752); absent at 8e40540496; status new until the task lands and the series closure 22.38.39 reconciles it to served"
+
+[interface.22.ts-wallet-inferenceview]
+kind = "ts_export"
+path = "apps/wallet/src/surfaces/InferenceView.tsx"
+line = 0
+signature = "export function InferenceView()"
+callers = []
+status = "new"
+contract = "contracts/inference-market.md#wallet"
+notes = "planned by task 22.38.34 (batch 581, decision 2752); absent at 8e40540496; status new until the task lands and the series closure 22.38.39 reconciles it to served"
+
+[interface.22.cli-inference-market-room-driver]
+kind = "cli_command"
+path = "tools/qualification/paxeer-x/inference_market_room.py"
+line = 0
+signature = "'inference_market_room.py --proof room|canary|settlement' -- isolated-chain proof driver"
+callers = []
+status = "new"
+contract = "contracts/inference-market.md#qualification"
+notes = "planned by task 22.38.36 (batch 581, decision 2752); absent at 8e40540496; status new until the task lands and the series closure 22.38.39 reconciles it to served"

@@ -6,7 +6,7 @@ Paxeer X Network handles authorization, accounting, custody, bridging and settle
 
 Report suspected vulnerabilities by email to <security@sidioralabs.com>. A reporter seeking a bounty must submit by email only, with the full report and credentials required under Bug bounty below.
 
-GitHub private vulnerability reporting remains available: open the repository's Security tab and choose "Report a vulnerability", or go directly to <https://github.com/Sidiora-Labs/Paxeer-X-Network/security/advisories/new>. Only the maintainers see a private report. Reports made through GitHub, including private vulnerability reporting, or any other public surface (issue, discussion, pull request, advisory or social post) are taken up by the repair programme and fixed without attribution or reward. Do not disclose suspected vulnerabilities publicly.
+GitHub private vulnerability reporting remains available: open the repository's Security tab and choose "Report a vulnerability", or go directly to <https://github.com/Sidiora-Labs/paxeer-monorepo/security/advisories/new>. Only the maintainers see a private report. Reports made through GitHub, including private vulnerability reporting, or any other public surface (issue, discussion, pull request, advisory or social post) are fixed through the normal maintenance process without attribution or reward. Do not disclose suspected vulnerabilities publicly.
 
 Include:
 
@@ -40,9 +40,13 @@ Bounty eligibility requires all three of the following:
 2. A full and clear report covering every item in the Include list under Report privately above, including an end-to-end reproduction.
 3. Credentials demonstrating that the submitter is legitimate and competent, for example prior published disclosures or CVE credits, a professional or audit-firm affiliation, a verifiable identity, and an account of how the issue was found.
 
-A report missing any of these three requirements is handled as an ordinary report with no reward. Reports submitted through GitHub or another public surface are taken up by the repair programme and fixed without attribution or reward.
+A report missing any of these three requirements is handled as an ordinary report with no reward. Reports submitted through GitHub or another public surface are fixed through the normal maintenance process without attribution or reward.
 
 Stop testing at a proof of concept. Never move funds that are not your own, and follow the testing restrictions above. Keep the issue private until it is fixed and the advisory is published.
+
+## Known exemptions
+
+- [GHSA-55f3-3qvg-8pv5](https://github.com/advisories/GHSA-55f3-3qvg-8pv5): `wasmer` 4.2.2 is pinned by `cosmwasm-vm` 1.5.12 in `wasm-runtime/libwasmvm`. The modules load without WASI filesystem access. By maintainer decision of 2026-11-05, this exemption holds until the next runtime upgrade and is reviewed at that upgrade. The rationale and mitigation are recorded in [repair_22_31_450.kvx](wasm-runtime/libwasmvm/repair_22_31_450.kvx).
 
 ## Supported versions
 

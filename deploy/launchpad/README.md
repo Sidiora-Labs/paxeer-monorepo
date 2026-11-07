@@ -79,6 +79,9 @@ The checked-in `RPC_URL`, `NEXT_PUBLIC_RPC_URL` and
 `https://api5.mainnet-beta.paxeer.network`; the web fallback is
 `https://api2.mainnet-beta.paxeer.network`. These are node root URLs. Public web
 origins include `https://sidiora.fun`, `https://api.sidiora.fun` and
-`https://gateway.sidiora.fun`; `WEB_*_UPSTREAM` values use Railway internal DNS
-and port `8080`. Review the JSON contracts when changing these values. Checked-in
+`https://gateway.sidiora.fun`; set each `WEB_*_UPSTREAM` value to
+`http://OPERATOR_HOST:8080`.
+Replace `OPERATOR_HOST` with the operator-supplied hostname of the API, charts, gateway or sockets service selected by that upstream variable.
+
+Review the JSON contracts when changing these values. Checked-in
 configuration establishes neither deployed reachability nor production capacity.

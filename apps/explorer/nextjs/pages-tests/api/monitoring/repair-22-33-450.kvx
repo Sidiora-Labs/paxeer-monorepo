@@ -1,0 +1,18 @@
+[meta]
+task = "22.33.450"
+audit = "22.30.148"
+acceptance = "22998.1"
+test_path = "apps/explorer/nextjs/pages-tests/api/monitoring/repair-22-33-450.spec.ts"
+verified_revision_evidence = "/out/run/gates.jsonl: final hf-done record binds this candidate to revision, command, exit and private log."
+baseline = "Not run: the explicit gate order prohibits testing before complete implementation or running verify_cmd by hand; no pre-change failures are claimed."
+
+[finding.schema-metric-cardinality]
+tests = ["schemaMetricCardinality", "boundedSchemaDiagnostics", "finiteSchemaResources"]
+repair = "Only exact own registered resource names label the counter; the existing url label carries the finite invalid_response_schema category. HTTP diagnostics remove URL credentials, query and fragment, cap URLs at 512 characters and cap all report diagnostics at ten per minute per handler instance."
+proof = "Real Next API resolver and production handler receive JSON and text reports over loopback HTTP; real prom-client counter and registry expose two series for 202 reports, and real pino diagnostics prove sanitization and bounded logging; malformed and aliased resources create no series."
+wiring_request = "apps/explorer/lib/monitoring/metrics.ts — owning domain 14 / fm-web-explorer-bridge: rename the legacy url label to error_category and coordinate the route label key and metric consumers; this task bounds its values without changing the out-of-scope counter declaration."
+
+[constraints]
+scope = "Only the monitoring route, declared regression test and this in-scope repair record change."
+gotcha = "Resource lookup must reject inherited properties and extra colon segments, or caller-controlled aliases bypass the finite resource inventory."
+qualification_gotcha = "The repository types JSON.parse results as unknown; the test validates the real logger's output at runtime before storing diagnostics. Initial build evidence: revision 61824693bef90de0e0bd30312cecf92fc3a3db44, exit 2, /out/logs/build-1.log."

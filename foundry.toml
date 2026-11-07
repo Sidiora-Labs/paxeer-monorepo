@@ -1,3 +1,5 @@
+# Root kernel-contract project; make test-contracts selects tests/solidity.
+# See docs/MONOREPO.md#root-layout for the separate Paxeer chain project.
 [profile.default]
 src = "contracts"
 out = "build/forge-artifacts"

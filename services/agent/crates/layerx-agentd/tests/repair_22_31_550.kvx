@@ -1,0 +1,17 @@
+[meta]
+task = "22.31.550"
+requirement = "22998.1"
+basis = "Gotcha 3166; decision 2620; daemon test-target coverage follows decision 2602."
+
+[implementation]
+digest = "NativeSendPrepareRequestV2::prepare_digest in agent_rpc_wire.rs computes SHA256 over LXP/agent/native-send-prepare/v1, one zero byte, and serde_json::to_vec of the unchanged canonical request."
+dispatch = "agent_rpc_dispatch.rs::native_send_prepare_digest retains its signature and forwards to request.prepare_digest(); its routing and human_runtime callers remain unchanged."
+test = "native_send_wire_preserves_exact_signed_request_and_distinct_digest calls request.prepare_digest() and retains its exact signed-request, independently computed digest, distinct domain and wire refusal assertions. The method uses the local wire type in both the library and rpc_surface_major_two by-path compilation."
+harness = "The rpc_surface_major_two by-path includes remain unchanged; task 22.31.542 owns their removal."
+
+[qualification]
+ledger = "/out/run/gates.jsonl"
+revision = "The matching candidate revision on the final passing build and verify entries in the private gate ledger is the verified revision for this repair."
+build_command = "The command field of the final build entry produced by hf-build in the gate ledger; it builds every daemon test target with --tests."
+verify_command = "The command field of the final verify entry produced by hf-done in the gate ledger; cg spec done 22.31.550 runs the declared --lib digest test, builds rpc_surface_major_two, and checks the graph."
+evidence = "The exit and log fields of those entries are authoritative; no gate result is asserted by this pre-gate record. No file is amended after the final qualification gates."

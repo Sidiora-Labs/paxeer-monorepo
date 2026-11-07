@@ -12,37 +12,53 @@ pub struct RpcClient {
     url: String,
     credential: Option<zeroize::Zeroizing<String>>,
     identity_session: bool,
+    path: String,
+    gateway: bool,
 }
 
 impl RpcClient {
-    /// # Errors
-    /// Requires the gateway's explicit /rpc endpoint and the HTTP client's TLS rules.
+    /// Connect to the public node JSON-RPC root, preserving TLS and authorization.
     pub fn new(url: &str, credential: Option<zeroize::Zeroizing<String>>) -> Result<Self, String> {
-        let base = url.strip_suffix("/rpc").ok_or("RPC URL must end in /rpc")?;
+        Self::connect(url, credential, false, false)
+    }
+
+    /// Connect to an explicitly configured hosted service URL, including its path.
+    pub fn new_gateway(
+        url: &str,
+        credential: Option<zeroize::Zeroizing<String>>,
+    ) -> Result<Self, String> {
+        Self::connect(url, credential, true, false)
+    }
+
+    /// Connect to an explicit hosted service with a bearer identity session.
+    pub fn new_session(url: &str, session: zeroize::Zeroizing<String>) -> Result<Self, String> {
+        if session.is_empty() {
+            return Err("identity_session_required: an empty identity session is invalid".into());
+        }
+        Self::connect(url, Some(session), true, true)
+    }
+
+    fn connect(
+        url: &str,
+        credential: Option<zeroize::Zeroizing<String>>,
+        gateway: bool,
+        identity_session: bool,
+    ) -> Result<Self, String> {
+        let (origin, path) = endpoint_parts(url)?;
+        if !gateway && path != "/" {
+            return Err("node RPC URL must name the root endpoint".into());
+        }
         let client = match credential.clone() {
-            Some(value) => Client::new_gateway(base, value)?,
-            None => Client::new(base, None)?,
+            Some(value) if !identity_session => Client::new_gateway(&origin, value)?,
+            token => Client::new(&origin, token)?,
         };
         Ok(Self {
             client,
             url: url.to_owned(),
-            credential,
-            identity_session: false,
-        })
-    }
-
-    /// # Errors
-    /// Requires an explicit identity session, an /rpc endpoint, and verified HTTPS off loopback.
-    pub fn new_session(url: &str, session: zeroize::Zeroizing<String>) -> Result<Self, String> {
-        let base = url.strip_suffix("/rpc").ok_or("RPC URL must end in /rpc")?;
-        if session.is_empty() {
-            return Err("identity_session_required: an empty identity session is invalid".into());
-        }
-        Ok(Self {
-            client: Client::new(base, Some(session))?,
-            url: url.to_owned(),
-            credential: None,
-            identity_session: true,
+            credential: if identity_session { None } else { credential },
+            identity_session,
+            path,
+            gateway,
         })
     }
 
@@ -55,13 +71,19 @@ impl RpcClient {
             ));
         }
         let request = request(method, params)?;
+        if method.starts_with("px_") && !self.gateway {
+            return Err(
+                "gateway_endpoint_required: px_ methods require an explicit hosted service URL"
+                    .into(),
+            );
+        }
         if method == "px_requestFunds" && !self.identity_session {
             return Err(
                 "identity_session_required: px_requestFunds requires a bearer identity session"
                     .into(),
             );
         }
-        decode_response(method, &self.client.post("/rpc", &request, None)?)
+        decode_response(method, &self.client.post(&self.path, &request, None)?)
     }
 
     /// # Errors
@@ -72,6 +94,121 @@ impl RpcClient {
             .as_ref()
             .ok_or("gateway_credential_required: subscriptions require --gateway-credential")?;
         crate::rpc_subscription::next(&self.url, credential, params, timeout)
+    }
+}
+
+/// Split a full service URL without dropping its explicit path or accepting URL credentials.
+pub fn endpoint_parts(url: &str) -> Result<(String, String), String> {
+    let uri: tungstenite::http::Uri = url.parse().map_err(|_| "invalid RPC endpoint")?;
+    let scheme = uri
+        .scheme_str()
+        .filter(|scheme| matches!(*scheme, "http" | "https"))
+        .ok_or("RPC endpoint must use http:// or https://")?;
+    let authority = uri.authority().ok_or("RPC endpoint requires a host")?;
+    if authority.as_str().contains('@') || url.contains('#') || uri.query().is_some() {
+        return Err("RPC endpoint cannot contain credentials, a query or a fragment".into());
+    }
+    let path = if uri.path().is_empty() {
+        "/"
+    } else {
+        uri.path()
+    };
+    Ok((format!("{scheme}://{authority}"), path.to_owned()))
+}
+
+#[derive(Debug)]
+pub enum SubmissionFailure {
+    Unsent(String),
+    Refused(String),
+    Indeterminate { tx_hash: String, detail: String },
+}
+
+impl std::fmt::Display for SubmissionFailure {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Unsent(detail) => write!(formatter, "submission_unsent: {detail}"),
+            Self::Refused(detail) => write!(formatter, "submission_refused: {detail}"),
+            Self::Indeterminate { tx_hash, detail } => {
+                write!(formatter, "submission_indeterminate: {tx_hash}: {detail}")
+            }
+        }
+    }
+}
+
+/// Validated signed bytes and their reconciliation identity, retained before transport.
+pub struct PreparedSubmission {
+    command: Value,
+    tx_hash: String,
+}
+
+impl PreparedSubmission {
+    pub fn request(&self) -> &Value {
+        &self.command
+    }
+
+    /// Only a bound JSON-RPC rejection proves refusal after a request was sent.
+    pub fn resolve(self, response: Result<Value, String>) -> Result<Value, SubmissionFailure> {
+        let tx_hash = self.tx_hash;
+        let response = response.map_err(|detail| SubmissionFailure::Indeterminate {
+            tx_hash: tx_hash.clone(),
+            detail,
+        })?;
+        let result = decode_response("eth_sendRawTransaction", &response).and_then(|hash| {
+            if hash.as_str() != Some(tx_hash.as_str()) {
+                return Err("eth_sendRawTransaction returned a different transaction hash".into());
+            }
+            Ok(json!({"txHash":hash,"rung":"submitted"}))
+        });
+        result.map_err(|detail| {
+            if response["jsonrpc"] == "2.0"
+                && response["id"] == 1
+                && response.get("result").is_none()
+                && response.get("error").is_some_and(|error| {
+                    error["code"].as_i64().is_some() && error["message"].as_str().is_some()
+                })
+            {
+                SubmissionFailure::Refused(detail)
+            } else {
+                SubmissionFailure::Indeterminate { tx_hash, detail }
+            }
+        })
+    }
+}
+
+/// Validate a submission and retain its hash before the caller sends the request once.
+pub fn prepare_submission(
+    raw: &[u8],
+    network_id: Option<u64>,
+) -> Result<PreparedSubmission, SubmissionFailure> {
+    use layerx_crypto::evm_transaction::{decode_signed, recover_sender, transaction_hash};
+    let (call, signature) = decode_signed(raw).map_err(|error| {
+        SubmissionFailure::Unsent(format!("invalid signed EIP-1559 transaction: {error}"))
+    })?;
+    recover_sender(&call, &signature).map_err(|error| {
+        SubmissionFailure::Unsent(format!("invalid EIP-1559 signature: {error}"))
+    })?;
+    if network_id.is_some_and(|id| id != call.chain_id) {
+        return Err(SubmissionFailure::Unsent(
+            "raw transaction chain id does not match the active environment".into(),
+        ));
+    }
+    let tx_hash = format!("0x{}", crate::encoding::hex_encode(&transaction_hash(raw)));
+    let command = request(
+        "eth_sendRawTransaction",
+        &json!([format!("0x{}", crate::encoding::hex_encode(raw))]),
+    )
+    .map_err(SubmissionFailure::Unsent)?;
+    Ok(PreparedSubmission { command, tx_hash })
+}
+
+/// Recoverable invocations retain unknown submissions; unsent and refused remain failures.
+pub fn submission_outcome(result: Result<Value, SubmissionFailure>) -> Result<Value, String> {
+    match result {
+        Ok(value) => Ok(value),
+        Err(SubmissionFailure::Indeterminate { tx_hash, detail }) => {
+            Ok(json!({"txHash":tx_hash,"rung":"unknown","detail":detail}))
+        }
+        Err(failure) => Err(failure.to_string()),
     }
 }
 
@@ -98,7 +235,11 @@ pub fn request(method: &str, params: &Value) -> Result<Value, String> {
             }
         }
         "eth_estimateGas" => estimate_gas_params(args)?,
-        "eth_gasPrice" if args.is_empty() => {}
+        "eth_chainId" | "eth_gasPrice" | "eth_maxPriorityFeePerGas" if args.is_empty() => {}
+        "eth_chainId" | "eth_maxPriorityFeePerGas" => {
+            return Err(format!("{method} takes no parameters"))
+        }
+        "eth_call" => call_params(args)?,
         "eth_gasPrice" => return Err("eth_gasPrice takes no parameters".into()),
         "px_register" => registration_params(args)?,
         "px_requestFunds" => faucet_params(args)?,
@@ -169,6 +310,26 @@ fn transaction_count_params(args: &[Value]) -> Result<(), String> {
         return Err(
             "eth_getTransactionCount requires a 20-byte address and valid block selector".into(),
         );
+    }
+    Ok(())
+}
+
+fn call_params(args: &[Value]) -> Result<(), String> {
+    let [Value::Object(tx), Value::String(block)] = args else {
+        return Err("eth_call requires a call object and block selector".into());
+    };
+    if !(matches!(
+        block.as_str(),
+        "latest" | "pending" | "safe" | "finalized" | "earliest"
+    ) || ethereum_quantity(block))
+        || !tx.get("to").is_some_and(|v| ethereum_data(v, Some(20)))
+        || !tx.get("data").is_some_and(|v| ethereum_data(v, None))
+        || tx
+            .keys()
+            .any(|k| !matches!(k.as_str(), "to" | "data" | "from"))
+        || tx.get("from").is_some_and(|v| !ethereum_data(v, Some(20)))
+    {
+        return Err("eth_call requires canonical address, calldata and block selector".into());
     }
     Ok(())
 }
@@ -310,13 +471,24 @@ pub fn decode_response(method: &str, response: &Value) -> Result<Value, String> 
     }
     if matches!(
         method,
-        "eth_estimateGas" | "eth_gasPrice" | "eth_getTransactionCount"
+        "eth_chainId"
+            | "eth_maxPriorityFeePerGas"
+            | "eth_estimateGas"
+            | "eth_gasPrice"
+            | "eth_getTransactionCount"
     ) {
         return response
             .get("result")
             .filter(|value| value.as_str().is_some_and(ethereum_quantity))
             .cloned()
             .ok_or_else(|| format!("{method} returned an invalid Ethereum quantity"));
+    }
+    if method == "eth_call" {
+        return response
+            .get("result")
+            .filter(|value| ethereum_data(value, None))
+            .cloned()
+            .ok_or_else(|| "eth_call returned invalid Ethereum data".to_owned());
     }
     if method == "eth_sendRawTransaction" {
         return response

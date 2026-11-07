@@ -14,7 +14,7 @@
         border-radius: 6px;
 
         content: "";
-        background: linear-gradient(120deg, #e15eff, #fffb22, #e15eff);
+        background: linear-gradient(120deg, var(--chakra-colors-promo-start), var(--chakra-colors-promo-stop), var(--chakra-colors-promo-start));
         background-size: 400% 400%;
         clip-path: polygon(
             0% 100%,

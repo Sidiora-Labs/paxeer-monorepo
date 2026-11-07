@@ -14,29 +14,32 @@ export const recipe = defineSlotRecipe({
       display: 'inline-flex',
       gap: '1.5',
       alignItems: 'center',
-      color: 'text.primary',
-      textStyle: 'sm',
+      color: 'text.muted',
+      textStyle: 'label',
     },
     helpText: {
       color: 'text.primary',
-      textStyle: 'xs',
+      textStyle: 'small',
     },
     valueUnit: {
       color: 'text.primary',
-      textStyle: 'xs',
+      textStyle: 'small',
       fontWeight: 'initial',
       letterSpacing: 'initial',
     },
     valueText: {
       verticalAlign: 'baseline',
-      fontWeight: '500',
+      textStyle: 'statValue',
+      color: 'text.primary',
+      fontWeight: '600',
       letterSpacing: 'normal',
-      fontFeatureSettings: 'initial',
-      fontVariantNumeric: 'initial',
+      fontFeatureSettings: 'normal',
+      fontVariantNumeric: 'tabular-nums',
       display: 'inline-flex',
       gap: '1',
     },
     indicator: {
+      textStyle: 'number',
       display: 'inline-flex',
       alignItems: 'center',
       justifyContent: 'center',
@@ -78,17 +81,17 @@ export const recipe = defineSlotRecipe({
     size: {
       sm: {
         valueText: {
-          textStyle: 'sm',
+          textStyle: 'statValue',
         },
       },
       md: {
         valueText: {
-          textStyle: 'md',
+          textStyle: 'statValue',
         },
       },
       lg: {
         valueText: {
-          textStyle: 'lg',
+          textStyle: 'statValue',
         },
       },
     },
@@ -116,7 +119,6 @@ export const recipe = defineSlotRecipe({
         },
         valueText: {
           color: 'text.primary',
-          textStyle: 'heading.sm',
           alignItems: 'baseline',
           flexWrap: 'wrap',
           '& [data-secondary]': {
@@ -139,6 +141,22 @@ export const recipe = defineSlotRecipe({
     },
   },
 
+  compoundVariants: [
+    {
+      variant: 'scan',
+      css: {
+        root: { borderRadius: 'card', borderColor: 'hairline', p: '16px', gap: '2' },
+        label: { textStyle: 'label', fontWeight: '600', letterSpacing: '0.08em' },
+        valueText: {
+          textStyle: 'statValue',
+          fontWeight: '600',
+          '& [data-secondary]': { textStyle: 'small' },
+          '& [data-delta=up]': { textStyle: 'number', fontWeight: '500' },
+          '& [data-delta=down]': { textStyle: 'number', fontWeight: '500' },
+        },
+      },
+    },
+  ],
   defaultVariants: {
     size: 'sm',
     orientation: 'horizontal',

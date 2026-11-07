@@ -1,3 +1,6 @@
+# Deployment template: render with python3 services/interop/deploy/x-websearch/render_deploy_template.py <this-file>
+# to an operator-owned file, then deploy that file with --config and --image.
+# Every ${NAME} is required from the environment; no provider defaults.
 app = "paxeer-xweb-attestor-1"
 primary_region = "ams"
 kill_signal = "SIGTERM"
@@ -14,7 +17,7 @@ kill_timeout = "30s"
   X_WEBSEARCH_ATTESTOR_KEY_FILE = "/data/keys/attestor.key"
   X_WEBSEARCH_SUBMITTER_KEY_FILE = "/data/keys/submitter.key"
   X_WEBSEARCH_RECEIVER_KEY_FILE = "/data/keys/receiver.key"
-  XWEB_HOPS = "8492=paxeer-xweb-attestor-2.internal 8493=paxeer-xweb-attestor-3.internal 8494=paxeer-xweb-attestor-4.internal"
+  XWEB_HOPS = "8492=${XWEB_ATTESTOR_2_HOST} 8493=${XWEB_ATTESTOR_3_HOST} 8494=${XWEB_ATTESTOR_4_HOST}"
 
 [[mounts]]
   source = "xweb_attestor_1_data"

@@ -26,10 +26,10 @@
 
 <p align="center">
   <!-- ═══ Repo Health ═══ -->
-  <img src="https://img.shields.io/github/actions/workflow/status/Sidiora-Labs/Paxeer-X-Network/ci.yml?style=for-the-badge&logo=githubactions&logoColor=white&label=CI" alt="CI" />
-  <img src="https://img.shields.io/github/license/Sidiora-Labs/Paxeer-X-Network?style=for-the-badge" alt="License" />
-  <img src="https://img.shields.io/github/last-commit/Sidiora-Labs/Paxeer-X-Network?style=for-the-badge&logo=git&logoColor=white" alt="Last Commit" />
-  <img src="https://img.shields.io/github/stars/Sidiora-Labs/Paxeer-X-Network?style=for-the-badge&logo=github" alt="Stars" />
+  <img src="https://img.shields.io/github/actions/workflow/status/Sidiora-Labs/paxeer-monorepo/ci.yml?style=for-the-badge&logo=githubactions&logoColor=white&label=CI" alt="CI" />
+  <img src="https://img.shields.io/github/license/Sidiora-Labs/paxeer-monorepo?style=for-the-badge" alt="License" />
+  <img src="https://img.shields.io/github/last-commit/Sidiora-Labs/paxeer-monorepo?style=for-the-badge&logo=git&logoColor=white" alt="Last Commit" />
+  <img src="https://img.shields.io/github/stars/Sidiora-Labs/paxeer-monorepo?style=for-the-badge&logo=github" alt="Stars" />
 </p>
 
 ## Qué es Paxeer X Network
@@ -68,7 +68,7 @@ curl -sS --max-time 15 https://api1.mainnet-beta.paxeer.network \
   -d '{"jsonrpc":"2.0","id":1,"method":"eth_chainId","params":[]}'
 ```
 
-Los espacios de nombres de los nodos públicos son `debug`, `echo`, `eth`, `net`, `pax`, `test` y `txpool`; la selección de métodos disponible depende de la configuración del nodo. La API del gateway alojado tiene su propio contrato en [`services/platform/hosted/gateway/openrpc.json`](../../services/platform/hosted/gateway/openrpc.json). Sus métodos `px_` no están disponibles automáticamente en todos los nodos públicos. El mirror de bibliotecas `node.hyperpaxeer.com` se usa en los scripts de compilación de hpx y no es un endpoint JSON-RPC.
+Los espacios de nombres de los nodos públicos son `debug`, `echo`, `eth`, `net`, `pax`, `px`, `test` y `txpool`; la selección de métodos disponible depende de la configuración del nodo. El espacio de nombres `px` responde desde el estado del nodo; `px_register` y `px_requestFunds` son operaciones de los servicios alojados de identidad y faucet, cuyo contrato está en [`services/platform/hosted/gateway/openrpc.json`](../../services/platform/hosted/gateway/openrpc.json). El mirror de bibliotecas `node.hyperpaxeer.com` se usa en los scripts de compilación de hpx y no es un endpoint JSON-RPC.
 
 La lista de comprobación es [`Getting-Started-Beta.md`](../wiki/Getting-Started-Beta.md); [`PaymentsQuickstart.md`](../wiki/PaymentsQuickstart.md) explica billetera, financiación y pagos. Otros puntos de partida: [`Assets.md`](../wiki/Assets.md), [`PublicRpc.md`](../wiki/PublicRpc.md), [`CommitmentLevels.md`](../wiki/CommitmentLevels.md) y [`PublicAPI.md`](../wiki/PublicAPI.md). Consulte [`Quickstart.md`](../wiki/Quickstart.md) para el desarrollo local. El entorno de desarrollo local y la mainnet pública son entornos operativos diferentes.
 
@@ -234,4 +234,4 @@ Informe de vulnerabilidades mediante el reporte privado de GitHub, como se descr
 
 Con licencia Apache License, versión 2.0. Consulte [`LICENSE`](../../LICENSE) y [`NOTICE`](../../NOTICE).
 
-Paxeer X Network está desarrollado por Sidiora Labs. Código fuente: [github.com/Sidiora-Labs/Paxeer-X-Network](https://github.com/Sidiora-Labs/Paxeer-X-Network).
+Paxeer X Network está desarrollado por Sidiora Labs. Código fuente: [github.com/Sidiora-Labs/paxeer-monorepo](https://github.com/Sidiora-Labs/paxeer-monorepo).

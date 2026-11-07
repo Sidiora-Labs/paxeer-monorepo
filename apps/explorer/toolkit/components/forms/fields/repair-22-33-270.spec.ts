@@ -1,7 +1,6 @@
 // @vitest-environment jsdom
 
 import { ChakraProvider } from '@chakra-ui/react';
-import { ResizeObserver } from '@juggle/resize-observer';
 import 'intersection-observer';
 import React from 'react';
 import type { FieldErrors, RegisterOptions } from 'react-hook-form';
@@ -14,7 +13,13 @@ import theme from '../../../theme/theme';
 import { FormFieldColor } from './FormFieldColor';
 import { FormFieldRadio } from './FormFieldRadio';
 
-globalThis.ResizeObserver = ResizeObserver;
+class TestResizeObserver implements ResizeObserver {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+}
+
+globalThis.ResizeObserver = TestResizeObserver;
 globalThis.IntersectionObserver = window.IntersectionObserver;
 
 function escapeCssIdentifier(value: string): string {

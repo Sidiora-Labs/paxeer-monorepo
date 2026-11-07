@@ -1,0 +1,132 @@
+# Existing tracked files over 2 MB (2,000,000 bytes).
+# Format: repository-relative path<TAB>recorded bytes<TAB>reason
+# Baseline: c6a45ed6d0f1f5ee8cf4a80ea804efdef8e8d9c4.
+# The historical inventory listed 78 files; this checkout has 127.
+# Each entry may grow by at most ten percent of its recorded byte size.
+apps/explorer/public/static/fonts/Inter-fallback.sfd	3912143	Editable Inter fallback font source.
+apps/launchpad/web/public/Kindle-Launch-logo-dark.png	2370201	Existing web application image or icon asset.
+apps/launchpad/web/public/charting_library/bundles/library.f5eaeb6901219f861981.js	2801934	Vendored charting library browser bundle.
+apps/launchpad/web/public/shadcn.png	7677753	Existing web application image or icon asset.
+apps/launchpad/web/src/app/icon.svg	2533888	Existing web application image or icon asset.
+apps/perps/public/Model_Compressed.glb	2074912	Existing web application 3D model asset.
+apps/perps/public/model.gltf	2767402	Existing web application 3D model asset.
+apps/wallet/public/PAXPORT.png	2310255	Existing web application image or icon asset.
+apps/wallet/public/PAXPORT.svg	3856962	Existing web application image or icon asset.
+apps/wallet/public/paxeerCOEX_light.svg	2235176	Existing web application image or icon asset.
+apps/wallet/public/wallet.svg	3746406	Existing web application image or icon asset.
+core/deps/geth/cmd/evm/testdata/eof/eof_corpus_0.txt	15872950	Upstream EVM EOF validation corpus.
+core/deps/geth/cmd/evm/testdata/eof/eof_corpus_1.txt	3965528	Upstream EVM EOF validation corpus.
+core/deps/geth/core/vm/testdata/precompiles/blsG1MultiExp.json	3596854	Upstream elliptic-curve precompile test vectors.
+core/deps/geth/core/vm/testdata/precompiles/blsG2MultiExp.json	2477758	Upstream elliptic-curve precompile test vectors.
+core/deps/geth/crypto/secp256k1/libsecp256k1/src/precomputed_ecmult.c	2409168	Upstream secp256k1 precomputed multiplication tables.
+core/deps/geth/signer/fourbyte/4byte.json	11095582	Upstream contract function signature database.
+docs/swagger-ui/swagger.yml	2311079	Generated API schema used by Swagger UI.
+docs/swagger/statik.go	9544315	Generated statik bundle serving embedded API documentation.
+engine/tests/data/fixtures_general_state_tests.tgz	9304144	Archived Ethereum general state test fixtures.
+modules/launchpad/keeper/testdata/v6120/golden.json	26823030	Launchpad keeper upgrade golden state fixture.
+node/testdata/v6120-halt-export.height	7531285	Chain halt export fixture for upgrade verification.
+node/testdata/v6120-halt-export.json	3558199	Chain halt export fixture for upgrade verification.
+programs/vendor/icu_normalizer-2.3.0/tests/data/NormalizationTest.txt	2827429	Upstream Unicode normalization conformance test data.
+programs/vendor/windows_aarch64_gnullvm-0.52.6/lib/libwindows.0.52.0.a	3878066	Vendored Windows target import library for Rust builds.
+programs/vendor/windows_aarch64_msvc-0.52.6/lib/windows.0.52.0.lib	5210890	Vendored Windows target import library for Rust builds.
+programs/vendor/windows_i686_gnu-0.52.6/lib/libwindows.0.52.0.a	13204988	Vendored Windows target import library for Rust builds.
+programs/vendor/windows_i686_gnullvm-0.52.6/lib/libwindows.0.52.0.a	4085618	Vendored Windows target import library for Rust builds.
+programs/vendor/windows_i686_msvc-0.52.6/lib/windows.0.52.0.lib	5558752	Vendored Windows target import library for Rust builds.
+programs/vendor/windows_x86_64_gnu-0.52.6/lib/libwindows.0.52.0.a	12695688	Vendored Windows target import library for Rust builds.
+programs/vendor/windows_x86_64_gnullvm-0.52.6/lib/libwindows.0.52.0.a	3878066	Vendored Windows target import library for Rust builds.
+programs/vendor/windows_x86_64_msvc-0.52.6/lib/windows.0.52.0.lib	5210890	Vendored Windows target import library for Rust builds.
+sdk/client/docs/statik/statik.go	14630386	Generated statik bundle serving embedded API documentation.
+sdk/client/docs/swagger-ui/swagger-ui-bundle.js.map	4279583	Vendored Swagger UI JavaScript source map.
+sdk/client/docs/swagger-ui/swagger-ui-es-bundle-core.js.map	2016099	Vendored Swagger UI JavaScript source map.
+sdk/client/docs/swagger-ui/swagger-ui-es-bundle.js.map	4278829	Vendored Swagger UI JavaScript source map.
+sdk/client/docs/swagger-ui/swagger-ui.js.map	2014968	Vendored Swagger UI JavaScript source map.
+services/explorer/backend/apps/ethereum_jsonrpc/test/support/fixture/geth/trace/struct_logger.json	7856253	Upstream geth structured trace test fixture.
+services/explorer/backend/apps/explorer/benchmarks/explorer/chain/transaction/recent_collated_transactions.benchee	4301269	Upstream explorer transaction benchmark reference data.
+services/launchpad/indexer/internal/receipt/testdata/repair53-producer.json	2034703	Launchpad receipt producer integration test fixture.
+spec/layerx-merge/contracts/operations.md	2665181	Existing engineering specification or qualification inventory.
+spec/layerx-merge/contracts/platform-sdk.md	2064212	Existing engineering specification or qualification inventory.
+spec/layerx-merge/docs/architecture/markets-and-launchpad.md	5614043	Existing engineering specification or qualification inventory.
+spec/layerx-merge/docs/plans/interface-matrix.md	18832197	Existing engineering specification or qualification inventory.
+spec/layerx-merge/interfaces.kvx	51754694	Existing engineering specification or qualification inventory.
+spec/layerx-merge/programme/sweeps/interfaces.kvx	3996546	Existing engineering specification or qualification inventory.
+spec/layerx-merge/qualification.kvx	2627923	Existing engineering specification or qualification inventory.
+spec/layerx-merge/spec.kvx	44540508	Existing engineering specification or qualification inventory.
+spec/release-v6-12-0/hyperfide/gen1.kvx	3049718	Existing engineering specification or qualification inventory.
+spec/release-v6-12-0/hyperfide/gen2.kvx	2416142	Existing engineering specification or qualification inventory.
+spec/release-v6-12-0/spec.kvx	3205304	Existing engineering specification or qualification inventory.
+storage/db_engine/litt/docs/resources/littdb-big-picture.png	3878290	Upstream storage engine documentation image.
+storage/db_engine/litt/docs/resources/littdb-logo.png	2832206	Upstream storage engine documentation image.
+tests/vectors/codec/NormalizationTest-15.0.0.txt	2625136	Unicode normalization conformance vectors for codec tests.
+tools/hyperfide/vendor/parsers/dynamic/php/parser.c	7365793	Vendored generated tree-sitter parser tables.
+tools/hyperfide/vendor/parsers/dynamic/python/parser.c	3448505	Vendored generated tree-sitter parser tables.
+tools/hyperfide/vendor/parsers/dynamic/ruby/parser.c	15277808	Vendored generated tree-sitter parser tables.
+tools/hyperfide/vendor/parsers/extended/erlang/src/parser.c	2208505	Vendored generated tree-sitter parser tables.
+tools/hyperfide/vendor/parsers/extended/luau/src/parser.c	3567172	Vendored generated tree-sitter parser tables.
+tools/hyperfide/vendor/parsers/extended/r/src/parser.c	4030362	Vendored generated tree-sitter parser tables.
+tools/hyperfide/vendor/parsers/extended/solidity/src/parser.c	2567063	Vendored generated tree-sitter parser tables.
+tools/hyperfide/vendor/parsers/managed/csharp/parser.c	32021728	Vendored generated tree-sitter parser tables.
+tools/hyperfide/vendor/parsers/managed/dart/parser.c	7453652	Vendored generated tree-sitter parser tables.
+tools/hyperfide/vendor/parsers/managed/java/parser.c	2568164	Vendored generated tree-sitter parser tables.
+tools/hyperfide/vendor/parsers/managed/kotlin/parser.c	22485659	Vendored generated tree-sitter parser tables.
+tools/hyperfide/vendor/parsers/managed/scala/parser.c	27230202	Vendored generated tree-sitter parser tables.
+tools/hyperfide/vendor/parsers/managed/swift/parser.c	23221795	Vendored generated tree-sitter parser tables.
+tools/hyperfide/vendor/parsers/mixed/arkts/parser.c	13969637	Vendored generated tree-sitter parser tables.
+tools/hyperfide/vendor/parsers/mixed/cfml/parser.c	11192095	Vendored generated tree-sitter parser tables.
+tools/hyperfide/vendor/parsers/mixed/cfquery/parser.c	10524537	Vendored generated tree-sitter parser tables.
+tools/hyperfide/vendor/parsers/mixed/cfscript/parser.c	15442838	Vendored generated tree-sitter parser tables.
+tools/hyperfide/vendor/parsers/mixed/cobol/parser.c	30660349	Vendored generated tree-sitter parser tables.
+tools/hyperfide/vendor/parsers/mixed/pascal/parser.c	3531683	Vendored generated tree-sitter parser tables.
+tools/hyperfide/vendor/parsers/mixed/vbnet/parser.c	10275935	Vendored generated tree-sitter parser tables.
+tools/hyperfide/vendor/parsers/systems/c/parser.c	3872012	Vendored generated tree-sitter parser tables.
+tools/hyperfide/vendor/parsers/systems/cpp/parser.c	25857209	Vendored generated tree-sitter parser tables.
+tools/hyperfide/vendor/parsers/systems/objc/parser.c	28242603	Vendored generated tree-sitter parser tables.
+tools/hyperfide/vendor/parsers/systems/rust/parser.c	6505510	Vendored generated tree-sitter parser tables.
+tools/hyperfide/vendor/parsers/web/javascript/src/parser.c	2487319	Vendored generated tree-sitter parser tables.
+tools/hyperfide/vendor/parsers/web/typescript/tsx/src/parser.c	8769870	Vendored generated tree-sitter parser tables.
+tools/hyperfide/vendor/parsers/web/typescript/typescript/src/parser.c	8745894	Vendored generated tree-sitter parser tables.
+tools/wasm-tools/crates/wasmparser/benches/spidermonkey.wasm	5399306	Upstream WebAssembly parser benchmark module.
+tools/wasm-tools/tests/snapshots/testsuite/simd_f32x4_cmp.wast.json	2140607	Upstream WebAssembly SIMD conformance snapshot.
+tools/wasm-tools/tests/snapshots/testsuite/simd_f32x4_pmin_pmax.wast.json	3388772	Upstream WebAssembly SIMD conformance snapshot.
+tools/wasm-tools/tests/snapshots/testsuite/simd_f64x2_pmin_pmax.wast.json	2961796	Upstream WebAssembly SIMD conformance snapshot.
+wasm-runtime/internal/api/libwasmvm.aarch64.so	6382544	Prebuilt CosmWasm runtime library for a supported platform.
+wasm-runtime/internal/api/libwasmvm.dylib	12850108	Prebuilt CosmWasm runtime library for a supported platform.
+wasm-runtime/internal/api/libwasmvm.x86_64.so	11467920	Prebuilt CosmWasm runtime library for a supported platform.
+wasm-runtime/internal/api/libwasmvm_muslc.a.gz	17109549	Prebuilt CosmWasm runtime library for a supported platform.
+wasm-runtime/internal/api/libwasmvm_muslc.aarch64.a.gz	17936641	Prebuilt CosmWasm runtime library for a supported platform.
+wasm-runtime/internal/api/libwasmvm_muslc.aarch64.part00.a	25869018	Prebuilt CosmWasm runtime library for a supported platform.
+wasm-runtime/internal/api/libwasmvm_muslc.aarch64.part01.a	26504884	Prebuilt CosmWasm runtime library for a supported platform.
+wasm-runtime/internal/api/libwasmvm_muslc.aarch64.part02.a	24459420	Prebuilt CosmWasm runtime library for a supported platform.
+wasm-runtime/internal/api/libwasmvm_muslc.part00.a	26521776	Prebuilt CosmWasm runtime library for a supported platform.
+wasm-runtime/internal/api/libwasmvm_muslc.part01.a	25557072	Prebuilt CosmWasm runtime library for a supported platform.
+wasm-runtime/internal/api/libwasmvm_muslc.part02.a	22425506	Prebuilt CosmWasm runtime library for a supported platform.
+wasm-runtime/internal/api/libwasmvmstatic_darwin.a.gz	28445987	Prebuilt CosmWasm runtime library for a supported platform.
+wasm-runtime/internal/api/libwasmvmstatic_darwin.amd64.a	50072272	Prebuilt CosmWasm runtime library for a supported platform.
+wasm-runtime/internal/api/libwasmvmstatic_darwin.arm64.a	48362952	Prebuilt CosmWasm runtime library for a supported platform.
+wasm/x/wasm/artifacts/v152/api/libwasmvm152.aarch64.so	11550456	Prebuilt CosmWasm runtime library for a supported platform.
+wasm/x/wasm/artifacts/v152/api/libwasmvm152.dylib	6384848	Prebuilt CosmWasm runtime library for a supported platform.
+wasm/x/wasm/artifacts/v152/api/libwasmvm152.x86_64.so	11407160	Prebuilt CosmWasm runtime library for a supported platform.
+wasm/x/wasm/artifacts/v152/api/libwasmvm152_muslc.a.gz	17037926	Prebuilt CosmWasm runtime library for a supported platform.
+wasm/x/wasm/artifacts/v152/api/libwasmvm152_muslc.aarch64.a.gz	17870838	Prebuilt CosmWasm runtime library for a supported platform.
+wasm/x/wasm/artifacts/v152/api/libwasmvm152_muslc.aarch64.part00.a	25755112	Prebuilt CosmWasm runtime library for a supported platform.
+wasm/x/wasm/artifacts/v152/api/libwasmvm152_muslc.aarch64.part01.a	26469842	Prebuilt CosmWasm runtime library for a supported platform.
+wasm/x/wasm/artifacts/v152/api/libwasmvm152_muslc.aarch64.part02.a	24455024	Prebuilt CosmWasm runtime library for a supported platform.
+wasm/x/wasm/artifacts/v152/api/libwasmvm152_muslc.part00.a	26414886	Prebuilt CosmWasm runtime library for a supported platform.
+wasm/x/wasm/artifacts/v152/api/libwasmvm152_muslc.part01.a	25402578	Prebuilt CosmWasm runtime library for a supported platform.
+wasm/x/wasm/artifacts/v152/api/libwasmvm152_muslc.part02.a	22425506	Prebuilt CosmWasm runtime library for a supported platform.
+wasm/x/wasm/artifacts/v152/api/libwasmvm152static_darwin.a.gz	16053134	Prebuilt CosmWasm runtime library for a supported platform.
+wasm/x/wasm/artifacts/v152/api/libwasmvm152static_darwin.part00.a	28485352	Prebuilt CosmWasm runtime library for a supported platform.
+wasm/x/wasm/artifacts/v152/api/libwasmvm152static_darwin.part01.a	25801552	Prebuilt CosmWasm runtime library for a supported platform.
+wasm/x/wasm/artifacts/v155/api/libwasmvm155.aarch64.so	11613664	Prebuilt CosmWasm runtime library for a supported platform.
+wasm/x/wasm/artifacts/v155/api/libwasmvm155.dylib	6442192	Prebuilt CosmWasm runtime library for a supported platform.
+wasm/x/wasm/artifacts/v155/api/libwasmvm155.x86_64.so	11459200	Prebuilt CosmWasm runtime library for a supported platform.
+wasm/x/wasm/artifacts/v155/api/libwasmvm155_muslc.a.gz	17115904	Prebuilt CosmWasm runtime library for a supported platform.
+wasm/x/wasm/artifacts/v155/api/libwasmvm155_muslc.aarch64.a.gz	17935189	Prebuilt CosmWasm runtime library for a supported platform.
+wasm/x/wasm/artifacts/v155/api/libwasmvm155_muslc.aarch64.part00.a	25877120	Prebuilt CosmWasm runtime library for a supported platform.
+wasm/x/wasm/artifacts/v155/api/libwasmvm155_muslc.aarch64.part01.a	26505222	Prebuilt CosmWasm runtime library for a supported platform.
+wasm/x/wasm/artifacts/v155/api/libwasmvm155_muslc.aarch64.part02.a	24459420	Prebuilt CosmWasm runtime library for a supported platform.
+wasm/x/wasm/artifacts/v155/api/libwasmvm155_muslc.part00.a	26547602	Prebuilt CosmWasm runtime library for a supported platform.
+wasm/x/wasm/artifacts/v155/api/libwasmvm155_muslc.part01.a	25545782	Prebuilt CosmWasm runtime library for a supported platform.
+wasm/x/wasm/artifacts/v155/api/libwasmvm155_muslc.part02.a	22425506	Prebuilt CosmWasm runtime library for a supported platform.
+wasm/x/wasm/artifacts/v155/api/libwasmvm155static_darwin.a.gz	16129835	Prebuilt CosmWasm runtime library for a supported platform.
+wasm/x/wasm/artifacts/v155/api/libwasmvm155static_darwin.part00.a	28462504	Prebuilt CosmWasm runtime library for a supported platform.
+wasm/x/wasm/artifacts/v155/api/libwasmvm155static_darwin.part01.a	25655072	Prebuilt CosmWasm runtime library for a supported platform.

@@ -1090,7 +1090,7 @@ fn native_activity_schema() -> Value {
 
 fn native_purpose_schema(send: bool) -> Value {
     let version = if send {
-        layerx_agent_api::identity::NativeSendPurposeV1::VERSION
+        layerx_agent_api::identity::NativeSendPurposeV2::VERSION
     } else {
         layerx_agent_api::identity::NativePreparationPurposeV1::VERSION
     };
@@ -1118,9 +1118,16 @@ fn native_purpose_schema(send: bool) -> Value {
     if send {
         let extra = [
             ("owner_did", native_wire_text()),
-            ("owner_public_key", native_wire_hex(32)),
-            ("protocol_version", session_decimal(u64::from(u16::MAX))),
-            ("network_id", session_decimal(u64::from(u32::MAX))),
+            ("consent_public_key", native_wire_hex(32)),
+            ("evm_sender", native_wire_hex(20)),
+            (
+                "transaction_type",
+                json!({"type":"string", "enum":[layerx_agent_api::identity::NativeSendPurposeV2::TRANSACTION_TYPE.to_string()]}),
+            ),
+            (
+                "chain_id",
+                json!({"type":"string", "enum":[layerx_agent_api::identity::NativeSendPurposeV2::CHAIN_ID.to_string()]}),
+            ),
             ("activity", native_activity_schema()),
             ("economic_action", native_wire_hex(32)),
             ("idempotency_key", native_wire_hex(32)),
@@ -1131,10 +1138,17 @@ fn native_purpose_schema(send: bool) -> Value {
         }
     }
     let purpose = session_object(Value::Object(properties), &required);
-    session_object(
-        json!({"purpose": purpose, "owner_public_key": native_wire_hex(32), "signature": native_wire_hex(64)}),
-        &["purpose", "owner_public_key", "signature"],
-    )
+    if send {
+        session_object(
+            json!({"purpose": purpose, "signature": native_wire_hex(64)}),
+            &["purpose", "signature"],
+        )
+    } else {
+        session_object(
+            json!({"purpose": purpose, "owner_public_key": native_wire_hex(32), "signature": native_wire_hex(64)}),
+            &["purpose", "owner_public_key", "signature"],
+        )
+    }
 }
 
 fn native_local_grant_schema() -> Value {

@@ -165,6 +165,7 @@ impl WorkerCurrent {
     ///
     /// # Errors
     /// Returns `NON_CANONICAL` when the hash is all zero.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn proposal_digest(&self, market: &MarketHeader) -> CodecResult<Digest32> {
         let mut buf = [0u8; 288];
         let mut w = Writer::new(&mut buf);
@@ -216,6 +217,7 @@ impl WorkerTable {
         self.records[..self.count].iter().flatten()
     }
     #[must_use]
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn get(&self, worker: WorkerId) -> Option<WorkerCurrent> {
         self.iter().find(|r| r.worker == worker).copied()
     }
@@ -229,6 +231,7 @@ impl WorkerTable {
     ///
     /// # Errors
     /// Returns `NON_CANONICAL` when the record is invalid; `CAPACITY` when the table is full; `CONFLICT` when the worker or slot is already present.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn insert(&mut self, record: &WorkerCurrent) -> CodecResult<()> {
         record.validate()?;
         if self.count >= MAX_WORKERS {
@@ -253,6 +256,7 @@ impl WorkerTable {
     ///
     /// # Errors
     /// Returns `NON_CANONICAL` when the record is invalid; `NOT_FOUND` when the worker is absent.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn replace(&mut self, record: &WorkerCurrent) -> CodecResult<()> {
         record.validate()?;
         let at = self.position(record.worker)?;
@@ -263,6 +267,7 @@ impl WorkerTable {
     ///
     /// # Errors
     /// Returns `NOT_FOUND` when the worker is absent.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn remove(&mut self, worker: WorkerId) -> CodecResult<WorkerCurrent> {
         let at = self.position(worker)?;
         let record = self.records[at].ok_or(NOT_FOUND)?;
@@ -275,6 +280,7 @@ impl WorkerTable {
     ///
     /// # Errors
     /// Returns `CAPACITY` when every slot is taken.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn free_slot(&self) -> CodecResult<u8> {
         (0..u8::try_from(MAX_WORKERS).map_err(|_| ARITHMETIC)?)
             .find(|s| !self.iter().any(|r| r.slot == *s))
@@ -369,6 +375,7 @@ pub fn admit_selector(selector: u16) -> CodecResult<Operation> {
 /// # Errors
 /// Returns `NON_CANONICAL` when the hash is all zero.
 #[allow(clippy::too_many_arguments)]
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn consent_digest(
     market: &MarketHeader,
     worker: WorkerId,
@@ -407,6 +414,7 @@ fn verify(key: PublicKey32, signature: Signature64, digest: Digest32) -> CodecRe
 #[derive(Clone, Copy, Eq, PartialEq)]
 #[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct ManifestSummary {
+    pub version: u16,
     pub market: MarketId,
     pub worker: WorkerId,
     pub owner: PrincipalId,
@@ -416,8 +424,68 @@ pub struct ManifestSummary {
     pub valid_from: u64,
     pub expiry: u64,
     pub digest: MetadataDigest,
+    pub capabilities: Option<CapabilityFields>,
 }
 
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
+pub struct CapabilityFields {
+    pub accelerator_memory_mib: u32,
+    pub system_memory_mib: u32,
+    pub bandwidth_class: u8,
+    pub region_code: [u8; 2],
+    pub attestation_family: u8,
+    pub runtime_kind: u8,
+}
+
+impl CapabilityFields {
+    pub const ENCODED_BYTES: usize = 13;
+
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
+    pub fn validate(&self) -> CodecResult<()> {
+        if self.bandwidth_class > 4
+            || !self.region_code.iter().all(u8::is_ascii_alphabetic)
+            || self.runtime_kind > 2
+        {
+            return Err(NON_CANONICAL);
+        }
+        Ok(())
+    }
+
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
+    pub(crate) fn read(r: &mut Reader<'_>) -> CodecResult<Self> {
+        let fields = Self {
+            accelerator_memory_mib: r.u32()?,
+            system_memory_mib: r.u32()?,
+            bandwidth_class: r.u8()?,
+            region_code: r.fixed()?,
+            attestation_family: r.u8()?,
+            runtime_kind: r.u8()?,
+        };
+        fields.validate()?;
+        Ok(fields)
+    }
+
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
+    pub(crate) fn write(&self, w: &mut Writer<'_>) -> CodecResult<()> {
+        self.validate()?;
+        w.u32(self.accelerator_memory_mib)?;
+        w.u32(self.system_memory_mib)?;
+        w.u8(self.bandwidth_class)?;
+        w.put(&self.region_code)?;
+        w.u8(self.attestation_family)?;
+        w.u8(self.runtime_kind)
+    }
+}
+
+#[derive(Clone, Copy)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
+pub struct ManifestV2<'a> {
+    pub manifest_v1: &'a [u8],
+    pub capabilities: CapabilityFields,
+}
+
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn ranged(value: u32, max: u32) -> CodecResult<()> {
     if value == 0 || value > max {
         Err(NON_CANONICAL)
@@ -426,6 +494,7 @@ fn ranged(value: u32, max: u32) -> CodecResult<()> {
     }
 }
 
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn check_host(host: &[u8]) -> CodecResult<()> {
     if host.is_empty() || host.len() > 253 {
         return Err(NON_CANONICAL);
@@ -456,6 +525,7 @@ fn check_host(host: &[u8]) -> CodecResult<()> {
 ///
 /// # Errors
 /// Returns `NON_CANONICAL` when the URI is too long, non-ASCII, or not in that canonical form.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn check_uri(uri: &[u8]) -> CodecResult<()> {
     if uri.len() > MAX_URI_BYTES || !uri.is_ascii() {
         return Err(NON_CANONICAL);
@@ -489,14 +559,15 @@ pub fn check_uri(uri: &[u8]) -> CodecResult<()> {
 /// Decodes and checks a worker metadata manifest.
 ///
 /// # Errors
-/// Returns `CAPACITY` when the input exceeds `MAX_MANIFEST_BYTES`; `BAD_VERSION` when the version is not 1; `ARITHMETIC` when a URI length does not fit `usize`; `NON_CANONICAL` when the input is short, has trailing bytes, or any field, window, capability, or endpoint is out of bounds or out of order.
+/// Returns `CAPACITY` when the input exceeds `MAX_MANIFEST_BYTES`; `BAD_VERSION` when the version is not 1 or 2; `ARITHMETIC` when a URI length does not fit `usize`; `NON_CANONICAL` when the input is short, has trailing bytes, or any field, window, capability, or endpoint is out of bounds or out of order.
 #[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn decode_manifest(input: &[u8]) -> CodecResult<ManifestSummary> {
     if input.len() > MAX_MANIFEST_BYTES {
         return Err(CAPACITY);
     }
     let mut r = Reader::new(input);
-    if r.u16()? != 1 {
+    let version = r.u16()?;
+    if !matches!(version, 1 | 2) {
         return Err(BAD_VERSION);
     }
     let market = r.market_id()?;
@@ -524,10 +595,10 @@ pub fn decode_manifest(input: &[u8]) -> CodecResult<ManifestSummary> {
             return Err(NON_CANONICAL);
         }
         let model: [u8; 32] = r.fixed()?;
-        let _manifest: [u8; 32] = r.fixed()?;
-        let _tokenizer: [u8; 32] = r.fixed()?;
+        r.take(32)?;
+        r.take(32)?;
         let input_schema: [u8; 32] = r.fixed()?;
-        let _output_schema: [u8; 32] = r.fixed()?;
+        r.take(32)?;
         for _ in 0..4 {
             ranged(r.u32()?, 1_048_576)?;
         }
@@ -577,8 +648,14 @@ pub fn decode_manifest(input: &[u8]) -> CodecResult<ManifestSummary> {
     if r.u32()? != 0 {
         return Err(NON_CANONICAL);
     }
+    let capabilities = if version == 2 {
+        Some(CapabilityFields::read(&mut r)?)
+    } else {
+        None
+    };
     r.finish()?;
     Ok(ManifestSummary {
+        version,
         market,
         worker,
         owner,
@@ -588,11 +665,21 @@ pub fn decode_manifest(input: &[u8]) -> CodecResult<ManifestSummary> {
         valid_from,
         expiry,
         digest: MetadataDigest::new(
-            codec::domain_hash("PAXAI/worker-metadata/v1", input)?.bytes(),
+            codec::domain_hash(
+                if version == 1 {
+                    codec::PARTICIPANT_METADATA_DOMAIN_V1
+                } else {
+                    codec::PARTICIPANT_METADATA_DOMAIN_V2
+                },
+                input,
+            )?
+            .bytes(),
         )?,
+        capabilities,
     })
 }
 
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn check_window(valid_from: u64, expiry: u64) -> CodecResult<()> {
     if expiry <= valid_from || expiry - valid_from > MAX_METADATA_LIFETIME {
         Err(NON_CANONICAL)
@@ -605,6 +692,7 @@ fn check_window(valid_from: u64, expiry: u64) -> CodecResult<()> {
 ///
 /// # Errors
 /// Returns `F02_ADMISSION_NOT_EFFECTIVE` when `height` is before `valid_from`; `F02_METADATA_EXPIRED` when it is at or past expiry.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn check_metadata_window(record: &WorkerCurrent, height: u64) -> CodecResult<()> {
     if height < record.valid_from {
         Err(F02_ADMISSION_NOT_EFFECTIVE)

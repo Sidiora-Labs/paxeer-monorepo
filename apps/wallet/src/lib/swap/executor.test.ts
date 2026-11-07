@@ -1,33 +1,188 @@
-import { spawn, type ChildProcess } from 'node:child_process';
-import { once } from 'node:events';
+import { createRequire } from 'node:module';
+import { createLegacyTx } from '@ethereumjs/tx';
+import { bytesToHex, createAddressFromString, hexToBytes } from '@ethereumjs/util';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { setImmediate } from 'node:timers/promises';
 import { ethers } from 'ethers';
-import { afterEach, beforeEach, expect, test } from 'vitest';
+import { afterEach, beforeAll, beforeEach, expect, test } from 'vitest';
+import { createSwapEvm } from './evm-22-33-121.fixture';
 import { NATIVE_PAX } from './constants';
 import { executeSwap, SwapRevertedError } from './executor';
 import { CONTRACTS, SIDIORA_ROUTER_ABI, TOKENS, quoteBuy, quoteMultihop, quoteSell } from './sdk';
 import type { SwapParams, SwapQuote } from './types';
 
-let node: ChildProcess;
-let provider: ethers.JsonRpcProvider | undefined;
+let provider: ethers.BrowserProvider | undefined;
 let signer: ethers.JsonRpcSigner;
 let output: ethers.Contract;
 let quote: SwapQuote;
 let params: SwapParams;
 
-function artifact(path: string): {
+interface CompiledContract {
   abi: ethers.InterfaceAbi;
-  bytecode: string;
-  deployedBytecode: string;
-} {
-  return JSON.parse(
-    readFileSync(
-      resolve(__dirname, '../../../../../contracts/launchpad/artifacts/contracts', path),
-      'utf8'
+  evm: { bytecode: { object: string }; deployedBytecode: { object: string } };
+}
+let compiled: Record<string, Record<string, CompiledContract>>;
+
+beforeAll(() => {
+  const require = createRequire(import.meta.url);
+  const solc = require('solc') as {
+    compile(input: string, callbacks: { import(path: string): { contents: string } }): string;
+  };
+  const directory = resolve(__dirname, '../../../../../contracts/launchpad/contracts');
+  const sources = [
+    'WPAX9.sol',
+    'meta-ag/proxy/ERC1967Proxy.sol',
+    'meta-ag/oracle/PriceOracle.sol',
+    'meta-ag/vault/PECORVault.sol',
+    'meta-ag/engine/PECOR.sol',
+    'protocol/ProtocolConfig.sol',
+    'data/PoolRegistry.sol',
+    'protocol/Treasury.sol',
+    'data/FeeAccumulator.sol',
+    'core/SidioraNFT.sol',
+    'core/SidioraFactory.sol',
+    'periphery/Router.sol',
+    'periphery/Quoter.sol',
+    'core/SidioraPool.sol',
+    'core/PoolBeacon.sol',
+  ];
+  const result: {
+    contracts: typeof compiled;
+    errors?: { severity: string; formattedMessage: string }[];
+  } = JSON.parse(
+    solc.compile(
+      JSON.stringify({
+        language: 'Solidity',
+        sources: Object.fromEntries(
+          sources.map((file) => [file, { content: readFileSync(resolve(directory, file), 'utf8') }])
+        ),
+        settings: {
+          optimizer: { enabled: true, runs: 200 },
+          viaIR: true,
+          evmVersion: 'shanghai',
+          outputSelection: {
+            '*': { '*': ['abi', 'evm.bytecode.object', 'evm.deployedBytecode.object'] },
+          },
+        },
+      }),
+      { import: (file) => ({ contents: readFileSync(resolve(directory, file), 'utf8') }) }
     )
   );
+  expect(result.errors?.filter((error) => error.severity === 'error') ?? []).toEqual([]);
+  compiled = result.contracts;
+}, 120000);
+
+function artifact(path: string) {
+  const slash = path.lastIndexOf('/');
+  const source = path.slice(0, slash);
+  const name = path.slice(slash + 1).replace(/\.json$/, '');
+  const contract = compiled[source]?.[name];
+  if (!contract) throw new Error(`Missing compiled production contract ${source}:${name}`);
+  return {
+    abi: contract.abi,
+    bytecode: `0x${contract.evm.bytecode.object}`,
+    deployedBytecode: `0x${contract.evm.deployedBytecode.object}`,
+  };
+}
+
+async function controlledEvm() {
+  const evm = await createSwapEvm();
+  let automine = true;
+  const pending = new Map<
+    string,
+    {
+      input: Record<string, string>;
+      transaction: Record<string, unknown>;
+    }
+  >();
+  const address = createAddressFromString;
+  async function request({
+    method,
+    params = [],
+  }: {
+    method: string;
+    params?: readonly unknown[] | Record<string, unknown>;
+  }): Promise<unknown> {
+    if (!Array.isArray(params)) throw new TypeError('EVM parameters must be positional');
+    if (method === 'anvil_setCode') {
+      await evm.vm.stateManager.putCode(
+        address(String(params[0])),
+        hexToBytes(params[1] as `0x${string}`)
+      );
+      return true;
+    }
+    if (method === 'anvil_setStorageAt') {
+      await evm.vm.stateManager.putStorage(
+        address(String(params[0])),
+        hexToBytes(params[1] as `0x${string}`),
+        hexToBytes(params[2] as `0x${string}`)
+      );
+      return true;
+    }
+    if (method === 'evm_setAutomine') {
+      automine = params[0] === true;
+      return true;
+    }
+    if (method === 'evm_setNextBlockTimestamp') {
+      evm.advanceTime(Number(params[0]) - Math.floor(Date.now() / 1000));
+      return true;
+    }
+    if (method === 'eth_pendingTransactions')
+      return [...pending.values()].map(({ transaction }) => transaction);
+    if (method === 'eth_getTransactionByHash' && pending.has(String(params[0])))
+      return pending.get(String(params[0]))!.transaction;
+    if (method === 'eth_getTransactionReceipt' && pending.has(String(params[0]))) return null;
+    if (method === 'eth_sendTransaction' && !automine) {
+      const input = params[0] as Record<string, string>;
+      expect(input.from.toLowerCase()).toBe(evm.owner.toLowerCase());
+      expect(pending.size).toBe(0);
+      const account = await evm.vm.stateManager.getAccount(address(evm.owner));
+      if (!account) throw new Error('EVM signer is not funded');
+      const tx = createLegacyTx(
+        {
+          nonce: account.nonce,
+          gasLimit: 30_000_000n,
+          gasPrice: 1_000_000_000n,
+          to: input.to ? address(input.to) : undefined,
+          value: BigInt(input.value ?? 0),
+          data: hexToBytes((input.data ?? '0x') as `0x${string}`),
+        },
+        { common: evm.common }
+      ).sign(hexToBytes(`0x${'12'.repeat(32)}`));
+      const hash = bytesToHex(tx.hash());
+      const transaction = {
+        hash,
+        blockHash: null,
+        blockNumber: null,
+        transactionIndex: null,
+        from: evm.owner,
+        to: input.to ?? null,
+        nonce: ethers.toQuantity(tx.nonce),
+        gas: ethers.toQuantity(tx.gasLimit),
+        gasPrice: ethers.toQuantity(tx.gasPrice),
+        value: ethers.toQuantity(tx.value),
+        input: bytesToHex(tx.data),
+        chainId: '0x7d',
+        type: '0x0',
+        v: ethers.toQuantity(tx.v!),
+        r: ethers.toQuantity(tx.r!),
+        s: ethers.toQuantity(tx.s!),
+      };
+      pending.set(hash, { input, transaction });
+      return hash;
+    }
+    if (method === 'evm_mine') {
+      for (const [expectedHash, { input }] of pending) {
+        const minedHash = await evm.request({ method: 'eth_sendTransaction', params: [input] });
+        expect(minedHash).toBe(expectedHash);
+        pending.delete(expectedHash);
+      }
+      return '0x0';
+    }
+    return evm.request({ method, params });
+  }
+  return new ethers.BrowserProvider({ request }, 125, { cacheTimeout: -1 });
 }
 
 async function installProxy(
@@ -52,30 +207,7 @@ async function installProxy(
 }
 
 beforeEach(async () => {
-  node = spawn(
-    process.env.ANVIL_BIN ?? 'anvil',
-    ['--host', '127.0.0.1', '--port', '0', '--chain-id', '125'],
-    { stdio: ['ignore', 'pipe', 'pipe'] }
-  );
-  const url = await new Promise<string>((resolveUrl, reject) => {
-    let stdout = '';
-    let stderr = '';
-    node.once('error', reject);
-    node.once('exit', (code) => reject(new Error(`Anvil exited (${code}): ${stderr}`)));
-    node.stderr?.on('data', (chunk: Buffer) => {
-      stderr += chunk.toString();
-    });
-    node.stdout?.on('data', (chunk: Buffer) => {
-      stdout += chunk.toString();
-      const listening = /Listening on (127\.0\.0\.1:\d+)/.exec(stdout);
-      if (listening) resolveUrl(`http://${listening[1]}`);
-    });
-  });
-  provider = new ethers.JsonRpcProvider(url, 125, {
-    staticNetwork: true,
-    batchMaxCount: 1,
-    cacheTimeout: -1,
-  });
+  provider = await controlledEvm();
   provider.pollingInterval = 10;
   signer = await provider.getSigner();
   const owner = await signer.getAddress();
@@ -143,11 +275,6 @@ beforeEach(async () => {
 afterEach(async () => {
   provider?.destroy();
   provider = undefined;
-  if (node && node.exitCode === null && node.signalCode === null) {
-    const exited = once(node, 'exit');
-    node.kill('SIGTERM');
-    await exited;
-  }
 });
 
 async function pendingSwap(): Promise<string> {
@@ -421,8 +548,8 @@ async function sidiora_multihop_min_out_uses_confirmed_quote() {
   expect(await outputToken.balanceOf(params.recipient)).toBe(protectedOut);
 }
 
-test(execute_swap_returns_after_the_receipt.name, execute_swap_returns_after_the_receipt);
-test(execute_swap_refuses_a_reverted_swap.name, execute_swap_refuses_a_reverted_swap);
+test(execute_swap_returns_after_the_receipt.name, execute_swap_returns_after_the_receipt, 15000);
+test(execute_swap_refuses_a_reverted_swap.name, execute_swap_refuses_a_reverted_swap, 15000);
 test(
   sidiora_swap_min_out_uses_confirmed_quote.name,
   sidiora_swap_min_out_uses_confirmed_quote,

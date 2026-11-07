@@ -18,8 +18,14 @@ const MAXIMUM_INPUT: u64 = 4 * 1024 * 1024;
 const BEGIN: &str = "// layerx:begin integration";
 const END: &str = "// layerx:end integration";
 const SAMPLES: [(&str, &str); 2] = [
-    ("seller", "services/platform/docs/samples/paid-endpoint-express"),
-    ("buyer", "services/platform/docs/samples/first-payment-typescript"),
+    (
+        "seller",
+        "services/platform/examples/samples/paid-endpoint-express",
+    ),
+    (
+        "buyer",
+        "services/platform/examples/samples/first-payment-typescript",
+    ),
 ];
 
 #[derive(Parser)]

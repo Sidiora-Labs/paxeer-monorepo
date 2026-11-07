@@ -7,18 +7,44 @@ use crate::{
     },
     codec::{self, Writer},
     errors::{
-        CodecResult, ACCOUNT_BINDING, ARITHMETIC, CAPACITY, F08_MARKET_PAUSED,
-        F08_NO_PRUNABLE_MEMBER, F08_QUORUM_UNAVAILABLE, F08_RETENTION_BLOCKED, F08_STALE_STATE,
-        NON_CANONICAL, WRONG_EPOCH, WRONG_PHASE,
+        CodecResult, ACCOUNT_BINDING, ARITHMETIC, CAPACITY, F02_METADATA_INTEGRITY_FAILURE,
+        F08_MARKET_PAUSED, F08_NO_PRUNABLE_MEMBER, F08_QUORUM_UNAVAILABLE, F08_RETENTION_BLOCKED,
+        F08_STALE_STATE, NON_CANONICAL, WRONG_EPOCH, WRONG_PHASE,
     },
     evaluators::authority::split_identity_section,
     registry::{market_clock, MarketHeader},
     registry_ops::{PolicySection, ACTIVE, REGISTERED, SUSPENDED},
     rewards::{decode_reward_state, Disposition, EpochStatus, RewardState, REWARD_STATE_BYTES},
     state::{self, ActorSlot, Control, Section, SharedState},
-    types::{Amount, Digest32, EpochPhase, WorkerId},
-    workers::{WorkerState, WorkerTable},
+    types::{Amount, Digest32, EpochPhase, WorkerId, WorkerRosterEntry},
+    workers::{decode_manifest, CapabilityFields, WorkerState, WorkerTable},
 };
+
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
+pub struct ParticipantRosterEntry {
+    pub worker: WorkerRosterEntry,
+    pub capabilities: Option<CapabilityFields>,
+}
+
+impl ParticipantRosterEntry {
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
+    pub fn from_manifest(worker: WorkerRosterEntry, manifest: &[u8]) -> CodecResult<Self> {
+        let summary = decode_manifest(manifest)?;
+        if summary.worker != worker.worker
+            || summary.owner != worker.owner
+            || summary.generation != worker.generation.get()
+            || summary.key_version != worker.key_version.get()
+            || summary.digest != worker.metadata
+        {
+            return Err(F02_METADATA_INTEGRITY_FAILURE);
+        }
+        Ok(Self {
+            worker,
+            capabilities: summary.capabilities,
+        })
+    }
+}
 
 /// Bytes per frozen member in the roster digest preimage.
 const ROSTER_MEMBER_BYTES: usize = 33 + 32 + 8 + 8;
@@ -27,6 +53,7 @@ const ROSTER_MEMBER_BYTES: usize = 33 + 32 + 8 + 8;
 ///
 /// # Errors
 /// `F08_NO_PRUNABLE_MEMBER` when no active member of `role` has two complete misses.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn prune_candidate(
     table: &AdmissionTable,
     role: Role,
@@ -60,6 +87,7 @@ pub struct Health {
 ///
 /// # Errors
 /// `ARITHMETIC` only if a decoded table could exceed `u8` members, which capacity forbids.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn health(table: &AdmissionTable) -> CodecResult<Health> {
     let frozen = || {
         table
@@ -77,6 +105,8 @@ pub fn health(table: &AdmissionTable) -> CodecResult<Health> {
 }
 
 /// New evaluation-dependent task admission gate.
+/// `tasks::admit` supplies the committed F08 table after exact-retry handling,
+/// before writing a new task.
 ///
 /// # Errors
 /// `F08_QUORUM_UNAVAILABLE` below three eligible frozen evaluators.
@@ -253,6 +283,7 @@ fn reward_state<'a>(
 }
 
 /// Unclaimed TERMINAL entitlements still owed to `worker` through its frozen recipient.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn outstanding(rewards: &RewardState<'_>, worker: WorkerId) -> CodecResult<(u16, Amount)> {
     let dictionary = rewards.dictionary();
     let (mut count, mut amount) = (0u16, 0);
@@ -275,6 +306,7 @@ fn outstanding(rewards: &RewardState<'_>, worker: WorkerId) -> CodecResult<(u16,
 }
 
 /// Clock epoch of `height` for a live market, inside its Work window.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn opening_epoch(market: &MarketHeader, height: u64) -> CodecResult<u64> {
     match market.lifecycle {
         REGISTERED | ACTIVE => {}
@@ -293,6 +325,7 @@ fn opening_epoch(market: &MarketHeader, height: u64) -> CodecResult<u64> {
 
 /// Delegate generation the member's current F02 record authorizes for `epoch`; an
 /// evaluator keeps its F08 generation.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn authorized(
     workers: &WorkerTable,
     m: &AdmissionMeta,
@@ -458,6 +491,7 @@ pub(crate) fn rollover_roster_with<'c>(
 ///
 /// # Errors
 /// Propagates codec and host hash failures.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn roster_digest(table: &AdmissionTable, epoch: u64) -> CodecResult<Digest32> {
     let mut buf = [0u8; 8 + MAX_MEMBERS * ROSTER_MEMBER_BYTES];
     let mut w = Writer::new(&mut buf);

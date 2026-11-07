@@ -7,7 +7,16 @@ use serde_json::json;
 use crate::config::ensure_directory_empty;
 
 pub fn create(name: &str, parent: &Path) -> Result<serde_json::Value, String> {
+    let sdk = std::env::var_os("LAYERX_PROGRAM_SDK").ok_or(
+        "configure LAYERX_PROGRAM_SDK with an available local layerx-program-sdk checkout",
+    )?;
+    create_with_sdk(name, parent, Path::new(&sdk))
+}
+
+/// Create a project against an explicitly selected, locally available SDK.
+pub fn create_with_sdk(name: &str, parent: &Path, sdk: &Path) -> Result<serde_json::Value, String> {
     validate_name(name)?;
+    let sdk = validated_sdk(sdk)?;
     let project = parent.join(name);
     ensure_directory_empty(&project)?;
     fs::create_dir_all(project.join("src"))
@@ -16,8 +25,8 @@ pub fn create(name: &str, parent: &Path) -> Result<serde_json::Value, String> {
     write_new(
         &project.join("Cargo.toml"),
         &format!(
-            "[package]\nname = \"{name}\"\nversion = \"0.1.0\"\nedition = \"2021\"\n\n[lib]\ncrate-type = [\"cdylib\"]\n\n[dependencies]\nlayerx-program-sdk = {{ path = \"{sdk}\" }}\n\n[profile.release]\nopt-level = \"z\"\nlto = true\ncodegen-units = 1\npanic = \"abort\"\nstrip = true\n",
-            sdk = sdk_path()
+            "[package]\nname = \"{name}\"\nversion = \"0.1.0\"\nedition = \"2021\"\n\n[lib]\ncrate-type = [\"cdylib\"]\n\n[dependencies]\nlayerx-program-sdk = {{ path = {sdk} }}\n\n[profile.release]\nopt-level = \"z\"\nlto = true\ncodegen-units = 1\npanic = \"abort\"\nstrip = true\n",
+            sdk = toml_edit::Value::from(sdk.to_str().ok_or("SDK path must be valid UTF-8")?).to_string()
         ),
     )?;
     write_new(
@@ -62,10 +71,36 @@ fn validate_name(name: &str) -> Result<(), String> {
     Ok(())
 }
 
-const SDK_DEFAULT_PATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../../../programs/sdk/rust");
-
-fn sdk_path() -> String {
-    std::env::var("LAYERX_PROGRAM_SDK").unwrap_or_else(|_| SDK_DEFAULT_PATH.to_string())
+fn validated_sdk(path: &Path) -> Result<PathBuf, String> {
+    let sdk = absolute(path)?;
+    sdk.to_str().ok_or("SDK path must be valid UTF-8")?;
+    let manifest = sdk.join("Cargo.toml");
+    let source = fs::read_to_string(&manifest).map_err(|error| {
+        format!(
+            "SDK manifest {} is unavailable: {error}",
+            manifest.display()
+        )
+    })?;
+    let document = source
+        .parse::<toml_edit::DocumentMut>()
+        .map_err(|error| format!("invalid SDK manifest: {error}"))?;
+    if document
+        .get("package")
+        .and_then(|package| package.get("name"))
+        .and_then(toml_edit::Item::as_str)
+        != Some("layerx-program-sdk")
+    {
+        return Err("local SDK must be the layerx-program-sdk package".into());
+    }
+    let lib = document
+        .get("lib")
+        .and_then(|lib| lib.get("path"))
+        .and_then(toml_edit::Item::as_str)
+        .unwrap_or("src/lib.rs");
+    if !sdk.join(lib).is_file() {
+        return Err("local SDK library source is unavailable".into());
+    }
+    Ok(sdk)
 }
 
 fn absolute(path: &Path) -> Result<PathBuf, String> {

@@ -1,0 +1,2811 @@
+[repair]
+task = "22.31.621"
+base_revision = "abc81fd2cead6b2b9d5612c6e09a6ab56f13c1ed"
+acceptance = "22998.1 under decision 2800 and gotcha 3435: collect every module under tools/qualification and execute the collection regression and 22.33.1395 audit; preserve every test and assertion. The full-suite baseline belongs to 22.31.623."
+build_command = "python3 -m pytest -q --collect-only tools/qualification > /dev/null && python3 -m py_compile tests/ci/test_qualification_suites_collect.py"
+verify_command = "python3 -m pytest -q --collect-only tools/qualification > /dev/null && python3 -m pytest -q tests/ci/test_qualification_suites_collect.py tools/qualification/audit_repairs/test_repair_22_33_1395.py"
+previous_verify_command = "python3 -m pytest -q tools/qualification && python3 -m pytest -q tests/ci/test_qualification_suites_collect.py"
+continuation_base_revision = "6328d42d0812b3ba4738e34aeef00edbbcd5ab16"
+preserved_attempt_1_revision = "d186f583392abd0698c8230db9083b70481d600e"
+baseline = "Not run: the explicit Order requires complete implementation before testing and permits only hf-build then hf-done; no unchanged-tree execution, exit code or pass count is claimed."
+verified_revision = "The exact final candidate revision is bound to the verify row in the private authoritative ledger /out/run/gates.jsonl and copied verbatim in the final response; this file cannot contain its own content-addressed revision."
+pass_count = "Read the executed pytest summaries in the final successful verify log named by /out/run/gates.jsonl; no pass count is claimed before the gate executes."
+private_evidence = "/out/run/gates.jsonl; /out/logs/build-1.log and /out/logs/verify-1.log, or their numbered repair successors."
+deleted_cases = []
+skipped_cases = []
+ignored_modules = []
+
+[collection.source-observation]
+module = "tools/qualification/audit_repairs/test_repair_22_33_1395.py"
+reason = "The module-level env comprehension indexes value on the faucet and Redis entries, which instead have valueFrom.configMapKeyRef after 8efee4ff17."
+repair = "Read each gateway env item by name, preserving literal values and configMapKeyRef or secretKeyRef targets; unsupported references still raise."
+
+[cases.namespace-source-observation]
+cases = ["test_fresh_receipt_material_uses_recorded_chain_pin_without_retired_services", "test_retained_material_reopens_without_retired_inputs", "test_atomic_rotation_keeps_exact_height_windows_and_protected_output", "test_identifier_meanings_and_proof_limits_are_published"]
+reason = "The production deployment moved to layerx-mainnet-beta in 22.31.594 while the older audit still publishes Secrets and asserts manifest metadata in layerx-testnet."
+repair = "Use the current namespace for real Secret publication and exact manifest assertions, retaining every receipt-key, filesystem, transport and documentation assertion."
+
+[producer.required-projection]
+paths = ["services/platform/hosted/gateway/deployment.yaml", "services/platform/hosted/tests/sequencer-pins.py"]
+repair = "Make optional=false explicit on the required receipt-key Secret in both the actual template and its existing renderer; preserve exact renderer/template equality, modes, key projection and mounts."
+
+[regression]
+path = "tests/ci/test_qualification_suites_collect.py"
+tests = ["test_qualification_modules_collect", "test_gateway_env_items_are_read_by_name"]
+proof = "Collect the entire tools/qualification directory in a subprocess and require a successful nonempty collection without errors; import the real audit through importlib and check every actual env name/value plus both exact ConfigMap targets."
+
+[qualification.build-1]
+revision = "1aa52d969011512b7a92538ebc11b518c793a3d1"
+command = "python3 -m pytest -q --collect-only tools/qualification > /dev/null && python3 -m py_compile tests/ci/test_qualification_suites_collect.py"
+exit = 2
+log = "/out/logs/build-1.log"
+modules = ["tools/qualification/audit_repairs/test_repair_22_33_1022.py", "tools/qualification/audit_repairs/test_repair_22_33_1443.py", "tools/qualification/audit_repairs/test_repair_22_33_358.py", "tools/qualification/audit_repairs/test_repair_22_33_360.py"]
+reason = "The four modules listed by .pytest_cache/v/cache/lastfailed import jsonschema, absent from the Python image as confirmed by python3 -m pip show jsonschema (exit 1); the declared build redirects collection diagnostics to /dev/null, so no captured traceback is claimed."
+repair = "Install the real jsonschema dependency in the sandbox; preserve all four modules and their complete schema validation assertions."
+
+[qualification.verify-1]
+revision = "d186f583392abd0698c8230db9083b70481d600e"
+command = "cg spec done 22.31.621 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+passed = 4172
+failed = 267
+errors = 1
+existing_skipped = 5
+subtests_passed = 47
+collection_errors = 0
+ci_tests_executed = false
+observed = "The first pytest command failed, so shell && did not execute tests/ci/test_qualification_suites_collect.py; no task completion or successful final revision is claimed."
+assumption = "Failures outside the explicitly allowed five paths are recorded without changing their producers, tests, assertions or prerequisites; the five existing skips are not introduced by this task and the -q log does not name them."
+
+[repair.current-kernel-contract]
+case = "tools/qualification/audit_repairs/test_repair_22_33_1395.py::test_gateway_retired_dependencies_removed_from_manifest_and_example"
+reason = "The unchanged producer declares eight kernel variables and configured_service_identity() without a kernel argument; the audit still expects thirteen variables and the previous client-construction tuple."
+change = "Assert the exact eight current variable names, retain the disjoint environment checks, and assert current identity loading, mandatory identity refusal for a configured kernel, and both authenticated and unauthenticated client branches."
+
+[qualification.attempt-1-limit]
+observed = "One build repair has been consumed for the missing jsonschema dependency; the runner counts each extra build and extra verification separately, so the required post-repair build consumes the second slot before a second verification can run."
+resolution = "Historical attempt-1 budget observation; attempt 2 starts with no gate rows and two repair cycles. Use the current declared hf-build and hf-done without rerunning the recorded full-suite baseline."
+
+[continuation]
+ruling = "Decision 2800; gotcha 3435; preserve the five applied paths and hand the 267 failures plus one error to 22.31.623."
+baseline_revision_ref = "qualification.verify-1.revision"
+baseline_command = "python3 -m pytest -q tools/qualification"
+baseline_failed = 267
+baseline_errors = 1
+baseline_case_entries = 268
+baseline_modules = 83
+baseline_reason_policy = "Retain each recorded one-line observation without rerunning or reinvestigating unrelated failures; abbreviated pytest output is an observation, not a newly diagnosed root cause."
+origin_main_at_inspection = "19d0c72e1974b9cd6a247704f03a52fd4d8fa2a1"
+origin_main_difference = "Only spec/layerx-merge/spec.kvx changes, marking task 22.37.28 done; production and test files match the continuation base."
+remote_main_observed = "f152d39452ecf083ab5a3e16dd58f095fa2a69e9"
+main_integration = "Not merged: the explicit task order prohibits editing spec/ or any path outside the five-file scope and prohibits committing; qualification uses the runner-provided base and candidate."
+
+[qualification.current]
+ledger = "/out/run/gates.jsonl"
+build_ref = "Last row with kind=build in /out/run/gates.jsonl: exact candidate revision, command, exit and private log."
+verify_ref = "Last row with kind=verify in /out/run/gates.jsonl: exact candidate revision, cg spec done command, exit and private log."
+revision_ref = "The successful build and verify rows must name the same revision; that revision is copied verbatim to the final evidence JSON."
+pass_count_ref = "The pytest summary in the private log named by the final verify row records the executed pass count; collection covers the entire tools/qualification directory."
+completion = "Only hf-done exit zero establishes qualification; these references make no advance claim that either gate passed."
+
+[baseline.family.audit_repairs]
+revision_ref = "qualification.verify-1.revision"
+owner_task = "22.31.623"
+failed = 148
+errors = 0
+modules = ["tools/qualification/audit_repairs/test_px_node_root_design.py", "tools/qualification/audit_repairs/test_repair_22_31_392.py", "tools/qualification/audit_repairs/test_repair_22_31_402.py", "tools/qualification/audit_repairs/test_repair_22_31_418.py", "tools/qualification/audit_repairs/test_repair_22_31_427.py", "tools/qualification/audit_repairs/test_repair_22_31_451.py", "tools/qualification/audit_repairs/test_repair_22_31_455.py", "tools/qualification/audit_repairs/test_repair_22_31_506.py", "tools/qualification/audit_repairs/test_repair_22_31_593.py", "tools/qualification/audit_repairs/test_repair_22_33_112.py", "tools/qualification/audit_repairs/test_repair_22_33_1231.py", "tools/qualification/audit_repairs/test_repair_22_33_1320.py", "tools/qualification/audit_repairs/test_repair_22_33_1331.py", "tools/qualification/audit_repairs/test_repair_22_33_1395.py", "tools/qualification/audit_repairs/test_repair_22_33_1417.py", "tools/qualification/audit_repairs/test_repair_22_33_1427.py", "tools/qualification/audit_repairs/test_repair_22_33_1442.py", "tools/qualification/audit_repairs/test_repair_22_33_1443.py", "tools/qualification/audit_repairs/test_repair_22_33_1488.py", "tools/qualification/audit_repairs/test_repair_22_33_1500.py", "tools/qualification/audit_repairs/test_repair_22_33_154.py", "tools/qualification/audit_repairs/test_repair_22_33_1555.py", "tools/qualification/audit_repairs/test_repair_22_33_1565.py", "tools/qualification/audit_repairs/test_repair_22_33_19.py", "tools/qualification/audit_repairs/test_repair_22_33_22.py", "tools/qualification/audit_repairs/test_repair_22_33_273.py", "tools/qualification/audit_repairs/test_repair_22_33_29.py", "tools/qualification/audit_repairs/test_repair_22_33_312.py", "tools/qualification/audit_repairs/test_repair_22_33_33.py", "tools/qualification/audit_repairs/test_repair_22_33_372.py", "tools/qualification/audit_repairs/test_repair_22_33_404.py", "tools/qualification/audit_repairs/test_repair_22_33_429.py", "tools/qualification/audit_repairs/test_repair_22_33_447.py", "tools/qualification/audit_repairs/test_repair_22_33_462.py", "tools/qualification/audit_repairs/test_repair_22_33_508.py", "tools/qualification/audit_repairs/test_repair_22_33_515.py", "tools/qualification/audit_repairs/test_repair_22_33_526.py", "tools/qualification/audit_repairs/test_repair_22_33_581.py", "tools/qualification/audit_repairs/test_repair_22_33_592.py", "tools/qualification/audit_repairs/test_repair_22_33_626.py", "tools/qualification/audit_repairs/test_repair_22_33_634.py", "tools/qualification/audit_repairs/test_repair_22_33_64.py", "tools/qualification/audit_repairs/test_repair_22_33_698.py", "tools/qualification/audit_repairs/test_repair_22_33_699.py", "tools/qualification/audit_repairs/test_repair_22_33_700.py", "tools/qualification/audit_repairs/test_repair_22_33_707.py", "tools/qualification/audit_repairs/test_repair_22_33_713.py", "tools/qualification/audit_repairs/test_repair_22_33_733.py", "tools/qualification/audit_repairs/test_repair_22_33_769.py", "tools/qualification/audit_repairs/test_repair_22_33_770.py", "tools/qualification/audit_repairs/test_repair_22_33_788.py", "tools/qualification/audit_repairs/test_repair_22_33_806.py", "tools/qualification/audit_repairs/test_repair_22_33_812.py", "tools/qualification/audit_repairs/test_repair_22_33_813.py", "tools/qualification/audit_repairs/test_repair_22_33_814.py", "tools/qualification/audit_repairs/test_repair_22_33_848.py", "tools/qualification/audit_repairs/test_repair_22_33_849.py", "tools/qualification/audit_repairs/test_repair_22_33_865.py", "tools/qualification/audit_repairs/test_repair_22_33_885.py", "tools/qualification/audit_repairs/test_repair_22_33_894.py", "tools/qualification/audit_repairs/test_repair_22_36_1.py", "tools/qualification/audit_repairs/test_repair_22_36_2.py"]
+entries = ["failure.1", "failure.2", "failure.3", "failure.4", "failure.5", "failure.6", "failure.7", "failure.8", "failure.9", "failure.10", "failure.11", "failure.12", "failure.13", "failure.14", "failure.15", "failure.16", "failure.17", "failure.18", "failure.19", "failure.20", "failure.21", "failure.22", "failure.23", "failure.24", "failure.25", "failure.26", "failure.27", "failure.28", "failure.29", "failure.30", "failure.31", "failure.32", "failure.33", "failure.34", "failure.35", "failure.36", "failure.37", "failure.38", "failure.39", "failure.40", "failure.41", "failure.42", "failure.43", "failure.44", "failure.45", "failure.46", "failure.47", "failure.48", "failure.49", "failure.50", "failure.51", "failure.52", "failure.53", "failure.54", "failure.55", "failure.56", "failure.57", "failure.58", "failure.59", "failure.60", "failure.61", "failure.62", "failure.63", "failure.64", "failure.65", "failure.66", "failure.67", "failure.68", "failure.69", "failure.70", "failure.71", "failure.72", "failure.73", "failure.74", "failure.75", "failure.76", "failure.77", "failure.78", "failure.79", "failure.80", "failure.81", "failure.82", "failure.83", "failure.84", "failure.85", "failure.86", "failure.87", "failure.88", "failure.89", "failure.90", "failure.91", "failure.92", "failure.93", "failure.94", "failure.95", "failure.96", "failure.97", "failure.98", "failure.99", "failure.100", "failure.101", "failure.102", "failure.103", "failure.104", "failure.105", "failure.106", "failure.107", "failure.108", "failure.109", "failure.110", "failure.111", "failure.112", "failure.113", "failure.114", "failure.115", "failure.116", "failure.117", "failure.118", "failure.119", "failure.120", "failure.121", "failure.122", "failure.123", "failure.124", "failure.125", "failure.126", "failure.127", "failure.128", "failure.129", "failure.130", "failure.131", "failure.132", "failure.133", "failure.134", "failure.135", "failure.136", "failure.137", "failure.138", "failure.139", "failure.140", "failure.141", "failure.142", "failure.143", "failure.144", "failure.145", "failure.146", "failure.147", "failure.148"]
+
+[failure.1]
+module_family = "audit_repairs"
+module = "tools/qualification/audit_repairs/test_px_node_root_design.py"
+test_name = "test_px_node_root_method_contract_sources_and_decision[px_register]"
+outcome = "failed"
+case = "tools/qualification/audit_repairs/test_px_node_root_design.py::test_px_node_root_method_contract_sources_and_decision[px_register]"
+reason = "AssertionError: px_register: contract changed or abbreviated"
+source = "tools/qualification/audit_repairs/test_px_node_root_design.py:138"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.2]
+module_family = "audit_repairs"
+module = "tools/qualification/audit_repairs/test_px_node_root_design.py"
+test_name = "test_px_node_root_method_contract_sources_and_decision[px_resolveAccount]"
+outcome = "failed"
+case = "tools/qualification/audit_repairs/test_px_node_root_design.py::test_px_node_root_method_contract_sources_and_decision[px_resolveAccount]"
+reason = "AssertionError: px_resolveAccount: contract changed or abbreviated"
+source = "tools/qualification/audit_repairs/test_px_node_root_design.py:138"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.3]
+module_family = "audit_repairs"
+module = "tools/qualification/audit_repairs/test_px_node_root_design.py"
+test_name = "test_px_node_root_method_contract_sources_and_decision[px_listAssets]"
+outcome = "failed"
+case = "tools/qualification/audit_repairs/test_px_node_root_design.py::test_px_node_root_method_contract_sources_and_decision[px_listAssets]"
+reason = "AssertionError: px_listAssets: contract changed or abbreviated"
+source = "tools/qualification/audit_repairs/test_px_node_root_design.py:138"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.4]
+module_family = "audit_repairs"
+module = "tools/qualification/audit_repairs/test_px_node_root_design.py"
+test_name = "test_px_node_root_method_contract_sources_and_decision[px_getHistory]"
+outcome = "failed"
+case = "tools/qualification/audit_repairs/test_px_node_root_design.py::test_px_node_root_method_contract_sources_and_decision[px_getHistory]"
+reason = "AssertionError: px_getHistory: contract changed or abbreviated"
+source = "tools/qualification/audit_repairs/test_px_node_root_design.py:138"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.5]
+module_family = "audit_repairs"
+module = "tools/qualification/audit_repairs/test_px_node_root_design.py"
+test_name = "test_px_node_root_method_contract_sources_and_decision[px_getUnifiedHistory]"
+outcome = "failed"
+case = "tools/qualification/audit_repairs/test_px_node_root_design.py::test_px_node_root_method_contract_sources_and_decision[px_getUnifiedHistory]"
+reason = "AssertionError: px_getUnifiedHistory: contract changed or abbreviated"
+source = "tools/qualification/audit_repairs/test_px_node_root_design.py:138"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.6]
+module_family = "audit_repairs"
+module = "tools/qualification/audit_repairs/test_px_node_root_design.py"
+test_name = "test_px_node_root_method_contract_sources_and_decision[px_getRouteCatalogue]"
+outcome = "failed"
+case = "tools/qualification/audit_repairs/test_px_node_root_design.py::test_px_node_root_method_contract_sources_and_decision[px_getRouteCatalogue]"
+reason = "AssertionError: px_getRouteCatalogue: contract changed or abbreviated"
+source = "tools/qualification/audit_repairs/test_px_node_root_design.py:138"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.7]
+module_family = "audit_repairs"
+module = "tools/qualification/audit_repairs/test_repair_22_31_392.py"
+test_name = "test_bridge_all_rejected_cli_record_guard[False-arguments0]"
+outcome = "failed"
+case = "tools/qualification/audit_repairs/test_repair_22_31_392.py::test_bridge_all_rejected_cli_record_guard[False-arguments0]"
+reason = "AssertionError: assert 'deploy-evm-c... is not set\\n' == 'attestor man...at approval\\n'"
+source = "tools/qualification/audit_repairs/test_repair_22_31_392.py:98"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.8]
+module_family = "audit_repairs"
+module = "tools/qualification/audit_repairs/test_repair_22_31_392.py"
+test_name = "test_bridge_all_rejected_cli_record_guard[False-arguments1]"
+outcome = "failed"
+case = "tools/qualification/audit_repairs/test_repair_22_31_392.py::test_bridge_all_rejected_cli_record_guard[False-arguments1]"
+reason = "AssertionError: assert 'deploy-evm-c... is not set\\n' == 'attestor man...at approval\\n'"
+source = "tools/qualification/audit_repairs/test_repair_22_31_392.py:98"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.9]
+module_family = "audit_repairs"
+module = "tools/qualification/audit_repairs/test_repair_22_31_392.py"
+test_name = "test_bridge_all_rejected_cli_record_guard[True-arguments0]"
+outcome = "failed"
+case = "tools/qualification/audit_repairs/test_repair_22_31_392.py::test_bridge_all_rejected_cli_record_guard[True-arguments0]"
+reason = "AssertionError: assert 'deploy-evm-c...s not exist\\n' == 'attestor man...at approval\\n'"
+source = "tools/qualification/audit_repairs/test_repair_22_31_392.py:98"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.10]
+module_family = "audit_repairs"
+module = "tools/qualification/audit_repairs/test_repair_22_31_392.py"
+test_name = "test_bridge_all_rejected_cli_record_guard[True-arguments1]"
+outcome = "failed"
+case = "tools/qualification/audit_repairs/test_repair_22_31_392.py::test_bridge_all_rejected_cli_record_guard[True-arguments1]"
+reason = "AssertionError: assert 'deploy-evm-c...s not exist\\n' == 'attestor man...at approval\\n'"
+source = "tools/qualification/audit_repairs/test_repair_22_31_392.py:98"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.11]
+module_family = "audit_repairs"
+module = "tools/qualification/audit_repairs/test_repair_22_31_392.py"
+test_name = "test_bridge_all_rejected_cli_stops_first_failure[arguments0]"
+outcome = "failed"
+case = "tools/qualification/audit_repairs/test_repair_22_31_392.py::test_bridge_all_rejected_cli_stops_first_failure[arguments0]"
+reason = "AssertionError: assert ['attestor ma... at approval'] == ['deploy-evm-...were not run']"
+source = "tools/qualification/audit_repairs/test_repair_22_31_392.py:113"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.12]
+module_family = "audit_repairs"
+module = "tools/qualification/audit_repairs/test_repair_22_31_392.py"
+test_name = "test_bridge_all_rejected_cli_stops_first_failure[arguments1]"
+outcome = "failed"
+case = "tools/qualification/audit_repairs/test_repair_22_31_392.py::test_bridge_all_rejected_cli_stops_first_failure[arguments1]"
+reason = "AssertionError: assert ['attestor ma... at approval'] == ['deploy-evm-...were not run']"
+source = "tools/qualification/audit_repairs/test_repair_22_31_392.py:113"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.13]
+module_family = "audit_repairs"
+module = "tools/qualification/audit_repairs/test_repair_22_31_392.py"
+test_name = "test_bridge_all_rejected_preflight_all[None]"
+outcome = "failed"
+case = "tools/qualification/audit_repairs/test_repair_22_31_392.py::test_bridge_all_rejected_preflight_all[None]"
+reason = "AssertionError: assert [] == ['ethereum', ...polygon', ...]"
+source = "tools/qualification/audit_repairs/test_repair_22_31_392.py:157"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.14]
+module_family = "audit_repairs"
+module = "tools/qualification/audit_repairs/test_repair_22_31_392.py"
+test_name = "test_bridge_all_rejected_preflight_all[ethereum]"
+outcome = "failed"
+case = "tools/qualification/audit_repairs/test_repair_22_31_392.py::test_bridge_all_rejected_preflight_all[ethereum]"
+reason = "AssertionError: assert [] == ['ethereum']"
+source = "tools/qualification/audit_repairs/test_repair_22_31_392.py:157"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.15]
+module_family = "audit_repairs"
+module = "tools/qualification/audit_repairs/test_repair_22_31_392.py"
+test_name = "test_bridge_all_rejected_preflight_all[base]"
+outcome = "failed"
+case = "tools/qualification/audit_repairs/test_repair_22_31_392.py::test_bridge_all_rejected_preflight_all[base]"
+reason = "AssertionError: assert [] == ['ethereum', 'base']"
+source = "tools/qualification/audit_repairs/test_repair_22_31_392.py:157"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.16]
+module_family = "audit_repairs"
+module = "tools/qualification/audit_repairs/test_repair_22_31_392.py"
+test_name = "test_bridge_all_rejected_preflight_all[arbitrum]"
+outcome = "failed"
+case = "tools/qualification/audit_repairs/test_repair_22_31_392.py::test_bridge_all_rejected_preflight_all[arbitrum]"
+reason = "AssertionError: assert [] == ['ethereum', ...', 'arbitrum']"
+source = "tools/qualification/audit_repairs/test_repair_22_31_392.py:157"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.17]
+module_family = "audit_repairs"
+module = "tools/qualification/audit_repairs/test_repair_22_31_392.py"
+test_name = "test_bridge_all_rejected_preflight_all[optimism]"
+outcome = "failed"
+case = "tools/qualification/audit_repairs/test_repair_22_31_392.py::test_bridge_all_rejected_preflight_all[optimism]"
+reason = "AssertionError: assert [] == ['ethereum', ...', 'optimism']"
+source = "tools/qualification/audit_repairs/test_repair_22_31_392.py:157"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.18]
+module_family = "audit_repairs"
+module = "tools/qualification/audit_repairs/test_repair_22_31_392.py"
+test_name = "test_bridge_all_rejected_preflight_all[bnb]"
+outcome = "failed"
+case = "tools/qualification/audit_repairs/test_repair_22_31_392.py::test_bridge_all_rejected_preflight_all[bnb]"
+reason = "AssertionError: assert [] == ['ethereum', ...imism', 'bnb']"
+source = "tools/qualification/audit_repairs/test_repair_22_31_392.py:157"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.19]
+module_family = "audit_repairs"
+module = "tools/qualification/audit_repairs/test_repair_22_31_392.py"
+test_name = "test_bridge_all_rejected_preflight_all[polygon]"
+outcome = "failed"
+case = "tools/qualification/audit_repairs/test_repair_22_31_392.py::test_bridge_all_rejected_preflight_all[polygon]"
+reason = "AssertionError: assert [] == ['ethereum', ...b', 'polygon']"
+source = "tools/qualification/audit_repairs/test_repair_22_31_392.py:157"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.20]
+module_family = "audit_repairs"
+module = "tools/qualification/audit_repairs/test_repair_22_31_392.py"
+test_name = "test_bridge_all_rejected_preflight_all[avalanche]"
+outcome = "failed"
+case = "tools/qualification/audit_repairs/test_repair_22_31_392.py::test_bridge_all_rejected_preflight_all[avalanche]"
+reason = "AssertionError: assert [] == ['ethereum', ...polygon', ...]"
+source = "tools/qualification/audit_repairs/test_repair_22_31_392.py:157"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.21]
+module_family = "audit_repairs"
+module = "tools/qualification/audit_repairs/test_repair_22_31_392.py"
+test_name = "test_bridge_all_rejected_preflight_all[hyperevm]"
+outcome = "failed"
+case = "tools/qualification/audit_repairs/test_repair_22_31_392.py::test_bridge_all_rejected_preflight_all[hyperevm]"
+reason = "AssertionError: assert [] == ['ethereum', ...polygon', ...]"
+source = "tools/qualification/audit_repairs/test_repair_22_31_392.py:157"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.22]
+module_family = "audit_repairs"
+module = "tools/qualification/audit_repairs/test_repair_22_31_392.py"
+test_name = "test_bridge_all_rejected_cli_usage[arguments0]"
+outcome = "failed"
+case = "tools/qualification/audit_repairs/test_repair_22_31_392.py::test_bridge_all_rejected_cli_usage[arguments0]"
+reason = "AssertionError: attestor manifest: /work/paxeer-monorepo/services/bridge/deploy/attestors.json: pending_governance=true: awaiting governance signer-set approval (22.31.402; decision 2522); bridge governance must supply the approved public signer set and threshold before the upgrade, replace the signer slots and remo..."
+source = "tools/qualification/audit_repairs/test_repair_22_31_392.py:197"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.23]
+module_family = "audit_repairs"
+module = "tools/qualification/audit_repairs/test_repair_22_31_392.py"
+test_name = "test_bridge_all_rejected_cli_usage[arguments1]"
+outcome = "failed"
+case = "tools/qualification/audit_repairs/test_repair_22_31_392.py::test_bridge_all_rejected_cli_usage[arguments1]"
+reason = "AssertionError: attestor manifest: /work/paxeer-monorepo/services/bridge/deploy/attestors.json: pending_governance=true: awaiting governance signer-set approval (22.31.402; decision 2522); bridge governance must supply the approved public signer set and threshold before the upgrade, replace the signer slots and remo..."
+source = "tools/qualification/audit_repairs/test_repair_22_31_392.py:197"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.24]
+module_family = "audit_repairs"
+module = "tools/qualification/audit_repairs/test_repair_22_31_392.py"
+test_name = "test_bridge_all_rejected_cli_usage[arguments2]"
+outcome = "failed"
+case = "tools/qualification/audit_repairs/test_repair_22_31_392.py::test_bridge_all_rejected_cli_usage[arguments2]"
+reason = "AssertionError: attestor manifest: /work/paxeer-monorepo/services/bridge/deploy/attestors.json: pending_governance=true: awaiting governance signer-set approval (22.31.402; decision 2522); bridge governance must supply the approved public signer set and threshold before the upgrade, replace the signer slots and remo..."
+source = "tools/qualification/audit_repairs/test_repair_22_31_392.py:197"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.25]
+module_family = "audit_repairs"
+module = "tools/qualification/audit_repairs/test_repair_22_31_392.py"
+test_name = "test_bridge_all_rejected_cli_usage[arguments3]"
+outcome = "failed"
+case = "tools/qualification/audit_repairs/test_repair_22_31_392.py::test_bridge_all_rejected_cli_usage[arguments3]"
+reason = "AssertionError: attestor manifest: /work/paxeer-monorepo/services/bridge/deploy/attestors.json: pending_governance=true: awaiting governance signer-set approval (22.31.402; decision 2522); bridge governance must supply the approved public signer set and threshold before the upgrade, replace the signer slots and remo..."
+source = "tools/qualification/audit_repairs/test_repair_22_31_392.py:197"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.26]
+module_family = "audit_repairs"
+module = "tools/qualification/audit_repairs/test_repair_22_31_402.py"
+test_name = "test_proposal_source_checks_manifest_before_emitting_attestors"
+outcome = "failed"
+case = "tools/qualification/audit_repairs/test_repair_22_31_402.py::test_proposal_source_checks_manifest_before_emitting_attestors"
+reason = "ValueError: substring not found"
+source = "tools/qualification/audit_repairs/test_repair_22_31_402.py:174"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.27]
+module_family = "audit_repairs"
+module = "tools/qualification/audit_repairs/test_repair_22_31_418.py"
+test_name = "test_finding_031_normative_states_and_evidence_selection"
+outcome = "failed"
+case = "tools/qualification/audit_repairs/test_repair_22_31_418.py::test_finding_031_normative_states_and_evidence_selection"
+reason = "AssertionError: assert {'done', 'don...sending', ...} == {'awaiting-ap...cessing', ...}"
+source = "tools/qualification/audit_repairs/test_repair_22_31_418.py:69"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.28]
+module_family = "audit_repairs"
+module = "tools/qualification/audit_repairs/test_repair_22_31_418.py"
+test_name = "test_finding_031_reopened_tracking_source_path_has_no_cached_success"
+outcome = "failed"
+case = "tools/qualification/audit_repairs/test_repair_22_31_418.py::test_finding_031_reopened_tracking_source_path_has_no_cached_success"
+reason = "AssertionError: .verified_leg_evidence(index)"
+source = "tools/qualification/audit_repairs/test_repair_22_31_418.py:60"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.29]
+module_family = "audit_repairs"
+module = "tools/qualification/audit_repairs/test_repair_22_31_427.py"
+test_name = "test_kernel_backend_entrypoint_unit_and_environment_agree"
+outcome = "failed"
+case = "tools/qualification/audit_repairs/test_repair_22_31_427.py::test_kernel_backend_entrypoint_unit_and_environment_agree"
+reason = "assert '[ \"${LAYERX_NODE_NETWORK_ID:-125}\" = 125 ] || {' in '#!/bin/bash\\n# Start the merged kernel in its single paxd process. Provision the native\\n# chain home separately; nev...id=4020 --regid=4020 --clear-groups --no-new-privs \\\\\\n python3 /opt/layerx/kernel_runtime.py --home \"$node_home\"\\n'"
+source = "tools/qualification/audit_repairs/test_repair_22_31_427.py:478"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.30]
+module_family = "audit_repairs"
+module = "tools/qualification/audit_repairs/test_repair_22_31_451.py"
+test_name = "test_advisory_patched_manifest_lock_and_install[GHSA-m2h6-j472-rp4c-cryptography-49.0.0]"
+outcome = "failed"
+case = "tools/qualification/audit_repairs/test_repair_22_31_451.py::test_advisory_patched_manifest_lock_and_install[GHSA-m2h6-j472-rp4c-cryptography-49.0.0]"
+reason = "AssertionError: GHSA-m2h6-j472-rp4c"
+source = "tools/qualification/audit_repairs/test_repair_22_31_451.py:62"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.31]
+module_family = "audit_repairs"
+module = "tools/qualification/audit_repairs/test_repair_22_31_451.py"
+test_name = "test_advisory_patched_manifest_lock_and_install[GHSA-jwv3-5hgf-82ww-cryptography-49.0.0]"
+outcome = "failed"
+case = "tools/qualification/audit_repairs/test_repair_22_31_451.py::test_advisory_patched_manifest_lock_and_install[GHSA-jwv3-5hgf-82ww-cryptography-49.0.0]"
+reason = "AssertionError: GHSA-jwv3-5hgf-82ww"
+source = "tools/qualification/audit_repairs/test_repair_22_31_451.py:62"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.32]
+module_family = "audit_repairs"
+module = "tools/qualification/audit_repairs/test_repair_22_31_451.py"
+test_name = "test_advisory_patched_manifest_lock_and_install[GHSA-g6cj-pr64-35w5-cryptography-50.0.0]"
+outcome = "failed"
+case = "tools/qualification/audit_repairs/test_repair_22_31_451.py::test_advisory_patched_manifest_lock_and_install[GHSA-g6cj-pr64-35w5-cryptography-50.0.0]"
+reason = "AssertionError: GHSA-g6cj-pr64-35w5"
+source = "tools/qualification/audit_repairs/test_repair_22_31_451.py:62"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.33]
+module_family = "audit_repairs"
+module = "tools/qualification/audit_repairs/test_repair_22_31_451.py"
+test_name = "test_advisory_patched_manifest_lock_and_install[GHSA-537c-gmf6-5ccf-cryptography-48.0.1]"
+outcome = "failed"
+case = "tools/qualification/audit_repairs/test_repair_22_31_451.py::test_advisory_patched_manifest_lock_and_install[GHSA-537c-gmf6-5ccf-cryptography-48.0.1]"
+reason = "AssertionError: GHSA-537c-gmf6-5ccf"
+source = "tools/qualification/audit_repairs/test_repair_22_31_451.py:62"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.34]
+module_family = "audit_repairs"
+module = "tools/qualification/audit_repairs/test_repair_22_31_451.py"
+test_name = "test_advisory_patched_manifest_lock_and_install[GHSA-p423-j2cm-9vmq-cryptography-46.0.7]"
+outcome = "failed"
+case = "tools/qualification/audit_repairs/test_repair_22_31_451.py::test_advisory_patched_manifest_lock_and_install[GHSA-p423-j2cm-9vmq-cryptography-46.0.7]"
+reason = "AssertionError: GHSA-p423-j2cm-9vmq"
+source = "tools/qualification/audit_repairs/test_repair_22_31_451.py:62"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.35]
+module_family = "audit_repairs"
+module = "tools/qualification/audit_repairs/test_repair_22_31_451.py"
+test_name = "test_advisory_patched_manifest_lock_and_install[GHSA-m959-cc7f-wv43-cryptography-46.0.6]"
+outcome = "failed"
+case = "tools/qualification/audit_repairs/test_repair_22_31_451.py::test_advisory_patched_manifest_lock_and_install[GHSA-m959-cc7f-wv43-cryptography-46.0.6]"
+reason = "AssertionError: GHSA-m959-cc7f-wv43"
+source = "tools/qualification/audit_repairs/test_repair_22_31_451.py:62"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.36]
+module_family = "audit_repairs"
+module = "tools/qualification/audit_repairs/test_repair_22_31_451.py"
+test_name = "test_advisory_patched_manifest_lock_and_install[GHSA-r6ph-v2qm-q3c2-cryptography-46.0.5]"
+outcome = "failed"
+case = "tools/qualification/audit_repairs/test_repair_22_31_451.py::test_advisory_patched_manifest_lock_and_install[GHSA-r6ph-v2qm-q3c2-cryptography-46.0.5]"
+reason = "AssertionError: GHSA-r6ph-v2qm-q3c2"
+source = "tools/qualification/audit_repairs/test_repair_22_31_451.py:62"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.37]
+module_family = "audit_repairs"
+module = "tools/qualification/audit_repairs/test_repair_22_31_451.py"
+test_name = "test_advisory_patched_manifest_lock_and_install[GHSA-6w46-j5rx-g56g-pytest-9.0.3]"
+outcome = "failed"
+case = "tools/qualification/audit_repairs/test_repair_22_31_451.py::test_advisory_patched_manifest_lock_and_install[GHSA-6w46-j5rx-g56g-pytest-9.0.3]"
+reason = "AssertionError: GHSA-6w46-j5rx-g56g"
+source = "tools/qualification/audit_repairs/test_repair_22_31_451.py:62"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.38]
+module_family = "audit_repairs"
+module = "tools/qualification/audit_repairs/test_repair_22_31_451.py"
+test_name = "test_frozen_lock_covers_requirements_and_installed_dependency_closure"
+outcome = "failed"
+case = "tools/qualification/audit_repairs/test_repair_22_31_451.py::test_frozen_lock_covers_requirements_and_installed_dependency_closure"
+reason = "AssertionError: cryptography"
+source = "tools/qualification/audit_repairs/test_repair_22_31_451.py:75"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.39]
+module_family = "audit_repairs"
+module = "tools/qualification/audit_repairs/test_repair_22_31_455.py"
+test_name = "test_lockfile_importers_match_manifests_and_frozen_install_record[apps/launchpad]"
+outcome = "failed"
+case = "tools/qualification/audit_repairs/test_repair_22_31_455.py::test_lockfile_importers_match_manifests_and_frozen_install_record[apps/launchpad]"
+reason = "AssertionError: assert 'workspace:*' == 'file:../sdk-v2'"
+source = "tools/qualification/audit_repairs/test_repair_22_31_455.py:258"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.40]
+module_family = "audit_repairs"
+module = "tools/qualification/audit_repairs/test_repair_22_31_506.py"
+test_name = "test_both_jobs_keep_action_commits_and_checkout_credentials_disabled[attestor]"
+outcome = "failed"
+case = "tools/qualification/audit_repairs/test_repair_22_31_506.py::test_both_jobs_keep_action_commits_and_checkout_credentials_disabled[attestor]"
+reason = "AssertionError: assert ['actions/che...c47a31fe5020'] == ['actions/che...b5720e22ba16']"
+source = "tools/qualification/audit_repairs/test_repair_22_31_506.py:54"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.41]
+module_family = "audit_repairs"
+module = "tools/qualification/audit_repairs/test_repair_22_31_593.py"
+test_name = "test_activation_runbook_lists_every_explicitly_registered_plan_in_node_order"
+outcome = "failed"
+case = "tools/qualification/audit_repairs/test_repair_22_31_593.py::test_activation_runbook_lists_every_explicitly_registered_plan_in_node_order"
+reason = "assert None"
+source = "tools/qualification/audit_repairs/test_repair_22_31_593.py:174"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.42]
+module_family = "audit_repairs"
+module = "tools/qualification/audit_repairs/test_repair_22_33_112.py"
+test_name = "test_recorded_native_payment_crosses_production_relay"
+outcome = "failed"
+case = "tools/qualification/audit_repairs/test_repair_22_33_112.py::test_recorded_native_payment_crosses_production_relay"
+reason = "ValueError: invalid-rpc-endpoint"
+source = "tools/qualification/audit_repairs/test_repair_22_33_112.py:239"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.43]
+module_family = "audit_repairs"
+module = "tools/qualification/audit_repairs/test_repair_22_33_112.py"
+test_name = "test_xweb_packaging_stages_guards_match_build_fly_and_default_runtime"
+outcome = "failed"
+case = "tools/qualification/audit_repairs/test_repair_22_33_112.py::test_xweb_packaging_stages_guards_match_build_fly_and_default_runtime"
+reason = "AssertionError: assert None"
+source = "tools/qualification/audit_repairs/test_repair_22_33_112.py:263"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.44]
+module_family = "audit_repairs"
+module = "tools/qualification/audit_repairs/test_repair_22_33_1231.py"
+test_name = "test_finding_17_supported_go_and_linter_consumer"
+outcome = "failed"
+case = "tools/qualification/audit_repairs/test_repair_22_33_1231.py::test_finding_17_supported_go_and_linter_consumer"
+reason = "AssertionError: assert [] == ['contrib/devtools/Makefile']"
+source = "tools/qualification/audit_repairs/test_repair_22_33_1231.py:133"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.45]
+module_family = "audit_repairs"
+module = "tools/qualification/audit_repairs/test_repair_22_33_1320.py"
+test_name = "test_relay_retirement_9_and_10_maintained_ownership_and_consumers"
+outcome = "failed"
+case = "tools/qualification/audit_repairs/test_repair_22_33_1320.py::test_relay_retirement_9_and_10_maintained_ownership_and_consumers"
+reason = "AssertionError: assert [{'name': 'pa...src/main.rs'}] == [{'name': 'la...src/main.rs'}]"
+source = "tools/qualification/audit_repairs/test_repair_22_33_1320.py:68"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.46]
+module_family = "audit_repairs"
+module = "tools/qualification/audit_repairs/test_repair_22_33_1320.py"
+test_name = "test_relay_retirement_12_native_genesis_entrypoint_and_legacy_refusal"
+outcome = "failed"
+case = "tools/qualification/audit_repairs/test_repair_22_33_1320.py::test_relay_retirement_12_native_genesis_entrypoint_and_legacy_refusal"
+reason = "assert 'exec \"$SCRIPT_DIR/../node/bootstrap.sh\" \"$@\"' in '#!/usr/bin/env bash\\n# Maintained owner: domain 8; ../node/bootstrap.sh owns bank and ledger genesis funding.\\n# Cust...t 2 ;;\\n esac\\ndone\\nexec paxeer-native-tool bootstrap --bootstrap-script \"$SCRIPT_DIR/../node/bootstrap.sh\" \"$@\"\\n'"
+source = "tools/qualification/audit_repairs/test_repair_22_33_1320.py:334"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.47]
+module_family = "audit_repairs"
+module = "tools/qualification/audit_repairs/test_repair_22_33_1331.py"
+test_name = "test_finding_36_every_affected_lock_matches_manifest_without_resolution_churn"
+outcome = "failed"
+case = "tools/qualification/audit_repairs/test_repair_22_33_1331.py::test_finding_36_every_affected_lock_matches_manifest_without_resolution_churn"
+reason = "AssertionError: assert '360a1a180a21...8297321d2f882' == 'cf33982a73d3...2c962cd280288'"
+source = "tools/qualification/audit_repairs/test_repair_22_33_1331.py:77"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.48]
+module_family = "audit_repairs"
+module = "tools/qualification/audit_repairs/test_repair_22_33_1395.py"
+test_name = "test_gateway_retired_dependencies_removed_from_manifest_and_example"
+outcome = "failed"
+case = "tools/qualification/audit_repairs/test_repair_22_33_1395.py::test_gateway_retired_dependencies_removed_from_manifest_and_example"
+reason = "AssertionError: assert 8 == 13"
+source = "tools/qualification/audit_repairs/test_repair_22_33_1395.py:87"
+disposition = "Repair current producer names within scope."
+repair_ref = "repair.current-kernel-contract; repaired in the preserved attempt-1 final tree, executed by the current verify command."
+
+[failure.49]
+module_family = "audit_repairs"
+module = "tools/qualification/audit_repairs/test_repair_22_33_1417.py"
+test_name = "test_035_source_transports_authenticate_and_serialize_the_real_catalogue"
+outcome = "failed"
+case = "tools/qualification/audit_repairs/test_repair_22_33_1417.py::test_035_source_transports_authenticate_and_serialize_the_real_catalogue"
+reason = "assert 'crate::routes::rpc_catalogue(config, request, &id, value.get(\"params\"))' in 'fn dispatch(config: &Config, request: &IncomingRequest, value: &Value) -> Option<Value> {\\n if let Some(refusal) =...\").map(|_| result);\\n }\\n value\\n .get(\"id\")\\n .map(|_| error(&id, -32601, \"Method not found\"))\\n}'"
+source = "tools/qualification/audit_repairs/test_repair_22_33_1417.py:137"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.50]
+module_family = "audit_repairs"
+module = "tools/qualification/audit_repairs/test_repair_22_33_1417.py"
+test_name = "test_035_production_ingress_refuses_retired_subtree_before_dispatch"
+outcome = "failed"
+case = "tools/qualification/audit_repairs/test_repair_22_33_1417.py::test_035_production_ingress_refuses_retired_subtree_before_dispatch"
+reason = "assert 'if request.path == \"/\" && request.method == \"POST\"' in 'fn route_with_peer(\\n config: &Config,\\n request: &IncomingRequest,\\n peer: Option<SocketAddr>,\\n) -> Outgoi...settle(config, request, &record, &trace_id),\\n read => read_route(config, &record, &read, &trace_id),\\n }\\n}'"
+source = "tools/qualification/audit_repairs/test_repair_22_33_1417.py:160"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.51]
+module_family = "audit_repairs"
+module = "tools/qualification/audit_repairs/test_repair_22_33_1417.py"
+test_name = "test_035_inherited_repair_preserves_entire_openrpc_document"
+outcome = "failed"
+case = "tools/qualification/audit_repairs/test_repair_22_33_1417.py::test_035_inherited_repair_preserves_entire_openrpc_document"
+reason = "AssertionError: assert 'b70d7d482fc3...5add3a0c9c82a' == '6e639ceea5b0...99c6b8e813b2a'"
+source = "tools/qualification/audit_repairs/test_repair_22_33_1417.py:170"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.52]
+module_family = "audit_repairs"
+module = "tools/qualification/audit_repairs/test_repair_22_33_1427.py"
+test_name = "test_public_rpc_hosts_and_chain_probe_use_the_root_endpoint"
+outcome = "failed"
+case = "tools/qualification/audit_repairs/test_repair_22_33_1427.py::test_public_rpc_hosts_and_chain_probe_use_the_root_endpoint"
+reason = "AssertionError: assert {'api-mainnet...xeer.network'} == {'api-mainnet...xeer.network'}"
+source = "tools/qualification/audit_repairs/test_repair_22_33_1427.py:101"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.53]
+module_family = "audit_repairs"
+module = "tools/qualification/audit_repairs/test_repair_22_33_1442.py"
+test_name = "test_doc_readme_root_rpc_hosts_and_chain_probe"
+outcome = "failed"
+case = "tools/qualification/audit_repairs/test_repair_22_33_1442.py::test_doc_readme_root_rpc_hosts_and_chain_probe"
+reason = "AssertionError: assert {'api-mainnet...xeer.network'} == {'api-mainnet...xeer.network'}"
+source = "tools/qualification/audit_repairs/test_repair_22_33_1442.py:88"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.54]
+module_family = "audit_repairs"
+module = "tools/qualification/audit_repairs/test_repair_22_33_1443.py"
+test_name = "test_registration_documents_tenant_binding_and_the_current_pin"
+outcome = "failed"
+case = "tools/qualification/audit_repairs/test_repair_22_33_1443.py::test_registration_documents_tenant_binding_and_the_current_pin"
+reason = "AssertionError: assert 'current gateway pins tenant to beta' in 'Creates one self-service identity principal in the registration tenant. The operator configures the trusted tenant wi...tration budget is -32005; an unconfigured or unavailable identity service is -32001 with a machine-readable data.code.'"
+source = "tools/qualification/audit_repairs/test_repair_22_33_1443.py:111"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.55]
+module_family = "audit_repairs"
+module = "tools/qualification/audit_repairs/test_repair_22_33_1443.py"
+test_name = "test_history_selection_transport_and_consumers_match_the_documentation"
+outcome = "failed"
+case = "tools/qualification/audit_repairs/test_repair_22_33_1443.py::test_history_selection_transport_and_consumers_match_the_documentation"
+reason = "assert \"await this.hosted().call('px_getUnifiedHistory', [address, cursor, query.limit ?? null, null])\" in \"import {\\n JsonRpcClient,\\n JsonRpcTransportError,\\n isRecord,\\n type JsonRpcClientOptions,\\n} from './rpc.js';\\n...ical_origin,\\n services,\\n routes,\\n readiness: { complete: ready.complete, services: readine..."
+source = "tools/qualification/audit_repairs/test_repair_22_33_1443.py:169"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.56]
+module_family = "audit_repairs"
+module = "tools/qualification/audit_repairs/test_repair_22_33_1488.py"
+test_name = "test_deployment_egress_disagreement_private_services_select_actual_ports_in_both_directions"
+outcome = "failed"
+case = "tools/qualification/audit_repairs/test_repair_22_33_1488.py::test_deployment_egress_disagreement_private_services_select_actual_ports_in_both_directions"
+reason = "AssertionError: assert 'layerx-mainnet-beta' == 'layerx-testnet'"
+source = "tools/qualification/audit_repairs/test_repair_22_33_1488.py:248"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.57]
+module_family = "audit_repairs"
+module = "tools/qualification/audit_repairs/test_repair_22_33_1488.py"
+test_name = "test_merged_relay_producer_route_and_native_service_are_documented_without_public_provider_egress"
+outcome = "failed"
+case = "tools/qualification/audit_repairs/test_repair_22_33_1488.py::test_merged_relay_producer_route_and_native_service_are_documented_without_public_provider_egress"
+reason = "AssertionError: request.path == \"/\" && request.method == \"POST\""
+source = "tools/qualification/audit_repairs/test_repair_22_33_1488.py:74"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.58]
+module_family = "audit_repairs"
+module = "tools/qualification/audit_repairs/test_repair_22_33_1500.py"
+test_name = "test_install_guide_inputs_signing_and_disclosure"
+outcome = "failed"
+case = "tools/qualification/audit_repairs/test_repair_22_33_1500.py::test_install_guide_inputs_signing_and_disclosure"
+reason = "ValueError: substring not found"
+source = "tools/qualification/audit_repairs/test_repair_22_33_1500.py:100"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.59]
+module_family = "audit_repairs"
+module = "tools/qualification/audit_repairs/test_repair_22_33_1500.py"
+test_name = "test_install_guide_inputs_raw_transaction_producer_transport"
+outcome = "failed"
+case = "tools/qualification/audit_repairs/test_repair_22_33_1500.py::test_install_guide_inputs_raw_transaction_producer_transport"
+reason = "AssertionError: decode_signed(&bytes)"
+source = "tools/qualification/audit_repairs/test_repair_22_33_1500.py:33"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.60]
+module_family = "audit_repairs"
+module = "tools/qualification/audit_repairs/test_repair_22_33_1500.py"
+test_name = "test_install_guide_inputs_txhash_reconciliation_consumer"
+outcome = "failed"
+case = "tools/qualification/audit_repairs/test_repair_22_33_1500.py::test_install_guide_inputs_txhash_reconciliation_consumer"
+reason = "AssertionError: Ok(json!({\"txHash\": tx_hash, \"rung\": \"unknown\", \"detail\": detail}))"
+source = "tools/qualification/audit_repairs/test_repair_22_33_1500.py:33"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.61]
+module_family = "audit_repairs"
+module = "tools/qualification/audit_repairs/test_repair_22_33_154.py"
+test_name = "test_readme_planning_limit_matches_real_endpoint_contract"
+outcome = "failed"
+case = "tools/qualification/audit_repairs/test_repair_22_33_154.py::test_readme_planning_limit_matches_real_endpoint_contract"
+reason = "assert \"this.hosted().call('px_getNetwork', [])\" in \"import {\\n JsonRpcClient,\\n JsonRpcTransportError,\\n isRecord,\\n type JsonRpcClientOptions,\\n} from './rpc.js';\\n...ical_origin,\\n services,\\n routes,\\n readiness: { complete: ready.complete, services: readiness },\\n };\\n}\\n\""
+source = "tools/qualification/audit_repairs/test_repair_22_33_154.py:168"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.62]
+module_family = "audit_repairs"
+module = "tools/qualification/audit_repairs/test_repair_22_33_1555.py"
+test_name = "test_doc_root_public_rpc_hosts_and_chain_probe"
+outcome = "failed"
+case = "tools/qualification/audit_repairs/test_repair_22_33_1555.py::test_doc_root_public_rpc_hosts_and_chain_probe"
+reason = "AssertionError: assert {'api-mainnet...xeer.network'} == {'api-mainnet...xeer.network'}"
+source = "tools/qualification/audit_repairs/test_repair_22_33_1555.py:89"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.63]
+module_family = "audit_repairs"
+module = "tools/qualification/audit_repairs/test_repair_22_33_1565.py"
+test_name = "test_agent_readme_topology_crates_and_root_rpc_match_current_inputs"
+outcome = "failed"
+case = "tools/qualification/audit_repairs/test_repair_22_33_1565.py::test_agent_readme_topology_crates_and_root_rpc_match_current_inputs"
+reason = "AssertionError: assert 'Signed transactions are submitted as exact\\nbytes' in '# LayerX agent workspace\\n\\nThe agent workspace provides non-authoritative clients, policy, custody,\\nproof verificat...n,\\nsignature, submission and receipt tracking boundaries. They cannot acquire\\nextra authority through a tool call.\\n'"
+source = "tools/qualification/audit_repairs/test_repair_22_33_1565.py:133"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.64]
+module_family = "audit_repairs"
+module = "tools/qualification/audit_repairs/test_repair_22_33_1565.py"
+test_name = "test_clock_scanner_violations_have_exact_out_of_scope_owner_requests"
+outcome = "failed"
+case = "tools/qualification/audit_repairs/test_repair_22_33_1565.py::test_clock_scanner_violations_have_exact_out_of_scope_owner_requests"
+reason = "AssertionError: assert {'services/ag.../mod.rs', ...} == {'services/ag.../mod.rs', ...}"
+source = "tools/qualification/audit_repairs/test_repair_22_33_1565.py:303"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.65]
+module_family = "audit_repairs"
+module = "tools/qualification/audit_repairs/test_repair_22_33_19.py"
+test_name = "test_existing_receipt_restart_and_rejection_suites_are_preserved"
+outcome = "failed"
+case = "tools/qualification/audit_repairs/test_repair_22_33_19.py::test_existing_receipt_restart_and_rejection_suites_are_preserved"
+reason = "AssertionError: test_ai_market_commit.py"
+source = "tools/qualification/audit_repairs/test_repair_22_33_19.py:50"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.66]
+module_family = "audit_repairs"
+module = "tools/qualification/audit_repairs/test_repair_22_33_22.py"
+test_name = "test_test_discovery_manifest_covers_maintained_and_previous_suites"
+outcome = "failed"
+case = "tools/qualification/audit_repairs/test_repair_22_33_22.py::test_test_discovery_manifest_covers_maintained_and_previous_suites"
+reason = "AssertionError: assert 'npm run buil...elf-contained' == 'npm run test:self-contained'"
+source = "tools/qualification/audit_repairs/test_repair_22_33_22.py:43"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.67]
+module_family = "audit_repairs"
+module = "tools/qualification/audit_repairs/test_repair_22_33_22.py"
+test_name = "test_test_discovery_documents_and_guards_external_probe_commands"
+outcome = "failed"
+case = "tools/qualification/audit_repairs/test_repair_22_33_22.py::test_test_discovery_documents_and_guards_external_probe_commands"
+reason = "assert 'process.exit(2)' in 'import { readFileSync, writeFileSync } from \"node:fs\";\\nimport { join, resolve } from \"node:path\";\\nimport { fileURLT...sage : \"probe failed\"}\\\\n`);\\n process.exitCode = error instanceof AgentOperationProbeInputError ? 2 : 1;\\n }\\n}\\n'"
+source = "tools/qualification/audit_repairs/test_repair_22_33_22.py:178"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.68]
+module_family = "audit_repairs"
+module = "tools/qualification/audit_repairs/test_repair_22_33_273.py"
+test_name = "test_root_network_description_public_rpc_and_chain_probe"
+outcome = "failed"
+case = "tools/qualification/audit_repairs/test_repair_22_33_273.py::test_root_network_description_public_rpc_and_chain_probe"
+reason = "AssertionError: assert {'api-mainnet...xeer.network'} == {'api-mainnet...xeer.network'}"
+source = "tools/qualification/audit_repairs/test_repair_22_33_273.py:88"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.69]
+module_family = "audit_repairs"
+module = "tools/qualification/audit_repairs/test_repair_22_33_29.py"
+test_name = "test_activity_entry_uses_verified_current_receipt_facts"
+outcome = "failed"
+case = "tools/qualification/audit_repairs/test_repair_22_33_29.py::test_activity_entry_uses_verified_current_receipt_facts"
+reason = "AssertionError: \"class\":\"layerx-receipt\",\"verification\":verification"
+source = "tools/qualification/audit_repairs/test_repair_22_33_29.py:83"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.70]
+module_family = "audit_repairs"
+module = "tools/qualification/audit_repairs/test_repair_22_33_312.py"
+test_name = "test_precompile_documented_provenance_matches_real_generator"
+outcome = "failed"
+case = "tools/qualification/audit_repairs/test_repair_22_33_312.py::test_precompile_documented_provenance_matches_real_generator"
+reason = "AssertionError: assert {'abi': [{'ty...ioned'}, ...]} == {'inventory':...event'}, ...]}"
+source = "tools/qualification/audit_repairs/test_repair_22_33_312.py:82"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.71]
+module_family = "audit_repairs"
+module = "tools/qualification/audit_repairs/test_repair_22_33_33.py"
+test_name = "test_architecture_root_component_table_links_real_runtime_boundaries"
+outcome = "failed"
+case = "tools/qualification/audit_repairs/test_repair_22_33_33.py::test_architecture_root_component_table_links_real_runtime_boundaries"
+reason = "AssertionError: Missing section: ### Architecture"
+source = "tools/qualification/audit_repairs/test_repair_22_33_33.py:20"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.72]
+module_family = "audit_repairs"
+module = "tools/qualification/audit_repairs/test_repair_22_33_33.py"
+test_name = "test_architecture_root_diagram_contains_embedded_execution_and_gateway_relay"
+outcome = "failed"
+case = "tools/qualification/audit_repairs/test_repair_22_33_33.py::test_architecture_root_diagram_contains_embedded_execution_and_gateway_relay"
+reason = "AssertionError: Missing section: ### Architecture"
+source = "tools/qualification/audit_repairs/test_repair_22_33_33.py:20"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.73]
+module_family = "audit_repairs"
+module = "tools/qualification/audit_repairs/test_repair_22_33_33.py"
+test_name = "test_architecture_root_build_and_run_match_native_producer"
+outcome = "failed"
+case = "tools/qualification/audit_repairs/test_repair_22_33_33.py::test_architecture_root_build_and_run_match_native_producer"
+reason = "AssertionError: assert ['./build/paxd', 'version'] == ['./build/pax...repared-node']"
+source = "tools/qualification/audit_repairs/test_repair_22_33_33.py:161"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.74]
+module_family = "audit_repairs"
+module = "tools/qualification/audit_repairs/test_repair_22_33_33.py"
+test_name = "test_architecture_root_public_rpc_example_and_hosted_contract_are_distinct"
+outcome = "failed"
+case = "tools/qualification/audit_repairs/test_repair_22_33_33.py::test_architecture_root_public_rpc_example_and_hosted_contract_are_distinct"
+reason = "AssertionError: assert '`debug`, `echo`, `eth`, `net`, `pax`, `test` and `txpool`' in '\\n- To build on Paxeer X Network, start with the [Paxeer documentation](https://docs.paxeer.app/) and the [developer ...eveloper CLI in `tools/platform/cli` installs those transports with `layerx install mcp` and `layerx install a..."
+source = "tools/qualification/audit_repairs/test_repair_22_33_33.py:232"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.75]
+module_family = "audit_repairs"
+module = "tools/qualification/audit_repairs/test_repair_22_33_33.py"
+test_name = "test_architecture_root_retired_model_is_labelled_and_never_launched"
+outcome = "failed"
+case = "tools/qualification/audit_repairs/test_repair_22_33_33.py::test_architecture_root_retired_model_is_labelled_and_never_launched"
+reason = "AssertionError: Missing section: #### Historical model (retired)"
+source = "tools/qualification/audit_repairs/test_repair_22_33_33.py:20"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.76]
+module_family = "audit_repairs"
+module = "tools/qualification/audit_repairs/test_repair_22_33_372.py"
+test_name = "test_registry_contract_pages_missing_links_resolve"
+outcome = "failed"
+case = "tools/qualification/audit_repairs/test_repair_22_33_372.py::test_registry_contract_pages_missing_links_resolve"
+reason = "AssertionError: assert 'contracts/sdk-js.md' not in '# @pax-js/c...ansaction.\\n'"
+source = "tools/qualification/audit_repairs/test_repair_22_33_372.py:73"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.77]
+module_family = "audit_repairs"
+module = "tools/qualification/audit_repairs/test_repair_22_33_372.py"
+test_name = "test_registry_sdk_package_exports_and_typesversions"
+outcome = "failed"
+case = "tools/qualification/audit_repairs/test_repair_22_33_372.py::test_registry_sdk_package_exports_and_typesversions"
+reason = "AssertionError: ./types/*"
+source = "tools/qualification/audit_repairs/test_repair_22_33_372.py:138"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.78]
+module_family = "audit_repairs"
+module = "tools/qualification/audit_repairs/test_repair_22_33_372.py"
+test_name = "test_registry_sdk_package_retired_root_and_vendor_metadata"
+outcome = "failed"
+case = "tools/qualification/audit_repairs/test_repair_22_33_372.py::test_registry_sdk_package_retired_root_and_vendor_metadata"
+reason = "assert 'upstream tag `v1.0.6-pax.1`' in '\\nThis package was taken from `Paxeer-Network/pax-js` at upstream tag\\n`v1.0.6-pax.1`. Its current home and repositor...ts or a `src` build tree. The local\\nreferences below describe the package contract without linking to absent files.\\n'"
+source = "tools/qualification/audit_repairs/test_repair_22_33_372.py:154"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.79]
+module_family = "audit_repairs"
+module = "tools/qualification/audit_repairs/test_repair_22_33_372.py"
+test_name = "test_sdk_examples_codec_and_registry_match_production"
+outcome = "failed"
+case = "tools/qualification/audit_repairs/test_repair_22_33_372.py::test_sdk_examples_codec_and_registry_match_production"
+reason = "FileNotFoundError: [Errno 2] No such file or directory: '/work/paxeer-monorepo/sdk/js/dist/cjs/encoding/index.js'"
+source = "tools/qualification/audit_repairs/test_repair_22_33_372.py:23"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.80]
+module_family = "audit_repairs"
+module = "tools/qualification/audit_repairs/test_repair_22_33_372.py"
+test_name = "test_sdk_examples_rest_transport_matches_production"
+outcome = "failed"
+case = "tools/qualification/audit_repairs/test_repair_22_33_372.py::test_sdk_examples_rest_transport_matches_production"
+reason = "FileNotFoundError: [Errno 2] No such file or directory: '/work/paxeer-monorepo/sdk/js/dist/cjs/rest/cosmos/bank/v1beta1/query.js'"
+source = "tools/qualification/audit_repairs/test_repair_22_33_372.py:23"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.81]
+module_family = "audit_repairs"
+module = "tools/qualification/audit_repairs/test_repair_22_33_404.py"
+test_name = "test_finding_46_root_rpc_hosts_and_hosted_contract"
+outcome = "failed"
+case = "tools/qualification/audit_repairs/test_repair_22_33_404.py::test_finding_46_root_rpc_hosts_and_hosted_contract"
+reason = "AssertionError: assert {'api-mainnet...xeer.network'} == {'api-mainnet...xeer.network'}"
+source = "tools/qualification/audit_repairs/test_repair_22_33_404.py:100"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.82]
+module_family = "audit_repairs"
+module = "tools/qualification/audit_repairs/test_repair_22_33_404.py"
+test_name = "test_finding_46_record_maps_proofs_and_discloses_limits"
+outcome = "failed"
+case = "tools/qualification/audit_repairs/test_repair_22_33_404.py::test_finding_46_record_maps_proofs_and_discloses_limits"
+reason = "AssertionError: assert '689aad1724d4...42a751f84ba98' == '3df8ceeba284...47531995682c5'"
+source = "tools/qualification/audit_repairs/test_repair_22_33_404.py:287"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.83]
+module_family = "audit_repairs"
+module = "tools/qualification/audit_repairs/test_repair_22_33_429.py"
+test_name = "test_docs_root_architecture_uses_root_node_rpc_hosts"
+outcome = "failed"
+case = "tools/qualification/audit_repairs/test_repair_22_33_429.py::test_docs_root_architecture_uses_root_node_rpc_hosts"
+reason = "AssertionError: assert {'api-mainnet...xeer.network'} == {'api-mainnet...xeer.network'}"
+source = "tools/qualification/audit_repairs/test_repair_22_33_429.py:113"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.84]
+module_family = "audit_repairs"
+module = "tools/qualification/audit_repairs/test_repair_22_33_447.py"
+test_name = "test_env_sync_comments_match_node_transport_and_adapter_source"
+outcome = "failed"
+case = "tools/qualification/audit_repairs/test_repair_22_33_447.py::test_env_sync_comments_match_node_transport_and_adapter_source"
+reason = "assert '|> json_rpc(json_rpc_named_arguments)' in 'json_rpc_named_arguments) do\\n syncing_request = request(%{id: 0, method: \"eth_syncing\", params: []})\\n\\n with ...est_block)}}\\n\\n other ->\\n {:error, {:unexpected_syncing_result, other}}\\n end\\n end\\n end\\n'"
+source = "tools/qualification/audit_repairs/test_repair_22_33_447.py:86"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.85]
+module_family = "audit_repairs"
+module = "tools/qualification/audit_repairs/test_repair_22_33_462.py"
+test_name = "test_public_rpc_urls_and_chain_probe_use_the_root"
+outcome = "failed"
+case = "tools/qualification/audit_repairs/test_repair_22_33_462.py::test_public_rpc_urls_and_chain_probe_use_the_root"
+reason = "AssertionError: assert {'api-mainnet...xeer.network'} == {'api-mainnet...xeer.network'}"
+source = "tools/qualification/audit_repairs/test_repair_22_33_462.py:114"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.86]
+module_family = "audit_repairs"
+module = "tools/qualification/audit_repairs/test_repair_22_33_508.py"
+test_name = "test_repair_record_maps_finding_to_proofs_and_revision_evidence"
+outcome = "failed"
+case = "tools/qualification/audit_repairs/test_repair_22_33_508.py::test_repair_record_maps_finding_to_proofs_and_revision_evidence"
+reason = "AssertionError: assert '689aad1724d4...42a751f84ba98' == '3df8ceeba284...47531995682c5'"
+source = "tools/qualification/audit_repairs/test_repair_22_33_508.py:220"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.87]
+module_family = "audit_repairs"
+module = "tools/qualification/audit_repairs/test_repair_22_33_515.py"
+test_name = "test_rust_contract_consumes_actual_http_and_typed_state"
+outcome = "failed"
+case = "tools/qualification/audit_repairs/test_repair_22_33_515.py::test_rust_contract_consumes_actual_http_and_typed_state"
+reason = "AssertionError: assert 'HealthBlocks' in '/*\\n\\n* BlockScout API\\n*\\n\\n\\n* API for BlockScout web app\\n*\\n\\n* The version of the OpenAPI document: 1.0.0\\n* Con...locks: models::BlockIndexingStatus,\\n #[serde(default)]\\n pub batches: Option<models::BatchIndexingStatus>,\\n}\\n'"
+source = "tools/qualification/audit_repairs/test_repair_22_33_515.py:125"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.88]
+module_family = "audit_repairs"
+module = "tools/qualification/audit_repairs/test_repair_22_33_526.py"
+test_name = "test_readme_split_execution_one_embedded_paxd_network"
+outcome = "failed"
+case = "tools/qualification/audit_repairs/test_repair_22_33_526.py::test_readme_split_execution_one_embedded_paxd_network"
+reason = "AssertionError: Full and archive nodes serve committed history"
+source = "tools/qualification/audit_repairs/test_repair_22_33_526.py:56"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.89]
+module_family = "audit_repairs"
+module = "tools/qualification/audit_repairs/test_repair_22_33_581.py"
+test_name = "test_readme_chain_125_probe_and_api1_through_api14_use_root_json_rpc"
+outcome = "failed"
+case = "tools/qualification/audit_repairs/test_repair_22_33_581.py::test_readme_chain_125_probe_and_api1_through_api14_use_root_json_rpc"
+reason = "AssertionError: assert {'api-mainnet...xeer.network'} == {'api-mainnet...xeer.network'}"
+source = "tools/qualification/audit_repairs/test_repair_22_33_592.py:104"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.90]
+module_family = "audit_repairs"
+module = "tools/qualification/audit_repairs/test_repair_22_33_581.py"
+test_name = "test_repair_record_maps_finding_to_checks_and_private_revision_evidence"
+outcome = "failed"
+case = "tools/qualification/audit_repairs/test_repair_22_33_581.py::test_repair_record_maps_finding_to_checks_and_private_revision_evidence"
+reason = "AssertionError: assert '689aad1724d4...42a751f84ba98' == '3df8ceeba284...47531995682c5'"
+source = "tools/qualification/audit_repairs/test_repair_22_33_592.py:256"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.91]
+module_family = "audit_repairs"
+module = "tools/qualification/audit_repairs/test_repair_22_33_592.py"
+test_name = "test_readme_chain_125_probe_and_api1_through_api14_use_root_json_rpc"
+outcome = "failed"
+case = "tools/qualification/audit_repairs/test_repair_22_33_592.py::test_readme_chain_125_probe_and_api1_through_api14_use_root_json_rpc"
+reason = "AssertionError: assert {'api-mainnet...xeer.network'} == {'api-mainnet...xeer.network'}"
+source = "tools/qualification/audit_repairs/test_repair_22_33_592.py:104"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.92]
+module_family = "audit_repairs"
+module = "tools/qualification/audit_repairs/test_repair_22_33_592.py"
+test_name = "test_readme_hosted_px_methods_follow_the_gateway_openrpc_contract"
+outcome = "failed"
+case = "tools/qualification/audit_repairs/test_repair_22_33_592.py::test_readme_hosted_px_methods_follow_the_gateway_openrpc_contract"
+reason = "AssertionError: Use each server's declared methods"
+source = "tools/qualification/audit_repairs/test_repair_22_33_592.py:216"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.93]
+module_family = "audit_repairs"
+module = "tools/qualification/audit_repairs/test_repair_22_33_592.py"
+test_name = "test_repair_record_maps_finding_to_checks_and_private_revision_evidence"
+outcome = "failed"
+case = "tools/qualification/audit_repairs/test_repair_22_33_592.py::test_repair_record_maps_finding_to_checks_and_private_revision_evidence"
+reason = "AssertionError: assert '689aad1724d4...42a751f84ba98' == '3df8ceeba284...47531995682c5'"
+source = "tools/qualification/audit_repairs/test_repair_22_33_592.py:256"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.94]
+module_family = "audit_repairs"
+module = "tools/qualification/audit_repairs/test_repair_22_33_626.py"
+test_name = "test_039_receipt_tests_are_declared_registered_and_assertive"
+outcome = "failed"
+case = "tools/qualification/audit_repairs/test_repair_22_33_626.py::test_039_receipt_tests_are_declared_registered_and_assertive"
+reason = "AssertionError: assert ['daemonProvi...StatusFields'] == ['daemonProvi...mentAnchored']"
+source = "tools/qualification/audit_repairs/test_repair_22_33_626.py:135"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.95]
+module_family = "audit_repairs"
+module = "tools/qualification/audit_repairs/test_repair_22_33_626.py"
+test_name = "test_039_daemon_status_and_portable_key_heights_match_consumers"
+outcome = "failed"
+case = "tools/qualification/audit_repairs/test_repair_22_33_626.py::test_039_daemon_status_and_portable_key_heights_match_consumers"
+reason = "AssertionError: Missing source fact: const status = (rung = \"receipted\") => ({ state: \"achieved\", rung });"
+source = "tools/qualification/audit_repairs/test_repair_22_33_626.py:96"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.96]
+module_family = "audit_repairs"
+module = "tools/qualification/audit_repairs/test_repair_22_33_626.py"
+test_name = "test_039_real_portable_producer_flows_through_http_to_service_consumer"
+outcome = "failed"
+case = "tools/qualification/audit_repairs/test_repair_22_33_626.py::test_039_real_portable_producer_flows_through_http_to_service_consumer"
+reason = "AssertionError: Missing source fact: if (trusted === undefined) throw new PlatformSdkError"
+source = "tools/qualification/audit_repairs/test_repair_22_33_626.py:96"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.97]
+module_family = "audit_repairs"
+module = "tools/qualification/audit_repairs/test_repair_22_33_626.py"
+test_name = "test_039_payment_fixture_uses_the_recorded_native_payment_effect"
+outcome = "failed"
+case = "tools/qualification/audit_repairs/test_repair_22_33_626.py::test_039_payment_fixture_uses_the_recorded_native_payment_effect"
+reason = "AssertionError: Missing source fact: decodePaymentExactLog({ address: log.address, data: bytes(log.data), topics: log.topics.map(bytes) })"
+source = "tools/qualification/audit_repairs/test_repair_22_33_626.py:96"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.98]
+module_family = "audit_repairs"
+module = "tools/qualification/audit_repairs/test_repair_22_33_634.py"
+test_name = "test_openrpc_locations_match_production_catalogue_and_transport_source"
+outcome = "failed"
+case = "tools/qualification/audit_repairs/test_repair_22_33_634.py::test_openrpc_locations_match_production_catalogue_and_transport_source"
+reason = "ValueError: substring not found"
+source = "tools/qualification/audit_repairs/test_repair_22_33_634.py:108"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.99]
+module_family = "audit_repairs"
+module = "tools/qualification/audit_repairs/test_repair_22_33_64.py"
+test_name = "test_retired_rpc_subtree_is_omitted_and_refused_by_production_ingress"
+outcome = "failed"
+case = "tools/qualification/audit_repairs/test_repair_22_33_64.py::test_retired_rpc_subtree_is_omitted_and_refused_by_production_ingress"
+reason = "assert 'if request.path == \"/\" && request.method == \"POST\"' in 'fn route_with_peer(\\n config: &Config,\\n request: &IncomingRequest,\\n peer: Option<SocketAddr>,\\n) -> Outgoi...settle(config, request, &record, &trace_id),\\n read => read_route(config, &record, &read, &trace_id),\\n }\\n}'"
+source = "tools/qualification/audit_repairs/test_repair_22_33_64.py:109"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.100]
+module_family = "audit_repairs"
+module = "tools/qualification/audit_repairs/test_repair_22_33_64.py"
+test_name = "test_catalogue_source_path_preserves_authentication_readiness_and_json_transport"
+outcome = "failed"
+case = "tools/qualification/audit_repairs/test_repair_22_33_64.py::test_catalogue_source_path_preserves_authentication_readiness_and_json_transport"
+reason = "assert 'crate::routes::rpc_catalogue(config, request, &id, value.get(\"params\"))' in 'fn dispatch(config: &Config, request: &IncomingRequest, value: &Value) -> Option<Value> {\\n if let Some(refusal) =...\").map(|_| result);\\n }\\n value\\n .get(\"id\")\\n .map(|_| error(&id, -32601, \"Method not found\"))\\n}'"
+source = "tools/qualification/audit_repairs/test_repair_22_33_64.py:128"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.101]
+module_family = "audit_repairs"
+module = "tools/qualification/audit_repairs/test_repair_22_33_64.py"
+test_name = "test_exact_bank_amount_asset_limit_and_consensus_head_schemas_are_preserved"
+outcome = "failed"
+case = "tools/qualification/audit_repairs/test_repair_22_33_64.py::test_exact_bank_amount_asset_limit_and_consensus_head_schemas_are_preserved"
+reason = "assert '\"balances\": balances' in 'fn get_balances(config: &Config, id: &Value, params: Option<&Value>) -> Value {\\n let (resolution, height) = match...\",\\n \"id\": id,\\n \"result\": wallet_contract::balances(resolution.document(), height, balances)\\n })\\n}'"
+source = "tools/qualification/audit_repairs/test_repair_22_33_64.py:179"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.102]
+module_family = "audit_repairs"
+module = "tools/qualification/audit_repairs/test_repair_22_33_64.py"
+test_name = "test_all_unrelated_openrpc_contracts_match_the_recorded_base"
+outcome = "failed"
+case = "tools/qualification/audit_repairs/test_repair_22_33_64.py::test_all_unrelated_openrpc_contracts_match_the_recorded_base"
+reason = "AssertionError: assert '1887a8bca38f...0cbc86b1d9c9d' == 'b22291fb76d8...29e17284ab840'"
+source = "tools/qualification/audit_repairs/test_repair_22_33_64.py:218"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.103]
+module_family = "audit_repairs"
+module = "tools/qualification/audit_repairs/test_repair_22_33_698.py"
+test_name = "test_readme_retired_runtime_public_rpc"
+outcome = "failed"
+case = "tools/qualification/audit_repairs/test_repair_22_33_698.py::test_readme_retired_runtime_public_rpc"
+reason = "AssertionError: assert {'api-mainnet...xeer.network'} == {'api-mainnet...xeer.network'}"
+source = "tools/qualification/audit_repairs/test_repair_22_33_698.py:85"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.104]
+module_family = "audit_repairs"
+module = "tools/qualification/audit_repairs/test_repair_22_33_699.py"
+test_name = "test_release_check_daemon"
+outcome = "failed"
+case = "tools/qualification/audit_repairs/test_repair_22_33_699.py::test_release_check_daemon"
+reason = "assert 'layerxd' not in '#!/usr/bin/...ha256sums\"\\n'"
+source = "tools/qualification/audit_repairs/test_repair_22_33_699.py:310"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.105]
+module_family = "audit_repairs"
+module = "tools/qualification/audit_repairs/test_repair_22_33_699.py"
+test_name = "test_release_publish_daemon"
+outcome = "failed"
+case = "tools/qualification/audit_repairs/test_repair_22_33_699.py::test_release_publish_daemon"
+reason = "assert 'layerxd' not in '#!/usr/bin/...ha256sums\"\\n'"
+source = "tools/qualification/audit_repairs/test_repair_22_33_699.py:310"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.106]
+module_family = "audit_repairs"
+module = "tools/qualification/audit_repairs/test_repair_22_33_700.py"
+test_name = "test_wallet_retains_every_attestor_and_ceremony_test"
+outcome = "failed"
+case = "tools/qualification/audit_repairs/test_repair_22_33_700.py::test_wallet_retains_every_attestor_and_ceremony_test"
+reason = "AssertionError: assert [['npm', 'ins...UB_ENV'], ...] == [['go', 'test', './...']]"
+source = "tools/qualification/audit_repairs/test_repair_22_33_700.py:100"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.107]
+module_family = "audit_repairs"
+module = "tools/qualification/audit_repairs/test_repair_22_33_700.py"
+test_name = "test_only_event_path_filters_change_in_workflows"
+outcome = "failed"
+case = "tools/qualification/audit_repairs/test_repair_22_33_700.py::test_only_event_path_filters_change_in_workflows"
+reason = "AssertionError: assert 'd9fceacecb71...5612f8de9b487' == 'a9248d209f3e...c8e2ab6ff505a'"
+source = "tools/qualification/audit_repairs/test_repair_22_33_700.py:190"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.108]
+module_family = "audit_repairs"
+module = "tools/qualification/audit_repairs/test_repair_22_33_707.py"
+test_name = "test_doc_index_7_build_and_release_inventory_match_paxd"
+outcome = "failed"
+case = "tools/qualification/audit_repairs/test_repair_22_33_707.py::test_doc_index_7_build_and_release_inventory_match_paxd"
+reason = "AssertionError: assert 'v7.0' == 'v7.0.0'"
+source = "tools/qualification/audit_repairs/test_repair_22_33_707.py:255"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.109]
+module_family = "audit_repairs"
+module = "tools/qualification/audit_repairs/test_repair_22_33_707.py"
+test_name = "test_doc_index_7_record_maps_finding_to_declared_proofs"
+outcome = "failed"
+case = "tools/qualification/audit_repairs/test_repair_22_33_707.py::test_doc_index_7_record_maps_finding_to_declared_proofs"
+reason = "AssertionError: assert '689aad1724d4...42a751f84ba98' == '3df8ceeba284...47531995682c5'"
+source = "tools/qualification/audit_repairs/test_repair_22_33_707.py:276"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.110]
+module_family = "audit_repairs"
+module = "tools/qualification/audit_repairs/test_repair_22_33_713.py"
+test_name = "test_readme_network_chain_probe_and_numbered_hosts_use_root_rpc"
+outcome = "failed"
+case = "tools/qualification/audit_repairs/test_repair_22_33_713.py::test_readme_network_chain_probe_and_numbered_hosts_use_root_rpc"
+reason = "AssertionError: assert {'api-mainnet...xeer.network'} == {'api-mainnet...xeer.network'}"
+source = "tools/qualification/audit_repairs/test_repair_22_33_713.py:109"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.111]
+module_family = "audit_repairs"
+module = "tools/qualification/audit_repairs/test_repair_22_33_733.py"
+test_name = "test_015_existing_endpoint_cases_reach_real_embedded_consumer[check_live_passing_endpoint]"
+outcome = "failed"
+case = "tools/qualification/audit_repairs/test_repair_22_33_733.py::test_015_existing_endpoint_cases_reach_real_embedded_consumer[check_live_passing_endpoint]"
+reason = "assert 'run eth_chainId ' in '#!/usr/bin/env bash\\nset -euo pipefail\\n\\nusage() {\\n\\tcat <<\\'EOF\\'\\nusage: scripts/wallet/check-live.sh endpoint | ...s\" -ne 0 ]; then\\n\\techo \"check-live: $failures check(s) failed\"\\n\\texit 1\\nfi\\necho \"check-live: all checks passed\"\\n'"
+source = "tools/qualification/audit_repairs/test_repair_22_33_733.py:162"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.112]
+module_family = "audit_repairs"
+module = "tools/qualification/audit_repairs/test_repair_22_33_733.py"
+test_name = "test_015_existing_endpoint_cases_reach_real_embedded_consumer[check_live_consensus_endpoint]"
+outcome = "failed"
+case = "tools/qualification/audit_repairs/test_repair_22_33_733.py::test_015_existing_endpoint_cases_reach_real_embedded_consumer[check_live_consensus_endpoint]"
+reason = "assert 'run eth_chainId ' in '#!/usr/bin/env bash\\nset -euo pipefail\\n\\nusage() {\\n\\tcat <<\\'EOF\\'\\nusage: scripts/wallet/check-live.sh endpoint | ...s\" -ne 0 ]; then\\n\\techo \"check-live: $failures check(s) failed\"\\n\\texit 1\\nfi\\necho \"check-live: all checks passed\"\\n'"
+source = "tools/qualification/audit_repairs/test_repair_22_33_733.py:162"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.113]
+module_family = "audit_repairs"
+module = "tools/qualification/audit_repairs/test_repair_22_33_733.py"
+test_name = "test_015_existing_endpoint_cases_reach_real_embedded_consumer[check_live_network_malformed]"
+outcome = "failed"
+case = "tools/qualification/audit_repairs/test_repair_22_33_733.py::test_015_existing_endpoint_cases_reach_real_embedded_consumer[check_live_network_malformed]"
+reason = "assert 'run eth_chainId ' in '#!/usr/bin/env bash\\nset -euo pipefail\\n\\nusage() {\\n\\tcat <<\\'EOF\\'\\nusage: scripts/wallet/check-live.sh endpoint | ...s\" -ne 0 ]; then\\n\\techo \"check-live: $failures check(s) failed\"\\n\\texit 1\\nfi\\necho \"check-live: all checks passed\"\\n'"
+source = "tools/qualification/audit_repairs/test_repair_22_33_733.py:162"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.114]
+module_family = "audit_repairs"
+module = "tools/qualification/audit_repairs/test_repair_22_33_733.py"
+test_name = "test_015_existing_endpoint_cases_reach_real_embedded_consumer[check_live_wrong_chain_id]"
+outcome = "failed"
+case = "tools/qualification/audit_repairs/test_repair_22_33_733.py::test_015_existing_endpoint_cases_reach_real_embedded_consumer[check_live_wrong_chain_id]"
+reason = "assert 'run eth_chainId ' in '#!/usr/bin/env bash\\nset -euo pipefail\\n\\nusage() {\\n\\tcat <<\\'EOF\\'\\nusage: scripts/wallet/check-live.sh endpoint | ...s\" -ne 0 ]; then\\n\\techo \"check-live: $failures check(s) failed\"\\n\\texit 1\\nfi\\necho \"check-live: all checks passed\"\\n'"
+source = "tools/qualification/audit_repairs/test_repair_22_33_733.py:162"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.115]
+module_family = "audit_repairs"
+module = "tools/qualification/audit_repairs/test_repair_22_33_733.py"
+test_name = "test_015_existing_endpoint_cases_reach_real_embedded_consumer[check_live_network_wrong_chain]"
+outcome = "failed"
+case = "tools/qualification/audit_repairs/test_repair_22_33_733.py::test_015_existing_endpoint_cases_reach_real_embedded_consumer[check_live_network_wrong_chain]"
+reason = "assert 'run eth_chainId ' in '#!/usr/bin/env bash\\nset -euo pipefail\\n\\nusage() {\\n\\tcat <<\\'EOF\\'\\nusage: scripts/wallet/check-live.sh endpoint | ...s\" -ne 0 ]; then\\n\\techo \"check-live: $failures check(s) failed\"\\n\\texit 1\\nfi\\necho \"check-live: all checks passed\"\\n'"
+source = "tools/qualification/audit_repairs/test_repair_22_33_733.py:162"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.116]
+module_family = "audit_repairs"
+module = "tools/qualification/audit_repairs/test_repair_22_33_733.py"
+test_name = "test_015_existing_endpoint_cases_reach_real_embedded_consumer[check_live_network_wrong_reason]"
+outcome = "failed"
+case = "tools/qualification/audit_repairs/test_repair_22_33_733.py::test_015_existing_endpoint_cases_reach_real_embedded_consumer[check_live_network_wrong_reason]"
+reason = "assert 'run eth_chainId ' in '#!/usr/bin/env bash\\nset -euo pipefail\\n\\nusage() {\\n\\tcat <<\\'EOF\\'\\nusage: scripts/wallet/check-live.sh endpoint | ...s\" -ne 0 ]; then\\n\\techo \"check-live: $failures check(s) failed\"\\n\\texit 1\\nfi\\necho \"check-live: all checks passed\"\\n'"
+source = "tools/qualification/audit_repairs/test_repair_22_33_733.py:162"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.117]
+module_family = "audit_repairs"
+module = "tools/qualification/audit_repairs/test_repair_22_33_733.py"
+test_name = "test_015_existing_endpoint_cases_reach_real_embedded_consumer[check_live_account_read_refused]"
+outcome = "failed"
+case = "tools/qualification/audit_repairs/test_repair_22_33_733.py::test_015_existing_endpoint_cases_reach_real_embedded_consumer[check_live_account_read_refused]"
+reason = "assert 'run eth_chainId ' in '#!/usr/bin/env bash\\nset -euo pipefail\\n\\nusage() {\\n\\tcat <<\\'EOF\\'\\nusage: scripts/wallet/check-live.sh endpoint | ...s\" -ne 0 ]; then\\n\\techo \"check-live: $failures check(s) failed\"\\n\\texit 1\\nfi\\necho \"check-live: all checks passed\"\\n'"
+source = "tools/qualification/audit_repairs/test_repair_22_33_733.py:162"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.118]
+module_family = "audit_repairs"
+module = "tools/qualification/audit_repairs/test_repair_22_33_733.py"
+test_name = "test_015_existing_endpoint_cases_reach_real_embedded_consumer[check_live_resolve_read_error]"
+outcome = "failed"
+case = "tools/qualification/audit_repairs/test_repair_22_33_733.py::test_015_existing_endpoint_cases_reach_real_embedded_consumer[check_live_resolve_read_error]"
+reason = "assert 'run eth_chainId ' in '#!/usr/bin/env bash\\nset -euo pipefail\\n\\nusage() {\\n\\tcat <<\\'EOF\\'\\nusage: scripts/wallet/check-live.sh endpoint | ...s\" -ne 0 ]; then\\n\\techo \"check-live: $failures check(s) failed\"\\n\\texit 1\\nfi\\necho \"check-live: all checks passed\"\\n'"
+source = "tools/qualification/audit_repairs/test_repair_22_33_733.py:162"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.119]
+module_family = "audit_repairs"
+module = "tools/qualification/audit_repairs/test_repair_22_33_769.py"
+test_name = "test_rpc_root_permissions_launcher_build_init_start_path"
+outcome = "failed"
+case = "tools/qualification/audit_repairs/test_repair_22_33_769.py::test_rpc_root_permissions_launcher_build_init_start_path"
+reason = "AssertionError: assert 'set -eu' == 'umask 077'"
+source = "tools/qualification/audit_repairs/test_repair_22_33_769.py:140"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.120]
+module_family = "audit_repairs"
+module = "tools/qualification/audit_repairs/test_repair_22_33_770.py"
+test_name = "test_rpc_unbounded_simulation_config_reaches_real_limiter_and_test_gate"
+outcome = "failed"
+case = "tools/qualification/audit_repairs/test_repair_22_33_770.py::test_rpc_unbounded_simulation_config_reaches_real_limiter_and_test_gate"
+reason = "assert 'cp docker/rpcnode/config/app.toml ~/.pax/config/app.toml' in '#!/usr/bin/env sh\\nset -eu\\numask 077\\n\\necho \"Configure and initialize environment\"\\n\\nfor command in paxd python3 c...tore]\" >> ~/.pax/config/app.toml\\n echo \"rs-backend = \\\\\"$RECEIPT_BACKEND\\\\\"\" >> ~/.pax/config/app.toml\\n fi\\nfi\\n'"
+source = "tools/qualification/audit_repairs/test_repair_22_33_770.py:118"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.121]
+module_family = "audit_repairs"
+module = "tools/qualification/audit_repairs/test_repair_22_33_788.py"
+test_name = "test_finding_22_release_script_syntax_guards_and_merged_artifacts"
+outcome = "failed"
+case = "tools/qualification/audit_repairs/test_repair_22_33_788.py::test_finding_22_release_script_syntax_guards_and_merged_artifacts"
+reason = "assert (None)"
+source = "tools/qualification/audit_repairs/test_repair_22_33_788.py:207"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.122]
+module_family = "audit_repairs"
+module = "tools/qualification/audit_repairs/test_repair_22_33_788.py"
+test_name = "test_finding_22_guide_matches_builder_verification_and_recovery"
+outcome = "failed"
+case = "tools/qualification/audit_repairs/test_repair_22_33_788.py::test_finding_22_guide_matches_builder_verification_and_recovery"
+reason = "AssertionError: assert 'nonzero legacy `PAXD_RELEASE_LAYERXD` setting is refused' in '# Releasing paxd\\n\\nA Paxeer X Network release is one git tag, one [`tools/release/version.json`](tools/release/versi...alidators had the release URL and hashes before the vote ended.\\n- [ ] The rollout pins the published `paxd` sh..."
+source = "tools/qualification/audit_repairs/test_repair_22_33_788.py:255"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.123]
+module_family = "audit_repairs"
+module = "tools/qualification/audit_repairs/test_repair_22_33_806.py"
+test_name = "test_f34_configuration_loaded_before_defaults_and_shell_wins"
+outcome = "failed"
+case = "tools/qualification/audit_repairs/test_repair_22_33_806.py::test_f34_configuration_loaded_before_defaults_and_shell_wins"
+reason = "AssertionError: /work/paxeer-monorepo/tools/hpx/stake-fleet.sh: line 60: HPX_EVM_RPC: HPX_EVM_RPC is required"
+source = "tools/qualification/audit_repairs/test_repair_22_33_806.py:317"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.124]
+module_family = "audit_repairs"
+module = "tools/qualification/audit_repairs/test_repair_22_33_806.py"
+test_name = "test_f35_validated_identity_agrees_with_manifest_and_build_record"
+outcome = "failed"
+case = "tools/qualification/audit_repairs/test_repair_22_33_806.py::test_f35_validated_identity_agrees_with_manifest_and_build_record"
+reason = "KeyError: 'hpx_release_identity'"
+source = "tools/hpx/release_identity.py:12"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.125]
+module_family = "audit_repairs"
+module = "tools/qualification/audit_repairs/test_repair_22_33_806.py"
+test_name = "test_f35_mismatched_release_metadata_is_refused[0-version-v0.0.1]"
+outcome = "failed"
+case = "tools/qualification/audit_repairs/test_repair_22_33_806.py::test_f35_mismatched_release_metadata_is_refused[0-version-v0.0.1]"
+reason = "KeyError: 'hpx_release_identity'"
+source = "tools/hpx/release_identity.py:12"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.126]
+module_family = "audit_repairs"
+module = "tools/qualification/audit_repairs/test_repair_22_33_806.py"
+test_name = "test_f35_mismatched_release_metadata_is_refused[1-version-v0.0.1]"
+outcome = "failed"
+case = "tools/qualification/audit_repairs/test_repair_22_33_806.py::test_f35_mismatched_release_metadata_is_refused[1-version-v0.0.1]"
+reason = "KeyError: 'hpx_release_identity'"
+source = "tools/hpx/release_identity.py:12"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.127]
+module_family = "audit_repairs"
+module = "tools/qualification/audit_repairs/test_repair_22_33_806.py"
+test_name = "test_f35_mismatched_release_metadata_is_refused[1-commit-cccccccccccccccccccccccccccccccccccccccc]"
+outcome = "failed"
+case = "tools/qualification/audit_repairs/test_repair_22_33_806.py::test_f35_mismatched_release_metadata_is_refused[1-commit-cccccccccccccccccccccccccccccccccccccccc]"
+reason = "KeyError: 'hpx_release_identity'"
+source = "tools/hpx/release_identity.py:12"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.128]
+module_family = "audit_repairs"
+module = "tools/qualification/audit_repairs/test_repair_22_33_806.py"
+test_name = "test_f35_mismatched_release_metadata_is_refused[1-server_name-other]"
+outcome = "failed"
+case = "tools/qualification/audit_repairs/test_repair_22_33_806.py::test_f35_mismatched_release_metadata_is_refused[1-server_name-other]"
+reason = "KeyError: 'hpx_release_identity'"
+source = "tools/hpx/release_identity.py:12"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.129]
+module_family = "audit_repairs"
+module = "tools/qualification/audit_repairs/test_repair_22_33_806.py"
+test_name = "test_f35_mismatched_release_metadata_is_refused[2-version-v0.0.1]"
+outcome = "failed"
+case = "tools/qualification/audit_repairs/test_repair_22_33_806.py::test_f35_mismatched_release_metadata_is_refused[2-version-v0.0.1]"
+reason = "KeyError: 'hpx_release_identity'"
+source = "tools/hpx/release_identity.py:12"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.130]
+module_family = "audit_repairs"
+module = "tools/qualification/audit_repairs/test_repair_22_33_806.py"
+test_name = "test_f35_mismatched_release_metadata_is_refused[2-source_revision-cccccccccccccccccccccccccccccccccccccccc]"
+outcome = "failed"
+case = "tools/qualification/audit_repairs/test_repair_22_33_806.py::test_f35_mismatched_release_metadata_is_refused[2-source_revision-cccccccccccccccccccccccccccccccccccccccc]"
+reason = "KeyError: 'hpx_release_identity'"
+source = "tools/hpx/release_identity.py:12"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.131]
+module_family = "audit_repairs"
+module = "tools/qualification/audit_repairs/test_repair_22_33_806.py"
+test_name = "test_f35_mismatched_release_metadata_is_refused[2-paxd_sha256-cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc]"
+outcome = "failed"
+case = "tools/qualification/audit_repairs/test_repair_22_33_806.py::test_f35_mismatched_release_metadata_is_refused[2-paxd_sha256-cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc]"
+reason = "KeyError: 'hpx_release_identity'"
+source = "tools/hpx/release_identity.py:12"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.132]
+module_family = "audit_repairs"
+module = "tools/qualification/audit_repairs/test_repair_22_33_806.py"
+test_name = "test_f35_missing_provenance_or_advertised_override_is_refused"
+outcome = "failed"
+case = "tools/qualification/audit_repairs/test_repair_22_33_806.py::test_f35_missing_provenance_or_advertised_override_is_refused"
+reason = "KeyError: 'hpx_release_identity'"
+source = "tools/hpx/release_identity.py:12"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.133]
+module_family = "audit_repairs"
+module = "tools/qualification/audit_repairs/test_repair_22_33_812.py"
+test_name = "test_57_rpc_owner_routing_source"
+outcome = "failed"
+case = "tools/qualification/audit_repairs/test_repair_22_33_812.py::test_57_rpc_owner_routing_source"
+reason = "ValueError: substring not found"
+source = "tools/qualification/audit_repairs/test_repair_22_33_812.py:131"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.134]
+module_family = "audit_repairs"
+module = "tools/qualification/audit_repairs/test_repair_22_33_813.py"
+test_name = "test_finding_61_hosted_methods_have_an_explicit_server_contract"
+outcome = "failed"
+case = "tools/qualification/audit_repairs/test_repair_22_33_813.py::test_finding_61_hosted_methods_have_an_explicit_server_contract"
+reason = "assert \"Use each server's declared methods\" in '\\n\\nPublic node JSON-RPC uses the root URL: `https://api-mainnet-beta.paxeer.network` or the numbered nodes `https://... Mainnet-beta uses real value; hosted funding and private test-environment faucets have their own access policies.\\n\\n'"
+source = "tools/qualification/audit_repairs/test_repair_22_33_813.py:75"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.135]
+module_family = "audit_repairs"
+module = "tools/qualification/audit_repairs/test_repair_22_33_814.py"
+test_name = "test_kernel_kms_chain_selection_domain_is_not_evm_identity"
+outcome = "failed"
+case = "tools/qualification/audit_repairs/test_repair_22_33_814.py::test_kernel_kms_chain_selection_domain_is_not_evm_identity"
+reason = "assert '#[serde(deny_unknown_fields)]\\nstruct ChainSnapshot {\\n chain_id: u32,\\n}' in 'use std::env;\\nuse std::net::TcpListener;\\nuse std::process::ExitCode;\\nuse std::sync::Arc;\\n\\n#[path = \"kms_gateway/... fs::Permissions::from_mode(0o600))?;\\n assert!(protected(&empty, false).is_err());\\n Ok(())\\n }\\n}\\n'"
+source = "tools/qualification/audit_repairs/test_repair_22_33_814.py:343"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.136]
+module_family = "audit_repairs"
+module = "tools/qualification/audit_repairs/test_repair_22_33_848.py"
+test_name = "test_f062_services_and_protected_profile_keep_all_connected_acceptance_cases"
+outcome = "failed"
+case = "tools/qualification/audit_repairs/test_repair_22_33_848.py::test_f062_services_and_protected_profile_keep_all_connected_acceptance_cases"
+reason = "assert \"inputs['LAYERX_GATEWAY_KEY_SECRET']\" in \"import os,pathlib,stat,subprocess,sys\\nroot=pathlib.Path.cwd()\\nsys.dont_write_bytecode = True\\nsys.path.insert(0, st...bprocessError) as error:\\n print('hosted Programs qualification refused: '+str(error),file=sys.stderr);sys.exit(78)\""
+source = "tools/qualification/audit_repairs/test_repair_22_33_848.py:331"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.137]
+module_family = "audit_repairs"
+module = "tools/qualification/audit_repairs/test_repair_22_33_849.py"
+test_name = "test_f065_connected_path_uses_real_evm_producer_reads_commitment_and_refusals"
+outcome = "failed"
+case = "tools/qualification/audit_repairs/test_repair_22_33_849.py::test_f065_connected_path_uses_real_evm_producer_reads_commitment_and_refusals"
+reason = "assert '\"eth_sendRawTransaction\"' in 'use std::fs;\\nuse std::path::{Path, PathBuf};\\nuse std::process::Command;\\n\\nuse layerx_programs::{\\n chain_eviden...ns(&block.part_set_header.total)\\n {\\n return Err(ChainProofError::NonCanonical);\\n }\\n Ok(block)\\n}\\n'"
+source = "tools/qualification/audit_repairs/test_repair_22_33_849.py:245"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.138]
+module_family = "audit_repairs"
+module = "tools/qualification/audit_repairs/test_repair_22_33_849.py"
+test_name = "test_f066_retained_refusal_producer_drives_drift_check_and_all_seven_suites"
+outcome = "failed"
+case = "tools/qualification/audit_repairs/test_repair_22_33_849.py::test_f066_retained_refusal_producer_drives_drift_check_and_all_seven_suites"
+reason = "ValueError: receipt refusal fixture drift; regenerate with rpc/sequencer_receipt_vectors_test.go"
+source = "tools/paxeer-x/gates/receipt_refusals.py:32"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.139]
+module_family = "audit_repairs"
+module = "tools/qualification/audit_repairs/test_repair_22_33_849.py"
+test_name = "test_f021_keeps_unserved_host_refusal_and_private_page_corpus"
+outcome = "failed"
+case = "tools/qualification/audit_repairs/test_repair_22_33_849.py::test_f021_keeps_unserved_host_refusal_and_private_page_corpus"
+reason = "AssertionError: assert '6edf5838237f...8d93ab17cef7c' == '795b4896435a...16cfa8da35656'"
+source = "tools/qualification/audit_repairs/test_repair_22_33_849.py:577"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.140]
+module_family = "audit_repairs"
+module = "tools/qualification/audit_repairs/test_repair_22_33_865.py"
+test_name = "test_python_sdk_import_root_isolated_http_and_corpus"
+outcome = "failed"
+case = "tools/qualification/audit_repairs/test_repair_22_33_865.py::test_python_sdk_import_root_isolated_http_and_corpus"
+reason = "AssertionError: Traceback (most recent call last):"
+source = "tools/qualification/audit_repairs/test_repair_22_33_865.py:168"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.141]
+module_family = "audit_repairs"
+module = "tools/qualification/audit_repairs/test_repair_22_33_885.py"
+test_name = "test_f040_shell_and_retired_authority_removed"
+outcome = "failed"
+case = "tools/qualification/audit_repairs/test_repair_22_33_885.py::test_f040_shell_and_retired_authority_removed"
+reason = "assert 'curl' not in '#!/bin/bash... \"$status\"\\n'"
+source = "tools/qualification/audit_repairs/test_repair_22_33_885.py:71"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.142]
+module_family = "audit_repairs"
+module = "tools/qualification/audit_repairs/test_repair_22_33_885.py"
+test_name = "test_f040_real_renderer_transports_only_node_configuration"
+outcome = "failed"
+case = "tools/qualification/audit_repairs/test_repair_22_33_885.py::test_f040_real_renderer_transports_only_node_configuration"
+reason = "AssertionError: curl: (6) Could not resolve host: node-a.example"
+source = "tools/qualification/audit_repairs/test_repair_22_33_885.py:77"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.143]
+module_family = "audit_repairs"
+module = "tools/qualification/audit_repairs/test_repair_22_33_885.py"
+test_name = "test_f040_bootstrap_restart_preserves_publisher_inputs"
+outcome = "failed"
+case = "tools/qualification/audit_repairs/test_repair_22_33_885.py::test_f040_bootstrap_restart_preserves_publisher_inputs"
+reason = "AssertionError: curl: (6) Could not resolve host: node-a.example"
+source = "tools/qualification/audit_repairs/test_repair_22_33_885.py:118"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.144]
+module_family = "audit_repairs"
+module = "tools/qualification/audit_repairs/test_repair_22_33_894.py"
+test_name = "test_readme_two_domains_record_maps_finding_and_proof_limits"
+outcome = "failed"
+case = "tools/qualification/audit_repairs/test_repair_22_33_894.py::test_readme_two_domains_record_maps_finding_and_proof_limits"
+reason = "AssertionError: assert '3df8ceeba284...47531995682c5' == '01d315dec3aa...5e518afb8e809'"
+source = "tools/qualification/audit_repairs/test_repair_22_33_894.py:344"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.145]
+module_family = "audit_repairs"
+module = "tools/qualification/audit_repairs/test_repair_22_36_1.py"
+test_name = "test_vendored_project_has_the_required_layout"
+outcome = "failed"
+case = "tools/qualification/audit_repairs/test_repair_22_36_1.py::test_vendored_project_has_the_required_layout"
+reason = "AssertionError: AGENTS.md"
+source = "tools/qualification/audit_repairs/test_repair_22_36_1.py:89"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.146]
+module_family = "audit_repairs"
+module = "tools/qualification/audit_repairs/test_repair_22_36_1.py"
+test_name = "test_code_specs_dot_directories_and_assets_are_preserved"
+outcome = "failed"
+case = "tools/qualification/audit_repairs/test_repair_22_36_1.py::test_code_specs_dot_directories_and_assets_are_preserved"
+reason = "AssertionError: .cgignore"
+source = "tools/qualification/audit_repairs/test_repair_22_36_1.py:121"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.147]
+module_family = "audit_repairs"
+module = "tools/qualification/audit_repairs/test_repair_22_36_1.py"
+test_name = "test_relative_markdown_links_resolve[tools/hyperfide/AGENTS.md]"
+outcome = "failed"
+case = "tools/qualification/audit_repairs/test_repair_22_36_1.py::test_relative_markdown_links_resolve[tools/hyperfide/AGENTS.md]"
+reason = "AssertionError: assert False"
+source = "tools/qualification/audit_repairs/test_repair_22_36_1.py:143"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.148]
+module_family = "audit_repairs"
+module = "tools/qualification/audit_repairs/test_repair_22_36_2.py"
+test_name = "test_documentation_tree_and_all_thirteen_samples_moved"
+outcome = "failed"
+case = "tools/qualification/audit_repairs/test_repair_22_36_2.py::test_documentation_tree_and_all_thirteen_samples_moved"
+reason = "AssertionError: paid-route-next/.env"
+source = "tools/qualification/audit_repairs/test_repair_22_36_2.py:147"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[baseline.family.localnode]
+revision_ref = "qualification.verify-1.revision"
+owner_task = "22.31.623"
+failed = 1
+errors = 0
+modules = ["tools/qualification/localnode/tests/test_merge_precompiles_served.py"]
+entries = ["failure.149"]
+
+[failure.149]
+module_family = "localnode"
+module = "tools/qualification/localnode/tests/test_merge_precompiles_served.py"
+test_name = "test_merge_precompiles_served"
+outcome = "failed"
+case = "tools/qualification/localnode/tests/test_merge_precompiles_served.py::test_merge_precompiles_served"
+reason = "subprocess.TimeoutExpired: Command '['bash', '/work/paxeer-monorepo/tools/qualification/localnode/v6120-node.sh', '--env-out', '/tmp/lx-localnode/merge-test._06irihx/localnode.env']' timed out after 300 seconds"
+source = "tools/qualification/localnode/tests/test_merge_precompiles_served.py:47"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[baseline.family.paxeer-x]
+revision_ref = "qualification.verify-1.revision"
+owner_task = "22.31.623"
+failed = 108
+errors = 0
+modules = ["tools/qualification/paxeer-x/tests/test_proof_qual_cli.py", "tools/qualification/paxeer-x/tests/test_repair_22_31_318.py", "tools/qualification/paxeer-x/tests/test_repair_22_31_330.py", "tools/qualification/paxeer-x/tests/test_repair_22_31_332.py", "tools/qualification/paxeer-x/tests/test_repair_22_33_778.py", "tools/qualification/paxeer-x/tests/test_repair_22_33_779.py", "tools/qualification/paxeer-x/tests/test_repair_22_33_791.py", "tools/qualification/paxeer-x/tests/test_repair_22_33_810.py", "tools/qualification/paxeer-x/tests/test_repair_22_33_860.py", "tools/qualification/paxeer-x/tests/test_repair_22_33_861.py", "tools/qualification/paxeer-x/tests/test_repair_22_33_877.py"]
+entries = ["failure.150", "failure.151", "failure.152", "failure.153", "failure.154", "failure.155", "failure.156", "failure.157", "failure.158", "failure.159", "failure.160", "failure.161", "failure.162", "failure.163", "failure.164", "failure.165", "failure.166", "failure.167", "failure.168", "failure.169", "failure.170", "failure.171", "failure.172", "failure.173", "failure.174", "failure.175", "failure.176", "failure.177", "failure.178", "failure.179", "failure.180", "failure.181", "failure.182", "failure.183", "failure.184", "failure.185", "failure.186", "failure.187", "failure.188", "failure.189", "failure.190", "failure.191", "failure.192", "failure.193", "failure.194", "failure.195", "failure.196", "failure.197", "failure.198", "failure.199", "failure.200", "failure.201", "failure.202", "failure.203", "failure.204", "failure.205", "failure.206", "failure.207", "failure.208", "failure.209", "failure.210", "failure.211", "failure.212", "failure.213", "failure.214", "failure.215", "failure.216", "failure.217", "failure.218", "failure.219", "failure.220", "failure.221", "failure.222", "failure.223", "failure.224", "failure.225", "failure.226", "failure.227", "failure.228", "failure.229", "failure.230", "failure.231", "failure.232", "failure.233", "failure.234", "failure.235", "failure.236", "failure.237", "failure.238", "failure.239", "failure.240", "failure.241", "failure.242", "failure.243", "failure.244", "failure.245", "failure.246", "failure.247", "failure.248", "failure.249", "failure.250", "failure.251", "failure.252", "failure.253", "failure.254", "failure.255", "failure.256", "failure.257"]
+
+[failure.150]
+module_family = "paxeer-x"
+module = "tools/qualification/paxeer-x/tests/test_proof_qual_cli.py"
+test_name = "test_qual_cli_real_process_help_and_malformed_refusal[registry-router-bootstrap]"
+outcome = "failed"
+case = "tools/qualification/paxeer-x/tests/test_proof_qual_cli.py::test_qual_cli_real_process_help_and_malformed_refusal[registry-router-bootstrap]"
+reason = "AssertionError: (['/root/.local/share/mise/installs/python/3.12/bin/python3', PosixPath('/work/paxeer-monorepo/tools/qualification/pax...y unavailable or timed out\\') from None"
+source = "tools/qualification/paxeer-x/tests/test_proof_qual_cli.py:79"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.151]
+module_family = "paxeer-x"
+module = "tools/qualification/paxeer-x/tests/test_proof_qual_cli.py"
+test_name = "test_qual_cli_real_process_help_and_malformed_refusal[paxeer_x_release]"
+outcome = "failed"
+case = "tools/qualification/paxeer-x/tests/test_proof_qual_cli.py::test_qual_cli_real_process_help_and_malformed_refusal[paxeer_x_release]"
+reason = "AssertionError: (['/root/.local/share/mise/installs/python/3.12/bin/python3', PosixPath('/work/paxeer-monorepo/tools/qualification/pax...andidate policy unavailable or timed out\\') from None"
+source = "tools/qualification/paxeer-x/tests/test_proof_qual_cli.py:79"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.152]
+module_family = "paxeer-x"
+module = "tools/qualification/paxeer-x/tests/test_proof_qual_cli.py"
+test_name = "test_qual_cli_refuses_abbreviated_authority_options[registry-router-bootstrap.py---evidence-d]"
+outcome = "failed"
+case = "tools/qualification/paxeer-x/tests/test_proof_qual_cli.py::test_qual_cli_refuses_abbreviated_authority_options[registry-router-bootstrap.py---evidence-d]"
+reason = "AssertionError: (['/root/.local/share/mise/installs/python/3.12/bin/python3', PosixPath('/work/paxeer-monorepo/tools/qualification/pax...y unavailable or timed out\\') from None"
+source = "tools/qualification/paxeer-x/tests/test_proof_qual_cli.py:79"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.153]
+module_family = "paxeer-x"
+module = "tools/qualification/paxeer-x/tests/test_proof_qual_cli.py"
+test_name = "test_qual_cli_subcommands_refuse_abbreviated_authority_options[producer0-arguments0]"
+outcome = "failed"
+case = "tools/qualification/paxeer-x/tests/test_proof_qual_cli.py::test_qual_cli_subcommands_refuse_abbreviated_authority_options[producer0-arguments0]"
+reason = "AssertionError: (['/root/.local/share/mise/installs/python/3.12/bin/python3', PosixPath('/work/paxeer-monorepo/tools/qualification/pax...andidate policy unavailable or timed out\\') from None"
+source = "tools/qualification/paxeer-x/tests/test_proof_qual_cli.py:79"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.154]
+module_family = "paxeer-x"
+module = "tools/qualification/paxeer-x/tests/test_proof_qual_cli.py"
+test_name = "test_registry_real_material_producer_restart_and_consumer_refusals"
+outcome = "failed"
+case = "tools/qualification/paxeer-x/tests/test_proof_qual_cli.py::test_registry_real_material_producer_restart_and_consumer_refusals"
+reason = "AttributeError: module 'registry_router_bootstrap' has no attribute 'Run'"
+source = "tools/qualification/paxeer-x/tests/test_proof_qual_cli.py:213"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.155]
+module_family = "paxeer-x"
+module = "tools/qualification/paxeer-x/tests/test_proof_qual_cli.py"
+test_name = "test_native_genesis_crossing_reopens_real_request_and_preserves_known_refusal"
+outcome = "failed"
+case = "tools/qualification/paxeer-x/tests/test_proof_qual_cli.py::test_native_genesis_crossing_reopens_real_request_and_preserves_known_refusal"
+reason = "AssertionError: missing repository producer: /work/paxeer-monorepo/build/bin/layerx-genesis-build; build_cmd must build it"
+source = "tools/qualification/paxeer-x/tests/test_proof_qual_cli.py:251"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.156]
+module_family = "paxeer-x"
+module = "tools/qualification/paxeer-x/tests/test_proof_qual_cli.py"
+test_name = "test_release_private_producer_reopened_by_real_artifact_readers"
+outcome = "failed"
+case = "tools/qualification/paxeer-x/tests/test_proof_qual_cli.py::test_release_private_producer_reopened_by_real_artifact_readers"
+reason = "AssertionError: (['/root/.local/share/mise/installs/python/3.12/bin/python3', '-c', \"import sys; sys.path[:0] = sys.argv[1:3]; import ...andidate policy unavailable or timed out\\') from None"
+source = "tools/qualification/paxeer-x/tests/test_proof_qual_cli.py:79"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.157]
+module_family = "paxeer-x"
+module = "tools/qualification/paxeer-x/tests/test_repair_22_31_318.py"
+test_name = "test_program_call_signed_evm_round_trip"
+outcome = "failed"
+case = "tools/qualification/paxeer-x/tests/test_repair_22_31_318.py::test_program_call_signed_evm_round_trip"
+reason = "ModuleNotFoundError: No module named 'Crypto'"
+source = "tools/qualification/paxeer-x/paid-web-contract.py:277"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.158]
+module_family = "paxeer-x"
+module = "tools/qualification/paxeer-x/tests/test_repair_22_31_318.py"
+test_name = "test_program_receipt_reopens_and_retries"
+outcome = "failed"
+case = "tools/qualification/paxeer-x/tests/test_repair_22_31_318.py::test_program_receipt_reopens_and_retries"
+reason = "ModuleNotFoundError: No module named 'Crypto'"
+source = "tools/qualification/paxeer-x/paid-web-contract.py:277"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.159]
+module_family = "paxeer-x"
+module = "tools/qualification/paxeer-x/tests/test_repair_22_31_318.py"
+test_name = "test_node_json_must_match_signed_bytes[signingKey]"
+outcome = "failed"
+case = "tools/qualification/paxeer-x/tests/test_repair_22_31_318.py::test_node_json_must_match_signed_bytes[signingKey]"
+reason = "ModuleNotFoundError: No module named 'Crypto'"
+source = "tools/qualification/paxeer-x/paid-web-contract.py:277"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.160]
+module_family = "paxeer-x"
+module = "tools/qualification/paxeer-x/tests/test_repair_22_31_318.py"
+test_name = "test_node_json_must_match_signed_bytes[keyId]"
+outcome = "failed"
+case = "tools/qualification/paxeer-x/tests/test_repair_22_31_318.py::test_node_json_must_match_signed_bytes[keyId]"
+reason = "ModuleNotFoundError: No module named 'Crypto'"
+source = "tools/qualification/paxeer-x/paid-web-contract.py:277"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.161]
+module_family = "paxeer-x"
+module = "tools/qualification/paxeer-x/tests/test_repair_22_31_318.py"
+test_name = "test_node_json_must_match_signed_bytes[status]"
+outcome = "failed"
+case = "tools/qualification/paxeer-x/tests/test_repair_22_31_318.py::test_node_json_must_match_signed_bytes[status]"
+reason = "ModuleNotFoundError: No module named 'Crypto'"
+source = "tools/qualification/paxeer-x/paid-web-contract.py:277"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.162]
+module_family = "paxeer-x"
+module = "tools/qualification/paxeer-x/tests/test_repair_22_31_318.py"
+test_name = "test_node_json_must_match_signed_bytes[nonce]"
+outcome = "failed"
+case = "tools/qualification/paxeer-x/tests/test_repair_22_31_318.py::test_node_json_must_match_signed_bytes[nonce]"
+reason = "ModuleNotFoundError: No module named 'Crypto'"
+source = "tools/qualification/paxeer-x/paid-web-contract.py:277"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.163]
+module_family = "paxeer-x"
+module = "tools/qualification/paxeer-x/tests/test_repair_22_31_318.py"
+test_name = "test_node_json_must_match_signed_bytes[returnData]"
+outcome = "failed"
+case = "tools/qualification/paxeer-x/tests/test_repair_22_31_318.py::test_node_json_must_match_signed_bytes[returnData]"
+reason = "ModuleNotFoundError: No module named 'Crypto'"
+source = "tools/qualification/paxeer-x/paid-web-contract.py:277"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.164]
+module_family = "paxeer-x"
+module = "tools/qualification/paxeer-x/tests/test_repair_22_31_318.py"
+test_name = "test_node_json_must_match_signed_bytes[gasUsed]"
+outcome = "failed"
+case = "tools/qualification/paxeer-x/tests/test_repair_22_31_318.py::test_node_json_must_match_signed_bytes[gasUsed]"
+reason = "ModuleNotFoundError: No module named 'Crypto'"
+source = "tools/qualification/paxeer-x/paid-web-contract.py:277"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.165]
+module_family = "paxeer-x"
+module = "tools/qualification/paxeer-x/tests/test_repair_22_31_318.py"
+test_name = "test_node_json_must_match_signed_bytes[feeAmount]"
+outcome = "failed"
+case = "tools/qualification/paxeer-x/tests/test_repair_22_31_318.py::test_node_json_must_match_signed_bytes[feeAmount]"
+reason = "ModuleNotFoundError: No module named 'Crypto'"
+source = "tools/qualification/paxeer-x/paid-web-contract.py:277"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.166]
+module_family = "paxeer-x"
+module = "tools/qualification/paxeer-x/tests/test_repair_22_31_318.py"
+test_name = "test_node_json_must_match_signed_bytes[vmError]"
+outcome = "failed"
+case = "tools/qualification/paxeer-x/tests/test_repair_22_31_318.py::test_node_json_must_match_signed_bytes[vmError]"
+reason = "ModuleNotFoundError: No module named 'Crypto'"
+source = "tools/qualification/paxeer-x/paid-web-contract.py:277"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.167]
+module_family = "paxeer-x"
+module = "tools/qualification/paxeer-x/tests/test_repair_22_31_318.py"
+test_name = "test_node_json_must_match_signed_bytes[paymentDenom]"
+outcome = "failed"
+case = "tools/qualification/paxeer-x/tests/test_repair_22_31_318.py::test_node_json_must_match_signed_bytes[paymentDenom]"
+reason = "ModuleNotFoundError: No module named 'Crypto'"
+source = "tools/qualification/paxeer-x/paid-web-contract.py:277"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.168]
+module_family = "paxeer-x"
+module = "tools/qualification/paxeer-x/tests/test_repair_22_31_318.py"
+test_name = "test_recorded_tampered_log_refused"
+outcome = "failed"
+case = "tools/qualification/paxeer-x/tests/test_repair_22_31_318.py::test_recorded_tampered_log_refused"
+reason = "ModuleNotFoundError: No module named 'Crypto'"
+source = "tools/qualification/paxeer-x/paid-web-contract.py:277"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.169]
+module_family = "paxeer-x"
+module = "tools/qualification/paxeer-x/tests/test_repair_22_31_318.py"
+test_name = "test_reverted_execution_uses_declared_result"
+outcome = "failed"
+case = "tools/qualification/paxeer-x/tests/test_repair_22_31_318.py::test_reverted_execution_uses_declared_result"
+reason = "ModuleNotFoundError: No module named 'Crypto'"
+source = "tools/qualification/paxeer-x/paid-web-contract.py:277"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.170]
+module_family = "paxeer-x"
+module = "tools/qualification/paxeer-x/tests/test_repair_22_31_318.py"
+test_name = "test_deploy_and_web_encodings"
+outcome = "failed"
+case = "tools/qualification/paxeer-x/tests/test_repair_22_31_318.py::test_deploy_and_web_encodings"
+reason = "ModuleNotFoundError: No module named 'Crypto'"
+source = "tools/qualification/paxeer-x/paid-web-contract.py:277"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.171]
+module_family = "paxeer-x"
+module = "tools/qualification/paxeer-x/tests/test_repair_22_31_318.py"
+test_name = "test_operational_observation_rejects_foreign_execution"
+outcome = "failed"
+case = "tools/qualification/paxeer-x/tests/test_repair_22_31_318.py::test_operational_observation_rejects_foreign_execution"
+reason = "ModuleNotFoundError: No module named 'Crypto'"
+source = "tools/qualification/paxeer-x/paid-web-contract.py:277"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.172]
+module_family = "paxeer-x"
+module = "tools/qualification/paxeer-x/tests/test_repair_22_31_318.py"
+test_name = "test_paid_success_reopens"
+outcome = "failed"
+case = "tools/qualification/paxeer-x/tests/test_repair_22_31_318.py::test_paid_success_reopens"
+reason = "ModuleNotFoundError: No module named 'Crypto'"
+source = "tools/qualification/paxeer-x/paid-web-contract.py:277"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.173]
+module_family = "paxeer-x"
+module = "tools/qualification/paxeer-x/tests/test_repair_22_31_330.py"
+test_name = "test_f011_untouched_producer_manifest_admitted"
+outcome = "failed"
+case = "tools/qualification/paxeer-x/tests/test_repair_22_31_330.py::test_f011_untouched_producer_manifest_admitted"
+reason = "AssertionError: assert ['make', '-j3...ability', ...] == ['make', '-j3...ability', ...]"
+source = "tools/qualification/paxeer-x/tests/test_repair_22_31_330.py:220"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.174]
+module_family = "paxeer-x"
+module = "tools/qualification/paxeer-x/tests/test_repair_22_31_330.py"
+test_name = "test_f011_retained_artifact_mutation_refused"
+outcome = "failed"
+case = "tools/qualification/paxeer-x/tests/test_repair_22_31_330.py::test_f011_retained_artifact_mutation_refused"
+reason = "Failed: DID NOT RAISE ValueError"
+source = "tools/qualification/paxeer-x/tests/test_repair_22_31_330.py:265"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.175]
+module_family = "paxeer-x"
+module = "tools/qualification/paxeer-x/tests/test_repair_22_31_332.py"
+test_name = "test_binding_web_authority_producer_consumer_contract"
+outcome = "failed"
+case = "tools/qualification/paxeer-x/tests/test_repair_22_31_332.py::test_binding_web_authority_producer_consumer_contract"
+reason = "assert 'Some(&self.document(&enrolment)?)' in '\\n /// Validates the binding directory, the daemon records it names, and the limit it declares.\\n ///\\n /// ...e_json::to_value(document)\\n .map_err(|_| EnrolmentError::Encoding(\"the binding cannot be encoded\"))\\n }'"
+source = "tools/qualification/paxeer-x/tests/test_repair_22_31_332.py:215"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.176]
+module_family = "paxeer-x"
+module = "tools/qualification/paxeer-x/tests/test_repair_22_33_778.py"
+test_name = "test_tenant_readiness_committed_write_cross_tenant_refusal_and_reopen"
+outcome = "failed"
+case = "tools/qualification/paxeer-x/tests/test_repair_22_33_778.py::test_tenant_readiness_committed_write_cross_tenant_refusal_and_reopen"
+reason = "ModuleNotFoundError: No module named 'Crypto'"
+source = "tools/qualification/paxeer-x/paid-web-contract.py:277"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.177]
+module_family = "paxeer-x"
+module = "tools/qualification/paxeer-x/tests/test_repair_22_33_778.py"
+test_name = "test_committed_receipt_requires_matching_node_block_and_standard_receipt[block-hash]"
+outcome = "failed"
+case = "tools/qualification/paxeer-x/tests/test_repair_22_33_778.py::test_committed_receipt_requires_matching_node_block_and_standard_receipt[block-hash]"
+reason = "ModuleNotFoundError: No module named 'Crypto'"
+source = "tools/qualification/paxeer-x/paid-web-contract.py:277"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.178]
+module_family = "paxeer-x"
+module = "tools/qualification/paxeer-x/tests/test_repair_22_33_778.py"
+test_name = "test_committed_receipt_requires_matching_node_block_and_standard_receipt[block-number]"
+outcome = "failed"
+case = "tools/qualification/paxeer-x/tests/test_repair_22_33_778.py::test_committed_receipt_requires_matching_node_block_and_standard_receipt[block-number]"
+reason = "ModuleNotFoundError: No module named 'Crypto'"
+source = "tools/qualification/paxeer-x/paid-web-contract.py:277"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.179]
+module_family = "paxeer-x"
+module = "tools/qualification/paxeer-x/tests/test_repair_22_33_778.py"
+test_name = "test_committed_receipt_requires_matching_node_block_and_standard_receipt[block-membership]"
+outcome = "failed"
+case = "tools/qualification/paxeer-x/tests/test_repair_22_33_778.py::test_committed_receipt_requires_matching_node_block_and_standard_receipt[block-membership]"
+reason = "ModuleNotFoundError: No module named 'Crypto'"
+source = "tools/qualification/paxeer-x/paid-web-contract.py:277"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.180]
+module_family = "paxeer-x"
+module = "tools/qualification/paxeer-x/tests/test_repair_22_33_778.py"
+test_name = "test_committed_receipt_requires_matching_node_block_and_standard_receipt[logs]"
+outcome = "failed"
+case = "tools/qualification/paxeer-x/tests/test_repair_22_33_778.py::test_committed_receipt_requires_matching_node_block_and_standard_receipt[logs]"
+reason = "ModuleNotFoundError: No module named 'Crypto'"
+source = "tools/qualification/paxeer-x/paid-web-contract.py:277"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.181]
+module_family = "paxeer-x"
+module = "tools/qualification/paxeer-x/tests/test_repair_22_33_778.py"
+test_name = "test_committed_receipt_requires_matching_node_block_and_standard_receipt[index]"
+outcome = "failed"
+case = "tools/qualification/paxeer-x/tests/test_repair_22_33_778.py::test_committed_receipt_requires_matching_node_block_and_standard_receipt[index]"
+reason = "ModuleNotFoundError: No module named 'Crypto'"
+source = "tools/qualification/paxeer-x/paid-web-contract.py:277"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.182]
+module_family = "paxeer-x"
+module = "tools/qualification/paxeer-x/tests/test_repair_22_33_778.py"
+test_name = "test_tenant_receipt_rejects_foreign_payer_and_canonical_receipt"
+outcome = "failed"
+case = "tools/qualification/paxeer-x/tests/test_repair_22_33_778.py::test_tenant_receipt_rejects_foreign_payer_and_canonical_receipt"
+reason = "ModuleNotFoundError: No module named 'Crypto'"
+source = "tools/qualification/paxeer-x/paid-web-contract.py:277"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.183]
+module_family = "paxeer-x"
+module = "tools/qualification/paxeer-x/tests/test_repair_22_33_778.py"
+test_name = "test_mcp_payer_exact_offer_committed_evidence_and_deduplicated_reopen"
+outcome = "failed"
+case = "tools/qualification/paxeer-x/tests/test_repair_22_33_778.py::test_mcp_payer_exact_offer_committed_evidence_and_deduplicated_reopen"
+reason = "ModuleNotFoundError: No module named 'Crypto'"
+source = "tools/qualification/paxeer-x/paid-web-contract.py:277"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.184]
+module_family = "paxeer-x"
+module = "tools/qualification/paxeer-x/tests/test_repair_22_33_778.py"
+test_name = "test_mcp_payer_refuses_changed_offer_or_commitment[blockHash]"
+outcome = "failed"
+case = "tools/qualification/paxeer-x/tests/test_repair_22_33_778.py::test_mcp_payer_refuses_changed_offer_or_commitment[blockHash]"
+reason = "ModuleNotFoundError: No module named 'Crypto'"
+source = "tools/qualification/paxeer-x/paid-web-contract.py:277"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.185]
+module_family = "paxeer-x"
+module = "tools/qualification/paxeer-x/tests/test_repair_22_33_778.py"
+test_name = "test_mcp_payer_refuses_changed_offer_or_commitment[blockNumber]"
+outcome = "failed"
+case = "tools/qualification/paxeer-x/tests/test_repair_22_33_778.py::test_mcp_payer_refuses_changed_offer_or_commitment[blockNumber]"
+reason = "ModuleNotFoundError: No module named 'Crypto'"
+source = "tools/qualification/paxeer-x/paid-web-contract.py:277"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.186]
+module_family = "paxeer-x"
+module = "tools/qualification/paxeer-x/tests/test_repair_22_33_778.py"
+test_name = "test_mcp_payer_refuses_changed_offer_or_commitment[receiptDigest]"
+outcome = "failed"
+case = "tools/qualification/paxeer-x/tests/test_repair_22_33_778.py::test_mcp_payer_refuses_changed_offer_or_commitment[receiptDigest]"
+reason = "ModuleNotFoundError: No module named 'Crypto'"
+source = "tools/qualification/paxeer-x/paid-web-contract.py:277"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.187]
+module_family = "paxeer-x"
+module = "tools/qualification/paxeer-x/tests/test_repair_22_33_778.py"
+test_name = "test_mcp_payer_claimed_offer_must_also_match_signed_transaction[payer]"
+outcome = "failed"
+case = "tools/qualification/paxeer-x/tests/test_repair_22_33_778.py::test_mcp_payer_claimed_offer_must_also_match_signed_transaction[payer]"
+reason = "ModuleNotFoundError: No module named 'Crypto'"
+source = "tools/qualification/paxeer-x/paid-web-contract.py:277"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.188]
+module_family = "paxeer-x"
+module = "tools/qualification/paxeer-x/tests/test_repair_22_33_778.py"
+test_name = "test_mcp_payer_claimed_offer_must_also_match_signed_transaction[payTo]"
+outcome = "failed"
+case = "tools/qualification/paxeer-x/tests/test_repair_22_33_778.py::test_mcp_payer_claimed_offer_must_also_match_signed_transaction[payTo]"
+reason = "ModuleNotFoundError: No module named 'Crypto'"
+source = "tools/qualification/paxeer-x/paid-web-contract.py:277"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.189]
+module_family = "paxeer-x"
+module = "tools/qualification/paxeer-x/tests/test_repair_22_33_778.py"
+test_name = "test_mcp_payer_claimed_offer_must_also_match_signed_transaction[asset]"
+outcome = "failed"
+case = "tools/qualification/paxeer-x/tests/test_repair_22_33_778.py::test_mcp_payer_claimed_offer_must_also_match_signed_transaction[asset]"
+reason = "ModuleNotFoundError: No module named 'Crypto'"
+source = "tools/qualification/paxeer-x/paid-web-contract.py:277"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.190]
+module_family = "paxeer-x"
+module = "tools/qualification/paxeer-x/tests/test_repair_22_33_778.py"
+test_name = "test_mcp_payer_claimed_offer_must_also_match_signed_transaction[amount]"
+outcome = "failed"
+case = "tools/qualification/paxeer-x/tests/test_repair_22_33_778.py::test_mcp_payer_claimed_offer_must_also_match_signed_transaction[amount]"
+reason = "ModuleNotFoundError: No module named 'Crypto'"
+source = "tools/qualification/paxeer-x/paid-web-contract.py:277"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.191]
+module_family = "paxeer-x"
+module = "tools/qualification/paxeer-x/tests/test_repair_22_33_778.py"
+test_name = "test_programs_winddown_merged_send_receipt_conservation_and_restart"
+outcome = "failed"
+case = "tools/qualification/paxeer-x/tests/test_repair_22_33_778.py::test_programs_winddown_merged_send_receipt_conservation_and_restart"
+reason = "ModuleNotFoundError: No module named 'Crypto'"
+source = "tools/qualification/paxeer-x/paid-web-contract.py:277"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.192]
+module_family = "paxeer-x"
+module = "tools/qualification/paxeer-x/tests/test_repair_22_33_779.py"
+test_name = "test_typed_programs_call_simulation_and_committed_recovery"
+outcome = "failed"
+case = "tools/qualification/paxeer-x/tests/test_repair_22_33_779.py::test_typed_programs_call_simulation_and_committed_recovery"
+reason = "ModuleNotFoundError: No module named 'Crypto'"
+source = "tools/qualification/paxeer-x/paid-web-contract.py:277"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.193]
+module_family = "paxeer-x"
+module = "tools/qualification/paxeer-x/tests/test_repair_22_33_779.py"
+test_name = "test_router_current_producer_transport_consumer_and_restart"
+outcome = "failed"
+case = "tools/qualification/paxeer-x/tests/test_repair_22_33_779.py::test_router_current_producer_transport_consumer_and_restart"
+reason = "ModuleNotFoundError: No module named 'Crypto'"
+source = "tools/qualification/paxeer-x/paid-web-contract.py:277"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.194]
+module_family = "paxeer-x"
+module = "tools/qualification/paxeer-x/tests/test_repair_22_33_779.py"
+test_name = "test_router_each_current_backend_outage_and_recovery[paxeer_chain]"
+outcome = "failed"
+case = "tools/qualification/paxeer-x/tests/test_repair_22_33_779.py::test_router_each_current_backend_outage_and_recovery[paxeer_chain]"
+reason = "ModuleNotFoundError: No module named 'Crypto'"
+source = "tools/qualification/paxeer-x/paid-web-contract.py:277"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.195]
+module_family = "paxeer-x"
+module = "tools/qualification/paxeer-x/tests/test_repair_22_33_779.py"
+test_name = "test_router_each_current_backend_outage_and_recovery[consensus]"
+outcome = "failed"
+case = "tools/qualification/paxeer-x/tests/test_repair_22_33_779.py::test_router_each_current_backend_outage_and_recovery[consensus]"
+reason = "ModuleNotFoundError: No module named 'Crypto'"
+source = "tools/qualification/paxeer-x/paid-web-contract.py:277"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.196]
+module_family = "paxeer-x"
+module = "tools/qualification/paxeer-x/tests/test_repair_22_33_779.py"
+test_name = "test_router_each_current_backend_outage_and_recovery[durable_store]"
+outcome = "failed"
+case = "tools/qualification/paxeer-x/tests/test_repair_22_33_779.py::test_router_each_current_backend_outage_and_recovery[durable_store]"
+reason = "ModuleNotFoundError: No module named 'Crypto'"
+source = "tools/qualification/paxeer-x/paid-web-contract.py:277"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.197]
+module_family = "paxeer-x"
+module = "tools/qualification/paxeer-x/tests/test_repair_22_33_779.py"
+test_name = "test_router_never_accepts_uncommitted_or_substituted_receipt[block]"
+outcome = "failed"
+case = "tools/qualification/paxeer-x/tests/test_repair_22_33_779.py::test_router_never_accepts_uncommitted_or_substituted_receipt[block]"
+reason = "ModuleNotFoundError: No module named 'Crypto'"
+source = "tools/qualification/paxeer-x/paid-web-contract.py:277"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.198]
+module_family = "paxeer-x"
+module = "tools/qualification/paxeer-x/tests/test_repair_22_33_779.py"
+test_name = "test_wallet_payment_binds_custody_action_fee_and_committed_receipt"
+outcome = "failed"
+case = "tools/qualification/paxeer-x/tests/test_repair_22_33_779.py::test_wallet_payment_binds_custody_action_fee_and_committed_receipt"
+reason = "ModuleNotFoundError: No module named 'Crypto'"
+source = "tools/qualification/paxeer-x/paid-web-contract.py:277"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.199]
+module_family = "paxeer-x"
+module = "tools/qualification/paxeer-x/tests/test_repair_22_33_791.py"
+test_name = "test_paxd_signed_receipt_transport_and_exact_retry_survive_reopen"
+outcome = "failed"
+case = "tools/qualification/paxeer-x/tests/test_repair_22_33_791.py::test_paxd_signed_receipt_transport_and_exact_retry_survive_reopen"
+reason = "ModuleNotFoundError: No module named 'Crypto'"
+source = "tools/qualification/paxeer-x/paid-web-contract.py:277"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.200]
+module_family = "paxeer-x"
+module = "tools/qualification/paxeer-x/tests/test_repair_22_33_791.py"
+test_name = "test_paxd_event_receipt_refuses_substitution[json]"
+outcome = "failed"
+case = "tools/qualification/paxeer-x/tests/test_repair_22_33_791.py::test_paxd_event_receipt_refuses_substitution[json]"
+reason = "ModuleNotFoundError: No module named 'Crypto'"
+source = "tools/qualification/paxeer-x/paid-web-contract.py:277"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.201]
+module_family = "paxeer-x"
+module = "tools/qualification/paxeer-x/tests/test_repair_22_33_810.py"
+test_name = "test_f48_native_registry_discovery_and_reopen[1]"
+outcome = "failed"
+case = "tools/qualification/paxeer-x/tests/test_repair_22_33_810.py::test_f48_native_registry_discovery_and_reopen[1]"
+reason = "ModuleNotFoundError: No module named 'Crypto'"
+source = "tools/qualification/paxeer-x/paid-web-contract.py:277"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.202]
+module_family = "paxeer-x"
+module = "tools/qualification/paxeer-x/tests/test_repair_22_33_810.py"
+test_name = "test_f48_native_registry_discovery_and_reopen[2]"
+outcome = "failed"
+case = "tools/qualification/paxeer-x/tests/test_repair_22_33_810.py::test_f48_native_registry_discovery_and_reopen[2]"
+reason = "ModuleNotFoundError: No module named 'Crypto'"
+source = "tools/qualification/paxeer-x/paid-web-contract.py:277"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.203]
+module_family = "paxeer-x"
+module = "tools/qualification/paxeer-x/tests/test_repair_22_33_810.py"
+test_name = "test_f48_native_registry_discovery_and_reopen[3]"
+outcome = "failed"
+case = "tools/qualification/paxeer-x/tests/test_repair_22_33_810.py::test_f48_native_registry_discovery_and_reopen[3]"
+reason = "ModuleNotFoundError: No module named 'Crypto'"
+source = "tools/qualification/paxeer-x/paid-web-contract.py:277"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.204]
+module_family = "paxeer-x"
+module = "tools/qualification/paxeer-x/tests/test_repair_22_33_810.py"
+test_name = "test_f48_native_registry_discovery_and_reopen[4]"
+outcome = "failed"
+case = "tools/qualification/paxeer-x/tests/test_repair_22_33_810.py::test_f48_native_registry_discovery_and_reopen[4]"
+reason = "ModuleNotFoundError: No module named 'Crypto'"
+source = "tools/qualification/paxeer-x/paid-web-contract.py:277"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.205]
+module_family = "paxeer-x"
+module = "tools/qualification/paxeer-x/tests/test_repair_22_33_810.py"
+test_name = "test_f48_registry_publication_authentication_idempotency_and_restart"
+outcome = "failed"
+case = "tools/qualification/paxeer-x/tests/test_repair_22_33_810.py::test_f48_registry_publication_authentication_idempotency_and_restart"
+reason = "ModuleNotFoundError: No module named 'Crypto'"
+source = "tools/qualification/paxeer-x/paid-web-contract.py:277"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.206]
+module_family = "paxeer-x"
+module = "tools/qualification/paxeer-x/tests/test_repair_22_33_810.py"
+test_name = "test_f50_direct_bootstrap_stages_consumers_and_recovery"
+outcome = "failed"
+case = "tools/qualification/paxeer-x/tests/test_repair_22_33_810.py::test_f50_direct_bootstrap_stages_consumers_and_recovery"
+reason = "ModuleNotFoundError: No module named 'Crypto'"
+source = "tools/qualification/paxeer-x/paid-web-contract.py:277"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.207]
+module_family = "paxeer-x"
+module = "tools/qualification/paxeer-x/tests/test_repair_22_33_810.py"
+test_name = "test_f50_activation_refusals_retain_state_and_identity"
+outcome = "failed"
+case = "tools/qualification/paxeer-x/tests/test_repair_22_33_810.py::test_f50_activation_refusals_retain_state_and_identity"
+reason = "ModuleNotFoundError: No module named 'Crypto'"
+source = "tools/qualification/paxeer-x/paid-web-contract.py:277"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.208]
+module_family = "paxeer-x"
+module = "tools/qualification/paxeer-x/tests/test_repair_22_33_810.py"
+test_name = "test_f49_committed_v4_producer_transport_consumers_and_reopen"
+outcome = "failed"
+case = "tools/qualification/paxeer-x/tests/test_repair_22_33_810.py::test_f49_committed_v4_producer_transport_consumers_and_reopen"
+reason = "ModuleNotFoundError: No module named 'Crypto'"
+source = "tools/qualification/paxeer-x/paid-web-contract.py:277"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.209]
+module_family = "paxeer-x"
+module = "tools/qualification/paxeer-x/tests/test_repair_22_33_810.py"
+test_name = "test_f49_mirror_corruption_identity_and_finality_refused[chain]"
+outcome = "failed"
+case = "tools/qualification/paxeer-x/tests/test_repair_22_33_810.py::test_f49_mirror_corruption_identity_and_finality_refused[chain]"
+reason = "ModuleNotFoundError: No module named 'Crypto'"
+source = "tools/qualification/paxeer-x/paid-web-contract.py:277"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.210]
+module_family = "paxeer-x"
+module = "tools/qualification/paxeer-x/tests/test_repair_22_33_810.py"
+test_name = "test_f49_mirror_corruption_identity_and_finality_refused[code]"
+outcome = "failed"
+case = "tools/qualification/paxeer-x/tests/test_repair_22_33_810.py::test_f49_mirror_corruption_identity_and_finality_refused[code]"
+reason = "ModuleNotFoundError: No module named 'Crypto'"
+source = "tools/qualification/paxeer-x/paid-web-contract.py:277"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.211]
+module_family = "paxeer-x"
+module = "tools/qualification/paxeer-x/tests/test_repair_22_33_810.py"
+test_name = "test_f49_mirror_corruption_identity_and_finality_refused[publisher]"
+outcome = "failed"
+case = "tools/qualification/paxeer-x/tests/test_repair_22_33_810.py::test_f49_mirror_corruption_identity_and_finality_refused[publisher]"
+reason = "ModuleNotFoundError: No module named 'Crypto'"
+source = "tools/qualification/paxeer-x/paid-web-contract.py:277"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.212]
+module_family = "paxeer-x"
+module = "tools/qualification/paxeer-x/tests/test_repair_22_33_810.py"
+test_name = "test_f49_mirror_corruption_identity_and_finality_refused[unfinalized]"
+outcome = "failed"
+case = "tools/qualification/paxeer-x/tests/test_repair_22_33_810.py::test_f49_mirror_corruption_identity_and_finality_refused[unfinalized]"
+reason = "ModuleNotFoundError: No module named 'Crypto'"
+source = "tools/qualification/paxeer-x/paid-web-contract.py:277"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.213]
+module_family = "paxeer-x"
+module = "tools/qualification/paxeer-x/tests/test_repair_22_33_810.py"
+test_name = "test_f49_mirror_corruption_identity_and_finality_refused[length]"
+outcome = "failed"
+case = "tools/qualification/paxeer-x/tests/test_repair_22_33_810.py::test_f49_mirror_corruption_identity_and_finality_refused[length]"
+reason = "ModuleNotFoundError: No module named 'Crypto'"
+source = "tools/qualification/paxeer-x/paid-web-contract.py:277"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.214]
+module_family = "paxeer-x"
+module = "tools/qualification/paxeer-x/tests/test_repair_22_33_810.py"
+test_name = "test_f49_mirror_corruption_identity_and_finality_refused[chunks]"
+outcome = "failed"
+case = "tools/qualification/paxeer-x/tests/test_repair_22_33_810.py::test_f49_mirror_corruption_identity_and_finality_refused[chunks]"
+reason = "ModuleNotFoundError: No module named 'Crypto'"
+source = "tools/qualification/paxeer-x/paid-web-contract.py:277"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.215]
+module_family = "paxeer-x"
+module = "tools/qualification/paxeer-x/tests/test_repair_22_33_810.py"
+test_name = "test_f49_mirror_corruption_identity_and_finality_refused[corrupt]"
+outcome = "failed"
+case = "tools/qualification/paxeer-x/tests/test_repair_22_33_810.py::test_f49_mirror_corruption_identity_and_finality_refused[corrupt]"
+reason = "ModuleNotFoundError: No module named 'Crypto'"
+source = "tools/qualification/paxeer-x/paid-web-contract.py:277"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.216]
+module_family = "paxeer-x"
+module = "tools/qualification/paxeer-x/tests/test_repair_22_33_810.py"
+test_name = "test_f49_mirror_corruption_identity_and_finality_refused[reorg]"
+outcome = "failed"
+case = "tools/qualification/paxeer-x/tests/test_repair_22_33_810.py::test_f49_mirror_corruption_identity_and_finality_refused[reorg]"
+reason = "ModuleNotFoundError: No module named 'Crypto'"
+source = "tools/qualification/paxeer-x/paid-web-contract.py:277"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.217]
+module_family = "paxeer-x"
+module = "tools/qualification/paxeer-x/tests/test_repair_22_33_810.py"
+test_name = "test_f49_independent_native_acquisition_refusals[divergent]"
+outcome = "failed"
+case = "tools/qualification/paxeer-x/tests/test_repair_22_33_810.py::test_f49_independent_native_acquisition_refusals[divergent]"
+reason = "ModuleNotFoundError: No module named 'Crypto'"
+source = "tools/qualification/paxeer-x/paid-web-contract.py:277"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.218]
+module_family = "paxeer-x"
+module = "tools/qualification/paxeer-x/tests/test_repair_22_33_810.py"
+test_name = "test_f49_independent_native_acquisition_refusals[signature]"
+outcome = "failed"
+case = "tools/qualification/paxeer-x/tests/test_repair_22_33_810.py::test_f49_independent_native_acquisition_refusals[signature]"
+reason = "ModuleNotFoundError: No module named 'Crypto'"
+source = "tools/qualification/paxeer-x/paid-web-contract.py:277"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.219]
+module_family = "paxeer-x"
+module = "tools/qualification/paxeer-x/tests/test_repair_22_33_810.py"
+test_name = "test_f49_independent_native_acquisition_refusals[uncommitted]"
+outcome = "failed"
+case = "tools/qualification/paxeer-x/tests/test_repair_22_33_810.py::test_f49_independent_native_acquisition_refusals[uncommitted]"
+reason = "ModuleNotFoundError: No module named 'Crypto'"
+source = "tools/qualification/paxeer-x/paid-web-contract.py:277"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.220]
+module_family = "paxeer-x"
+module = "tools/qualification/paxeer-x/tests/test_repair_22_33_810.py"
+test_name = "test_f49_independent_native_acquisition_refusals[wrong-block]"
+outcome = "failed"
+case = "tools/qualification/paxeer-x/tests/test_repair_22_33_810.py::test_f49_independent_native_acquisition_refusals[wrong-block]"
+reason = "ModuleNotFoundError: No module named 'Crypto'"
+source = "tools/qualification/paxeer-x/paid-web-contract.py:277"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.221]
+module_family = "paxeer-x"
+module = "tools/qualification/paxeer-x/tests/test_repair_22_33_810.py"
+test_name = "test_f49_independent_native_acquisition_refusals[head-behind]"
+outcome = "failed"
+case = "tools/qualification/paxeer-x/tests/test_repair_22_33_810.py::test_f49_independent_native_acquisition_refusals[head-behind]"
+reason = "ModuleNotFoundError: No module named 'Crypto'"
+source = "tools/qualification/paxeer-x/paid-web-contract.py:277"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.222]
+module_family = "paxeer-x"
+module = "tools/qualification/paxeer-x/tests/test_repair_22_33_810.py"
+test_name = "test_f49_independent_native_acquisition_refusals[wrong-genesis]"
+outcome = "failed"
+case = "tools/qualification/paxeer-x/tests/test_repair_22_33_810.py::test_f49_independent_native_acquisition_refusals[wrong-genesis]"
+reason = "ModuleNotFoundError: No module named 'Crypto'"
+source = "tools/qualification/paxeer-x/paid-web-contract.py:277"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.223]
+module_family = "paxeer-x"
+module = "tools/qualification/paxeer-x/tests/test_repair_22_33_810.py"
+test_name = "test_f50_negative_gateway_activation_never_publishes_success[programs-unavailable]"
+outcome = "failed"
+case = "tools/qualification/paxeer-x/tests/test_repair_22_33_810.py::test_f50_negative_gateway_activation_never_publishes_success[programs-unavailable]"
+reason = "ModuleNotFoundError: No module named 'Crypto'"
+source = "tools/qualification/paxeer-x/paid-web-contract.py:277"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.224]
+module_family = "paxeer-x"
+module = "tools/qualification/paxeer-x/tests/test_repair_22_33_810.py"
+test_name = "test_f50_negative_gateway_activation_never_publishes_success[gateway-id]"
+outcome = "failed"
+case = "tools/qualification/paxeer-x/tests/test_repair_22_33_810.py::test_f50_negative_gateway_activation_never_publishes_success[gateway-id]"
+reason = "ModuleNotFoundError: No module named 'Crypto'"
+source = "tools/qualification/paxeer-x/paid-web-contract.py:277"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.225]
+module_family = "paxeer-x"
+module = "tools/qualification/paxeer-x/tests/test_repair_22_33_810.py"
+test_name = "test_f50_negative_gateway_activation_never_publishes_success[wrong-address]"
+outcome = "failed"
+case = "tools/qualification/paxeer-x/tests/test_repair_22_33_810.py::test_f50_negative_gateway_activation_never_publishes_success[wrong-address]"
+reason = "ModuleNotFoundError: No module named 'Crypto'"
+source = "tools/qualification/paxeer-x/paid-web-contract.py:277"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.226]
+module_family = "paxeer-x"
+module = "tools/qualification/paxeer-x/tests/test_repair_22_33_810.py"
+test_name = "test_f50_negative_gateway_activation_never_publishes_success[uncommitted-receipt]"
+outcome = "failed"
+case = "tools/qualification/paxeer-x/tests/test_repair_22_33_810.py::test_f50_negative_gateway_activation_never_publishes_success[uncommitted-receipt]"
+reason = "ModuleNotFoundError: No module named 'Crypto'"
+source = "tools/qualification/paxeer-x/paid-web-contract.py:277"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.227]
+module_family = "paxeer-x"
+module = "tools/qualification/paxeer-x/tests/test_repair_22_33_810.py"
+test_name = "test_f48_qualify_restart_uses_current_native_and_registry_consumers"
+outcome = "failed"
+case = "tools/qualification/paxeer-x/tests/test_repair_22_33_810.py::test_f48_qualify_restart_uses_current_native_and_registry_consumers"
+reason = "ModuleNotFoundError: No module named 'Crypto'"
+source = "tools/qualification/paxeer-x/paid-web-contract.py:277"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.228]
+module_family = "paxeer-x"
+module = "tools/qualification/paxeer-x/tests/test_repair_22_33_860.py"
+test_name = "test_human_projection_finality"
+outcome = "failed"
+case = "tools/qualification/paxeer-x/tests/test_repair_22_33_860.py::test_human_projection_finality"
+reason = "ModuleNotFoundError: No module named 'Crypto'"
+source = "tools/qualification/paxeer-x/paid-web-contract.py:277"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.229]
+module_family = "paxeer-x"
+module = "tools/qualification/paxeer-x/tests/test_repair_22_33_860.py"
+test_name = "test_native_journey_history_recovery"
+outcome = "failed"
+case = "tools/qualification/paxeer-x/tests/test_repair_22_33_860.py::test_native_journey_history_recovery"
+reason = "ModuleNotFoundError: No module named 'Crypto'"
+source = "tools/qualification/paxeer-x/paid-web-contract.py:277"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.230]
+module_family = "paxeer-x"
+module = "tools/qualification/paxeer-x/tests/test_repair_22_33_860.py"
+test_name = "test_funded_operator_committed_destination"
+outcome = "failed"
+case = "tools/qualification/paxeer-x/tests/test_repair_22_33_860.py::test_funded_operator_committed_destination"
+reason = "ModuleNotFoundError: No module named 'Crypto'"
+source = "tools/qualification/paxeer-x/paid-web-contract.py:277"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.231]
+module_family = "paxeer-x"
+module = "tools/qualification/paxeer-x/tests/test_repair_22_33_860.py"
+test_name = "test_connected_migration_destination[ethereum:1-20]"
+outcome = "failed"
+case = "tools/qualification/paxeer-x/tests/test_repair_22_33_860.py::test_connected_migration_destination[ethereum:1-20]"
+reason = "ModuleNotFoundError: No module named 'Crypto'"
+source = "tools/qualification/paxeer-x/paid-web-contract.py:277"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.232]
+module_family = "paxeer-x"
+module = "tools/qualification/paxeer-x/tests/test_repair_22_33_860.py"
+test_name = "test_connected_migration_destination[solana:6868686868686868686868686868686868686868686868686868686868686868-32]"
+outcome = "failed"
+case = "tools/qualification/paxeer-x/tests/test_repair_22_33_860.py::test_connected_migration_destination[solana:6868686868686868686868686868686868686868686868686868686868686868-32]"
+reason = "ModuleNotFoundError: No module named 'Crypto'"
+source = "tools/qualification/paxeer-x/paid-web-contract.py:277"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.233]
+module_family = "paxeer-x"
+module = "tools/qualification/paxeer-x/tests/test_repair_22_33_861.py"
+test_name = "test_movement_bank_proof_survives_stop_reopen"
+outcome = "failed"
+case = "tools/qualification/paxeer-x/tests/test_repair_22_33_861.py::test_movement_bank_proof_survives_stop_reopen"
+reason = "ModuleNotFoundError: No module named 'Crypto'"
+source = "tools/qualification/paxeer-x/paid-web-contract.py:277"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.234]
+module_family = "paxeer-x"
+module = "tools/qualification/paxeer-x/tests/test_repair_22_33_861.py"
+test_name = "test_movement_refuses_authority_substitution[chain_id-126]"
+outcome = "failed"
+case = "tools/qualification/paxeer-x/tests/test_repair_22_33_861.py::test_movement_refuses_authority_substitution[chain_id-126]"
+reason = "ModuleNotFoundError: No module named 'Crypto'"
+source = "tools/qualification/paxeer-x/paid-web-contract.py:277"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.235]
+module_family = "paxeer-x"
+module = "tools/qualification/paxeer-x/tests/test_repair_22_33_861.py"
+test_name = "test_movement_refuses_authority_substitution[module-custody]"
+outcome = "failed"
+case = "tools/qualification/paxeer-x/tests/test_repair_22_33_861.py::test_movement_refuses_authority_substitution[module-custody]"
+reason = "ModuleNotFoundError: No module named 'Crypto'"
+source = "tools/qualification/paxeer-x/paid-web-contract.py:277"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.236]
+module_family = "paxeer-x"
+module = "tools/qualification/paxeer-x/tests/test_repair_22_33_861.py"
+test_name = "test_movement_refuses_authority_substitution[asset-foreign]"
+outcome = "failed"
+case = "tools/qualification/paxeer-x/tests/test_repair_22_33_861.py::test_movement_refuses_authority_substitution[asset-foreign]"
+reason = "ModuleNotFoundError: No module named 'Crypto'"
+source = "tools/qualification/paxeer-x/paid-web-contract.py:277"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.237]
+module_family = "paxeer-x"
+module = "tools/qualification/paxeer-x/tests/test_repair_22_33_861.py"
+test_name = "test_movement_refuses_authority_substitution[genesis_hash-0xcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc]"
+outcome = "failed"
+case = "tools/qualification/paxeer-x/tests/test_repair_22_33_861.py::test_movement_refuses_authority_substitution[genesis_hash-0xcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc]"
+reason = "ModuleNotFoundError: No module named 'Crypto'"
+source = "tools/qualification/paxeer-x/paid-web-contract.py:277"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.238]
+module_family = "paxeer-x"
+module = "tools/qualification/paxeer-x/tests/test_repair_22_33_861.py"
+test_name = "test_movement_refuses_authority_substitution[owner-0x1111111111111111111111111111111111111111]"
+outcome = "failed"
+case = "tools/qualification/paxeer-x/tests/test_repair_22_33_861.py::test_movement_refuses_authority_substitution[owner-0x1111111111111111111111111111111111111111]"
+reason = "ModuleNotFoundError: No module named 'Crypto'"
+source = "tools/qualification/paxeer-x/paid-web-contract.py:277"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.239]
+module_family = "paxeer-x"
+module = "tools/qualification/paxeer-x/tests/test_repair_22_33_861.py"
+test_name = "test_movement_refuses_authority_substitution[receipt_keys-value5]"
+outcome = "failed"
+case = "tools/qualification/paxeer-x/tests/test_repair_22_33_861.py::test_movement_refuses_authority_substitution[receipt_keys-value5]"
+reason = "ModuleNotFoundError: No module named 'Crypto'"
+source = "tools/qualification/paxeer-x/paid-web-contract.py:277"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.240]
+module_family = "paxeer-x"
+module = "tools/qualification/paxeer-x/tests/test_repair_22_33_861.py"
+test_name = "test_movement_refuses_uncommitted_or_forged[block]"
+outcome = "failed"
+case = "tools/qualification/paxeer-x/tests/test_repair_22_33_861.py::test_movement_refuses_uncommitted_or_forged[block]"
+reason = "ModuleNotFoundError: No module named 'Crypto'"
+source = "tools/qualification/paxeer-x/paid-web-contract.py:277"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.241]
+module_family = "paxeer-x"
+module = "tools/qualification/paxeer-x/tests/test_repair_22_33_861.py"
+test_name = "test_movement_refuses_uncommitted_or_forged[non-owner]"
+outcome = "failed"
+case = "tools/qualification/paxeer-x/tests/test_repair_22_33_861.py::test_movement_refuses_uncommitted_or_forged[non-owner]"
+reason = "ModuleNotFoundError: No module named 'Crypto'"
+source = "tools/qualification/paxeer-x/paid-web-contract.py:277"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.242]
+module_family = "paxeer-x"
+module = "tools/qualification/paxeer-x/tests/test_repair_22_33_861.py"
+test_name = "test_ramp_committed_destination_and_recovery"
+outcome = "failed"
+case = "tools/qualification/paxeer-x/tests/test_repair_22_33_861.py::test_ramp_committed_destination_and_recovery"
+reason = "ModuleNotFoundError: No module named 'Crypto'"
+source = "tools/qualification/paxeer-x/paid-web-contract.py:277"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.243]
+module_family = "paxeer-x"
+module = "tools/qualification/paxeer-x/tests/test_repair_22_33_861.py"
+test_name = "test_ramp_refuses_wrong_order_bindings[order_digest]"
+outcome = "failed"
+case = "tools/qualification/paxeer-x/tests/test_repair_22_33_861.py::test_ramp_refuses_wrong_order_bindings[order_digest]"
+reason = "ModuleNotFoundError: No module named 'Crypto'"
+source = "tools/qualification/paxeer-x/paid-web-contract.py:277"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.244]
+module_family = "paxeer-x"
+module = "tools/qualification/paxeer-x/tests/test_repair_22_33_861.py"
+test_name = "test_ramp_refuses_wrong_order_bindings[from]"
+outcome = "failed"
+case = "tools/qualification/paxeer-x/tests/test_repair_22_33_861.py::test_ramp_refuses_wrong_order_bindings[from]"
+reason = "ModuleNotFoundError: No module named 'Crypto'"
+source = "tools/qualification/paxeer-x/paid-web-contract.py:277"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.245]
+module_family = "paxeer-x"
+module = "tools/qualification/paxeer-x/tests/test_repair_22_33_861.py"
+test_name = "test_ramp_refuses_wrong_order_bindings[to]"
+outcome = "failed"
+case = "tools/qualification/paxeer-x/tests/test_repair_22_33_861.py::test_ramp_refuses_wrong_order_bindings[to]"
+reason = "ModuleNotFoundError: No module named 'Crypto'"
+source = "tools/qualification/paxeer-x/paid-web-contract.py:277"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.246]
+module_family = "paxeer-x"
+module = "tools/qualification/paxeer-x/tests/test_repair_22_33_861.py"
+test_name = "test_ramp_refuses_wrong_order_bindings[asset]"
+outcome = "failed"
+case = "tools/qualification/paxeer-x/tests/test_repair_22_33_861.py::test_ramp_refuses_wrong_order_bindings[asset]"
+reason = "ModuleNotFoundError: No module named 'Crypto'"
+source = "tools/qualification/paxeer-x/paid-web-contract.py:277"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.247]
+module_family = "paxeer-x"
+module = "tools/qualification/paxeer-x/tests/test_repair_22_33_861.py"
+test_name = "test_ramp_refuses_wrong_order_bindings[amount]"
+outcome = "failed"
+case = "tools/qualification/paxeer-x/tests/test_repair_22_33_861.py::test_ramp_refuses_wrong_order_bindings[amount]"
+reason = "ModuleNotFoundError: No module named 'Crypto'"
+source = "tools/qualification/paxeer-x/paid-web-contract.py:277"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.248]
+module_family = "paxeer-x"
+module = "tools/qualification/paxeer-x/tests/test_repair_22_33_861.py"
+test_name = "test_ramp_refuses_wrong_order_bindings[expires_at]"
+outcome = "failed"
+case = "tools/qualification/paxeer-x/tests/test_repair_22_33_861.py::test_ramp_refuses_wrong_order_bindings[expires_at]"
+reason = "ModuleNotFoundError: No module named 'Crypto'"
+source = "tools/qualification/paxeer-x/paid-web-contract.py:277"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.249]
+module_family = "paxeer-x"
+module = "tools/qualification/paxeer-x/tests/test_repair_22_33_861.py"
+test_name = "test_ramp_refuses_forged_authority[log]"
+outcome = "failed"
+case = "tools/qualification/paxeer-x/tests/test_repair_22_33_861.py::test_ramp_refuses_forged_authority[log]"
+reason = "ModuleNotFoundError: No module named 'Crypto'"
+source = "tools/qualification/paxeer-x/paid-web-contract.py:277"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.250]
+module_family = "paxeer-x"
+module = "tools/qualification/paxeer-x/tests/test_repair_22_33_861.py"
+test_name = "test_ramp_refuses_forged_authority[standard-block]"
+outcome = "failed"
+case = "tools/qualification/paxeer-x/tests/test_repair_22_33_861.py::test_ramp_refuses_forged_authority[standard-block]"
+reason = "ModuleNotFoundError: No module named 'Crypto'"
+source = "tools/qualification/paxeer-x/paid-web-contract.py:277"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.251]
+module_family = "paxeer-x"
+module = "tools/qualification/paxeer-x/tests/test_repair_22_33_861.py"
+test_name = "test_movement_committed_proof_pin_refuses_changed_recovery"
+outcome = "failed"
+case = "tools/qualification/paxeer-x/tests/test_repair_22_33_861.py::test_movement_committed_proof_pin_refuses_changed_recovery"
+reason = "ModuleNotFoundError: No module named 'Crypto'"
+source = "tools/qualification/paxeer-x/paid-web-contract.py:277"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.252]
+module_family = "paxeer-x"
+module = "tools/qualification/paxeer-x/tests/test_repair_22_33_877.py"
+test_name = "test_f016_committed_receipt_transport_terminal_digest_and_all_four_roles"
+outcome = "failed"
+case = "tools/qualification/paxeer-x/tests/test_repair_22_33_877.py::test_f016_committed_receipt_transport_terminal_digest_and_all_four_roles"
+reason = "ModuleNotFoundError: No module named 'Crypto'"
+source = "tools/qualification/paxeer-x/paid-web-contract.py:277"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.253]
+module_family = "paxeer-x"
+module = "tools/qualification/paxeer-x/tests/test_repair_22_33_877.py"
+test_name = "test_f016_refuses_uncommitted_substituted_or_corrupt_evidence[block]"
+outcome = "failed"
+case = "tools/qualification/paxeer-x/tests/test_repair_22_33_877.py::test_f016_refuses_uncommitted_substituted_or_corrupt_evidence[block]"
+reason = "ModuleNotFoundError: No module named 'Crypto'"
+source = "tools/qualification/paxeer-x/paid-web-contract.py:277"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.254]
+module_family = "paxeer-x"
+module = "tools/qualification/paxeer-x/tests/test_repair_22_33_877.py"
+test_name = "test_f016_refuses_uncommitted_substituted_or_corrupt_evidence[transaction]"
+outcome = "failed"
+case = "tools/qualification/paxeer-x/tests/test_repair_22_33_877.py::test_f016_refuses_uncommitted_substituted_or_corrupt_evidence[transaction]"
+reason = "ModuleNotFoundError: No module named 'Crypto'"
+source = "tools/qualification/paxeer-x/paid-web-contract.py:277"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.255]
+module_family = "paxeer-x"
+module = "tools/qualification/paxeer-x/tests/test_repair_22_33_877.py"
+test_name = "test_f016_refuses_uncommitted_substituted_or_corrupt_evidence[return-data]"
+outcome = "failed"
+case = "tools/qualification/paxeer-x/tests/test_repair_22_33_877.py::test_f016_refuses_uncommitted_substituted_or_corrupt_evidence[return-data]"
+reason = "ModuleNotFoundError: No module named 'Crypto'"
+source = "tools/qualification/paxeer-x/paid-web-contract.py:277"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.256]
+module_family = "paxeer-x"
+module = "tools/qualification/paxeer-x/tests/test_repair_22_33_877.py"
+test_name = "test_f016_refuses_uncommitted_substituted_or_corrupt_evidence[logs]"
+outcome = "failed"
+case = "tools/qualification/paxeer-x/tests/test_repair_22_33_877.py::test_f016_refuses_uncommitted_substituted_or_corrupt_evidence[logs]"
+reason = "ModuleNotFoundError: No module named 'Crypto'"
+source = "tools/qualification/paxeer-x/paid-web-contract.py:277"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.257]
+module_family = "paxeer-x"
+module = "tools/qualification/paxeer-x/tests/test_repair_22_33_877.py"
+test_name = "test_f016_rejects_missing_role_and_changed_saved_capture"
+outcome = "failed"
+case = "tools/qualification/paxeer-x/tests/test_repair_22_33_877.py::test_f016_rejects_missing_role_and_changed_saved_capture"
+reason = "ModuleNotFoundError: No module named 'Crypto'"
+source = "tools/qualification/paxeer-x/paid-web-contract.py:277"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[baseline.family.root]
+revision_ref = "qualification.verify-1.revision"
+owner_task = "22.31.623"
+failed = 8
+errors = 0
+modules = ["tools/qualification/test_beta_driver.py", "tools/qualification/test_native_program_human_peer.py", "tools/qualification/test_release_runner.py", "tools/qualification/test_retired_callers_1.py", "tools/qualification/test_retired_callers_4.py", "tools/qualification/test_service_catalogue_2.py", "tools/qualification/test_service_catalogue_3.py"]
+entries = ["failure.258", "failure.259", "failure.260", "failure.261", "failure.262", "failure.263", "failure.264", "failure.265"]
+
+[failure.258]
+module_family = "root"
+module = "tools/qualification/test_beta_driver.py"
+test_name = "BetaDriverTests::test_adoption_inventory_executes_against_the_local_paxd_stack"
+outcome = "failed"
+case = "tools/qualification/test_beta_driver.py::BetaDriverTests::test_adoption_inventory_executes_against_the_local_paxd_stack"
+reason = "AssertionError: False is not True"
+source = "tools/qualification/test_beta_driver.py:256"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.259]
+module_family = "root"
+module = "tools/qualification/test_beta_driver.py"
+test_name = "BetaDriverTests::test_multichain_inventory_reports_absent_infrastructure_as_failed"
+outcome = "failed"
+case = "tools/qualification/test_beta_driver.py::BetaDriverTests::test_multichain_inventory_reports_absent_infrastructure_as_failed"
+reason = "AssertionError: False is not True"
+source = "tools/qualification/test_beta_driver.py:256"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.260]
+module_family = "root"
+module = "tools/qualification/test_native_program_human_peer.py"
+test_name = "test_build_lists_both_targets"
+outcome = "failed"
+case = "tools/qualification/test_native_program_human_peer.py::test_build_lists_both_targets"
+reason = "AttributeError: module 'native_program_human_peer' has no attribute 'build_command'. Did you mean: 'build_contract'?"
+source = "tools/qualification/test_native_program_human_peer.py:17"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.261]
+module_family = "root"
+module = "tools/qualification/test_release_runner.py"
+test_name = "ReleaseRunnerTests::test_evidence_artifacts_cannot_escape_the_gate_directory"
+outcome = "failed"
+case = "tools/qualification/test_release_runner.py::ReleaseRunnerTests::test_evidence_artifacts_cannot_escape_the_gate_directory"
+reason = "AssertionError: \"escapes its evidence root\" does not match \"human-qualify-fabrication requires one merged node, agentd and human_service endpoint inventory\""
+source = "tools/qualification/test_release_runner.py:353"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.262]
+module_family = "root"
+module = "tools/qualification/test_retired_callers_1.py"
+test_name = "RetiredCallers1Test::test_producers_name_no_retired_construct"
+outcome = "failed"
+case = "tools/qualification/test_retired_callers_1.py::RetiredCallers1Test::test_producers_name_no_retired_construct"
+reason = "AssertionError: 2 != 0 : retired-callers: refusal: path filter has no tracked files: tools/qualification/paxeer-x/arbiter-admission.py"
+source = "tools/qualification/test_retired_callers_1.py:36"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.263]
+module_family = "root"
+module = "tools/qualification/test_retired_callers_4.py"
+test_name = "RetiredCallers4Test::test_producers_name_no_retired_construct"
+outcome = "failed"
+case = "tools/qualification/test_retired_callers_4.py::RetiredCallers4Test::test_producers_name_no_retired_construct"
+reason = "AssertionError: 2 != 0 : retired-callers: refusal: path filter has no tracked files: tools/qualification/paxeer-x/program-replay-record.py"
+source = "tools/qualification/test_retired_callers_4.py:29"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.264]
+module_family = "root"
+module = "tools/qualification/test_service_catalogue_2.py"
+test_name = "ServiceCatalogueReaders2Test::test_producers_load_existing_catalogue"
+outcome = "failed"
+case = "tools/qualification/test_service_catalogue_2.py::ServiceCatalogueReaders2Test::test_producers_load_existing_catalogue"
+reason = "AttributeError: module 'human_deposit_initial_response' has no attribute 'SERVICE_CATALOGUE'"
+source = "tools/qualification/test_service_catalogue_2.py:32"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.265]
+module_family = "root"
+module = "tools/qualification/test_service_catalogue_3.py"
+test_name = "ServiceCatalogueReaders3Test::test_producers_load_existing_catalogue"
+outcome = "failed"
+case = "tools/qualification/test_service_catalogue_3.py::ServiceCatalogueReaders3Test::test_producers_load_existing_catalogue"
+reason = "AttributeError: module 'service_catalogue_producer_1' has no attribute 'SERVICE_CATALOGUE'"
+source = "tools/qualification/test_service_catalogue_3.py:48"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[baseline.family.tests]
+revision_ref = "qualification.verify-1.revision"
+owner_task = "22.31.623"
+failed = 2
+errors = 1
+modules = ["tools/qualification/tests/test_repair_22_33_809.py", "tools/qualification/tests/test_requested_inputs_removed.py"]
+entries = ["failure.266", "failure.267", "failure.268"]
+
+[failure.266]
+module_family = "tests"
+module = "tools/qualification/tests/test_requested_inputs_removed.py"
+test_name = "test_no_digest_of_deleted_node_tests"
+outcome = "failed"
+case = "tools/qualification/tests/test_requested_inputs_removed.py::test_no_digest_of_deleted_node_tests"
+reason = "assert 'services/platform/hosted/agent-boundary/src' in '#!/usr/bin/env python3\\n\"\"\"Qualify account upgrades, winddown and recovery on an owned merged paxd.\\n\\nThe fixture su...esult.json\\'), flush=True)\\n return result[\\'exit_code\\']\\n\\n\\nif __name__ == \\'__main__\\':\\n sys.exit(main())\\n'"
+source = "tools/qualification/tests/test_requested_inputs_removed.py:31"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.267]
+module_family = "tests"
+module = "tools/qualification/tests/test_requested_inputs_removed.py"
+test_name = "test_custody_profile_omits_owner_custody"
+outcome = "failed"
+case = "tools/qualification/tests/test_requested_inputs_removed.py::test_custody_profile_omits_owner_custody"
+reason = "assert 'layerx-human-movement-provider' in '#!/usr/bin/env python3\\n\"\"\"Qualify merged bank movement authority and immutable committed evidence pins.\"\"\"\\nimport a...n print(json.dumps({\\'status\\': \\'refused\\', \\'exit_code\\': 2, \\'reason\\': str(error)}))\\n sys.exit(2)\\n'"
+source = "tools/qualification/tests/test_requested_inputs_removed.py:41"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."
+
+[failure.268]
+module_family = "tests"
+module = "tools/qualification/tests/test_repair_22_33_809.py"
+test_name = "test_f45_verification_fails_closed[native-wrapper]"
+outcome = "error"
+case = "tools/qualification/tests/test_repair_22_33_809.py::test_f45_verification_fails_closed[native-wrapper]"
+reason = "AssertionError: [AssertionError(\"assert b'\\\\n\\\\xb8\\\\x03\\\\n\\\\xb5\\\\x03\\\\n+/paxprotocol.paxchain.evm.MsgEVMTransaction\\\\x12\\\\x85\\\\x03\\\\n\\\\x82\\\\x03\\\\n&/paxprotocol.paxchain.eth...8b \\\\x02M\\\\xe6\\\\xf5\\\\x08C\\\\xe0\\\\xa2)\\\\x0b\\\\x84 \\\\x0c\\\\\\\\\\\\x87\\\\xd0\\\\xd4c\\\\x89\\\\x85\\\\xbf\\\\xce\\\\xe1\\\\xbc\\\\xdf\\\\xc7]\\\\x8akz\\\\xceU\\\\x12\\\\x02\\\\x12\\..."
+source = "tools/qualification/tests/test_repair_22_33_809.py:199"
+disposition = "Pre-existing failure outside the allowed scope; recorded, not chased."

@@ -1,0 +1,110 @@
+[repair.22.31.515]
+producer_commit = "9c3cd0e74db00863bf3cba64638a7290bfbb2c17"
+producer_task = "22.31.495"
+decision = "2560"
+criterion = "22998.1"
+base_revision = "9bdb4cbbda4f785f9d500da6dea5bd61289a0b12"
+production_time = "layerx-agentd/src/human_runtime.rs: approval_get and approval_decide sample the operations Clock with a one-second transport budget, reject a zero generation, and convert reading.unix_seconds() to TimestampSeconds."
+qualification_revision = "The exact candidate revision is recorded with command, exit and private log location in /out/run/gates.jsonl by hf-build and hf-done; the final response copies the last gate evidence."
+build_command = "cargo build --locked --manifest-path services/human/crates/layerx-human-service/Cargo.toml --tests && cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-mcp --tests"
+verify_command = "cargo test --locked --manifest-path services/human/crates/layerx-human-service/Cargo.toml --test approvals --test decide && cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-mcp --test repair_22_33_1551"
+
+[consumer.human_approvals]
+path = "services/human/crates/layerx-human-service/tests/approvals.rs"
+sites = ["AgentdBoundary::approval / ApprovalService::get", "real_agent_holds_drive_live_inbox_counts_notifications_and_honest_lifecycle / approve DecisionRequest", "real_agent_holds_drive_live_inbox_counts_notifications_and_honest_lifecycle / reject DecisionRequest", "timed hold creation"]
+time_source = "All sites sample the same boundary Clock through decision_time, using the production conversion and generation check. The existing StepClock starts at the inbox timeline's ten-second origin; sequence bounds and wall-clock seconds remain separate. Legacy hold calls use hold_at with ApprovalSequence and the sampled creation time."
+
+[consumer.human_decide]
+path = "services/human/crates/layerx-human-service/tests/decide.rs"
+sites = ["AgentdDecisions::normalize / ApprovalService::get", "AgentdDecisions::approval / ApprovalService::get", "AgentdDecisions::reject / ApprovalService::get", "AgentdDecisions::approve / DecisionRequest", "AgentdDecisions::reject / DecisionRequest", "timed hold creation"]
+time_source = "The shared boundary Clock uses the existing StepClock at the session timeline's 100-second origin. decision_time samples Clock and converts unix_seconds as production does. Each decision shares its sample with its pre-read and normalization read. hold_at records creation using the same Clock."
+
+[consumer.mcp_web_repair]
+path = "services/agent/crates/layerx-mcp/tests/repair_22_33_1551.rs"
+sites = ["approve / DecisionRequest"]
+time_source = "Retained from 22.31.527: TestClock::new(HEIGHT) implements the production Clock interface and is passed to WebAuthority; approve samples that same deterministic timeline with a one-second budget and converts unix_seconds to TimestampSeconds."
+
+[consumer.mcp_major_two]
+path = "services/agent/crates/layerx-mcp/tests/session_tools_major_two.rs"
+sites = ["approval_get_tool_reports_tx_hash_and_rung / DecisionRequest", "approval_get_tool_reports_tx_hash_and_rung / approval.get arguments"]
+time_source = "Retained from 22.31.527: TestClock supplies the require boundary at 50 seconds and the decision and catalogue lookup at 60 seconds; the decision samples Clock with a one-second budget and the lookup serializes that timeline as decimal current_time."
+
+[consumer.mcp_session_transport]
+path = "services/agent/crates/layerx-mcp/tests/support/session_transport.rs"
+sites = ["SessionOwners::execute / ApprovalService::list", "SessionOwners::execute / approve or reject DecisionRequest", "all_session_tools_through_daemon_and_mcp / approval.get arguments"]
+time_source = "Retained from 22.31.527: TestClock::new(HEIGHT) supplies explicit Unix seconds to list and decisions on the held-approval timeline; the catalogue lookup serializes TestClock::new(50).now() as current_time. Clock errors fail the proof."
+
+[consumer.human_asset_domain_repair]
+path = "services/human/crates/layerx-human-service/tests/repair_22_31_159.rs"
+sites = ["AgentdBoundary::approval / ApprovalService::get", "round_trip / ApprovalService::get", "round_trip / timed hold creation"]
+time_source = "Retained from 22.31.527: both reads and hold_at creation sample the boundary-owned StepClock at the event timeline's ten-second origin, with the production Clock-to-Unix-seconds conversion and boundary generation check."
+discovery = "The all-test-target build exposed two more callers of the producer signature; this test lies within the authorized Human tests directory."
+
+[qualification.build_1]
+revision = "5285f81b73c92c2c61ecb397fac524466108cd8c"
+command = "cargo build --locked --manifest-path services/human/crates/layerx-human-service/Cargo.toml --tests && cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-mcp --tests"
+exit = 101
+log = "/out/logs/build-1.log"
+observed = "Two E0061 diagnostics in repair_22_31_159.rs identified additional get consumers missing explicit time."
+repair = "Thread the boundary Clock through both consumers and record creation time with the timed hold API; retain every existing assertion."
+
+[consumer.human_decide_nonces]
+path = "services/human/crates/layerx-human-service/tests/decide_nonces.rs"
+sites = ["AgentdDecisions::approval / ApprovalService::get", "AgentdDecisions::verified_budget_after / ApprovalService::get", "AgentdDecisions::approve / DecisionRequest", "AgentdDecisions::reject / DecisionRequest", "decide_at / approved hold get", "decide_at / unreleased hold get", "decide_at / timed hold creation"]
+time_source = "Retained from 22.31.527: the boundary owns the existing StepClock at the session timeline's 112-second origin for holds, decision requests and reads. All samples use the production Clock budget, Unix-seconds conversion, and boundary generation check; the nonce is never used as wall time."
+
+[consumer.mcp_page_bound_repair]
+path = "services/agent/crates/layerx-mcp/tests/repair_22_33_1552.rs"
+sites = ["OwnerTransport::consume / ApprovalService::list", "approval_page_bound_authenticated_transport / invalid-page ApprovalService::list"]
+time_source = "Retained from 22.31.527: both list consumers receive TimestampSeconds from DeterministicClock::new(HEIGHT).now(), on the held-approval timeline. The schema maximum and invalid-page assertions are unchanged."
+
+[qualification.build_2]
+revision = "71e44abb186b7043c79ab076a558cb3e3807c012"
+command = "cargo build --locked --manifest-path services/human/crates/layerx-human-service/Cargo.toml --tests && cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-mcp --tests"
+exit = 101
+log = "/out/logs/build-2.log"
+observed = "Six E0061/E0063 diagnostics in decide_nonces.rs identified additional approval consumers missing explicit time."
+repair = "Thread the shared Clock through those consumers and timed hold creation, and update the remaining two MCP list consumers found by the signature inventory."
+
+[repair.store_roots]
+gotcha = "3081"
+paths = ["services/human/crates/layerx-human-service/tests/approvals.rs", "services/human/crates/layerx-human-service/tests/decide.rs"]
+sites = ["real_agent_holds_drive_live_inbox_counts_notifications_and_honest_lifecycle / agent root", "real_agent_holds_drive_live_inbox_counts_notifications_and_honest_lifecycle / stream root", "digest_bound_decisions_converge_and_export_the_agent_outcome / agent root"]
+observed = "Pre-creating daemon store roots with default directory permissions makes ProtectedRoot::validate reject them; the prior attempt stopped at ApprovalExpiry::open."
+repair = "Let ApprovalExpiry::open and AgentStore::open create their own canonical owned directories with mode 0700. The production store validation and all lifecycle and decision assertions remain intact."
+qualification = "Attempt 2 records the exact candidate revision, command, exit and private evidence location in /out/run/gates.jsonl; hf-build and hf-done must qualify the same candidate."
+
+[qualification.attempt_2_verify]
+revision = "7fc3a6c6d62611025f293a9da4c935c7125053ce"
+command = "cg spec done 22.31.515 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The build and dependent-crate checks passed, but approvals.rs:343 failed its unchanged payload amount assertion because production Inbox::consume dispatches ApprovalWaiting with money: None; the verify command stopped before decide and MCP tests executed."
+assumption = "This pre-existing notification wiring conflict is already documented in src/approvals/repair_22_31_159.kvx and requires production changes outside this task's scope; retain the assertion and do not rerun the recorded failure."
+
+[repair.notification_binding]
+producer_commit = "0e88a62cab"
+producer_task = "22.31.159"
+gotcha = "3087"
+path = "services/human/crates/layerx-human-service/tests/approvals.rs"
+site = "real_agent_holds_drive_live_inbox_counts_notifications_and_honest_lifecycle / notification deliveries"
+repair = "As directed by the attempt 3 continuation ruling, load ApprovalNotification::for_delivery for every delivery and assert its exact amount is 25 and its asset equals the inbox item's asset. Retain the deep-link, agent-id and all other lifecycle assertions."
+prior_assumption = "The attempt 3 ruling supersedes the attempt 2 assumption: consume the persisted binding now; payload money wiring belongs to 22.31.523 (decision 2569)."
+qualification = "The exact build and verification candidate revision, command, exit code and private evidence location are recorded by hf-build and hf-done in /out/run/gates.jsonl; the final response copies the last gate evidence without changing the qualified candidate."
+
+[qualification.attempt_3_verify]
+revision = "6c3ef7aae07d46ab09bd9fc06a93e03e7b696135"
+command = "cg spec done 22.31.515 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The all-target build, dependent-crate check and both Human suites passed; five MCP repair tests failed because production tools/web/approval_state.rs:302 calls the retired hold_reserved entry, which returns ClockRequired before publishing any hold."
+assumption = "Migrating the production web approval producer is outside this task's tests-only scope; preserve every MCP assertion and record this pre-existing failure without rerunning it, as instructed."
+
+
+[repair.attempt_4_integration]
+prerequisite_commit = "7465f9caecf8b4a2e5be33b84e9ff2c51de96fa9"
+prerequisite_task = "22.31.527"
+merge_revision = "9bdb4cbbda4f785f9d500da6dea5bd61289a0b12"
+observed = "The carried seed conflicted with the prerequisite's shared web_hold module, explicit MCP clocks and already ported Human nonce and asset-domain boundaries."
+repair = "Keep the prerequisite's MCP and already ported Human files, remove the duplicated seed declarations, and retain the Human approvals and decide changes that sample the boundary Clock, create protected roots through the stores, and verify notification bindings."
+qualification = "Run only hf-build and hf-done; their final evidence lines identify the qualified candidate, exact command, exit code and private log path without changing the candidate after qualification."

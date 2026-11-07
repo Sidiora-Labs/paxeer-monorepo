@@ -982,7 +982,7 @@ def self_test_root_fixture():
         "payer_account": "22" * 32,
         "payee_account": "44" * 32,
         "asset": "55" * 32,
-        "audience": "https://layerx-interop-gateway.layerx-testnet.svc.cluster.local:9443",
+        "audience": "https://interop-gateway.example.internal:9443",
         "currency": "LXT",
         "asset_decimals": 18,
     }

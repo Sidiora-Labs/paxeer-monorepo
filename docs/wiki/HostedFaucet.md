@@ -1,5 +1,7 @@
 # Hosted faucet
 
+Private-network only.
+
 The retained hosted faucet is for private or disposable networks. It has no
 public faucet hostname on Paxeer mainnet-beta and is not a general-use source
 of mainnet funds. An approved public allocation is an operator-arranged native
@@ -208,8 +210,9 @@ shared across the faucet replicas, not scoped to a single process.
 
 The faucet posts `funding_id`, `did`, `public_key`, and numeric `amount` to
 `LAYERX_TESTNET_FUNDING_URL` using the control-admin Bearer and the funding ID
-as the upstream idempotency key. The source manifest configures
-`https://layerx-testnet-admin.layerx-testnet.svc.cluster.local/admin/v1/testnet/fund`.
+as the upstream idempotency key. Set this URL to an operator-supplied private
+endpoint, for example
+`https://OPERATOR-CONTROL-ADMIN-ORIGIN/admin/v1/testnet/fund`.
 Control validates and proxies the command to core-admin.
 
 New core funding resolves the signer key's bound chain address and sends a
@@ -245,7 +248,7 @@ testnet deployment manifest.
 | `LAYERX_FAUCET_SERVICE_CLAIM_TOKEN_FILE` | Optional; `/run/layerx/gateway-faucet/token` in the manifest |
 | `LAYERX_TESTNET_FUNDING_URL` | HTTPS control-admin funding URL including path |
 | `LAYERX_TESTNET_ADMIN_TOKEN_FILE` | `/run/layerx/control-admin/token` |
-| `LAYERX_FAUCET_REDIS_URL` | `rediss://layerx-faucet-redis.layerx-testnet.svc.cluster.local:6379` |
+| `LAYERX_FAUCET_REDIS_URL` | Operator-supplied, for example `rediss://OPERATOR-FAUCET-REDIS:6379` |
 | `LAYERX_FAUCET_REDIS_USERNAME_FILE` | `/run/layerx/redis-auth/username` |
 | `LAYERX_FAUCET_REDIS_PASSWORD_FILE` | `/run/layerx/redis-auth/password` |
 | `LAYERX_FAUCET_IDENTITY_LIMIT` | `10000000` amount units per window |

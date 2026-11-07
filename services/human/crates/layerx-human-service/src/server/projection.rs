@@ -7,17 +7,6 @@ use super::agent_runtime::{
 use super::backend::ApiFailure;
 use crate::approvals::{AgentApprovalState, VerifiedBudgetAfter};
 
-impl super::HumanComponentServer {
-    #[must_use]
-    pub fn verification_level_name(rung: Rung) -> &'static str {
-        match rung {
-            Rung::Submitted => "unverified",
-            Rung::Receipted => "receipt-verified",
-            Rung::Committed => "checkpoint-finalised",
-        }
-    }
-}
-
 pub(super) fn verification(rung: Rung) -> &'static str {
     super::HumanComponentServer::verification_level_name(rung)
 }

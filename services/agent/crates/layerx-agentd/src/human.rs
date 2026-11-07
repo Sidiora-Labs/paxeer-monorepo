@@ -246,7 +246,7 @@ pub struct HumanNativeSendOwnerPreviewRequestV1 {
 pub struct HumanNativeSendOwnerPreviewV1 {
     pub canonical_bytes: Vec<u8>,
     pub signing_preimage: Vec<u8>,
-    pub purpose: layerx_agent_api::identity::NativeSendPurposeV1,
+    pub purpose: layerx_agent_api::identity::NativeSendPurposeV2,
     pub observed_head_sequence: u64,
     pub protocol_timestamp: u64,
     pub owner_public_key: [u8; 32],
@@ -1501,6 +1501,7 @@ pub enum HumanRefusal {
     ExportResponseTooLarge,
     ExportLevelUnattainable,
     Policy(crate::policy::PolicyDryRunRefusal),
+    ManagedAgent(crate::managed_agent::ManagedAgentCheck),
     BudgetCodec,
     BudgetExpired,
     BudgetStaleRevocation,
@@ -1534,6 +1535,7 @@ impl HumanRefusal {
             Self::ExportResponseTooLarge => "export.response_too_large",
             Self::ExportLevelUnattainable => "export.rung_unattainable",
             Self::Policy(refusal) => refusal.code(),
+            Self::ManagedAgent(check) => check.reason(),
             Self::BudgetCodec => "budget.codec",
             Self::BudgetExpired => "budget.expired",
             Self::BudgetStaleRevocation => "budget.stale_revocation",
@@ -1578,6 +1580,7 @@ impl HumanRefusal {
             | Self::ExportLevelUnattainable => ErrorClass::VerificationFailure,
             Self::ExportResponseTooLarge
             | Self::Policy(_)
+            | Self::ManagedAgent(_)
             | Self::PolicyContextMismatch(_)
             | Self::SessionBindingMissing
             | Self::SessionExpiryBindingMissing

@@ -25,7 +25,7 @@ proof of a successful committed transaction. See the [network overview](../index
 
 The active requirements, task state, and each task's bounded verification command
 are in
-[`spec/layerx-merge/spec.kvx`](https://github.com/Sidiora-Labs/Paxeer-X-Network/blob/main/spec/layerx-merge/spec.kvx).
+[`spec/layerx-merge/spec.kvx`](https://github.com/Sidiora-Labs/paxeer-monorepo/blob/main/spec/layerx-merge/spec.kvx).
 Use that task's declared gates for task qualification. Aggregate, sanitizer,
 cluster, and browser matrices belong to release qualification when required;
 the commands below are a catalogue, not a requirement to run every suite for

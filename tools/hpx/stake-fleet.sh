@@ -1,28 +1,25 @@
 #!/usr/bin/env bash
 # =============================================================================
-# stake-fleet.sh — Paxeer (HyperPax) fleet validator bootstrap orchestrator
+# stake-fleet.sh — fund operator wallets and bootstrap Paxeer fleet validators.
 #
-# Exactly the flow Andrew specced:
-#   1. fund-wallet : generate a NEW clean seed (funding wallet "W"), move the
-#                    81M PAX from the founder wallet into W (cosmos-spendable).
-#   2. keygen      : across ALL servers, run `hpx validator keygen` and collect
-#                    every operator (pax1) address.
-#   3. fund        : from W, fund each operator wallet with its PAX share.
-#   4. stake-cmds  : print the EXACT per-server commands for Andrew to run
-#                    (restart node as validator + create-validator).
+# Commands:
+#   fund-wallet : prepare funding wallet W and transfer the founder balance,
+#                 retaining the configured fee buffer.
+#   keygen      : collect and verify every intended host's operator identity.
+#   fund        : distribute W's balance using a persistent allocation journal.
+#   stake-cmds  : print per-host validator restart and staking commands.
+#   stake       : drive the ratio-aware staking ramp across the fleet.
+#   status      : show wallet balances and on-chain validator state.
 #
-# WHY an association step exists (the one non-obvious bit):
-#   The founder's 81M is EVM-native. On this Pax fork, native funds received by
-#   an UN-associated EVM address live in the bank under a "cast" address, NOT the
-#   key's cosmos (pax1) address — so a cosmos tx can't spend them yet. We call
-#   `paxd tx evm associate-address` ONCE on the founder key (gas paid from its
-#   EVM balance); Pax then migrates the balance to the canonical pax1. After that
-#   everything is pure cosmos `bank send` (recipients need NO association).
+# Association makes the founder's EVM-native funds spendable from its canonical
+# pax1 address. `paxd tx evm associate-address --from` uses the protected keyring
+# and pays gas from the EVM balance; subsequent funding uses Cosmos bank sends.
 #
-# SAFETY:
-#   * Money phases are DRY-RUN by default. Add --yes (or CONFIRM=YES) to broadcast.
-#   * Every step verifies balances and is idempotent (safe to re-run).
-#   * This script MOVES 81M PAX and SSHes across the fleet — read it before running.
+# Set HPX_RPC and HPX_EVM_RPC to the intended network before invoking a command.
+# Money phases default to dry-run; --yes or CONFIRM=YES enables broadcasting.
+# Key collection contacts the fleet over SSH. Preserve HPX_WORKDIR (default:
+# .fleet beside this script), including its roster, keyring and payment journal,
+# across retries. Resolve incomplete identities before funding or staking.
 # =============================================================================
 set -uo pipefail
 
@@ -56,8 +53,8 @@ readonly W_ADDR_FILE="${WORKDIR}/funding-wallet.addr"
 
 # ── Chain / endpoints (override via env) ──────────────────────────────────────
 readonly CHAIN_ID="${HPX_CHAIN_ID:-hyperpax_125-1}"
-readonly RPC="${HPX_RPC:-tcp://31.220.74.140:26657}"
-readonly EVM_RPC="${HPX_EVM_RPC:-http://31.220.74.140:8545}"
+readonly RPC="${HPX_RPC:?HPX_RPC is required}"
+readonly EVM_RPC="${HPX_EVM_RPC:?HPX_EVM_RPC is required}"
 readonly DENOM="uhpx"
 readonly UHPX_PER_PAX=1000000                 # 1 PAX = 10^6 uhpx (6-dec cosmos base)
 readonly GAS_PRICES="${HPX_GAS_PRICES:-0.1uhpx}"
@@ -245,7 +242,7 @@ phase_fund(){
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
-# PHASE 4: stake-cmds — print the exact commands for Andrew to run per server
+# PHASE 4: stake-cmds — print the operator commands to run per server
 # ─────────────────────────────────────────────────────────────────────────────
 phase_stake_cmds(){
     preflight

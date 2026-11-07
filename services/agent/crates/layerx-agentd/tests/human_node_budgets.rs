@@ -76,7 +76,11 @@ fn serve(exchanges: Vec<(&'static str, Value)>) -> (String, JoinHandle<Vec<Value
             let answer =
                 json!({"jsonrpc": "2.0", "id": request["id"], "result": result}).to_string();
             let mut stream = reader.into_inner();
-            must(write!(stream, "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{answer}", answer.len()));
+            must(write!(
+                stream,
+                "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{answer}",
+                answer.len()
+            ));
             must(stream.flush());
             requests.push(request);
         }
@@ -90,6 +94,7 @@ fn rpc_hex(bytes: &[u8]) -> String {
 }
 
 const HEIGHT: u64 = 150;
+const PAYMENT_DENOM: &str = "upax";
 const KEY_ID: [u8; 32] = [1; 32];
 
 fn sha256(bytes: &[u8]) -> [u8; 32] {
@@ -158,7 +163,7 @@ fn encoded_receipt(
     must(encoder.u32(1));
     must(encoder.u32(0));
     must(encoder.u8(2));
-    must(encoder.bytes(&sha256(b"upax"), 32));
+    must(encoder.bytes(&sha256(PAYMENT_DENOM.as_bytes()), 32));
     must(encoder.u128(1));
     must(encoder.bytes(&from, 32));
     must(encoder.u128(21_002));
@@ -201,11 +206,11 @@ fn signed_receipt(
             "topics": [rpc_hex(&transaction_hash(b"BudgetCreated(bytes32,bytes32,uint128)")), rpc_hex(&identity().budget_id)],
             "data": rpc_hex(&creation_log_data()), "logIndex": "0x0"}],
         "gasUsed": "0x5208", "cumulativeGasUsed": "0xa410", "effectiveGasPrice": "0x1",
-        "feeDenom": "upax", "feeAmount": "0x5208", "sponsor": rpc_hex(&[0; 20]),
+        "paymentDenom": "upax", "feeDenom": "upax", "feeAmount": "0x5208", "sponsor": rpc_hex(&[0; 20]),
         "from": rpc_hex(&sender), "to": rpc_hex(&layerx_agentd::prepare::evm::PrecompileTarget::Pay.address()), "contractAddress": rpc_hex(&[0; 20]),
         "vmError": if success { "" } else { "execution reverted" },
         "keyId": rpc_hex(&KEY_ID), "receipt": rpc_hex(&bytes),
-        "signingKey": rpc_hex(&signer.verifying_key().to_bytes())
+        "signingKey": rpc_hex(&key.public_key)
     });
     (view, bytes, key)
 }
@@ -500,4 +505,53 @@ fn budget_pipeline_submits_raw_transaction_and_reads_get_budget() {
         requests[9]["params"],
         json!([{"to": rpc_hex(&layerx_agentd::prepare::evm::PrecompileTarget::Pay.address()), "data": rpc_hex(&calldata)}, "0x96"])
     );
+}
+
+#[test]
+fn receipt_payment_denomination_is_required_and_bound_to_signed_asset() {
+    use layerx_agentd::node_rpc::NodeRpcError;
+    use layerx_client::sequencer::{SequencerError, SequencerReceipt};
+    let raw = signed_call(&request(), &identity());
+    let (call, signature) = must(decode_signed(&raw));
+    let sender = must(recover_sender(&call, &signature));
+    let hash = transaction_hash(&raw);
+    let (view, bytes, _) = signed_receipt(hash, sender, true);
+    let decoded = must(layerx_wire::receipt::decode(&bytes));
+    assert_eq!(
+        decoded.protocol().unwrap().asset(),
+        sha256(PAYMENT_DENOM.as_bytes())
+    );
+    for alteration in ["unchanged", "missing", "changed"] {
+        let mut response = view.clone();
+        match alteration {
+            "missing" => {
+                response.as_object_mut().unwrap().remove("paymentDenom");
+            }
+            "changed" => response["paymentDenom"] = json!("another-denom"),
+            _ => {}
+        }
+        let (url, server) = serve(vec![
+            ("eth_chainId", json!("0x7d")),
+            ("pax_sequencerReceipt", response),
+        ]);
+        let node = must(NodeRpc::connect(&NodeRpcConfig {
+            url,
+            chain_id: 125,
+            deadline: Duration::from_secs(2),
+        }));
+        let result = node.sequencer_receipt(&hash);
+        if alteration == "unchanged" {
+            let Some(SequencerReceipt::Committed { receipt, .. }) = must(result) else {
+                panic!("committed receipt required");
+            };
+            assert_eq!(receipt.receipt, bytes);
+            assert_eq!(receipt.payment_denom, PAYMENT_DENOM);
+        } else {
+            assert_eq!(
+                result,
+                Err(NodeRpcError::Sequencer(SequencerError::Malformed))
+            );
+        }
+        assert_eq!(must(server.join())[1]["params"], json!([rpc_hex(&hash)]));
+    }
 }

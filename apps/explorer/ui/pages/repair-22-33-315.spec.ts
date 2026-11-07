@@ -112,7 +112,7 @@ function queryTree(...pages: Array<React.ReactElement>) {
 function expectSupply(container: HTMLElement, chain: ClusterChainConfig, supply: string) {
   expect(client.getQueryData<TokenInfo>(tokenKey(chain))?.total_supply).toBe(supply);
   const displayed = new BigNumber(supply).shiftedBy(-Number(tokenInfo.decimals)).dp(3).toFormat();
-  expect(container.querySelector(`[data-chain="${ chain.id }"] [data-token-card="Overview"]`)?.textContent)
+  expect(container.querySelector(`[data-chain="${ chain.id }"] [data-token-card="TOKEN INFO"]`)?.textContent)
     .toContain(`${ displayed } ${ tokenInfo.symbol }`);
 }
 
@@ -194,7 +194,7 @@ describe('repair 22.33.315 token-chain-cache-key', () => {
     sockets = [];
     pendingResponse = undefined;
     routerState.pathname = '/chain/[chain_slug]/token/[hash]';
-    routerState.query = { hash: tokenInfo.address_hash, tab: 'token_transfers', chain_slug: chainA.slug };
+    routerState.query = { hash: tokenInfo.address_hash, tab: 'metadata', chain_slug: chainA.slug };
     for (const chain of [ chainA, chainB ]) {
       tokenDetailFixtures.forEach((value, path) => peer.documents.set(`/${ chain.slug }${ path }`, value));
       peer.documents.set(`/${ chain.slug }${ tokenPath }`, chain === chainA ? tokenA : tokenB);

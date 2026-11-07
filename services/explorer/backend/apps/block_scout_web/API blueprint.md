@@ -15,7 +15,7 @@ when its block is committed. These account APIs store explorer preferences,
 not chain accounts or finality evidence. Native identities and indexed chain
 APIs are described in the [backend overview](../../README.md#paxeer-x-additions).
 The [explorer overview](../../../README.md) covers deployment and node URLs,
-and [UPSTREAM.md](../../../UPSTREAM.md) records the import provenance.
+and [UPSTREAM.md](../../../../../docs/explorer/UPSTREAM.md) records the import provenance.
 
 Routes come from
 [`AccountRouter`](lib/block_scout_web/routers/account_router.ex), mounted by

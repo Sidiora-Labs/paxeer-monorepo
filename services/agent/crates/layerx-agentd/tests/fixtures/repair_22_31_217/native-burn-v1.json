@@ -1,0 +1,23 @@
+{
+  "schema": "layerx.native-burn-peer.v1",
+  "producer": "Budget native preparation, signed EIP-1559 codec and node module-12 receipt encoder run in-process by the integration test; the loopback peer commits Transfer kind 11 and the production approval store retains the exact queued bytes.",
+  "construct": {
+    "target": "ledger",
+    "signature": "burn(bytes32,bytes32,uint128)",
+    "arguments": [
+      {
+        "word": "0404040404040404040404040404040404040404040404040404040404040404"
+      },
+      {
+        "word": "65d00f9301b32ef5df513f79e8fd673995c0fab3eabf78f30122d36c2f5d4d39"
+      },
+      {
+        "word": "0000000000000000000000000000000000000000000000000000000000000007"
+      }
+    ]
+  },
+  "receipt_producer": "support/budget_native_capture.rs::configure",
+  "store_producer": "support/budget_native_capture.rs::retain",
+  "native_fee_denom": "uhpx",
+  "parameter_binding": "The asset word is derived from native_fee_denom by the production fee-policy keccak rule; all remaining construct words must match exactly."
+}

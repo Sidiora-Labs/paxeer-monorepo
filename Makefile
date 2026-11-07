@@ -249,7 +249,7 @@ $(BUILD_DIR)/tests/lxp_test_arena_asan: tests/protocol/lxp_test_arena.c \
 test-arena: $(BUILD_DIR)/tests/lxp_test_arena \
 		$(BUILD_DIR)/tests/lxp_test_arena_asan
 	$(BUILD_DIR)/tests/lxp_test_arena
-	ASAN_OPTIONS=abort_on_error=1:detect_leaks=1:poison_heap=1 \
+	env -u LD_PRELOAD ASAN_OPTIONS=abort_on_error=1:detect_leaks=1:poison_heap=1 \
 		$(BUILD_DIR)/tests/lxp_test_arena_asan
 
 $(BUILD_DIR)/tests/lxp_test_harness: tests/lxp_test_harness.c \
@@ -266,6 +266,12 @@ test-tests-python:
 	python3 -m pytest tests/ci/test_real_node_build_ownership.py \
 		tests/ci/test_runner_routing_container_runtime.py \
 		tests/test_lxgb_producers.py tests/test_beta_withdrawal_genesis.py tests/ci
+
+.PHONY: test-python-suites
+test-python-suites: layerx-genesis-build layerx-module-registry $(BUILD_DIR)/tests/explorer_fixture
+	PYTHONPATH=$(CURDIR)/services/agent/sdk/python \
+		LAYERX_TEST_BUILD_DIR="$(abspath $(BUILD_DIR))" \
+		python3 tests/ci/run_python_suites.py
 
 list-tests: $(BUILD_DIR)/tests/lxp_test_harness
 	$(BUILD_DIR)/tests/lxp_test_harness --list
@@ -1198,7 +1204,7 @@ qualify-fuzz-run: $(BUILD_DIR)/tests/test_fuzz_smoke
 		"$(FUZZ_QUAL_ITERATIONS)"
 
 qualify-fuzz: qualify-fuzz-run
-	ASAN_OPTIONS=abort_on_error=1:detect_leaks=1:strict_string_checks=1 \
+	env -u LD_PRELOAD ASAN_OPTIONS=abort_on_error=1:detect_leaks=1:strict_string_checks=1 \
 	$(MAKE) --no-print-directory BUILD_DIR=build/qualification/fuzz-asan \
 		EXTRA_CFLAGS="$(SANITIZER_CFLAGS) -fsanitize=address" \
 		EXTRA_LDFLAGS="-fsanitize=address" FUZZ_QUAL_ITERATIONS=25000 \
@@ -1322,7 +1328,7 @@ $(BUILD_DIR)/tests/lxp_fuzz_codec: tests/fuzz/lxp_fuzz_codec.c \
 		-fsanitize=address,undefined $^ -fsanitize=address,undefined -o $@
 
 fuzz-codec-smoke: $(BUILD_DIR)/tests/lxp_fuzz_codec
-	ASAN_OPTIONS=abort_on_error=1:detect_leaks=1 \
+	env -u LD_PRELOAD ASAN_OPTIONS=abort_on_error=1:detect_leaks=1 \
 	UBSAN_OPTIONS=halt_on_error=1 $(BUILD_DIR)/tests/lxp_fuzz_codec
 
 $(BUILD_DIR)/tests/lxp_test_hash: tests/crypto/lxp_test_hash.c $(LIBRARY)
@@ -1380,7 +1386,7 @@ test-crypto-suite: test-crypto-hash test-crypto-ed25519 \
 	$(RUN_PREFIX) $(BUILD_DIR)/tests/lxp_test_ct
 
 test-crypto-sanitizers:
-	ASAN_OPTIONS=abort_on_error=1:detect_leaks=1 \
+	env -u LD_PRELOAD ASAN_OPTIONS=abort_on_error=1:detect_leaks=1 \
 	$(MAKE) --no-print-directory BUILD_DIR=build/crypto-asan \
 		EXTRA_CFLAGS="$(SANITIZER_CFLAGS) -fsanitize=address" \
 		EXTRA_LDFLAGS="-fsanitize=address" test-crypto-suite
@@ -1454,7 +1460,7 @@ $(BUILD_DIR)/tests/lxp_test_arith_property_san: $(ARITH_PROPERTY_SOURCES) \
 test-arith-property: $(BUILD_DIR)/tests/lxp_test_arith_property \
 		$(BUILD_DIR)/tests/lxp_test_arith_property_san
 	$(RUN_PREFIX) $(BUILD_DIR)/tests/lxp_test_arith_property
-	ASAN_OPTIONS=abort_on_error=1:detect_leaks=1 \
+	env -u LD_PRELOAD ASAN_OPTIONS=abort_on_error=1:detect_leaks=1 \
 	UBSAN_OPTIONS=halt_on_error=1 $(BUILD_DIR)/tests/lxp_test_arith_property_san
 
 $(BUILD_DIR)/tests/lxp_test_nofloat: tests/arith/lxp_test_nofloat.c $(LIBRARY)
@@ -2499,7 +2505,7 @@ paxd-native-libs: $(LIBRARY) programs-release-build
 
 paxd-build: paxd-native-libs
 	version=$$(jq -er .version tools/release/version.json) && \
-		GOPROXY=off $(PAXEER_MAKE) build LDFLAGS="-X github.com/Sidiora-Labs/Paxeer-X-Network/sdk/version.Version=$$version"
+		GOPROXY=off $(PAXEER_MAKE) build VERSION="$$version"
 
 test-lxphost: paxd-native-libs
 	CGO_ENABLED=1 go test ./modules/lxphost/...
@@ -2921,13 +2927,6 @@ programs-executed-v4-fixture: programs-build
 programs-check-executed-v4-fixture: programs-build
 	$(MAKE) $(BUILD_DIR)/tests/programs_call_activity
 	python3 sdk/platform/conformance/fixtures/generate_executed_program_v4_fixture.py --encoder $(BUILD_DIR)/tests/programs_call_activity --check
-
-.PHONY: programs-executed-fixture programs-check-executed-fixture
-programs-executed-fixture: $(BUILD_DIR)/tests/programs_call_activity
-	python3 sdk/platform/conformance/fixtures/generate_executed_program_fixture.py --encoder $<
-
-programs-check-executed-fixture: $(BUILD_DIR)/tests/programs_call_activity
-	python3 sdk/platform/conformance/fixtures/generate_executed_program_fixture.py --encoder $< --check
 
 $(BUILD_DIR)/tests/programs_metering_schedule: tests/programs/test_metering_schedule.c \
 		$(LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build

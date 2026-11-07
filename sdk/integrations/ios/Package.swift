@@ -1,4 +1,5 @@
 // swift-tools-version: 5.9
+// SPDX-License-Identifier: Apache-2.0
 import PackageDescription
 
 let package = Package(
@@ -49,7 +50,11 @@ let package = Package(
     ),
     .testTarget(
       name: "LayerXMobileTests",
-      dependencies: ["LayerXMobile", "LayerXMobileSampleKit"],
+      dependencies: [
+        "LayerXMobile", "LayerXMobileSampleKit",
+        .product(name: "LayerXSDK", package: "swift"),
+        .product(name: "Crypto", package: "swift-crypto"),
+      ],
       path: "Tests/LayerXMobileTests"
     ),
   ]

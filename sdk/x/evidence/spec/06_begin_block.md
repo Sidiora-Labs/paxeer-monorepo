@@ -7,7 +7,7 @@ order: 6
 ## Evidence Handling
 
 Tendermint blocks can include
-[Evidence](https://github.com/tendermint/tendermint/blob/master/docs/spec/blockchain/blockchain.md#evidence) that indicates if a validator committed malicious behavior. The relevant information is forwarded to the application as ABCI Evidence in `abci.RequestBeginBlock` so that the validator can be punished accordingly.
+[Evidence](https://github.com/cometbft/cometbft/blob/main/spec/core/data_structures.md#evidence) that indicates if a validator committed malicious behavior. The relevant information is forwarded to the application as ABCI Evidence in `abci.RequestBeginBlock` so that the validator can be punished accordingly.
 
 ### Equivocation
 
@@ -151,4 +151,4 @@ func (k Keeper) HandleEquivocationEvidence(ctx sdk.Context, evidence *types.Equi
 
 Note, the slashing, jailing, and tombstoning calls are delegated through the `x/slashing` module
 that emits informative events and finally delegates calls to the `x/staking` module. See documentation
-on slashing and jailing in [x/staking spec](/.././cosmos-sdk/x/staking/spec/02_state_transitions.md).
+on slashing and jailing in [x/staking spec](../../staking/spec/02_state_transitions.md).

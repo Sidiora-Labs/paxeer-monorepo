@@ -45,7 +45,7 @@ fn material(rung: Rung) -> ReceiptMaterial {
 fn runtime_decodes_shared_owner_receipt_answers_and_refuses_corrupt_evidence() {
     let receipted = material(Rung::Receipted);
     let mut committed = material(Rung::Committed);
-    committed.verification_level = VerificationLevel::CHECKPOINT_FINALISED;
+    committed.verification_level = VerificationLevel::COMMITTED;
     let submitted = ReceiptLookupAnswer::Submitted {
         tx_hash: [0x31; 32],
         nonce: 41,
@@ -70,7 +70,15 @@ fn runtime_decodes_shared_owner_receipt_answers_and_refuses_corrupt_evidence() {
     ];
     let mut responses = valid
         .iter()
-        .map(|(answer, _)| answer.encode().expect("shared answer"))
+        .map(|(answer, _)| {
+            let bytes = answer.encode().expect("shared answer");
+            if let ReceiptLookupAnswer::Found(frame) = answer {
+                if frame.verification_level == VerificationLevel::COMMITTED {
+                    assert_eq!(bytes[1 + 4 + frame.canonical_bytes.len() + 5 * 32], 6);
+                }
+            }
+            bytes
+        })
         .collect::<Vec<_>>();
     let good = responses[0].clone();
     let mut truncated = good.clone();

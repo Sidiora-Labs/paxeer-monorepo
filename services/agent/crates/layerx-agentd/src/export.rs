@@ -4,10 +4,11 @@ use std::collections::BTreeSet;
 use std::sync::Mutex;
 use std::time::Duration;
 
-use layerx_agent_api::export::{FactRef, OfflineExport};
+use layerx_agent_api::export::FactRef;
+pub type OfflineExport = layerx_agent_api::export::OfflineExport;
 use layerx_agent_api::prepare::CanonicalBytes;
 use layerx_agent_api::read::{Freshness, RelativeTo, VerifiedRead};
-use layerx_client::sequencer::ReceiptKeyEntry;
+use layerx_client::sequencer::{ProofOp, ReceiptKeyEntry, StorageWitness};
 pub type SequencerError = layerx_client::sequencer::SequencerError;
 use layerx_crypto::evm_transaction::transaction_hash;
 use layerx_proof::export::{CompleteExportError, OfflineTrustError};
@@ -669,6 +670,93 @@ fn trie_value(
     Err(ExportProduceError::Contract)
 }
 
+pub fn encode_storage_witnesses(
+    witnesses: &[StorageWitness],
+) -> Result<CanonicalBytes, ExportProduceError> {
+    if witnesses.is_empty() || witnesses.len() > 1024 {
+        return Err(ExportProduceError::Contract);
+    }
+    let mut slots = BTreeSet::new();
+    let rows: Vec<_> = witnesses
+        .iter()
+        .map(|witness| {
+            if witness.ops.len() != 2 || !slots.insert(witness.slot) {
+                return Err(ExportProduceError::Contract);
+            }
+            Ok(serde_json::json!({
+                "address": layerx_programs::hex::encode(&witness.address),
+                "slot": layerx_programs::hex::encode(&witness.slot),
+                "value": layerx_programs::hex::encode(&witness.value),
+                "ops": witness.ops.iter().map(|op| serde_json::json!({
+                    "type": op.op_type,
+                    "key": layerx_programs::hex::encode(&op.key),
+                    "data": layerx_programs::hex::encode(&op.data),
+                })).collect::<Vec<_>>()
+            }))
+        })
+        .collect::<Result<_, _>>()?;
+    let bytes = serde_json::to_vec(&rows).map_err(|_| ExportProduceError::Contract)?;
+    if bytes.len() > layerx_agent_api::proof::MAX_PROOF_BUNDLE_BYTES {
+        return Err(ExportProduceError::Oversize);
+    }
+    CanonicalBytes::new(bytes).map_err(|_| ExportProduceError::Contract)
+}
+
+pub fn decode_storage_witnesses(bytes: &[u8]) -> Result<Vec<StorageWitness>, ExportProduceError> {
+    if bytes.len() > layerx_agent_api::proof::MAX_PROOF_BUNDLE_BYTES {
+        return Err(ExportProduceError::Contract);
+    }
+    let rows: serde_json::Value =
+        serde_json::from_slice(bytes).map_err(|_| ExportProduceError::Contract)?;
+    let rows = rows.as_array().ok_or(ExportProduceError::Contract)?;
+    if rows.is_empty() || rows.len() > 1024 {
+        return Err(ExportProduceError::Contract);
+    }
+    fn hex(value: &serde_json::Value) -> Result<Vec<u8>, ExportProduceError> {
+        layerx_programs::hex::decode(value.as_str().ok_or(ExportProduceError::Contract)?)
+            .map_err(|_| ExportProduceError::Contract)
+    }
+    let witnesses = rows
+        .iter()
+        .map(|row| {
+            let ops = row["ops"].as_array().ok_or(ExportProduceError::Contract)?;
+            if ops.len() != 2 {
+                return Err(ExportProduceError::Contract);
+            }
+            Ok(StorageWitness {
+                address: fixed(&hex(&row["address"])?)?,
+                slot: fixed(&hex(&row["slot"])?)?,
+                value: fixed(&hex(&row["value"])?)?,
+                ops: ops
+                    .iter()
+                    .map(|op| {
+                        Ok(ProofOp {
+                            op_type: op["type"]
+                                .as_str()
+                                .ok_or(ExportProduceError::Contract)?
+                                .to_owned(),
+                            key: hex(&op["key"])?,
+                            data: hex(&op["data"])?,
+                        })
+                    })
+                    .collect::<Result<_, ExportProduceError>>()?,
+            })
+        })
+        .collect::<Result<Vec<_>, ExportProduceError>>()?;
+    if encode_storage_witnesses(&witnesses)?.as_bytes() != bytes {
+        return Err(ExportProduceError::Contract);
+    }
+    Ok(witnesses)
+}
+
+pub fn verify_storage_witness(
+    witness: &StorageWitness,
+    app_hash: [u8; 32],
+) -> Result<(), ExportProduceError> {
+    layerx_client::storage_witness::verify_storage_witness(witness, app_hash)
+        .map_err(|_| ExportProduceError::Contract)
+}
+
 fn verify_account(
     bytes: &[u8],
     account_id: [u8; 32],
@@ -677,29 +765,11 @@ fn verify_account(
     if account_id[..12] != [0; 12] || account_id[12..] == [0; 20] {
         return Err(ExportProduceError::Contract);
     }
-    let fields = list_items(bytes)?;
-    if fields.len() != 6 || fields[0].bytes()? != &account_id[12..] {
-        return Err(ExportProduceError::Contract);
-    }
-    let proof = list_items(fields[5].raw)?
-        .iter()
-        .map(|item| item.bytes().map(<[u8]>::to_vec))
-        .collect::<Result<Vec<_>, _>>()?;
-    let value = trie_value(root, &transaction_hash(&account_id[12..]), &proof)?
-        .ok_or(ExportProduceError::Contract)?;
-    let account = list_items(&value)?;
-    if account.len() != 4
-        || account[0].bytes()? != fields[2].bytes()?
-        || account[1].bytes()? != fields[1].bytes()?
-        || account[2].bytes()? != fields[3].bytes()?
-        || account[3].bytes()? != fields[4].bytes()?
-    {
-        return Err(ExportProduceError::Contract);
-    }
-    word(account[0].bytes()?)?;
-    word(account[1].bytes()?)?;
-    if account[2].bytes()?.len() != 32 || account[3].bytes()?.len() != 32 {
-        return Err(ExportProduceError::Contract);
+    for witness in decode_storage_witnesses(bytes)? {
+        if witness.address != account_id[12..] {
+            return Err(ExportProduceError::Contract);
+        }
+        verify_storage_witness(&witness, root)?;
     }
     Ok(())
 }

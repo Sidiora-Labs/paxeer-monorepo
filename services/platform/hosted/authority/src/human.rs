@@ -1,6 +1,7 @@
 use super::trust::CommittedCheckpoint;
 use super::{by_activity, hex, json, protected, refusal, Config, Request, Response};
 use layerx_platform_authority::{authorized_batch_by_activity, receipt_locator, AuthorityFacts};
+use layerx_types::verify::VerificationLevel;
 use layerx_wire::receipt::{decode, decode_batch_header};
 use serde::{Deserialize, Serialize};
 use serde_json::{json as value, Value};
@@ -90,7 +91,10 @@ fn recover_staging(root: &Path, directory: &File) -> Result<(), ()> {
     directory.sync_all().map_err(|_| ())
 }
 
-mod budget_state;
+use layerx_platform_authority::human_policy::{
+    Authority, EvidenceReference, Identity, KeyPolicy, PrincipalPolicy, ScopeBinding,
+};
+use layerx_platform_authority::{budget_state, digest};
 mod dynamic;
 mod session_membership;
 
@@ -98,72 +102,6 @@ mod session_membership;
 #[serde(deny_unknown_fields)]
 struct Policy {
     principals: Vec<PrincipalPolicy>,
-}
-
-#[derive(Clone, Deserialize)]
-#[serde(deny_unknown_fields)]
-struct PrincipalPolicy {
-    tenant: String,
-    principal: String,
-    account_id: String,
-    asset_id: String,
-    activities: Vec<String>,
-    budgets: Vec<String>,
-    maximum_age_seconds: u64,
-    maximum_age_sequences: u64,
-    identities: Vec<Identity>,
-}
-
-#[derive(Clone, Deserialize, Serialize)]
-#[serde(deny_unknown_fields)]
-struct EvidenceReference {
-    activity_id: String,
-    receipt_digest: String,
-}
-
-#[derive(Clone, Deserialize, Serialize)]
-#[serde(deny_unknown_fields)]
-struct Identity {
-    did: String,
-    authorities: Vec<Authority>,
-    revocation_sequence: u64,
-    frozen: bool,
-    evidence: EvidenceReference,
-    capabilities: Vec<ScopeBinding>,
-    rotation: KeyPolicy,
-    recovery: KeyPolicy,
-}
-
-#[derive(Clone, Deserialize, Serialize)]
-#[serde(deny_unknown_fields)]
-struct Authority {
-    kind: String,
-    id: String,
-}
-
-#[derive(Clone, Deserialize, Serialize)]
-#[serde(deny_unknown_fields)]
-struct ScopeBinding {
-    authority: String,
-    action_key: String,
-    capability_id: String,
-    activity_types: Vec<u16>,
-    counterparties: Vec<String>,
-    assets: Vec<String>,
-    amount_ceiling: String,
-    expiry_sequence: u64,
-    enforceable_dimensions: Vec<String>,
-    evidence: EvidenceReference,
-}
-
-#[derive(Clone, Deserialize, Serialize)]
-#[serde(deny_unknown_fields)]
-struct KeyPolicy {
-    policy_revision: u64,
-    required_delay_seconds: u64,
-    maximum_delay_seconds: u64,
-    effective_sequence: u64,
-    evidence: EvidenceReference,
 }
 
 #[derive(Deserialize)]
@@ -225,10 +163,6 @@ pub(super) struct Human {
 
 fn required(name: &str) -> Result<String, String> {
     std::env::var(name).map_err(|_| format!("{name} is required"))
-}
-
-fn digest(bytes: &[u8]) -> [u8; 32] {
-    Sha256::digest(bytes).into()
 }
 
 fn valid_digest(value: &str) -> bool {
@@ -683,12 +617,12 @@ fn dispatch(config: &Config, request: &Request) -> Result<Response, Response> {
 }
 
 fn bind_committed(config: &Config, evidence: &mut [Verified]) -> Result<(), Response> {
-    let head = crate::committed::CommittedHeader::open(config)
+    let head = crate::committed::CommittedHeader::open(&config.chain_rpc_url)
         .map_err(|()| unavailable("committed_header_unavailable"))?;
     for item in evidence {
         let bytes = hex::decode(&item.record.receipt_hex)
             .map_err(|_| unavailable("committed_receipt_evidence_unavailable"))?;
-        head.bind_receipt(config, &bytes)
+        head.bind_receipt(&config.chain_rpc_url, &config.chain_receipts, &bytes)
             .map_err(|()| unavailable("committed_receipt_evidence_unavailable"))?;
         item.checkpoint = Some(
             CommittedCheckpoint::new(&item.header, head.clone())
@@ -1027,7 +961,7 @@ fn policy_route(
                 "authorities": authorities,
                 "canonical_core_bytes": hex::encode(&state),
                 "head_sequence": head, "revocation_sequence": revision,
-                "frozen": false, "verification_level": "checkpoint_finalised",
+                "frozen": false, "verification_level": VerificationLevel::COMMITTED.wire_label(),
                 "finality": native_checkpoint(item)?.finality.document()
             }),
         ));
@@ -1131,7 +1065,7 @@ fn native_capability_scope(
             "counterparties": [], "assets": [], "amount_ceiling": "0",
             "expiry_sequence": scope.expiry_sequence, "action_key": scope.action_key,
             "capability_id": scope.capability_id, "authority": scope.authority,
-            "enforceable_dimensions": [], "observed_sequence": head, "verification": 4,
+            "enforceable_dimensions": [], "observed_sequence": head, "verification": layerx_types::verify::VerificationLevel::COMMITTED.wire_rank(),
             "evidence_digest": hex::encode(&item.receipt_digest),
             "canonical_core_bytes": hex::encode(summary),
             "checkpoint_digest": hex::encode(&checkpoint.checkpoint_id),
@@ -1216,7 +1150,7 @@ fn native_key_policy(
             "maximum_delay_seconds": maximum,
             "effective_sequence": policy.effective_sequence,
             "observed_head_sequence": head,
-            "verification": 4,
+            "verification": layerx_types::verify::VerificationLevel::COMMITTED.wire_rank(),
             "evidence_digest": hex::encode(&item.receipt_digest),
             "checkpoint_digest": hex::encode(&checkpoint
                 .map(|c| c.checkpoint_id)
@@ -1394,5 +1328,51 @@ impl Config {
             .ok_or_else(|| unavailable("human_authority_unconfigured"))?
             .evidence(self)
             .map(|records| records.into_iter().map(|record| record.facts).collect())
+    }
+}
+
+#[cfg(test)]
+impl Config {
+    pub(crate) fn fixture_budget_export(
+        &self,
+        policy: &Value,
+        id: &str,
+        now_ms: u128,
+    ) -> Result<Response, Response> {
+        let policy: PrincipalPolicy = serde_json::from_value(policy.clone())
+            .map_err(|_| refusal(400, "invalid_fixture_policy", None))?;
+        budget_state::export_at(self, &policy, id, now_ms)
+    }
+}
+
+#[cfg(test)]
+impl Config {
+    pub(crate) fn fixture_subject_binding(&mut self, binding: layerx_identity_binding::Client) {
+        self.human
+            .as_mut()
+            .expect("fixture human authority")
+            .binding = Some(binding);
+    }
+
+    pub(crate) fn fixture_human_policy(&mut self, policy: &Value, root: &std::path::Path) {
+        let principal: PrincipalPolicy =
+            serde_json::from_value(policy.clone()).expect("fixture principal");
+        self.human = Some(Human {
+            token: zeroize::Zeroizing::new(b"repair-human-token-208".to_vec()),
+            tenant: principal.tenant.clone(),
+            principal: principal.principal.clone(),
+            policy_path: root.join("policy.json"),
+            policy_digest: Some(digest(
+                &std::fs::read(root.join("policy.json")).expect("fixture policy bytes"),
+            )),
+            policy: Some(Policy {
+                principals: vec![principal],
+            }),
+            registry_path: root.join("registry.json"),
+            state_root: root.join("state"),
+            horizon: 1,
+            records: std::sync::Mutex::new(()),
+            binding: None,
+        });
     }
 }

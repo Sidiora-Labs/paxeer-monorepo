@@ -1,8 +1,5 @@
 //! Finding-to-test mapping and deferred domain wiring: prepare/repair_22_33_1543.kvx.
 
-#[path = "../src/prepare/restore_tests.rs"]
-mod restore_tests;
-
 use layerx_agentd::budget::{reserve, restore, LimitId, ReservationRequest};
 use layerx_agentd::prepare::{
     disclose, prepare_bound, retention_sweep, verify_call_binding, CallBindingError,
@@ -11,8 +8,8 @@ use layerx_agentd::prepare::{
 };
 use layerx_agentd::session::{SessionId, SessionRef};
 use layerx_agentd::store::TenantId;
+use layerx_agentd::test_support::preparation::*;
 use layerx_crypto::evm_transaction::{decode_signed, recover_sender, transaction_hash};
-use restore_tests::*;
 
 #[test]
 fn f14_call_disclosure_refuses_calldata_actor_nonce_fees_and_digest_mutations() {

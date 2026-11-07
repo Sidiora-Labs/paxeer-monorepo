@@ -30,6 +30,7 @@ getrandom = "=0.3.4"
 
 # The native reads HTTP proof is owned by layerx-mcp; keep the daemon dependency one-way.
 [dev-dependencies]
+layerx-platform-authority = { path = "../../../platform/hosted/authority" }
 hex = "=0.4.3"
 layerx-sdk = { path = "../layerx-sdk" }
 native-tls = "=0.2.18"

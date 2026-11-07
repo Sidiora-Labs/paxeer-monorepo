@@ -10,7 +10,7 @@ external publication records archive availability under each destination's
 confirmation policy.
 
 See the [workspace index](../../README.md) and
-[portable receipt guide](../../PORTABILITY.md).
+[portable receipt guide](../../../../docs/interop/PORTABILITY.md).
 
 | Binary | Invocation from the monorepo root |
 | --- | --- |
@@ -174,10 +174,9 @@ set to the operator-verified next committed block. Reopen and verify the new sta
 retrieve a new publication and authenticate its receipts before cutover. A rollback
 also requires reconciliation of any newly signed or broadcast transactions.
 Domain 11 (interop) owns any future migration tooling and durable-format contract
-updates; this crate does not supply a migration command. The
-[retained-state repair record](src/repair_22_33_101.kvx) describes the existing
-recovery evidence; its historical configuration spelling must not replace the
-current `RuntimeConfig.first_height` field.
+updates; this crate does not supply a migration command. Configure the next
+committed block with the current `RuntimeConfig.first_height` field; historical
+configuration spellings are not accepted by the current schema.
 
 ## Contracts, signer and development targets
 

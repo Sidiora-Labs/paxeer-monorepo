@@ -12,13 +12,13 @@ const props = {
 };
 
 test('input on regular page +@mobile +@dark-mode', async({ render, page }) => {
-  await render(<SearchBarInput { ...props }/>);
-  const input = page.getByPlaceholder(/search by/i);
+  await render(<SearchBarInput { ...props } compact/>);
+  const input = page.getByPlaceholder(/search or ask/i);
   await expect(input).toHaveScreenshot();
 });
 
 test('input on home page +@mobile +@dark-mode', async({ render, page }) => {
   await render(<SearchBarInput { ...props } isHeroBanner/>);
-  const input = page.getByPlaceholder(/search by/i);
+  const input = page.getByPlaceholder(/search or ask/i);
   await expect(input).toHaveScreenshot();
 });

@@ -1,0 +1,30 @@
+[repair.22.39.2]
+base_revision = "57b0c6409d9372040e5360467c48b9f46cfda727"
+requirement = "22998.1"
+decision = "2787"
+baseline = "The initial working tree contained only runner bookkeeping; no task implementation or earlier gate ledger existed."
+verified_revision = "The revision field of this task's hf-done entry in the private /out/run/gates.jsonl ledger identifies the verified candidate."
+evidence = "The private gate ledger retains the exact revision, command, exit code and log; the final response copies hf-done evidence."
+verify_cmd = "python3 -m pytest -q tests/ci/test_release_merge_rehearsal.py"
+tests = ["test_rehearsal_plan_name_comes_from_version_json", "test_rehearsal_check_requires_plan_info_for_merge", "test_rehearsal_check_accepts_example_plan_info", "test_rehearsal_passes_plan_info_to_node_files"]
+
+[case.identity]
+test = "test_rehearsal_plan_name_comes_from_version_json"
+repair = "Read the upgrade and binary version separately, preview all four homes in check mode, and execute the real node-file producer to assert the selected plan and height."
+
+[case.required]
+test = "test_rehearsal_check_requires_plan_info_for_merge"
+repair = "Refuse missing, unreadable, malformed, empty, uncovered, height-mismatched and nonzero-sequence merge info without changing any files or starting any peer."
+
+[case.example]
+test = "test_rehearsal_check_accepts_example_plan_info"
+repair = "Validate the example with an explicit halt height or before export determines the halt, keeping the entire temporary tree unchanged."
+
+[case.forwarding]
+test = "test_rehearsal_passes_plan_info_to_node_files"
+repair = "Use the real plan-info and release producers, then execute the rehearsal's shared command previews to regenerate the plan at the halt height and write validated merge info to every home."
+
+[boundary]
+execution = "The production script runs in check mode with a temporary version.json and explicitly requested PATH sentinel binaries. The tests execute the previewed real upgrade_info.py producer commands separately and inspect all four output documents. No node or service starts and no network is contacted."
+activation = "After candidate restart, check_plan_and_version checks the selected applied plan, release version, chain id 0x7d, the LXP_MODULE_DISABLED custody refusal and root px_getNetwork on every node; those live checks are implemented but are not run by this task's check-mode gate."
+gotcha = "The merge plan v7.0 differs from the release version v7.0.0; asset filenames, release tags, rollback paths and ABCI version checks use the release version."

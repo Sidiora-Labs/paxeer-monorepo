@@ -9,8 +9,8 @@ Modes: `LX_STREAM_MODE_TIME = 1`, `LX_STREAM_MODE_METERED = 2`. At most
 `LX_STREAM_MAX_METER_AUTHORITIES` (8) meter keys. Payload version is 1
 (`bytes[0]=0`, `bytes[1]=1`).
 
-Sources: `include/layerx/lx_stream.h`, `src/modules/stream/`,
-`spec/layerx-protocol/spec.kvx` requirement 4.
+Sources: `include/layerx/lx_stream.h`, `src/modules/stream/lx_stream_payload.c`,
+`src/modules/stream/lx_stream_lifecycle.c`, `src/modules/stream/lx_stream_settle.c`.
 
 ---
 

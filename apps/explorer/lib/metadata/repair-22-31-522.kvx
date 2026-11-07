@@ -1,0 +1,72 @@
+[repair.22.31.522]
+requirement = "22998.1"
+gotcha = "3086"
+decision = "2560"
+implementation = "Preserve the prerequisite 22.31.503 entries in the multichain section: /chains is Root page and /chains/[id] is Regular page; remove the duplicate pair carried from attempt 1."
+generated_file = "apps/explorer/nextjs/nextjs-routes.d.ts"
+generation = "Drop the stale attempt-1 route declaration in favor of the prerequisite 22.31.503 generated declaration; the declared production build regenerates nextjs/nextjs-routes.d.ts from the real pages directory."
+generated_routes = ["StaticRoute<\"/chains\">", "DynamicRoute<\"/chains/[id]\", { \"id\": string }>"]
+test_file = "apps/explorer/lib/metadata/repair-22-31-522.spec.ts"
+tests = ["chainDirectoryHasRootPageOgType", "chainDetailHasRegularPageOgType"]
+proof = "Both registered named test functions call the real getPageOgType with typed route literals and assert exact Open Graph classifications, without credentials or live endpoints."
+owner_cleanup = "lib/metadata/templates/title.ts is unchanged; its intersection with Record<'/chains' | '/chains/[id]', string> becomes redundant once the regenerated Route union includes both chain routes and may be removed by its owner."
+baseline = "No baseline gate was run; complete implementation precedes hf-build and hf-done."
+attempt_1_generation_observed = "The unchanged pages directory also contains repair-22-33-448, repair-22-33-449, repair-22-33-450 and repair-22-33-451 spec files. The unmodified nextjs-routes generator includes them as routes; their generated declarations are retained rather than filtered or hand-edited."
+attempt_1_metadata_observed = "The existing exhaustive description map has no chain entries, and the title map has no entries for the four spec-file routes. These existing consumers may prevent qualification; title.ts must remain unchanged under the task instruction."
+formatting = "Use the repository ESLint layout formatter for the two touched source files; the generated declaration retains nextjs-routes formatting."
+repair_cycle_1 = "Build revision 5bc2728a32d19b7fdd8005f1904966e04aced5be failed with exit 1 in /out/logs/build-1.log because ESLint rejected standalone named-function registrations. Register the same declared named functions inline with literal titles, retaining both exact assertions and all checks."
+
+[qualification]
+policy = "The private runner ledger is the authoritative gate result record: its build and verify rows supply revision, exact command, exit and log; qualification requires both gates to pass on the same candidate revision."
+results = "/out/run/gates.jsonl"
+build_gate = "hf-build"
+build_command = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && NODE_ENV=production yarn next build"
+build_logs = ["/out/logs/build-1.log", "/out/logs/build-2.log"]
+verify_gate = "hf-done"
+verify_command = "cg spec done 22.31.522 -f layerx-merge --root /work/paxeer-monorepo"
+verify_runs = "cd apps/explorer && yarn tsc --noEmit -p tsconfig.json && yarn vitest run lib/metadata/repair-22-31-522.spec.ts"
+verify_log = "/out/logs/verify-1.log"
+evidence = "Retain raw logs and revision-specific gate results in the private locations above; no passing result is asserted by this source record before the gates execute."
+
+[attempt_1.blocker]
+revision = "47a32a72a188d7d9d024ff8234cc401fb9d7d121"
+command = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && NODE_ENV=production yarn next build"
+exit = 1
+log = "/out/logs/build-2.log"
+observed = "The production build fails at getPageOgType.ts:5 because the generated Route union includes four pre-existing spec-file routes absent from OG_TYPE_DICT: /api/monitoring/repair-22-33-450, /api/repair-22-33-448, /api/tokens/[hash]/instances/[id]/repair-22-33-449 and /apps/repair-22-33-451."
+assumption = "The owner must resolve spec files being treated as production pages before this gate can qualify; assigning metadata to test files or filtering the generated declaration would conceal the unrelated route-inventory defect."
+
+[attempt_1.outcome]
+status = "implemented-not-qualified"
+verification = "Not run: hf-done requires a passing hf-build, and the second build failed on the pre-existing spec-file route inventory. Neither regression test has executed; no passing gate or completion is claimed."
+follow_up = "Resolve the pages-directory spec-file inventory through its owner, and address the existing description map's missing chain entries in the appropriate task; leave title.ts unchanged as requested."
+record_note = "This failure record was appended after the failed build; the revision above names the build input, not a subsequently qualified revision. No unrelated repair or unchanged gate rerun was attempted."
+
+[continuation.2]
+prerequisite = "22.31.503 is merged into this checkout at 19b8d2c93dfd336f303f2f2910ce090d544fdb26; no rebase or commit is performed by this worker."
+implementation = "Retain both real-function regression tests and all assertions. Preserve the prerequisite chain map entries and generated chain routes; discard only duplicated map entries and the stale four test-route declarations from attempt 1."
+route_inventory = "The prerequisite moved all four repair suites outside pages and completed the OG, description and analytics route maps; the production build now regenerates from that repaired inventory."
+owner_cleanup = "Leave lib/metadata/templates/title.ts unchanged; its redundant chain-route intersection remains an owner cleanup."
+gate_results = "/out/run/gates.jsonl is the private repair evidence record for this continuation and names the exact verified candidate revision, command, exit code and log for each hf-build and hf-done run."
+build_log = "/out/logs/build-1.log"
+verify_log = "/out/logs/verify-1.log"
+qualification = "Only passing hf-build and hf-done ledger rows at the same candidate revision qualify this continuation; the historical attempt-1 blocker above does not describe the repaired prerequisite."
+
+[continuation.2.build_result]
+revision = "0bdc8725504bdd83a106095b03b43a30627b58b8"
+command = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && NODE_ENV=production yarn next build"
+exit = 0
+log = "/out/logs/build-1.log"
+observed = "Production build passed and regenerated nextjs/nextjs-routes.d.ts without a difference from prerequisite 22.31.503, retaining both chain routes and excluding the four moved test suites."
+
+[continuation.2.verify_result]
+revision = "0bdc8725504bdd83a106095b03b43a30627b58b8"
+command = "cg spec done 22.31.522 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The declared tsc command exited 2 at toolkit/components/forms/fields/repair-22-33-270.spec.ts:4:32 with TS2307 for @juggle/resize-observer; that existing test and the dependency manifest are outside task scope, so the unrelated failure is recorded without repair or rerun."
+
+[continuation.2.outcome]
+status = "implemented-not-qualified"
+verification = "hf-done failed before Vitest ran, so neither chain regression test executed and the task was not marked done."
+record_note = "These result entries were appended after the failed verification; the revision above identifies the exact built and verified input, and no passing result is claimed for the subsequently updated record. The runner owns commit and publication."

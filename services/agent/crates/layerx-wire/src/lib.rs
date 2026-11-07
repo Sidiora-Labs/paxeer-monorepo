@@ -1,7 +1,6 @@
 //! Byte-exact canonical `LayerX` wire encoding.
 
 pub mod account;
-pub mod activity;
 pub mod batch_maintenance;
 pub mod decode;
 pub mod encode;
@@ -10,7 +9,28 @@ pub mod hash;
 pub mod limits;
 pub mod maintenance;
 pub mod receipt;
-pub mod sign;
+
+/// Retired kernel wire formats for reading and checking archived evidence.
+/// Current submissions and signing digests belong to
+/// `layerx_crypto::evm_transaction` and its call-bound disclosures.
+#[path = "."]
+pub mod historical {
+    pub mod activity;
+    pub mod sign;
+
+    pub use crate::hash::historical as hash;
+}
+
+/// Source compatibility while downstream archive readers migrate.
+#[deprecated(
+    note = "kernel envelopes are retired; use historical::activity for archives and layerx_crypto::evm_transaction for submissions"
+)]
+pub use historical::activity;
+/// Source compatibility while downstream archive signature readers migrate.
+#[deprecated(
+    note = "kernel signing is retired; use historical::sign for archives and Eip1559Call::signing_hash for transaction signing"
+)]
+pub use historical::sign;
 
 use layerx_types::result::{KnownResult, ResultCode};
 

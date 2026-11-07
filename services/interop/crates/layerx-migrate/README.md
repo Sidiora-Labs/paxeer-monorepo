@@ -17,7 +17,7 @@ The crate also builds the `layerx-migrate` binary. Its commands are
 DID/EVM binding and stores external mapping provenance; `migrate-asset` submits
 source evidence to the authenticated gateway. Neither a source-verification
 result nor a history record is a network receipt. See
-[PORTABILITY.md](../../PORTABILITY.md) for receipt verification.
+[PORTABILITY.md](../../../../docs/interop/PORTABILITY.md) for receipt verification.
 
 The authenticated journals require an independent rollback authority through
 `layerx_getMigrationJournalHead` and `layerx_advanceMigrationJournalHead`. This
@@ -26,7 +26,13 @@ tree supplies their client contract, not a production authority server; see
 
 For development from the monorepo root: `make interop-test-migration`. The ignored live-testnet suite is `make interop-test-migration-testnets`; it needs an operator environment and runs in CI only through the manually dispatched `.github/workflows/interop-migration-testnets.yml`.
 
-The connected funded-operator test requires `LAYERX_MIGRATION_FUNDED_OPERATOR_FIXTURE`, an absolute path to a genuine protected funded-operator fixture. The connected migration V2 test requires `LAYERX_MIGRATION_V2_FIXTURE`, an absolute path to a genuine protected migration V2 fixture. These tests cannot establish connected behaviour without those protected
-producer inputs. Decision 2496's inventory repair gate excludes them by name
-while compiling both test targets; that exclusion is not a connected
-qualification result.
+The [funded operator settlement test](tests/funded_operator.rs),
+`funded_operator_runs_real_gateway_source_and_independent_funded_receipts`,
+requires `LAYERX_MIGRATION_FUNDED_OPERATOR_FIXTURE`, an absolute path to a
+genuine protected funded-operator fixture. The
+[authenticated mapping and funded settlement test](tests/migration_v2_connected.rs),
+`migration_v2_connected_runs_authenticated_mapping_and_funded_settlement`,
+requires `LAYERX_MIGRATION_V2_FIXTURE`, an absolute path to a genuine protected
+migration V2 fixture. Both require genuine Ethereum and Solana coverage with
+zero skipped cases. Without those producer inputs they refuse to run;
+compiling the targets alone does not establish connected behaviour.

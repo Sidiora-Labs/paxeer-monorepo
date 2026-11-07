@@ -87,7 +87,7 @@ from 1 through 30000.
 `LAYERX_INTEROP_SEQUENCER_URL` selects the merged node endpoint. Use HTTPS;
 the client also allows loopback HTTP. Setting
 `LAYERX_INTEROP_ALLOW_RAILWAY_PRIVATE_NETWORK=1` additionally allows
-`http://<name>.railway.internal:<port>`. The Redis URL requires `rediss`.
+plain HTTP to an operator's private network host. The Redis URL requires `rediss`.
 
 `LAYERX_INTEROP_RECEIPT_KEYS_FILE` selects a nonempty JSON array of objects
 with exactly these camelCase fields:
@@ -125,9 +125,9 @@ service loader uses the receipt-key array instead. Treat the template's
 protocol network id and trust material as deployment inputs, not mainnet
 facts.
 
-On Railway the image's `layerx-env-files` entrypoint materializes base64 file
+The image's `layerx-env-files` entrypoint materializes base64 file
 variables according to `docker/interop-gateway/files.tsv`. The checked-in
-`railway.env.example` and file map are incomplete deployment examples:
+environment example and file map are incomplete deployment examples:
 `LAYERX_INTEROP_SEQUENCER_URL` must be supplied, and the map currently omits
 `INTEROP_RECEIPT_KEYS`. Provision the file selected by
 `LAYERX_INTEROP_RECEIPT_KEYS_FILE` (the environment example uses
@@ -227,7 +227,7 @@ in Rust and are not counted in any suite: the fault-injected settlement cases in
 signer and the canonical receipt encoder; the credential-binding case
 `binding_is_scoped_non_authoritative_and_success_requires_a_real_receipt` in
 `services/interop/crates/layerx-visa-tap/tests/conformance.rs`, which drives the binding
-store and a canonical receipt; and the Codify anchor and vendored-revision
+store and a canonical receipt; and the crate descriptor and vendored-revision
 checks in `services/interop/crates/layerx-ucp/tests/conformance_vectors.rs`, which assert
 against constants compiled into the crate. Where a vector's own signature is a
 live signer's output — the Visa TAP presentations and the fiat settlement

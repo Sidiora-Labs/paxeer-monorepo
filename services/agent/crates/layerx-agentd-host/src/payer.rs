@@ -1,16 +1,25 @@
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
-use layerx_agentd::prepare::evm::{AbiArgument, PrecompileCall, PrecompileTarget};
+use layerx_agent_api::prepare::Prepared;
+use layerx_agentd::approval::ApprovalExpiry;
+use layerx_agentd::budget::{BudgetLimiter, LimitId};
+use layerx_agentd::prepare::evm::{
+    self, AbiArgument, PrecompileCall, PrecompileTarget, PreparationDefaults, PrepareRequest,
+    ProductionEvmPreparationBoundary,
+};
+use layerx_agentd::store::Store;
 use layerx_client::sequencer::{
     CallRequest, ExecutedReceipt, ReceiptKeyEntry, RpcRefusal, SequencerEndpoint, SequencerError,
     SequencerReceipt,
 };
-use layerx_crypto::evm_transaction::{assemble, transaction_hash, Eip1559Call};
+use layerx_crypto::evm_transaction::{assemble, decode_unsigned, transaction_hash, Eip1559Call};
 use layerx_crypto::payments::Grant;
 use layerx_crypto::signer::AgentSignature;
 use layerx_human_kms::attestor::{unsigned_evm_transaction, AttestorError, AttestorSigner};
-use layerx_mcp::tools::web::{ExactPayment, ExactTerms, GrantTerms, WebPayer, WebPayerError};
+use layerx_mcp::tools::web::{
+    ExactPayment, ExactTerms, GrantTerms, WebApprovalResources, WebPayer, WebPayerError,
+};
 use layerx_proof::inclusion::SequencerAuthorization;
 use layerx_proof::receipt::verify_sequencer_signature;
 use layerx_proof::sequencer_logs::{verify_logs, SequencerLog};
@@ -63,6 +72,8 @@ pub struct ProductionWebPayer {
     owner_check: OwnerCheck,
     search_quote: SearchQuote,
     prepared: Vec<PrecompileCall>,
+    approval_resources: Option<WebApprovalResources>,
+    preparation: ProductionEvmPreparationBoundary,
 }
 
 impl ProductionWebPayer {
@@ -150,7 +161,26 @@ impl ProductionWebPayer {
             owner_check,
             search_quote,
             prepared: Vec::new(),
+            approval_resources: None,
+            preparation: ProductionEvmPreparationBoundary::new(endpoint, trust_anchors)
+                .map_err(node_error)?,
         })
+    }
+
+    pub fn with_approval_resources(
+        mut self,
+        store: Arc<Mutex<Store>>,
+        limiter: Arc<BudgetLimiter>,
+        limits: Vec<LimitId>,
+    ) -> Self {
+        let expiry = Arc::new(ApprovalExpiry::from_shared_store(Arc::clone(&store)));
+        self.approval_resources = Some(WebApprovalResources {
+            store,
+            limiter,
+            limits,
+            expiry,
+        });
+        self
     }
 
     fn validate(
@@ -244,15 +274,19 @@ impl ProductionWebPayer {
             to: call.target.address(),
             data,
         };
+        self.sign_transaction(&transaction)
+    }
+
+    fn sign_transaction(&self, transaction: &Eip1559Call) -> Result<Vec<u8>, PayerError> {
         let mut signature = self
             .signer
-            .sign_evm_transaction(&unsigned_evm_transaction(&transaction), CHAIN_ID)
+            .sign_evm_transaction(&unsigned_evm_transaction(transaction), CHAIN_ID)
             .map_err(attestor_error)?;
         signature[64] = signature[64]
             .checked_add(27)
             .ok_or(WebPayerError::Refused)?;
         let signature = AgentSignature::new(signature).map_err(|_| WebPayerError::Refused)?;
-        Ok(assemble(&transaction, &signature))
+        Ok(assemble(transaction, &signature))
     }
 
     fn send(&self, raw: &[u8], call: &PrecompileCall) -> Result<ExactPayment, PayerError> {
@@ -392,6 +426,107 @@ impl ProductionWebPayer {
 pub struct WebPayerBoundary(ProductionWebPayer);
 
 impl WebPayer for WebPayerBoundary {
+    fn view(&mut self, call: &PrecompileCall) -> Result<Vec<u8>, WebPayerError> {
+        (self.0.owner_check)()?;
+        let data = call.encode().map_err(|_| WebPayerError::Refused)?;
+        self.0
+            .node
+            .call_pending(&call.target.address(), &data)
+            .map_err(node_error)
+            .map_err(WebPayerError::from)
+    }
+
+    fn approval_resources(&self) -> Option<WebApprovalResources> {
+        self.0.approval_resources.clone()
+    }
+
+    fn prepare_transaction(
+        &mut self,
+        call: &PrecompileCall,
+    ) -> Result<evm::Prepared, WebPayerError> {
+        if self.0.approval_resources.is_none() {
+            return Err(WebPayerError::Unavailable);
+        }
+        (self.0.owner_check)()?;
+        payment_call(
+            call.target.address(),
+            &call.encode().map_err(|_| WebPayerError::Refused)?,
+        )?;
+        let sender = self.0.signer.evm_address();
+        let state = self
+            .0
+            .preparation
+            .preparation_state(&sender)
+            .map_err(node_error)
+            .map_err(WebPayerError::from)?;
+        if state.chain_id != CHAIN_ID {
+            return Err(WebPayerError::Refused);
+        }
+        let max_fee_per_gas = state
+            .base_fee_per_gas
+            .checked_mul(2)
+            .filter(|fee| *fee > 0)
+            .ok_or(WebPayerError::Refused)?;
+        let gas_limit = self
+            .0
+            .node
+            .estimate_gas(&CallRequest {
+                from: Some(sender),
+                to: Some(call.target.address()),
+                value: 0,
+                data: call.encode().map_err(|_| WebPayerError::Refused)?,
+            })
+            .map_err(node_error)
+            .map_err(WebPayerError::from)?;
+        evm::prepare_bound(
+            state,
+            PreparationDefaults {
+                max_priority_fee_per_gas: 0,
+                max_fee_per_gas,
+                maximum_payload_bytes: 65536,
+            },
+            PrepareRequest {
+                from: sender,
+                call: call.clone(),
+                expected_nonce: Some(state.pending_nonce),
+                max_priority_fee_per_gas: None,
+                max_fee_per_gas: None,
+                declared_payload_limit: 65536,
+            },
+            gas_limit,
+        )
+        .map_err(|_| WebPayerError::Refused)
+    }
+
+    fn submit_transaction(&mut self, prepared: &Prepared) -> Result<ExactPayment, WebPayerError> {
+        if self.0.approval_resources.is_none() {
+            return Err(WebPayerError::Unavailable);
+        }
+        (self.0.owner_check)()?;
+        let bytes = prepared.unsigned_canonical_bytes.as_bytes();
+        let transaction = decode_unsigned(bytes).map_err(|_| WebPayerError::Refused)?;
+        if transaction.chain_id != CHAIN_ID
+            || transaction.gas_limit == 0
+            || transaction.max_priority_fee_per_gas > transaction.max_fee_per_gas
+            || transaction.signing_hash().as_slice() != prepared.signing_preimage.as_bytes()
+            || <[u8; 32]>::from(Sha256::digest(bytes)) != prepared.disclosure.canonical_digest
+            || prepared.disclosure.actor.as_str() != hex(&self.0.signer.evm_address())
+        {
+            return Err(WebPayerError::Refused);
+        }
+        let call = payment_call(transaction.to, &transaction.data)?;
+        let raw = self
+            .0
+            .sign_transaction(&transaction)
+            .map_err(WebPayerError::from)?;
+        let payment = self.0.send(&raw, &call).map_err(WebPayerError::from)?;
+        if payment.tx_hash != transaction_hash(&raw) {
+            return Err(WebPayerError::Refused);
+        }
+        self.0.prepared.retain(|prepared| prepared != &call);
+        Ok(payment)
+    }
+
     fn validate_search_quote(
         &mut self,
         asset: [u8; 32],
@@ -421,6 +556,51 @@ impl WebPayer for WebPayerBoundary {
     fn submit(&mut self, call: &PrecompileCall) -> Result<ExactPayment, WebPayerError> {
         self.0.submit(call).map_err(WebPayerError::from)
     }
+}
+
+fn payment_call(to: [u8; 20], data: &[u8]) -> Result<PrecompileCall, WebPayerError> {
+    let refuse = || WebPayerError::Refused;
+    if to != PrecompileTarget::Ledger.address() {
+        return Err(refuse());
+    }
+    let selector: [u8; 4] = data
+        .get(..4)
+        .ok_or_else(refuse)?
+        .try_into()
+        .map_err(|_| refuse())?;
+    let arguments = match selector {
+        [0x78, 0xea, 0x11, 0xdb] if data.len() == 4 + 6 * 32 => data[4..]
+            .chunks_exact(32)
+            .map(|word| Ok(AbiArgument::Word(word.try_into().map_err(|_| refuse())?)))
+            .collect::<Result<Vec<_>, WebPayerError>>()?,
+        [0x2e, 0x89, 0x49, 0x0f] if data.len() == 4 + 7 * 32 => data[4..]
+            .chunks_exact(32)
+            .map(|word| Ok(AbiArgument::Word(word.try_into().map_err(|_| refuse())?)))
+            .collect::<Result<Vec<_>, WebPayerError>>()?,
+        [0xd0, 0xd5, 0x34, 0x80] if data.len() >= 68 => {
+            if data[4..35] != [0; 31] || data[35] != 32 || data[36..60] != [0; 24] {
+                return Err(refuse());
+            }
+            let length = usize::try_from(u64::from_be_bytes(
+                data[60..68].try_into().map_err(|_| refuse())?,
+            ))
+            .map_err(|_| refuse())?;
+            let end = 68_usize.checked_add(length).ok_or_else(refuse)?;
+            vec![AbiArgument::Bytes(
+                data.get(68..end).ok_or_else(refuse)?.to_vec(),
+            )]
+        }
+        _ => return Err(refuse()),
+    };
+    let call = PrecompileCall {
+        target: PrecompileTarget::Ledger,
+        selector,
+        arguments,
+    };
+    if call.encode().map_err(|_| refuse())? != data {
+        return Err(refuse());
+    }
+    Ok(call)
 }
 
 pub fn receipt(

@@ -37,11 +37,14 @@ func gasWriteFixture(t *testing.T, name string) (*harness, []byte) {
 		h, program, oldHash, wasm := newUpgradeProgram(t)
 		hash := sha256.Sum256(wasm)
 		return pack(h, program, uint16(1), uint8(0), oldHash, hash, []byte{}, upgradeInterface(hash), wasm, big.NewInt(0))
-	case "call":
+	case "call", "callWithReceipts":
 		h, args, _ := programsCallFixture(t)
+		if name == "callWithReceipts" {
+			args = append(args, []lp.ReceiptAuthority{})
+		}
 		return pack(h, args...)
 	case "sandboxExecute":
-		h, args := gasSandboxExecuteFixture(t)
+		h, args, _ := gasSandboxExecuteFixture(t)
 		return pack(h, args...)
 	case "retireStorage":
 		h := newHarness(t)
@@ -95,7 +98,7 @@ func gasWriteFixture(t *testing.T, name string) (*harness, []byte) {
 	}
 }
 
-func gasSandboxExecuteFixture(t *testing.T) (*harness, []interface{}) {
+func gasSandboxExecuteFixture(t *testing.T) (*harness, []interface{}, []byte) {
 	t.Helper()
 	h, callArgs, _ := programsCallFixture(t)
 	authority, _, err := lp.PrincipalOf(h.stateDB.Ctx(), h.executor.TestEVMKeeper(), h.caller)
@@ -117,10 +120,21 @@ func gasSandboxExecuteFixture(t *testing.T) (*harness, []interface{}) {
 	payload, err := lp.EncodeCallPayload(program, 3, callArgs[2].(string), callArgs[3].([]byte),
 		callArgs[4].([]byte), callArgs[5].([]byte), callArgs[6].(uint32), callArgs[7].([7]uint64))
 	require.NoError(t, err)
-	args, fundFeeLimit := prepareSandboxExecute(t, h, callArgs, payload)
+	leaseID := sha256.Sum256([]byte(t.Name() + "/lease"))
+	activityID := sha256.Sum256([]byte(t.Name() + "/request-activity"))
+	receiptDigest := sha256.Sum256([]byte(t.Name() + "/request-receipt"))
+	args, request, fundFeeLimit := prepareSandboxExecute(t, h, callArgs, payload, leaseID, activityID, receiptDigest)
+	decoded := decodeSandboxLeaseRequest(t, request)
+	require.Equal(t, program, decoded.Program)
+	require.Equal(t, args[4].([32]byte), decoded.Asset)
+	budget := callArgs[7].([7]uint64)
+	require.Equal(t, [8]uint64{budget[0], budget[1], budget[2], budget[3], budget[4], budget[5], budget[6], 1048576}, decoded.Limits)
+	require.Equal(t, leaseID, decoded.LeaseID)
+	require.Equal(t, activityID, decoded.ActivityID)
+	require.Equal(t, receiptDigest, decoded.ReceiptDigest)
 	fundFeeLimit()
 	args[9] = big.NewInt(100000000)
-	return h, args
+	return h, args, request
 }
 
 func TestProgramsWriteMethodsChargeGasTable(t *testing.T) {
@@ -134,7 +148,7 @@ func TestProgramsWriteMethodsChargeGasTable(t *testing.T) {
 			names = append(names, name)
 		}
 	}
-	require.Len(t, names, 15)
+	require.Len(t, names, 16)
 	sort.Strings(names)
 	for _, name := range names {
 		t.Run(name, func(t *testing.T) {
@@ -151,7 +165,7 @@ func TestProgramsWriteMethodsChargeGasTable(t *testing.T) {
 			require.Less(t, required, supplied)
 			var payer, asset, treasury [32]byte
 			var payerBefore, treasuryBefore sdk.Int
-			if name == "call" || name == "sandboxExecute" {
+			if name == "call" || name == "callWithReceipts" || name == "sandboxExecute" {
 				fee, err := h.host.ReadFeeSchedule(h.stateDB.Ctx())
 				require.NoError(t, err)
 				require.GreaterOrEqual(t, len(fee), 97)
@@ -175,7 +189,7 @@ func TestProgramsWriteMethodsChargeGasTable(t *testing.T) {
 			}
 			require.NoError(t, h.stateDB.GetPrecompileError())
 			require.Equal(t, required, supplied-remaining, "%s EVM gas used", name)
-			if name == "call" || name == "sandboxExecute" {
+			if name == "call" || name == "callWithReceipts" || name == "sandboxExecute" {
 				values, err := method.Outputs.Unpack(output)
 				require.NoError(t, err)
 				require.Equal(t, int32(0), values[0])

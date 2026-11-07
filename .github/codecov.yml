@@ -7,14 +7,14 @@ coverage:
         informational: true # PR fast-path uploads are partial; avoid scary global regressions.
         target: auto
         threshold: 3% # allow this much decrease on project
-      pax-chain:
+      paxeer-monorepo:
         target: 40%
-        flags:
-          - pax-chain
-      pax-chain-pr:
+        paths:
+          - "**/*.go"
+      paxeer-monorepo-pr:
         informational: true
-        flags:
-          - pax-chain-pr
+        paths:
+          - "**/*.go"
     patch:
       default:
         informational: true   # Show patch coverage, but do not fail CI for it.
@@ -55,7 +55,15 @@ ignore:
   - "storage/state_db/bench"
 
 flags:
-  pax-chain:
+  modules:
+    paths:
+      - modules/
     carryforward: true
-  pax-chain-pr:
+  precompiles:
+    paths:
+      - precompiles/
+    carryforward: true
+  storage:
+    paths:
+      - storage/
     carryforward: false

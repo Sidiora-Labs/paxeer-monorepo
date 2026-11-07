@@ -1,9 +1,12 @@
 {
+  "author": "Sidiora Labs",
+  "license": "Apache-2.0",
   "name": "@paxeer/api",
   "version": "0.1.0",
   "private": true,
+  "packageManager": "pnpm@10.34.9",
   "type": "module",
-  "description": "Paxeer Embedded Wallet API \u2014 Fastify backend signs and broadcasts on Paxeer. Zero runtime dependency on Supabase.",
+  "description": "Paxeer Embedded Wallet API — Fastify backend signs and broadcasts on Paxeer. Zero runtime dependency on Supabase.",
   "main": "dist/index.js",
   "exports": {
     ".": "./dist/index.js",

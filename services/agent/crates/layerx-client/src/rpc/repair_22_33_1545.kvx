@@ -1,0 +1,59 @@
+[repair.22.33.1545]
+audit = "22.30.96"
+source_revision = "8a5302e1b13ed685ab2cd21b29cd69052c2a8f6a"
+findings = ["f26", "f28", "f27", "f29"]
+f26 = "repair_22_33_1545::f26_registered_history_preserves_gateway_observations_without_batch_proof_authority"
+f28 = "repair_22_33_1545::f28_committed_context_requires_verified_node_evidence_and_keeps_sequence_separate"
+f27 = "repair_22_33_1545::f27_payments_keep_flat_gateway_metadata_and_node_gas_estimates"
+f29 = "repair_22_33_1545::f29_native_configuration_codec_drives_eligibility_and_every_refusal"
+baseline = "Not run: the explicit implementation-first order and hf-done-only verification rule override step 8's baseline instruction; the declared integration test did not exist at the starting revision. No pre-change test failure is claimed."
+qualification = "The hf-build/hf-done runner ledger records the exact candidate revision, command, exit and private evidence location; the final evidence JSON identifies that revision without creating a self-referential source hash."
+
+[repair.history]
+change = "The registered gateway read retains its account/items/cursor/heights/freshness envelope and explicitly documents that labels are observations, not verified proofs. The unused Requested carrier and handshake/authorization/checkpoint ReadContext fields are removed. ReadContext aliases the verified committed-block context."
+compatibility = "HistoryKind is still used by the daemon. The referenced offline HistoryProof decoder moves to history/legacy.rs and is re-exported with a deprecation notice until its out-of-path consumers migrate; the gateway history read never uses it."
+
+[repair.head]
+change = "CommittedBlockContext has private committed height, block hash and application hash, derived only from VerifiedChainHead. ObservedBlockContext carries this verified context and a separate observed sequence; Head aliases that observation wrapper for out-of-path fee consumers. No sealed-batch or checkpoint fields remain. The compatibility field chain_sequence is solely a sequence observation, not committed height."
+proof = "The recorded MemIAVL/Comet node producer response crosses HTTP, validator-set matching and signature verification before context construction; app-hash and signature substitution are refused. An observed receipt sequence of 7 remains separate from committed height 1200."
+
+[repair.payments]
+change = "The unreferenced SnapshotContext and its retired interface/correlation/minimum-sequence fields are removed. Flat gateway asset metadata, nullable values, uint256 supply and native eth_estimateGas behavior remain the public read contracts."
+
+[repair.withdrawal]
+change = "Registry resolves the gateway's current 0x-prefixed flat ledger identifier, retains its height, and reads native getAsset(bytes32) at custody 0x1013 at exactly that height. Native identity, pointer, enabled and paused facts determine eligibility; gateway metadata and verification labels cannot authorize it. Canonical tuple offsets, widths, booleans, bounded UTF-8 denom, padding and exact response length are checked."
+interface = "precompiles/layerxcustody/abi.json and layerxcustody.go Execute/GetAssetMethod declare the native tuple and assetRecord producer. The native read's retirement refusal stays Unsupported; other RPC/decode failures stay Unavailable; missing/disabled/paused/zero-pointer/wrong-identity configurations stay AssetUnavailable."
+proof_limit = "withdrawal_get_asset.json contains explicit ABI contract vectors, not live or recorded producer captures. The test proves the production client codec/HTTP path for eligibility and refusals. It does not prove that an eligible custody asset exists on the merged node: the authoritative producer retires custody, and the gateway has no replacement configuration contract. Full current-producer closure of f29 remains an external wiring request."
+
+[wiring.daemon-history]
+request = "Agent domain (9): services/agent/crates/layerx-agentd/src/human_runtime.rs and src/read/history.rs must migrate offline HistoryProof/batch-header consumers to rpc::commit verified headers, rpc::receipt covering-commit evidence and rpc::module_state storage witnesses, then remove the deprecated client history proof export."
+
+[wiring.fee-name]
+request = "Agent domain (9): services/agent/crates/layerx-client/src/fee.rs must name ObservedBlockContext directly instead of its Head alias, and services/agent/crates/layerx-agent-api/src/read.rs must use observed_sequence() instead of the chain_sequence compatibility spelling; committed block evidence remains separate from sequence observations."
+
+[wiring.gateway-configuration]
+request = "Gateway domain (8), coordinated with agent domain (9): services/platform/hosted/gateway/src/paxeer.rs and openrpc.json must declare the authoritative merged withdrawal configuration producer (or explicitly retire the operation), including height, asset identity, pointer, enabled and paused facts; provide an actual eligible producer transcript and each refusal before claiming f29 fully closed."
+
+[gotcha.scope]
+observed = "Crate-local searches miss daemon users of history ReadContext, HistoryKind and HistoryProof; deleting the proof breaks out-of-path dependents."
+resolution = "Search callers across the agent domain before removing public carriers; retain only an explicitly deprecated offline compatibility decoder and file the owning-domain migration. Root GOTCHA.kvx and spec records are outside this task's edit scope."
+
+[qualification.repair-1]
+revision = "65e96cd86fc349d27ac65aa520eaf5d135313077"
+command = "hf-done dependency check: cargo check --locked --manifest-path services/agent/Cargo.toml --all-targets (declared dependent packages)"
+exit = 101
+log = "/out/logs/dependents-1.log"
+observed = "layerx-agent-api/src/read.rs:715 compares snapshot.observed_sequence with head.chain_sequence; directly aliasing Head to committed-block coordinates breaks this out-of-path observation consumer."
+repair = "Keep the verified block context private and distinct; put the independently observed sequence on an observation wrapper that preserves the caller's equality check without restoring checkpoint authority."
+
+[repair.consumer-22.31.485]
+change = "The fee-projection test constructs Head with CommittedBlockContext derived from a signature-verified recorded node header and separately supplies the observed sequence; sealed_batch and finalised_checkpoint are removed without changing any fee-projection assertions. The RPC boundary re-exports ChainProofVerifier and VerifiedChainHead for callers of its evidence APIs."
+proof = "services/agent/crates/layerx-agent-api/tests/repair_22_31_485.rs preserves stale/future snapshot refusal, exact current snapshot acceptance, freshness mismatch refusal, and malformed snapshot validation, including the sequence above 2^53; the committed height remains independently verified at 1200."
+provenance = "The constructor embeds lossless storage.signedHeader and validator excerpts from services/agent/crates/layerx-client/tests/fixtures/repair_22_33_1546_node.json because the consumer manifest and additional fixture paths are outside scope; production commit decoding and signature verification construct the context."
+
+[qualification.attempt-3]
+revision = "88d84ad1d4f43b000576b8a397a5ee3b307ff0ee"
+command = "cargo check --locked --manifest-path /work/paxeer-monorepo/services/agent/Cargo.toml --all-targets -p layerx-agentd -p layerx-agentd-host -p layerx-mcp -p layerx-sdk"
+exit = 101
+log = "/out/logs/dependents-1.log"
+observed = "hf-build passed, but hf-done exited 7 before verification because human_approval_budget_actor includes authority budget_state without crate::committed, crate::loopback_http, super::Human, super::Policy or Config.human (E0432, E0433, E0425, E0422, E0609), the pre-existing out-of-scope failure recorded in GOTCHA 3033 and assigned to task 22.31.497; no unrelated repair or rerun was attempted."

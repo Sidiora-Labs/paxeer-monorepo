@@ -11,6 +11,11 @@ interface ILayerXPrograms {
         uint128 amount;
     }
 
+    struct ReceiptAuthority {
+        bytes canonicalReceipt;
+        uint64 blockHeight;
+    }
+
     event ProgramDeployed(bytes32 indexed programId, bytes32 codeHash);
 
     event ProgramUpgraded(bytes32 indexed programId, bytes32 oldCodeHash, bytes32 newCodeHash);
@@ -116,6 +121,19 @@ interface ILayerXPrograms {
         uint32 responseCapacity,
         uint64[7] calldata budget,
         uint128 feeLimit
+    ) external returns (int32 terminalResult, uint8 terminalKind, bytes memory response);
+
+    function callWithReceipts(
+        bytes32 programId,
+        uint16 abiVersion,
+        string calldata entrypoint,
+        bytes calldata callData,
+        bytes calldata capabilities,
+        bytes calldata accessDeclaration,
+        uint32 responseCapacity,
+        uint64[7] calldata budget,
+        uint128 feeLimit,
+        ReceiptAuthority[] calldata receiptAuthorities
     ) external returns (int32 terminalResult, uint8 terminalKind, bytes memory response);
 
     function deploy(

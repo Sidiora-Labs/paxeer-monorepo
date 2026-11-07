@@ -20,14 +20,14 @@
 pub mod commitment;
 
 use crate::{
-    admission::{AdmissionTable, Participant},
+    admission::AdmissionTable,
     codec::{self, CommitAccepted, EventCommon, Reader, ValidatedEnvelope, Writer},
     dispatch,
     errors::{
         ApplicationError, CodecResult, ARITHMETIC, CAPACITY, CONFLICT, EXPIRED,
         F03_GRANT_VERSION_CONFLICT, F03_KEY_VERSION_CONFLICT, F03_NO_GRANT, F08_MARKET_PAUSED,
         KEY_MISMATCH, NON_CANONICAL, NOT_FOUND, REVOKED, UNAUTHORIZED, UNKNOWN_OPERATION,
-        WRONG_CONFIG, WRONG_EPOCH, WRONG_MARKET, WRONG_ROSTER,
+        WRONG_EPOCH,
     },
     evaluators::{
         admission::{
@@ -35,7 +35,7 @@ use crate::{
         },
         authority::{evaluator_region, FrozenEvaluator},
         codec::verify_digest,
-        model::{GrantStatus, SignedReport, VerificationError},
+        model::{SignedReport, VerificationError},
     },
     registry::check_f01_capacity,
     registry_ops::{CallContext, PolicySection, SUSPENDED},
@@ -64,6 +64,15 @@ pub(crate) const COMMIT_OPENS: u64 = 64;
 pub(crate) const COMMIT_CLOSES: u64 = 80;
 const REVEAL_OPENS: u64 = 80;
 const REVEAL_CLOSES: u64 = 96;
+
+pub fn canary_window(origin: u64, epoch: u64, reveal: bool) -> CodecResult<HeightWindow> {
+    let (opens, closes) = if reveal {
+        (REVEAL_OPENS, REVEAL_CLOSES)
+    } else {
+        (COMMIT_OPENS, COMMIT_CLOSES)
+    };
+    HeightWindow::epoch(origin, epoch, opens, closes)
+}
 const POLICY_CAP: usize = Section::PolicyLifecycle.payload_cap();
 const REPORTS_CAP: usize = Section::CurrentReports.payload_cap();
 const CONTROL_CAP: usize = Section::Control.payload_cap();
@@ -121,6 +130,7 @@ impl CommitRecord {
     ///
     /// # Errors
     /// Returns `NON_CANONICAL` when the payload does not fill exactly 81 bytes.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn payload(&self) -> CodecResult<[u8; COMMIT_RESULT_BYTES]> {
         let mut out = [0; COMMIT_RESULT_BYTES];
         let mut w = Writer::new(&mut out);
@@ -138,6 +148,7 @@ impl CommitRecord {
     ///
     /// # Errors
     /// Propagates payload and result-digest refusals.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn result(&self) -> CodecResult<ResultDigest> {
         codec::result_digest(&self.payload()?)
     }
@@ -194,6 +205,7 @@ impl<'a> CommitRegion<'a> {
     ///
     /// # Errors
     /// Propagates record decoding refusals.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn get(&self, epoch: u64, evaluator: EvaluatorId) -> CodecResult<Option<CommitRecord>> {
         let mut r = Reader::new(self.of(epoch));
         while r.remaining() > 0 {
@@ -249,6 +261,7 @@ struct Opened<'a> {
 }
 /// The opened epoch: F08 epoch presence, F01 domain and config, the F06 frozen roster row and
 /// the F03/F04 current-reports regions.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn opened(current: &[u8]) -> CodecResult<Opened<'_>> {
     let state = decode_shared_state(current)?;
     let section = committed(&state)?;
@@ -372,28 +385,13 @@ struct Call<'c> {
 }
 impl Call<'_> {
     /// Domain, expiry, market and the exact frozen epoch, config and roster.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     fn check_envelope(&self) -> CodecResult<()> {
-        let e = &self.envelope.envelope;
-        let frozen = &self.opened.frozen;
-        let market = codec::derive_market(self.ctx.chain, self.ctx.program)?;
-        e.check_domain(self.ctx.chain, self.ctx.program, market)?;
-        e.check_expiry(self.ctx.height)?;
-        if frozen.market != market {
-            return Err(WRONG_MARKET);
-        }
-        if e.epoch != frozen.epoch {
-            return Err(WRONG_EPOCH);
-        }
-        if e.config != frozen.config.get() {
-            return Err(WRONG_CONFIG);
-        }
-        if e.roster != Presence::Present(frozen.roster) {
-            return Err(WRONG_ROSTER);
-        }
-        Ok(())
+        codec::check_frozen_envelope(&self.envelope.envelope, self.ctx, &self.opened.frozen)
     }
     /// The frozen evaluator `binding` names, authenticated natively by its owner or by its
     /// frozen delegate key, with the complete binding compared to the frozen record.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     fn authenticate(&self, binding: &EvaluatorBinding) -> CodecResult<FrozenEvaluator> {
         let e = &self.envelope.envelope;
         let identity = self.opened.state.feature_sections[Section::IdentityRoster.index()];
@@ -425,42 +423,16 @@ impl Call<'_> {
                 key_version: frozen.entry.key_version,
             },
         )?;
-        let live = region.get(frozen.entry.evaluator).ok_or(NON_CANONICAL)?;
-        if live.grant.status == GrantStatus::Revoked || region.excluded(frozen.entry.evaluator) {
-            return Err(REVOKED);
-        }
-        if live.grant.status == GrantStatus::Expired
-            || self.opened.frozen.epoch >= frozen.expiry_epoch_exclusive
-        {
-            return Err(EXPIRED);
-        }
-        if live.grant.status != GrantStatus::Active {
-            return Err(F03_NO_GRANT);
-        }
-        if live.grant.grant_version != frozen.entry.grant {
-            return Err(F03_GRANT_VERSION_CONFLICT);
-        }
-        if live.grant.key_version != frozen.entry.key_version {
-            return Err(F03_KEY_VERSION_CONFLICT);
-        }
-        if live.grant.signing_key != frozen.entry.public_key {
-            return Err(KEY_MISMATCH);
-        }
-        self.check_membership(&frozen)?;
-        Ok(frozen)
-    }
-    /// F08 membership of the frozen evaluator remains admitted under its owner.
-    fn check_membership(&self, frozen: &FrozenEvaluator) -> CodecResult<()> {
-        let admission = AdmissionTable::decode(
+        crate::evidence::check_frozen_evaluator(
+            &region,
+            &frozen,
+            self.opened.frozen.epoch,
             self.opened.state.feature_sections[Section::ReputationAdmission.index()],
         )?;
-        match admission.get(Participant::Evaluator(frozen.entry.evaluator)) {
-            Some(meta) if meta.revoked() => Err(REVOKED),
-            Some(meta) if meta.admitted() && meta.owner == frozen.entry.owner => Ok(()),
-            _ => Err(UNAUTHORIZED),
-        }
+        Ok(frozen)
     }
     /// Role replay request under the evaluator slot bound to the evaluator owner.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     fn request(&self, owner: PrincipalId) -> CodecResult<ReplayRequest> {
         let replay = &self.opened.state.control.replay;
         for index in 0..MAX_EVALUATORS {
@@ -473,6 +445,7 @@ impl Call<'_> {
     }
     /// Envelope, authority and binding checks, then the replay decision; `Err(retained)` is an
     /// exact retry.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     fn admit(
         &self,
         binding: &EvaluatorBinding,
@@ -493,6 +466,7 @@ impl Call<'_> {
             },
         )
     }
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     fn window(&self, opens: u64, closes: u64) -> CodecResult<()> {
         let origin = self.opened.section.header.origin_height;
         HeightWindow::epoch(origin, self.opened.frozen.epoch, opens, closes)?.check(self.ctx.height)
@@ -700,4 +674,143 @@ pub fn apply(
     } else {
         reveal_score(&call, current, next, scratch, event)
     }
+}
+
+pub struct CanaryEnvelope<'a> {
+    pub envelope: codec::Envelope<'a>,
+    unsigned: &'a [u8],
+}
+impl CanaryEnvelope<'_> {
+    pub fn request_digest(&self) -> CodecResult<crate::types::RequestDigest> {
+        crate::types::RequestDigest::new(
+            codec::domain_hash("PAXAI/request/v1", self.unsigned)?.bytes(),
+        )
+    }
+}
+
+pub fn is_canary_score(input: &[u8]) -> bool {
+    matches!(input.get(8..10), Some([4, 1] | [4, 2]))
+        && input.get(codec::ENVELOPE_PREFIX_BYTES..codec::ENVELOPE_PREFIX_BYTES + 8)
+            == Some(crate::canary::CANARY_TASK_KIND.as_slice())
+}
+
+#[cfg_attr(target_arch = "wasm32", inline(never))]
+fn validate_canary_envelope(e: &codec::Envelope<'_>) -> CodecResult<()> {
+    if e.sequence == 0 || e.config == 0 || e.expiry == 0 || e.roster == Presence::Absent {
+        return Err(NON_CANONICAL);
+    }
+    if e.authentication != Authentication::Native {
+        return Err(UNAUTHORIZED);
+    }
+    e.operation.validate_payload_length(e.payload.len())?;
+    if e.operation == dispatch::CommitScore {
+        crate::canary::CanaryTask::decode(e.payload)?;
+    } else if e.operation == dispatch::RevealScore {
+        crate::canary::CanaryReveal::decode(e.payload)?;
+    } else {
+        return Err(UNKNOWN_OPERATION);
+    }
+    Ok(())
+}
+
+#[cfg_attr(target_arch = "wasm32", inline(never))]
+pub fn encode_canary_envelope(e: &codec::Envelope<'_>, out: &mut [u8]) -> CodecResult<usize> {
+    validate_canary_envelope(e)?;
+    codec::encode_envelope_fields(e, out)
+}
+
+#[cfg_attr(target_arch = "wasm32", inline(never))]
+pub fn decode_canary_envelope(input: &[u8]) -> CodecResult<CanaryEnvelope<'_>> {
+    let (envelope, unsigned) = codec::decode_envelope_fields(input, true)?;
+    validate_canary_envelope(&envelope)?;
+    Ok(CanaryEnvelope { envelope, unsigned })
+}
+
+#[cfg_attr(target_arch = "wasm32", inline(never))]
+pub fn canary_score_payload(
+    record: &crate::canary::CanaryCommitment,
+    operation: dispatch::Operation,
+    sequence: u64,
+) -> CodecResult<([u8; COMMIT_RESULT_BYTES], usize)> {
+    let mut bytes = [0; COMMIT_RESULT_BYTES];
+    if operation == dispatch::CommitScore {
+        let mut w = Writer::new(&mut bytes);
+        w.u8(2)?;
+        w.put(record.host.as_bytes())?;
+        w.put(record.id.as_bytes())?;
+        w.u64(record.committed_height)?;
+        w.u64(sequence)?;
+        Ok((bytes, COMMIT_RESULT_BYTES))
+    } else if operation == dispatch::RevealScore {
+        bytes[..32].copy_from_slice(record.id.as_bytes());
+        Ok((bytes, 32))
+    } else {
+        Err(UNKNOWN_OPERATION)
+    }
+}
+
+pub fn apply_canary_score(
+    ctx: &CallContext,
+    score: &CanaryEnvelope<'_>,
+    current: &[u8],
+    next: &mut [u8],
+    scratch: &mut [u8],
+    event: &mut [u8],
+) -> CodecResult<crate::canary::Outcome> {
+    let e = &score.envelope;
+    let state = decode_shared_state(current)?;
+    let section = crate::canary::check_call(ctx, e, &state)?;
+    if e.actor != section.header.owner_principal {
+        return Err(UNAUTHORIZED);
+    }
+    let actor = state
+        .control
+        .replay
+        .actor(ActorSlot::OWNER)
+        .ok_or(NOT_FOUND)?;
+    let digest = score.request_digest()?;
+    let request = ReplayRequest {
+        slot: ActorSlot::OWNER,
+        principal: e.actor,
+        authority_version: actor.authority_version,
+        sequence: e.sequence,
+        request_id: e.request,
+        digest,
+        expiry_height: e.expiry,
+    };
+    if let ReplayDecision::AlreadyApplied(retained) =
+        state.control.replay.check(&request, ctx.height)?
+    {
+        return Ok(crate::canary::Outcome::Retained(retained));
+    }
+    let record = if e.operation == dispatch::CommitScore {
+        crate::canary::commit_task(
+            ctx,
+            e,
+            &state,
+            crate::canary::CanaryTask::decode(e.payload)?,
+        )?
+    } else if e.operation == dispatch::RevealScore {
+        crate::canary::reveal_task(
+            ctx,
+            e,
+            &state,
+            crate::canary::CanaryReveal::decode(e.payload)?,
+        )?
+    } else {
+        return Err(UNKNOWN_OPERATION);
+    };
+    let (payload, n) = canary_score_payload(&record, e.operation, e.sequence)?;
+    crate::canary::persist(
+        ctx,
+        e,
+        digest,
+        current,
+        record,
+        Some(&request),
+        &payload[..n],
+        next,
+        scratch,
+        event,
+    )
 }

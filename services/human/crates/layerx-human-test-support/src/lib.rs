@@ -188,7 +188,7 @@ pub fn evidence_startup_config(receipt_signer: &SigningKey) -> StartupConfig {
             tenant.clone(),
             PathBuf::from("/etc/layerx/human-signer.kvx"),
         )]),
-        verification_defaults: BTreeMap::from([(tenant, VerificationLevel::CHECKPOINT_FINALISED)]),
+        verification_defaults: BTreeMap::from([(tenant, VerificationLevel::COMMITTED)]),
         receipt_key_source: ReceiptKeySource::PinnedFile(authority_path),
     }
 }
@@ -568,6 +568,29 @@ pub fn human_sources_containing(needle: &str) -> Vec<PathBuf> {
     }
     sources.sort();
     sources
+}
+
+/// Encodes the daemon TRACK observation for a submission without a receipt.
+///
+/// # Errors
+/// Returns the daemon refusal if the state requires a verified receipt.
+pub fn daemon_track_observation(
+    submission_id: [u8; 32],
+    activity_id: [u8; 32],
+    state: layerx_agentd::outbox::SubmissionState,
+) -> Result<Vec<u8>, layerx_agentd::human::HumanOperationError> {
+    let status = layerx_agentd::outbox::SubmissionStatus {
+        submission_id,
+        state,
+        activity_id,
+        evidence: None,
+        transitions: Vec::new(),
+    };
+    let tracked = layerx_agentd::human_runtime::write_submission(&status, None)?;
+    let mut observation = activity_id.to_vec();
+    observation.extend_from_slice(tracked.bytes());
+    observation.push(0);
+    Ok(observation)
 }
 
 #[cfg(test)]

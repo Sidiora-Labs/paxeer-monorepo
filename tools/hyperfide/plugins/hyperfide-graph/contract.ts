@@ -1,0 +1,96 @@
+import { defineRpcContract } from "@hyperfide/plugin-sdk";
+import { z } from "zod";
+const text = z
+  .string()
+  .min(1)
+  .max(4096)
+  .refine((v) => !v.includes("\0"));
+export const scopeSchema = z
+  .object({ hostId: text, repository: text })
+  .strict();
+export const nativeSourceSchema = z
+  .object({
+    buildId: z.string().uuid(),
+    revisionId: z.string().regex(/^sha256:[a-f0-9]{64}$/),
+    rootTreeId: z.string().regex(/^sha256:[a-f0-9]{64}$/),
+    cursor: text.optional(),
+  })
+  .strict();
+export const nativeGraphRefusalSchema = z
+  .object({
+    code: z.enum([
+      "NATIVE_SOURCE_CONFIG_REQUIRED",
+      "NATIVE_SOURCE_CONFIG_INVALID",
+      "NATIVE_GRAPH_PIN_REQUIRED",
+      "NATIVE_GRAPH_SOURCE_MISMATCH",
+    ]),
+    message: text,
+  })
+  .strict();
+export class NativeGraphRefusal extends Error {
+  readonly code: z.infer<typeof nativeGraphRefusalSchema>["code"];
+  constructor(
+    code: z.infer<typeof nativeGraphRefusalSchema>["code"],
+    message: string,
+    options?: ErrorOptions,
+  ) {
+    super(message, options);
+    this.name = "NativeGraphRefusal";
+    this.code = nativeGraphRefusalSchema.parse({ code, message }).code;
+  }
+}
+export const requestSchema = scopeSchema
+  .extend({
+    command: z.enum(["survey", "context", "index-status", "why"]),
+    target: text.optional(),
+    nativeSource: nativeSourceSchema.optional(),
+  })
+  .strict()
+  .superRefine((v, ctx) => {
+    if (
+      !v.nativeSource &&
+      v.command !== "index-status" &&
+      (!v.target || v.target.startsWith("-"))
+    )
+      ctx.addIssue({
+        code: "custom",
+        message: "A non-option target is required",
+      });
+  });
+export const settingsSchema = z
+  .object({ enabled: z.boolean(), binaryPath: text.optional() })
+  .strict();
+export const binarySchema = z.object({
+  path: text,
+  version: text,
+  digest: z.string().regex(/^[a-f0-9]{64}$/),
+  ok: z.literal(true),
+});
+export const resultSchema = z
+  .object({
+    binary: binarySchema.nullable(),
+    source: nativeSourceSchema.omit({ cursor: true }).optional(),
+    data: z.record(z.string(), z.unknown()),
+  })
+  .strict();
+export const hostInputSchema = requestSchema.safeExtend({
+  binaryPath: text.optional(),
+  timeoutMs: z.number().int().min(1).max(60000),
+});
+export const graphHostContract = defineRpcContract({
+  run: { input: hostInputSchema, output: resultSchema },
+});
+export const graphRpcContract = defineRpcContract({
+  languageServerStatus: {
+    input: scopeSchema,
+    output: z.enum(["running", "stopped"]),
+  },
+  run: { input: requestSchema, output: resultSchema },
+  getSettings: { input: scopeSchema, output: settingsSchema },
+  setSettings: {
+    input: scopeSchema.extend({ settings: settingsSchema }).strict(),
+    output: settingsSchema,
+  },
+});
+export type GraphRequest = z.infer<typeof requestSchema>;
+export type GraphResult = z.infer<typeof resultSchema>;

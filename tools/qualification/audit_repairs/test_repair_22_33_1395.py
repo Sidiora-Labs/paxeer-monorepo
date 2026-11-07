@@ -20,7 +20,15 @@ DEPLOYMENT = next(
 )
 POD = DEPLOYMENT["spec"]["template"]["spec"]
 CONTAINER = next(item for item in POD["containers"] if item["name"] == "gateway")
-ENV = {item["name"]: item["value"] for item in CONTAINER["env"]}
+ENV = {
+    item["name"]: (
+        item["value"] if "value" in item else
+        item["valueFrom"]["configMapKeyRef"]
+        if "configMapKeyRef" in item["valueFrom"] else
+        item["valueFrom"]["secretKeyRef"]
+    )
+    for item in CONTAINER["env"]
+}
 RECORDED = json.loads(
     (GATEWAY / "tests/fixtures/repair_22_33_1335_committed.json").read_text()
 )
@@ -76,7 +84,13 @@ def test_gateway_retired_dependencies_removed_from_manifest_and_example():
         r'"(LAYERX_GATEWAY_[A-Z0-9_]+)"',
         main.split("const KERNEL_VARIABLES:", 1)[1].split("];", 1)[0],
     ))
-    assert len(kernel_names) == 13
+    assert len(kernel_names) == 8
+    assert kernel_names == {
+        "LAYERX_GATEWAY_COMPONENT_URL", "LAYERX_GATEWAY_COMPONENT_TOKEN_FILE",
+        "LAYERX_GATEWAY_PUBLIC_CORE_URL", "LAYERX_GATEWAY_AUTHORITY_URL",
+        "LAYERX_GATEWAY_AUTHORITY_TOKEN_FILE", "LAYERX_GATEWAY_PROGRAM_REGISTRY_URL",
+        "LAYERX_GATEWAY_PROGRAM_REGISTRY_TOKEN_FILE", "LAYERX_GATEWAY_MODULE_REGISTRY_FILE",
+    }
     assert not kernel_names.intersection(ENV)
     assert not any(name.startswith("LAYERX_GATEWAY_SEQUENCER_") for name in ENV)
     text = (GATEWAY / "deployment.yaml").read_text()
@@ -95,8 +109,11 @@ def test_gateway_retired_dependencies_removed_from_manifest_and_example():
     )[0]
     assert 'if env::var_os("LAYERX_GATEWAY_COMPONENT_URL").is_none()' in kernel
     assert "return Ok(None);" in kernel
-    assert 'let service_identity = configured_service_identity(kernel.is_some())?;' in main
-    assert "Client::new(ca.clone(), identity), None, true" in main
+    assert 'let service_identity = configured_service_identity()?;' in main
+    assert 'if kernel.is_some() && service_identity.is_none()' in main
+    assert 'return Err("gateway kernel client identity is required".into());' in main
+    assert "Some(identity) => (Client::new(ca.clone(), identity), true)" in main
+    assert "None => (Client::without_identity(ca.clone()), false)" in main
     example = dict(
         line.split("=", 1)
         for line in (GATEWAY / "railway.env.example").read_text().splitlines()
@@ -171,7 +188,7 @@ def test_fresh_receipt_material_uses_recorded_chain_pin_without_retired_services
     before = source.read_bytes()
     functions = producer()
     functions["provision_gateway"](source, target)
-    secret = functions["gateway_secret"](target.parent, "layerx-testnet")
+    secret = functions["gateway_secret"](target.parent, "layerx-mainnet-beta")
     assert secret["kind"] == "Secret" and secret["type"] == "Opaque"
     transported = projected_bytes(secret)
     assert transported == target.read_bytes()
@@ -186,7 +203,7 @@ def test_retained_material_reopens_without_retired_inputs(tmp_path):
     source, target = source_material(tmp_path)
     functions = producer()
     functions["provision_gateway"](source, target)
-    secret = functions["gateway_secret"](target.parent, "layerx-testnet")
+    secret = functions["gateway_secret"](target.parent, "layerx-mainnet-beta")
     retained = target.read_bytes()
     del functions
     source.unlink()
@@ -194,14 +211,14 @@ def test_retained_material_reopens_without_retired_inputs(tmp_path):
     # only its retained export, without the original source or retired files.
     reopened = producer()
     assert reopened["receipt_keys"](target) == retained
-    assert reopened["gateway_secret"](target.parent, "layerx-testnet") == secret
+    assert reopened["gateway_secret"](target.parent, "layerx-mainnet-beta") == secret
     assert projected_bytes(secret) == retained
     replacement = tmp_path / "replacement"
     replacement.mkdir()
     replacement_file = replacement / "receipt-keys.json"
     reopened["provision_gateway"](target, replacement_file)
     assert replacement_file.read_bytes() == retained
-    assert projected_bytes(reopened["gateway_secret"](replacement, "layerx-testnet")) == retained
+    assert projected_bytes(reopened["gateway_secret"](replacement, "layerx-mainnet-beta")) == retained
     with target.open("rb") as stream:
         assert stream.read() == retained
     assert stat.S_IMODE(target.stat().st_mode) == 0o600
@@ -283,7 +300,7 @@ def test_atomic_rotation_keeps_exact_height_windows_and_protected_output(tmp_pat
     assert json.loads(target.read_bytes()) == expected_config(keys)
     assert stat.S_IMODE(target.stat().st_mode) == 0o600
     assert list(target.parent.iterdir()) == [target]
-    assert projected_bytes(producer()["gateway_secret"](target.parent, "layerx-testnet")) == target.read_bytes()
+    assert projected_bytes(producer()["gateway_secret"](target.parent, "layerx-mainnet-beta")) == target.read_bytes()
 
 
 def test_unsafe_retained_output_is_refused(tmp_path):
@@ -303,7 +320,7 @@ def test_unsafe_retained_output_is_refused(tmp_path):
 
 
 def test_identifier_meanings_and_proof_limits_are_published():
-    assert all(item["metadata"]["namespace"] == "layerx-testnet" for item in DOCUMENTS)
+    assert all(item["metadata"]["namespace"] == "layerx-mainnet-beta" for item in DOCUMENTS)
     documentation = (GATEWAY / "README.md").read_text()
     for fact in (
         "Kubernetes namespace `layerx-testnet`", "EVM chain ID `125` (`0x7d`)",

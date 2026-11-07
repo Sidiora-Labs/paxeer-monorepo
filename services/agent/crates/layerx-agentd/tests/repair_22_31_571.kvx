@@ -1,0 +1,101 @@
+[repair]
+task = "22.31.571"
+requirement = "22998.1"
+gotcha = "3260"
+decision = "2677"
+base = "164a6ba7b9be73debd346e94d00dba5d612e4fcb"
+
+[implementation]
+track = "TRACK first preserves the principal's existing submission lookup, then resolves a tenant-scoped linked release, then checks the tenant's durable release against ApprovalSubmissionQueue::prepared. An unlinked release returns a Queued observation with its reference and canonical disclosure digest without reading the node."
+submit = "The common verified external submission path used by rpc_submit_external and all three native carriers journals approval_release_ref to the exact EVM submission hash and submitting principal before dispatch. Existing releases retain their original hold and reservations in the versioned linked record; native releases retain their carrier and signing-preparation bindings."
+recovery = "ProductionHumanOperations::new restores each link, validates the indexed principal and the retained signed transaction's unsigned bytes, and refuses conflicts or missing targets. Outbox recovery validates the same released records instead of treating them as ordinary submissions. Approval replay unwraps linked holds and validates native carrier links without replaying them as ordinary holds."
+receipt = "Release TRACK runs the existing sequencer receipt signature and transaction-hash verification and returns the verified receipt frame in the Human observation. The principal's own submission-id answer stays unchanged. track_with_settlement resolves absent submission references through the same release path."
+human_service = "No Human service file changes."
+
+[proof]
+path = "tests/repair_22_31_571.rs"
+test = "approval_release_tracks_from_grant_through_submission_receipt_and_restart"
+transport = "PREPARE, APPROVAL_APPROVE, SUBMIT and TRACK traverse AcceptedTransport over UnixStream and the production serve_one dispatcher into UnifiedAgentOwner; real typed preparation, signature verification, approval reservation, Store and restart paths execute."
+
+[case.queued]
+test = "approval_release_tracks_from_grant_through_submission_receipt_and_restart"
+assertion = "After a granted approval, TRACK returns Queued, the release reference as submission id, the exact nonzero SHA256 digest of released unsigned bytes as activity id, no receipt, and no additional node request."
+
+[case.linked]
+test = "approval_release_tracks_from_grant_through_submission_receipt_and_restart"
+assertion = "A valid SUBMIT with approval_release_ref broadcasts the verified signed EVM bytes once; another principal in the same tenant tracks the release and receives the submission's exact status, while direct TRACK of that principal's submission id remains Refused."
+
+[case.unknown]
+test = "approval_release_tracks_from_grant_through_submission_receipt_and_restart"
+assertion = "An unknown release reference returns operation.refused without a node read."
+
+[case.other_tenant]
+test = "approval_release_tracks_from_grant_through_submission_receipt_and_restart"
+assertion = "Another tenant cannot track the release before SUBMIT or after its verified receipt."
+
+[case.status_restart]
+test = "approval_release_tracks_from_grant_through_submission_receipt_and_restart"
+assertion = "Drop the owner and durable store, reopen Store and reconstruct the production runtime; direct TRACK as the submitting principal and linked TRACK as the human observer both answer Unknown for the submission without a receipt, with identical submission-status bytes, unchanged header and submission identity, no receipt, and identical release journal bytes."
+
+[case.invalid_receipt]
+test = "approval_release_tracks_from_grant_through_submission_receipt_and_restart"
+assertion = "A corrupted sequencer signature is refused before returning receipt material."
+
+[case.verified_receipt]
+test = "approval_release_tracks_from_grant_through_submission_receipt_and_restart"
+assertion = "Once the sequencer serves the signed receipt, release TRACK returns Executed and the same tracked bytes as submission-id TRACK, plus the exact canonical receipt, submission hash, sequencer public key and Receipted rung; VerifiedReceipt verifies the returned bytes again."
+
+[case.receipt_restart]
+test = "approval_release_tracks_from_grant_through_submission_receipt_and_restart"
+assertion = "After a second full owner/store restart, the complete verified receipt observation is unchanged."
+
+[evidence]
+policy = "Finalize before qualification; results are referenced rather than transcribed after the candidate is built."
+ledger = "/out/run/gates.jsonl"
+verified_revision = "/out/run/gates.jsonl: final passing verify row revision, equal to the preceding passing build row revision"
+build = "hf-build: cargo build --locked --manifest-path services/agent/crates/layerx-agentd/Cargo.toml --tests"
+dependents = "hf-done: /out/run/gates.jsonl final dependents row records the dependent-crate check, its candidate revision, exit and private log"
+verify = "hf-done: cg spec done 22.31.571 -f layerx-merge --root /work/paxeer-monorepo; cargo test --locked --manifest-path services/agent/crates/layerx-agentd/Cargo.toml --test repair_22_31_571, plus graph checks"
+results = "/out/run/gates.jsonl: exact revision, command, exit and private log for each bounded build/verify row; no pass claimed before execution"
+
+[continuation.attempt_3]
+gotcha = "3274"
+repair = "Bind the shared Store mutex guard before passing its reference to SigningPreparation::restore; release the guard immediately after restore, before subsequent owner operations lock the store."
+qualification = "/out/run/gates.jsonl: build, dependent-crate check and verify evidence at the final candidate revision"
+
+[qualification.repair_1]
+finding = "/out/logs/verify-1.log at revision 309c9db26fe87bb8c9e504a2056ac19183447345: the inherited budget corpus starts with 23 spent units but the scenario starts with an empty receipt store, so startup correctly refuses PREPARE as unreconciled."
+repair = "Initialize this empty-store scenario with an unspent budget before the node and production authority reader start; assert zero spending and the unchanged 100-unit period limit, retain the committed membership proof and every existing behavior assertion, and regenerate budget-state evidence through the production authority reader."
+evidence = "/out/run/gates.jsonl: final build, dependent-crate check and verify rows for the repaired candidate"
+
+[qualification.repair_2]
+finding = "/out/logs/verify-2.log at revision 4ea29cf5deb9b20cf01c0d894ddfa4a2fbb4f00d: startup admits writes but PREPARE refuses the test frame because its body digest encodes text lengths as u64 while production human_runtime::hash_text encodes u32."
+repair = "Encode text lengths as checked u32 values in both PREPARE and SUBMIT test-frame body digests, matching the production digest functions; retain all behavior assertions."
+evidence = "/out/run/gates.jsonl: final build, dependent-crate check and verify rows for the repaired candidate"
+
+[continuation.attempt_4]
+gotcha = "3281"
+decision = "2691"
+initial_gates = "/out/run/gates.jsonl: revision 675034d61c07d91501069cd55accbe9af8ac5603, passing build and dependent-crate check; verify failed at SUBMIT, after PREPARE, grant, queued TRACK, unknown-reference and cross-tenant refusals passed."
+finding = "/out/logs/verify-1.log: cg spec done 22.31.571 -f layerx-merge --root /work/paxeer-monorepo exited 1; verify_cmd exited 101 because SUBMIT received a recovery bit instead of the AgentSignature recovery byte required by attach_external_signature."
+repair = "Encode the proof's external EVM signature with v = 27 + recovery.to_byte(), matching Eip1559Call::sign and recover_sender. Preserve every assertion and the entire grant-to-receipt-to-restart sequence; no production signature check or Human service changes."
+qualification = "/out/run/gates.jsonl: final build, dependent-crate check and verify rows name the repaired candidate revision, exact commands, exits and private evidence logs."
+
+[continuation.attempt_5]
+gotcha = "3289"
+decision = "2697"
+repair = "The first restart asserts Unknown, the state restore_submissions assigns a Submitted submission without a receipt, and compares the linked TRACK status to direct TRACK after that same restart. The header, submission identity, release journal and later verified-receipt restart assertions remain enforced."
+qualification = "/out/run/gates.jsonl: final build and verify rows name the same candidate revision, exact commands, exits and private evidence logs."
+
+[qualification.unrelated_build_blocker]
+revision = "c2d2833a1b4d0993a8072ec4fa2f6b8e654d885f"
+command = "cargo build --locked --manifest-path services/agent/crates/layerx-agentd/Cargo.toml --tests"
+exit = 101
+log = "/out/logs/build-1.log"
+observed = "The existing src/compat.rs:8 include_str!(../../../COMPATIBILITY.md) cannot read the absent services/agent/COMPATIBILITY.md, so neither the library nor its integration tests compile."
+assumption = "Both the include site and absent file are outside the explicit task scope; record this inherited failure without changing either or rerunning the recorded failure; verify has not run and qualification is not claimed."
+
+[regression.managed_agent_checks_613]
+boundary = "The unknown release and foreign submission refusals originate in TRACK authorization and release lookup outside managed_agent; their exact operation.refused frames remain unchanged."
+execution = "The existing regression target runs alone under task 22.31.613; tests/repair_22_31_613.kvx references its private command, revision, exit and log. All behavioral cases and recording-only ignore attributes are preserved."
+evidence = "The final passing verify row in /out/run/gates.jsonl supplies the verified revision, command, exit and private log and must match the final passing build row; no result is claimed before execution."
