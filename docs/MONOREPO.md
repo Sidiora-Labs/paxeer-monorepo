@@ -25,6 +25,7 @@ See [Paxeer Network](paxeer-network.md) for chain identity, public endpoints and
 | `apps/perps` | The Hyperpax perps frontend |
 | `apps/wallet`, `apps/web` | Wallet app and web app |
 | `apps/explorer` | Block explorer frontend |
+| `apps/inference-peer` | Standalone inference peer package with the pinned MIT Pooled WebGPU engine; see its `README.md`, `NOTICE` and `LICENSE-ENGINE` |
 | `apps/bridge` | Bridge frontend |
 | `apps/launchpad` | Launchpad web and mobile apps and the client workspace files |
 | `services/agent` | Agent daemon, MCP server, shared Rust crates, TypeScript and Python SDKs |
