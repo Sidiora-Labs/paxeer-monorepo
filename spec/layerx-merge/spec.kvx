@@ -178173,7 +178173,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.573]
 title = "Charge a replay boundary with the state it retains so a default-stack guest is admitted under the kernel replay profile"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.569", "22.31.572", "22.31.574", "22.31.577"]
