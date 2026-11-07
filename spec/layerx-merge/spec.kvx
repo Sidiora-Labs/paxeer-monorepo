@@ -151030,7 +151030,7 @@ source_task = "4.2"
 
 [task.22.37.17]
 title = "Complete native acceptance qualification with batch suite, retention race, lifecycle projection and a recorded run"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.36.1"]
@@ -179776,7 +179776,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.38.1]
 title = "Add the room market family F11 to the ai-market program with its operation table, selectors and availability"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -286434,7 +286434,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.588]
 title = "Generate and check the merge plan info the node decodes at the upgrade height"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -329460,7 +329460,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.607]
 title = "Build the container image from the released binary and stamp the explorer image with the release tag"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
