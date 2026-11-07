@@ -285679,7 +285679,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.38.10]
 title = "Bind a verified peer attestation to a peer key, model digest and runtime digest"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
