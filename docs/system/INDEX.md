@@ -4,7 +4,7 @@
 
 Generated from the repository sources. Regenerate with `tools/docs/gen-system-docs.sh`; `--check` fails when this directory is stale.
 
-- [Router routes](routes.md)
+- [Hosted route catalogue](routes.md)
 - [EVM JSON-RPC methods](rpc.md)
 - [Precompile ABIs](precompiles.md)
 - [Chain modules and parameters](chain-modules.md)

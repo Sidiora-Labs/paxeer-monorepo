@@ -1,9 +1,11 @@
+<!-- Generated from services/agent/tools/sdk-gen/templates/compatibility.md.tpl and services/agent/schema/agent-api/v1.kvx. Do not hand-edit the committed file. -->
+
 # LayerX SDK compatibility
 
 Version declarations come from
 [`schema/agent-api/v1.kvx`](../schema/agent-api/v1.kvx). Despite its filename,
 the current schema is contract **2.0**. The executable daemon matrix is
-documented in [`docs/agent/COMPATIBILITY.md`](../../../docs/agent/COMPATIBILITY.md).
+documented in [Agent compatibility](../../../docs/agent/COMPATIBILITY.md).
 
 | SDK version | Contract version | Node interface version | Daemon version | Support |
 | --- | --- | --- | --- | --- |
@@ -86,7 +88,6 @@ and a regeneration diff, then the documentation checker and its tests.
 The generator's prose template is
 [`compatibility.md.tpl`](../tools/sdk-gen/templates/compatibility.md.tpl);
 schema declarations remain authoritative for versions and contract shapes.
-The current template still emits the historical offline-export guidance and
-must be reconciled with the portable-v2 contract before a release regeneration.
+The committed compatibility page is generated from this template and the schema.
 This release gate is separate from verifying an offline artifact or checking
 a live node's capabilities.

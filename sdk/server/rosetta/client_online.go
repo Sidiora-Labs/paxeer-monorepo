@@ -498,7 +498,7 @@ func (c *Client) blockTxs(ctx context.Context, height *int64) (crgtypes.BlockTra
 	}
 
 	if len(blockResults.TxsResults) != len(blockInfo.Block.Txs) {
-		// wtf?
+		// Reject inconsistent transaction counts before pairing transactions with results.
 		panic("block results transactions do now match block transactions")
 	}
 	// process begin and end block txs

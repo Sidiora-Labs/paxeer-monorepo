@@ -2,6 +2,7 @@ package layerxpay_test
 
 import (
 	"bytes"
+	"encoding/binary"
 	"math/big"
 	"reflect"
 	"testing"
@@ -25,7 +26,8 @@ func escrowConformanceRows(t *testing.T, h *payPrecompileHarness) []kv.Pair {
 		require.NoError(t, iterator.Error())
 		rows = append(rows, kv.Pair{Key: bytes.Clone(iterator.Key()), Value: bytes.Clone(iterator.Value())})
 	}
-	require.EqualError(t, iterator.Error(), "invalid cacheMergeIterator")
+	require.False(t, iterator.Valid())
+	require.NoError(t, iterator.Error())
 	require.NoError(t, iterator.Close())
 	return rows
 }
@@ -105,11 +107,33 @@ func TestPayEscrowPathMatchesHostExecute(t *testing.T) {
 				require.Equal(t, want.PreviousStateRoot, got.PreviousStateRoot)
 				require.Equal(t, want.ResultingStateRoot, got.ResultingStateRoot)
 				require.Equal(t, want.Encoded, got.CanonicalBytes())
-				require.Equal(t, escrowConformanceRows(t, direct), escrowConformanceRows(t, precompile))
-
-				record, found := precompile.keeper.GetEscrow(precompile.db.Ctx(), id)
+				receiptKey := binary.BigEndian.AppendUint64([]byte("layerxpay/escrow-receipt/v1/"), got.GlobalSequence)
+				precompileRows := escrowConformanceRows(t, precompile)
+				var hostRows []kv.Pair
+				for _, row := range precompileRows {
+					if !bytes.Equal(row.Key, receiptKey) {
+						hostRows = append(hostRows, row)
+					}
+				}
+				require.Len(t, precompileRows, len(hostRows)+1)
+				require.Equal(t, escrowConformanceRows(t, direct), hostRows)
+				storedReceipt, found, err := precompile.keeper.GetEscrowReceipt(precompile.db.Ctx(), got.GlobalSequence)
+				require.NoError(t, err)
 				require.True(t, found)
-				wantRecord, found := direct.keeper.GetEscrow(ctx, id)
+				wantReceipt, err := codec.DecodeReceipt(want.Encoded)
+				require.NoError(t, err)
+				boundReceipt, err := codec.DecodeReceipt(storedReceipt.CanonicalBytes())
+				require.NoError(t, err)
+				require.NotEqual(t, [32]byte{}, boundReceipt.TransferSetRoot)
+				comparableReceipt := *boundReceipt
+				comparableReceipt.TransferSetRoot = wantReceipt.TransferSetRoot
+				require.EqualExportedValues(t, *wantReceipt, comparableReceipt)
+
+				record, found, err := precompile.keeper.GetEscrow(precompile.db.Ctx(), id)
+				require.NoError(t, err)
+				require.True(t, found)
+				wantRecord, found, err := direct.keeper.GetEscrow(ctx, id)
+				require.NoError(t, err)
 				require.True(t, found)
 				require.Equal(t, wantRecord, record)
 				require.Equal(t, paytypes.EscrowRecord{
@@ -121,12 +145,15 @@ func TestPayEscrowPathMatchesHostExecute(t *testing.T) {
 				}, record)
 				resultKeys = append(resultKeys, key)
 				for _, resultKey := range resultKeys {
-					result, found := precompile.keeper.GetEscrowResult(precompile.db.Ctx(), resultKey)
+					result, found, err := precompile.keeper.GetEscrowResult(precompile.db.Ctx(), resultKey)
+					require.NoError(t, err)
 					require.True(t, found)
-					wantResult, found := direct.keeper.GetEscrowResult(ctx, resultKey)
+					wantResult, found, err := direct.keeper.GetEscrowResult(ctx, resultKey)
+					require.NoError(t, err)
 					require.True(t, found)
 					require.Equal(t, wantResult, result)
 					if resultKey == key {
+						require.Equal(t, result.TransferSetRoot, boundReceipt.TransferSetRoot)
 						require.Equal(t, id, result.EscrowID)
 						require.Equal(t, uint16(kind), result.Ordinal)
 						require.Equal(t, state, result.StateAfter)
@@ -160,6 +187,8 @@ func TestPayEscrowPathMatchesHostExecute(t *testing.T) {
 						require.Equal(t, sdk.NewIntFromUint64(balance.amount), value)
 					}
 				}
+				directStore.Set(receiptKey, storedReceipt.CanonicalBytes())
+				require.Equal(t, escrowConformanceRows(t, precompile), escrowConformanceRows(t, direct))
 			}
 
 			openPayload := paytypes.EncodeEscrowOpen(id, f.owner.account, args[2].([32]byte),

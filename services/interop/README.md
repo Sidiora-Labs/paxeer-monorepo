@@ -1,6 +1,10 @@
 # Paxeer X Network interoperability workspace
 
-Adapters at the edge of Paxeer X Network. They translate someone else's protocol into evidence shaped for the LayerX kernel, and they never write balances: `402LXP` is the only balance writer. Custody and withdrawal guarantees stay on the Paxeer X chain.
+Adapters at the edge of Paxeer X Network translate external protocols into
+evidence consumed by the kernel inside `paxd`. Native ledger and payment
+operations execute on the merged chain (EVM chain ID `125`); transaction
+finality is BFT block commit. Interop services provide the mirror archive,
+attestation bindings and sequencer receipts described below.
 
 This is the Rust workspace in `services/interop/` (members listed in [`Cargo.toml`](Cargo.toml)). It is not a second ledger.
 
@@ -13,7 +17,7 @@ This is the Rust workspace in `services/interop/` (members listed in [`Cargo.tom
 | x402 v2 | Buyer, seller, facilitator over HTTP, MCP, and A2A | `crates/layerx-x402` - [COMPATIBILITY.md](crates/layerx-x402/COMPATIBILITY.md). Commitment extras and metered/subscription grant draws: [`docs/wiki/X402Transport.md`](../../docs/wiki/X402Transport.md) |
 | Ethereum / Solana mirrors | Batch archive publication and verification. Pure archives: no vault, no portal, no custody | `crates/layerx-mirror`; contracts in `contracts/ethereum-mirror/` and `contracts/solana-mirror/`; deploy notes in `deploy/mirror/` |
 | Ethereum / Solana migration | Source-chain verifiers and the `migration` adapter | `crates/layerx-migrate` - [OPERATIONS.md](crates/layerx-migrate/OPERATIONS.md) |
-| Portable receipts | Verify LayerX receipts without a live node | `crates/layerx-portable` - [PORTABILITY.md](../../docs/interop/PORTABILITY.md) |
+| Portable receipts | Verify signed `ProtocolReceipt` v2 bytes under independently pinned, height-ranged receipt keys without a live node | `crates/layerx-portable` - [PORTABILITY.md](../../docs/interop/PORTABILITY.md) |
 | Bridge relayer | Carries `PaxeerXVault` deposits into the bridge precompile and Paxeer X burns into vault releases, plus the `layerx-bridge-cosign` share transport | `crates/layerx-bridge-relayer`; deploy config in `deploy/bridge-relayer/`; operator runbook in [`contracts/bridge/README.md`](../../contracts/bridge/README.md) |
 | Remote signer | Reference signer for the mirror publisher and the bridge relayer | `crates/layerx-mirror-signer`; protocol in [`deploy/mirror/signer-protocol.md`](deploy/mirror/signer-protocol.md) |
 | Gas station | Sponsored submission (`paxeer-gas-station` binary) | `crates/layerx-gas-station`; deploy config in `deploy/gas-station/` |
@@ -38,9 +42,44 @@ agent status, and per-principal canonical TAP targets, are documented in
 
 ## Mirrors are archives
 
-`layerx-mirror-publisher` and `layerx-mirror-verify` publish and check batch commitments on Ethereum and Solana. Anyone can verify LayerX state from a mirror. Funds do not live on those chains. Settlement stays on the Paxeer X chain (EVM chain ID `125`), whose node lives in the chain directories at the [repository root](../../README.md).
+`layerx-mirror-publisher` and `layerx-mirror-verify` publish and check batch
+commitments on Ethereum and Solana. The mirror archive carries verification
+material; its contracts hold no vault or custody and do not establish Paxeer
+finality. Bridge vaults are separate contracts with their own attestor policy.
+Settlement on Paxeer is the committed chain state, whose node lives in the
+chain directories at the [repository root](../../README.md).
 
 Remote signer framing: [`deploy/mirror/signer-protocol.md`](deploy/mirror/signer-protocol.md).
+
+## Attestation bindings and sequencer receipts
+
+The bridge relayer binds deposit attestations to the source chain ID, vault,
+transaction hash and log index, recipient, asset and amount. Release bundles
+bind the destination chain and vault, Paxeer transaction hash and nonce,
+recipient, asset and amount. Signatures cover the corresponding digest and
+must meet the destination's distinct-attestor threshold. The read-only
+`GET /v1/deposit/{chainId}/{txHash}/{logIndex}` and
+`GET /v1/release/{chainId}/{paxeerTxHash}/{nonce}` routes expose observed,
+attesting and ready bundles; an unobserved item answers 404. See the
+[interop contract](../../spec/layerx-merge/contracts/interop.md#bridge-relayer).
+
+External evidence import preserves protocol presentation bytes and binds the
+adapter's typed verification result to their digest and protocol metadata.
+Consumers must authenticate the verifier or repeat verification; a digest alone
+does not authenticate an attestation. See
+[external evidence import](../../docs/interop/PORTABILITY.md#external-evidence-import).
+
+Read `pax_sequencerReceipt` at the node root for the `submitted`, `receipted`
+and `committed` rungs. Verify canonical signed `ProtocolReceipt` v2 bytes
+against independently pinned receipt keys and their inclusive height windows,
+and bind the transaction hash, result and logs to the intended operation.
+`submitted` carries no signed execution receipt; `receipted` authenticates
+execution but does not prove BFT commit. Finality requires authenticated
+block inclusion and validator commit evidence at the `committed` rung.
+Portable export uses `layerx-receipt-proof-v2` and retains verification level
+`receipted`, even when exported from a committed answer; it cannot establish
+block finality on its own. See the
+[portable verification guide](../../docs/interop/PORTABILITY.md).
 
 ## Migrations (three different things)
 

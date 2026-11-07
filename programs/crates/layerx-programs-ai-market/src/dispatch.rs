@@ -10,8 +10,8 @@ use crate::registry_ops::{self, CallContext, PolicySection};
 use crate::state::{self, RetainedResult, Section, SharedState};
 use crate::types::{Presence, RequestDigest};
 use crate::{
-    admission, aggregation, closure, commit_reveal, epoch, evidence, queries, rewards, tasks,
-    value_adapter, workers, MAX_STATE_BYTES,
+    admission, aggregation, closure, commit_reveal, epoch, evidence, queries, rewards, rooms,
+    tasks, value_adapter, workers, MAX_STATE_BYTES,
 };
 #[derive(Clone, Copy, Eq, PartialEq)]
 #[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
@@ -27,6 +27,18 @@ pub enum CallBoundary {
 }
 #[derive(Clone, Copy, Eq, PartialEq)]
 #[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
+pub enum AuthorityClass {
+    FeatureDefined,
+    Host,
+    AnyAccount,
+    EnrolledPeer,
+    HostOrAfterChallengeWindow,
+    ResolvedFault,
+    BondOwner,
+    PublicRead,
+}
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct Operation(u16);
 #[derive(Clone, Copy, Eq, PartialEq)]
 #[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
@@ -39,8 +51,27 @@ pub struct OperationMetadata {
     pub delegate_allowed: bool,
     pub payload_min: usize,
     pub payload_max: usize,
+    pub authority: AuthorityClass,
+    pub sections: &'static [Section],
 }
 impl Operation {
+    pub const OpenRoom: Self = OpenRoom;
+    pub const PostAsk: Self = PostAsk;
+    pub const PostBid: Self = PostBid;
+    pub const RecordDeal: Self = RecordDeal;
+    pub const SettleLaps: Self = SettleLaps;
+    pub const ChallengeLap: Self = ChallengeLap;
+    pub const ResolveChallenge: Self = ResolveChallenge;
+    pub const SplitPayout: Self = SplitPayout;
+    pub const LockBond: Self = LockBond;
+    pub const SlashBond: Self = SlashBond;
+    pub const RefundBond: Self = RefundBond;
+    pub const CloseRoom: Self = CloseRoom;
+    pub const RoomView: Self = RoomView;
+    pub const DealView: Self = DealView;
+    pub const PeerView: Self = PeerView;
+    pub const ReceiptBatchView: Self = ReceiptBatchView;
+    pub const BookView: Self = BookView;
     /// Decodes a selector from the frozen operation table.
     ///
     /// # Errors
@@ -77,6 +108,9 @@ impl Operation {
     pub fn validate_payload_length(self, length: usize) -> CodecResult<()> {
         let m = self.metadata();
         if matches!(self.0, 0x0106 | 0x0107) && length != 40 && length != 48 {
+            return Err(NON_CANONICAL);
+        }
+        if self == Self::RecordDeal && (length < 145 || (length - 145) % 36 != 0) {
             return Err(NON_CANONICAL);
         }
         if length < m.payload_min || length > m.payload_max {
@@ -143,6 +177,23 @@ pub const AdministrativeRemove: Operation = Operation(0x0809);
 pub const SealEvidence: Operation = Operation(0x0901);
 pub const READ_HEADER: Operation = Operation(0x0A01);
 pub const READ_STATE_CHUNK: Operation = Operation(0x0A02);
+pub const OpenRoom: Operation = Operation(0x0B01);
+pub const PostAsk: Operation = Operation(0x0B02);
+pub const PostBid: Operation = Operation(0x0B03);
+pub const RecordDeal: Operation = Operation(0x0B04);
+pub const SettleLaps: Operation = Operation(0x0B05);
+pub const ChallengeLap: Operation = Operation(0x0B06);
+pub const ResolveChallenge: Operation = Operation(0x0B07);
+pub const SplitPayout: Operation = Operation(0x0B08);
+pub const LockBond: Operation = Operation(0x0B09);
+pub const SlashBond: Operation = Operation(0x0B0A);
+pub const RefundBond: Operation = Operation(0x0B0B);
+pub const CloseRoom: Operation = Operation(0x0B0C);
+pub const RoomView: Operation = Operation(0x0B10);
+pub const DealView: Operation = Operation(0x0B11);
+pub const PeerView: Operation = Operation(0x0B12);
+pub const ReceiptBatchView: Operation = Operation(0x0B13);
+pub const BookView: Operation = Operation(0x0B14);
 #[allow(non_upper_case_globals)]
 pub const OPERATIONS: &[OperationMetadata] = &[
     OperationMetadata {
@@ -154,6 +205,8 @@ pub const OPERATIONS: &[OperationMetadata] = &[
         delegate_allowed: false,
         payload_min: 0,
         payload_max: 15965,
+        authority: AuthorityClass::FeatureDefined,
+        sections: &[],
     },
     OperationMetadata {
         operation: STAGE_POLICY,
@@ -164,6 +217,8 @@ pub const OPERATIONS: &[OperationMetadata] = &[
         delegate_allowed: false,
         payload_min: 0,
         payload_max: 15965,
+        authority: AuthorityClass::FeatureDefined,
+        sections: &[],
     },
     OperationMetadata {
         operation: CANCEL_POLICY,
@@ -174,6 +229,8 @@ pub const OPERATIONS: &[OperationMetadata] = &[
         delegate_allowed: false,
         payload_min: 16,
         payload_max: 16,
+        authority: AuthorityClass::FeatureDefined,
+        sections: &[],
     },
     OperationMetadata {
         operation: SCHEDULE_ACTIVATION,
@@ -184,6 +241,8 @@ pub const OPERATIONS: &[OperationMetadata] = &[
         delegate_allowed: false,
         payload_min: 16,
         payload_max: 16,
+        authority: AuthorityClass::FeatureDefined,
+        sections: &[],
     },
     OperationMetadata {
         operation: ADVANCE_ACTIVATION,
@@ -194,6 +253,8 @@ pub const OPERATIONS: &[OperationMetadata] = &[
         delegate_allowed: false,
         payload_min: 16,
         payload_max: 16,
+        authority: AuthorityClass::FeatureDefined,
+        sections: &[],
     },
     OperationMetadata {
         operation: SUSPEND,
@@ -204,6 +265,8 @@ pub const OPERATIONS: &[OperationMetadata] = &[
         delegate_allowed: false,
         payload_min: 40,
         payload_max: 48,
+        authority: AuthorityClass::FeatureDefined,
+        sections: &[],
     },
     OperationMetadata {
         operation: UPDATE_METADATA,
@@ -214,6 +277,8 @@ pub const OPERATIONS: &[OperationMetadata] = &[
         delegate_allowed: false,
         payload_min: 40,
         payload_max: 48,
+        authority: AuthorityClass::FeatureDefined,
+        sections: &[],
     },
     OperationMetadata {
         operation: APPOINT_OPERATOR,
@@ -224,6 +289,8 @@ pub const OPERATIONS: &[OperationMetadata] = &[
         delegate_allowed: false,
         payload_min: 49,
         payload_max: 49,
+        authority: AuthorityClass::FeatureDefined,
+        sections: &[],
     },
     OperationMetadata {
         operation: REVOKE_OPERATOR,
@@ -234,6 +301,8 @@ pub const OPERATIONS: &[OperationMetadata] = &[
         delegate_allowed: false,
         payload_min: 16,
         payload_max: 16,
+        authority: AuthorityClass::FeatureDefined,
+        sections: &[],
     },
     OperationMetadata {
         operation: REQUEST_CLOSE,
@@ -244,6 +313,8 @@ pub const OPERATIONS: &[OperationMetadata] = &[
         delegate_allowed: false,
         payload_min: 40,
         payload_max: 40,
+        authority: AuthorityClass::FeatureDefined,
+        sections: &[],
     },
     OperationMetadata {
         operation: ADVANCE_CLOSE,
@@ -254,6 +325,8 @@ pub const OPERATIONS: &[OperationMetadata] = &[
         delegate_allowed: false,
         payload_min: 11,
         payload_max: 11,
+        authority: AuthorityClass::FeatureDefined,
+        sections: &[],
     },
     OperationMetadata {
         operation: ADMIT_TASK,
@@ -264,6 +337,8 @@ pub const OPERATIONS: &[OperationMetadata] = &[
         delegate_allowed: false,
         payload_min: 248,
         payload_max: 248,
+        authority: AuthorityClass::FeatureDefined,
+        sections: &[],
     },
     OperationMetadata {
         operation: ACCEPT_TASK,
@@ -274,6 +349,8 @@ pub const OPERATIONS: &[OperationMetadata] = &[
         delegate_allowed: true,
         payload_min: 72,
         payload_max: 72,
+        authority: AuthorityClass::FeatureDefined,
+        sections: &[],
     },
     OperationMetadata {
         operation: CANCEL_TASK,
@@ -284,6 +361,8 @@ pub const OPERATIONS: &[OperationMetadata] = &[
         delegate_allowed: false,
         payload_min: 32,
         payload_max: 32,
+        authority: AuthorityClass::FeatureDefined,
+        sections: &[],
     },
     OperationMetadata {
         operation: COMMIT_TASK_RESULT,
@@ -294,6 +373,8 @@ pub const OPERATIONS: &[OperationMetadata] = &[
         delegate_allowed: true,
         payload_min: 72,
         payload_max: 72,
+        authority: AuthorityClass::FeatureDefined,
+        sections: &[],
     },
     OperationMetadata {
         operation: SEAL_TASK_SET,
@@ -304,6 +385,8 @@ pub const OPERATIONS: &[OperationMetadata] = &[
         delegate_allowed: false,
         payload_min: 48,
         payload_max: 48,
+        authority: AuthorityClass::FeatureDefined,
+        sections: &[],
     },
     OperationMetadata {
         operation: OPEN_EPOCH,
@@ -314,6 +397,8 @@ pub const OPERATIONS: &[OperationMetadata] = &[
         delegate_allowed: false,
         payload_min: 0,
         payload_max: 15965,
+        authority: AuthorityClass::FeatureDefined,
+        sections: &[],
     },
     OperationMetadata {
         operation: EnrollWorker,
@@ -324,6 +409,8 @@ pub const OPERATIONS: &[OperationMetadata] = &[
         delegate_allowed: false,
         payload_min: 136,
         payload_max: 136,
+        authority: AuthorityClass::FeatureDefined,
+        sections: &[],
     },
     OperationMetadata {
         operation: PublishMetadata,
@@ -334,6 +421,8 @@ pub const OPERATIONS: &[OperationMetadata] = &[
         delegate_allowed: true,
         payload_min: 0,
         payload_max: 15965,
+        authority: AuthorityClass::FeatureDefined,
+        sections: &[],
     },
     OperationMetadata {
         operation: SetDraining,
@@ -344,6 +433,8 @@ pub const OPERATIONS: &[OperationMetadata] = &[
         delegate_allowed: false,
         payload_min: 0,
         payload_max: 15965,
+        authority: AuthorityClass::FeatureDefined,
+        sections: &[],
     },
     OperationMetadata {
         operation: UndoDrain,
@@ -354,6 +445,8 @@ pub const OPERATIONS: &[OperationMetadata] = &[
         delegate_allowed: false,
         payload_min: 0,
         payload_max: 15965,
+        authority: AuthorityClass::FeatureDefined,
+        sections: &[],
     },
     OperationMetadata {
         operation: RotateDelegate,
@@ -364,6 +457,8 @@ pub const OPERATIONS: &[OperationMetadata] = &[
         delegate_allowed: false,
         payload_min: 0,
         payload_max: 15965,
+        authority: AuthorityClass::FeatureDefined,
+        sections: &[],
     },
     OperationMetadata {
         operation: RevokeDelegate,
@@ -374,6 +469,8 @@ pub const OPERATIONS: &[OperationMetadata] = &[
         delegate_allowed: false,
         payload_min: 0,
         payload_max: 15965,
+        authority: AuthorityClass::FeatureDefined,
+        sections: &[],
     },
     OperationMetadata {
         operation: RetireWorker,
@@ -384,6 +481,8 @@ pub const OPERATIONS: &[OperationMetadata] = &[
         delegate_allowed: false,
         payload_min: 0,
         payload_max: 15965,
+        authority: AuthorityClass::FeatureDefined,
+        sections: &[],
     },
     OperationMetadata {
         operation: AcceptEnrollment,
@@ -394,6 +493,8 @@ pub const OPERATIONS: &[OperationMetadata] = &[
         delegate_allowed: false,
         payload_min: 144,
         payload_max: 144,
+        authority: AuthorityClass::FeatureDefined,
+        sections: &[],
     },
     OperationMetadata {
         operation: ExpireEnrollment,
@@ -404,6 +505,8 @@ pub const OPERATIONS: &[OperationMetadata] = &[
         delegate_allowed: false,
         payload_min: 72,
         payload_max: 72,
+        authority: AuthorityClass::FeatureDefined,
+        sections: &[],
     },
     OperationMetadata {
         operation: ScheduleEvaluator,
@@ -414,6 +517,8 @@ pub const OPERATIONS: &[OperationMetadata] = &[
         delegate_allowed: false,
         payload_min: 160,
         payload_max: 160,
+        authority: AuthorityClass::FeatureDefined,
+        sections: &[],
     },
     OperationMetadata {
         operation: RotateEvaluatorKey,
@@ -424,6 +529,8 @@ pub const OPERATIONS: &[OperationMetadata] = &[
         delegate_allowed: false,
         payload_min: 88,
         payload_max: 88,
+        authority: AuthorityClass::FeatureDefined,
+        sections: &[],
     },
     OperationMetadata {
         operation: RevokeEvaluator,
@@ -434,6 +541,8 @@ pub const OPERATIONS: &[OperationMetadata] = &[
         delegate_allowed: false,
         payload_min: 74,
         payload_max: 74,
+        authority: AuthorityClass::FeatureDefined,
+        sections: &[],
     },
     OperationMetadata {
         operation: ChallengeAssessment,
@@ -444,6 +553,8 @@ pub const OPERATIONS: &[OperationMetadata] = &[
         delegate_allowed: false,
         payload_min: 97,
         payload_max: 97,
+        authority: AuthorityClass::FeatureDefined,
+        sections: &[],
     },
     OperationMetadata {
         operation: CommitScore,
@@ -454,6 +565,8 @@ pub const OPERATIONS: &[OperationMetadata] = &[
         delegate_allowed: true,
         payload_min: 224,
         payload_max: 224,
+        authority: AuthorityClass::FeatureDefined,
+        sections: &[],
     },
     OperationMetadata {
         operation: RevealScore,
@@ -464,6 +577,8 @@ pub const OPERATIONS: &[OperationMetadata] = &[
         delegate_allowed: true,
         payload_min: 364,
         payload_max: 1480,
+        authority: AuthorityClass::FeatureDefined,
+        sections: &[],
     },
     OperationMetadata {
         operation: BeginAggregation,
@@ -474,6 +589,8 @@ pub const OPERATIONS: &[OperationMetadata] = &[
         delegate_allowed: false,
         payload_min: 0,
         payload_max: 0,
+        authority: AuthorityClass::FeatureDefined,
+        sections: &[],
     },
     OperationMetadata {
         operation: ProcessAggregation,
@@ -484,6 +601,8 @@ pub const OPERATIONS: &[OperationMetadata] = &[
         delegate_allowed: false,
         payload_min: 34,
         payload_max: 34,
+        authority: AuthorityClass::FeatureDefined,
+        sections: &[],
     },
     OperationMetadata {
         operation: FinalizeAggregation,
@@ -494,6 +613,8 @@ pub const OPERATIONS: &[OperationMetadata] = &[
         delegate_allowed: false,
         payload_min: 32,
         payload_max: 32,
+        authority: AuthorityClass::FeatureDefined,
+        sections: &[],
     },
     OperationMetadata {
         operation: FUND,
@@ -504,6 +625,8 @@ pub const OPERATIONS: &[OperationMetadata] = &[
         delegate_allowed: false,
         payload_min: 57,
         payload_max: 57,
+        authority: AuthorityClass::FeatureDefined,
+        sections: &[],
     },
     OperationMetadata {
         operation: CLAIM,
@@ -514,6 +637,8 @@ pub const OPERATIONS: &[OperationMetadata] = &[
         delegate_allowed: false,
         payload_min: 80,
         payload_max: 80,
+        authority: AuthorityClass::FeatureDefined,
+        sections: &[],
     },
     OperationMetadata {
         operation: EXPIRE_EPOCH_CLAIMS,
@@ -524,6 +649,8 @@ pub const OPERATIONS: &[OperationMetadata] = &[
         delegate_allowed: false,
         payload_min: 0,
         payload_max: 0,
+        authority: AuthorityClass::FeatureDefined,
+        sections: &[],
     },
     OperationMetadata {
         operation: REFUND_FREE,
@@ -534,6 +661,8 @@ pub const OPERATIONS: &[OperationMetadata] = &[
         delegate_allowed: false,
         payload_min: 64,
         payload_max: 64,
+        authority: AuthorityClass::FeatureDefined,
+        sections: &[],
     },
     OperationMetadata {
         operation: PRUNE_EPOCH,
@@ -544,6 +673,8 @@ pub const OPERATIONS: &[OperationMetadata] = &[
         delegate_allowed: false,
         payload_min: 0,
         payload_max: 0,
+        authority: AuthorityClass::FeatureDefined,
+        sections: &[],
     },
     OperationMetadata {
         operation: ResetHistory,
@@ -554,6 +685,8 @@ pub const OPERATIONS: &[OperationMetadata] = &[
         delegate_allowed: false,
         payload_min: 73,
         payload_max: 73,
+        authority: AuthorityClass::FeatureDefined,
+        sections: &[],
     },
     OperationMetadata {
         operation: SuspendHistory,
@@ -564,6 +697,8 @@ pub const OPERATIONS: &[OperationMetadata] = &[
         delegate_allowed: false,
         payload_min: 73,
         payload_max: 73,
+        authority: AuthorityClass::FeatureDefined,
+        sections: &[],
     },
     OperationMetadata {
         operation: ResumeHistory,
@@ -574,6 +709,8 @@ pub const OPERATIONS: &[OperationMetadata] = &[
         delegate_allowed: false,
         payload_min: 73,
         payload_max: 73,
+        authority: AuthorityClass::FeatureDefined,
+        sections: &[],
     },
     OperationMetadata {
         operation: ApproveAdmission,
@@ -584,6 +721,8 @@ pub const OPERATIONS: &[OperationMetadata] = &[
         delegate_allowed: false,
         payload_min: 0,
         payload_max: 15965,
+        authority: AuthorityClass::FeatureDefined,
+        sections: &[],
     },
     OperationMetadata {
         operation: RevokeAdmissionApproval,
@@ -594,6 +733,8 @@ pub const OPERATIONS: &[OperationMetadata] = &[
         delegate_allowed: false,
         payload_min: 0,
         payload_max: 15965,
+        authority: AuthorityClass::FeatureDefined,
+        sections: &[],
     },
     OperationMetadata {
         operation: AdmitWorker,
@@ -604,6 +745,8 @@ pub const OPERATIONS: &[OperationMetadata] = &[
         delegate_allowed: false,
         payload_min: 0,
         payload_max: 15965,
+        authority: AuthorityClass::FeatureDefined,
+        sections: &[],
     },
     OperationMetadata {
         operation: AdmitEvaluator,
@@ -614,6 +757,8 @@ pub const OPERATIONS: &[OperationMetadata] = &[
         delegate_allowed: false,
         payload_min: 0,
         payload_max: 15965,
+        authority: AuthorityClass::FeatureDefined,
+        sections: &[],
     },
     OperationMetadata {
         operation: Heartbeat,
@@ -624,6 +769,8 @@ pub const OPERATIONS: &[OperationMetadata] = &[
         delegate_allowed: true,
         payload_min: 0,
         payload_max: 15965,
+        authority: AuthorityClass::FeatureDefined,
+        sections: &[],
     },
     OperationMetadata {
         operation: RequestExit,
@@ -634,6 +781,8 @@ pub const OPERATIONS: &[OperationMetadata] = &[
         delegate_allowed: false,
         payload_min: 0,
         payload_max: 15965,
+        authority: AuthorityClass::FeatureDefined,
+        sections: &[],
     },
     OperationMetadata {
         operation: CancelExit,
@@ -644,6 +793,8 @@ pub const OPERATIONS: &[OperationMetadata] = &[
         delegate_allowed: false,
         payload_min: 0,
         payload_max: 15965,
+        authority: AuthorityClass::FeatureDefined,
+        sections: &[],
     },
     OperationMetadata {
         operation: PruneInactive,
@@ -654,6 +805,8 @@ pub const OPERATIONS: &[OperationMetadata] = &[
         delegate_allowed: false,
         payload_min: 0,
         payload_max: 15965,
+        authority: AuthorityClass::FeatureDefined,
+        sections: &[],
     },
     OperationMetadata {
         operation: AdministrativeRemove,
@@ -664,6 +817,8 @@ pub const OPERATIONS: &[OperationMetadata] = &[
         delegate_allowed: false,
         payload_min: 0,
         payload_max: 15965,
+        authority: AuthorityClass::FeatureDefined,
+        sections: &[],
     },
     OperationMetadata {
         operation: SealEvidence,
@@ -674,6 +829,8 @@ pub const OPERATIONS: &[OperationMetadata] = &[
         delegate_allowed: true,
         payload_min: 131,
         payload_max: 131,
+        authority: AuthorityClass::FeatureDefined,
+        sections: &[],
     },
     OperationMetadata {
         operation: READ_HEADER,
@@ -684,6 +841,8 @@ pub const OPERATIONS: &[OperationMetadata] = &[
         delegate_allowed: false,
         payload_min: 0,
         payload_max: 0,
+        authority: AuthorityClass::FeatureDefined,
+        sections: &[],
     },
     OperationMetadata {
         operation: READ_STATE_CHUNK,
@@ -694,6 +853,274 @@ pub const OPERATIONS: &[OperationMetadata] = &[
         delegate_allowed: false,
         payload_min: 46,
         payload_max: 46,
+        authority: AuthorityClass::FeatureDefined,
+        sections: &[],
+    },
+    OperationMetadata {
+        operation: OpenRoom,
+        name: "OpenRoom",
+        feature: 11,
+        boundary: CallBoundary::Mutation,
+        sequence: SequencePolicy::Role,
+        delegate_allowed: false,
+        payload_min: 168,
+        payload_max: 168,
+        authority: AuthorityClass::Host,
+        sections: &[
+            Section::PolicyLifecycle,
+            Section::IdentityRoster,
+            Section::Control,
+        ],
+    },
+    OperationMetadata {
+        operation: PostAsk,
+        name: "PostAsk",
+        feature: 11,
+        boundary: CallBoundary::Mutation,
+        sequence: SequencePolicy::ObjectLocal,
+        delegate_allowed: false,
+        payload_min: 128,
+        payload_max: 128,
+        authority: AuthorityClass::AnyAccount,
+        sections: &[
+            Section::PolicyLifecycle,
+            Section::IdentityRoster,
+            Section::Control,
+        ],
+    },
+    OperationMetadata {
+        operation: PostBid,
+        name: "PostBid",
+        feature: 11,
+        boundary: CallBoundary::Mutation,
+        sequence: SequencePolicy::Role,
+        delegate_allowed: false,
+        payload_min: 130,
+        payload_max: 130,
+        authority: AuthorityClass::EnrolledPeer,
+        sections: &[
+            Section::PolicyLifecycle,
+            Section::IdentityRoster,
+            Section::SettlementClaims,
+            Section::Control,
+        ],
+    },
+    OperationMetadata {
+        operation: RecordDeal,
+        name: "RecordDeal",
+        feature: 11,
+        boundary: CallBoundary::Mutation,
+        sequence: SequencePolicy::Role,
+        delegate_allowed: false,
+        payload_min: 181,
+        payload_max: 1297,
+        authority: AuthorityClass::Host,
+        sections: &[
+            Section::PolicyLifecycle,
+            Section::IdentityRoster,
+            Section::Control,
+        ],
+    },
+    OperationMetadata {
+        operation: SettleLaps,
+        name: "SettleLaps",
+        feature: 11,
+        boundary: CallBoundary::Mutation,
+        sequence: SequencePolicy::Role,
+        delegate_allowed: false,
+        payload_min: 92,
+        payload_max: 92,
+        authority: AuthorityClass::Host,
+        sections: &[
+            Section::PolicyLifecycle,
+            Section::IdentityRoster,
+            Section::SettlementClaims,
+            Section::Control,
+        ],
+    },
+    OperationMetadata {
+        operation: ChallengeLap,
+        name: "ChallengeLap",
+        feature: 11,
+        boundary: CallBoundary::Mutation,
+        sequence: SequencePolicy::ObjectLocal,
+        delegate_allowed: false,
+        payload_min: 88,
+        payload_max: 88,
+        authority: AuthorityClass::AnyAccount,
+        sections: &[
+            Section::PolicyLifecycle,
+            Section::IdentityRoster,
+            Section::CurrentReports,
+            Section::Control,
+        ],
+    },
+    OperationMetadata {
+        operation: ResolveChallenge,
+        name: "ResolveChallenge",
+        feature: 11,
+        boundary: CallBoundary::Mutation,
+        sequence: SequencePolicy::ObjectLocal,
+        delegate_allowed: false,
+        payload_min: 104,
+        payload_max: 104,
+        authority: AuthorityClass::AnyAccount,
+        sections: &[
+            Section::PolicyLifecycle,
+            Section::IdentityRoster,
+            Section::CurrentReports,
+            Section::SettlementClaims,
+            Section::Control,
+        ],
+    },
+    OperationMetadata {
+        operation: SplitPayout,
+        name: "SplitPayout",
+        feature: 11,
+        boundary: CallBoundary::Mutation,
+        sequence: SequencePolicy::ObjectLocal,
+        delegate_allowed: false,
+        payload_min: 80,
+        payload_max: 80,
+        authority: AuthorityClass::HostOrAfterChallengeWindow,
+        sections: &[
+            Section::PolicyLifecycle,
+            Section::IdentityRoster,
+            Section::CurrentReports,
+            Section::SettlementClaims,
+            Section::Control,
+        ],
+    },
+    OperationMetadata {
+        operation: LockBond,
+        name: "LockBond",
+        feature: 11,
+        boundary: CallBoundary::Mutation,
+        sequence: SequencePolicy::Role,
+        delegate_allowed: false,
+        payload_min: 80,
+        payload_max: 80,
+        authority: AuthorityClass::EnrolledPeer,
+        sections: &[
+            Section::PolicyLifecycle,
+            Section::IdentityRoster,
+            Section::SettlementClaims,
+            Section::Control,
+        ],
+    },
+    OperationMetadata {
+        operation: SlashBond,
+        name: "SlashBond",
+        feature: 11,
+        boundary: CallBoundary::Mutation,
+        sequence: SequencePolicy::ObjectLocal,
+        delegate_allowed: false,
+        payload_min: 104,
+        payload_max: 104,
+        authority: AuthorityClass::ResolvedFault,
+        sections: &[
+            Section::PolicyLifecycle,
+            Section::IdentityRoster,
+            Section::CurrentReports,
+            Section::SettlementClaims,
+            Section::Control,
+        ],
+    },
+    OperationMetadata {
+        operation: RefundBond,
+        name: "RefundBond",
+        feature: 11,
+        boundary: CallBoundary::Mutation,
+        sequence: SequencePolicy::Role,
+        delegate_allowed: false,
+        payload_min: 64,
+        payload_max: 64,
+        authority: AuthorityClass::BondOwner,
+        sections: &[
+            Section::PolicyLifecycle,
+            Section::IdentityRoster,
+            Section::CurrentReports,
+            Section::SettlementClaims,
+            Section::Control,
+        ],
+    },
+    OperationMetadata {
+        operation: CloseRoom,
+        name: "CloseRoom",
+        feature: 11,
+        boundary: CallBoundary::Mutation,
+        sequence: SequencePolicy::Role,
+        delegate_allowed: false,
+        payload_min: 32,
+        payload_max: 32,
+        authority: AuthorityClass::Host,
+        sections: &[
+            Section::PolicyLifecycle,
+            Section::IdentityRoster,
+            Section::CurrentReports,
+            Section::SettlementClaims,
+            Section::Control,
+        ],
+    },
+    OperationMetadata {
+        operation: RoomView,
+        name: "RoomView",
+        feature: 11,
+        boundary: CallBoundary::ProgramRead,
+        sequence: SequencePolicy::ObjectLocal,
+        delegate_allowed: false,
+        payload_min: 32,
+        payload_max: 32,
+        authority: AuthorityClass::PublicRead,
+        sections: &[Section::PolicyLifecycle, Section::IdentityRoster],
+    },
+    OperationMetadata {
+        operation: DealView,
+        name: "DealView",
+        feature: 11,
+        boundary: CallBoundary::ProgramRead,
+        sequence: SequencePolicy::ObjectLocal,
+        delegate_allowed: false,
+        payload_min: 32,
+        payload_max: 32,
+        authority: AuthorityClass::PublicRead,
+        sections: &[Section::IdentityRoster, Section::SettlementClaims],
+    },
+    OperationMetadata {
+        operation: PeerView,
+        name: "PeerView",
+        feature: 11,
+        boundary: CallBoundary::ProgramRead,
+        sequence: SequencePolicy::ObjectLocal,
+        delegate_allowed: false,
+        payload_min: 32,
+        payload_max: 32,
+        authority: AuthorityClass::PublicRead,
+        sections: &[Section::IdentityRoster, Section::SettlementClaims],
+    },
+    OperationMetadata {
+        operation: ReceiptBatchView,
+        name: "ReceiptBatchView",
+        feature: 11,
+        boundary: CallBoundary::ProgramRead,
+        sequence: SequencePolicy::ObjectLocal,
+        delegate_allowed: false,
+        payload_min: 64,
+        payload_max: 64,
+        authority: AuthorityClass::PublicRead,
+        sections: &[Section::IdentityRoster, Section::SettlementClaims],
+    },
+    OperationMetadata {
+        operation: BookView,
+        name: "BookView",
+        feature: 11,
+        boundary: CallBoundary::ProgramRead,
+        sequence: SequencePolicy::ObjectLocal,
+        delegate_allowed: false,
+        payload_min: 32,
+        payload_max: 32,
+        authority: AuthorityClass::PublicRead,
+        sections: &[Section::IdentityRoster],
     },
 ];
 
@@ -725,6 +1152,7 @@ const TRANSITION_SCRATCH_BYTES: usize = max_of(&[
     F01_SECTION_CAP + CONTROL_CAP,
     REBIND_SCRATCH_BYTES,
     admission::ADMISSION_SCRATCH_BYTES,
+    rooms::SCRATCH_BYTES,
 ]);
 /// Router scratch: at least the largest scratch any routed transition or the F01 revision
 /// rebinding needs.
@@ -942,7 +1370,7 @@ fn transition(
     if current.is_none()
         || matches!(
             envelope.envelope.operation.0,
-            0x0105 | 0x0111 | 0x0501..=0x0503 | 0x0601 | 0x0701..=0x0703 | 0x0A01 | 0x0A02
+            0x0105 | 0x0111 | 0x0501..=0x0503 | 0x0601 | 0x0701..=0x0703 | 0x0A01 | 0x0A02 | 0x0B01..=0x0B14
         )
     {
         return transition_inner(ctx, envelope, envelope_bytes, current, next, scratch, event);
@@ -1065,6 +1493,24 @@ fn transition_inner(
             }
         }
         0x0A01 | 0x0A02 => read(ctx, envelope, present(current)?, scratch),
+        0x0B01..=0x0B04 | 0x0B0C => {
+            match rooms::apply(ctx, envelope, present(current)?, next, scratch, event)? {
+                rooms::Outcome::Applied {
+                    revision,
+                    state_len,
+                    event_len,
+                } => Ok(Step::Applied {
+                    revision,
+                    state_len,
+                    event_len,
+                    payload: Payload::Suffix,
+                }),
+                rooms::Outcome::Retained(retained) => Ok(Step::Retained(retained)),
+                rooms::Outcome::AlreadyApplied(subject) => {
+                    Ok(Step::Unchanged(Payload::record(subject.as_bytes())?))
+                }
+            }
+        }
         _ => Err(UNKNOWN_OPERATION),
     }
 }

@@ -56,8 +56,8 @@ readonly W_ADDR_FILE="${WORKDIR}/funding-wallet.addr"
 
 # ── Chain / endpoints (override via env) ──────────────────────────────────────
 readonly CHAIN_ID="${HPX_CHAIN_ID:-hyperpax_125-1}"
-readonly RPC="${HPX_RPC:-tcp://31.220.74.140:26657}"
-readonly EVM_RPC="${HPX_EVM_RPC:-http://31.220.74.140:8545}"
+readonly RPC="${HPX_RPC:?HPX_RPC is required}"
+readonly EVM_RPC="${HPX_EVM_RPC:?HPX_EVM_RPC is required}"
 readonly DENOM="uhpx"
 readonly UHPX_PER_PAX=1000000                 # 1 PAX = 10^6 uhpx (6-dec cosmos base)
 readonly GAS_PRICES="${HPX_GAS_PRICES:-0.1uhpx}"

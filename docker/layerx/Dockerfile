@@ -98,15 +98,23 @@ COPY . .
 RUN cargo build --locked --manifest-path services/interop/Cargo.toml --release --package x-websearch --bin x-websearch && \
     test -x /src/.x-websearch-target/release/x-websearch
 
-FROM docker.io/ubuntu:24.04@sha256:534baea6a22c03a63003dbc8dbe78fe34bc0d7e595d9a9dc9834884ff530eb55
+FROM docker.io/ubuntu:24.04@sha256:534baea6a22c03a63003dbc8dbe78fe34bc0d7e595d9a9dc9834884ff530eb55 AS runtime
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends ca-certificates libssl3t64 && \
     rm -rf /var/lib/apt/lists/*
 
+ENTRYPOINT ["/usr/bin/paxd"]
+
+FROM runtime AS release
+ARG TARGETARCH
+COPY --chmod=0755 release/linux/${TARGETARCH}/paxd /usr/bin/paxd
+COPY release/linux/${TARGETARCH}/*.so /usr/lib/
+COPY --from=x-websearch /src/.x-websearch-target/release/x-websearch /usr/bin/x-websearch
+COPY --from=paxctl /usr/bin/paxctl /usr/bin/
+
+FROM runtime AS source
 COPY --from=builder /go/bin/paxd /usr/bin/
 COPY --from=x-websearch /src/.x-websearch-target/release/x-websearch /usr/bin/x-websearch
 COPY --from=paxctl /usr/bin/paxctl /usr/bin/
 COPY --from=builder /go/lib/*.so /usr/lib/
-
-ENTRYPOINT ["/usr/bin/paxd"]

@@ -12,6 +12,9 @@ The pre-merge router, separate LayerX interface, sequencer service and `layerxd`
 
 `node.hyperpaxeer.com` is the hpx library mirror, never a JSON-RPC endpoint. A download mirror, a CometBFT endpoint, a gRPC address and an EVM JSON-RPC URL are different configuration inputs.
 
+Hosted-service dependency examples use `OPERATOR_HOST`, retaining the owning interface's scheme, port, path and method.
+Replace `OPERATOR_HOST` with the operator-supplied hostname of the hosted service or dependency being configured.
+
 For a read-only identity check:
 
 ```bash
