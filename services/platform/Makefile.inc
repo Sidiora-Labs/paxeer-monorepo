@@ -354,6 +354,7 @@ platform-test-middleware: platform-sample-dependencies-ready
 	npm run build --workspace @sidiora/layerx-agent-integrations
 	mvn -o -q -f sdk/integrations/android/pom.xml -DskipTests verify
 	swift build --disable-automatic-resolution --package-path sdk/integrations/ios
+	swift test --package-path sdk/integrations/ios
 	$(MAKE) platform-test-ten-line
 
 platform-test-reference-apps:
