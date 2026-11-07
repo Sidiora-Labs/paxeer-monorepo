@@ -4,3 +4,6 @@ members = ["sig-provider", "sig-provider-proto", "sig-provider-server"]
 
 [workspace.dependencies]
 blockscout-service-launcher = "0.10.0"
+
+[profile.test]
+debug = 0
