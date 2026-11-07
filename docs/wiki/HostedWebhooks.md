@@ -47,12 +47,11 @@ or `[::]:8080` for ingress. `PORT` moves only the health listener. When launchin
 the binary directly, set `LAYERX_WEBHOOKS_HEALTH_LISTEN` explicitly if needed;
 its application listener default is `0.0.0.0:9444` for either role.
 
-The Railway example names Redis at
-`rediss://redis-internal.railway.internal:6379`, KMS at
-`https://internal-kms.railway.internal:9443`, identity at
-`https://identity.railway.internal:9443`, and event sources at
-`https://internal-{journeys,payments,approvals,programs}.railway.internal:9443`.
-These are private deployment examples, not public network endpoints.
+Configure Redis at `rediss://OPERATOR_HOST:6379`, KMS at
+`https://OPERATOR_HOST:9443`, identity at `https://OPERATOR_HOST:9443`, and
+each journey, payment, approval and program event source at
+`https://OPERATOR_HOST:9443`.
+Replace `OPERATOR_HOST` with the operator-supplied hostname for each URL's Redis, KMS, identity or individual event-source service.
 
 The Kubernetes manifest `services/platform/hosted/webhooks/deployment.yaml`
 exposes only the public role through the `/v1/webhooks` Ingress prefix. Its

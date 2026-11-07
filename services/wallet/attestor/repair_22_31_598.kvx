@@ -1,0 +1,33 @@
+[repair]
+task = "22.31.598"
+acceptance = "22998.1"
+base_revision = "bb24cab1fbbb7e703dfe89fdc2a9301543f0f5ef"
+scope = "Wallet attestor workflow prerequisites and embedded ABI copies."
+
+[native]
+cause = "The attestor testkernel cgo directives link -llayerx from the repository build directory, but the workflow did not build that archive."
+repair = "Run make build/liblayerx.a at the repository root before Go tests and export CGO_LDFLAGS with the absolute repository build directory through GITHUB_ENV."
+
+[abi]
+test = "TestABICopiesMatchRepository"
+repair = "Refresh all eleven ABI copies compared by the test from their repository sources; only layerxprograms.json differed. Preserve the repository bytes, including whitespace."
+sources = "precompiles/<name>/abi.json, precompiles/perps/abi/abi.json and precompiles/common/erc20_abi.json"
+
+[real_profiles]
+tests = "TestNativeCustodyRealProfiles and TestNativeSendPurposeRealProfiles"
+cause = "Both real Rust consumer entry points call RuntimeClock::from_environment; their Go launchers inherit the process environment, while the previous workflow supplied no runtime clock socket."
+repair = "Run the complete attestor suite through tools/runtime/run-with-clock.sh, which starts the real runtime-clock service and passes its socket to Go and its Rust children. Use the same pinned Rust toolchain and target directory as the consumer build."
+build_tag = "none; both tests remain in the complete attestor suite with every assertion unchanged"
+local_outcome = "Not executed: the task permits only hf-build and the hf-done ABI-copy verification, which does not select RealProfiles. No local RealProfiles pass or post-repair Unavailable outcome is claimed."
+ci_command = "sh ../../../tools/runtime/run-with-clock.sh go test ./..."
+
+[evidence]
+ledger = "/out/run/gates.jsonl"
+revision_source = "The hf-build and hf-done ledger rows must identify the same candidate revision."
+build = "make -C . build/liblayerx.a && cd services/wallet/attestor && go build ./..."
+verify = "grep -q liblayerx .github/workflows/wallet-go-test.yml && cd services/wallet/attestor && go test -count=1 ./internal/policy/evm/ -run '^(TestABICopiesMatchRepository)$'"
+record = "The runner retains the candidate revision, exact command, exit code and private log path for each declared gate; this record refers to that evidence without claiming an unrun gate."
+
+[gotcha.scope]
+observed = "The task steps ask for a local full-suite RealProfiles outcome, but the explicit allowed gates select only the ABI-copy test; root gotcha and spec records are outside scope."
+action = "Retain the implementation and local qualification limit in this scoped record, preserve all tests, and leave the full-suite outcome to the workflow."

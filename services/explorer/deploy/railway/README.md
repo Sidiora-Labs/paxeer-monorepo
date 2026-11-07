@@ -105,7 +105,8 @@ above. They listen on 8050 and take no config file, so they need no
 `railway.json` — set
 `SMART_CONTRACT_VERIFIER__SERVER__HTTP__ADDR` / `SIG_PROVIDER__SERVER__HTTP__ADDR`
 and point the backend's `MICROSERVICE_SC_VERIFIER_URL` and
-`MICROSERVICE_SIG_PROVIDER_URL` at their private network addresses.
+`MICROSERVICE_SIG_PROVIDER_URL` at `http://OPERATOR_HOST:8050` for each service.
+Replace `OPERATOR_HOST` with the operator-supplied hostname of the smart-contract verifier or signature provider selected by that variable.
 
 ## Variable names
 

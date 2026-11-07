@@ -825,7 +825,7 @@ impl AgentEnvelopeTransport {
         &self,
         request_id: RequestId,
         key: Key,
-        request: &layerx_agent_api::identity::NativeSendPrepareRequestV1,
+        request: &crate::native_effect::NativeSendPrepareRequestV2,
         credential: &EnvelopeCredential,
         registry: &layerx_types::payload::ModuleRegistry,
     ) -> Result<ApiSuccess<layerx_agent_api::identity::NativePrepareResultV1>, EnvelopeError> {
@@ -836,7 +836,7 @@ impl AgentEnvelopeTransport {
         &self,
         request_id: RequestId,
         key: Key,
-        request: &layerx_agent_api::identity::NativeSendPrepareRequestV1,
+        request: &crate::native_effect::NativeSendPrepareRequestV2,
         credential: &EnvelopeCredential,
         registry: &layerx_types::payload::ModuleRegistry,
     ) -> Result<ApiSuccess<layerx_agent_api::identity::NativePrepareResultV1>, EnvelopeError> {
@@ -847,7 +847,7 @@ impl AgentEnvelopeTransport {
         &self,
         request_id: RequestId,
         key: Key,
-        request: &layerx_agent_api::identity::NativeSendPrepareRequestV1,
+        request: &crate::native_effect::NativeSendPrepareRequestV2,
         credential: &EnvelopeCredential,
         _registry: &layerx_types::payload::ModuleRegistry,
         mcp: bool,
@@ -859,11 +859,13 @@ impl AgentEnvelopeTransport {
             &purpose
                 .canonical_bytes()
                 .map_err(|_| EnvelopeError::InvalidRequest)?,
-            &request.purpose.owner_public_key,
+            &purpose.consent_public_key,
             &request.purpose.signature,
         )?;
-        let sender =
-            self.preparation_sender(&request.authority, request.purpose.owner_public_key)?;
+        let sender = self.preparation_sender(&request.authority, purpose.consent_public_key)?;
+        if sender != purpose.evm_sender {
+            return Err(EnvelopeError::InvalidCredential);
+        }
         crate::native_effect::validate_send_request_binding(request, credential, key)?;
         let response = if mcp {
             self.mcp_invoke(request_id, credential, "activity.prepare", &body, key)?
@@ -903,7 +905,9 @@ impl AgentEnvelopeTransport {
                 &value.canonical_bytes,
             )
             || call.signing_hash() != value.signing_preimage
-            || call.chain_id != u64::from(purpose.network_id)
+            || call.chain_id != purpose.chain_id
+            || purpose.transaction_type
+                != layerx_agent_api::identity::NativeSendPurposeV2::TRANSACTION_TYPE
             || value
                 .approval_id
                 .is_some_and(|id| id != value.preparation_id)
@@ -1589,8 +1593,10 @@ fn raw_call_matches_request(
         && call.to[18..] == target
         && call.nonce == nonce
         && disclosure.activity_type == kind
-        && disclosure.expiry.not_before == not_before
-        && disclosure.expiry.not_after == not_after
+        // Ledger send carries its expiry in the signed payload, without an activity window.
+        && ((kind.module() == ModuleId::Asset && kind.ordinal() == 5)
+            || (disclosure.expiry.not_before == not_before
+                && disclosure.expiry.not_after == not_after))
         && (if disclosure.idempotency_key == [0; 32] {
             <[u8; 32]>::from(Sha256::digest(raw)) == idempotency_key
         } else {

@@ -24,15 +24,18 @@ Keep the node RPC origin and the hosted gateway origin separate:
 | Connection | Address and purpose |
 | --- | --- |
 | Public node JSON-RPC | HTTPS at the root of `api1.mainnet-beta.paxeer.network` through `api14.mainnet-beta.paxeer.network`, or `api-mainnet-beta.paxeer.network`; chain ID `125` |
-| Hosted gateway | Deployment-specific origin for authenticated agent operations, tenant credentials and the hosted `px_` contract |
+| Hosted gateway | Deployment-specific origin for authenticated agent operations, tenant credentials, `px_register` and `px_requestFunds` |
 | Agent program listener | Private loopback `127.0.0.1:<port>` endpoint protected by its program bearer |
 | Human and local MCP listeners | Protected Unix sockets with explicit peer admission |
 
-The public node namespaces are `debug`, `echo`, `eth`, `net`, `pax`, `px`, `test`
-and `txpool`. The `px` namespace answers from node state; `px_register` and
-`px_requestFunds` are operations of the hosted identity and faucet
-services declared in `services/platform/hosted/gateway/openrpc.json`. A deployment manifest naming the public node alias does not turn
-that alias into an authenticated gateway. See [Public RPC endpoints](../reference/public-rpc.md).
+The public node namespaces are `debug`, `echo`, `eth`, `net`, `pax`, `px`,
+`test` and `txpool`. The `px` namespace is served at the node root from node
+state, including `px_getReceiptKeys`; only `px_register` and `px_requestFunds`
+are hosted operations. The gateway's method contract is declared in
+`services/platform/hosted/gateway/openrpc.json`. Use the operator-provided
+hosted origin and credentials for registration and funding. A deployment
+manifest naming the public node alias does not turn that alias into an
+authenticated gateway. See [Public RPC endpoints](../reference/public-rpc.md).
 
 For example, check the node identity before signing or broadcasting:
 
