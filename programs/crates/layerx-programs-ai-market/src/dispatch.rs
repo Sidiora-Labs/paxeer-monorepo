@@ -10,8 +10,8 @@ use crate::registry_ops::{self, CallContext, PolicySection};
 use crate::state::{self, RetainedResult, Section, SharedState};
 use crate::types::{Presence, RequestDigest};
 use crate::{
-    admission, aggregation, canary, closure, commit_reveal, epoch, evidence, queries, rewards,
-    rooms, tasks, value_adapter, workers, MAX_STATE_BYTES,
+    admission, aggregation, canary, closure, commit_reveal, epoch, evidence, laps, queries,
+    rewards, rooms, tasks, value_adapter, workers, MAX_STATE_BYTES,
 };
 #[derive(Clone, Copy, Eq, PartialEq)]
 #[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
@@ -941,8 +941,8 @@ pub const OPERATIONS: &[OperationMetadata] = &[
         boundary: CallBoundary::Mutation,
         sequence: SequencePolicy::Role,
         delegate_allowed: false,
-        payload_min: 92,
-        payload_max: 92,
+        payload_min: laps::SETTLE_FIXED_BYTES + evidence::MANIFEST_FIXED_BYTES,
+        payload_max: laps::SETTLE_FIXED_BYTES + evidence::MAX_MANIFEST_BYTES,
         authority: AuthorityClass::Host,
         sections: &[
             Section::PolicyLifecycle,
@@ -1174,6 +1174,7 @@ const fn max_of(values: &[usize]) -> usize {
 const TRANSITION_SCRATCH_BYTES: usize = max_of(&[
     tasks::SCRATCH_BYTES,
     canary::SCRATCH_BYTES,
+    laps::SCRATCH_BYTES,
     commit_reveal::SCRATCH_BYTES,
     evidence::SEAL_SCRATCH_BYTES,
     challenge::CHALLENGE_SCRATCH_BYTES,
@@ -1617,6 +1618,21 @@ fn transition_inner(
                 rooms::Outcome::AlreadyApplied(subject) => {
                     Ok(Step::Unchanged(Payload::record(subject.as_bytes())?))
                 }
+            }
+        }
+        0x0B05 => {
+            match laps::apply_settle_laps(ctx, envelope, present(current)?, next, scratch, event)? {
+                laps::Outcome::Applied {
+                    revision,
+                    state_len,
+                    event_len,
+                } => Ok(Step::Applied {
+                    revision,
+                    state_len,
+                    event_len,
+                    payload: Payload::Suffix,
+                }),
+                laps::Outcome::Retained(retained) => Ok(Step::Retained(retained)),
             }
         }
         0x0B06 | 0x0B07 => {
