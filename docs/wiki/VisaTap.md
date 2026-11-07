@@ -31,7 +31,7 @@ typed intent. The adapter id is `visa-tap`.
 
 Pins: `VISA_TAP_SPEC_COMMIT`, `VISA_TAP_SPEC_SHA256`,
 `MAX_CLOCK_SKEW_SECONDS`. Descriptor:
-`visa_tap_adapter_descriptor()`. Codify anchor:
+`visa_tap_adapter_descriptor()`. The crate's descriptor function is
 `interop_visa_tap()`.
 
 [Interop](Interop.md) · [Home](Home.md)

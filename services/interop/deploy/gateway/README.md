@@ -227,7 +227,7 @@ in Rust and are not counted in any suite: the fault-injected settlement cases in
 signer and the canonical receipt encoder; the credential-binding case
 `binding_is_scoped_non_authoritative_and_success_requires_a_real_receipt` in
 `services/interop/crates/layerx-visa-tap/tests/conformance.rs`, which drives the binding
-store and a canonical receipt; and the Codify anchor and vendored-revision
+store and a canonical receipt; and the crate descriptor and vendored-revision
 checks in `services/interop/crates/layerx-ucp/tests/conformance_vectors.rs`, which assert
 against constants compiled into the crate. Where a vector's own signature is a
 live signer's output — the Visa TAP presentations and the fiat settlement
