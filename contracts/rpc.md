@@ -29,12 +29,12 @@ Expect `result: "0x7d"`. Check the chain before signing. Keep multiple nodes
 configured, compare `eth_blockNumber`, and set client deadlines. After a
 broadcast timeout, look up the original transaction hash before resubmitting.
 
-The public node namespaces are `debug`, `echo`, `eth`, `net`, `pax`, `test`
+The public node namespaces are `debug`, `echo`, `eth`, `net`, `pax`, `px`, `test`
 and `txpool`; this is not a promise of every upstream Geth method. The
 implementation registers APIs in `rpc/server.go`; deployment configuration
-controls exposure. Hosted gateway `px_` methods are declared in
-[openrpc.json](../services/platform/hosted/gateway/openrpc.json); that contract
-does not imply availability on every public node.
+controls exposure. The `px` namespace answers from node state; `px_register` and
+`px_requestFunds` are operations of the hosted identity and faucet
+services declared in [the gateway OpenRPC contract](../services/platform/hosted/gateway/openrpc.json).
 
 The pre-merge router and its prefixed endpoints are retired.
 `node.hyperpaxeer.com` is the hpx library mirror, never an RPC endpoint.

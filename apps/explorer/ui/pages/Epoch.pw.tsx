@@ -6,7 +6,7 @@ import { test, expect } from 'playwright/lib';
 
 import Epoch from './Epoch';
 
-test('base view +@mobile', async({ render, mockEnvs, mockTextAd, mockApiResponse }) => {
+test('base view +@mobile +@dark-mode', async({ render, mockEnvs, mockTextAd, mockApiResponse }) => {
   const hooksConfig = {
     router: {
       query: { number: String(epochMock.epoch1.number) },
@@ -22,7 +22,7 @@ test('base view +@mobile', async({ render, mockEnvs, mockTextAd, mockApiResponse
   await expect(component).toHaveScreenshot();
 });
 
-test('unfinalized epoch', async({ render, mockEnvs, mockTextAd, mockApiResponse }) => {
+test('unfinalized epoch +@dark-mode', async({ render, mockEnvs, mockTextAd, mockApiResponse }) => {
   const hooksConfig = {
     router: {
       query: { number: String(epochMock.epochUnfinalized.number) },

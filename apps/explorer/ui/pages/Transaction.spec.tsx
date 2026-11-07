@@ -19,13 +19,16 @@ describe('TransactionPageContent', () => {
     routerState.pathname = '/tx/[hash]';
     routerState.query = { hash: base.hash };
     fetchMock.resetMocks();
-    fetchMock.mockResponse(JSON.stringify(base), { headers: { 'Content-Type': 'application/json' } });
+    fetchMock.mockResponse((request) => Promise.resolve({
+      body: JSON.stringify(request.url.endsWith(`/${ base.hash }`) ? base : { items: [], next_page_params: null }),
+      headers: { 'Content-Type': 'application/json' },
+    }));
   });
 
-  it('titles the page and keeps the transaction hash out of the heading', async() => {
+  it('titles the page with the transaction hash and the TRANSACTION kind', async() => {
     const { container } = render(<Transaction/>);
 
-    await waitFor(() => expect(container.querySelector('h1')?.textContent).toBe('Transaction details'));
+    await waitFor(() => expect(container.querySelector('h1')?.textContent).toBe(base.hash));
   });
 
   it('opens on the overview section and offers the logs section beside it', async() => {

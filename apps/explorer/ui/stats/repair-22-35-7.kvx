@@ -1,0 +1,9 @@
+[repair.22.35.7]
+decision = "2587: explorer visual brief section 6, network pages in both colour modes."
+implementation = "Network hero uses stats Counter titles and the returned Celo epoch field; unavailable measurements are dashes. Recent blocks uses the existing main-page blocks API. Charts use semantic accent, area and grid tokens."
+validators = "Blackfort exposes self-bonded stake, delegated amount and commission; Stability exposes status and validated block counts; Zilliqa exposes index and stake. Absent fields remove their columns; no page-derived ranks or stake weights are invented."
+epochs = "Started and Duration are dashes because the epoch API supplies a finalization timestamp rather than a start or duration; block bounds retain entity links, and details use an entity header and labelled groups."
+proof = "repair-22-35-7.spec.tsx drives the real query hooks and pages with mocked API responses in jsdom, checks available columns, missing values, zeros, sorting, recent blocks, epochs, gas estimates and token resolution in both modes."
+build_result = "hf-build records the exact candidate revision, declared build command, exit code and private log in /out/run/gates.jsonl; no pre-change build or unrecorded result is claimed."
+verify_result = "hf-done records the exact candidate revision, cg spec done command, exit code and private log in /out/run/gates.jsonl and the final evidence JSON. The build and verification must name the same candidate."
+gotcha = "The epoch timestamp is processing completion, the Zilliqa index is an identifier, and total_blocks is a count: none is silently relabelled as start time, rank or latest height."

@@ -51,7 +51,7 @@ export default function RewardsActivityPassCard() {
         pt={{ base: 4, md: 0 }}
         pb={{ base: 3, md: 0 }}
         borderRadius="base"
-        backgroundColor={{ _light: '#FFEFCE', _dark: '#E1910E' }}
+        backgroundColor="rewards.pass.bg"
         overflow="hidden"
         position="relative"
       >
@@ -76,9 +76,9 @@ export default function RewardsActivityPassCard() {
           href={ activityPassUrl }
           variant="underlaid"
           fontWeight="500"
-          backgroundColor={{ _light: '#FFD57C', _dark: '#FFBA0D' }}
-          color="#2B1A3F"
-          iconColor="rgba(43, 26, 63, 0.3)"
+          backgroundColor="rewards.pass.badge"
+          color="rewards.pass.fg"
+          iconColor="rewards.pass.icon"
           _hover={{ color: 'hover' }}
           flexShrink={ 0 }
           zIndex={ 1 }

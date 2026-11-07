@@ -24,16 +24,18 @@ Keep the node RPC origin and the hosted gateway origin separate:
 | Connection | Address and purpose |
 | --- | --- |
 | Public node JSON-RPC | HTTPS at the root of `api1.mainnet-beta.paxeer.network` through `api14.mainnet-beta.paxeer.network`, or `api-mainnet-beta.paxeer.network`; chain ID `125` |
-| Hosted gateway | Deployment-specific origin for authenticated agent operations, tenant credentials and the hosted `px_` contract |
+| Hosted gateway | Deployment-specific origin for authenticated agent operations, tenant credentials, `px_register` and `px_requestFunds` |
 | Agent program listener | Private loopback `127.0.0.1:<port>` endpoint protected by its program bearer |
 | Human and local MCP listeners | Protected Unix sockets with explicit peer admission |
 
-The public node namespaces are `debug`, `echo`, `eth`, `net`, `pax`, `test`
-and `txpool`. The hosted methods, including `px_getReceiptKeys` and
-`px_requestFunds`, are declared in
-`services/platform/hosted/gateway/openrpc.json`; they are not public node
-methods. A deployment manifest naming the public node alias does not turn
-that alias into an authenticated gateway. See [Public RPC endpoints](../reference/public-rpc.md).
+The public node namespaces are `debug`, `echo`, `eth`, `net`, `pax`, `px`,
+`test` and `txpool`. The `px` namespace is served at the node root from node
+state, including `px_getReceiptKeys`; only `px_register` and `px_requestFunds`
+are hosted operations. The gateway's method contract is declared in
+`services/platform/hosted/gateway/openrpc.json`. Use the operator-provided
+hosted origin and credentials for registration and funding. A deployment
+manifest naming the public node alias does not turn that alias into an
+authenticated gateway. See [Public RPC endpoints](../reference/public-rpc.md).
 
 For example, check the node identity before signing or broadcasting:
 
@@ -103,8 +105,8 @@ seeds out of runtime host JSON and logs.
 `layerx install a2a` provisions a hosted key through `/v1/keys` or the key
 rotation route. Its payment scopes are `activity:write` and `receipt:read`;
 read-only uses `receipt:read`. These hosted scopes differ from MCP daemon
-scopes such as `write:submit`. The A2A transport has compatibility limitations
-described under [Submit one signed activity](#submit-one-signed-activity).
+scopes such as `write:submit`. The A2A transport is described under
+[A2A transport](#a2a-transport).
 
 `layerx install mcp` does not provision a gateway key or read an identity
 session from the CLI profile. It writes an empty process `env` into the host
@@ -302,17 +304,17 @@ unknown outcome; resolve the original transaction before authorizing another
 economic action. Daemon invocation recovery reconciles a retained submission
 reference instead of blindly replaying an uncertain effect.
 
-### A2A compatibility limitation
+### A2A transport
 
 `layerx a2a serve` exposes `receipt.get` (`receipt:read`),
 `activity.submit` (`activity:write`) and `faucet.request`
 (`write:faucet:claim`). A2A `activity.submit` accepts only `raw_transaction`
-and returns `txHash` with `rung: "submitted"`. However,
-`tools/platform/cli/src/toolset.rs` still posts these operations to the retired `/rpc` path.
-The current A2A implementation therefore does not provide a working public
-root-node submission path. Changing its profile URL does not remove the
-hard-coded path. Use a root-aware node client for native broadcasting; do
-not describe the compatibility A2A route as a public network endpoint.
+and returns `txHash` with `rung: "submitted"`.
+`tools/platform/cli/src/toolset.rs` refuses a configured node RPC URL that
+does not name the root endpoint and posts node operations to `/`.
+`faucet.request` posts to the hosted faucet URL in `LAYERX_GATEWAY_RPC_URL`
+with the stored identity session; without that variable it refuses with
+`gateway_endpoint_required`.
 Hosted funding is a separate authenticated service governed by its declared
 `px_requestFunds` contract, not a public-node faucet method.
 
@@ -499,7 +501,7 @@ and bounds read by `main.rs` and `human_owner_mode.rs`.
 | Human persistence | Absolute `LAYERX_AGENT_HUMAN_STORE`, `LAYERX_AGENT_HUMAN_SOCKET`, `LAYERX_AGENT_HUMAN_SESSION_KEY_ROOT`, and protected `LAYERX_AGENT_HUMAN_SESSION_OPERATOR_SECRET_FILE` |
 | Peer admission | `LAYERX_AGENT_HUMAN_PEERS` contains comma-separated `uid=<u32>;tenant=<tenant>;principal=<did>` entries; duplicate UIDs and malformed entries are refused |
 | Human authority | `LAYERX_AGENT_HUMAN_AUTHORITY_ENDPOINT`, `LAYERX_AGENT_HUMAN_AUTHORITY_BEARER`, `LAYERX_AGENT_HUMAN_AUTHORITY_CA_DER` and `LAYERX_AGENT_HUMAN_AUTHORITY_MAX_BYTES` |
-| Human transport bounds | `LAYERX_AGENT_HUMAN_DEADLINE_MS`, `LAYERX_AGENT_HUMAN_MAX_FRAME_BYTES`, `LAYERX_AGENT_HUMAN_MAX_CONNECTIONS`, `LAYERX_AGENT_HUMAN_MAX_STREAMS`, `LAYERX_AGENT_HUMAN_MAX_QUEUED_BYTES`, `LAYERX_AGENT_HUMAN_MAX_PAYLOAD_BYTES`, `LAYERX_AGENT_HUMAN_TIMESTAMP_SPAN` |
+| Human transport bounds | `LAYERX_AGENT_HUMAN_DEADLINE_MS`, `LAYERX_AGENT_HUMAN_MAX_FRAME_BYTES`, `LAYERX_AGENT_HUMAN_MAX_CONNECTIONS`, `LAYERX_AGENT_HUMAN_MAX_STREAMS`, `LAYERX_AGENT_HUMAN_MAX_QUEUED_BYTES`, `LAYERX_AGENT_HUMAN_MAX_PAYLOAD_BYTES`, `LAYERX_AGENT_HUMAN_TIMESTAMP_SPAN` (maximum width of an activity timestamp bound, in milliseconds of protocol time; the hosted material writes `60000`) |
 | Human socket ownership | `LAYERX_AGENT_HUMAN_SOCKET_UID`, `LAYERX_AGENT_HUMAN_SOCKET_GID`, `LAYERX_AGENT_HUMAN_SOCKET_MODE` |
 | Local limit | `LAYERX_AGENT_HUMAN_LIMIT_ID`, `LIMIT_SCOPE`, `LIMIT_SCOPE_ID`, `LIMIT_NAME`, `LIMIT_CEILING`, `LIMIT_CONSUMED` with the same prefix; ID is 16 bytes of hex and scope identity is 32 bytes of hex |
 | Full-mode program listener | `LAYERX_AGENT_PROGRAM_LISTEN`, `LAYERX_AGENT_PROGRAM_BEARER_TOKEN`, `LAYERX_AGENT_PROGRAM_PROBE_ID`, `LAYERX_AGENT_PROGRAM_MAX_STALENESS_MS` and `LAYERX_AGENT_DEPLOYMENT_JOURNAL` |

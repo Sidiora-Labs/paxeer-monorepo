@@ -99,6 +99,7 @@ def test_public_rpc_hosts_use_root_and_probe_chain_125():
     assert {url.hostname for url in public_urls} == {
         "api-mainnet-beta.paxeer.network",
         "api1.mainnet-beta.paxeer.network",
+        "api2.mainnet-beta.paxeer.network",
         "api14.mainnet-beta.paxeer.network",
     }
     for url in public_urls:

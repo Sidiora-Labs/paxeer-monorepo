@@ -1,3 +1,7 @@
+#[path = "support/protocol_time.rs"]
+mod protocol_time;
+use protocol_time::ProtocolTime;
+
 use layerx_agent_api::identity::{AgentDid, AuthorityRef};
 use layerx_agent_api::prepare::{IdempotencyRef, PayloadBytes, PrepareRequest, TimestampBound};
 use layerx_client::rpc::evidence::checkpoint;
@@ -94,7 +98,7 @@ fn limits() -> Limits {
     }
 }
 
-fn clock(fixture: &Value) -> (u64, u64) {
+fn clock(fixture: &Value) -> ProtocolTime {
     let runtime_clock = checked(RuntimeClock::from_environment());
     let mut agent = runtime_with_clock(
         fixture,
@@ -104,6 +108,11 @@ fn clock(fixture: &Value) -> (u64, u64) {
         runtime_clock.clone(),
     );
     let head = checked(agent.head());
+    clock_at(fixture, head.chain_sequence)
+}
+
+fn clock_at(fixture: &Value, height: u64) -> ProtocolTime {
+    let runtime_clock = checked(RuntimeClock::from_environment());
     let listener = checked(TcpListener::bind("127.0.0.1:0"));
     let endpoint = checked(SequencerEndpoint::new(
         &format!("http://{}/", checked(listener.local_addr())),
@@ -111,7 +120,6 @@ fn clock(fixture: &Value) -> (u64, u64) {
     ));
     checked(listener.set_nonblocking(true));
     let upstream = text(fixture, "rpc_url").to_owned();
-    let height = head.chain_sequence;
     let server = std::thread::spawn(move || {
         let mut deadline = checked(Deadline::start(
             runtime_clock.as_ref(),
@@ -179,14 +187,8 @@ fn clock(fixture: &Value) -> (u64, u64) {
     });
     let observed = checked(checkpoint(&endpoint, height));
     checked(server.join());
-    assert_eq!(observed.number, head.chain_sequence);
-    (
-        observed
-            .timestamp
-            .checked_mul(1_000)
-            .expect("protocol milliseconds"),
-        observed.number,
-    )
+    assert_eq!(observed.number, height);
+    ProtocolTime::from_block(&observed)
 }
 
 fn store(fixture: &Value) -> PrincipalStore {
@@ -586,7 +588,7 @@ fn genuine_human_owner_session_consent_preview_and_reopen() {
     );
     let mut retained = store(&fixture);
     let mut scope = checked(retained.principal(&principal));
-    assert!(load_access(&scope, &mut agent, capability, clock(&fixture).0).is_err());
+    assert!(load_access(&scope, &mut agent, capability, clock(&fixture).seconds).is_err());
     drop(scope);
     drop(retained);
     println!("NATIVE_SEND_PRODUCER_CASE denied-before-consent");
@@ -597,13 +599,23 @@ fn genuine_human_owner_session_consent_preview_and_reopen() {
         &scope,
         &mut agent,
         capability,
-        clock(&fixture).0,
+        clock(&fixture).seconds,
     ));
     assert_eq!(context.session.owner, text(&fixture, "owner"));
     assert_eq!(context.session.principal, principal.as_str());
     assert_eq!(context.session.tenant, text(&fixture, "agent_tenant"));
     assert_ne!(context.session.grant_receipt_digest, [0; 32]);
     assert_ne!(context.session.grant_activity_id, [0; 32]);
+    assert!(clock(&fixture).milliseconds < context.session.expires_at_ms);
+    checked(
+        context
+            .session
+            .validate(&scope, context.session.expires_at_ms / 1_000 - 1),
+    );
+    assert!(context
+        .session
+        .validate(&scope, context.session.expires_at_ms.div_ceil(1_000))
+        .is_err());
     let grant = checked(context.signed_grant());
     let digest: [u8; 32] = Sha256::digest(checked(
         layerx_human_kms::attestor::native_local_grant_signing_bytes(&grant),
@@ -624,7 +636,7 @@ fn genuine_human_owner_session_consent_preview_and_reopen() {
     println!("NATIVE_SEND_PRODUCER_CASE actual-session-and-signed-grant");
     let request = prepare(&fixture, case, &mut agent, &context);
     let before = local_state(&fixture);
-    let head = clock(&fixture).1;
+    let head = clock(&fixture);
     let fee = checked(agent.session_fee_state(context.session.grant_id));
     let expiry = context.expires_at_ms;
     let first = checked(preview_send_v2(
@@ -633,7 +645,7 @@ fn genuine_human_owner_session_consent_preview_and_reopen() {
         &request,
         capability,
         expiry,
-        clock(&fixture).0,
+        clock(&fixture).seconds,
     ));
     let second = checked(preview_send_v2(
         &scope,
@@ -641,8 +653,18 @@ fn genuine_human_owner_session_consent_preview_and_reopen() {
         &request,
         capability,
         expiry,
-        clock(&fixture).0,
+        clock(&fixture).seconds,
     ));
+    let first_head = clock_at(&fixture, first.head_sequence);
+    let second_head = clock_at(&fixture, second.head_sequence);
+    first_head.assert_follows(head);
+    second_head.assert_follows(first_head);
+    assert!(first.protocol_time_ms >= first_head.milliseconds);
+    assert!(second.protocol_time_ms >= second_head.milliseconds);
+    assert!(first.head_sequence >= head.height);
+    assert!(second.head_sequence >= first.head_sequence);
+    assert!(first.protocol_time_ms >= head.milliseconds);
+    assert!(second.protocol_time_ms >= first.protocol_time_ms);
     assert_eq!(first.canonical_bytes, second.canonical_bytes);
     assert_eq!(first.signing_preimage, second.signing_preimage);
     assert_eq!(first.purpose, second.purpose);
@@ -656,11 +678,11 @@ fn genuine_human_owner_session_consent_preview_and_reopen() {
         id(request.idempotency_key.as_str())
     );
     assert_eq!(
-        first.purpose.owner_public_key,
+        first.purpose.consent_public_key,
         context.session.owner_public_key
     );
     assert_eq!(local_state(&fixture), before);
-    assert_eq!(clock(&fixture).1, head);
+    clock(&fixture).assert_follows(head);
     let after = checked(agent.session_fee_state(context.session.grant_id));
     assert_eq!(
         (
@@ -683,7 +705,7 @@ fn genuine_human_owner_session_consent_preview_and_reopen() {
         &changed,
         capability,
         expiry,
-        clock(&fixture).0
+        clock(&fixture).seconds
     )
     .is_err());
     changed = request.clone();
@@ -694,16 +716,22 @@ fn genuine_human_owner_session_consent_preview_and_reopen() {
         &changed,
         capability,
         expiry,
-        clock(&fixture).0
+        clock(&fixture).seconds
     )
     .is_err());
     let foreign = checked(PrincipalId::new(text(&fixture, "foreign_principal")));
     let mut foreign_store = store(&fixture);
     let foreign_scope = checked(foreign_store.principal(&foreign));
-    assert!(load_access(&foreign_scope, &mut agent, capability, clock(&fixture).0).is_err());
+    assert!(load_access(
+        &foreign_scope,
+        &mut agent,
+        capability,
+        clock(&fixture).seconds
+    )
+    .is_err());
     assert!(context
         .session
-        .validate(&foreign_scope, clock(&fixture).0)
+        .validate(&foreign_scope, clock(&fixture).seconds)
         .is_err());
     println!("NATIVE_SEND_PRODUCER_CASE foreign-and-changed-context-refused");
     let custody = signer(&fixture, &agent);
@@ -716,7 +744,7 @@ fn genuine_human_owner_session_consent_preview_and_reopen() {
             &key,
             NativeConsent::SendPurpose(&first.purpose),
             SignAuthorization::new(Operation::ProtocolMutation, None),
-            clock(&fixture).0,
+            clock(&fixture).seconds,
             trace,
         ),
     )));
@@ -763,7 +791,7 @@ fn genuine_human_owner_session_consent_preview_and_reopen() {
         &scope,
         &mut agent,
         capability,
-        clock(&fixture).0,
+        clock(&fixture).seconds,
     ));
     assert_eq!(
         serde_json::to_vec(&context.session).expect("actual reopened session serialization"),
@@ -775,8 +803,13 @@ fn genuine_human_owner_session_consent_preview_and_reopen() {
         &request,
         capability,
         expiry,
-        clock(&fixture).0,
+        clock(&fixture).seconds,
     ));
+    let resumed_head = clock_at(&fixture, resumed.head_sequence);
+    resumed_head.assert_follows(second_head);
+    assert!(resumed.protocol_time_ms >= resumed_head.milliseconds);
+    assert!(resumed.head_sequence >= second.head_sequence);
+    assert!(resumed.protocol_time_ms >= second.protocol_time_ms);
     assert_eq!(resumed.canonical_bytes, first.canonical_bytes);
     assert_eq!(resumed.purpose, first.purpose);
     let confirm: Value = checked(serde_json::from_slice(&protected(
@@ -790,6 +823,6 @@ fn genuine_human_owner_session_consent_preview_and_reopen() {
         case["capability_id"]
     );
     assert_eq!(local_state(&fixture), before);
-    assert_eq!(clock(&fixture).1, head);
+    clock(&fixture).assert_follows(head);
     println!("NATIVE_SEND_PRODUCER_CASE durable-reopen-and-exact-replay");
 }

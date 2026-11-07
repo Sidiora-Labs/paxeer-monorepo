@@ -32,18 +32,21 @@ paths when present; an EVM view is not a promise that every receipt represents
 a user-signed Ethereum transaction. See [block.go](block.go), [tx.go](tx.go),
 [filter.go](filter.go) and [utils.go](utils.go).
 
-HTTP also registers `net`, `web3`, `txpool`, `debug` and `echo`, plus the
-chain-specific APIs below. WebSocket registers `eth`, `net`, `web3` and `echo`,
-including `eth_subscribe` for heads, logs and pending transaction hashes.
+HTTP also registers `net`, `web3`, `txpool`, `debug`, `echo` and `px`, plus
+the chain-specific APIs below. WebSocket registers `eth`, `net`, `web3`, `echo`,
+`px` and `pax_sequencerReceipt`, including `eth_subscribe` for heads, logs and pending transaction hashes.
 The `test` namespace requires `enable_test_api` and a non-live chain ID.
 An operator's `deny_list` can further restrict methods.
 
 The node's receipt APIs are `pax_sequencerReceipt` and `px_getReceiptKeys`,
-registered on HTTP in [server.go](server.go), with provider/forwarding behavior
-defined by [sequencer_receipt.go](sequencer_receipt.go). The broader hosted
-gateway `px_*` contract is declared in
-[openrpc.json](../services/platform/hosted/gateway/openrpc.json); its methods
-are not automatically node methods.
+registered in [server.go](server.go), with provider/forwarding behavior
+defined by [sequencer_receipt.go](sequencer_receipt.go). The `px` namespace
+(`px_account.go`, `px_assets.go`, `px_history.go`, `px_discovery.go`,
+`px_kernel.go`) answers account, asset, history, capability, commit and
+validator reads from node state. `px_register` and `px_requestFunds` answer
+`-32004` with data code `hosted_gateway_service_required`; the hosted
+operations are declared in
+[openrpc.json](../services/platform/hosted/gateway/openrpc.json).
 
 ### Pax_ Endpoints
 

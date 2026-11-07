@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 
 import argparse
+import base64
+import binascii
 import json
 import os
 from pathlib import Path
@@ -9,7 +11,12 @@ import sys
 import tempfile
 
 MAX_HEIGHT = (1 << 63) - 1
-RELEASE_URL = "https://github.com/Sidiora-Labs/Paxeer-X-Network/releases/download"
+MAX_UINT64 = (1 << 64) - 1
+RELEASE_URL = "https://github.com/Sidiora-Labs/paxeer-monorepo/releases/download"
+REGISTERED_PLAN_NAMES = {
+    "MergeUpgrade": "v7.0",
+    "AnchorStoreDeleteUpgrade": "v7.0-anchor-store-delete",
+}
 
 
 class ArgumentParser(argparse.ArgumentParser):
@@ -23,8 +30,9 @@ def release_identity():
         raise ValueError("invalid release identity")
     for key in ("version", "upgrade"):
         value = identity.get(key)
-        if not isinstance(value, str) or not re.fullmatch(
-            r"v[0-9]+\.[0-9]+\.[0-9]+", value
+        if not isinstance(value, str) or not (
+            re.fullmatch(r"v[0-9]+\.[0-9]+\.[0-9]+", value)
+            or (key == "upgrade" and value in REGISTERED_PLAN_NAMES.values())
         ):
             raise ValueError(f"invalid release {key}")
     return identity
@@ -72,6 +80,159 @@ def write_json(path, document, mode):
             temporary.unlink(missing_ok=True)
 
 
+def uint64(value, label):
+    if type(value) is not int or not 0 <= value <= MAX_UINT64:
+        raise ValueError(f"{label} must be a uint64 integer")
+    return value
+
+
+def decode_bytes(value, label):
+    if not isinstance(value, str):
+        raise ValueError(f"{label} must be a base64 string")
+    try:
+        decoded = base64.b64decode(value, validate=True)
+    except (ValueError, binascii.Error) as error:
+        raise ValueError(f"{label} must be a base64 string") from error
+    if len(decoded) != 32:
+        raise ValueError(f"{label} must be 32 bytes")
+    return decoded
+
+
+def byte_argument(value):
+    if re.fullmatch(r"(?:0x)?[0-9a-fA-F]{64}", value):
+        value = base64.b64encode(bytes.fromhex(value.removeprefix("0x"))).decode()
+    decode_bytes(value, "key or hash")
+    return value
+
+
+def validate_plan_info(info, plan_height=None):
+    if not isinstance(info, dict):
+        raise ValueError("plan info must be an object")
+    leaders = info.get("leaders")
+    if not isinstance(leaders, list) or not leaders:
+        raise ValueError("leader list must be non-empty")
+    seen = set()
+    for leader in leaders:
+        key = decode_bytes(leader, "leader")
+        if not any(key) or key in seen:
+            raise ValueError("leaders must be non-zero and distinct")
+        seen.add(key)
+    keys = info.get("receipt_keys")
+    if not isinstance(keys, list) or not keys:
+        raise ValueError("receipt key list must be non-empty")
+    seen = set()
+    for entry in keys:
+        if not isinstance(entry, dict):
+            raise ValueError("receipt key entry must be an object")
+        key_id = decode_bytes(entry.get("key_id"), "key id")
+        if not any(key_id) or key_id in seen:
+            raise ValueError("receipt key ids must be non-zero and distinct")
+        seen.add(key_id)
+        public_key = decode_bytes(entry.get("public_key"), "receipt public key")
+        # Match layerxproof/verify.PublicKeyIsCanonical, used by ReceiptKeyEntry.Validate.
+        y = int.from_bytes(public_key, "little") & ((1 << 255) - 1)
+        if y in (0, 1) or y >= (1 << 255) - 19:
+            raise ValueError("receipt public key is not a canonical ed25519 key")
+        first = uint64(entry.get("first_height"), "first height")
+        last = uint64(entry.get("last_height"), "last height")
+        if first == 0 or first > last:
+            raise ValueError("receipt key range must be positive and ordered")
+    last_seq = uint64(info.get("last_seq", 0), "last sequence")
+    last_hash = (
+        decode_bytes(info["last_seq_hash"], "last sequence hash")
+        if "last_seq_hash" in info else bytes(32)
+    )
+    if last_seq != 0 or any(last_hash):
+        raise ValueError("merge plan requires last sequence 0 and the zero hash")
+    activation = uint64(info.get("activation_height", 0), "activation height")
+    if activation > MAX_HEIGHT:
+        raise ValueError("activation height exceeds int64")
+    recorded_height = info.get("plan_height")
+    if recorded_height is not None:
+        validate_height(recorded_height, "plan height")
+        if plan_height is not None and plan_height != recorded_height:
+            raise ValueError("plan height differs from recorded plan height")
+        plan_height = recorded_height
+    heights = [activation] if activation else []
+    if plan_height is not None:
+        first_height = validate_height(plan_height, "plan height") + 1
+        heights.append(validate_height(first_height, "first sequenced height"))
+    for height in heights:
+        if not any(
+            key["first_height"] <= height <= key["last_height"] for key in keys
+        ):
+            raise ValueError(f"no receipt key covers sequenced height {height}")
+    if "binaries" in info and (
+        not isinstance(info["binaries"], dict)
+        or not info["binaries"]
+        or any(
+            not isinstance(k, str) or not isinstance(v, str) or not v
+            for k, v in info["binaries"].items()
+        )
+    ):
+        raise ValueError("binaries must be a non-empty map of URLs")
+    return info
+
+
+def read_plan_info(path):
+    document = json.loads(path.read_text(encoding="utf-8"))
+    if isinstance(document, dict) and "info" in document:
+        if not isinstance(document["info"], str):
+            raise ValueError("document info must be a JSON string")
+        return json.loads(document["info"])
+    return document
+
+
+def merge_plan_info(info, path, plan_height=None):
+    plan = validate_plan_info(read_plan_info(path), plan_height)
+    for field in info.keys() & plan.keys():
+        if info[field] != plan[field]:
+            raise ValueError(f"plan info {field} differs from release document")
+    return {**plan, **info}
+
+
+def plan_info(args, identity):
+    if args.check is not None:
+        if (
+            args.leader or args.receipt_key or args.release_doc or args.out
+            or args.last_seq is not None or args.last_seq_hash is not None
+            or args.activation_height is not None
+        ):
+            raise ValueError("--check accepts only --plan-height with its input file")
+        validate_plan_info(read_plan_info(args.check), args.plan_height)
+        return
+    if not args.leader or not args.receipt_key:
+        raise ValueError("--leader and --receipt-key are required")
+    info = {
+        "leaders": [byte_argument(key) for key in args.leader],
+        "receipt_keys": [json.loads(entry) for entry in args.receipt_key],
+        "last_seq": 0 if args.last_seq is None else args.last_seq,
+        "last_seq_hash": (
+            byte_argument(args.last_seq_hash) if args.last_seq_hash is not None
+            else base64.b64encode(bytes(32)).decode()
+        ),
+        "activation_height": 0 if args.activation_height is None else args.activation_height,
+    }
+    if args.plan_height is not None:
+        info["plan_height"] = args.plan_height
+    if args.release_doc is not None:
+        document = json.loads(args.release_doc.read_text(encoding="utf-8"))
+        if not isinstance(document, dict) or not isinstance(document.get("info"), str):
+            raise ValueError("release document must contain name and info")
+        validate_name(document.get("name"), identity)
+        release_info = json.loads(document["info"])
+        if not isinstance(release_info, dict) or not isinstance(
+            release_info.get("binaries"), dict
+        ):
+            raise ValueError("release document must contain binaries")
+        info["binaries"] = release_info["binaries"]
+    validate_plan_info(info, args.plan_height)
+    if args.out is None:
+        print(json.dumps(info, indent=2))
+    else:
+        write_json(args.out, info, 0o644)
+
+
 def release(args, identity):
     name = validate_name(
         identity["upgrade"] if args.name is None else args.name, identity
@@ -94,6 +255,8 @@ def release(args, identity):
             "linux/amd64": f"{asset_url(identity)}?checksum=sha256:{checksums[0]}"
         }
     }
+    if getattr(args, "plan_info", None) is not None:
+        info = merge_plan_info(info, args.plan_info)
     document = {"name": name, "info": json.dumps(info, separators=(",", ":"))}
     if args.out is None:
         print(json.dumps(document, indent=2))
@@ -123,11 +286,26 @@ def release_document_name(path, checksum, identity):
 
 
 def validate_height(height, label):
+    if type(height) is not int:
+        raise ValueError(f"{label} must be an integer")
     if height < 1:
         raise ValueError(f"{label} must be positive")
     if height > MAX_HEIGHT:
         raise ValueError(f"{label} exceeds int64")
     return height
+
+
+def node_plan_info(release_doc, plan_path, plan_height, name):
+    info = None if release_doc is None else read_plan_info(release_doc)
+    if plan_path is not None:
+        info = merge_plan_info({} if info is None else info, plan_path, plan_height)
+    if name == REGISTERED_PLAN_NAMES["MergeUpgrade"]:
+        if plan_path is None and (not isinstance(info, dict) or "leaders" not in info):
+            raise ValueError(
+                "--plan-info is required unless the release document carries merge plan info"
+            )
+        validate_plan_info(info, plan_height)
+    return info
 
 
 def node(args, identity):
@@ -148,9 +326,14 @@ def node(args, identity):
         height = validate_height(halt + 1, "height")
     if height is None:
         raise ValueError("--height or --halt-height is required")
+    plan_height = args.halt_height if args.halt_height is not None else height
+    info = node_plan_info(args.release_doc, args.plan_info, plan_height, name)
+    document = {"name": name, "height": height}
+    if info is not None:
+        document["info"] = json.dumps(info, separators=(",", ":"))
     write_json(
         args.home / "data" / "upgrade-info.json",
-        {"name": name, "height": height},
+        document,
         0o600,
     )
 
@@ -163,7 +346,19 @@ def main():
     release_parser.add_argument("--tag")
     release_parser.add_argument("--name")
     release_parser.add_argument("--out", type=Path)
+    release_parser.add_argument("--plan-info", type=Path, help="merge validated sequencer info into the release document")
     release_parser.set_defaults(run=release)
+    plan_parser = commands.add_parser("plan-info", help="generate merge plan info; JSON byte fields use base64")
+    plan_parser.add_argument("--leader", action="append", help="leader public key as 64 hex digits or base64; repeat in primary-first order")
+    plan_parser.add_argument("--receipt-key", action="append", help='repeat a JSON entry: {"key_id":"BASE64","public_key":"BASE64","first_height":1,"last_height":18446744073709551615}')
+    plan_parser.add_argument("--last-seq", type=int)
+    plan_parser.add_argument("--last-seq-hash", help="32-byte hash as hex or base64; the merge requires zero")
+    plan_parser.add_argument("--activation-height", type=int)
+    plan_parser.add_argument("--plan-height", type=int, help="check receipt coverage at this height plus one; record it in generated info")
+    plan_parser.add_argument("--release-doc", type=Path, help="include the binaries map from a release document")
+    plan_parser.add_argument("--out", type=Path)
+    plan_parser.add_argument("--check", type=Path, help="validate raw plan info or a release document without writing")
+    plan_parser.set_defaults(run=plan_info)
     node_parser = commands.add_parser("node")
     node_parser.add_argument("--home", type=Path, required=True)
     node_parser.add_argument("--name")
@@ -171,6 +366,7 @@ def main():
     node_parser.add_argument("--halt-height", type=int)
     node_parser.add_argument("--release-doc", type=Path)
     node_parser.add_argument("--sha256")
+    node_parser.add_argument("--plan-info", type=Path, help="sequencer info matching the proposal; required for merge unless release-doc already carries it")
     node_parser.set_defaults(run=node)
     try:
         args = parser.parse_args()

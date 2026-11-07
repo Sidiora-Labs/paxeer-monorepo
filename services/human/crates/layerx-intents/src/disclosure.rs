@@ -108,6 +108,7 @@ impl DisclosureCheck {
             && !matches!(
                 intent.kind(),
                 IntentKind::SessionGrant(_)
+                    | IntentKind::KeyRotation(_)
                     | IntentKind::RecoveryRegistration(_)
                     | IntentKind::NativeBudgetCreate(_)
                     | IntentKind::NativeAssetAccountOpen(_)
@@ -160,7 +161,19 @@ impl DisclosureCheck {
             }
             IntentKind::KeyRotation(value) => {
                 round_trip.header(0x7102, 4)?;
-                round_trip.did(&value.did, DisclosureField::Did)?;
+                if intent.version() == crate::IntentVersion::V3 {
+                    round_trip.fixed(
+                        &hash::did_id_for_protocol(&value.did, 3).map_err(|error| {
+                            DisclosureCheckError::Wire {
+                                field: DisclosureField::Did,
+                                error,
+                            }
+                        })?,
+                        DisclosureField::Did,
+                    )?;
+                } else {
+                    round_trip.did(&value.did, DisclosureField::Did)?;
+                }
                 round_trip.fixed(&value.pending_key.bytes(), DisclosureField::PendingKey)?;
                 round_trip.u64(
                     value.challenge_window.not_before(),

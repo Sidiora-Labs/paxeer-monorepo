@@ -11,10 +11,10 @@ proposes blocks, EVM chain ID is `125` (`0x7d`), and a receipt is final once its
 block is committed. Public JSON-RPC uses the root of
 `https://api-mainnet-beta.paxeer.network` or the numbered nodes `api1` through
 `api14.mainnet-beta.paxeer.network`; see [Public RPC endpoints](../reference/public-rpc.md).
-The node namespaces are `debug`, `echo`, `eth`, `net`, `pax`, `test` and
-`txpool`. Hosted `px_` methods are declared in
-`services/platform/hosted/gateway/openrpc.json`; see
-[Hosted gateway JSON-RPC](../platform/gateway-rpc.md). Public funding uses
+The node namespaces are `debug`, `echo`, `eth`, `net`, `pax`, `px`, `test` and
+`txpool`. The `px` namespace answers from node state; `px_register` and
+`px_requestFunds` are operations of the hosted identity and faucet
+services declared in [the gateway OpenRPC contract](../platform/gateway-rpc.md). Public funding uses
 native transfers through node JSON-RPC. The custody-credit/router funding
 instructions are retired.
 

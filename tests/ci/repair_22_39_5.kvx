@@ -1,0 +1,15 @@
+[repair.22.39.5]
+gotcha = "3405"
+base_revision = "c1c16a3682cc8a2685b1ee7e9c2901866bd40732"
+implementation = "Remove both RUNNER_TEMP-below-HOME case blocks; retain realpath canonicalization, the mktemp shard prefix, the prepared-home containment check and the cleanup prefix refusal."
+build_command = "python3 -m py_compile tests/ci/test_eth_blocktests_home.py"
+verify_command = "python3 -m pytest -q tests/ci/test_eth_blocktests_home.py"
+evidence = "The private /out/run/gates.jsonl ledger names the exact built and verified candidate revision, command, exit code and log; the final response copies the last hf-done record."
+
+[case.prepare]
+test = "tests/ci/test_eth_blocktests_home.py::test_prepare_step_has_no_home_requirement"
+assertion = "Execute the extracted prepare and remove scripts under bash for shard indexes 0 and 4 with RUNNER_TEMP outside HOME and reached through a symlink; require a canonical existing home under RUNNER_TEMP with the shard prefix and successful cleanup preserving HOME and RUNNER_TEMP."
+
+[case.remove]
+test = "tests/ci/test_eth_blocktests_home.py::test_remove_step_keeps_runner_temp_prefix_guard"
+assertion = "Execute the extracted remove script under bash with RUNNER_TEMP outside HOME; require exit 1, the prefix-refusal diagnostic and preserved data for an unrelated prefix, another shard, a matching prefix outside RUNNER_TEMP, RUNNER_TEMP itself, parent traversal and a matching-prefix symlink escaping RUNNER_TEMP."

@@ -269,11 +269,10 @@ pub fn create_daemon_limit(
         return Err(DaemonLimitError::Corrupt);
     }
     let bytes = record.encode()?;
-    store.put_local(index.clone(), record.budget_id.to_vec())?;
-    if let Err(error) = store.put_local(limit_key(&record.tenant, record.budget_id)?, bytes) {
-        store.remove_local(&index)?;
-        return Err(error.into());
-    }
+    store.commit_local_records(vec![
+        (index, record.budget_id.to_vec()),
+        (limit_key(&record.tenant, record.budget_id)?, bytes),
+    ])?;
     limiter.install(record.config())?;
     limiter.bind_program_denominations(
         &[(

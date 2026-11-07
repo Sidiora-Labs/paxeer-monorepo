@@ -558,14 +558,9 @@ pub(crate) fn native_send_submit_variant(request: &Map<String, Value>) -> bool {
 }
 
 pub(crate) fn native_send_prepare_digest(
-    request: &layerx_agent_api::identity::NativeSendPrepareRequestV1,
+    request: &crate::agent_rpc_wire::NativeSendPrepareRequestV2,
 ) -> Result<[u8; 32], serde_json::Error> {
-    use sha2::{Digest, Sha256};
-    Ok(Sha256::new()
-        .chain_update(b"LXP/agent/native-send-prepare/v1\0")
-        .chain_update(serde_json::to_vec(&request.canonical())?)
-        .finalize()
-        .into())
+    request.prepare_digest()
 }
 
 pub(crate) fn native_prepare_digest(
@@ -713,7 +708,7 @@ fn rung(value: u8) -> Option<Rung> {
     Some(match value {
         0 => Rung::Submitted,
         1 => Rung::Receipted,
-        2 => Rung::Committed,
+        2 | 4 | 5 | 6 => Rung::Committed,
         _ => return None,
     })
 }
@@ -739,10 +734,10 @@ mod receipt_rung_wire_tests {
     }
 
     #[test]
-    fn checkpoint_finalised_receipt_decodes_as_committed() -> Result<(), HumanOperationError> {
+    fn committed_receipt_decodes_as_committed() -> Result<(), HumanOperationError> {
         assert_eq!(
             rung(crate::human_runtime::receipt_rung_code(
-                VerificationLevel::CHECKPOINT_FINALISED
+                VerificationLevel::COMMITTED
             )?),
             Some(Rung::Committed)
         );
@@ -750,7 +745,11 @@ mod receipt_rung_wire_tests {
     }
 
     #[test]
-    fn settlement_anchored_receipt_level_is_refused() {
+    #[allow(deprecated)]
+    fn legacy_receipt_levels_decode_as_committed() {
+        for code in [4, 5, 6] {
+            assert_eq!(rung(code), Some(Rung::Committed));
+        }
         assert_eq!(
             crate::human_runtime::receipt_rung_code(VerificationLevel::SETTLEMENT_ANCHORED),
             Err(HumanOperationError::Refused)

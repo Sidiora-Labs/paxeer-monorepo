@@ -169,7 +169,7 @@ const CodeEditorSearch = ({ models, data, onFileSelect, isInputStuck, isActive, 
         zIndex="2"
         bgColor={ themeColors['sideBar.background'] }
         pb="8px"
-        boxShadow={ isInputStuck ? '0px 6px 3px 0px rgba(0, 0, 0, 0.05)' : 'none' }
+        boxShadow={ isInputStuck ? '0px 6px 3px 0px var(--chakra-colors-editor-search-shadow)' : 'none' }
         endElement={ inputEndElement }
         endElementProps={{ height: '26px', pl: '0', right: '10px', columnGap: '2px' }}
       >

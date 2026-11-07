@@ -10,6 +10,7 @@ fn proof_bundle_reads_eth_get_proof_and_the_landing_block() {
 
 #[test]
 fn verification_label_names_only_the_three_rungs() {
+    assert_eq!(evidence::verification_label(Rung::Committed), "committed");
     let rungs = [Rung::Submitted, Rung::Receipted, Rung::Committed];
     let labels = rungs.map(evidence::verification_label);
     assert_eq!(labels, ["submitted", "receipted", "committed"]);

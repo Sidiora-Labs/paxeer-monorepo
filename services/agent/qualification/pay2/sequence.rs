@@ -131,21 +131,28 @@ impl IdentityResolver for Pay2GatewayIdentity<'_> {
             .authority
             .node
             .bound_address(&public_key)
-            .map_err(|_| IdentityError::BoundaryUnavailable)?
+            .map_err(|error| {
+                eprintln!("PAY2 identity bound_address failed: {error:?}");
+                IdentityError::BoundaryUnavailable
+            })?
         else {
             return Ok(None);
         };
         let nonce: u64 = self
             .rpc
             .get_identity_sequence(&format!("0x{}", hex(&sender)))
-            .map_err(|_| IdentityError::BoundaryUnavailable)?;
-        let height = self
-            .authority
-            .node
-            .block_number()
-            .map_err(|_| IdentityError::BoundaryUnavailable)?;
-        let reads = CommittedReads::open(&self.authority.node, height)
-            .map_err(|_| IdentityError::BoundaryUnavailable)?;
+            .map_err(|error| {
+                eprintln!("PAY2 identity get_identity_sequence failed: {error:?}");
+                IdentityError::BoundaryUnavailable
+            })?;
+        let height = self.authority.node.block_number().map_err(|error| {
+            eprintln!("PAY2 identity block_number failed: {error:?}");
+            IdentityError::BoundaryUnavailable
+        })?;
+        let reads = CommittedReads::open(&self.authority.node, height).map_err(|error| {
+            eprintln!("PAY2 identity CommittedReads::open height={height} failed: {error:?}");
+            IdentityError::BoundaryUnavailable
+        })?;
         let observed = reads.checkpoint();
         let authenticated = checkpoint(
             height,
@@ -168,7 +175,7 @@ impl IdentityResolver for Pay2GatewayIdentity<'_> {
             canonical_bytes: canonical,
             head_sequence: authenticated.height,
             revocation_sequence: 1,
-            verification_level: VerificationLevel::CHECKPOINT_FINALISED,
+            verification_level: VerificationLevel::COMMITTED,
             frozen: false,
             authorities: vec![ProtocolAuthority::CapabilityGrant(self.capability)],
         }))

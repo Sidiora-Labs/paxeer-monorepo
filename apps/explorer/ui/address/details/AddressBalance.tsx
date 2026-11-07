@@ -10,14 +10,16 @@ import useSocketMessage from 'lib/socket/useSocketMessage';
 import { currencyUnits } from 'lib/units';
 import * as DetailedInfo from 'ui/shared/DetailedInfo/DetailedInfo';
 import NativeTokenIcon from 'ui/shared/NativeTokenIcon';
+import StatTile from 'ui/shared/Page/StatTile';
 import NativeCoinValue from 'ui/shared/value/NativeCoinValue';
 
 interface Props {
   data: Pick<Address, 'block_number_balance_updated_at' | 'coin_balance' | 'hash' | 'exchange_rate'>;
   isLoading?: boolean;
+  asTile?: boolean;
 }
 
-const AddressBalance = ({ data, isLoading }: Props) => {
+const AddressBalance = ({ data, isLoading, asTile }: Props) => {
   const [ lastBlockNumber, setLastBlockNumber ] = React.useState<number>(data.block_number_balance_updated_at || 0);
   const queryClient = useQueryClient();
 
@@ -64,22 +66,23 @@ const AddressBalance = ({ data, isLoading }: Props) => {
     handler: handleNewCoinBalanceMessage,
   });
 
+  const value = (
+    <NativeCoinValue
+      amount={ data.coin_balance || '0' }
+      exchangeRate={ data.exchange_rate }
+      startElement={ <NativeTokenIcon boxSize={ 5 } isLoading={ isLoading } mr={ 2 }/> }
+      loading={ isLoading }
+    />
+  );
+
+  if (asTile) {
+    return <StatTile label="Balance" hint={ `${ currencyUnits.ether } balance` } isLoading={ isLoading }>{ value }</StatTile>;
+  }
+
   return (
     <>
-      <DetailedInfo.ItemLabel
-        hint={ `${ currencyUnits.ether } balance` }
-        isLoading={ isLoading }
-      >
-        Balance
-      </DetailedInfo.ItemLabel>
-      <DetailedInfo.ItemValue multiRow>
-        <NativeCoinValue
-          amount={ data.coin_balance || '0' }
-          exchangeRate={ data.exchange_rate }
-          startElement={ <NativeTokenIcon boxSize={ 5 } isLoading={ isLoading } mr={ 2 }/> }
-          loading={ isLoading }
-        />
-      </DetailedInfo.ItemValue>
+      <DetailedInfo.ItemLabel hint={ `${ currencyUnits.ether } balance` } isLoading={ isLoading }>Balance</DetailedInfo.ItemLabel>
+      <DetailedInfo.ItemValue multiRow>{ value }</DetailedInfo.ItemValue>
     </>
   );
 };

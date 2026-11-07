@@ -1,12 +1,11 @@
-import { Box, Flex, VStack } from '@chakra-ui/react';
+import { Box } from '@chakra-ui/react';
 import React from 'react';
-
-import { route } from 'nextjs-routes';
 
 import { publicClient } from 'lib/web3/client';
 import { BLOCK } from 'stubs/block';
-import { Link } from 'toolkit/chakra/link';
+import { TableBody } from 'toolkit/chakra/table';
 
+import HomeTable from '../HomeTable';
 import LatestBlocksItem from '../LatestBlocksItem';
 import LatestBlocksFallback from './LatestBlocksFallback';
 import { useHomeRpcDataContext } from './rpcDataContext';
@@ -38,18 +37,19 @@ const LatestBlocksDegraded = ({ maxNum }: Props) => {
 
   return (
     <>
-      <VStack gap={ 2 } mb={ 3 } overflow="hidden" alignItems="stretch">
-        { items.map(((block, index) => (
-          <LatestBlocksItem
-            key={ block.height + (isLoading ? String(index) : '') }
-            block={ block }
-            isLoading={ isLoading }
-          />
-        ))) }
-      </VStack>
-      <Flex justifyContent="center">
-        <Link textStyle="sm" href={ route({ pathname: '/blocks' }) } loading={ isLoading }>View all blocks</Link>
-      </Flex>
+      <Box display={{ base: 'block', lg: 'none' }}>
+        { items.map((block, index) => <LatestBlocksItem key={ block.height + (isLoading ? String(index) : '') } block={ block } isLoading={ isLoading }/>) }
+      </Box>
+      <Box display={{ base: 'none', lg: 'block' }}>
+        <HomeTable
+          label="Latest blocks"
+          columns={ [ { label: 'Block', width: '28%' }, { label: 'Hash / Transactions' }, { label: 'Reward', numeric: true, width: '25%' } ] }
+        >
+          <TableBody>
+            { items.map((block, index) => <LatestBlocksItem key={ block.height + (isLoading ? String(index) : '') } block={ block } isLoading={ isLoading } view="table"/>) }
+          </TableBody>
+        </HomeTable>
+      </Box>
     </>
   );
 };

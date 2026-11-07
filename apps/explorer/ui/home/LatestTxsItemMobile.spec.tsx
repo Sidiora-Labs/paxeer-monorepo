@@ -68,7 +68,7 @@ describe('LatestTxsItemMobile', () => {
     expect(Array.from(parties.querySelectorAll('a[href^="/address/"]')).map((link) => link.getAttribute('href')))
       .toEqual([ `/address/${ txMock.priceUpdateItem.from.hash }` ]);
     expect(parties.querySelector('a[href="/feed"]')?.textContent).toBe('Price feed');
-    expect(value.textContent).toBe('-Fee -');
+    expect(value.textContent).toBe('—Fee —');
     expect(row.querySelector('button[aria-label="Transaction info"]')).toBeNull();
   });
 

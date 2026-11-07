@@ -1,0 +1,51 @@
+[task.22.38.35]
+requirement = "22380.6"
+base_revision = "29cba7c7b28f86cdc8a18af7abe8d8e48606d7e6"
+implementation = "Five inference-market guides cover the three planes, F11 field layouts, lifecycle, evidence, canaries, accounting, operator and client flows, and threat limits; agent compatibility links the directory."
+source_proof = "The declared pytest reads real Markdown pages, extracts all seventeen operation names and selectors from task 22.38.1, imports canonical docs_check.py retired-reference patterns, checks the explicit development-envelope sentence, parses this page manifest and resolves guide links."
+build_cmd = "python3 --version"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_38_35.py"
+evidence_ledger = "/out/run/gates.jsonl"
+verified_revision = "Use the final passing build and verify entries at the same revision in the private gate ledger; this record claims no unrun gate."
+evidence = "hf-build and hf-done log revision, command, exit code and private log path; copy the final gate evidence into the final JSON without modifying the candidate after qualification."
+
+[page.1]
+path = "docs/agent/inference-market/README.md"
+
+[page.2]
+path = "docs/agent/inference-market/protocol.md"
+
+[page.3]
+path = "docs/agent/inference-market/operator.md"
+
+[page.4]
+path = "docs/agent/inference-market/client.md"
+
+[page.5]
+path = "docs/agent/inference-market/threats.md"
+
+[finding.pending_interfaces]
+revision = "29cba7c7b28f86cdc8a18af7abe8d8e48606d7e6"
+observed = "The inference contract marks its surfaces new, dependent implementation tasks are pending, and the daemon mode parser currently rejects inference-market."
+assumption = "Document intended interfaces and current availability honestly without modifying implementation paths or claiming runtime qualification."
+
+[finding.canary_derivation]
+revision = "29cba7c7b28f86cdc8a18af7abe8d8e48606d7e6"
+observed = "Task 22.38.19 names deterministic deal-id and lap-index inputs but defines neither a binary derivation nor secret input despite its unpredictability intent."
+assumption = "State the required inputs and the public-input predictability limit; leave hash, domain, encoding and sampling algorithm to the owning implementation rather than inventing an interface."
+
+[finding.payload_codecs]
+revision = "29cba7c7b28f86cdc8a18af7abe8d8e48606d7e6"
+observed = "The pending F11 codecs do not yet freeze byte offsets, payload lengths, full argument order or payout rounding."
+assumption = "Document contract fields and selectors while explicitly directing binary callers to qualified producer codecs."
+
+[gotcha.scope]
+observed = "GOTCHA.kvx and spec qualification files are outside the task write scope; initial .cgignore and spec task-state changes belong to runner setup."
+resolution = "Preserve setup changes, record local findings here and let the runner handle task state and publication."
+
+[finding.graph_symbols]
+revision = "ef4e93247448f146ebe5d2e7e310ff514a4da8fc"
+command = "cg spec done 22.38.35 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "All 19 documentation tests passed, but the pre-existing task symbols list names README.md, protocol.md and threats.md paths which the code-declaration graph rejects; fixing that list requires a forbidden spec edit, so this task remains unqualified and this failure is not rerun."

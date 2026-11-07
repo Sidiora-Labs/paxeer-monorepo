@@ -43,7 +43,7 @@ describe('Blocks', () => {
     const { container } = render(<Blocks/>);
 
     await waitFor(() => {
-      expect(container.querySelector('[data-scan-table-card] [data-title]')?.textContent)
+      expect(container.querySelector('[data-list-page] [data-title]')?.textContent)
         .toBe('Latest 2 from a total of 30,215,608 blocks');
     }, { timeout: WAIT_TIMEOUT });
   }, PAGE_TIMEOUT);
@@ -52,11 +52,11 @@ describe('Blocks', () => {
     const { container } = render(<Blocks/>);
 
     await waitFor(() => {
-      expect(container.querySelector('[data-scan-table-card]')).not.toBeNull();
+      expect(container.querySelector('[data-list-page]')).not.toBeNull();
     }, { timeout: WAIT_TIMEOUT });
 
     const outside = Array.from(container.querySelectorAll('[data-scan-pagination]'))
-      .filter((node) => !node.closest('[data-scan-table-card]'));
+      .filter((node) => !node.closest('[data-list-page]'));
 
     expect(outside).toHaveLength(0);
   }, PAGE_TIMEOUT);
@@ -65,7 +65,7 @@ describe('Blocks', () => {
     const { container } = render(<Blocks/>);
 
     await waitFor(() => {
-      const heights = Array.from(container.querySelectorAll('[data-scan-table-card] [data-body] table tbody a[href^="/block/"]'))
+      const heights = Array.from(container.querySelectorAll('[data-list-page] [data-body] table tbody a[href^="/block/"]'))
         .map((link) => link.getAttribute('href'))
         .filter((href) => !href?.includes('?'));
 

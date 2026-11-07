@@ -146,6 +146,7 @@ const TokenInstanceContent = () => {
 
       <RoutedTabs
         tabs={ tabs }
+        displayMode="entity"
         variant="pill"
         size="sm"
         isLoading={ isLoading }

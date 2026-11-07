@@ -1021,15 +1021,22 @@ impl AttestorSigner {
 
     pub fn sign_native_send_purpose(
         &self,
-        purpose: &layerx_agent_api::identity::NativeSendPurposeV1,
+        purpose: &layerx_agent_api::identity::NativeSendPurposeV2,
         session_id: &str,
         assertion: &str,
     ) -> Result<AttestorSignature, AttestorError> {
         let canonical = purpose.canonical_bytes().map_err(|_| native_invalid())?;
         let decoded =
-            layerx_agent_api::identity::NativeSendPurposeV1::from_canonical_bytes(&canonical)
+            layerx_agent_api::identity::NativeSendPurposeV2::from_canonical_bytes(&canonical)
                 .map_err(|_| native_invalid())?;
-        if &decoded != purpose || purpose.owner_public_key != self.public_key {
+        if &decoded != purpose || purpose.consent_public_key != self.public_key {
+            return Err(native_invalid());
+        }
+        let owner = assertion_claims(assertion)?.subject;
+        let (_, sender) =
+            self.client
+                .public_wallet_key(&self.key_id, &self.public_key, &owner, assertion)?;
+        if purpose.evm_sender != sender {
             return Err(native_invalid());
         }
         let purpose_expiry = purpose.expires_at_ms;
@@ -2240,6 +2247,42 @@ impl<'a> NativeReader<'a> {
     }
 }
 
+/// Checks consent and independently recovers the prepared transaction's sender
+/// before Human releases the signed transaction to the daemon.
+pub fn validate_native_send_release(
+    canonical_signed_purpose: &[u8],
+    current_owner: &layerx_agent_api::identity::AgentDid,
+    current_consent_key: &[u8; 32],
+    current_sender: &[u8; 20],
+    signed_transaction: &[u8],
+) -> Result<(), AttestorError> {
+    use layerx_agent_api::identity::SignedNativeSendPurposeV2;
+    use layerx_crypto::evm_transaction::{decode_signed, recover_sender};
+    let signed = SignedNativeSendPurposeV2::from_canonical_bytes(canonical_signed_purpose)
+        .map_err(|_| native_invalid())?;
+    let purpose = &signed.purpose;
+    purpose
+        .check_current_owner(current_owner, current_consent_key, current_sender)
+        .map_err(|_| native_invalid())?;
+    layerx_crypto::ed25519::verify_digest(
+        current_consent_key,
+        &signed.signature,
+        &Sha256::digest(purpose.canonical_bytes().map_err(|_| native_invalid())?).into(),
+    )
+    .map_err(|_| native_invalid())?;
+    let (transaction, signature) =
+        decode_signed(signed_transaction).map_err(|_| native_invalid())?;
+    let sender = recover_sender(&transaction, &signature).map_err(|_| native_invalid())?;
+    purpose
+        .check_prepared_transaction(
+            2,
+            transaction.chain_id,
+            &sender,
+            &Sha256::digest(transaction.encode_unsigned()).into(),
+        )
+        .map_err(|_| native_invalid())
+}
+
 pub fn native_local_grant_signing_bytes(
     grant: &layerx_agent_api::identity::NativeLocalGrantConsentV1,
 ) -> Result<Vec<u8>, AttestorError> {
@@ -2485,4 +2528,145 @@ pub fn assertion_claims(assertion: &str) -> Result<AssertionClaims, AttestorErro
         issued,
         expires,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use layerx_agent_api::identity::{
+        AgentDid, CapabilityId, NativeActivity, NativeSendPurposeV2, SessionId,
+        SignedNativeSendPurposeV2, TenantId,
+    };
+    use layerx_crypto::evm_transaction::{decode_signed, recover_sender};
+    use ring::signature::{Ed25519KeyPair, KeyPair as _};
+
+    fn checked<T, E: fmt::Debug>(value: Result<T, E>) -> T {
+        value.unwrap_or_else(|error| panic!("native send attestor: {error:?}"))
+    }
+
+    #[test]
+    fn attestor_release_recovers_sender_for_rotated_stable_owner_and_refuses_v1() {
+        let original = checked(Ed25519KeyPair::from_seed_unchecked(&[0x31; 32]));
+        let current = checked(Ed25519KeyPair::from_seed_unchecked(&[0x32; 32]));
+        let public: [u8; 32] = checked(current.public_key().as_ref().try_into());
+        let owner = checked(AgentDid::new(format!(
+            "did:layerx:{}",
+            encode_hex(original.public_key().as_ref())
+        )));
+        let transaction = Eip1559Call {
+            chain_id: 125,
+            nonce: 7,
+            max_priority_fee_per_gas: 1,
+            max_fee_per_gas: 2,
+            gas_limit: 100_000,
+            to: [0x33; 20],
+            data: vec![0x44; 32],
+        };
+        let raw = checked(transaction.sign(&[0x35; 32]));
+        let (decoded, signature) = checked(decode_signed(&raw));
+        let sender = checked(recover_sender(&decoded, &signature));
+        let digest = Sha256::digest(transaction.encode_unsigned()).into();
+        let purpose = NativeSendPurposeV2 {
+            tenant: checked(TenantId::new("tenant-a")),
+            agent_did: owner.clone(),
+            owner_did: owner.clone(),
+            consent_public_key: public,
+            evm_sender: sender,
+            session_id: checked(SessionId::new("51".repeat(32))),
+            generation: 2,
+            expires_at_ms: 1_010_000,
+            capability_id: checked(CapabilityId::new("52".repeat(32))),
+            transaction_type: 2,
+            chain_id: 125,
+            activity: checked(NativeActivity::new(1, 5)),
+            preparation_id: digest,
+            canonical_digest: digest,
+            economic_action: [0x53; 32],
+            idempotency_key: [0x54; 32],
+            commitment: [0x55; 32],
+        };
+        let sign = |purpose: NativeSendPurposeV2| {
+            let signature = current.sign(&Sha256::digest(checked(purpose.canonical_bytes())));
+            SignedNativeSendPurposeV2 {
+                purpose,
+                signature: checked(signature.as_ref().try_into()),
+            }
+        };
+        let signed = sign(purpose.clone());
+        let frame = checked(signed.canonical_bytes());
+        assert_eq!(
+            validate_native_send_release(&frame, &owner, &public, &sender, &raw),
+            Ok(())
+        );
+        assert_ne!(
+            purpose.consent_public_key.as_slice(),
+            original.public_key().as_ref()
+        );
+        let old_public = checked(original.public_key().as_ref().try_into());
+        assert_eq!(
+            validate_native_send_release(&frame, &owner, &old_public, &sender, &raw),
+            Err(native_invalid())
+        );
+        let other_owner = checked(AgentDid::new(format!("did:layerx:{}", "66".repeat(32))));
+        assert_eq!(
+            validate_native_send_release(&frame, &other_owner, &public, &sender, &raw),
+            Err(native_invalid())
+        );
+        let mut changed = purpose.clone();
+        changed.evm_sender[0] ^= 1;
+        let wrong_sender = changed.evm_sender;
+        let changed = checked(sign(changed).canonical_bytes());
+        assert_eq!(
+            validate_native_send_release(&changed, &owner, &public, &wrong_sender, &raw),
+            Err(native_invalid())
+        );
+        let other_transaction = Eip1559Call {
+            nonce: 8,
+            ..transaction.clone()
+        };
+        assert_eq!(
+            validate_native_send_release(
+                &frame,
+                &owner,
+                &public,
+                &sender,
+                &checked(other_transaction.sign(&[0x35; 32]))
+            ),
+            Err(native_invalid())
+        );
+        assert_eq!(
+            validate_native_send_release(
+                &frame,
+                &owner,
+                &public,
+                &sender,
+                &checked(transaction.sign(&[0x36; 32]))
+            ),
+            Err(native_invalid())
+        );
+        let mut forged = signed.clone();
+        forged.signature[0] ^= 1;
+        assert_eq!(
+            validate_native_send_release(
+                &checked(forged.canonical_bytes()),
+                &owner,
+                &public,
+                &sender,
+                &raw
+            ),
+            Err(native_invalid())
+        );
+        let mut legacy = frame.clone();
+        let offset = SignedNativeSendPurposeV2::DOMAIN.len() + 4;
+        let domain = b"LayerX/native/send-purpose/v1\0";
+        legacy[offset..offset + domain.len()].copy_from_slice(domain);
+        legacy[offset + domain.len()] = 1;
+        assert_eq!(
+            validate_native_send_release(&legacy, &owner, &public, &sender, &raw),
+            Err(native_invalid())
+        );
+        assert!(
+            NativeSendPurposeV2::from_canonical_bytes(&legacy[offset..legacy.len() - 64]).is_err()
+        );
+    }
 }

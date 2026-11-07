@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import ast
+from contextlib import contextmanager
 import sqlite3
 from dataclasses import replace
 from hashlib import sha256
@@ -42,6 +43,7 @@ from test_sequencer_receipt import (
 )
 
 
+
 def test_x402_draw_verifies_the_sequencer_receipt():
     for vector in VECTORS:
         if vector["vector"] != "V1":
@@ -64,11 +66,21 @@ def test_x402_draw_verifies_the_sequencer_receipt():
     terms = _payment_terms(vector)
     payment = verify_payment_receipt(signed, raw, (key,), return_data=b"", **terms)
     assert payment == verify_sequencer_receipt(signed, raw, [key])
-    log = vector["receiptJson"]["logs"][0]
+    payment_topic = "0x" + keccak256(
+        b"PaymentExact(bytes32,bytes32,bytes32,bytes32,uint128)"
+    ).hex()
+    payment_logs = [
+        entry for entry in vector["receiptJson"]["logs"]
+        if entry["topics"][0] == payment_topic
+    ]
+    assert len(payment_logs) == 1
+    log = payment_logs[0]
     assert int.from_bytes(_bytes(log["data"])[32:], "big") == int(terms["amount"])
     assert _bytes(log["data"])[:32].hex() == terms["asset"]
     assert _bytes(log["topics"][3]).hex() == terms["pay_to"]
-    assert payment.receipt.from_account.hex() == terms["payer"]
+    assert payment.receipt.from_account == _bytes(vector["receiptJson"]["from"]).rjust(32, b"\0")
+    from layerx_sdk.payment_transaction import decode_payment_transaction
+    assert decode_payment_transaction(raw).data[4:36].hex() == terms["payer"]
     assert raw == _bytes(vector["rawTransaction"])
 
     for changes in (
@@ -175,26 +187,14 @@ def test_x402_draw_refuses_a_receipt_under_an_unknown_key():
         assert raised.value.code == SdkErrorCode.VERIFICATION_FAILURE
 
 
-class _ReceiptRpc:
-    def __init__(self, vector):
-        self.result = {
-            **vector["receiptJson"],
-            "receipt": vector["signedReceipt"],
-        }
-        self.raw_transaction = _bytes(vector["rawTransaction"])
-        self.submissions = []
-        self.lookups = []
-
-    def send(self, canonical_hex, commitment):
-        assert bytes.fromhex(canonical_hex) == self.raw_transaction
-        assert commitment == "receipted"
-        self.submissions.append((canonical_hex, commitment))
-        return dict(self.result)
-
-    def receipt(self, activity_id):
-        assert activity_id == self.result["txHash"]
-        self.lookups.append(activity_id)
-        return dict(self.result)
+@contextmanager
+def _receipt_rpc(vector):
+    from test_repair_22_33_17 import ReceiptNode, http_server
+    from layerx_sdk.x402_rpc import PaymentRpc
+    node = ReceiptNode()
+    node.add_recording(vector)
+    with http_server(node.dispatch) as endpoint:
+        yield PaymentRpc(endpoint), node
 
 
 def _grant_inputs(vector):
@@ -265,55 +265,71 @@ def _grant_inputs(vector):
 
 
 def test_grant_draws_verify_through_receipt_keys(tmp_path):
+    from test_repair_22_33_17 import draw_inputs
     vector = _payment_vector()
-    terms = _payment_terms(vector)
-    signed = _bytes(vector["signedReceipt"])
-    raw = _bytes(vector["rawTransaction"])
-    key = _key(vector)
-    activity = vector["receiptJson"]["txHash"]
+    signed, raw, key = _bytes(vector["signedReceipt"]), _bytes(vector["rawTransaction"]), _key(vector)
+    receive, body, offer, values, transaction, actor = draw_inputs()
     request_digest = sha256(b"grant-draw-request").hexdigest()
-    receive, body, offer = _grant_inputs(vector)
-    rpc = _ReceiptRpc(vector)
-    authority = ConfiguredReceiptAuthority(raw)
     path = tmp_path / "draws.sqlite"
-    draws = PreparedGrantDraws(path, terms["pay_to"], 125, rpc, authority, [key])
-    with sqlite3.connect(path) as db:
-        db.execute(
-            "INSERT INTO grant_draws (idempotency_key, principal, request_digest, canonical, receive, activity_id) VALUES (?, ?, ?, ?, ?, ?)",
-            (body["idempotencyKey"], "buyer", request_digest, raw, receive, activity),
-        )
+    with _receipt_rpc(vector) as (rpc, node):
+        authority = ConfiguredReceiptAuthority(transaction)
+        for reopen in range(2):
+            draws = PreparedGrantDraws(path, actor, 125, rpc, authority, [key])
+            with pytest.raises(RevertReasonError) as error:
+                draws.register("buyer", request_digest, transaction, receive, body["idempotencyKey"])
+            assert error.value.code == "LXP_NO_PAYER_GRANT"
+            with pytest.raises(RevertReasonError, match="LXP_NO_PAYER_GRANT"):
+                draws("buyer", request_digest, body, offer)
+            with sqlite3.connect(path) as db:
+                assert db.execute("SELECT * FROM grant_draws").fetchall() == []
+            del draws
+        assert node.requests == []
+        assert rpc.send(vector["rawTransaction"]) == vector["receiptJson"]["txHash"]
+        result = rpc.receipt(vector["receiptJson"]["txHash"])
+        assert result == vector["receiptJson"]
+        verified = verify_payment_receipt(signed, raw, (key,), **_payment_terms(vector))
+        assert verified.level == "sequencer-signed"
+        assert verified.receipt_digest == _bytes(vector["receiptDigest"])
+        for keys, check in (
+            ([replace(key, key_id=b"\x2a" * 32)], "unpinned_key"),
+            ([replace(key, public_key=b"\x2a" * 32)], "bad_signature"),
+        ):
+            with pytest.raises(SequencerReceiptVerificationError) as raised:
+                verify_payment_receipt(signed, raw, keys, **_payment_terms(vector))
+            assert raised.value.check == check
+            assert raised.value.code == SdkErrorCode.VERIFICATION_FAILURE
+        assert [request["method"] for request in node.requests] == ["eth_sendRawTransaction", "pax_sequencerReceipt"]
 
-    evidence = draws("buyer", request_digest, body, offer)
-    assert evidence == PaymentEvidence(signed, raw)
-    verified = verify_payment_receipt(
-        evidence.canonical_receipt, evidence.raw_transaction, [key], **terms
-    )
-    assert verified.level == "sequencer-signed"
-    assert "0x" + verified.receipt.activity_id.hex() == activity
-    assert verified.receipt_digest == _bytes(vector["receiptDigest"])
-    assert rpc.submissions == [(raw.hex(), "receipted")]
-    with sqlite3.connect(path) as db:
-        attempted, attempted_at = db.execute(
-            "SELECT attempted, attempted_at FROM grant_draws WHERE idempotency_key = ?",
-            (body["idempotencyKey"],),
-        ).fetchone()
-    assert attempted == 1
-    assert type(attempted_at) is int
 
-    recovered = PreparedGrantDraws(path, terms["pay_to"], 125, rpc, authority, [key])
-    assert recovered("buyer", request_digest, body, offer) == evidence
-    assert rpc.lookups == [activity]
-    assert len(rpc.submissions) == 1
-    for keys, check in (
-        ([replace(key, key_id=b"\x2a" * 32)], "unpinned_key"),
-        ([replace(key, public_key=b"\x2a" * 32)], "bad_signature"),
-    ):
-        refused = PreparedGrantDraws(path, terms["pay_to"], 125, rpc, authority, keys)
-        with pytest.raises(SequencerReceiptVerificationError) as raised:
-            refused("buyer", request_digest, body, offer)
-        assert raised.value.check == check
-        assert raised.value.code == SdkErrorCode.VERIFICATION_FAILURE
-    assert len(rpc.submissions) == 1
+@pytest.mark.parametrize("rung", ("unknown", "submitted", "receipted"))
+def test_grant_draw_recovery_uses_payment_rpc_without_resubmission(tmp_path, rung):
+    from test_repair_22_33_17 import draw_inputs, seed_legacy_journal
+    from layerx_sdk.evm_transaction import decode_signed
+    receive, body, offer, values, transaction, actor = draw_inputs()
+    identity = "0x" + keccak256(transaction).hex()
+    path = tmp_path / "legacy.sqlite"
+    seed_legacy_journal(path, transaction, receive, body["idempotencyKey"], identity, 1)
+    with _receipt_rpc(_payment_vector()) as (rpc, node):
+        if rung != "unknown":
+            node.receipts[identity] = {
+                "txHash": identity, "nonce": hex(decode_signed(transaction)[0].nonce), "rung": rung,
+                **({"status": "0x1", "receipt": _payment_vector()["signedReceipt"],
+                    "keyId": _payment_vector()["pinnedKey"]["keyId"]} if rung == "receipted" else {}),
+            }
+        for reopen in range(2):
+            draws = PreparedGrantDraws(path, actor, 125, rpc, ConfiguredReceiptAuthority(transaction), [_key(_payment_vector())])
+            if rung == "receipted":
+                # Legacy state can be looked up, but receipt-shaped data cannot revive grants.
+                with pytest.raises(RevertReasonError, match="LXP_NO_PAYER_GRANT"):
+                    draws.recover_pending(body["idempotencyKey"])
+            else:
+                assert draws.recover_pending(body["idempotencyKey"]) is None
+            with sqlite3.connect(path) as db:
+                assert db.execute("SELECT canonical, receive, transaction_hash, attempted FROM grant_draws").fetchall() == [(transaction, receive, identity, 1)]
+            del draws
+        assert len(node.requests) == 2
+        assert all(request["method"] == "pax_sequencerReceipt" and request["params"] == [identity] for request in node.requests)
+        assert identity not in node.transactions
 
 
 def test_payment_commitment_refuses_the_retired_executed_rung():

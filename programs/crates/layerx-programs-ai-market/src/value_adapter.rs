@@ -41,11 +41,7 @@ impl RewardsAccount {
     /// # Errors
     /// `ACCOUNT_BINDING` when the SDK refuses the program, asset or derived account.
     pub fn derive(program: ProgramId, asset: AssetId) -> CodecResult<Self> {
-        let sdk_program =
-            layerx_program_sdk::ProgramId::new(program.bytes()).map_err(|_| ACCOUNT_BINDING)?;
-        let sdk_asset =
-            layerx_program_sdk::AssetId::new(asset.bytes()).map_err(|_| ACCOUNT_BINDING)?;
-        let prepared = PreparedProgramAccount::new(sdk_program, REWARDS_ACCOUNT_SEED, sdk_asset)
+        let prepared = crate::registry::prepare_rewards_account(program, asset)
             .map_err(|_| ACCOUNT_BINDING)?;
         Ok(Self {
             prepared,

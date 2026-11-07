@@ -8,7 +8,7 @@ consensus or determine finality. Paxeer's kernel proposes blocks within the
 single network, and a committed block makes its receipts final.
 
 See the [workspace README](../../README.md) for the node boundary and test
-prerequisites, the [compatibility matrix](../../COMPATIBILITY.md) for Agent API
+prerequisites, the [compatibility matrix](../../../../docs/agent/COMPATIBILITY.md) for Agent API
 major 2, and the [MCP README](../layerx-mcp/README.md) for session bindings.
 
 ## Modes

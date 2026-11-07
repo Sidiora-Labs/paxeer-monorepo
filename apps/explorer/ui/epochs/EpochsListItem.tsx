@@ -5,6 +5,7 @@ import type { CeloEpochListItem } from 'types/api/epochs';
 
 import dayjs from 'lib/date/dayjs';
 import { Skeleton } from 'toolkit/chakra/skeleton';
+import BlockEntity from 'ui/shared/entities/block/BlockEntity';
 import EpochEntity from 'ui/shared/entities/epoch/EpochEntity';
 import ListItemMobile from 'ui/shared/ListItemMobile/ListItemMobile';
 import CeloEpochStatus from 'ui/shared/statusTag/CeloEpochStatus';
@@ -19,7 +20,7 @@ interface Props {
 
 const EpochsListItem = ({ item, isLoading }: Props) => {
   return (
-    <ListItemMobile rowGap={ 1 } py={ 3 } w="full" textStyle="sm" fontWeight={ 500 } alignItems="stretch">
+    <ListItemMobile rowGap={ 1 } py={ 3 } borderColor="hairline" w="full" textStyle="sm" fontWeight={ 500 } alignItems="stretch">
       <HStack minH="30px" gap={ 3 }>
         <EpochEntity number={ String(item.number) } isLoading={ isLoading }/>
         <Skeleton loading={ isLoading } color="text.secondary" fontWeight={ 400 } ml="auto"><span>{ item.type }</span></Skeleton>
@@ -33,10 +34,20 @@ const EpochsListItem = ({ item, isLoading }: Props) => {
         </Skeleton>
       ) }
       <HStack minH="30px">
-        <Skeleton loading={ isLoading }>Block range</Skeleton>
-        <Skeleton loading={ isLoading } color="text.secondary">
-          <span>{ item.start_block_number } - { item.end_block_number || '' }</span>
-        </Skeleton>
+        <Skeleton loading={ isLoading } textStyle="label" color="text.muted">Started</Skeleton>
+        <Skeleton loading={ isLoading } color="text.muted">—</Skeleton>
+      </HStack>
+      <HStack minH="30px">
+        <Skeleton loading={ isLoading } textStyle="label" color="text.muted">First block</Skeleton>
+        <BlockEntity number={ item.start_block_number } noIcon isLoading={ isLoading } textStyle="number"/>
+      </HStack>
+      <HStack minH="30px">
+        <Skeleton loading={ isLoading } textStyle="label" color="text.muted">Last block</Skeleton>
+        { item.end_block_number !== null ? <BlockEntity number={ item.end_block_number } noIcon isLoading={ isLoading } textStyle="number"/> : '—' }
+      </HStack>
+      <HStack minH="30px">
+        <Skeleton loading={ isLoading } textStyle="label" color="text.muted">Duration</Skeleton>
+        <Skeleton loading={ isLoading } color="text.muted">—</Skeleton>
       </HStack>
       { item.distribution?.community_transfer ? (
         <HStack minH="30px">

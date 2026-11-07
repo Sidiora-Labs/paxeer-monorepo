@@ -1,4 +1,23 @@
 //! Receipt-key and consensus-commit gated submission finality.
+//!
+//! The public wait contract is [`wait_for_rung`], parameterized by
+//! [`VerificationProgress`]. It accepts `&mut P`, a 32-byte idempotency key,
+//! [`Rung`], and u64 start/deadline/poll-interval values in milliseconds; it
+//! returns `Result<WaitResult, FinalityError>`. The deadline is absolute and
+//! inclusive, and the interval must be nonzero. A deadline result reports the
+//! actual reached rung and never upgrades evidence.
+//!
+//! Consumers use [`SubmissionProgress::accepted`] or [`SubmissionProgress::submit`],
+//! then [`SubmissionProgress::observe_receipt`] with published [`ReceiptKeyEntry`]
+//! height windows. [`VerifiedReceipt::verify`] binds a 32-byte transaction hash
+//! to exact signed receipt bytes. [`VerifiedBlock::verify_with_header`] is the
+//! block-commit/inclusion producer; [`VerifiedBlock::verify`] alone cannot
+//! establish transaction coverage. [`augment_verified`] persists the separate
+//! evidence; [`SubmissionProgress::restore`] rechecks it after reopening the store.
+//!
+//! Retired API names: `wait_for_level` and `InclusionBundle` have no current
+//! aliases. Callers must migrate to `wait_for_rung`, `VerifiedReceipt` and
+//! `VerifiedBlock`; archive verification levels cannot substitute for rungs.
 
 use std::collections::BTreeSet;
 

@@ -5,7 +5,7 @@ automatically load a pull request template from a package's nested `.github`
 directory. Keep the [repository pull request template](../../../.github/pull_request_template.md)
 and copy the relevant wallet sections below into your monorepo pull request body.
 
-See the [wallet README](../README.md), [changelog](../CHANGELOG.md), and
+See the [wallet README](../README.md), [changelog](../../../docs/wallet/app/CHANGELOG.md), and
 [wallet issue prompts](ISSUE_TEMPLATE/bug_report.md).
 
 ## Description
@@ -37,7 +37,7 @@ See the [wallet README](../README.md), [changelog](../CHANGELOG.md), and
 - Browser/device/OS and tab or installed PWA, if manually tested:
 - Checks not run and why:
 
-<!-- For network changes, identify the configured endpoint without credentials, chain id, and any selected tenant domain. Paxeer mainnet-beta uses EVM chain id 125 (0x7d) and public node root URLs. See ../CHANGELOG.md#network-context. -->
+<!-- For network changes, identify the configured endpoint without credentials, chain id, and any selected tenant domain. Paxeer mainnet-beta uses EVM chain id 125 (0x7d) and public node root URLs. See ../../../docs/wallet/app/CHANGELOG.md#network-context. -->
 
 ## Checklist
 

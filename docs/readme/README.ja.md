@@ -50,9 +50,9 @@ curl --fail --silent --show-error https://api1.mainnet-beta.paxeer.network \
   --data '{"jsonrpc":"2.0","id":1,"method":"eth_chainId","params":[]}'
 ```
 
-`result` の期待値は `0x7d` です。公開名前空間は `debug`、`echo`、`eth`、`net`、`pax`、`test`、`txpool` で、利用できるメソッドはノードとその設定に依存します。最新のノードを選ぶには、複数のノードの `eth_blockNumber` を比較してください。
+`result` の期待値は `0x7d` です。公開名前空間は `debug`、`echo`、`eth`、`net`、`pax`、`px`、`test`、`txpool` で、利用できるメソッドはノードとその設定に依存します。最新のノードを選ぶには、複数のノードの `eth_blockNumber` を比較してください。
 
-ホスト型ゲートウェイの `px_*` メソッドの契約は [`services/platform/hosted/gateway/openrpc.json`](../../services/platform/hosted/gateway/openrpc.json) にあります。ホスト型機能を利用する前に、この契約と `px_getCapabilities` を確認してください。`node.hyperpaxeer.com` はビルドスクリプトが利用する hpx ライブラリのミラー（library mirror）で、RPC エンドポイントではありません。
+`px` 名前空間はノードの状態から応答します。`px_register` と `px_requestFunds` はホスト型の ID およびフォーセットサービスの操作で、その契約は [`services/platform/hosted/gateway/openrpc.json`](../../services/platform/hosted/gateway/openrpc.json) にあります。機能を利用する前に `px_getCapabilities` を確認してください。`node.hyperpaxeer.com` はビルドスクリプトが利用する hpx ライブラリのミラー（library mirror）で、RPC エンドポイントではありません。
 
 Paxeer X チェーン（チェーン ID 125）に接続するには、[`docs/site/docs/reference/public-rpc.md`](../../docs/site/docs/reference/public-rpc.md) に掲載されている公開 JSON-RPC 名のいずれかを使ってください。公開エンドポイントのチェックリストは [`docs/wiki/Getting-Started-Beta.md`](../../docs/wiki/Getting-Started-Beta.md) です。ウォレット、入金、決済の手順は [`docs/wiki/PaymentsQuickstart.md`](../../docs/wiki/PaymentsQuickstart.md) です。Asset: [`docs/wiki/Assets.md`](../../docs/wiki/Assets.md)。RPC メソッド: [`docs/wiki/PublicRpc.md`](../../docs/wiki/PublicRpc.md)。コミットメントレベル: [`docs/wiki/CommitmentLevels.md`](../../docs/wiki/CommitmentLevels.md)。公開決済 API: [`docs/wiki/PublicAPI.md`](../../docs/wiki/PublicAPI.md)。
 

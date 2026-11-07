@@ -19,6 +19,32 @@ use crate::{
 };
 use sha2::{Digest, Sha256};
 
+pub const PARTICIPANT_METADATA_DOMAIN_V1: &str = "PAXAI/worker-metadata/v1";
+pub const PARTICIPANT_METADATA_DOMAIN_V2: &str = "PAXAI/participant-metadata/v2";
+
+pub fn encode_manifest_v2(
+    manifest: &crate::workers::ManifestV2<'_>,
+    out: &mut [u8],
+) -> CodecResult<usize> {
+    use crate::workers::{decode_manifest, CapabilityFields, MAX_MANIFEST_BYTES};
+
+    if decode_manifest(manifest.manifest_v1)?.version != 1 {
+        return Err(BAD_VERSION);
+    }
+    manifest.capabilities.validate()?;
+    let size = manifest
+        .manifest_v1
+        .len()
+        .checked_add(CapabilityFields::ENCODED_BYTES)
+        .ok_or(ARITHMETIC)?;
+    output_size(out, size, MAX_MANIFEST_BYTES)?;
+    let mut w = Writer::new(out);
+    w.u16(2)?;
+    w.put(&manifest.manifest_v1[2..])?;
+    manifest.capabilities.write(&mut w)?;
+    Ok(w.len())
+}
+
 /// One concrete streaming implementation shared by the artifact, reputation and
 /// cursor codecs. Slice arguments keep array lengths out of monomorphization;
 /// guest calls retain one copy of SHA-256's update and finalization paths.
@@ -1201,6 +1227,56 @@ pub fn decode_worker_roster(input: &[u8]) -> CodecResult<WorkerRosterEntry> {
     let v = read_worker_roster(&mut r)?;
     r.finish()?;
     Ok(v)
+}
+
+pub fn encode_participant_roster(
+    entry: &crate::roster::ParticipantRosterEntry,
+    out: &mut [u8],
+) -> CodecResult<usize> {
+    use crate::workers::CapabilityFields;
+
+    let size = WORKER_ROSTER_BYTES
+        + entry
+            .capabilities
+            .map_or(0, |_| CapabilityFields::ENCODED_BYTES);
+    output_size(
+        out,
+        size,
+        WORKER_ROSTER_BYTES + CapabilityFields::ENCODED_BYTES,
+    )?;
+    if let Some(fields) = entry.capabilities {
+        fields.validate()?;
+    }
+    let mut w = Writer::new(out);
+    write_worker_roster(&mut w, &entry.worker)?;
+    if let Some(fields) = entry.capabilities {
+        fields.write(&mut w)?;
+    }
+    Ok(w.len())
+}
+
+pub fn decode_participant_roster(
+    input: &[u8],
+    manifest: &[u8],
+) -> CodecResult<crate::roster::ParticipantRosterEntry> {
+    use crate::{
+        errors::F02_METADATA_INTEGRITY_FAILURE, roster::ParticipantRosterEntry,
+        workers::CapabilityFields,
+    };
+
+    let mut r = Reader::new(input);
+    let worker = read_worker_roster(&mut r)?;
+    let capabilities = if r.remaining() == 0 {
+        None
+    } else {
+        Some(CapabilityFields::read(&mut r)?)
+    };
+    r.finish()?;
+    let entry = ParticipantRosterEntry::from_manifest(worker, manifest)?;
+    if entry.capabilities != capabilities {
+        return Err(F02_METADATA_INTEGRITY_FAILURE);
+    }
+    Ok(entry)
 }
 /// Encodes one evaluator roster entry.
 ///

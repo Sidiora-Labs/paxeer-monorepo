@@ -17,7 +17,7 @@ The crate also builds the `layerx-migrate` binary. Its commands are
 DID/EVM binding and stores external mapping provenance; `migrate-asset` submits
 source evidence to the authenticated gateway. Neither a source-verification
 result nor a history record is a network receipt. See
-[PORTABILITY.md](../../PORTABILITY.md) for receipt verification.
+[PORTABILITY.md](../../../../docs/interop/PORTABILITY.md) for receipt verification.
 
 The authenticated journals require an independent rollback authority through
 `layerx_getMigrationJournalHead` and `layerx_advanceMigrationJournalHead`. This
