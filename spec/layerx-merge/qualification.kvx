@@ -34865,3 +34865,27 @@ symbol = "test_platform_middleware_suites_wired.py"
 observed = "Attempt 1 at a177aacba81f: verification exit 1 after two repair cycles: 22 pay6 cases fail in four groups owned by x402_http.py, x402.py, x402_agent.py and x402_rpc.py of the Python SDK; everything the task owns passed."
 assumption = "The four Python modules are the only producers of the 22 failures."
 severity = "high"
+
+[finding.22.39.40.4]
+task = "22.39.40"
+file = "tests/ci/test_node_build_workflow_scope.py"
+symbol = "test_node_build_workflow_scope.py"
+observed = "Attempt 4 at d96e5a9eefb2: verification exit 1 in both runs: sixteen node tests outside the task fail with the three recorded failures skipped, each reproduces alone, and TestFinalizeAdoptedSealedBlockMatchesReexecution holds the package to the 15 minute limit; the activation tests and the standby commit release test of the task pass."
+assumption = "The sixteen failures and the timeout have one cause outside this task, carried by 22.39.138."
+severity = "high"
+
+[finding.22.39.128.2]
+task = "22.39.128"
+file = "services/agent/crates/layerx-agentd/src/budget/native_binding.rs"
+symbol = "native_binding.rs"
+observed = "Attempt 3 at f3749c56d963: build exit 0; verification exit 101: eighteen cases of repair_22_31_217 pass and repair_proof_revocation_counter_exports_and_verifies panics at line 1433 with counter above height must verify: Refused; the retained settlement tests never ran."
+assumption = "The refusal comes from the attempt change to the budget proof path, since the test and the recorded case are unchanged and verified on main."
+severity = "high"
+
+[finding.22.99.77.26]
+task = "22.99.77"
+file = "programs/crates/layerx-programs-ai-market"
+symbol = "layerx-programs-ai-market"
+observed = "Attempt 24 at 7e4373f372a9: build exit 1 three times: the producer gate of 22.31.478 measured the merged guest at 581212 bytes, then 550520 bytes after two cycles of size work, against the 524184 byte bound; the second cycle also left two compile errors in the library; verification never ran."
+assumption = "The attempt tree duplicates code the main tree provides; the main guest leaves 16 KB of headroom."
+severity = "high"
