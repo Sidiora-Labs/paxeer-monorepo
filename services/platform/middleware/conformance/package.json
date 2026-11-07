@@ -5,6 +5,9 @@
   "type": "module",
   "private": true,
   "license": "Apache-2.0",
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "prebuild": "npm --prefix ../../../.. run build:dependencies -- @sidiora/layerx-middleware-conformance",
     "build": "tsc -p tsconfig.json",
@@ -23,8 +26,5 @@
   },
   "devDependencies": {
     "typescript": "5.9.2"
-  },
-  "engines": {
-    "node": ">=22"
   }
 }

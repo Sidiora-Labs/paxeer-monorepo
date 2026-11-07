@@ -10,6 +10,9 @@
   "type": "module",
   "private": false,
   "license": "Apache-2.0",
+  "engines": {
+    "node": ">=22"
+  },
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -35,9 +38,6 @@
   },
   "devDependencies": {
     "typescript": "5.9.2"
-  },
-  "engines": {
-    "node": ">=22"
   },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts"
