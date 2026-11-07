@@ -1135,7 +1135,8 @@ test-contract-state-surface:
 	scripts/ci/solidity-state-surface.sh
 
 test-contracts: test-contract-state-surface
-	FOUNDRY_TEST=tests/solidity forge test --offline --root . --no-dynamic-test-linking
+	FOUNDRY_PROFILE=names forge test --offline --root . --no-dynamic-test-linking -vvv
+	FOUNDRY_PROFILE=governance forge test --offline --root . --no-dynamic-test-linking -vvv
 
 qualify-replay:
 	tools/lxp_qual_replay_matrix.sh
@@ -2740,10 +2741,8 @@ interop-test:
 interop-test-mirrors:
 	$(INTEROP_CARGO) test --manifest-path $(INTEROP_MANIFEST) --locked -p layerx-mirror
 	cargo test --manifest-path services/interop/contracts/solana-mirror/Cargo.toml --locked
-	forge test --root . --contracts services/interop/contracts/ethereum-mirror \
-		--match-path services/interop/contracts/ethereum-mirror/test/LayerXMirrorArchive.t.sol \
-		--use 0.8.30 --evm-version paris --optimize --optimizer-runs 100000 \
-		--via-ir --no-metadata
+	forge test --root services/interop/contracts/ethereum-mirror \
+		--evm-version paris --no-dynamic-test-linking -vvv
 
 interop-test-x402:
 	$(INTEROP_CARGO) test --manifest-path $(INTEROP_MANIFEST) --locked -p layerx-x402

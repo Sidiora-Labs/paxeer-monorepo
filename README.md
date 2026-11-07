@@ -240,7 +240,7 @@ Please follow [SECURITY.md](SECURITY.md) to report vulnerabilities privately. **
 | `spec/` | Feature specifications and the kvx workflow |
 | `scripts/` | CI, qualification, release and workspace scripts |
 
-The node and kernel source trees currently remain at the root: `src`, `include`, `cmd` and `migrations` (kernel sources and tools), `modules`, `precompiles`, `engine`, `consensus`, `node`, `rpc`, `storage`, `wasm`, `wasm-runtime`, `daemon`, `admin`, `custodyproof`, `layerxproof`, `utils`, `interchain`, the framework fork in `sdk`, and `programs`. Source directory names describe code organization, not separate network deployments. [`docs/MONOREPO.md`](docs/MONOREPO.md) maps these paths; planned destinations under `core/` and `sdk/programs` are specified in [`spec/monorepo-layout/spec.kvx`](spec/monorepo-layout/spec.kvx).
+The node and kernel source trees currently remain at the root: `src`, `include`, `cmd` and `migrations` (kernel sources and tools), `modules`, `precompiles`, `engine`, `consensus`, `node`, `rpc`, `storage`, `wasm`, `wasm-runtime`, `daemon`, `admin`, `custodyproof`, `layerxproof`, `utils`, `interchain`, the framework fork in `sdk`, and `programs`. Source directory names describe code organization, not separate network deployments. [The complete root layout table](docs/MONOREPO.md#root-layout) documents every tracked top-level entry and its configuration; planned destinations under `core/` and `sdk/programs` are specified in [`spec/monorepo-layout/spec.kvx`](spec/monorepo-layout/spec.kvx).
 
 ## Development and Release Process
 

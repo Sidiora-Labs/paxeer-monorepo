@@ -153808,7 +153808,7 @@ source_task = "0.12"
 
 [task.22.37.4]
 title = "Qualify the install path live on a provider isolated environment and expose install status through the client SDK"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["22.36.1", "22.37.3", "22.39.129"]
@@ -181705,7 +181705,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.135]
 title = "Give the MCP submit tool the A2A outcome shape: invoke refuses an indeterminate submission, invoke_task keeps it unknown"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -182703,7 +182703,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.38.8]
 title = "Serve the F11 reads for rooms, deals, peers and receipt batches"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["22.38.3", "22.38.4", "22.31.615", "22.31.620"]
@@ -333249,7 +333249,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.110]
 title = "Pin every base image of the shared image table by tag and digest and retire the end-of-life ones"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.39.108"]
@@ -333307,7 +333307,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.108]
 title = "Admit the chain trust script to the registry image context and check every copied source of the image tables"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.121"]
@@ -334072,7 +334072,7 @@ do_4 = "Attempt 2 (continue, gotcha 3467, decision 2762): the attempt-1 tree e7f
 
 [task.22.39.71]
 title = "Document every top-level entry of the repository and record the root configuration facts"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.39.60"]
