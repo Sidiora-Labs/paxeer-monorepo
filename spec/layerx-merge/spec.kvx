@@ -331153,7 +331153,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.36]
 title = "Replace the in-network service host names in the hosted internal, buyer agent and interop gateway docs with operator placeholders"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -331183,7 +331183,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.35]
 title = "Replace the wallet service docs references to a missing qualification ledger, task numbers and a missing gateway manifest"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -331273,7 +331273,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.32]
 title = "Repoint the site pages that cite specification files missing from the tree and drop their requirement and task clauses"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -331452,7 +331452,7 @@ do_4 = "Attempt 2 (continue, gotcha 3420, decisions 2762 and 2796, after 22.31.6
 
 [task.22.39.25]
 title = "Retire the two tests/ci modules that pytest never collects and whose inputs are gone"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
