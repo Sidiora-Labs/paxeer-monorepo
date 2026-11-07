@@ -9783,6 +9783,18 @@ value = "The closure case 0.9 of the carried source-control specification aggreg
 basis = "Gotcha 3394"
 affects = ["2", "2", ".", "3", "7", ".", "2", " ", "a", "t", "t", "e", "m", "p", "t", " ", "3", ";", " ", "t", "h", "e", " ", "v", "e", "r", "i", "f", "y", " ", "o", "f", " ", "2", "2", ".", "3", "7", ".", "2", "."]
 
+[decision.2779]
+title = "Layout driver receipts are tracked evidence bound to the mapping digest and the source snapshot, regenerated whenever the mapping changes"
+value = "The receipts of the layout drivers 0.4 to 0.8 live tracked under the receipts directory of the vendored spec dir, copied unchanged from the driver output of one run in the qualification environment; each carries mapping_sha256, layout_generation and source_snapshot_sha256 as the drivers write them, the aggregation input names each one in its task_receipts map, and a test fails with the stale receipt named when repository-layout.json changes, so a regeneration is the only way forward after a mapping change."
+basis = "Gotcha 3395"
+affects = ["2", "2", ".", "3", "7", ".", "2", "8", ",", " ", "2", "2", ".", "3", "7", ".", "2", " ", "a", "n", "d", " ", "e", "v", "e", "r", "y", " ", "l", "a", "t", "e", "r", " ", "c", "h", "a", "n", "g", "e", " ", "o", "f", " ", "r", "e", "p", "o", "s", "i", "t", "o", "r", "y", "-", "l", "a", "y", "o", "u", "t", ".", "j", "s", "o", "n"]
+
+[decision.2780]
+title = "A refusal that crosses the wire names its check; the bare refusal variant is reserved for a request that no check can classify"
+value = "Every guard of the managed-agent module on a path a socket request reaches returns a typed refusal carrying its check, whose wire reason is managed_agent.<check> in snake case and unique per check; the bare variant with reason operation.refused remains only for a request shape the routing cannot classify; a test enumerates every check and asserts the prefix and the uniqueness, and a socket case asserts the named reason for one lifecycle refusal and one revocation refusal."
+basis = "Gotcha 3396"
+affects = ["2", "2", ".", "3", "1", ".", "6", "1", "3", ",", " ", "t", "h", "e", " ", "m", "a", "n", "a", "g", "e", "d", "-", "a", "g", "e", "n", "t", " ", "m", "o", "d", "u", "l", "e", ",", " ", "t", "h", "e", " ", "h", "u", "m", "a", "n", " ", "w", "i", "r", "e", " ", "m", "o", "d", "u", "l", "e", " ", "a", "n", "d", " ", "e", "v", "e", "r", "y", " ", "t", "e", "s", "t", " ", "t", "h", "a", "t", " ", "a", "s", "s", "e", "r", "t", "e", "d", " ", "t", "h", "e", " ", "b", "a", "r", "e", " ", "r", "e", "a", "s", "o", "n", " ", "f", "o", "r", " ", "a", " ", "m", "a", "n", "a", "g", "e", "d", "-", "a", "g", "e", "n", "t", " ", "c", "h", "e", "c", "k"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -38673,6 +38685,24 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.31.613]
+title = "Name the refusing managed-agent check in every refusal that crosses the human wire"
+reqs = ["22998.1"]
+touches = ["services/agent/crates/layerx-agentd/src/managed_agent.rs", "services/agent/crates/layerx-agentd/src/human.rs", "services/agent/crates/layerx-agentd/src/human_runtime.rs", "services/agent/crates/layerx-agentd/tests/repair_22_31_219.rs", "services/agent/crates/layerx-agentd/tests/repair_22_31_562.rs", "services/agent/crates/layerx-agentd/tests/repair_22_31_562.kvx", "services/agent/crates/layerx-agentd/tests/repair_22_31_545.rs", "services/agent/crates/layerx-agentd/tests/repair_22_31_545.kvx", "services/agent/crates/layerx-agentd/tests/repair_22_31_571.rs", "services/agent/crates/layerx-agentd/tests/repair_22_31_571.kvx", "services/agent/crates/layerx-agentd/tests/repair_22_31_543.kvx", "services/agent/crates/layerx-agentd/tests/repair_22_31_516.kvx", "services/agent/crates/layerx-agentd/tests/human_approval_budget_actor.rs", "services/agent/crates/layerx-agentd/tests/native_send_preview_evm.rs", "services/agent/crates/layerx-agentd/tests/human_projection_facts.rs"]
+tests = ["services/agent/crates/layerx-agentd/tests/repair_22_31_613.rs"]
+verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test repair_22_31_613 && cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test repair_22_31_219 && cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib -- managed_agent::"
+do_1 = "do_1 Gotcha 3396, decision 2780. Add to services/agent/crates/layerx-agentd/src/managed_agent.rs a public enum ManagedAgentCheck (Clone, Copy, Debug, Eq, PartialEq) with one variant per guard on the paths of apply_lifecycle_request, validate_authority_revocation, finalize_control, finalize_limit, finalize_archive, suspend_session, record_budget_snapshot, record_key_policy_snapshot, publish_creation, publish_creation_with_companion, validate_tenant, budget_owners, budget_candidate, assign_budget, validate_session_coordinates, get, restore_owner_transaction, from_creation and validate: the creation record shape, the stored record shape, the record digest, the tenant guard, the owner guards, the session coordinate guards, the lifecycle kind guard, the revocation kind and delay guards, the revocation window guard, the archived-state guard, the agent identity guard, the archive observation guard, the snapshot codec guards and the session lookup guards; a const fn reason(self) returning a static string slice managed_agent.<check_name> in snake case, unique per variant, and a const ALL slice lists every variant once."
+symbols = ["managed_agent_refusal_reasons_are_unique_and_prefixed", "lifecycle_request_refusal_names_its_check_over_the_socket", "authority_revocation_refusal_names_the_window_check"]
+
+[capability.22.37.28]
+title = "Produce the five layout driver receipts as tracked evidence and let the layout aggregation case pass"
+reqs = ["22998.1"]
+touches = ["tools/hyperfide/tests/hyperfide/cases/source_control/0_9.py", "tools/hyperfide/tests/hyperfide/cases/source_control/0_4.py", "tools/hyperfide/tests/hyperfide/cases/source_control/0_5.py", "tools/hyperfide/tests/hyperfide/cases/source_control/0_6.py", "tools/hyperfide/tests/hyperfide/cases/source_control/0_7.py", "tools/hyperfide/tests/hyperfide/cases/source_control/0_8.py", "tools/hyperfide/spec/hyperfide-source-control/repository-layout.md"]
+tests = ["tools/hyperfide/tests/hyperfide/cases/source_control/layout_driver_receipts_test.py"]
+verification_contract = "cd tools/hyperfide && corepack enable && python3 tests/hyperfide/cases/source_control/layout_driver_receipts_test.py"
+do_1 = "do_1 Gotcha 3395, decision 2779. In the qualification environment, from the root of the vendored tree, with the pinned development node of .nvmrc (22.19.0) and a node of the 24 line installed and named through the two node location variables the drivers read (0_4.py line 268 and line 96 name them, with their default paths under the nvm versions directory), run each driver once: python3 tests/<project>/cases/source_control/0_4.py, then 0_5.py, 0_6.py, 0_7.py and 0_8.py. Each driver writes build/layout/<task>/receipt.json (untracked) and prints a status line; a driver that needs a package (0_5.py extracts a postgresql 18 archive, 0_8.py starts the installed control service) obtains it the way the driver itself does. Copy every receipt whose status is PASS unchanged to spec/<project>-source-control/receipts/<task>.json (0.4.json to 0.8.json)."
+symbols = ["test_every_required_driver_has_a_tracked_pass_receipt", "test_tracked_receipts_bind_to_the_current_mapping_and_snapshot", "test_aggregation_input_names_every_tracked_receipt", "test_layout_aggregation_passes_with_the_tracked_input"]
 
 [capability.22.31.612]
 title = "Align first-party manifest licence fields with the repository licence and record every vendored tree in NOTICE"
@@ -150247,6 +150277,38 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.37.28]
+title = "Produce the five layout driver receipts as tracked evidence and let the layout aggregation case pass"
+status = "pending"
+mode = "BUILD"
+wave = 3
+requires = ["22.37.2"]
+reqs = ["22998.1"]
+capabilities = ["22.37.28"]
+interfaces = []
+do_1 = "do_1 Gotcha 3395, decision 2779. In the qualification environment, from the root of the vendored tree, with the pinned development node of .nvmrc (22.19.0) and a node of the 24 line installed and named through the two node location variables the drivers read (0_4.py line 268 and line 96 name them, with their default paths under the nvm versions directory), run each driver once: python3 tests/<project>/cases/source_control/0_4.py, then 0_5.py, 0_6.py, 0_7.py and 0_8.py. Each driver writes build/layout/<task>/receipt.json (untracked) and prints a status line; a driver that needs a package (0_5.py extracts a postgresql 18 archive, 0_8.py starts the installed control service) obtains it the way the driver itself does. Copy every receipt whose status is PASS unchanged to spec/<project>-source-control/receipts/<task>.json (0.4.json to 0.8.json)."
+do_2 = "do_2 Where a driver reports BLOCKED or FAIL, read its receipt missing_evidence and regressions lists before any change. A missing executor the environment cannot provide (0_7.py names unavailable native executors as unqualified by design) is left recorded in the receipt as the driver wrote it and the task reports implemented-not-qualified naming the driver and the executor; a regression is a defect of the relocated tree and is repaired in this task only when the fix lies in the driver itself or in the layout files of the vendored spec dir, otherwise it is reported with the driver name, the assertion identifier and the receipt line."
+do_3 = "do_3 Update spec/<project>-source-control/layout-aggregation-input.json, which 22.37.2 writes: the task_receipts map names 0.4 to 0.8 with the repository-relative paths of the tracked receipts (the form local() of 0_9.py resolves under ROOT); layout_revision and authorized_followon_revisions stay as 22.37.2 wrote them, extended by the full commit identifiers of this task where 0_9.py lists them as unauthorized follow-on revisions over the subtree prefixes."
+do_4 = "do_4 Write tests/<project>/cases/source_control/layout_driver_receipts_test.py in the style of layout_receipt_gate_test.py (one PASS line per case, nonzero exit on the first failure, 0_9.py loaded through importlib.util.spec_from_file_location so that its REQUIRED map, its bindings computation and its task_receipt function are the ones under test): every REQUIRED task of 0_9.py has a tracked receipt file; each tracked receipt passes task_receipt against the bindings 0_9.py computes from the current repository-layout.json and the current source snapshot, and a mismatch names the stale receipt and the mapping digest it carries; the aggregation input names every tracked receipt; 0_9.py run as a subprocess with --inputs set to the absolute path of the tracked input exits 0 and prints status PASS."
+do_5 = "do_5 Add a short section Regenerating the driver receipts to spec/<project>-source-control/repository-layout.md: the five driver commands in order, the two node location variables, the copy step into the receipts directory and the test command; state that a change of repository-layout.json makes the receipts stale and that the test of do_4 fails naming the stale receipt until they are regenerated (decision 2779)."
+symbols = ["test_every_required_driver_has_a_tracked_pass_receipt", "test_tracked_receipts_bind_to_the_current_mapping_and_snapshot", "test_aggregation_input_names_every_tracked_receipt", "test_layout_aggregation_passes_with_the_tracked_input"]
+touches = ["tools/hyperfide/tests/hyperfide/cases/source_control/0_9.py", "tools/hyperfide/tests/hyperfide/cases/source_control/0_4.py", "tools/hyperfide/tests/hyperfide/cases/source_control/0_5.py", "tools/hyperfide/tests/hyperfide/cases/source_control/0_6.py", "tools/hyperfide/tests/hyperfide/cases/source_control/0_7.py", "tools/hyperfide/tests/hyperfide/cases/source_control/0_8.py", "tools/hyperfide/spec/hyperfide-source-control/repository-layout.md"]
+tests = ["tools/hyperfide/tests/hyperfide/cases/source_control/layout_driver_receipts_test.py"]
+planned_paths = ["tools/hyperfide/tests/hyperfide/cases/source_control/layout_driver_receipts_test.py", "tools/hyperfide/spec/hyperfide-source-control/layout-aggregation-input.json", "tools/hyperfide/spec/hyperfide-source-control/receipts/0.4.json", "tools/hyperfide/spec/hyperfide-source-control/receipts/0.5.json", "tools/hyperfide/spec/hyperfide-source-control/receipts/0.6.json", "tools/hyperfide/spec/hyperfide-source-control/receipts/0.7.json", "tools/hyperfide/spec/hyperfide-source-control/receipts/0.8.json"]
+build_cmd = "cd tools/hyperfide && corepack enable && python3 -m py_compile tests/hyperfide/cases/source_control/layout_driver_receipts_test.py tests/hyperfide/cases/source_control/0_9.py"
+verify_cmd = "cd tools/hyperfide && corepack enable && python3 tests/hyperfide/cases/source_control/layout_driver_receipts_test.py"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.31.609]
 title = "Remove the wiring requests from the perps client contract and the tests that pin them"
 status = "done"
@@ -179261,6 +179323,37 @@ max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
 time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.31.613]
+title = "Name the refusing managed-agent check in every refusal that crosses the human wire"
+status = "pending"
+mode = "BUILD"
+wave = 2
+requires = ["22.31.539"]
+reqs = ["22998.1"]
+capabilities = ["22.31.613"]
+interfaces = []
+do_1 = "do_1 Gotcha 3396, decision 2780. Add to services/agent/crates/layerx-agentd/src/managed_agent.rs a public enum ManagedAgentCheck (Clone, Copy, Debug, Eq, PartialEq) with one variant per guard on the paths of apply_lifecycle_request, validate_authority_revocation, finalize_control, finalize_limit, finalize_archive, suspend_session, record_budget_snapshot, record_key_policy_snapshot, publish_creation, publish_creation_with_companion, validate_tenant, budget_owners, budget_candidate, assign_budget, validate_session_coordinates, get, restore_owner_transaction, from_creation and validate: the creation record shape, the stored record shape, the record digest, the tenant guard, the owner guards, the session coordinate guards, the lifecycle kind guard, the revocation kind and delay guards, the revocation window guard, the archived-state guard, the agent identity guard, the archive observation guard, the snapshot codec guards and the session lookup guards; a const fn reason(self) returning a static string slice managed_agent.<check_name> in snake case, unique per variant, and a const ALL slice lists every variant once."
+do_2 = "do_2 Add the variant ManagedAgent(ManagedAgentCheck) to HumanRefusal in services/agent/crates/layerx-agentd/src/human.rs whose reason() returns the check reason, and replace every bare HumanOperationError::Refused on the paths of do_1 with HumanOperationError::Typed(HumanRefusal::ManagedAgent(<check>)); the bare variant stays only where no check applies (a request shape the routing cannot classify, the catch-all arms of apply_lifecycle_request). Every exhaustive match over HumanRefusal in the crate gains the new arm (human_runtime.rs holds the known ones). The wire encoding of a refusal in human.rs is unchanged: the reason string travels as before, so no client decoder changes."
+do_3 = "do_3 Keep the landed tests green. Cases that assert a refusal by variant (matches! on Refused) keep passing because a typed refusal is still a refusal on the wire; a case or a test record that asserts the literal operation.refused for a refusal raised by a managed-agent check of do_1 is updated to the named reason (candidates: tests/repair_22_31_562.rs and its record, human_approval_budget_actor.rs, native_send_preview_evm.rs, human_projection_facts.rs and the records of 22.31.516, 22.31.543, 22.31.545 and 22.31.571); a case whose refuser is outside the managed-agent module is left untouched. The eight regression targets and the cases of tests/repair_22_31_219.rs and tests/repair_22_31_539.rs are run once at the end and stay green."
+do_4 = "do_4 Write services/agent/crates/layerx-agentd/tests/repair_22_31_613.rs with three cases: managed_agent_refusal_reasons_are_unique_and_prefixed walks ManagedAgentCheck::ALL and asserts that every reason starts with managed_agent. and that no two variants share a reason; lifecycle_request_refusal_names_its_check_over_the_socket drives a reclaim lifecycle request for an archived agent (state 4) through the socket fixture helpers of tests/repair_22_31_219.rs (a copy of the minimal helpers or a shared tests module) and asserts the refusal reason is the archived-state check reason and not operation.refused; authority_revocation_refusal_names_the_window_check calls validate_authority_revocation with ready_at not after finalized_at and asserts the typed refusal variant of the revocation window guard. Record the three cases in tests/repair_22_31_613.kvx in the style of tests/repair_22_31_539.kvx."
+symbols = ["managed_agent_refusal_reasons_are_unique_and_prefixed", "lifecycle_request_refusal_names_its_check_over_the_socket", "authority_revocation_refusal_names_the_window_check"]
+touches = ["services/agent/crates/layerx-agentd/src/managed_agent.rs", "services/agent/crates/layerx-agentd/src/human.rs", "services/agent/crates/layerx-agentd/src/human_runtime.rs", "services/agent/crates/layerx-agentd/tests/repair_22_31_219.rs", "services/agent/crates/layerx-agentd/tests/repair_22_31_562.rs", "services/agent/crates/layerx-agentd/tests/repair_22_31_562.kvx", "services/agent/crates/layerx-agentd/tests/repair_22_31_545.rs", "services/agent/crates/layerx-agentd/tests/repair_22_31_545.kvx", "services/agent/crates/layerx-agentd/tests/repair_22_31_571.rs", "services/agent/crates/layerx-agentd/tests/repair_22_31_571.kvx", "services/agent/crates/layerx-agentd/tests/repair_22_31_543.kvx", "services/agent/crates/layerx-agentd/tests/repair_22_31_516.kvx", "services/agent/crates/layerx-agentd/tests/human_approval_budget_actor.rs", "services/agent/crates/layerx-agentd/tests/native_send_preview_evm.rs", "services/agent/crates/layerx-agentd/tests/human_projection_facts.rs"]
+tests = ["services/agent/crates/layerx-agentd/tests/repair_22_31_613.rs"]
+planned_paths = ["services/agent/crates/layerx-agentd/tests/repair_22_31_613.rs", "services/agent/crates/layerx-agentd/tests/repair_22_31_613.kvx"]
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --tests"
+verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test repair_22_31_613 && cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test repair_22_31_219 && cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib -- managed_agent::"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
