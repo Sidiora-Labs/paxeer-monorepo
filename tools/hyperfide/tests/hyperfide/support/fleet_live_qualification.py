@@ -8,6 +8,12 @@ WORKER_CASES=('provider_creation','coding_worker','independent_test','worker_can
 TASK_CASES={'0.11':INSTALL_CASES,'0.12':MODEL_CASES,'0.13':INSTALL_CASES+MODEL_CASES+WORKER_CASES,'0.14':INSTALL_CASES+MODEL_CASES+WORKER_CASES}
 DIGEST=re.compile(r'^sha256:[0-9a-f]{64}$');OID=re.compile(r'^(?:[0-9a-f]{40}|[0-9a-f]{64})$')
 class Refused(Exception):pass
+class CaseRefused(Refused):
+ def __init__(self,name,code):
+  super().__init__(code);self.case=name;self.code=code
+def case_check(name,callback,*args):
+ try:return callback(*args)
+ except Refused as error:raise CaseRefused(name,str(error)) from error
 def require(condition,code):
  if not condition:raise Refused(code)
 def canonical(value):return json.dumps(value,sort_keys=True,separators=(',',':'),ensure_ascii=False,allow_nan=False).encode()
@@ -881,13 +887,13 @@ def verify(task,index,target,evidence_root=None):
  for name in required:
   case=cases[name]
   if isinstance(case,dict) and isinstance(case.get('capture'),dict):
-   capture=captured_case(name,case,target,evidence_root)
+   capture=case_check(name,captured_case,name,case,target,evidence_root)
    if isinstance(capture,dict) and capture.get('kind') in ('hyperfide.authenticated-fault-step','hyperfide.authenticated-operator-step'):journals.append({'case':name,'capture':capture})
  if journals:require(isinstance(target.get('auth_clock_skew_seconds'),int) and 1<=target['auth_clock_skew_seconds']<=300 and isinstance(target.get('origin'),str) and isinstance(target.get('fault_operator_credential_id'),str),'FAULT_AUTHORITY_PINS_REQUIRED')
  observed=snapshot(target,connector,journals);rows=observed['rows'];run=one(rows['runs'],'id',target['run_id']);require(run['authority_epoch']==target['authority_epoch'],'AUTHORITY_EPOCH_MISMATCH');source=one(rows['run_repositories'],'repository_id',target['repository_id']);require(source['source_object_id']==target['accepted_source_object_id'],'ACCEPTED_SOURCE_MISMATCH')
  if target.get('source_backend')=='native':
   native=one(rows['source_fleet_runs'],'run_id',target['run_id']);require(native['revision_id']==target['native_source_revision_id'] and native['root_tree_id']==target['native_source_root_tree_id'] and native['authority_epoch']==target['authority_epoch'],'NATIVE_RUN_BINDING_MISMATCH')
- for name in required:case_oracle(name,cases[name],rows,target,evidence_root,index)
+ for name in required:case_check(name,case_oracle,name,cases[name],rows,target,evidence_root,index)
  if any(name in required for name in MODEL_CASES):
   if index.get('producer_mode')==MODEL_CAMPAIGN:verified_model_transcript(index,rows,evidence_root)
   ids=index['actors'];primary=one(rows['fleet_actor_sessions'],'session_id',ids['primary']);managers=[one(rows['fleet_actor_sessions'],'session_id',v) for v in ids['managers']];require(primary['actor_role']=='PRIMARY' and len(managers)>=2 and all(m['actor_role']=='WAVE_MANAGER' and m['cohort_id']==primary['cohort_id'] for m in managers),'COLOCATED_ACTORS_REQUIRED')
@@ -927,6 +933,9 @@ def main(task,component,output):
  report={'schema_version':1,'task':task,'status':'UNQUALIFIED','qualified':False};code=77
  try:
   require(args.live_evidence and args.target,'LIVE_EVIDENCE_REQUIRED');report=verify(task,private_json(args.live_evidence),private_json(args.target),Path(args.live_evidence).parent);code=0
- except (Refused,OSError,ValueError,KeyError,TypeError,subprocess.SubprocessError) as error:report['reason']=str(error) if isinstance(error,Refused) else 'LIVE_EVIDENCE_INVALID'
+ except (Refused,OSError,ValueError,KeyError,TypeError,subprocess.SubprocessError) as error:
+  report['reason']=str(error) if isinstance(error,Refused) else 'LIVE_EVIDENCE_INVALID'
+  report['refusal_code']=report['reason']
+  if isinstance(error,CaseRefused):report['refused_case']=error.case
  destination=Path(args.receipt) if args.receipt else Path(output)/'live-receipt.json';destination.parent.mkdir(parents=True,exist_ok=True);destination.write_text(json.dumps(report,indent=2)+'\n');destination.chmod(0o600)
  print(json.dumps(report));return code
