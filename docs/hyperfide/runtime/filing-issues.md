@@ -63,7 +63,7 @@ Agents file many issues in this repo. The same bar applies, plus:
 - Include the base commit you tested against and permalinks to the code you cite.
 - Link the hyperfide platform thread or the investigation report that produced the finding.
 - Do not open duplicates: search first, and if you find the same root cause under a different symptom, comment on the existing issue with the new evidence.
-- End the body with `> AGENT GENERATED` (see [AGENTS.md](../../../tools/hyperfide/AGENTS.md)).
+- End the body with `> AGENT GENERATED` (see AGENTS.md).
 
 ## Triage labels you may see
 
