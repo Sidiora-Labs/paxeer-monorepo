@@ -10,7 +10,7 @@
   <description>Android binding over the LayerX JVM SDK with brokered sessions and verified event delivery</description>
   <url>https://github.com/Sidiora-Labs/Paxeer-X-Network/tree/main/sdk/integrations/android</url>
   <licenses>
-    <license><name>LayerX Protocol License</name><url>https://github.com/Sidiora-Labs/Paxeer-X-Network/blob/main/LICENSE</url></license>
+    <license><name>Apache-2.0</name><url>https://github.com/Sidiora-Labs/paxeer-monorepo/blob/main/LICENSE</url></license>
   </licenses>
   <developers><developer><organization>Sidiora Labs</organization></developer></developers>
   <scm>

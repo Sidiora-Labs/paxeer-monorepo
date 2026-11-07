@@ -1,4 +1,6 @@
 {
+  "author": "Sidiora Labs",
+  "license": "Apache-2.0",
   "name": "@kindle/production-contracts",
   "version": "1.0.0",
   "private": true,
