@@ -1,6 +1,6 @@
 # The emulator
 
-The emulator is a local compatibility environment. It runs the real protocol core transition and produces compatibility receipts, with controls to set the clock, prefund an account, inject a fault and snapshot state. It does not reproduce the merged network's consensus or committed block evidence.
+The emulator is a local compatibility environment. It runs the LayerX kernel's real core transition and produces compatibility receipts, with controls to set the clock, prefund an account, inject a fault and snapshot state. It does not reproduce Paxeer X Network's consensus or committed block evidence.
 
 ## Starting it
 

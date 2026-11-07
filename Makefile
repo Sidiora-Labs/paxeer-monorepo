@@ -2499,7 +2499,7 @@ paxd-native-libs: $(LIBRARY) programs-release-build
 
 paxd-build: paxd-native-libs
 	version=$$(jq -er .version tools/release/version.json) && \
-		GOPROXY=off $(PAXEER_MAKE) build LDFLAGS="-X github.com/Sidiora-Labs/Paxeer-X-Network/sdk/version.Version=$$version"
+		GOPROXY=off $(PAXEER_MAKE) build VERSION="$$version"
 
 test-lxphost: paxd-native-libs
 	CGO_ENABLED=1 go test ./modules/lxphost/...

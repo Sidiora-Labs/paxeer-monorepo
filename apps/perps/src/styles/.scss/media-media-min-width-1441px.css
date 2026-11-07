@@ -1,5 +1,1 @@
-@media(min-width: 1441px) {
-    .media-grid--4-up {
-        grid-template-columns: repeat(4, 1fr)
-    }
-}
+@import "../../../../explorer/.scss/media-media-min-width-1441px.css";
