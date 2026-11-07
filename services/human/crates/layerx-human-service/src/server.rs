@@ -449,3 +449,14 @@ impl Drop for StreamCancellation {
         }
     }
 }
+
+impl HumanComponentServer {
+    #[must_use]
+    pub fn verification_level_name(rung: layerx_types::rung::Rung) -> &'static str {
+        match rung {
+            layerx_types::rung::Rung::Submitted => "unverified",
+            layerx_types::rung::Rung::Receipted => "receipt-verified",
+            layerx_types::rung::Rung::Committed => "committed",
+        }
+    }
+}

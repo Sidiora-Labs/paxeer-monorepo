@@ -752,9 +752,7 @@ impl<'a> ProductionAgentCreation<'a> {
         finalized_at: u64,
     ) -> Result<super::agent_runtime::AgentFinalizationEvidence, AgentFailure> {
         if evidence.rung != Rung::Committed {
-            return Err(AgentFailure::Refused(
-                "lifecycle receipt is not checkpoint-finalized",
-            ));
+            return Err(AgentFailure::Refused("lifecycle receipt is not committed"));
         }
         let kind = layerx_types::payload::ActivityType::new(
             expected_module,
