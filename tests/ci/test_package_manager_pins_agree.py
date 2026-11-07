@@ -1,3 +1,4 @@
+import itertools
 import json
 from pathlib import Path
 import re
@@ -21,6 +22,24 @@ DOCKERFILE_WORKSPACES = (
 IMAGE_DEPENDENCIES_FIXTURE = (
     ROOT / "apps/launchpad/qualification/image-dependencies/fixture"
 )
+WORKFLOW_REPAIR_LINES = (
+    (".github/workflows/bridge-test.yml", 143),
+    (".github/workflows/ci.yml", 271),  # Task inventory line 267.
+    (".github/workflows/ci.yml", 302),  # Task inventory line 298.
+    (".github/workflows/wallet-go-test.yml", 74),
+    (".github/workflows/platform.yml", 195),
+)
+WORKFLOW_PNPM_INSTALL = re.compile(
+    r"\bnpm\s+install\s+(?:--global|-g)\s+[\"']?(pnpm@[^\s\"';&|]+)"
+    r"|--package=[\"']?(pnpm@[^\s\"';&|]+)"
+)
+MANIFEST_PNPM_INSTALL = (
+    "npm install --global \"$(node -p 'require(\"./package.json\").packageManager')\""
+)
+MATRIX_DIRECTORY = re.compile(r"\$\{\{\s*matrix\.([\w-]+)\s*\}\}")
+PNPM_DIRECTORY = re.compile(
+    r"\bpnpm\s+(?:--dir|-C)(?:=|\s+)(?:\"([^\"]+)\"|'([^']+)'|([^\s;&|]+))"
+)
 
 
 def _tracked_paths(pattern):
@@ -41,6 +60,156 @@ def _release(pin, path):
     match = PNPM_PIN.fullmatch(pin)
     assert match, f"{path}: packageManager must pin an exact pnpm release: {pin!r}"
     return match[1]
+
+
+def _manager_manifest(directory):
+    directory = directory.resolve()
+    assert directory.is_relative_to(ROOT), directory
+    assert directory.is_dir(), directory
+    for parent in (directory, *directory.parents):
+        path = parent / "package.json"
+        if path.is_file() and "packageManager" in _manifest(parent):
+            return path
+        if parent == ROOT:
+            break
+    pytest.fail(f"{directory}: no ancestor package.json declares packageManager")
+
+
+def _matrix_rows(job):
+    matrix = job.get("strategy", {}).get("matrix", {})
+    assert isinstance(matrix, dict), "pnpm jobs need a statically resolvable matrix"
+    axes = {
+        key: value
+        for key, value in matrix.items()
+        if key not in {"include", "exclude"}
+    }
+    assert all(isinstance(values, list) and values for values in axes.values()), matrix
+    if not axes:
+        rows = matrix.get("include", [{}])
+        assert rows, "pnpm job matrix has no instances"
+        return rows
+    rows = [dict(zip(axes, values)) for values in itertools.product(*axes.values())]
+    rows = [
+        row
+        for row in rows
+        if not any(
+            all(row.get(key) == value for key, value in excluded.items())
+            for excluded in matrix.get("exclude", [])
+        )
+    ]
+    for included in matrix.get("include", []):
+        compatible = [
+            row
+            for row in rows
+            if all(key not in axes or row[key] == value for key, value in included.items())
+        ]
+        if compatible:
+            for row in compatible:
+                row.update(included)
+        else:
+            rows.append(included.copy())
+    assert rows, "pnpm job matrix has no instances"
+    return rows
+
+
+def _run_directory(step, job, workflow, row):
+    default = workflow.get("defaults", {}).get("run", {}).get("working-directory", ".")
+    default = job.get("defaults", {}).get("run", {}).get("working-directory", default)
+    directory = MATRIX_DIRECTORY.sub(
+        lambda match: str(row[match[1]]), step.get("working-directory", default)
+    )
+    assert "${{" not in directory, f"Unresolved working-directory: {directory}"
+    return ROOT / directory
+
+
+def _workflow_pnpm_cases():
+    cases = {}
+    for path in sorted((ROOT / ".github/workflows").iterdir()):
+        if path.suffix not in {".yml", ".yaml"}:
+            continue
+        text = path.read_text()
+        workflow = yaml.safe_load(text)
+        nodes = {key.value: value for key, value in yaml.compose(text).value}
+        job_nodes = {key.value: value for key, value in nodes["jobs"].value}
+        for job_name, job in workflow["jobs"].items():
+            fields = {key.value: value for key, value in job_nodes[job_name].value}
+            for index, step in enumerate(job.get("steps", [])):
+                command = step.get("run", "")
+                if "run" not in step:
+                    continue
+                step_nodes = {
+                    key.value: value
+                    for key, value in fields["steps"].value[index].value
+                }
+                run_node = step_nodes["run"]
+                installs = [
+                    (match.start(), match[1] or match[2])
+                    for match in WORKFLOW_PNPM_INSTALL.finditer(command)
+                ]
+                # The repaired matrix line reads each instance's own manifest.
+                # Other manifest-driven installs are outside the literal-pin sweep.
+                location = (str(path.relative_to(ROOT)), run_node.start_mark.line + 1)
+                if (
+                    location in WORKFLOW_REPAIR_LINES
+                    and command == MANIFEST_PNPM_INSTALL
+                ):
+                    installs.append((0, None))
+                if not installs:
+                    continue
+                for offset, pin in installs:
+                    line = run_node.start_mark.line + 1 + command[:offset].count("\n")
+                    if run_node.style in {"|", ">"}:
+                        line += 1
+                    location = (str(path.relative_to(ROOT)), line)
+                    assert location not in cases, f"Multiple pnpm activations at {location}"
+                    cases[location] = pytest.param(
+                        workflow,
+                        job_name,
+                        step,
+                        pin,
+                        location,
+                        id=f"{location[0]}:{line}-{job_name}",
+                    )
+    assert set(WORKFLOW_REPAIR_LINES) <= cases.keys(), (
+        "Missing recorded workflow pnpm install"
+    )
+    return [cases.pop(location) for location in WORKFLOW_REPAIR_LINES] + list(cases.values())
+
+
+@pytest.mark.parametrize(
+    "workflow,job_name,install_step,pin,location", _workflow_pnpm_cases()
+)
+def test_workflow_pnpm_matches_package_manager(
+    workflow, job_name, install_step, pin, location
+):
+    job = workflow["jobs"][job_name]
+    for row in _matrix_rows(job):
+        installed = pin
+        if installed is None:
+            directory = _run_directory(install_step, job, workflow, row)
+            installed = _manifest(directory)["packageManager"]
+        actual = _release(installed, location)
+        manifests = set()
+        for step in job["steps"]:
+            command = step.get("run", "")
+            # Native and npm steps do not consume the job's installed pnpm.
+            if not re.search(r"\bpnpm(?:\s|$)", command):
+                continue
+            directory = _run_directory(step, job, workflow, row)
+            explicit = list(PNPM_DIRECTORY.finditer(command))
+            if explicit:
+                for match in explicit:
+                    target = next(value for value in match.groups() if value is not None)
+                    manifests.add(_manager_manifest(directory / target))
+            else:
+                manifests.add(_manager_manifest(directory))
+        assert manifests, f"{location}: {job_name} has no pnpm working directory"
+        for manifest in sorted(manifests):
+            expected = _manifest(manifest.parent)["packageManager"]
+            assert actual == _release(expected, manifest), (
+                f"{location[0]}:{location[1]}: {job_name} {row} installs {installed}, "
+                f"but {manifest.relative_to(ROOT)} declares {expected}"
+            )
 
 
 def _workspaces():
