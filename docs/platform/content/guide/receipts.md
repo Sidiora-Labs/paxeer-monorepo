@@ -1,6 +1,6 @@
 # Receipts
 
-A receipt records execution, while a `200`, webhook or dashboard row reports an application outcome. A receipt is final once its block is committed. The separate execution, checkpoint and settlement architecture is retired.
+A receipt records execution on Paxeer X Network, while a `200`, webhook or dashboard row reports an application outcome. A receipt is final once its block is committed. The separate execution, checkpoint and settlement architecture is retired.
 
 `layerx receipt verify` and the `layerx-proof` sample are a local compatibility verifier for receipt bytes and caller-supplied batch facts. They do not establish block commitment. For finality, authenticate the block header and CometBFT commit and verify transaction or state inclusion against the authenticated root at the relevant height. See [Committed block evidence](https://github.com/Sidiora-Labs/paxeer-monorepo/blob/abc81fd2cead6b2b9d5612c6e09a6ab56f13c1ed/docs/site/docs/concepts/checkpoints.md#committed-block-evidence).
 

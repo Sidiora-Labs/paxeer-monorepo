@@ -1297,12 +1297,18 @@ pub(crate) mod tests {
     ) {
         let mut nonce = [0; 16];
         getrandom::fill(&mut nonce).expect("temporary directory nonce");
-        let root = std::env::temp_dir().join(format!(
-            "layerx-committed-budget-recovery-{}-{}",
-            std::process::id(),
-            hex::encode(&nonce)
-        ));
-        std::fs::create_dir(&root).expect("fresh temporary directory");
+        use std::os::unix::fs::DirBuilderExt;
+        let root = std::fs::canonicalize(std::env::temp_dir())
+            .expect("canonical temporary directory")
+            .join(format!(
+                "layerx-committed-budget-recovery-{}-{}",
+                std::process::id(),
+                hex::encode(&nonce)
+            ));
+        std::fs::DirBuilder::new()
+            .mode(0o700)
+            .create(&root)
+            .expect("fresh private temporary directory");
         let store = crate::store::Store::open(&root).expect("recovery store");
         let tenant = crate::store::TenantId::new("committed-budget-recovery").expect("tenant");
         let checkpoint = ServedCheckpoint::test_fixture(8, 1_700_000_000, 123_000_000);
@@ -1517,6 +1523,7 @@ pub(crate) mod tests {
         budget[32..64].copy_from_slice(&owner);
         stable_call(&mut answers, &checkpoint, &budget);
         stable_call(&mut answers, &checkpoint, &integer(75));
+        stable_call(&mut answers, &checkpoint, &integer(75));
         use layerx_crypto::authority_grant::{AuthorityGrant, GrantKind, GrantScope};
         let canonical = AuthorityGrant {
             grantor: owner,
@@ -1579,6 +1586,10 @@ pub(crate) mod tests {
             .inventory_records(&mut caps, &[[9; 32]], &[[6; 32]])
             .expect("selected budget and grant");
         assert_eq!(caps.budgets()[0].spent_this_period, 25);
+        let funding = caps.budget_funding(&[9; 32]).expect("funded budget");
+        assert_eq!(funding.allowance(), 75);
+        assert_eq!(funding.funded_balance(), 75);
+        assert_eq!(funding.remaining(), 75);
         assert_eq!(caps.grants()[0].maximum_per_activity, 10);
         crate::budget::VerifiedResolvedProgramCharges::assert_committed_inventory(
             &caps, &did, asset, account_id,

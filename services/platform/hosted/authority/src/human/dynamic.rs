@@ -4,6 +4,7 @@ use super::{
     KeyPolicy, PrincipalPolicy, Response, ScopeBinding, Verified,
 };
 use layerx_identity_binding::{Binding, Client, Config as BindingConfig};
+use layerx_types::verify::VerificationLevel;
 use layerx_types::{
     account::AccountId,
     payload::{ActivityType, ModuleId, ModuleRegistration, ModuleRegistry},
@@ -385,7 +386,7 @@ fn validate_parameters(name: &str, params: &BTreeMap<String, String>) -> Result<
 fn context(subject: &Subject, current: &Current) -> Response {
     json(
         200,
-        &value!({"tenant":subject.binding.tenant(),"subject_principal":subject.binding.principal(),"agent_tenant":subject.binding.agent_tenant(),"owner_did":subject.did,"account_id":hex::encode(&subject.account_id),"asset_id":hex::encode(&subject.asset),"verification_level":"checkpoint_finalised","observed_head_sequence":current.receipt_sequence,"committed_height":current.committed_height,"state_height":current.state_height,"checkpoint_digest":hex::encode(&current.checkpoint)}),
+        &value!({"tenant":subject.binding.tenant(),"subject_principal":subject.binding.principal(),"agent_tenant":subject.binding.agent_tenant(),"owner_did":subject.did,"account_id":hex::encode(&subject.account_id),"asset_id":hex::encode(&subject.asset),"verification_level":VerificationLevel::COMMITTED.wire_label(),"observed_head_sequence":current.receipt_sequence,"committed_height":current.committed_height,"state_height":current.state_height,"checkpoint_digest":hex::encode(&current.checkpoint)}),
     )
 }
 
@@ -622,7 +623,7 @@ pub(super) fn dispatch(
     if name == "identity" {
         return Ok(json(
             200,
-            &value!({"authorities":authorities,"canonical_core_bytes":hex::encode(&state),"head_sequence":current.receipt_sequence,"committed_height":current.committed_height,"state_height":current.state_height,"revocation_sequence":native_u64(&state,69)?,"frozen":false,"verification_level":"checkpoint_finalised"}),
+            &value!({"authorities":authorities,"canonical_core_bytes":hex::encode(&state),"head_sequence":current.receipt_sequence,"committed_height":current.committed_height,"state_height":current.state_height,"revocation_sequence":native_u64(&state,69)?,"frozen":false,"verification_level":VerificationLevel::COMMITTED.wire_label()}),
         ));
     }
     if name == "capability-scope" {

@@ -12,7 +12,8 @@
     "rpc:run": "mocha --config .mocharc.run.json",
     "test:rpc": "npm run rpc:bootstrap && npm run rpc:run",
     "report:merge": "mochawesome-merge \"reports/new_rpc/*.json\" > reports/merged.json && marge reports/merged.json -o reports/merged -f rpc-tests --reportTitle \"Pax RPC Tests\" --charts",
-    "rpc:ci": "bash scripts/run-ci.sh"
+    "rpc:ci": "bash scripts/run-ci.sh",
+    "test": "npm run rpc:ci"
   },
   "dependencies": {
     "@cosmjs/amino": "^0.32.4",

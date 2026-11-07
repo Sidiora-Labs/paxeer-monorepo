@@ -1,4 +1,4 @@
-"""Keep platform receipt guidance aligned with finality at block commit."""
+"""Keep platform guidance aligned with Paxeer X Network and block finality."""
 
 from pathlib import Path
 import re
@@ -21,6 +21,24 @@ COMMITTED_EVIDENCE = (
     "abc81fd2cead6b2b9d5612c6e09a6ab56f13c1ed/"
     "docs/site/docs/concepts/checkpoints.md#committed-block-evidence"
 )
+
+
+def test_platform_hand_written_pages_do_not_name_layerx_network():
+    pages = sorted(
+        page
+        for page in CONTENT.rglob("*.md")
+        if page.relative_to(CONTENT).parts[0] != "reference"
+    )
+    assert pages, "No hand-written platform pages found"
+    offending_pages = [
+        str(page.relative_to(CONTENT))
+        for page in pages
+        if "LayerX Network" in page.read_text(encoding="utf-8")
+    ]
+    assert not offending_pages, (
+        "Hand-written platform pages name LayerX Network: "
+        + ", ".join(offending_pages)
+    )
 
 
 @pytest.mark.parametrize("page", RECEIPT_PAGES)

@@ -2939,8 +2939,15 @@ mod tests {
     }
 
     fn control(name: &str) -> (std::path::PathBuf, SessionControl, Token) {
-        let root = std::env::temp_dir().join(format!("lxp-scb-{name}-{}", std::process::id()));
-        let _ = std::fs::remove_dir_all(&root);
+        use std::os::unix::fs::DirBuilderExt;
+        let mut nonce = [0; 16];
+        must(getrandom::fill(&mut nonce));
+        let root = must(std::fs::canonicalize(std::env::temp_dir())).join(format!(
+            "lxp-scb-{name}-{}-{}",
+            std::process::id(),
+            layerx_programs::hex::encode(&nonce)
+        ));
+        must(std::fs::DirBuilder::new().mode(0o700).create(&root));
         let mut store = must(Store::open(&root));
         let mut sessions = SessionRegistry::default();
         let agent = must(Did::new(b"agent-a"));
@@ -3487,6 +3494,7 @@ mod tests {
             Ok(false)
         ));
         assert_eq!(control.budgets.consumed(limit), Ok(5));
+        drop(control);
         assert_eq!(stored_consumed(&must(Store::open(&root))), vec![5]);
         let _ = std::fs::remove_dir_all(root);
     }
@@ -3550,12 +3558,13 @@ mod tests {
             Ok(LifecycleState::Prepared)
         ));
         let key = must(DurablePreparation::store_key(&tenant(), [8; 32]));
-        assert!(must(Store::open(&root)).get(&key).is_some());
         assert!(matches!(
             permit.admit_write(&control, admission(&prepared, LimitId([1; 16]))),
             Err(SessionControlError::Lifecycle(LifecycleError::Duplicate))
         ));
         assert_eq!(control.budgets.held_reservations(), Ok(1));
+        drop(control);
+        assert!(must(Store::open(&root)).get(&key).is_some());
         let _ = std::fs::remove_dir_all(root);
     }
     fn second_limit(control: &SessionControl) -> LimitId {
@@ -3653,6 +3662,11 @@ mod tests {
         assert_eq!(control.budgets.held_exposure(first), Ok(5));
         assert_eq!(control.budgets.held_exposure(second), Ok(5));
         let key = must(DurablePreparation::store_key(&tenant(), [8; 32]));
+        let again = must(permit.admit_write(&control, submit(vec![first, second])));
+        assert_eq!(again.holds, record.holds);
+        assert_eq!(control.budgets.held_reservations(), Ok(2));
+        assert_eq!(control.budgets.held_exposure(second), Ok(5));
+        drop(control);
         let stored = must(
             must(Store::open(&root))
                 .get(&key)
@@ -3661,10 +3675,6 @@ mod tests {
         );
         let durable = must(DurablePreparation::decode(tenant(), &stored));
         assert_eq!(durable.holds, record.holds);
-        let again = must(permit.admit_write(&control, submit(vec![first, second])));
-        assert_eq!(again.holds, record.holds);
-        assert_eq!(control.budgets.held_reservations(), Ok(2));
-        assert_eq!(control.budgets.held_exposure(second), Ok(5));
         let _ = std::fs::remove_dir_all(root);
     }
 }

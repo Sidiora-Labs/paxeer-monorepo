@@ -140,8 +140,7 @@ platform-test-tooling: platform-test-cli-production-credential-refusal public-tl
 		services/platform/hosted/tests/topology-check.sh \
 		services/platform/hosted/tests/beta-cluster.sh \
 		services/platform/hosted/node/bootstrap.sh services/platform/hosted/node/supervisor.sh \
-		services/platform/hosted/paxeer/deploy-contracts.sh scripts/ci/beta-contract-check.sh
-	python3 -m py_compile services/platform/hosted/paxeer/settlement-domain.py services/platform/hosted/paxeer/prepare-beta.py
+		services/platform/hosted/paxeer/deploy-contracts.sh
 	bash -n tools/platform/cli/tests/clean-bootstrap.sh
 	$(PLATFORM_CARGO) build --offline --manifest-path $(PLATFORM_TOOLS_MANIFEST) --locked -p layerx-platform-cli
 	bash tools/platform/cli/tests/clean-bootstrap.sh
@@ -268,7 +267,7 @@ platform-receipt-fixture: $(BUILD_DIR)/tools/generate_receipt_fixture \
 		sdk/platform/conformance/fixtures/receipt-programs-positive-v2.json \
 		sdk/platform/conformance/fixtures/receipt-refusals-v2.json
 
-platform-verify-sdks: programs-check-native-lifecycle-fixtures programs-check-capability-fixture programs-check-executed-fixture platform-sdk-check platform-sample-dependencies-ready platform-js-install
+platform-verify-sdks: programs-check-native-lifecycle-fixtures programs-check-capability-fixture platform-sdk-check platform-sample-dependencies-ready platform-js-install
 	@python3 -c 'import pytest' || { echo "pytest is required for Python SDK conformance" >&2; exit 1; }
 	npm run build --workspace @sidiora/layerx-sdk
 	$(AGENT_CARGO) test --manifest-path $(AGENT_MANIFEST) --locked -p layerx-sdk --tests
