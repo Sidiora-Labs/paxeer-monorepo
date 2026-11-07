@@ -1017,8 +1017,8 @@ This feature allows to display widgets on the address page with data from 3rd pa
 
 #### Address 3rd party widget configuration properties
 
-| Property | Type | Description | Compulsoriness | Example value |
-| --- | --- | --- | --- | --- |
+| Property | Type | Description | Compulsoriness | Default value | Example value |
+| --- | --- | --- | --- | --- | --- |
 | name | `string` | Displayed name of the widget | Required | - | `'Widget'` |
 | url | `string` | Link URL for widget card. Can contain `{address}`, `{addressLowercase}` and `{chainId}` variables | Required | - | `'https://example.com/widget/{address}?chainId={chainId}'` |
 | icon | `string` | Widget icon URL | Required | - | `'https://example.com/icon.svg'` |
@@ -1042,10 +1042,10 @@ This feature enables cross-chain transactions pages and views on ZetaChain insta
 | NEXT_PUBLIC_ZETACHAIN_EXTERNAL_SEARCH_CONFIG | `Array<{ regex: string; template: string }>` | List of objects with regex, template and name fields to build redirect links for external searches. The first matching regex will be used to generate the URL from the provided hash. | - | - | `'[{"regex":"^0x[0-9a-fA-F]{64}$","template":"https://example.com/cosmos/tx/{hash}","name":"Cosmos SDK style transaction"}]'` | v2.4.0+ |
 
 
-#### ZetaChain supported cain configuration properties
+#### ZetaChain supported chain configuration properties
 
-| Property | Type | Description | Compulsoriness | Example value |
-| --- | --- | --- | --- | --- |
+| Property | Type | Description | Compulsoriness | Default value | Example value |
+| --- | --- | --- | --- | --- | --- |
 | chain_id | `string` | Id of the chain | Required | - | `'11155111'` |
 | chain_name | `string` | Displayed name of the chain | Required | - | `'Sepolia Testnet'` |
 | chain_logo | `string` | Chain logo URL. Image should be at least 40x40 px  | - | - | `'https://example.com/logo.svg'` |
