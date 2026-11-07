@@ -1,5 +1,6 @@
 {
   "api": {
+    "$comment": "Deployment data: launchpad service variables for the configured environment.",
     "buildArgs": {
       "SERVICE": "api",
       "BIN": "apid",

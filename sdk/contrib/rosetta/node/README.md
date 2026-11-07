@@ -30,3 +30,7 @@ The former `Dockerfile` and Compose entry points remain withdrawn.
 `Dockerfile.historical` is kept unchanged. The owning
 SDK domain must retire the old Makefile callers; integrating this explicit
 recipe into a new orchestration needs a separate qualified change.
+
+The [root-chain image, runtime configuration and archived-key boundary tests](../../../../tools/qualification/audit_repairs/test_repair_22_33_1358.py)
+check the recipe's actual instructions and committed build consumers. These
+source checks do not build the image or run Rosetta data/construction requests.

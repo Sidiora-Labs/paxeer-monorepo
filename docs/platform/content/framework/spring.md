@@ -38,6 +38,10 @@ layerx:
 
 The bundled `application.yaml` in the sample carries the full set.
 
+The `authorized-batch` configuration supplies a local compatibility verifier with caller-supplied batch facts, like `layerx receipt verify`. Use independently trusted facts; a successful compatibility check does not establish block commitment.
+
+A receipt is final once its block is committed. The network rungs are `submitted`, `receipted` and `committed`; `checkpoint-finalised` and `done-finalised` are retained API names for the `committed` rung. `settlement-anchored` and `paxeer-finalised` are never reached on the merged network. For finality, authenticate the block header and CometBFT commit, then verify transaction or state inclusion at the relevant height. See [Committed block evidence](https://github.com/Sidiora-Labs/paxeer-monorepo/blob/abc81fd2cead6b2b9d5612c6e09a6ab56f13c1ed/docs/site/docs/concepts/checkpoints.md#committed-block-evidence).
+
 ## The integration
 
 ```java sample=paid-endpoint-spring
@@ -79,7 +83,7 @@ mvn -q spring-boot:run
 
 | Capability | Layer | What that means here |
 |---|---|---|
-| Offline receipt verification | `protocol` | The filter verifies the receipt from its own bytes against the configured authorised batch. |
+| Offline receipt verification | `protocol` | The filter performs the local compatibility check against configured batch facts; finality requires committed block evidence. |
 | Atomic settlement | `protocol` | The payment behind a released resource happened whole or not at all. |
 | Receipt-gated resource release | `service` | The filter releases only against a verified receipt. |
 | Exactly-once fulfilment | `service` | In-memory by default. Not durable until you declare a durable repository bean. |

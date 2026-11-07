@@ -107,6 +107,8 @@ pub mod admission;
 pub mod aggregation;
 #[path = "../../../../../programs/crates/layerx-programs-ai-market/src/aggregation_codec.rs"]
 pub mod aggregation_codec;
+#[path = "../../../../../programs/crates/layerx-programs-ai-market/src/canary.rs"]
+pub mod canary;
 #[path = "../../../../../programs/crates/layerx-programs-ai-market/src/closure.rs"]
 pub mod closure;
 #[path = "../../../../../programs/crates/layerx-programs-ai-market/src/codec.rs"]
@@ -124,6 +126,20 @@ pub mod epoch;
 pub mod errors;
 #[path = "../../../../../programs/crates/layerx-programs-ai-market/src/evidence.rs"]
 pub mod evidence;
+#[path = "../../../../../programs/crates/layerx-programs-ai-market/src/evaluators"]
+pub mod evaluators {
+    #[path = "admission.rs"]
+    pub mod admission;
+    #[path = "authority.rs"]
+    pub mod authority;
+    #[path = "codec.rs"]
+    pub mod codec;
+    #[path = "model.rs"]
+    pub mod model;
+}
+#[cfg(target_arch = "wasm32")]
+#[path = "../../../../../programs/crates/layerx-programs-ai-market/src/guest_cell.rs"]
+mod guest_cell;
 #[path = "../../../../../programs/crates/layerx-programs-ai-market/src/host_adapter.rs"]
 pub mod host_adapter;
 #[path = "../../../../../programs/crates/layerx-programs-ai-market/src/policy.rs"]
@@ -144,6 +160,8 @@ pub mod reputation_transition;
 pub mod reward_math;
 #[path = "../../../../../programs/crates/layerx-programs-ai-market/src/rewards.rs"]
 pub mod rewards;
+#[path = "../../../../../programs/crates/layerx-programs-ai-market/src/rooms.rs"]
+pub mod rooms;
 #[path = "../../../../../programs/crates/layerx-programs-ai-market/src/roster.rs"]
 pub mod roster;
 #[path = "../../../../../programs/crates/layerx-programs-ai-market/src/state.rs"]
@@ -156,18 +174,11 @@ pub mod types;
 pub mod value_adapter;
 #[path = "../../../../../programs/crates/layerx-programs-ai-market/src/workers.rs"]
 pub mod workers;
-#[path = "../../../../../programs/crates/layerx-programs-ai-market/src/evaluators"]
-pub mod evaluators {
-    #[path = "admission.rs"]
-    pub mod admission;
-    #[path = "authority.rs"]
-    pub mod authority;
-    #[path = "codec.rs"]
-    pub mod codec;
-    #[path = "model.rs"]
-    pub mod model;
-}
 pub use errors::{ApplicationError, CodecResult};
+pub const MERGED_CHAIN_DOMAIN: [u8; 32] = [
+    0x62, 0xb6, 0xb1, 0x47, 0x34, 0xfa, 0x76, 0x9c, 0x3e, 0x0f, 0xbc, 0x94, 0xde, 0x49, 0x5a, 0x3d,
+    0x03, 0x8b, 0xe4, 0x9a, 0x25, 0x24, 0xb1, 0xc0, 0x71, 0xd7, 0x5d, 0x0a, 0x4e, 0xed, 0x71, 0xf6,
+];
 pub const SCHEMA_VERSION: u16 = 1;
 pub const SHARED_STATE_KEY: &[u8] = b"paxai/state/v1";
 pub const REWARDS_ACCOUNT_SEED: &[u8] = b"paxai/rewards/v1";
@@ -185,6 +196,10 @@ pub const MAX_TASKS: usize = 64;
 pub const MAX_RETAINED_EPOCHS: usize = 32;
 pub const MAX_PAYOUT_IDENTITIES: usize = 256;
 pub const MAX_CHUNK_BYTES: usize = 8_192;
+
+#[cfg(test)]
+#[path = "../../../../../programs/crates/layerx-programs-ai-market/tests/support/repair_478_fixture.rs"]
+mod repair_478_fixture;
 
 use layerx_indexer::{
     api,
@@ -591,7 +606,11 @@ fn node_root_and_explicit_chain_paths_reject_router_paths() {
             .to_string(),
         );
         let gateway = Gateway::start();
-        assert_eq!(gateway.rpc("eth_blockNumber", json!([]))["result"], "0xb");
+        let block_number = gateway.rpc("eth_blockNumber", json!([]));
+        if block_number["result"].is_null() {
+            eprintln!("node suffix {suffix:?}: eth_blockNumber response {block_number}");
+        }
+        assert_eq!(block_number["result"], "0xb");
         assert!(gateway
             .rpc("px_getCapabilities", json!([]))
             .get("error")

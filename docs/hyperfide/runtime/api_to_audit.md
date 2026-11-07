@@ -36,7 +36,7 @@ the synced `composer.provider` UI preference (Settings → Appearance →
 Composer), and with no composer plugin enabled no composer is shown. hyperfide platform's own
 composer is the bundled `plugins/composer` plugin (`hyperfide--composer`), built on
 this slot: core renders every composer through `ComposerBox`
-(`apps/app/src/components/promptbox/ComposerBox.tsx`), which resolves the
+(`apps/web/src/components/promptbox/ComposerBox.tsx`), which resolves the
 slot and provides the hooks below.
 
 The composer reads and writes the draft through `useComposer()`, the same
@@ -103,7 +103,7 @@ pasted hyperfide platform thread links into thread pills; hyperfide platform own
 its route shapes, id format and lookup batching, and core's initial-draft
 mention resolution shares the batching.
 
-The bundled composer is on the forkable list (`scripts/forkable-plugins.json`):
+The bundled composer is on the forkable list (`tools/workspace/forkable-plugins.json`):
 it imports only `@hyperfide/plugin-sdk`, npm packages and registry UI, and
 `pnpm check:plugin-forks plugins/composer` builds a copy outside this
 repository.
@@ -117,9 +117,9 @@ customizations, as before the move; @-mentions of the draft's own
 attachments are the composer's, since it holds the draft, so hyperfide platform's mention
 search returns none.
 
-`apps/app/src/components/promptbox/composer-contract.test.tsx` is the
+`apps/web/src/components/promptbox/composer-contract.test.tsx` is the
 contract table: hyperfide platform's composer and a minimal textarea composer
-(`apps/app/src/test/fixtures/minimal-composer.tsx`, public SDK only) each run
+(`apps/web/src/test/fixtures/minimal-composer.tsx`, public SDK only) each run
 on the thread composer, a running thread that steers on Enter, embedded
 thread chat, the queued and sent message editors and the New thread
 composer, mounted through the real surface components. It covers drafts,
@@ -740,7 +740,7 @@ policy at the server boundary.
 question below. The kit grows with a consumer, not ahead of one.
 
 `experimental_acpProviderBridge` is the generic Agent Client Protocol bridge a
-plugin re-exports, backed by `packages/provider-bridge-acp` (the official
+plugin re-exports, backed by `core/provider-bridge-acp` (the official
 `@agentclientprotocol/sdk` transport, turns for agent-started work, slash
 commands and session options as hyperfide platform thread state, elicitation forms as
 question cards, sign-in guidance from advertised auth methods). It launches
@@ -996,7 +996,7 @@ Docs: `backend-foundation.md`.
 stabilize.
 
 The server's data directory. Its only consumer is the Account Pool plugin,
-which keeps secret files under `plugins/<pluginId>/secrets/accounts`.
+which keeps secret files under `<dataDir>/plugins/<pluginId>/secrets/accounts`.
 
 Docs: `backend-foundation.md`.
 
@@ -1744,7 +1744,7 @@ resolves with that slot's `experimental_copyToClipboard` render option
 (default true).
 
 **Core callers.** The export is `copyToClipboard` from
-`apps/app/src/lib/clipboard.ts`. Core copies call it directly or through
+`apps/web/src/lib/clipboard.ts`. Core copies call it directly or through
 `copyToClipboardWithToast` and `useClipboardCopy`: `CopyButton`, the message
 action bar, file preview, terminal, and the Copy thread link thread action.
 
@@ -1777,7 +1777,7 @@ with an error toast, if it could not start. Completion and share-sheet
 cancellation are not reported. The test harness resolves `started` and records
 nothing.
 
-**Core callers.** The export is `saveFile` from `apps/app/src/lib/save-file.ts`,
+**Core callers.** The export is `saveFile` from `apps/web/src/lib/save-file.ts`,
 which file preview downloads, chat attachment links in the native shell
 (`ConversationAttachments`), and voice-input recording downloads call. The
 Tasks plugin's attachment cards call the SDK export.
@@ -1977,7 +1977,7 @@ creates the thread with `hyperfide platform.sdk.threads.spawn`, which owns filin
 attribution.
 
 **Core callers.** The New thread screen (`RootComposeView`) renders the same
-`apps/app/src/components/promptbox/NewThreadComposer.tsx`;
+`apps/web/src/components/promptbox/NewThreadComposer.tsx`;
 `PluginNewThreadComposer` adapts it for the SDK, and its round-trip tests
 (`PluginNewThreadComposer.test.tsx`, `new-thread-environment-seed.test.ts`)
 guard the seed mapping against the root composer's environment resolution.
@@ -2470,10 +2470,10 @@ stored in the `infoPanel.collapsedSections` preference under the core id or
 
 **Core callers.** `ThreadMetadataContent` renders the Info tab only through
 `ThreadInfoRows` and `ThreadInfoSections`
-(`apps/app/src/components/secondary-panel/info/ThreadInfoSlots.tsx`), which
+(`apps/web/src/components/secondary-panel/info/ThreadInfoSlots.tsx`), which
 merge `CORE_THREAD_INFO_ROWS` and `CORE_THREAD_INFO_SECTIONS` with plugin
 registrations. `experimental_DetailRow` is hyperfide platform's only label/value row
-(`DetailRow` in `apps/app/src/components/ui/detail-card.tsx`): all eleven core
+(`DetailRow` in `apps/web/src/components/ui/detail-card.tsx`): all eleven core
 rows and the commit dialog draw with it, and core's five sections draw with
 `InfoSection` and `InfoList`. The
 Automations plugin registers the Automations section. Contract tests:
@@ -2514,7 +2514,7 @@ section, and push-notifications registers Notifications. The SDK test fake
 throws when a menu `trigger` drops its props and ref.
 
 **Core callers.** hyperfide platform's own actions are `CORE_THREAD_ACTIONS`
-(`apps/app/src/lib/thread-actions/core-thread-actions.ts`), registered under
+(`apps/web/src/lib/thread-actions/core-thread-actions.ts`), registered under
 the reserved `hyperfide--core` owner. The header menu (`ThreadDetailView` →
 `ThreadDetailHeader`), `RootComposeMobileRecents`, and
 `ThreadArchiveCommandHandler` read the same registry, and the thread list's
@@ -3160,7 +3160,7 @@ host owns icons, colors, and labels, and the caller resolves the indicator.
 The SDK test fake exposes the props as `data-*` attributes.
 
 **Core callers.** `ThreadStatusGlyph`
-(`apps/app/src/components/thread/ThreadStatusGlyph.tsx`) is the SDK export
+(`apps/web/src/components/thread/ThreadStatusGlyph.tsx`) is the SDK export
 and the glyph in the thread search palette, the related threads info section,
 and mobile recents. The thread-list plugin draws its rows and collapsed-group
 rollups with it.
@@ -3431,11 +3431,11 @@ The GitHub PR Status plugin's keyed `pullRequests` read is the first producer: i
 
 `hyperfide platform.rpc.experimental_whileWatched(method, handler)` starts one producer for each distinct subscribed `{input}` or `{key}` read, and aborts it when its last client leaves or the plugin unloads. An app tab hidden for five seconds stops counting as a client until it is visible again. Register after the RPC method. Read identity uses canonical JSON and the encoded read is capped at 16 KiB. The server drops an oversized target from a subscribe message and keeps the rest, and the app doesn't send one. Every live app query hook holds a `plugin-read` subscription for its read, whether or not the method has a producer. Producers start and stop through the hub's watched-target registry, the path core uses for daemon git and thread-storage watching, thread timeline pushes and environment pull request checks.
 
-Stabilize after exercising producer cancellation, reload, reconnect and byte limits across additional consumers. In the app, core and plugin surfaces subscribe through the same `WebSocketManager` (`apps/app/src/lib/ws.ts`). The SDK has no watched-read API yet.
+Stabilize after exercising producer cancellation, reload, reconnect and byte limits across additional consumers. In the app, core and plugin surfaces subscribe through the same `WebSocketManager` (`apps/web/src/lib/ws.ts`). The SDK has no watched-read API yet.
 
 ## Retired `experimental_useSidebarThreadPullRequest` runtime member
 
-`experimental_useSidebarThreadPullRequest(threadId)` and its `PluginSidebarPullRequest` and `PluginSidebarThreadPullRequestState` types are gone from `@hyperfide/plugin-sdk/app`, the Plugin Guide and the authoring docs. Published bundles resolve `@hyperfide/plugin-sdk/app` exports by name on `globalThis.__hyperfidePluginRuntime.pluginSdkApp`, so the app installs `retiredPluginSdkAppMembers` (`apps/app/src/lib/plugin-sdk-app-impl.tsx`) next to the implementation. The member keeps its old shape, reads the GitHub PR Status plugin's `pullRequests` row for the thread's environment through the same `useEnvironmentPullRequest` hook core's banner and Info row use, and returns `{ isLoading: false, pullRequest: null }` when the plugin is disabled or the read fails. The name leaves only the typings. `hyperfide-plugin-build` keeps it in the `@hyperfide/plugin-sdk/app` runtime shim's export list (`RETIRED_PLUGIN_SDK_APP_EXPORTS` in `packages/plugin-build/src/build-plugin-app.ts`), so plugins that still import it build and run, because git-sourced marketplace plugins are built by hyperfide platform at install and update and path and builtin plugins rebuild when the SDK version changes. An import of it is a build warning carrying the replacement call: `hyperfide platform plugin build` and `hyperfide platform plugin dev` print it, and the server writes it to the plugin's log and the server log when it builds the plugin. Callers are marketplace plugins written against the old SDK (t3sidebar, dockside, gtd-sidebar, thread-inbox, radar-sidebar, hyperfide-sidebar, sidebar-plus, cursor-sidebar, switchboard, vantage, jb-flow, tinted-threads among them). Remove the runtime member and the shim entry only after those plugins have migrated.
+`experimental_useSidebarThreadPullRequest(threadId)` and its `PluginSidebarPullRequest` and `PluginSidebarThreadPullRequestState` types are gone from `@hyperfide/plugin-sdk/app`, the Plugin Guide and the authoring docs. Published bundles resolve `@hyperfide/plugin-sdk/app` exports by name on `globalThis.__hyperfidePluginRuntime.pluginSdkApp`, so the app installs `retiredPluginSdkAppMembers` (`apps/web/src/lib/plugin-sdk-app-impl.tsx`) next to the implementation. The member keeps its old shape, reads the GitHub PR Status plugin's `pullRequests` row for the thread's environment through the same `useEnvironmentPullRequest` hook core's banner and Info row use, and returns `{ isLoading: false, pullRequest: null }` when the plugin is disabled or the read fails. The name leaves only the typings. `hyperfide-plugin-build` keeps it in the `@hyperfide/plugin-sdk/app` runtime shim's export list (`RETIRED_PLUGIN_SDK_APP_EXPORTS` in `tools/plugin-build/src/build-plugin-app.ts`), so plugins that still import it build and run, because git-sourced marketplace plugins are built by hyperfide platform at install and update and path and builtin plugins rebuild when the SDK version changes. An import of it is a build warning carrying the replacement call: `hyperfide platform plugin build` and `hyperfide platform plugin dev` print it, and the server writes it to the plugin's log and the server log when it builds the plugin. Callers are marketplace plugins written against the old SDK (t3sidebar, dockside, gtd-sidebar, thread-inbox, radar-sidebar, hyperfide-sidebar, sidebar-plus, cursor-sidebar, switchboard, vantage, jb-flow, tinted-threads among them). Remove the runtime member and the shim entry only after those plugins have migrated.
 
 ## Unified tabs (`experimental_tab`)
 

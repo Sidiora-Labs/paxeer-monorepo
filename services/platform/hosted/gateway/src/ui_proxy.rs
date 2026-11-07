@@ -63,8 +63,8 @@ pub(super) fn beta_public() -> &'static Public {
         .get_or_init(|| {
             configured_public(
                 Some("api-mainnet-beta.paxeer.network".into()),
-                Some("https://explorer-frontend-production-6eef.up.railway.app".into()),
-                Some("https://explorer-backend-production-6fc2.up.railway.app".into()),
+                Some("https://explorer-frontend.example.net".into()),
+                Some("https://explorer-backend.example.net".into()),
             )
             .ok()
             .flatten()
@@ -1661,20 +1661,20 @@ mod tests {
         assert!(configured_public(
             None,
             None,
-            Some("https://explorer-backend-production-6fc2.up.railway.app".into())
+            Some("https://explorer-backend.example.net".into())
         )
         .is_err());
         let public = configured_public(
             Some("api-mainnet-beta.paxeer.network".into()),
-            Some("https://explorer-frontend-production-6eef.up.railway.app".into()),
-            Some("https://explorer-backend-production-6fc2.up.railway.app".into()),
+            Some("https://explorer-frontend.example.net".into()),
+            Some("https://explorer-backend.example.net".into()),
         )
         .unwrap()
         .unwrap();
         assert_eq!(public.origin, "https://api-mainnet-beta.paxeer.network");
         assert_eq!(
             public.explorer_backend.as_deref(),
-            Some("https://explorer-backend-production-6fc2.up.railway.app")
+            Some("https://explorer-backend.example.net")
         );
         for host in [
             "api-mainnet-beta.paxeer.network:8443",
