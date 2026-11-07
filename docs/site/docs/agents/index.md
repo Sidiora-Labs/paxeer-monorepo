@@ -2,7 +2,7 @@
 
 The LayerX Agent Interface is the Rust interaction layer through which
 autonomous agents reach the protocol
-(`spec/.beta/layerx-agent-interface/spec.kvx`). It never invents or directly
+(`services/agent/crates/layerx-sdk/src/lib.rs`). It never invents or directly
 changes protocol state. Every mutation becomes canonical signed LayerX bytes
 submitted to the core. Every claimed result is backed by a core-produced
 receipt or proof that this layer verified for itself.

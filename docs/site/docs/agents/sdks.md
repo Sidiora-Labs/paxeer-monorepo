@@ -1,16 +1,16 @@
 # SDKs
 
-The platform specification (`spec/layerx-platform/spec.kvx`, decision
-`sdk_single_schema` and requirement 24) requires every SDK — Rust, TypeScript,
-Python, Go, Java/Kotlin, Swift, C# — to be produced from the same `agent-api`
-and `human-api` schemas in the same build. Idiom differs per language. Wire
-behaviour, error taxonomy, and receipt verification are identical.
-Hand-editing generated output is a build failure.
+`sdk/platform/pipeline.kvx` records the shared `agent-api`, `human-api`, and
+mirror schemas, their generators, and the Rust, TypeScript, Python, Go, JVM,
+Swift, and C# outputs. Language idioms differ; shared wire shapes, errors,
+and receipt verification are checked through `sdk/platform/conformance`.
+Regeneration checks reject hand edits to generated output.
 
-The agent-interface specification authors the Rust SDK and generates
-TypeScript and Python from the same contract schema
-(`spec/.beta/layerx-agent-interface/spec.kvx`, decision `sdk_generation`).
-The platform specification extends that family with Go, JVM, Swift, and C#.
+The Rust SDK is authored in `services/agent/crates/layerx-sdk/src/lib.rs`.
+`services/agent/tools/sdk-gen` generates TypeScript and Python bindings and
+shared Rust types from `services/agent/schema/agent-api/v1.kvx`.
+`sdk/platform/generators` supplies the other language outputs recorded in
+the pipeline.
 
 ## Trees in this repository
 
@@ -47,17 +47,17 @@ JSON-RPC methods are [Public JSON-RPC](../platform/gateway-rpc.md).
 
 ## Publication (beta)
 
-The beta specification (`spec/layerx-beta/spec.kvx`, requirement 8) requires
-the release workflow to publish every declared ecosystem under a beta
-pre-release version with digest, signature, SBOM, and provenance attestation.
+The release workflow in `.github/workflows/platform.yml` publishes each
+declared ecosystem under a beta pre-release version with digest, signature,
+SBOM, and provenance attestation.
 The artifact manifest is the only list of installable artifacts. Until that
 gate is recorded on a named release-candidate revision, treat published
 package versions as unspecified here.
 
 ## Status
 
-The seven language trees are present. Cross-language parity, the ten-line
-integration benchmark, and the five-minute first-payment gate are platform
-qualification requirements (`spec/layerx-platform/spec.kvx`). The beta
-feature records those as executed-evidence gates; they are not claimed as
-passed from this documentation.
+The seven language trees are present. Cross-language parity is checked in
+`sdk/platform/conformance`. `tools/qualification/beta_driver.py` measures
+the ten-line integration benchmark and the five-minute first-payment
+journey. Each result needs execution evidence for a named revision; this
+page does not claim those checks have passed.

@@ -1,5 +1,6 @@
 *
 !apps/explorer
+!docs/explorer/ENVS.md
 apps/explorer/node_modules
 **/node_modules
 apps/explorer/node_modules_linux

@@ -420,4 +420,4 @@ custody, or handle real assets.
 
 ---
 
-Paxeer X Network is developed by [Sidiora Labs](https://github.com/Sidiora-Labs/Paxeer-X-Network).
+Paxeer X Network is developed by [Sidiora Labs](https://github.com/Sidiora-Labs/paxeer-monorepo).

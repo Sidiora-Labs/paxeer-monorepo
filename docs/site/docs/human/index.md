@@ -1,9 +1,11 @@
 # Human control plane
 
-The human control plane is specified in `spec/layerx-platform/spec.kvx`
-(requirements 1–23, carried from the superseded human-interface feature).
-It is custodial by default. Passkey-first authentication. Primary keys never
-leave the KMS-backed keystore.
+The human control plane is implemented in
+`services/human/crates/layerx-human-service`. It is custodial by default.
+Passkey assertions are verified in
+`services/human/crates/layerx-human-identity-provider/src/assertion.rs`.
+Primary keys remain in the protected keystore implemented by
+`services/human/crates/layerx-human-kms`.
 
 | Topic | Page |
 | --- | --- |

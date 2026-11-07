@@ -36,7 +36,9 @@ execution status as well as inclusion: a reverted transaction may be committed
 without making a successful payment.
 
 The former `executed`, `batched` and `finalised` submission contract is retired.
-`lx_sendActivity` and the old `lx_` proof/status methods are retired; the gateway returns `-32601` for them.
+`lx_sendActivity`, `lx_getActivityStatus`, `lx_getReceipt` and the old `lx_`
+proof/status methods are retired; the node and gateway return `-32601`
+(Method not found) for them.
 The separate sequencer service and guarantor finality model are retired.
 
 ## Verifying committed evidence

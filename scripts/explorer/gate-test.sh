@@ -7,7 +7,8 @@
 # services/explorer/deploy/tools/mix-in-builder.sh, one invocation per umbrella
 # application so that each of them gets a database sidecar and a virtual
 # machine of its own, and then the frontend type check and the frontend vitest
-# suite from apps/explorer. Run it from anywhere:
+# suite from apps/explorer, followed by all three Rust workspaces. Run it from
+# anywhere:
 #
 #   scripts/explorer/gate-test.sh
 #   scripts/explorer/gate-test.sh --check
@@ -57,10 +58,11 @@ Usage: scripts/explorer/gate-test.sh [--check]
 
 Runs the explorer test gate: the backend Paxeer X suites through the pinned
 Elixir builder with a database sidecar of its own, then the frontend type check
-and the frontend vitest suite.
+and the frontend vitest suite, followed by the libs, smart-contract-verifier
+and sig-provider Rust workspace tests. Rust database tests use DATABASE_URL.
 
   --check     validate this script, the container runtime, the builder image
-              recipe, the node toolchain and the three lint scripts, then exit
+              recipe, the node and Rust toolchains and the three lint scripts, then exit
               without running a suite
   -h, --help  print this usage
 
@@ -194,11 +196,20 @@ check_toolchain() {
   command -v node >/dev/null 2>&1 || die 'node is not on PATH'
   command -v yarn >/dev/null 2>&1 || die 'yarn is not on PATH'
   [ -f "$frontend_dir/package.json" ] || die "$frontend_dir/package.json does not exist"
-  for frontend_script in lint:tsc test:vitest; do
+  for frontend_script in lint:tsc test:vitest:ci; do
     grep -q "\"$frontend_script\":" "$frontend_dir/package.json" ||
       die "the frontend declares no $frontend_script script"
   done
   log 'the node toolchain and the frontend scripts resolve'
+
+  command -v cargo >/dev/null 2>&1 || die 'cargo is not on PATH'
+  for service in libs smart-contract-verifier sig-provider; do
+    for manifest in Cargo.toml Cargo.lock; do
+      [ -f "$repo_root/services/explorer/services/$service/$manifest" ] ||
+        die "the $service workspace has no $manifest"
+    done
+  done
+  log 'the Rust toolchain and all three workspace manifests and lockfiles resolve'
 
   for lint_script in lint-backend.sh lint-frontend.sh lint-services.sh; do
     [ -x "$script_dir/$lint_script" ] ||
@@ -286,9 +297,11 @@ run_leg frontend-install 'frontend dependency' "$frontend_dir" \
 run_leg frontend-tsc 'frontend type check' "$frontend_dir" \
   env HUSKY=0 yarn lint:tsc
 run_leg frontend-vitest 'frontend vitest' "$frontend_dir" \
-  env HUSKY=0 yarn test:vitest run
-run_leg sig-provider 'sig-provider workspace tests' "$repo_root" \
-  cargo test --locked --manifest-path services/explorer/services/sig-provider/Cargo.toml --workspace
+  env HUSKY=0 yarn test:vitest:ci
+for service in libs smart-contract-verifier sig-provider; do
+  run_leg "$service" "$service workspace tests" "$repo_root/services/explorer/services/$service" \
+    cargo test --locked --workspace
+done
 
-log 'the backend Paxeer X suites, the frontend type check, the frontend vitest suite and the sig-provider workspace tests passed'
+log 'the backend Paxeer X suites, the frontend type check, the frontend vitest suite and all three Rust workspace test suites passed'
 log "logs: $log_dir"

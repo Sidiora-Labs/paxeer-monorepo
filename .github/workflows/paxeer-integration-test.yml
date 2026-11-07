@@ -67,7 +67,6 @@ on:
       - 'docs/paxeer-network.md'
       - 'docs/paxeer-chain-docs.md'
       - 'scripts/**'
-      - '!scripts/PaxeerBetaDeploy.s.sol'
       - '!scripts/qualify-mirror-live.sh'
       - '!scripts/qualify-mirror-verification-live.sh'
       - '.github/workflows/paxeer-integration-test.yml'
@@ -136,7 +135,6 @@ on:
       - 'docs/paxeer-network.md'
       - 'docs/paxeer-chain-docs.md'
       - 'scripts/**'
-      - '!scripts/PaxeerBetaDeploy.s.sol'
       - '!scripts/qualify-mirror-live.sh'
       - '!scripts/qualify-mirror-verification-live.sh'
       - '.github/workflows/paxeer-integration-test.yml'
@@ -148,7 +146,7 @@ on:
       - release/**
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event_name == 'push' && github.sha || github.ref }}
   cancel-in-progress: true
 
 defaults:

@@ -51,7 +51,10 @@ pub(super) fn verify_context(peer: &HumanPeer, value: &Value) -> Result<(), Huma
         || value["owner_did"].as_str() != Some(subject.owner.as_str())
         || value["account_id"].as_str() != Some(hex(&account_id).as_str())
         || value["asset_id"].as_str() != Some(hex(&subject.asset).as_str())
-        || value["verification_level"].as_str() != Some("checkpoint_finalised")
+        || !matches!(
+            value["verification_level"].as_str(),
+            Some("committed" | "checkpoint_finalised" | "settlement_anchored")
+        )
         || value["observed_head_sequence"]
             .as_u64()
             .is_none_or(|sequence| sequence == 0)

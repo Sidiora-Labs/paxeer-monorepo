@@ -244,11 +244,12 @@ func (c *ChainConfig) NativeAsset() Asset { return c.Assets[0] }
 // document in the file and everything Validate refuses. Every refusal names
 // the file and the field.
 func Load(path string) (*ChainConfig, error) {
-	file, err := os.Open(path)
+	file, err := os.Open(filepath.Clean(path))
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", path, err)
 	}
-	defer file.Close()
+	// The file is read-only; decoding reports read errors.
+	defer func() { _ = file.Close() }()
 
 	config := &ChainConfig{path: path}
 	decoder := json.NewDecoder(file)

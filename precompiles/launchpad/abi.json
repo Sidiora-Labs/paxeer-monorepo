@@ -2587,7 +2587,6 @@
     "stateMutability": "view",
     "type": "function"
   },
-
   {
     "anonymous": false,
     "inputs": [
@@ -3206,7 +3205,6 @@
     "name": "TokenDeployed",
     "type": "event"
   },
-
   {
     "inputs": [
       {

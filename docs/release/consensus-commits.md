@@ -6,7 +6,7 @@ The release identity belongs in
 tracks consensus-changing commits by their full Git hash, state-machine change,
 non-test consensus paths and coordinated upgrade, retaining the historical ledger.
 
-Under decision.1906, a binary containing a listed commit is **never rolled out
+A binary containing a listed commit is **never rolled out
 node by node**. Follow the [governance upgrade procedure](../../RELEASE.md):
 every validator and full node halts at the agreed plan height and restarts on
 the same release binary. The governance plan supplies the height; this ledger
