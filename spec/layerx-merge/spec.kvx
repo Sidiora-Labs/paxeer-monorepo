@@ -181863,7 +181863,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.140]
 title = "Make the ramp payment direction test assert the payment authority the payer grant draw targets"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -334762,7 +334762,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.51]
 title = "Pin each GitHub action to one release across all public checks"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.39.41"]
