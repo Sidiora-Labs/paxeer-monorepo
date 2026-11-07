@@ -92,6 +92,20 @@ registry_builder_context_prepare() {
     printf '%s/context' "$stage/prepared"
 }
 
+image_base_refs() {
+    local canonical dockerfile
+    read -r canonical dockerfile <<<"$(image_source "$1")"
+    awk '
+        toupper($1) == "FROM" {
+            field = 2
+            while ($field ~ /^--/) field++
+            base = $field
+            if (tolower(base) != "scratch" && !(tolower(base) in stages)) print base
+            if (toupper($(field + 1)) == "AS") stages[tolower($(field + 2))] = 1
+        }
+    ' "${REPO_ROOT:-.}/$dockerfile"
+}
+
 image_target() {
     # image_target NAME: the name of the last (runtime) stage of a multi-stage Dockerfile, empty otherwise
     local canonical dockerfile

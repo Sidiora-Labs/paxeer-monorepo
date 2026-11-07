@@ -1,4 +1,4 @@
-FROM node:22-bookworm-slim AS build
+FROM node:22.22.0-bookworm-slim@sha256:dd9d21971ec4395903fa6143c2b9267d048ae01ca6d3ea96f16cb30df6187d94 AS build
 ENV COREPACK_HOME=/corepack
 ENV COREPACK_ENABLE_DOWNLOAD_PROMPT=0
 RUN corepack enable && corepack prepare pnpm@10.34.9 --activate
@@ -13,7 +13,7 @@ COPY services/wallet/gateway/migrations ./gateway/migrations
 RUN pnpm --filter ./gateway run build
 RUN find . -name node_modules -type d -prune -exec rm -rf {} + && pnpm install --frozen-lockfile --prod --filter ./gateway...
 
-FROM node:22-bookworm-slim
+FROM node:22.22.0-bookworm-slim@sha256:dd9d21971ec4395903fa6143c2b9267d048ae01ca6d3ea96f16cb30df6187d94
 ARG RAILWAY_GIT_COMMIT_SHA
 ARG SOURCE_REVISION=$RAILWAY_GIT_COMMIT_SHA
 ARG SOURCE_TREE
