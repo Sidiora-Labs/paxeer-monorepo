@@ -118,10 +118,10 @@ identify frozen workload definitions only. Capacity and release qualification
 remain false without actual final evidence. The root programme owns the reviewed
 freeze/final task mapping; this repair does not invent one.
 
-The repair qualification command is:
+Set `TASK_ID` to the repair being qualified, then run:
 
 ```sh
-python3 tools/launchpad/production/qualify.py --task 22.33.965 \
+python3 tools/launchpad/production/qualify.py --task "$TASK_ID" \
   --spec spec/layerx-merge/spec.kvx --require-current-source
 ```
 
