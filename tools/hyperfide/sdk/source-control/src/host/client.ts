@@ -13,6 +13,12 @@ export interface WorkspaceBudgets {
   materialized_bytes: number;
   dirty_bytes: number;
 }
+export interface DependencyClosureManifest {
+  schema_version: 1;
+  state: "INCOMPLETE";
+  dependencies: string[];
+  reason: "DEPENDENCY_ANALYSIS_UNAVAILABLE";
+}
 export interface WorkspaceDescriptor {
   schema_version: 1;
   scope: SourceScope;
@@ -27,6 +33,10 @@ export interface WorkspaceDescriptor {
   write_paths: string[];
   checkpoint_revision_id: string | null;
   budgets: WorkspaceBudgets;
+  dependency_closure_manifest: DependencyClosureManifest;
+}
+export interface WorkspaceAdmission extends WorkspaceDescriptor {
+  admission: { state: "OPEN" };
 }
 export interface SourceEntry {
   name: string;
@@ -181,6 +191,19 @@ function validateDescriptor(value: WorkspaceDescriptor): WorkspaceDescriptor {
         "WORKSPACE_BUDGET",
         "Explicit nonnegative integer workspace budgets required",
       );
+  const closure = value.dependency_closure_manifest;
+  if (
+    !closure ||
+    closure.schema_version !== 1 ||
+    closure.state !== "INCOMPLETE" ||
+    closure.reason !== "DEPENDENCY_ANALYSIS_UNAVAILABLE" ||
+    !Array.isArray(closure.dependencies) ||
+    closure.dependencies.length !== 0
+  )
+    workspaceError(
+      "WORKSPACE_DESCRIPTOR",
+      "Explicit incomplete dependency closure required",
+    );
   return value;
 }
 export class NativeWorkspaceClient {
@@ -198,7 +221,7 @@ export class NativeWorkspaceClient {
     },
     operationId: string = randomUUID(),
     signal?: AbortSignal,
-  ): Promise<WorkspaceDescriptor> {
+  ): Promise<WorkspaceAdmission> {
     const r = await this.transport.call<{
       workspace: WorkspaceDescriptor;
       admission: { state: string };
@@ -212,7 +235,7 @@ export class NativeWorkspaceClient {
         "WORKSPACE_ADMISSION",
         "Workspace admission was not acknowledged",
       );
-    return validateDescriptor(r.workspace);
+    return { ...validateDescriptor(r.workspace), admission: { state: "OPEN" } };
   }
   async detail(
     workspaceId: string,
@@ -320,6 +343,29 @@ export class NativeWorkspaceClient {
       );
     return { object_id: objectId, kind: r.kind, payload: bytes };
   }
+  async inspectObject(
+    objectId: string,
+    kind: string,
+    signal?: AbortSignal,
+  ): Promise<boolean> {
+    assertObjectId(objectId);
+    const result = await this.transport.call<{
+      object_id: string;
+      kind: string;
+      state: string;
+    } | null>(
+      "source.objects.inspect",
+      { object_id: objectId },
+      { ...(signal ? { signal } : {}) },
+    );
+    if (result === null) return false;
+    if (result.object_id !== objectId || result.kind !== kind)
+      workspaceError(
+        "OBJECT_INTEGRITY",
+        "Object inspection names different content",
+      );
+    return result.state === "VERIFIED";
+  }
   async putObject(
     kind: "blob" | "chunk" | "file",
     payload: Buffer,
@@ -339,32 +385,31 @@ export class NativeWorkspaceClient {
       );
     return expected;
   }
-  async putFile(bytes: Buffer, signal?: AbortSignal): Promise<string> {
+  async putFile(
+    bytes: Buffer,
+    signal?: AbortSignal,
+    put: (
+      kind: "blob" | "chunk" | "file",
+      payload: Buffer,
+    ) => Promise<string> = (kind, payload) =>
+      this.putObject(kind, payload, undefined, signal),
+  ): Promise<string> {
     const chunkSize = 4 * 1024 * 1024;
     let content: unknown;
-    if (bytes.length <= chunkSize)
-      content = [
-        "blob",
-        await this.putObject("blob", bytes, undefined, signal),
-      ];
+    if (bytes.length <= chunkSize) content = ["blob", await put("blob", bytes)];
     else {
       const chunks: [string, string][] = [];
       for (let offset = 0; offset < bytes.length; offset += chunkSize) {
         const chunk = bytes.subarray(offset, offset + chunkSize);
-        chunks.push([
-          await this.putObject("chunk", chunk, undefined, signal),
-          String(chunk.length),
-        ]);
+        chunks.push([await put("chunk", chunk), String(chunk.length)]);
       }
       content = ["chunks", chunks];
     }
-    return this.putObject(
+    return put(
       "file",
       Buffer.from(
         JSON.stringify([1, String(bytes.length), rawDigest(bytes), content]),
       ),
-      undefined,
-      signal,
     );
   }
   checkpoint(
