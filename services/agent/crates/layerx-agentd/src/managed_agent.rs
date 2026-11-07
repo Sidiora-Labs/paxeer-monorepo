@@ -589,7 +589,7 @@ pub fn evidence_export(
                 activity_id: evidence.metadata.transaction_hash,
                 idempotency_key: evidence.metadata.transaction_hash,
                 global_sequence: protocol.global_sequence(),
-                verification_level: VerificationLevel::CHECKPOINT_FINALISED,
+                verification_level: VerificationLevel::COMMITTED,
                 result: crate::receipt::classify(layerx_types::result::ResultCode::from_raw(
                     protocol.result_code(),
                 )),
@@ -705,6 +705,14 @@ pub fn record_observation(
         .put_local(record, bytes)
         .map_err(|_| HumanOperationError::Unavailable)
 }
+// Persisted key-policy observations predate the current committed wire rank.
+fn decode_key_policy_verification(rank: u8) -> Result<VerificationLevel, HumanOperationError> {
+    match rank {
+        4 | 5 => Ok(VerificationLevel::COMMITTED),
+        rank => VerificationLevel::from_wire_rank(rank).map_err(|_| HumanOperationError::Refused),
+    }
+}
+
 fn budget_observation(
     store: &Store,
     tenant: &TenantId,
@@ -787,9 +795,7 @@ fn key_policy_observation(
                 .ok_or(HumanOperationError::Refused)?
         || effective == 0
         || observed < effective
-        || VerificationLevel::from_wire_rank(verification)
-            .map_err(|_| HumanOperationError::Refused)?
-            != VerificationLevel::COMMITTED
+        || decode_key_policy_verification(verification)? != VerificationLevel::COMMITTED
         || observed_digest != digest
         || checkpoint == [0; 32]
         || maximum_age == 0

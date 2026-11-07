@@ -32,6 +32,14 @@ def default_source_migrations():
         selected = eligible
 
 
+def source_node_binary():
+    override = os.environ.get('HYPERFIDE_NODE_BINARY')
+    node = shutil.which(override or 'node')
+    if not node:
+        raise RuntimeError('CAPABILITY_MISSING: set HYPERFIDE_NODE_BINARY to an executable Node binary or install node on PATH')
+    return node
+
+
 def run_source_actor(actor_path, migrations=None, timeout=120, extra_files=(), actor_env=None):
     database = os.environ.get('DATABASE_URL', '')
     if not database:
@@ -71,8 +79,10 @@ def run_source_actor(actor_path, migrations=None, timeout=120, extra_files=(), a
         selected_migrations = default_source_migrations() if migrations is None else list(migrations)
         if migrations is not None and '0737-source-control-metadata.sql' in selected_migrations and '0758-source-control-event-retention.sql' not in selected_migrations:
             selected_migrations.append('0758-source-control-event-retention.sql')
+        if Path(actor_path).name == 'native_source_sparse_fixture.mjs':
+            selected_migrations = sorted(set(selected_migrations) | set(default_source_migrations()))
         env = dict(os.environ, **(actor_env or {}), SOURCE_CONTROL_MODULE_ROOT=str(folder / 'control/source_control'),
                    SOURCE_CONTROL_SDK_MODULE_ROOT=str(folder / 'sdk'),
                    SOURCE_CONTROL_MIGRATIONS=json.dumps(selected_migrations))
-        return subprocess.run(['node', str(Path(actor_path).resolve()), str(folder / 'control/source_control')],
+        return subprocess.run([source_node_binary(), str(Path(actor_path).resolve()), str(folder / 'control/source_control')],
                               cwd=ROOT, env=env, timeout=timeout).returncode

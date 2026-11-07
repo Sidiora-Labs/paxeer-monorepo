@@ -70,12 +70,12 @@ func (c *flyClient) machinesURL(suffix string, query url.Values) string {
 }
 
 func (c *flyClient) listMachines(ctx context.Context) ([]machine, error) {
-	resp, body, err := c.do(ctx, http.MethodGet, c.machinesURL("", nil), nil)
+	status, body, err := c.do(ctx, http.MethodGet, c.machinesURL("", nil), nil)
 	if err != nil {
 		return nil, err
 	}
-	if resp.StatusCode != http.StatusOK {
-		return nil, newAPIError(resp.Request, resp.StatusCode, body)
+	if status != http.StatusOK {
+		return nil, flyAPIError(http.MethodGet, c.machinesURL("", nil), status, body)
 	}
 	var machines []machine
 	if err := json.Unmarshal(body, &machines); err != nil {
@@ -89,12 +89,12 @@ func (c *flyClient) createMachine(ctx context.Context, request createMachineRequ
 	if err != nil {
 		return machine{}, err
 	}
-	resp, body, err := c.do(ctx, http.MethodPost, c.machinesURL("", nil), payload)
+	status, body, err := c.do(ctx, http.MethodPost, c.machinesURL("", nil), payload)
 	if err != nil {
 		return machine{}, err
 	}
-	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
-		return machine{}, newAPIError(resp.Request, resp.StatusCode, body)
+	if status != http.StatusOK && status != http.StatusCreated {
+		return machine{}, flyAPIError(http.MethodPost, c.machinesURL("", nil), status, body)
 	}
 	var created machine
 	if err := json.Unmarshal(body, &created); err != nil {
@@ -104,24 +104,24 @@ func (c *flyClient) createMachine(ctx context.Context, request createMachineRequ
 }
 
 func (c *flyClient) destroyMachine(ctx context.Context, id string) error {
-	resp, body, err := c.do(ctx, http.MethodDelete, c.machinesURL("/"+url.PathEscape(id), url.Values{"force": {"true"}}), nil)
+	status, body, err := c.do(ctx, http.MethodDelete, c.machinesURL("/"+url.PathEscape(id), url.Values{"force": {"true"}}), nil)
 	if err != nil {
 		return err
 	}
-	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusNotFound {
-		return newAPIError(resp.Request, resp.StatusCode, body)
+	if status != http.StatusOK && status != http.StatusNotFound {
+		return flyAPIError(http.MethodDelete, c.machinesURL("/"+url.PathEscape(id), url.Values{"force": {"true"}}), status, body)
 	}
 	return nil
 }
 
-func (c *flyClient) do(ctx context.Context, method, target string, payload []byte) (*http.Response, []byte, error) {
+func (c *flyClient) do(ctx context.Context, method, target string, payload []byte) (int, []byte, error) {
 	var reader io.Reader
 	if payload != nil {
 		reader = bytes.NewReader(payload)
 	}
 	req, err := http.NewRequestWithContext(ctx, method, target, reader)
 	if err != nil {
-		return nil, nil, err
+		return 0, nil, err
 	}
 	req.Header.Set("Authorization", "Bearer "+c.token)
 	req.Header.Set("Accept", "application/json")
@@ -131,12 +131,21 @@ func (c *flyClient) do(ctx context.Context, method, target string, payload []byt
 	}
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		return nil, nil, fmt.Errorf("%s %s: %w", method, req.URL.Path, err)
+		return 0, nil, fmt.Errorf("%s %s: %w", method, req.URL.Path, err)
 	}
+	defer func() { _ = resp.Body.Close() }()
 	body, err := io.ReadAll(io.LimitReader(resp.Body, maxResponseBytes))
-	resp.Body.Close()
 	if err != nil {
-		return nil, nil, fmt.Errorf("%s %s: read body: %w", method, req.URL.Path, err)
+		return 0, nil, fmt.Errorf("%s %s: read body: %w", method, req.URL.Path, err)
 	}
-	return resp, body, nil
+	return resp.StatusCode, body, nil
+}
+
+// flyAPIError retains request details without returning ownership of a response.
+func flyAPIError(method, target string, status int, body []byte) error {
+	req, err := http.NewRequest(method, target, nil)
+	if err != nil {
+		return err
+	}
+	return newAPIError(req, status, body)
 }

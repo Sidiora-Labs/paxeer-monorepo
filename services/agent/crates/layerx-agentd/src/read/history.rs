@@ -144,7 +144,16 @@ impl HistoryPage {
         if account.is_empty() {
             return Err(HistoryReadError::Malformed);
         }
-        let cursor_text = cursor.map(|position| position.to_hex());
+        // The account cursor is exclusive, so this position skips every older
+        // row without consuming a page or splitting the first selected group.
+        let forward = cursor.or_else(|| {
+            from_height.checked_sub(1).map(|block_height| Cursor {
+                block_height,
+                tx_index: u32::MAX,
+                log_index: u32::MAX,
+            })
+        });
+        let cursor_text = forward.map(|position| position.to_hex());
         let page = layerx_client::rpc::history::history(
             endpoint,
             account,
@@ -152,7 +161,22 @@ impl HistoryPage {
             Some(limits.maximum_items),
         )
         .map_err(HistoryReadError::Sequencer)?;
-        Self::from_hosted(page, from_height, to_height, cursor, limits)
+        if page.account != account {
+            return Err(HistoryReadError::Malformed);
+        }
+        // Validate the entire served page, including rows beyond the requested
+        // upper bound, before projecting the finite range.
+        let mut page = Self::from_hosted(page, 0, u64::MAX, forward, limits)?;
+        if page
+            .items
+            .iter()
+            .any(|item| item.position.block_height > to_height)
+        {
+            page.next_cursor = None;
+        }
+        page.items
+            .retain(|item| (from_height..=to_height).contains(&item.position.block_height));
+        Ok(page)
     }
 
     /// Decodes the hosted producer's ascending block-position page, including
