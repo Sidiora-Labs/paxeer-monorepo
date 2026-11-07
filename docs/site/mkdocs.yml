@@ -82,7 +82,6 @@ nav:
       - Modules: protocol/modules.md
       - Data availability: protocol/data-availability.md
       - Commitment levels: protocol/commitment-levels.md
-      - Finality: protocol/finality.md
       - Sidiora: protocol/sidiora.md
       - Web search and xweb: protocol/xweb.md
   - Programs:

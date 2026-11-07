@@ -18,9 +18,10 @@ the same root; `px_register` and `px_requestFunds` are hosted identity and
 faucet operations defined in the gateway OpenRPC contract.
 The former router and separate LayerX interface are retired.
 
-The historical references below retain useful background, but their pre-merge
-execution/settlement split and LNI write transport are retired. Use the public
-node reference and checked-in gateway contract for current integrations.
+The index below includes current documentation and historical references. Rows
+marked historical retain useful background, but their pre-merge execution/settlement
+split and LNI write transport are retired. Use the public node reference and
+checked-in gateway contract for current integrations.
 
 | Path | Contents |
 | --- | --- |
@@ -44,8 +45,9 @@ node reference and checked-in gateway contract for current integrations.
 | [QUALIFICATION.md](QUALIFICATION.md) | Evidence levels layered by risk |
 | [Perps ABI change history](perps-abi-change-history.md) | Decision commit scope, the separate SDK implementation, and outstanding follow-up tasks |
 | [readme/](readme/) | Translations of the root README |
+| [release/7.0.0-upgrade-plan.md](release/7.0.0-upgrade-plan.md) | 7.0.0 release plan, with the [validator runbook](release/7.0.0-validator-runbook.md), [service operator runbook](release/7.0.0-service-operator-runbook.md) and [readiness checklist](release/7.0.0-readiness-checklist.md) |
 | [runbooks/paxeer-x-fork.md](runbooks/paxeer-x-fork.md) | Validator runbook for the Paxeer X upgrade of the chain |
-| [paxeer-network.md](paxeer-network.md) | Historical chain overview; the separate execution/settlement topology is retired |
+| [paxeer-network.md](paxeer-network.md) | Current merged-network overview for EVM chain ID `125` (`0x7d`) |
 | [paxeer-chain-docs.md](paxeer-chain-docs.md) | Chain documentation index: Swagger/OpenAPI and EVM JSON-RPC notes; pre-merge boundary descriptions are historical |
 | [evm_jsonrpc_unsupported.md](evm_jsonrpc_unsupported.md) | EVM JSON-RPC methods that are registered but return a documented error |
 | [swagger-ui/](swagger-ui/), [swagger/](swagger/) | Swagger UI assets, and the `statik.go` package that embeds them for `paxd` |
