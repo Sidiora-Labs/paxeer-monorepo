@@ -2,14 +2,15 @@ package app
 
 import (
 	"context"
+	"math/big"
 	"testing"
 	"time"
 
+	evmcfg "github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/config"
 	evmtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/node/benchmark"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/stretchr/testify/require"
-	"math/big"
 )
 
 func TestBenchmarkHelperMethods(t *testing.T) {
@@ -41,8 +42,10 @@ func TestBenchmarkHelperMethods(t *testing.T) {
 
 func TestInitBenchmark_PanicsOnLiveChainID(t *testing.T) {
 
-	chainID := "pacific-1"
-	liveEVMChainID := int64(1329) // pacific-1's EVM chain ID (live)
+	chainID := "hyperpax_125-1"
+	liveEVMChainID := int64(125)
+	require.Equal(t, liveEVMChainID, evmcfg.GetEVMChainID(chainID).Int64())
+	require.True(t, evmcfg.IsLiveEVMChainID(liveEVMChainID))
 
 	// Create a minimal App struct
 	app := &App{
@@ -52,7 +55,7 @@ func TestInitBenchmark_PanicsOnLiveChainID(t *testing.T) {
 	ctx := context.Background()
 
 	// Test that InitBenchmark panics with live chain ID
-	require.Panics(t, func() {
+	require.PanicsWithValue(t, "benchmark not allowed on live chains", func() {
 		app.InitBenchmark(ctx, chainID, liveEVMChainID)
 	}, "InitBenchmark should panic on live chain ID")
 
@@ -62,26 +65,18 @@ func TestInitBenchmark_PanicsOnLiveChainID(t *testing.T) {
 
 func TestInitBenchmark_AllLiveChainIDs(t *testing.T) {
 
-	liveChainIDs := []struct {
-		chainID     string
-		evmChainID  int64
-		description string
-	}{
-		{"pacific-1", 1329, "pacific-1"},
-		{"atlantic-2", 1328, "atlantic-2"},
-		{"arctic-1", 713715, "arctic-1"},
-	}
-
-	for _, tc := range liveChainIDs {
-		t.Run(tc.description, func(t *testing.T) {
+	require.NotEmpty(t, evmcfg.EVMChainIDMapping)
+	for evmChainID, chainID := range evmcfg.EVMChainIDMapping {
+		t.Run(chainID, func(t *testing.T) {
 			app := &App{
 				encodingConfig: MakeEncodingConfig(),
 			}
 			ctx := context.Background()
 
-			require.Panics(t, func() {
-				app.InitBenchmark(ctx, tc.chainID, tc.evmChainID)
-			}, "InitBenchmark should panic on live chain ID: %s", tc.description)
+			require.PanicsWithValue(t, "benchmark not allowed on live chains", func() {
+				app.InitBenchmark(ctx, chainID, evmChainID)
+			}, "InitBenchmark should panic on live chain ID: %s", chainID)
+			require.Nil(t, app.benchmarkManager)
 		})
 	}
 }
