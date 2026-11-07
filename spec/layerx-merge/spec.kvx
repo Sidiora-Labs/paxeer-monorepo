@@ -183183,7 +183183,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.555]
 title = "Repair the store fixtures of the read committed, session control and budget reservation tests and the middleware transcript case once their owning tasks land"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.31.539", "22.31.534", "22.31.550", "22.31.572", "22.31.614", "22.31.620"]
@@ -333312,7 +333312,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.67]
 title = "Remove the engineering-process instructions and internal gate ids from product READMEs, release docs and operator scripts"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 3
 requires = ["22.39.66"]
