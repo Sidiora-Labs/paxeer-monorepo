@@ -35089,3 +35089,35 @@ symbol = "f11_views.rs"
 observed = "Attempt 1 at 4140d2b8a2f5: build exit 0 at the final tree; the verification at the previous candidate 853d7ece98d5 failed the size assertion at 523935 bytes; the final tree measures 504844 bytes against the 484184 bound and the four f11 binaries never ran because both repair units were spent."
 assumption = "The techniques work and half the modules are done; the remaining large modules hold more than the missing bytes."
 severity = "high"
+
+[finding.22.39.76.3]
+task = "22.39.76"
+file = "tests/ci/test_core_test_all_wired.py"
+symbol = "test_core_test_all_wired.py"
+observed = "Attempt 3 at 230d5e312987: build exit 0; verification exit 2: both CI tests and the four ported suites passed, make core-test-all stopped at Makefile line 1233 (qualify-arith) with required qualification tool is unavailable: cbmc."
+assumption = "The proof tools are a documented prerequisite of the target the task wires; the public step and the gate name them and the job installs them."
+severity = "high"
+
+[finding.22.39.97.1]
+task = "22.39.97"
+file = "tests/ci/test_explorer_test_step.py"
+symbol = "test_explorer_test_step.py"
+observed = "Attempt 1 at 3286fc0c29eb: build exit 0; verification exit 2: both Python tests passed; 18 ExUnit failures, 17 with Tesla.Adapter.Mint unavailable under the application-local mix test form and one websocket termination case timing out after the lifecycle support change."
+assumption = "The verification form, not the dependency configuration, produced seventeen failures; the eighteenth is the task own support change."
+severity = "high"
+
+[finding.22.33.50.7]
+task = "22.33.50"
+file = "services/human/crates/layerx-human-service/tests/repair_22_33_50.rs"
+symbol = "repair_22_33_50.rs"
+observed = "Attempt 8 at 6a0da097460a: build exit 0; verification exit 101: the consensus case passed; both transport cases panicked at the checked helper with ReceiptStoreError::EvidenceVersion from evidence_inventory after persist_evidence wrote the legacy record."
+assumption = "The version-one persistence predates the committed ingress the attempt-7 ruling introduced; removing it completes the task."
+severity = "high"
+
+[finding.22.31.623.3]
+task = "22.31.623"
+file = "tests/ci/test_qualification_suites_collect.py"
+symbol = "test_qualification_suites_collect.py"
+observed = "Attempt 3 at 9b83f21f4914: build exit 0; verification exit 1: 23 failed, 4427 passed, 12 skipped after two repair cycles that settled 80 cases; the collect test never ran."
+assumption = "The remaining cases are named and bounded; one more pass settles them under the same rules."
+severity = "high"
