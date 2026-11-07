@@ -1,12 +1,12 @@
 name: Paxeer / Create and Push Docker Image
 
 on:
-  push:
-    tags:
-    - 'paxeer-network/v[0-9]+.[0-9]+.[0-9]+' # ignore rc
+  workflow_run:
+    workflows: ['Paxeer / Release Publish']
+    types: [completed]
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.event.workflow_run.head_sha }}
   cancel-in-progress: false
 
 defaults:
@@ -18,14 +18,19 @@ permissions:
 
 jobs:
   pax-images:
+    if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push'
     runs-on: ubuntu-latest
     permissions:
       packages: write
-      contents: read
+      contents: write
     steps:
       -
         name: Check out the repo
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          fetch-depth: 0
+          persist-credentials: false
       -
         name: Set up QEMU
         uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130 # v3
@@ -51,14 +56,42 @@ jobs:
         name: Parse tag
         id: tag
         run: |
-          VERSION=${GITHUB_REF_NAME#paxeer-network/v}
+          set -euo pipefail
+          release_version=$(jq -er '.version' tools/release/version.json)
+          RELEASE_TAG="paxeer-network/$release_version"
+          test "$(git rev-parse "refs/tags/$RELEASE_TAG^{commit}")" = "$(git rev-parse HEAD)"
+          VERSION=${RELEASE_TAG#paxeer-network/v}
+          [[ "$VERSION" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]
           MAJOR_VERSION=$(echo $VERSION | cut -d '.' -f 1)
           MINOR_VERSION=$(echo $VERSION | cut -d '.' -f 2)
           PATCH_VERSION=$(echo $VERSION | cut -d '.' -f 3)
           echo "VERSION=$VERSION" >> $GITHUB_ENV
+          echo "RELEASE_TAG=$RELEASE_TAG" >> $GITHUB_ENV
           echo "MAJOR_VERSION=$MAJOR_VERSION" >> $GITHUB_ENV
           echo "MINOR_VERSION=$MINOR_VERSION" >> $GITHUB_ENV
           echo "PATCH_VERSION=$PATCH_VERSION" >> $GITHUB_ENV
+      - name: Download and verify released paxd and runtime libraries
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          asset="paxd-v${VERSION}-linux-amd64"
+          assets="$RUNNER_TEMP/paxd-release"
+          libraries=(libwasmvm.x86_64.so libwasmvm152.x86_64.so libwasmvm155.x86_64.so)
+          gh release download "$RELEASE_TAG" --dir "$assets" \
+            --pattern "$asset" --pattern SHA256SUMS \
+            --pattern libwasmvm.x86_64.so --pattern libwasmvm152.x86_64.so --pattern libwasmvm155.x86_64.so
+          cd "$assets"
+          for file in "$asset" "${libraries[@]}"; do
+            awk -v file="$file" '$2 == file { print }' SHA256SUMS > "$file.sha256"
+            test "$(wc -l < "$file.sha256")" -eq 1
+            sha256sum --check --strict "$file.sha256"
+          done
+          destination="$GITHUB_WORKSPACE/release/linux/amd64"
+          mkdir -p "$destination"
+          install -m 0755 "$asset" "$destination/paxd"
+          install -m 0644 "${libraries[@]}" "$destination/"
       -
         name: Build and push
         id: build_push_image
@@ -66,15 +99,26 @@ jobs:
         with:
           file: docker/layerx/Dockerfile
           context: .
+          target: release
           push: true
-          platforms: linux/amd64,linux/arm64
-          build-args: |
-            PAX_CHAIN_REF=${{ github.sha }}
+          platforms: linux/amd64
           tags: |
             ghcr.io/paxeer-network/pax:${{ env.MAJOR_VERSION }}
             ghcr.io/paxeer-network/pax:${{ env.MAJOR_VERSION }}.${{ env.MINOR_VERSION }}
             ghcr.io/paxeer-network/pax:${{ env.MAJOR_VERSION }}.${{ env.MINOR_VERSION }}.${{ env.PATCH_VERSION }}
             ghcr.io/paxeer-network/pax:v${{ env.MAJOR_VERSION }}.${{ env.MINOR_VERSION }}.${{ env.PATCH_VERSION }}
+      - name: Record image digest in release notes
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          IMAGE_DIGEST: ${{ steps.build_push_image.outputs.digest }}
+        run: |
+          set -euo pipefail
+          [[ "$IMAGE_DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]]
+          notes="$RUNNER_TEMP/release-notes.md"
+          gh release view "$RELEASE_TAG" --json body --jq '.body' > "$notes"
+          printf '\n### Container image\n\n`ghcr.io/paxeer-network/pax:v%s@%s`\n' "$VERSION" "$IMAGE_DIGEST" >> "$notes"
+          gh release edit "$RELEASE_TAG" --notes-file "$notes"
       -
         name: Make Image Public
         env:

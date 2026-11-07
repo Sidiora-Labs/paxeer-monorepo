@@ -1,0 +1,51 @@
+[repair]
+task = "22.31.585"
+branch = "task/22.31.585"
+decision = "2743"
+acceptance = "22998.1"
+gotchas = ["3357", "3364", "3142"]
+implementation = "Encode and strictly decode Programs lifecycle calls through the call disclosure binder using the existing native lifecycle types; refuse noncanonical head words, unordered tails, invalid lengths, padding, truncation, trailing bytes and unknown selectors."
+main_alignment = "Local main 4a9dbd7408d98ec112b849894a0d4c9ed40a2aa9 is already an ancestor of task base a2929e37fb9b23a6cbd9057b325de3dc9cdf4c53; the base includes 22.31.583 and its Human service BindLayerX arm, so no rebase replay is needed."
+lifecycle = "The Human service lifecycle classifier refuses ProgramDeploy, ProgramUpgrade and ProgramWindDown beside ProgramCall with invalid lifecycle transaction method."
+fees = "DisclosureFields.fee_limit remains checked gas_limit times max_fee_per_gas for every lifecycle call; ProgramUpgrade retains its separate uint128 execution budget, disclosed with an authenticated execution fee asset by call_monetary."
+tests = "repair_22_31_585.rs drives the real ABI encoders through bind_call, construct_method, native operation disclosure, native encoding round trips, field validation, reencoding and signing_digest; it asserts all seven lifecycle selectors, deployment policy and interface choices, upgrade flag/interface combinations, execution fees, malformed ABI refusal and the existing nine-argument ProgramCall."
+
+[signatures.deploy]
+abi = "deploy(bytes32,uint16,uint8,bytes32,bytes32,bytes,bytes)"
+module = "Programs"
+ordinal = 1
+variant = "ProgramDeploy"
+layout = "program id, guest ABI, policy byte, authority word, new hash, interface bytes, module bytes; empty interface maps to None."
+
+[signatures.upgrade]
+abi = "upgrade(bytes32,uint16,uint8,bytes32,bytes32,bytes,bytes,bytes,uint128)"
+module = "Programs"
+ordinal = 2
+variant = "ProgramUpgrade"
+layout = "program id, guest ABI, hook-present and clear-interface flags, old hash, new hash, hook bytes, interface bytes, module bytes, execution fee limit; empty interface maps to Some(empty) only when clearing."
+
+[signatures.wind_down]
+abi = ["setExitRoute(bytes32,bytes32,bytes32,bytes32,bytes)", "deprecate(bytes32,bytes32,uint64)", "tombstone(bytes32)", "exitValue(bytes32,bytes32)", "exitValueBounded(bytes32,bytes32,uint128)"]
+module = "Programs"
+ordinal = 7
+variant = "ProgramWindDown"
+layout = "program id followed by operation-specific route, deprecation, tombstone, exit or bounded-exit terms."
+
+[signatures.call]
+abi = "call(bytes32,uint16,string,bytes,bytes,bytes,uint32,uint64[7],uint128)"
+module = "Programs"
+ordinal = 3
+variant = "ProgramCall"
+
+[qualification]
+ledger = "/out/run/gates.jsonl"
+revision = "The final verify entry in the gate ledger names the exact verified candidate; build and verify must name the same candidate."
+build = "hf-build: cargo build --locked --manifest-path services/agent/crates/layerx-crypto/Cargo.toml --tests"
+verify = "hf-done: cg spec done 22.31.585 -f layerx-merge --root /work/paxeer-monorepo"
+verify_cmd = "cargo test --locked --manifest-path services/agent/crates/layerx-crypto/Cargo.toml --test repair_22_31_585 && cargo test --locked --manifest-path services/agent/crates/layerx-crypto/Cargo.toml --lib -- disclosure::call::tests"
+dependents = "hf-done records its dependent-crate check and private evidence log in the gate ledger."
+evidence = "Read the gate ledger for exact revision, command, exit code and private evidence location; this record is finalized before gates and claims no result in advance (gotcha 3142)."
+
+[gotcha.inspection]
+observed = "Gate wrappers are installed in /out/run/bin, not /usr/local/bin, and the lifecycle settlement binder is under src/budget rather than the initially inspected test paths."
+resolution = "Read the installed wrapper paths and the actual native lifecycle and precompile payload codecs before implementing; no source outside task scope was changed."

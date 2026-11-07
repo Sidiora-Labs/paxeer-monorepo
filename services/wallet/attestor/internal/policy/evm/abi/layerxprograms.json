@@ -70,6 +70,92 @@
   },
   {
     "type": "function",
+    "name": "callWithReceipts",
+    "inputs": [
+      {
+        "name": "programId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "abiVersion",
+        "type": "uint16",
+        "internalType": "uint16"
+      },
+      {
+        "name": "entrypoint",
+        "type": "string",
+        "internalType": "string"
+      },
+      {
+        "name": "callData",
+        "type": "bytes",
+        "internalType": "bytes"
+      },
+      {
+        "name": "capabilities",
+        "type": "bytes",
+        "internalType": "bytes"
+      },
+      {
+        "name": "accessDeclaration",
+        "type": "bytes",
+        "internalType": "bytes"
+      },
+      {
+        "name": "responseCapacity",
+        "type": "uint32",
+        "internalType": "uint32"
+      },
+      {
+        "name": "budget",
+        "type": "uint64[7]",
+        "internalType": "uint64[7]"
+      },
+      {
+        "name": "feeLimit",
+        "type": "uint128",
+        "internalType": "uint128"
+      },
+      {
+        "name": "receiptAuthorities",
+        "type": "tuple[]",
+        "internalType": "struct ILayerXPrograms.ReceiptAuthority[]",
+        "components": [
+          {
+            "name": "canonicalReceipt",
+            "type": "bytes",
+            "internalType": "bytes"
+          },
+          {
+            "name": "blockHeight",
+            "type": "uint64",
+            "internalType": "uint64"
+          }
+        ]
+      }
+    ],
+    "outputs": [
+      {
+        "name": "terminalResult",
+        "type": "int32",
+        "internalType": "int32"
+      },
+      {
+        "name": "terminalKind",
+        "type": "uint8",
+        "internalType": "uint8"
+      },
+      {
+        "name": "response",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
     "name": "deploy",
     "inputs": [
       {

@@ -7,6 +7,9 @@ import { readBoundedUpstream } from '@/server/http';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
+const SEMANTIC_VERSION =
+  /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$/;
+
 type CheckStatus = 'ok' | 'degraded';
 
 interface HealthCheck {
@@ -70,7 +73,7 @@ async function checkHttp(url: string, signal: AbortSignal): Promise<void> {
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
 }
 
-async function checkWalletHealth(url: string, signal: AbortSignal): Promise<void> {
+async function checkWalletHealth(url: string, signal: AbortSignal): Promise<string> {
   const res = await fetch(url, {
     method: 'GET',
     signal,
@@ -91,12 +94,15 @@ async function checkWalletHealth(url: string, signal: AbortSignal): Promise<void
     !('service' in body) ||
     body.service !== 'paxeer-wallet-api' ||
     !('version' in body) ||
-    body.version !== '0.1.0' ||
+    typeof body.version !== 'string' ||
+    body.version.trim() !== body.version ||
+    !SEMANTIC_VERSION.test(body.version) ||
     !('chain_id' in body) ||
     body.chain_id !== 125
   ) {
     throw new Error('Wallet health response is invalid');
   }
+  return body.version;
 }
 
 export async function GET(request: Request) {
@@ -125,6 +131,7 @@ export async function GET(request: Request) {
       if (!wallet.ok) throw wallet.error;
       await checkHttp(select(wallet.config), signal);
     };
+  let apiVersion: string | undefined;
   const checks = {
     rpc: await timedCheck((signal) => checkRpc(signal)),
     indexer: await timedCheck((signal) =>
@@ -133,7 +140,7 @@ export async function GET(request: Request) {
     supabase: await timedCheck(walletUrl((config) => `${config.identityUrl}/auth/v1/health`)),
     embeddedWallet: await timedCheck(async (signal) => {
       if (!wallet.ok) throw wallet.error;
-      await checkWalletHealth(`${wallet.config.gatewayUrl}/healthz`, signal);
+      apiVersion = await checkWalletHealth(`${wallet.config.gatewayUrl}/healthz`, signal);
     }),
     push: await timedCheck(async () => {
       if (!process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || !process.env.VAPID_PRIVATE_KEY) {
@@ -155,6 +162,7 @@ export async function GET(request: Request) {
       status: degraded ? 'degraded' : 'ok',
       check: 'readiness',
       timestamp: new Date().toISOString(),
+      apiVersion,
       checks,
     },
     {

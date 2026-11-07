@@ -1126,7 +1126,7 @@ impl RpcClient {
         signer_public_key: &[u8; 32],
     ) -> Result<FaucetGrant, RpcError> {
         let params = faucet_selector(did, signer_public_key)?;
-        self.call("lx_requestFunds", &params)?.try_into()
+        self.call("px_requestFunds", &params)?.try_into()
     }
 
     pub(crate) fn precompile_read(&self, to: [u8; 20], data: &[u8]) -> Result<Vec<u8>, RpcError> {

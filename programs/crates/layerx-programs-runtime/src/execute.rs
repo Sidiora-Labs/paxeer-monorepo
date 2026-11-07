@@ -264,7 +264,7 @@ impl CapturedRuntimeBoundary {
         );
         instance
             .store
-            .set_execution_supplement(RuntimeState::execution_supplement);
+            .set_execution_supplement_with_retention(RuntimeState::execution_supplement_retained);
         let engine = instance.store.engine().clone();
         let context = wasmi::ExecutionReplayContext::new(
             wasmi::AsContextMut::as_context_mut(&mut instance.store),
@@ -1475,7 +1475,7 @@ impl ProgramInstance {
             crate::MAX_TRACE_STATE_BYTES,
         );
         self.store
-            .set_execution_supplement(RuntimeState::execution_supplement);
+            .set_execution_supplement_with_retention(RuntimeState::execution_supplement_retained);
         let values = self.call(export, args)?;
         if let Some(error) = self.execution_observer_fault() {
             return Err(error.into());
@@ -1647,6 +1647,7 @@ impl ProgramInstance {
         &mut self,
         policy: crate::TracePolicy,
     ) -> Result<(), ExecutionFault> {
+        self.store.data_mut().reset_execution_supplement_retention();
         let maximum_snapshots = usize::try_from(policy.maximum_commitments())
             .ok()
             .ok_or_else(|| ExecutionFault::EngineFault {
@@ -1659,7 +1660,7 @@ impl ProgramInstance {
             crate::MAX_TRACE_STATE_BYTES,
         );
         self.store
-            .set_execution_supplement(RuntimeState::execution_supplement);
+            .set_execution_supplement_with_retention(RuntimeState::execution_supplement_retained);
         Ok(())
     }
 
@@ -1791,7 +1792,7 @@ impl ProgramInstance {
             crate::MAX_TRACE_STATE_BYTES,
         );
         self.store
-            .set_execution_supplement(RuntimeState::execution_supplement);
+            .set_execution_supplement_with_retention(RuntimeState::execution_supplement_retained);
         let result_count = self
             .instance
             .get_export(&self.store, export)
@@ -1889,8 +1890,9 @@ impl ProgramInstance {
                 crate::MAX_TRACE_STATE_BYTES,
                 crate::MAX_TRACE_STATE_BYTES,
             );
-            self.store
-                .set_execution_supplement(RuntimeState::execution_supplement);
+            self.store.set_execution_supplement_with_retention(
+                RuntimeState::execution_supplement_retained,
+            );
             let engine = self.store.engine().clone();
             let context = wasmi::ExecutionReplayContext::new(
                 wasmi::AsContextMut::as_context_mut(&mut self.store),
@@ -5010,6 +5012,11 @@ impl Executor {
         {
             return Err(ExecutionError::Fault(ExecutionFault::UnreachableExecuted));
         }
+        if self.program_replay_profile.is_some() {
+            instance.store.set_execution_supplement_with_retention(
+                RuntimeState::execution_supplement_retained,
+            );
+        }
         if self.program_replay_profile.is_none() {
             if let Some(policy) = self.trace_policy {
                 instance
@@ -5872,7 +5879,7 @@ pub fn replay_portable_step(
     );
     instance
         .store
-        .set_execution_supplement(RuntimeState::execution_supplement);
+        .set_execution_supplement_with_retention(RuntimeState::execution_supplement_retained);
     let engine = instance.store.engine().clone();
     let context = wasmi::ExecutionReplayContext::new(
         wasmi::AsContextMut::as_context_mut(&mut instance.store),
@@ -6274,7 +6281,7 @@ pub fn observe_market_sandbox_step(
     );
     instance
         .store
-        .set_execution_supplement(RuntimeState::execution_supplement);
+        .set_execution_supplement_with_retention(RuntimeState::execution_supplement_retained);
     let engine = instance.store.engine().clone();
     let context = wasmi::ExecutionReplayContext::new(
         wasmi::AsContextMut::as_context_mut(&mut instance.store),

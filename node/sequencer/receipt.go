@@ -333,14 +333,15 @@ func (r *Receipter) Accept(txBytes []byte) (*Accepted, []byte, error) {
 	if err != nil {
 		return nil, nil, err
 	}
-	if _, err := r.input(txBytes, pre); err != nil {
+	in, err := r.input(txBytes, pre)
+	if err != nil {
 		return nil, nil, err
 	}
 	acc, err := r.exec.Accept(txBytes)
 	if err != nil {
 		return nil, nil, err
 	}
-	return r.finish(txBytes, acc)
+	return r.finishInput(txBytes, acc, in)
 }
 
 func (r *Receipter) input(txBytes []byte, pre sdk.Context) (*ReceiptInput, error) {
@@ -372,6 +373,10 @@ func (r *Receipter) finish(txBytes []byte, acc *Accepted) (*Accepted, []byte, er
 	if err != nil {
 		return acc, nil, fmt.Errorf("%w: %v", ErrReceiptInvariant, err)
 	}
+	return r.finishInput(txBytes, acc, in)
+}
+
+func (r *Receipter) finishInput(txBytes []byte, acc *Accepted, in *ReceiptInput) (*Accepted, []byte, error) {
 	tx, err := r.host.GetTxConfig().TxDecoder()(txBytes)
 	if err != nil {
 		return acc, nil, err
