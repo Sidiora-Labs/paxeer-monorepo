@@ -54,7 +54,7 @@ This is a Rust 2021 Cargo workspace, with Rust 1.91.1 pinned in the repository's
 | `layerx-sdk` | Rust SDK for direct-node and agent deployments |
 
 The Python and TypeScript SDKs live under [`sdk/`](sdk/). The
-[compatibility matrix](COMPATIBILITY.md) pairs agent 0.1.0 and SDK 0.1.0 with
+[compatibility matrix](../../docs/agent/COMPATIBILITY.md) pairs agent 0.1.0 and SDK 0.1.0 with
 Agent API major 2 and the accepted node client-version major.
 
 ## Build and check
